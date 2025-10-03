@@ -99,7 +99,7 @@ export function handleWebSocketMessage(agent: SimpleCodeGeneratorAgent, connecti
                 // Deploy current state for preview
                 logger.info('Deploying for preview');
                 agent.deployToSandbox().then((deploymentResult) => {
-                    logger.info(`Preview deployed successfully!, deploymentResult: ${deploymentResult}`);
+                    logger.info(`Preview deployed successfully!, deploymentResult:`, deploymentResult);
                 }).catch((error: unknown) => {
                     logger.error('Error during preview deployment:', error);
                 });
@@ -108,24 +108,16 @@ export function handleWebSocketMessage(agent: SimpleCodeGeneratorAgent, connecti
                 logger.info(`Client reported errors: ${parsedMessage.data}`);
                 agent.setState({ ...agent.state, clientReportedErrors: parsedMessage.data });
                 break;
-            case WebSocketMessageRequests.SCREENSHOT_CAPTURED:
-                logger.info('Screenshot captured from client', {
-                    url: parsedMessage.data.url,
-                    viewport: parsedMessage.data.viewport
+            case WebSocketMessageRequests.CAPTURE_SCREENSHOT:
+                agent.captureScreenshot(parsedMessage.data.url, parsedMessage.data.viewport).then((screenshotResult) => {
+                    if (!screenshotResult) {
+                        logger.error('Failed to capture screenshot');
+                        return;
+                    }
+                    logger.info('Screenshot captured successfully!', screenshotResult);
+                }).catch((error: unknown) => {
+                    logger.error('Error during screenshot capture:', error);
                 });
-                
-                // // Save screenshot to agent state
-                // agent.setState({ 
-                //     ...agent.state, 
-                //     latestScreenshot: parsedMessage.data
-                // });
-                
-                // Update database with screenshot
-                agent.saveScreenshotToDatabase(parsedMessage.data).catch(error => {
-                    logger.error('Error saving screenshot to database:', error);
-                });
-                
-                logger.info(`Screenshot saved to state and database update initiated.`);
                 break;
             case WebSocketMessageRequests.STOP_GENERATION:
                 // Clear shouldBeGenerating flag when user manually stops

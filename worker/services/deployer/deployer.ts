@@ -114,6 +114,8 @@ export class WorkerDeployer {
 						| '404-page'
 						| 'none'
 						| undefined,
+                    run_worker_first: assetsConfig?.run_worker_first,
+                    binding: assetsConfig?.binding,
 				},
 			},
 			bindings: bindings || [],

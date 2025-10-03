@@ -15,7 +15,7 @@ import { Blueprint } from './components/blueprint';
 import { FileExplorer } from './components/file-explorer';
 import { UserMessage, AIMessage } from './components/messages';
 import { PhaseTimeline } from './components/phase-timeline';
-import { SmartPreviewIframe } from './components/smart-preview-iframe';
+import { PreviewIframe } from './components/preview-iframe';
 import { ViewModeSwitch } from './components/view-mode-switch';
 import { DebugPanel, type DebugMessage } from './components/debug-panel';
 import { DeploymentControls } from './components/deployment-controls';
@@ -204,6 +204,12 @@ export default function Chat() {
 
 	const [newMessage, setNewMessage] = useState('');
 	const [showTooltip, setShowTooltip] = useState(false);
+	
+	// Word count utilities
+	const MAX_WORDS = 4000;
+	const countWords = (text: string): number => {
+		return text.trim().split(/\s+/).filter(word => word.length > 0).length;
+	};
 
 	const { images, addImages, removeImage, clearImages, isProcessing } = useImageUpload({
 		onError: (error) => {
@@ -661,10 +667,16 @@ export default function Chat() {
 						<textarea
 							value={newMessage}
 							onChange={(e) => {
-								setNewMessage(e.target.value);
-								const ta = e.currentTarget;
-								ta.style.height = 'auto';
-								ta.style.height = Math.min(ta.scrollHeight, 120) + 'px';
+								const newValue = e.target.value;
+								const newWordCount = countWords(newValue);
+								
+								// Only update if within word limit
+								if (newWordCount <= MAX_WORDS) {
+									setNewMessage(newValue);
+									const ta = e.currentTarget;
+									ta.style.height = 'auto';
+									ta.style.height = Math.min(ta.scrollHeight, 120) + 'px';
+								}
 							}}
 								onKeyDown={(e) => {
 									if (e.key === 'Enter') {
@@ -820,7 +832,7 @@ export default function Chat() {
 											</button>
 										</div>
 									</div>
-									<SmartPreviewIframe
+									<PreviewIframe
 										src={previewUrl}
 										ref={previewRef}
 										className="flex-1 w-full h-full border-0"
@@ -832,10 +844,6 @@ export default function Chat() {
 											manualRefreshTrigger
 										}
 										webSocket={websocket}
-										phaseTimelineLength={
-											phaseTimeline.length
-										}
-										devMode={true}
 									/>
 								</div>
 							)}

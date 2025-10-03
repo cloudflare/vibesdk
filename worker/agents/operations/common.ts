@@ -5,6 +5,7 @@ import { InferenceContext } from "../inferutils/config.types";
 import { createUserMessage, createSystemMessage, createAssistantMessage } from "../inferutils/common";
 import { generalSystemPromptBuilder, USER_PROMPT_FORMATTER } from "../prompts";
 import { CodeSerializerType } from "../utils/codeSerializers";
+import { CodingAgentInterface } from "../services/implementations/CodingAgent";
 
 export function getSystemPromptWithProjectContext(
     systemPrompt: string,
@@ -40,6 +41,7 @@ export interface OperationOptions {
     context: GenerationContext;
     logger: StructuredLogger;
     inferenceContext: InferenceContext;
+    agent: CodingAgentInterface;
 }
 
 export abstract class AgentOperation<InputType, OutputType> {

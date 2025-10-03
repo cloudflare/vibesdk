@@ -25,7 +25,6 @@ import {
 } from 'lucide-react';
 import { MonacoEditor } from '@/components/monaco-editor/monaco-editor';
 import { getFileType } from '@/utils/string';
-import { SmartPreviewIframe } from '@/routes/chat/components/smart-preview-iframe';
 import { Button } from '@/components/ui/button';
 import {
 	Card,
@@ -43,6 +42,7 @@ import { toast } from 'sonner';
 import { capitalizeFirstLetter, cn, getPreviewUrl } from '@/lib/utils';
 import { ConfirmDeleteDialog } from '@/components/shared/ConfirmDeleteDialog';
 import { useAuthGuard } from '@/hooks/useAuthGuard';
+import { PreviewIframe } from '../chat/components/preview-iframe';
 
 // Use proper types from API types
 type AppDetails = AppDetailsData;
@@ -798,12 +798,11 @@ export default function AppView() {
 							<CardContent className="p-0">
 								<div className="border-t relative">
 									{appUrl ? (
-										<SmartPreviewIframe
+										<PreviewIframe
 											ref={previewIframeRef}
 											src={appUrl}
 											className="w-full h-[600px] lg:h-[800px]"
 											title={`${app.title} Preview`}
-											devMode={false}
 										/>
 									) : (
 										<div className="relative w-full h-[400px] bg-gray-50 flex items-center justify-center">

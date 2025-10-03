@@ -39,7 +39,22 @@ async function handleUserAppRequest(request: Request, env: Env): Promise<Respons
 	const sandboxResponse = await proxyToSandbox(request, env);
 	if (sandboxResponse) {
 		logger.info(`Serving response from sandbox for: ${hostname}`);
-		return sandboxResponse;
+		
+		// Add headers to identify this as a sandbox response
+		const headers = new Headers(sandboxResponse.headers);
+		
+        if (sandboxResponse.status === 500) {
+            headers.set('X-Preview-Type', 'sandbox-error');
+        } else {
+            headers.set('X-Preview-Type', 'sandbox');
+        }
+		headers.set('Access-Control-Expose-Headers', 'X-Preview-Type');
+		
+		return new Response(sandboxResponse.body, {
+			status: sandboxResponse.status,
+			statusText: sandboxResponse.statusText,
+			headers,
+		});
 	}
 
 	// 2. If sandbox misses, attempt to dispatch to a deployed worker.
@@ -55,7 +70,19 @@ async function handleUserAppRequest(request: Request, env: Env): Promise<Respons
 
 	try {
 		const worker = dispatcher.get(appName);
-		return await worker.fetch(request);
+		const dispatcherResponse = await worker.fetch(request);
+		
+		// Add headers to identify this as a dispatcher response
+		const headers = new Headers(dispatcherResponse.headers);
+		
+		headers.set('X-Preview-Type', 'dispatcher');
+		headers.set('Access-Control-Expose-Headers', 'X-Preview-Type');
+		
+		return new Response(dispatcherResponse.body, {
+			status: dispatcherResponse.status,
+			statusText: dispatcherResponse.statusText,
+			headers,
+		});
 	} catch (error: any) {
 		// This block catches errors if the binding doesn't exist or if worker.fetch() fails.
 		logger.warn(`Error dispatching to worker '${appName}': ${error.message}`);

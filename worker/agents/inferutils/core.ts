@@ -23,6 +23,7 @@ import { getUserConfigurableSettings } from '../../config';
 import { SecurityError, RateLimitExceededError } from 'shared/types/errors';
 import { executeToolWithDefinition } from '../tools/customTools';
 import { RateLimitType } from 'worker/services/rate-limit/config';
+import { MAX_LLM_MESSAGES, MAX_TOOL_CALLING_DEPTH } from '../constants';
 
 function optimizeInputs(messages: Message[]): Message[] {
     return messages.map((message) => ({
@@ -349,12 +350,12 @@ const claude_thinking_budget_tokens = {
 
 export type InferResponseObject<OutputSchema extends z.AnyZodObject> = {
     object: z.infer<OutputSchema>;
-    newMessages?: Message[];
+    toolCallContext?: ToolCallContext;
 };
 
 export type InferResponseString = {
     string: string;
-    newMessages?: Message[];
+    toolCallContext?: ToolCallContext;
 };
 
 /**
@@ -390,16 +391,22 @@ async function executeToolCalls(openAiToolCalls: ChatCompletionMessageFunctionTo
         })
     );
 }
+
+export interface ToolCallContext {
+    messages: Message[];
+    depth: number;
+}
+
 export function infer<OutputSchema extends z.AnyZodObject>(
     args: InferArgsStructured,
-    newMessages?: Message[],
+    toolCallContext?: ToolCallContext,
 ): Promise<InferResponseObject<OutputSchema>>;
 
-export function infer(args: InferArgsBase, newMessages?: Message[]): Promise<InferResponseString>;
+export function infer(args: InferArgsBase, toolCallContext?: ToolCallContext): Promise<InferResponseString>;
 
 export function infer<OutputSchema extends z.AnyZodObject>(
     args: InferWithCustomFormatArgs,
-    newMessages?: Message[],
+    toolCallContext?: ToolCallContext,
 ): Promise<InferResponseObject<OutputSchema>>;
 
 /**
@@ -427,10 +434,25 @@ export async function infer<OutputSchema extends z.AnyZodObject>({
     schemaName?: string;
     format?: SchemaFormat;
     formatOptions?: FormatterOptions;
-}, newMessages?: Message[]): Promise<InferResponseObject<OutputSchema> | InferResponseString> {
-    if (messages.length > 100) {
-        throw new RateLimitExceededError('There is a limit of 100 messages per inference', RateLimitType.LLM_CALLS);
+}, toolCallContext?: ToolCallContext): Promise<InferResponseObject<OutputSchema> | InferResponseString> {
+    if (messages.length > MAX_LLM_MESSAGES) {
+        throw new RateLimitExceededError(`Message limit exceeded: ${messages.length} messages (max: ${MAX_LLM_MESSAGES}). Please use context compactification.`, RateLimitType.LLM_CALLS);
     }
+    
+    // Check tool calling depth to prevent infinite recursion
+    const currentDepth = toolCallContext?.depth ?? 0;
+    if (currentDepth >= MAX_TOOL_CALLING_DEPTH) {
+        console.warn(`Tool calling depth limit reached (${currentDepth}/${MAX_TOOL_CALLING_DEPTH}). Stopping recursion.`);
+        // Return a response indicating max depth reached
+        if (schema) {
+            throw new Error(`Maximum tool calling depth (${MAX_TOOL_CALLING_DEPTH}) exceeded. Tools may be calling each other recursively.`);
+        }
+        return { 
+            string: `[System: Maximum tool calling depth reached.]`,
+            toolCallContext 
+        };
+    }
+    
     try {
         const authUser: AuthUser = {
             id: metadata.userId,
@@ -470,8 +492,8 @@ export async function infer<OutputSchema extends z.AnyZodObject>({
         console.log(`Token optimization: Original messages size ~${JSON.stringify(messages).length} chars, optimized size ~${JSON.stringify(optimizedMessages).length} chars`);
 
         let messagesToPass = [...optimizedMessages];
-        if (newMessages) {
-            messagesToPass.push(...newMessages);
+        if (toolCallContext && toolCallContext.messages) {
+            messagesToPass.push(...toolCallContext.messages);
         }
 
         if (format) {
@@ -640,7 +662,7 @@ export async function infer<OutputSchema extends z.AnyZodObject>({
             // console.error('No content received from OpenAI', JSON.stringify(response, null, 2));
             // throw new Error('No content received from OpenAI');
             console.warn('No content received from OpenAI', JSON.stringify(response, null, 2));
-            return { string: "", newMessages };
+            return { string: "", toolCallContext };
         }
         let executedToolCalls: ToolCallResult[] = [];
         if (tools) {
@@ -651,16 +673,26 @@ export async function infer<OutputSchema extends z.AnyZodObject>({
         if (executedToolCalls.length) {
             console.log(`Tool calls executed:`, JSON.stringify(executedToolCalls, null, 2));
             // Generate a new response with the tool calls executed
-            newMessages = [
-                ...(newMessages || []),
+            const newMessages = [
+                ...(toolCallContext?.messages || []),
                 { role: "assistant" as MessageRole, content, tool_calls: toolCalls },
-                ...executedToolCalls.map((result, _) => ({
-                    role: "tool" as MessageRole,
-                    content: JSON.stringify(result.result),
-                    name: result.name,
-                    tool_call_id: result.id,
-                })),
+                ...executedToolCalls
+                    .filter(result => result.name && result.name.trim() !== '')
+                    .map((result, _) => ({
+                        role: "tool" as MessageRole,
+                        content: JSON.stringify(result.result),
+                        name: result.name,
+                        tool_call_id: result.id,
+                    })),
             ];
+
+            const newDepth = (toolCallContext?.depth ?? 0) + 1;
+            const newToolCallContext = {
+                messages: newMessages,
+                depth: newDepth
+            };
+            
+            console.log(`Tool calling depth: ${newDepth}/${MAX_TOOL_CALLING_DEPTH}`);
             
             if (schema && schemaName) {
                 const output = await infer<OutputSchema>({
@@ -678,7 +710,7 @@ export async function infer<OutputSchema extends z.AnyZodObject>({
                     tools,
                     reasoning_effort,
                     temperature,
-                }, newMessages);
+                }, newToolCallContext);
                 return output;
             } else {
                 const output = await infer({
@@ -692,13 +724,13 @@ export async function infer<OutputSchema extends z.AnyZodObject>({
                     tools,
                     reasoning_effort,
                     temperature,
-                }, newMessages);
+                }, newToolCallContext);
                 return output;
             }
         }
 
         if (!schema) {
-            return { string: content, newMessages };
+            return { string: content, toolCallContext };
         }
 
         try {
@@ -717,7 +749,7 @@ export async function infer<OutputSchema extends z.AnyZodObject>({
                 throw new Error(`Failed to validate AI response against schema: ${result.error.message}`);
             }
 
-            return { object: result.data, newMessages };
+            return { object: result.data, toolCallContext };
         } catch (parseError) {
             console.error('Error parsing response:', parseError);
             throw new InferError('Failed to parse response', content);

@@ -173,7 +173,7 @@ export async function enforceAuthRequirement(c: Context<AppEnv>) : Promise<Respo
     const env = c.env;
     const result = await routeAuthChecks(user, env, requirement, params);
     if (!result.success) {
-        logger.warn('Authentication check failed', result.response);
+        logger.warn('Authentication check failed', result.response, requirement, user);
         return result.response;
     }
 }

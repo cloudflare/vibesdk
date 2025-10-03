@@ -410,6 +410,7 @@ function Counter() {
 ✅ **Stabilize non-primitive dependencies** - Use useMemo and useCallback for objects/arrays/functions  
 ✅ **Select primitives from stores** - \`useStore(s => s.score)\` not \`useStore(s => ({ score: s.score }))\`  
 ✅ **Lift state up from recursive components** - Never initialize state inside recursive calls  
+✅ **Store actions are stable** - In Zustand/Redux, action functions are stable references and should NOT be in dependency arrays of useEffect/useCallback/useMemo
 ✅ **Use functional updates** - \`setState(prev => prev + 1)\` avoids stale closures  
 ✅ **Prefer refs for non-UI data** - \`useRef\` doesn't trigger re-renders when updated  
 ✅ **Avoid prop→state mirrors** - Derive values directly or use proper synchronization  
@@ -586,6 +587,14 @@ COMMON_PITFALLS: `<AVOID COMMON PITFALLS>
         - With react 18, it will throw runtime error: Cannot read properties of undefined (reading 'S')
 
     • **No support for websockets and dynamic imports may not work, so please avoid using them.**
+    - **Zustand v5 changed the shallow comparison API:**
+    - Don't use the v4 syntax: \`useStore(selector, shallow)\`
+    - Use the v5 syntax with the hook: 
+      \`\`\`tsx
+      import { useShallow } from 'zustand/shallow';
+      const state = useStore(useShallow(selector));
+      \`\`\`
+    - Store actions (like setState, updateData) are stable and should NOT be in dependency arrays
 </COMMON DEPENDENCY DOCUMENTATION>
 `,
     COMMANDS: `<SETUP COMMANDS>
@@ -904,8 +913,8 @@ export const STRATEGIES_UTILS = {
     
 
         <TRUST & SAFETY POLICIES>
-        • **NEVER** provide any code that can be used to perform nefarious/malicious or against Cloudflare's policies.
-        • **If a user asks to build a clone or look-alike of a popular product or service, alter the name and description, and explicitly add a visible disclaimer that it is a clone or look-alike.**
+        • **NEVER** provide any code that can be used to perform nefarious/malicious activities.
+        • **If a user asks to build a clone or look-alike of a popular product or service, alter the name and description, and explicitly add a visible disclaimer that it is a clone or look-alike to avoid phishing concerns.**
         • **NEVER** Let users build applications for phishing or malicious purposes.
         </TRUST & SAFETY POLICIES>
     </PHASE GENERATION CONSTRAINTS>`,

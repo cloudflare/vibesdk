@@ -137,11 +137,6 @@ export const ScreenshotAnalysisSchema = z.object({
     })
 });
 
-export const AgentActionSchema = z.object({
-    action: z.string().describe('Next action to be taken'),
-    data: z.record(z.unknown()).describe('Data associated with the action')
-});
-
 export type TemplateSelection = z.infer<typeof TemplateSelectionSchema>;
 export type Blueprint = z.infer<typeof BlueprintSchema>;
 export type FileConceptType = z.infer<typeof FileConceptSchema>;
@@ -155,11 +150,10 @@ export type CodeReviewOutputType = z.infer<typeof CodeReviewOutput>;
 export type SetupCommandsType = z.infer<typeof SetupCommandsSchema>;
 export type ClientReportedErrorType = z.infer<typeof ClientReportedErrorSchema>;
 export type ScreenshotAnalysisType = z.infer<typeof ScreenshotAnalysisSchema>;
-export type AgentActionType = z.infer<typeof AgentActionSchema>;
 
 // Conversational AI Schemas
 export const ConversationalResponseSchema = z.object({
-    enhancedUserRequest: z.string().describe('Enhanced and clarified user request to be added to pendingUserInputs'),
+    // enhancedUserRequest: z.string().describe('Enhanced and clarified user request to be added to pendingUserInputs'),
     userResponse: z.string().describe('Response message to send back to the user via WebSocket'),
 });
 

@@ -4,7 +4,7 @@
  */
 
 import * as schema from '../schema';
-import { eq, and, sql, or, lt } from 'drizzle-orm';
+import { eq, and, sql, or, lt, isNull } from 'drizzle-orm';
 import { JWTUtils } from '../../utils/jwtUtils';
 import { generateSecureToken } from '../../utils/cryptoUtils';
 import { SessionService } from './SessionService';
@@ -709,18 +709,34 @@ export class AuthService extends BaseService {
                 .where(
                     and(
                         eq(schema.users.id, userId),
-                        sql`${schema.users.deletedAt} IS NULL`
+                        isNull(schema.users.deletedAt)
                     )
                 )
-                .get();
+                .get()
+                .catch((error: unknown) => {
+                    logger.error('getUserForAuth query failed', {
+                        errorMessage: error instanceof Error ? error.message : String(error),
+                        errorName: error instanceof Error ? error.name : 'UnknownError',
+                        errorCause: (error as any)?.cause,
+                        errorStack: error instanceof Error ? error.stack?.split('\n').slice(0, 5).join('\n') : undefined,
+                        userId
+                    });
+                    throw error;
+                });
             
             if (!user) {
+                logger.debug('User not found for auth', { userId });
                 return null;
             }
             
             return mapUserResponse(user);
-        } catch (error) {
-            logger.error('Error getting user for auth', error);
+        } catch (error: unknown) {
+            logger.error('Error getting user for auth', {
+                errorMessage: error instanceof Error ? error.message : String(error),
+                errorName: error instanceof Error ? error.name : 'UnknownError',
+                errorCause: (error as any)?.cause,
+                userId
+            });
             return null;
         }
     }

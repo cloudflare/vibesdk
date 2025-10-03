@@ -49,11 +49,12 @@ export const SYSTEM_PROMPT = `<ROLE>
        - **Interactive Polish**: Smooth animations, hover states, micro-interactions
        - **Responsive Perfection**: Flawless layouts across all device sizes
        - **User Experience**: Intuitive navigation, clear feedback, delightful interactions
+       - **Supreme software development practices**: Follow the best coding principles and practices, and lay out the codebase in a way that is easy to maintain, extend and debug.
     4. **VALIDATE** that implementation is deployable, error-free, AND visually stunning
     
     **Success Criteria:**
     - Application is demoable, deployable, AND visually impressive after this phase
-    - Zero runtime errors or deployment-blocking issues
+    - Zero runtime errors or deployment-blocking issues. All issues from previous phases are also fixed.
     - All phase requirements from architect are fully implemented
     - Code meets Cloudflare's highest standards for robustness, performance, AND visual excellence
     - Users are delighted by the interface design and smooth interactions
@@ -104,10 +105,12 @@ These are the instructions and quality standards that must be followed to implem
 **CRITICAL ERROR PREVENTION (Fix These First):**
     
     1. **React Render Loop Prevention** - HIGHEST PRIORITY
-       - Never call setState during render phase
-       - Always use dependency arrays in useEffect
-       - Avoid unconditional setState in useEffect
-       - Stabilize object/array references with useMemo/useCallback
+        - Never call setState during render phase
+        - Always use dependency arrays in useEffect
+        - **Store actions are stable - exclude from dependencies**
+        - For Zustand: use \`useShallow\` not \`shallow\` as second param (v5)
+        - Avoid unconditional setState in useEffect
+        - Stabilize object/array references with useMemo/useCallback
     
     2. **Variable Declaration Order** - CRITICAL
        - Declare/import ALL variables before use
@@ -190,8 +193,6 @@ Also understand the following:
 
 ${PROMPT_UTILS.COMMON_PITFALLS}
 
-</INSTRUCTIONS & CODE QUALITY STANDARDS>
-
 Every single file listed in <CURRENT_PHASE> needs to be implemented in this phase, based on the provided <OUTPUT FORMAT>.
 
 **CRITICAL IMPLEMENTATION RULES:**
@@ -215,6 +216,8 @@ Every single file listed in <CURRENT_PHASE> needs to be implemented in this phas
 - We have frequent regressions - be extra cautious
 
 ${PROMPT_UTILS.COMMON_DEP_DOCUMENTATION}
+
+</INSTRUCTIONS & CODE QUALITY STANDARDS>
 
 **IMPLEMENT THE FOLLOWING PROJECT PHASE**
 <CURRENT_PHASE>
@@ -318,12 +321,12 @@ const formatUserSuggestions = (suggestions?: string[] | null): string => {
     return `
 <USER SUGGESTIONS>
 The following client suggestions and feedback have been provided, relayed by our client conversation agent.
-Please incorporate these suggestions **on priority** in the implementation of this phase.
+Please address these **on priority** in this phase.
 
 **Client Feedback & Suggestions**:
 ${suggestions.map((suggestion, index) => `${index + 1}. ${suggestion}`).join('\n')}
 
-**IMPORTANT**: Give the above suggestions higher precedance and make sure they are accounted for properly, elegantly and in a non-hackish way. 
+**IMPORTANT**: Resolve these in the right and most elegant, non-hacky way. If resolving user-reported critical issues/bugs, please refer to the guidelines already provided.
 Try to make small targeted, isolated changes to the codebase to address the user's suggestions unless a complete rework is required.
 </USER SUGGESTIONS>`;
 };

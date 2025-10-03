@@ -218,6 +218,7 @@ export const stars = sqliteTable('stars', {
     userAppIdx: uniqueIndex('stars_user_app_idx').on(table.userId, table.appId),
     userIdx: index('stars_user_idx').on(table.userId),
     appIdx: index('stars_app_idx').on(table.appId),
+    appStarredAtIdx: index('stars_app_starred_at_idx').on(table.appId, table.starredAt),
 }));
 
 // ========================================
@@ -316,6 +317,7 @@ export const appViews = sqliteTable('app_views', {
     appIdx: index('app_views_app_idx').on(table.appId),
     userIdx: index('app_views_user_idx').on(table.userId),
     viewedAtIdx: index('app_views_viewed_at_idx').on(table.viewedAt),
+    appViewedAtIdx: index('app_views_app_viewed_at_idx').on(table.appId, table.viewedAt),
 }));
 
 // ========================================

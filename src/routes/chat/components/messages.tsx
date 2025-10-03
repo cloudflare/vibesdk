@@ -6,7 +6,17 @@ import rehypeExternalLinks from 'rehype-external-links';
 import { LoaderCircle, Check, AlertTriangle } from 'lucide-react';
 import type { ToolEvent } from '../utils/message-helpers';
 
+/**
+ * Strip internal system tags that should not be displayed to users
+ */
+function sanitizeMessageForDisplay(message: string): string {
+	// Remove <system_context>...</system_context> tags and their content
+	return message.replace(/<system_context>[\s\S]*?<\/system_context>\n/gi, '').trim();
+}
+
 export function UserMessage({ message }: { message: string }) {
+	const sanitizedMessage = sanitizeMessageForDisplay(message);
+	
 	return (
 		<div className="flex gap-3">
 			<div className="align-text-top pl-1">
@@ -16,7 +26,7 @@ export function UserMessage({ message }: { message: string }) {
 			</div>
 			<div className="flex flex-col gap-2 min-w-0">
 				<div className="font-medium text-text-50">You</div>
-				<Markdown className="text-text-primary/80">{message}</Markdown>
+				<Markdown className="text-text-primary/80">{sanitizedMessage}</Markdown>
 			</div>
 		</div>
 	);
@@ -31,6 +41,8 @@ export function AIMessage({
 	isThinking?: boolean;
 	toolEvents?: ToolEvent[];
 }) {
+	const sanitizedMessage = sanitizeMessageForDisplay(message);
+	
 	return (
 		<div className="flex gap-3">
 			<div className="align-text-top pl-1">
@@ -62,7 +74,7 @@ export function AIMessage({
 					</div>
 				)}
 				<Markdown className={clsx('a-tag', isThinking ? 'animate-pulse' : '')}>
-					{message}
+					{sanitizedMessage}
 				</Markdown>
 			</div>
 		</div>
