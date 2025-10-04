@@ -28,11 +28,15 @@ export default defineConfig({
 	plugins: [
 		react(),
 		svgr(),
-		// Cloudflare plugin disabled for local dev due to Node/version issues
+		cloudflare({
+			configPath: 'wrangler.jsonc',
+			experimental: { remoteBindings: true },
+		}), // Add the node polyfills plugin here
 		// nodePolyfills({
 		//     exclude: [
 		//       'tty', // Exclude 'tty' module
 		//     ],
+		//     // We recommend leaving this as `true` to polyfill `global`.
 		//     globals: {
 		//         global: true,
 		//     },
@@ -74,13 +78,6 @@ export default defineConfig({
 
 	server: {
 		allowedHosts: true,
-		proxy: {
-			'/api': {
-				target: 'http://localhost:8787',
-				changeOrigin: true,
-				ws: true,
-			},
-		},
 	},
 
 	// Clear cache more aggressively
