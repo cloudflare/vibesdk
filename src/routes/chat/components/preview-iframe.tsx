@@ -24,7 +24,7 @@ interface LoadState {
 }
 
 const MAX_RETRIES = 10;
-const REDEPLOY_AFTER_ATTEMPT = 3;
+const REDEPLOY_AFTER_ATTEMPT = 8;
 const POST_LOAD_WAIT_SANDBOX = 0;
 const POST_LOAD_WAIT_DISPATCHER = 0;
 

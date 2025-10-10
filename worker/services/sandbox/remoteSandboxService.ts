@@ -30,13 +30,12 @@ import {
     StaticAnalysisResponseSchema,
     GitHubPushRequest,
     GitHubPushResponse,
-    GitHubExportRequest,
-    GitHubExportResponse,
     GitHubPushResponseSchema,
 } from './sandboxTypes';
 import { BaseSandboxService } from "./BaseSandboxService";
 import { env } from 'cloudflare:workers'
 import z from 'zod';
+import { FileOutputType } from 'worker/agents/schemas';
 
 export async function runnerFetch(url: string, method: 'GET' | 'POST' | 'DELETE', headers: Headers, body: string | undefined) {
     // Use direct fetch for runner service communication
@@ -212,19 +211,12 @@ export class RemoteSandboxServiceClient extends BaseSandboxService{
     async shutdownInstance(instanceId: string): Promise<ShutdownResponse> {
         return this.makeRequest(`/instances/${instanceId}`, 'DELETE', ShutdownResponseSchema);
     }
-
-    /**
-     * Export generated app to GitHub (creates repository if needed, then pushes files)
-     */
-    async exportToGitHub(instanceId: string, request: GitHubExportRequest): Promise<GitHubExportResponse> {
-        return this.makeRequest(`/instances/${instanceId}/github/export`, 'POST', undefined, request);
-    }
-
+    
     /**
      * Push instance files to existing GitHub repository
      */
-    async pushToGitHub(instanceId: string, request: GitHubPushRequest): Promise<GitHubPushResponse> {
-        return this.makeRequest(`/instances/${instanceId}/github/push`, 'POST', GitHubPushResponseSchema, request);
+    async pushToGitHub(instanceId: string, request: GitHubPushRequest, files: FileOutputType[]): Promise<GitHubPushResponse> {
+        return this.makeRequest(`/instances/${instanceId}/github/push`, 'POST', GitHubPushResponseSchema, { request, files });
     }
 
     /**

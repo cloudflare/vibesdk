@@ -18,7 +18,6 @@ import { ToolCallResult, ToolDefinition } from '../tools/types';
 import { AgentActionKey, AIModels, InferenceMetadata } from './config.types';
 // import { SecretsService } from '../../database';
 import { RateLimitService } from '../../services/rate-limit/rateLimits';
-import { AuthUser } from '../../types/auth-types';
 import { getUserConfigurableSettings } from '../../config';
 import { SecurityError, RateLimitExceededError } from 'shared/types/errors';
 import { executeToolWithDefinition } from '../tools/customTools';
@@ -454,17 +453,9 @@ export async function infer<OutputSchema extends z.AnyZodObject>({
     }
     
     try {
-        const authUser: AuthUser = {
-            id: metadata.userId,
-            email: 'unknown@platform.local',
-            displayName: undefined,
-            username: undefined,
-            avatarUrl: undefined
-        };
-
         const userConfig = await getUserConfigurableSettings(env, metadata.userId)
         // Maybe in the future can expand using config object for other stuff like global model configs?
-        await RateLimitService.enforceLLMCallsRateLimit(env, userConfig.security.rateLimit, authUser)
+        await RateLimitService.enforceLLMCallsRateLimit(env, userConfig.security.rateLimit, metadata.userId, modelName)
 
         const { apiKey, baseURL, defaultHeaders } = await getConfigurationForModel(modelName, env, metadata.userId);
         console.log(`baseUrl: ${baseURL}, modelName: ${modelName}`);
@@ -493,7 +484,14 @@ export async function infer<OutputSchema extends z.AnyZodObject>({
 
         let messagesToPass = [...optimizedMessages];
         if (toolCallContext && toolCallContext.messages) {
-            messagesToPass.push(...toolCallContext.messages);
+            // Minimal core fix with logging: exclude prior tool messages that have empty name
+            const ctxMessages = toolCallContext.messages;
+            const droppedToolMsgs = ctxMessages.filter(m => m.role === 'tool' && (!m.name || m.name.trim() === ''));
+            if (droppedToolMsgs.length) {
+                console.warn(`[TOOL_CALL_WARNING] Dropping ${droppedToolMsgs.length} prior tool message(s) with empty name to avoid provider error`, droppedToolMsgs);
+            }
+            const filteredCtx = ctxMessages.filter(m => m.role !== 'tool' || (m.name && m.name.trim() !== ''));
+            messagesToPass.push(...filteredCtx);
         }
 
         if (format) {
@@ -614,7 +612,12 @@ export async function infer<OutputSchema extends z.AnyZodObject>({
                 }
                 
                 // Assemble toolCalls with preference for index ordering, else first-seen order
-                toolCalls = assembleToolCalls(byIndex, byId);
+                const assembled = assembleToolCalls(byIndex, byId);
+                const dropped = assembled.filter(tc => !tc.function.name || tc.function.name.trim() === '');
+                if (dropped.length) {
+                    console.warn(`[TOOL_CALL_WARNING] Dropping ${dropped.length} streamed tool_call(s) without function name`, dropped);
+                }
+                toolCalls = assembled.filter(tc => tc.function.name && tc.function.name.trim() !== '');
                 
                 // Validate accumulated tool calls (do not mutate arguments)
                 for (const toolCall of toolCalls) {
@@ -651,7 +654,12 @@ export async function infer<OutputSchema extends z.AnyZodObject>({
         } else {
             // If not streaming, get the full response content (response is ChatCompletion)
             content = (response as OpenAI.ChatCompletion).choices[0]?.message?.content || '';
-            toolCalls = (response as OpenAI.ChatCompletion).choices[0]?.message?.tool_calls as ChatCompletionMessageFunctionToolCall[] || [];
+            const allToolCalls = ((response as OpenAI.ChatCompletion).choices[0]?.message?.tool_calls as ChatCompletionMessageFunctionToolCall[] || []);
+            const droppedNonStream = allToolCalls.filter(tc => !tc.function.name || tc.function.name.trim() === '');
+            if (droppedNonStream.length) {
+                console.warn(`[TOOL_CALL_WARNING] Dropping ${droppedNonStream.length} non-stream tool_call(s) without function name`, droppedNonStream);
+            }
+            toolCalls = allToolCalls.filter(tc => tc.function.name && tc.function.name.trim() !== '');
             // Also print the total number of tokens used in the prompt
             const totalTokens = (response as OpenAI.ChatCompletion).usage?.total_tokens;
             console.log(`Total tokens used in prompt: ${totalTokens}`);

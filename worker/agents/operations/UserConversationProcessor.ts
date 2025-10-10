@@ -229,20 +229,93 @@ export class UserConversationProcessor extends AgentOperation<UserConversationIn
         
         // Calculate split point: compactify older messages, preserve recent ones
         const numToPreserve = Math.ceil(messages.length * PRESERVE_RECENT_RATIO);
-        const numToCompactify = messages.length - numToPreserve;
-        
+        let splitIndex = messages.length - numToPreserve; // messages before this are compactified
+
         // Edge case: if nothing to compactify, just return recent messages
-        if (numToCompactify <= 0) {
+        if (splitIndex <= 0) {
             return messages.slice(-numToPreserve);
         }
-        
-        const oldMessages = messages.slice(0, numToCompactify);
-        const recentMessages = messages.slice(numToCompactify);
+
+        // Helper guards for tools
+        const isAssistantWithToolCalls = (m: ConversationMessage): m is ConversationMessage & { role: 'assistant'; tool_calls: import('openai/resources').ChatCompletionMessageToolCall[] } => m.role === 'assistant' && Array.isArray(m.tool_calls);
+        const isToolMessage = (m: ConversationMessage): m is ConversationMessage & { role: 'tool'; name: string } => m.role === 'tool' && typeof m.name === 'string' && m.name.trim() !== '';
+        const getToolCallId = (m: ConversationMessage): string | null => {
+            if (m.role !== 'tool') return null;
+            const rec = m as unknown as Record<string, unknown>;
+            const id = rec['tool_call_id'];
+            return typeof id === 'string' ? id : null;
+        };
+
+        // Adjust splitIndex so that a preserved tool message always has its matching assistant tool_call within the preserved window
+        while (true) {
+            const oldPart = messages.slice(0, splitIndex);
+            const recentPart = messages.slice(splitIndex);
+
+            let needAdjust = false;
+
+            // Precompute assistant tool_call ids available in recentPart prefix as we scan
+            const assistantIdsPrefix = new Set<string>();
+            for (let i = 0; i < recentPart.length; i++) {
+                const m = recentPart[i];
+                if (isAssistantWithToolCalls(m)) {
+                    for (const tc of m.tool_calls) {
+                        if (tc && typeof tc.id === 'string') assistantIdsPrefix.add(tc.id);
+                    }
+                } else if (isToolMessage(m)) {
+                    const id = getToolCallId(m);
+                    if (!id || assistantIdsPrefix.has(id)) {
+                        // Either no id or assistant already in prefix; OK
+                        continue;
+                    }
+                    // Try to locate matching assistant in oldPart
+                    const idxInOld = oldPart.findIndex(om => isAssistantWithToolCalls(om) && om.tool_calls.some(tc => tc && typeof tc.id === 'string' && tc.id === id));
+                    if (idxInOld >= 0) {
+                        // Move splitIndex back to include that assistant (and anything after it) in preserved recent window
+                        splitIndex = idxInOld;
+                        needAdjust = true;
+                        break;
+                    }
+                }
+            }
+            if (!needAdjust) break;
+        }
+
+        // After adjustments, it's possible we cannot compact anything (splitIndex moved to 0)
+        // In that case, return the original messages unchanged to preserve ordering and validity
+        if (splitIndex <= 0) {
+            return messages;
+        }
+
+        // Finalize partitions
+        const oldMessages = messages.slice(0, splitIndex);
+        let recentMessages = messages.slice(splitIndex);
+
+        // Safety: drop truly orphan tool messages in preserved window
+        const filteredRecent: ConversationMessage[] = [];
+        const seenAssistantIds = new Set<string>();
+        for (const m of recentMessages) {
+            if (isAssistantWithToolCalls(m)) {
+                for (const tc of m.tool_calls) {
+                    if (tc && typeof tc.id === 'string') seenAssistantIds.add(tc.id);
+                }
+                filteredRecent.push(m);
+            } else if (isToolMessage(m)) {
+                const id = getToolCallId(m);
+                if (id && seenAssistantIds.has(id)) {
+                    filteredRecent.push(m);
+                } else {
+                    console.warn('[TOOL_CALL_WARNING] Dropping orphan tool message without matching assistant tool_call in preserved context', { name: m.name, tool_call_id: id });
+                }
+            } else {
+                filteredRecent.push(m);
+            }
+        }
+        recentMessages = filteredRecent;
         
         // Build compactified conversation history
         const compactifiedLines: string[] = [
             '<Compactified Conversation History>',
-            `[${numToCompactify} older messages condensed for context efficiency]`,
+            `[${splitIndex} older messages condensed for context efficiency]`,
             ''
         ];
         

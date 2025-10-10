@@ -44,6 +44,7 @@ import { generateId } from 'worker/utils/idGenerator';
 import type { ImageAttachment } from '../../types/image-attachment';
 import { OperationOptions } from '../operations/common';
 import { CodingAgentInterface } from '../services/implementations/CodingAgent';
+import { generateAppProxyToken, generateAppProxyUrl } from 'worker/services/aigateway-proxy/controller';
 
 interface WebhookPayload {
     event: {
@@ -332,7 +333,7 @@ export class SimpleCodeGeneratorAgent extends Agent<Env, CodeGenState> {
     getSandboxServiceClient(): BaseSandboxService {
         if (this.sandboxServiceClient === undefined) {
             this.logger().info('Initializing sandbox service client');
-            this.sandboxServiceClient = getSandboxService(this.getSessionId());
+            this.sandboxServiceClient = getSandboxService(this.getSessionId(), this.getAgentId());
         }
         return this.sandboxServiceClient;
     }
@@ -1649,8 +1650,17 @@ export class SimpleCodeGeneratorAgent extends Agent<Env, CodeGenState> {
         
         // Generate webhook URL for this agent instance
         const webhookUrl = this.generateWebhookUrl();
+
+        // If AI template is configured, pass AI vars
+        let localEnvVars: Record<string, string> = {};
+        if (this.state.templateDetails.name.includes('agents')) {
+            localEnvVars = {
+                "CF_AI_BASE_URL": generateAppProxyUrl(this.env),
+                "CF_AI_API_KEY": await generateAppProxyToken(this.state.inferenceContext.agentId, this.state.inferenceContext.userId, this.env)
+            }
+        }
         
-        const createResponse = await this.getSandboxServiceClient().createInstance(templateName, `v1-${projectName}`, webhookUrl);
+        const createResponse = await this.getSandboxServiceClient().createInstance(templateName, `v1-${projectName}`, webhookUrl, localEnvVars);
         if (!createResponse || !createResponse.success || !createResponse.runId) {
             throw new Error(`Failed to create sandbox instance: ${createResponse?.error || 'Unknown error'}`);
         }
@@ -2290,9 +2300,10 @@ export class SimpleCodeGeneratorAgent extends Agent<Env, CodeGenState> {
                 step: 'uploading_files',
                 progress: 30
             });
-
+            
+            const allFiles = this.fileManager.getGeneratedFiles();
             // Use consolidated export method that handles the complete flow
-            const exportResult = await this.getSandboxServiceClient().pushToGitHub(this.state.sandboxInstanceId!, options);
+            const exportResult = await this.getSandboxServiceClient().pushToGitHub(this.state.sandboxInstanceId!, options, allFiles);
 
             if (!exportResult?.success) {
                 throw new Error(`Failed to export to GitHub repository: ${exportResult?.error}`);
@@ -2309,7 +2320,7 @@ export class SimpleCodeGeneratorAgent extends Agent<Env, CodeGenState> {
                     this.fileManager.saveGeneratedFile(readmeFile);
                     await this.deployToSandbox([readmeFile], false, "feat: README updated with cloudflare deploy button");
                     // Export again
-                    await this.getSandboxServiceClient().pushToGitHub(this.state.sandboxInstanceId!, options);
+                    await this.getSandboxServiceClient().pushToGitHub(this.state.sandboxInstanceId!, options, allFiles);
                     this.logger().info('Readme committed successfully');
                 } catch (error) {
                     this.logger().error('Failed to commit readme', error);

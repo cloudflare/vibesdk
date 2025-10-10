@@ -499,28 +499,11 @@ interface GitHubUserInfo {
     isPrivate: boolean;
 }
 
-// Request for creating repository and pushing files (high-level export)
-export interface GitHubExportRequest extends GitHubUserInfo {
-    repositoryName: string;
-    description?: string;
-    cloneUrl?: string; // Optional - if provided, skips repository creation
-    repositoryHtmlUrl?: string; // Optional - if provided, skips repository creation
-}
-
 // Request for pushing to existing repository (low-level push)
 export interface GitHubPushRequest extends GitHubUserInfo {
     cloneUrl: string;
     repositoryHtmlUrl: string;
 }
-
-export const GitHubExportResponseSchema = z.object({
-    success: z.boolean(),
-    repositoryUrl: z.string().optional(),
-    cloneUrl: z.string().optional(),
-    commitSha: z.string().optional(),
-    error: z.string().optional(),
-})
-export type GitHubExportResponse = z.infer<typeof GitHubExportResponseSchema>
 
 export const GitHubPushResponseSchema = z.object({
     success: z.boolean(),

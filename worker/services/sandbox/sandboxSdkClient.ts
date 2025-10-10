@@ -22,7 +22,7 @@ import {
     LintSeverity,
     TemplateInfo,
     TemplateDetails,
-    GitHubPushRequest, GitHubPushResponse, GitHubExportRequest, GitHubExportResponse,
+    GitHubPushRequest, GitHubPushResponse,
     GetLogsResponse,
     ListInstancesResponse,
     StoredError,
@@ -49,6 +49,7 @@ import { ResourceProvisioningResult } from './types';
 import { GitHubService } from '../github/GitHubService';
 import { getPreviewDomain } from '../../utils/urls';
 import { isDev } from 'worker/utils/envs';
+import { FileOutputType } from 'worker/agents/schemas';
 // Export the Sandbox class in your Worker
 export { Sandbox as UserAppSandboxService, Sandbox as DeployerService} from "@cloudflare/sandbox";
 
@@ -107,26 +108,18 @@ function getAutoAllocatedSandbox(sessionId: string): string {
 export class SandboxSdkClient extends BaseSandboxService {
     private sandbox: SandboxType;
     private metadataCache = new Map<string, InstanceMetadata>();
-    
-    private envVars?: Record<string, string>;
 
-    constructor(sandboxId: string, envVars?: Record<string, string>) {
+    constructor(sandboxId: string, agentId: string) {
         if (env.ALLOCATION_STRATEGY === AllocationStrategy.MANY_TO_ONE) {
             sandboxId = getAutoAllocatedSandbox(sandboxId);
         }
         super(sandboxId);
         this.sandbox = this.getSandbox();
-        this.envVars = envVars;
-        // Set environment variables FIRST, before any other operations
-        // SHOULD NEVER SEND SECRETS TO SANDBOX!
-        if (this.envVars && Object.keys(this.envVars).length > 0) {
-            this.logger.info('Configuring environment variables', { envVars: Object.keys(this.envVars) });
-            this.sandbox.setEnvVars(this.envVars);
-        }
         
         this.logger = createObjectLogger(this, 'SandboxSdkClient');
         this.logger.setFields({
-            sandboxId: this.sandboxId
+            sandboxId: this.sandboxId,
+            agentId,
         });
         this.logger.info('SandboxSdkClient initialized', { sandboxId: this.sandboxId });
     }
@@ -840,10 +833,23 @@ export class SandboxSdkClient extends BaseSandboxService {
             this.logger.error(`Error updating project configuration: ${error}`);
             throw error;
         }
-    }  
-    
+    }
 
-    private async setupInstance(instanceId: string, projectName: string, _localEnvVars?: Record<string, string>): Promise<{previewURL: string, tunnelURL: string, processId: string, allocatedPort: number} | undefined> {
+    private async setLocalEnvVars(instanceId: string, localEnvVars: Record<string, string>): Promise<void> {
+        try {
+            const sandbox = this.getSandbox();
+            // Simply save all env vars in '.dev.vars' file
+            const envVarsContent = Object.entries(localEnvVars)
+                .map(([key, value]) => `${key}=${value}`)
+                .join('\n');
+            await sandbox.writeFile(`${instanceId}/.dev.vars`, envVarsContent);
+        } catch (error) {
+            this.logger.error(`Error setting local environment variables: ${error}`);
+            throw error;
+        }
+    }
+
+    private async setupInstance(instanceId: string, projectName: string, localEnvVars?: Record<string, string>): Promise<{previewURL: string, tunnelURL: string, processId: string, allocatedPort: number} | undefined> {
         try {
             const sandbox = this.getSandbox();
             // Update project configuration with the specified project name
@@ -889,6 +895,9 @@ export class SandboxSdkClient extends BaseSandboxService {
             if (installResult.exitCode === 0) {
                 // Try to start development server in background
                 try {
+                    if (localEnvVars) {
+                        await this.setLocalEnvVars(instanceId, localEnvVars);
+                    }
                     // Initialize git repository
                     await this.executeCommand(instanceId, `git init`);
                     this.logger.info('Git repository initialized', { instanceId });
@@ -961,6 +970,12 @@ export class SandboxSdkClient extends BaseSandboxService {
 
     async createInstance(templateName: string, projectName: string, webhookUrl?: string, localEnvVars?: Record<string, string>): Promise<BootstrapResponse> {
         try {
+            const sandbox = this.getSandbox();
+            // Set environment variables FIRST, before any other operations
+            if (localEnvVars && Object.keys(localEnvVars).length > 0) {
+                this.logger.info('Configuring environment variables', { envVars: Object.keys(localEnvVars) });
+                sandbox.setEnvVars(localEnvVars);
+            }
             if (env.ALLOCATION_STRATEGY === 'one_to_one') {
                 // Multiple instances shouldn't exist in the same sandbox
 
@@ -1000,7 +1015,7 @@ export class SandboxSdkClient extends BaseSandboxService {
                 this.fetchRedactedFiles(templateName)
             ]);
             
-            const moveTemplateResult = await this.getSandbox().exec(`mv ${templateName} ${instanceId}`);
+            const moveTemplateResult = await sandbox.exec(`mv ${templateName} ${instanceId}`);
             if (moveTemplateResult.exitCode !== 0) {
                 throw new Error(`Failed to move template: ${moveTemplateResult.stderr}`);
             }
@@ -2109,92 +2124,10 @@ export class SandboxSdkClient extends BaseSandboxService {
     }
 
     /**
-     * Export generated app to GitHub (creates repository if needed, then pushes files)
-     */
-    async exportToGitHub(instanceId: string, request: GitHubExportRequest): Promise<GitHubExportResponse> {
-        try {
-            this.logger.info(`Starting GitHub export for instance ${instanceId}`);
-
-            // If repository URLs are provided, use existing repository
-            if (request.cloneUrl && request.repositoryHtmlUrl) {
-                this.logger.info('Using existing repository URLs');
-                
-                const pushRequest: GitHubPushRequest = {
-                    cloneUrl: request.cloneUrl,
-                    repositoryHtmlUrl: request.repositoryHtmlUrl,
-                    token: request.token,
-                    email: request.email,
-                    username: request.username,
-                    isPrivate: request.isPrivate
-                };
-
-                const pushResult = await this.pushToGitHub(instanceId, pushRequest);
-                
-                return {
-                    success: pushResult.success,
-                    repositoryUrl: request.repositoryHtmlUrl,
-                    cloneUrl: request.cloneUrl,
-                    commitSha: pushResult.commitSha,
-                    error: pushResult.error
-                };
-            }
-
-            // Create new repository via GitHubService
-            this.logger.info(`Creating repository: ${request.repositoryName}`);
-            
-            const createResult = await GitHubService.createUserRepository({
-                name: request.repositoryName,
-                description: request.description || `Generated app: ${request.repositoryName}`,
-                private: request.isPrivate,
-                token: request.token
-            });
-
-            if (!createResult.success || !createResult.repository) {
-                this.logger.error('Repository creation failed', createResult.error);
-                return {
-                    success: false,
-                    error: createResult.error || 'Failed to create repository'
-                };
-            }
-
-            this.logger.info(`Repository created: ${createResult.repository.html_url}`);
-
-            // Now push files to the newly created repository
-            const pushRequest: GitHubPushRequest = {
-                cloneUrl: createResult.repository.clone_url,
-                repositoryHtmlUrl: createResult.repository.html_url,
-                token: request.token,
-                email: request.email,
-                username: request.username,
-                isPrivate: request.isPrivate
-            };
-
-            const pushResult = await this.pushToGitHub(instanceId, pushRequest);
-
-            return {
-                success: pushResult.success,
-                repositoryUrl: createResult.repository.html_url,
-                cloneUrl: createResult.repository.clone_url,
-                commitSha: pushResult.commitSha,
-                error: pushResult.error
-            };
-
-        } catch (error) {
-            const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-            this.logger.error('GitHub export failed', { instanceId, error: errorMessage });
-            
-            return {
-                success: false,
-                error: `GitHub export failed: ${errorMessage}`
-            };
-        }
-    }
-
-    /**
      * Push files to GitHub using secure API-based approach
      * Extracts git context from sandbox and delegates to GitHubService
      */
-    async pushToGitHub(instanceId: string, request: GitHubPushRequest): Promise<GitHubPushResponse> {
+    async pushToGitHub(instanceId: string, request: GitHubPushRequest, allFiles: FileOutputType[]): Promise<GitHubPushResponse> {
         // Validate required parameters
         if (!instanceId?.trim()) {
             return {
@@ -2267,7 +2200,18 @@ export class SandboxSdkClient extends BaseSandboxService {
 
             // Use broader file selection - all files if we have any, otherwise tracked files
             const filesToUse = finalGitContext.allFiles.length > 0 ? finalGitContext.allFiles : finalGitContext.trackedFiles;
-            const files = await this.getGitTrackedFiles(instanceId, filesToUse);
+            const filesToUseSet = new Set(filesToUse);
+            const cachedFiles = allFiles.filter(file => filesToUseSet.has(file.filePath) && file.fileContents.trim() !== '[REDACTED]');
+            const cachedFilePaths = new Set(cachedFiles.map(file => file.filePath));
+            const filesToFetch = filesToUse.filter(file => !cachedFilePaths.has(file));
+            const filesNotCached = await this.getFileDirect(instanceId, filesToFetch);
+            const files = [...cachedFiles, ...filesNotCached];
+
+            this.logger.info(`Total files to push: ${files.length}`, {
+                cachedFilePaths,
+                filesToFetch,
+                filesToUse,
+            });
             
             if (files.length === 0) {
                 this.logger.warn('No files found to push');
@@ -2307,6 +2251,38 @@ export class SandboxSdkClient extends BaseSandboxService {
                 }
             };
         }
+    }
+
+    /**
+     * Read contents of any file
+     */
+    private async getFileDirect(instanceId: string, filePaths: string[]): Promise<{
+        filePath: string;
+        fileContents: string;
+    }[]> {
+        const files: { filePath: string; fileContents: string; }[] = [];
+
+        this.logger.info(`Reading ${filePaths.length} files`, { instanceId });
+
+        for (const filePath of filePaths) {
+            try {
+                const readResult = await this.getSandbox().readFile(`${instanceId}/${filePath}`);
+                if (readResult.success && readResult.content) {
+                    files.push({
+                        filePath,
+                        fileContents: readResult.content
+                    });
+                    this.logger.debug(`Successfully read file: ${filePath}`, { sizeBytes: readResult.content.length });
+                } else {
+                    this.logger.warn(`File read failed or empty: ${filePath}`);
+                }
+            } catch (error) {
+                this.logger.warn(`Failed to read file ${filePath}`, error);
+            }
+        }
+
+        this.logger.info(`Successfully read ${files.length}/${filePaths.length} files`);
+        return files;
     }
 
     /**
@@ -2411,37 +2387,5 @@ export class SandboxSdkClient extends BaseSandboxService {
                 isGitRepo: false
             };
         }
-    }
-
-    /**
-     * Read contents of git files (both tracked and untracked)
-     */
-    private async getGitTrackedFiles(instanceId: string, filePaths: string[]): Promise<{
-        filePath: string;
-        fileContents: string;
-    }[]> {
-        const files: { filePath: string; fileContents: string; }[] = [];
-        
-        this.logger.info(`Reading ${filePaths.length} files for GitHub push`, { instanceId });
-        
-        for (const filePath of filePaths) {
-            try {
-                const readResult = await this.getSandbox().readFile(`${instanceId}/${filePath}`);
-                if (readResult.success && readResult.content) {
-                    files.push({
-                        filePath,
-                        fileContents: readResult.content
-                    });
-                    this.logger.debug(`Successfully read file: ${filePath}`, { sizeBytes: readResult.content.length });
-                } else {
-                    this.logger.warn(`File read failed or empty: ${filePath}`);
-                }
-            } catch (error) {
-                this.logger.warn(`Failed to read file ${filePath}`, error);
-            }
-        }
-
-        this.logger.info(`Successfully read ${files.length}/${filePaths.length} files for GitHub push`);
-        return files;
     }
 }

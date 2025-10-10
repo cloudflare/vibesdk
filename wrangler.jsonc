@@ -3,7 +3,7 @@
  * https://developers.cloudflare.com/workers/wrangler/configuration/
  */
  {
-	// "$schema": "node_modules/wrangler/config-schema.json",
+	"$schema": "node_modules/wrangler/config-schema.json",
 	"name": "vibesdk-production",
 	"main": "worker/index.ts",
 	"compatibility_date": "2025-08-10",
@@ -20,24 +20,27 @@
 	},
 	"observability": {
 		"enabled": true,
-        "head_sampling_rate": 1
-	},
-  "unsafe": {
-    "bindings": [
-        {
-            "name": "API_RATE_LIMITER",
-            "type": "ratelimit",
-            "namespace_id": "2101",
-            "simple": { "limit": 10000, "period": 60 }
-        },
-        {
-            "name": "AUTH_RATE_LIMITER",
-            "type": "ratelimit",
-            "namespace_id": "2102",
-            "simple": { "limit": 1000, "period": 60 }
+        "head_sampling_rate": 1,
+        "traces": {
+          "enabled": true
         }
-    ]
-  },
+	},
+    "unsafe": {
+        "bindings": [
+            {
+                "name": "API_RATE_LIMITER",
+                "type": "ratelimit",
+                "namespace_id": "2101",
+                "simple": { "limit": 10000, "period": 60 }
+            },
+            {
+                "name": "AUTH_RATE_LIMITER",
+                "type": "ratelimit",
+                "namespace_id": "2102",
+                "simple": { "limit": 1000, "period": 60 }
+            }
+        ]
+    },
 	/**
 	 * Bindings
 	 * Bindings allow your Worker to interact with resources on the Cloudflare Developer Platform, including

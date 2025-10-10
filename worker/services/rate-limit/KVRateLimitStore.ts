@@ -8,7 +8,8 @@ export class KVRateLimitStore {
 	static async increment(
 		kv: KVNamespace,
 		key: string,
-		config: KVRateLimitConfig
+		config: KVRateLimitConfig,
+		incrementBy: number = 1
 	): Promise<RateLimitResult> {
 		const now = Date.now();
 
@@ -48,9 +49,9 @@ export class KVRateLimitStore {
 			const currentBucketKey = `ratelimit:${key}:${currentBucket}`;
 			const maxTtlSeconds = Math.max(config.period, config.burstWindow ?? 60) + (config.bucketSize ?? 10);
 
-			await this.incrementBucketWithRetry(kv, currentBucketKey, maxTtlSeconds);
+			await this.incrementBucketWithRetry(kv, currentBucketKey, maxTtlSeconds, incrementBy);
 
-			return { success: true, remainingLimit: Math.max(0, config.limit - mainCount - 1) };
+			return { success: true, remainingLimit: Math.max(0, config.limit - mainCount - incrementBy) };
 		} catch (error) {
 			this.logger.error('Failed to enforce KV rate limit', {
 				key,
@@ -96,12 +97,13 @@ export class KVRateLimitStore {
 		kv: KVNamespace,
 		bucketKey: string,
 		ttlSeconds: number,
-		maxRetries: number = 3
+		maxRetries: number = 3,
+        incrementBy: number = 1
 	): Promise<void> {
 		for (let attempt = 0; attempt < maxRetries; attempt++) {
 			try {
 				const current = await kv.get(bucketKey);
-				const newCount = (current ? parseInt(current, 10) : 0) + 1;
+				const newCount = (current ? parseInt(current, 10) : 0) + incrementBy;
 				await kv.put(bucketKey, newCount.toString(), { expirationTtl: ttlSeconds });
 				return;
 			} catch (error) {

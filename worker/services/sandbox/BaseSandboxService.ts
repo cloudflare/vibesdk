@@ -29,12 +29,11 @@ import {
     ListInstancesResponse,
     GitHubPushRequest,
     GitHubPushResponse,
-    GitHubExportRequest,
-    GitHubExportResponse
   } from './sandboxTypes';
   
   import { createObjectLogger, StructuredLogger } from '../../logger';
   import { env } from 'cloudflare:workers'
+import { FileOutputType } from 'worker/agents/schemas';
   /**
    * Streaming event for enhanced command execution
    */
@@ -219,14 +218,9 @@ import {
     // ==========================================
     // GITHUB INTEGRATION (Required)
     // ==========================================
-  
-    /**
-     * Export generated app to GitHub (creates repository if needed, then pushes files)
-     */
-    abstract exportToGitHub(instanceId: string, request: GitHubExportRequest): Promise<GitHubExportResponse>
 
     /**
      * Push instance files to existing GitHub repository
      */
-    abstract pushToGitHub(instanceId: string, request: GitHubPushRequest): Promise<GitHubPushResponse>
+    abstract pushToGitHub(instanceId: string, request: GitHubPushRequest, files: FileOutputType[]): Promise<GitHubPushResponse>
   }

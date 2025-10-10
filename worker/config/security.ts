@@ -39,7 +39,7 @@ export function getConfigurableSecurityDefaults(): ConfigurableSecuritySettings 
 /**
  * Get allowed origins based on environment
  */
-function getAllowedOrigins(env: Env): string[] {
+export function getAllowedOrigins(env: Env): string[] {
     const origins: string[] = [];
     
     // Production domains
@@ -58,6 +58,14 @@ function getAllowedOrigins(env: Env): string[] {
     }
     
     return origins;
+}
+
+export function isOriginAllowed(env: Env, origin: string): boolean {
+    const allowedOrigins = getAllowedOrigins(env);
+    if (!origin) return false;
+    
+    // Check against allowed origins
+    return allowedOrigins.includes(origin);
 }
 
 /**
@@ -91,16 +99,8 @@ export function getCORSConfig(env: Env): CORSConfig {
  * Double-submit cookie pattern with origin validation
  */
 export function getCSRFConfig(env: Env): CSRFConfig {
-    const allowedOrigins = getAllowedOrigins(env);
-    
     return {
-        origin: (origin: string) => {
-            // Reject missing origin headers for CSRF protection
-            if (!origin) return false;
-            
-            // Check against allowed origins
-            return allowedOrigins.includes(origin);
-        },
+        origin: (origin: string) => isOriginAllowed(env, origin),
         tokenTTL: 2 * 60 * 60 * 1000, // 2 hours
         rotateOnAuth: true,
         cookieName: 'csrf-token',

@@ -1306,8 +1306,8 @@ class CloudflareDeploymentManager {
 				// Enhanced configuration as specified
 				userAppInstanceType = {
 					vcpu: 4,
-					memory_mib: 4096,
-					disk_mb: 6144
+					memory_mib: 8192,
+					disk_mb: 10240
 				};
 				console.log('   Using enhanced instance type configuration');
 			} else {

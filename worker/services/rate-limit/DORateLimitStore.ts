@@ -16,6 +16,7 @@ export interface RateLimitConfig {
     burst?: number;
     burstWindow?: number; // in seconds
     bucketSize?: number; // in seconds
+    dailyLimit?: number; // max requests in a rolling 24h window
 }
 
 export interface RateLimitResult {
@@ -40,28 +41,31 @@ export class DORateLimitStore extends DurableObject<Env> {
         super(ctx, env);
     }
 
-    async increment(key: string, config: RateLimitConfig): Promise<RateLimitResult> {
+    async increment(key: string, config: RateLimitConfig, incrementBy: number = 1): Promise<RateLimitResult> {
         await this.ensureInitialized();
         
         const now = Date.now();
         const bucketSize = (config.bucketSize || 10) * 1000; // Convert to milliseconds
         const burstWindow = (config.burstWindow || 60) * 1000; // Convert to milliseconds
         const mainWindow = config.period * 1000; // Convert to milliseconds
+        const dailyWindow = config.dailyLimit ? 24 * 60 * 60 * 1000 : 0; // 24 hours in ms if enabled
 
         const currentBucket = Math.floor(now / bucketSize) * bucketSize;
         const bucketKey = `${key}:${currentBucket}`;
 
         // Periodic cleanup every 5 minutes
         if (now - this.state.lastCleanup > 5 * 60 * 1000) {
-            await this.cleanup(now, Math.max(mainWindow, burstWindow));
+            await this.cleanup(now, Math.max(mainWindow, burstWindow, dailyWindow));
         }
 
         // Calculate current counts
         const mainBuckets = this.getBucketsInWindow(key, now, mainWindow, bucketSize);
         const burstBuckets = config.burst ? this.getBucketsInWindow(key, now, burstWindow, bucketSize) : [];
+        const dailyBuckets = config.dailyLimit ? this.getBucketsInWindow(key, now, dailyWindow, bucketSize) : [];
 
         const mainCount = mainBuckets.reduce((sum, bucket) => sum + bucket.count, 0);
         const burstCount = burstBuckets.reduce((sum, bucket) => sum + bucket.count, 0);
+        const dailyCount = dailyBuckets.reduce((sum, bucket) => sum + bucket.count, 0);
 
         // Check limits
         if (mainCount >= config.limit) {
@@ -72,9 +76,13 @@ export class DORateLimitStore extends DurableObject<Env> {
             return { success: false, remainingLimit: 0 };
         }
 
+        if (config.dailyLimit && dailyCount >= config.dailyLimit) {
+            return { success: false, remainingLimit: 0 };
+        }
+
         // Increment current bucket
         const existing = this.state.buckets.get(bucketKey);
-        const newCount = (existing?.count || 0) + 1;
+        const newCount = (existing?.count || 0) + incrementBy;
         
         this.state.buckets.set(bucketKey, {
             count: newCount,
@@ -83,9 +91,14 @@ export class DORateLimitStore extends DurableObject<Env> {
 
         await this.persistState();
 
+        // Compute remaining across applicable windows
+        const mainRemaining = config.limit - mainCount - incrementBy;
+        const dailyRemaining = config.dailyLimit != null ? (config.dailyLimit - dailyCount - incrementBy) : undefined;
+        const remaining = dailyRemaining != null ? Math.min(mainRemaining, dailyRemaining) : mainRemaining;
+
         return { 
             success: true, 
-            remainingLimit: config.limit - mainCount - 1 
+            remainingLimit: Math.max(0, remaining) 
         };
     }
 
@@ -95,11 +108,21 @@ export class DORateLimitStore extends DurableObject<Env> {
         const now = Date.now();
         const bucketSize = (config.bucketSize || 10) * 1000;
         const mainWindow = config.period * 1000;
+        const dailyWindow = config.dailyLimit ? 24 * 60 * 60 * 1000 : 0;
 
         const mainBuckets = this.getBucketsInWindow(key, now, mainWindow, bucketSize);
         const mainCount = mainBuckets.reduce((sum, bucket) => sum + bucket.count, 0);
 
-        return Math.max(0, config.limit - mainCount);
+        const mainRemaining = config.limit - mainCount;
+
+        if (config.dailyLimit) {
+            const dailyBuckets = this.getBucketsInWindow(key, now, dailyWindow, bucketSize);
+            const dailyCount = dailyBuckets.reduce((sum, bucket) => sum + bucket.count, 0);
+            const dailyRemaining = config.dailyLimit - dailyCount;
+            return Math.max(0, Math.min(mainRemaining, dailyRemaining));
+        }
+
+        return Math.max(0, mainRemaining);
     }
 
     async resetLimit(key?: string): Promise<void> {

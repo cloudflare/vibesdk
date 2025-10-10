@@ -1,3 +1,5 @@
+import { AIModels } from "worker/agents/inferutils/config.types";
+
 export enum RateLimitStore {
 	KV = 'kv',
 	RATE_LIMITER = 'rate_limiter',
@@ -31,11 +33,13 @@ export interface DORateLimitConfig extends RateLimitConfigBase {
 	burst?: number; // optional burst limit
 	burstWindow?: number; // burst window in seconds (default: 60)
 	bucketSize?: number; // time bucket size in seconds (default: 10)
+	dailyLimit?: number; // optional rolling 24h limit
 }
 
-export type LLMCallsRateLimitConfig = (KVRateLimitConfig | DORateLimitConfig) & {
-    excludeBYOKUsers: boolean;
+export type LLMCallsRateLimitConfig = (DORateLimitConfig) & {
+	excludeBYOKUsers: boolean;
 };
+
 export type RateLimitConfig =
 	| RLRateLimitConfig
 	| KVRateLimitConfig
@@ -50,10 +54,10 @@ export enum RateLimitType {
 }
 
 export interface RateLimitSettings {
-	[RateLimitType.API_RATE_LIMIT]: RLRateLimitConfig | DORateLimitConfig;
-	[RateLimitType.AUTH_RATE_LIMIT]: RLRateLimitConfig | DORateLimitConfig;
-	[RateLimitType.APP_CREATION]: KVRateLimitConfig | DORateLimitConfig;
-	[RateLimitType.LLM_CALLS]: LLMCallsRateLimitConfig | DORateLimitConfig;
+	[RateLimitType.API_RATE_LIMIT]: RLRateLimitConfig;
+	[RateLimitType.AUTH_RATE_LIMIT]: RLRateLimitConfig;
+	[RateLimitType.APP_CREATION]: DORateLimitConfig | KVRateLimitConfig;
+	[RateLimitType.LLM_CALLS]: LLMCallsRateLimitConfig;
 }
 
 export const DEFAULT_RATE_LIMIT_SETTINGS: RateLimitSettings = {
@@ -71,13 +75,33 @@ export const DEFAULT_RATE_LIMIT_SETTINGS: RateLimitSettings = {
 		enabled: true,
 		store: RateLimitStore.DURABLE_OBJECT,
 		limit: 10,
+        dailyLimit: 50,
 		period: 3600, // 1 hour
 	},
 	llmCalls: {
 		enabled: true,
 		store: RateLimitStore.DURABLE_OBJECT,
 		limit: 100,
-		period: 30 * 60, // 30 minutes
+		period: 60 * 60, // 1 hour
+        dailyLimit: 400,
 		excludeBYOKUsers: true,
 	},
+};
+
+// Simple, pro models -> 4, Flash -> 1, Flash Lite -> 0
+export const DEFAULT_RATE_INCREMENTS_FOR_MODELS: Record<AIModels | string, number> = {
+	[AIModels.GEMINI_1_5_FLASH_8B] : 0,
+	[AIModels.GEMINI_2_0_FLASH] : 0,
+	[AIModels.GEMINI_2_5_FLASH_LITE] : 0,
+	[AIModels.GEMINI_2_5_FLASH_LITE_LATEST] : 0,
+
+	[AIModels.GEMINI_2_5_FLASH] : 1,
+	[AIModels.GEMINI_2_5_FLASH_LATEST] : 1,
+	[AIModels.GEMINI_2_5_FLASH_PREVIEW_04_17] : 1,
+	[AIModels.GEMINI_2_5_FLASH_PREVIEW_05_20] : 1,
+
+	[AIModels.GEMINI_2_5_PRO_LATEST] : 4,
+	[AIModels.GEMINI_2_5_PRO] : 4,
+	[AIModels.GEMINI_2_5_PRO_PREVIEW_05_06] : 4,
+	[AIModels.GEMINI_2_5_PRO_PREVIEW_06_05] : 4,
 };
