@@ -1,0 +1,19 @@
+{
+  "name": "process-monitoring-system",
+  "version": "2.0.0",
+  "description": "Unified process monitoring system for Cloudflare sandbox containers",
+  "main": "cli-tools.ts",
+  "scripts": {
+    "build": "bun build cli-tools.ts --outdir ./dist --target bun",
+    "start": "bun run cli-tools.ts process start",
+    "monitor": "bun run cli-tools.ts",
+    "errors": "bun run cli-tools.ts errors",
+    "logs": "bun run cli-tools.ts logs",
+    "test": "bun test",
+    "clean": "rm -f ./data/*.db"
+  },
+  "dependencies": {
+    "zod": "^3.22.4"
+  },
+  "type": "module"
+}

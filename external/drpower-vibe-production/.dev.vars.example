@@ -1,0 +1,36 @@
+# Security Configuration
+#CUSTOM_DOMAIN="your-domain.com" # Your custom domain for CORS
+#ENVIRONMENT="prod" # Options: dev, staging, prod
+
+# Essential Secrets:
+#CLOUDFLARE_AI_GATEWAY_TOKEN="" # If this has read and edit permissions, the AI Gateway will be created automatically. run is required at the least
+
+# Provider specific secrets:
+#ANTHROPIC_API_KEY=""
+#OPENAI_API_KEY=""
+GOOGLE_AI_STUDIO_API_KEY=""
+#OPENROUTER_API_KEY="default" 
+#GROQ_API_KEY="default" 
+ 
+# Stuff for Oauths:
+#GOOGLE_CLIENT_SECRET=""
+#GOOGLE_CLIENT_ID="" 
+
+# GitHub OAuth
+#GITHUB_CLIENT_ID=""
+#GITHUB_CLIENT_SECRET=""
+
+# Github Export OAuth
+# GITHUB_EXPORTER_CLIENT_SECRET=""
+# GITHUB_EXPORTER_CLIENT_ID=""
+
+# Secrets for various internal services of this platform
+JWT_SECRET="" 
+WEBHOOK_SECRET="" 
+
+# AI Gateway URL Override (Leave as-is if not going to set it)
+#CLOUDFLARE_AI_GATEWAY_URL=""
+
+# Cloudflare API Key and Account ID. This is important
+# CLOUDFLARE_API_TOKEN=""
+# CLOUDFLARE_ACCOUNT_ID=""
