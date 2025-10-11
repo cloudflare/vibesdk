@@ -1,0 +1,74 @@
+{
+  "$schema": "https://unpkg.com/knip@5/schema.json",
+  "workspaces": {
+    ".": {
+      "entry": [
+        "src/main.tsx",
+        "worker/index.ts",
+        "scripts/**/*.ts",
+        "container/**/*.ts",
+        "debug-tools/**/*.{ts,py}"
+      ],
+      "project": [
+        "**/*.{ts,tsx,js,jsx,mjs,cjs}"
+      ],
+      "ignore": [
+        "**/*.d.ts",
+        "dist/**",
+        "build/**",
+        ".wrangler/**",
+        "migrations/**/*.sql",
+        "public/**"
+      ],
+      "ignoreDependencies": [
+        "@rolldown/binding-linux-x64-gnu",
+        "prettier-plugin-tailwindcss",
+        "tw-animate-css",
+        "@tailwindcss/typography",
+        "@tailwindcss/vite"
+      ],
+      "ignoreBinaries": [
+        "wrangler",
+        "drizzle-kit",
+        "tsx",
+        "vitest"
+      ]
+    }
+  },
+  "rules": {
+    "files": "error",
+    "dependencies": "error",
+    "devDependencies": "error",
+    "optionalPeerDependencies": "warn",
+    "unlisted": "error",
+    "binaries": "error",
+    "unresolved": "error",
+    "exports": "error",
+    "types": "error",
+    "nsExports": "error",
+    "duplicates": "warn",
+    "enumMembers": "error",
+    "classMembers": "error"
+  },
+  "exclude": [
+    "unresolved"
+  ],
+  "ignoreExportsUsedInFile": true,
+  "typescript": {
+    "config": ["tsconfig.json", "tsconfig.*.json"]
+  },
+  "vite": {
+    "config": ["vite.config.ts"]
+  },
+  "eslint": {
+    "config": ["eslint.config.js"]
+  },
+  "vitest": {
+    "config": ["vitest.config.ts"],
+    "entry": ["**/*.{test,spec}.{js,jsx,ts,tsx}"]
+  },
+  "jest": {
+    "config": ["jest.config.{js,ts,mjs,cjs,json}"],
+    "entry": ["**/__tests__/**", "**/*.{test,spec}.{js,jsx,ts,tsx}"]
+  }
+}
