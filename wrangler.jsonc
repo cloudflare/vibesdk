@@ -138,7 +138,8 @@
         "DISPATCH_NAMESPACE": "vibesdk-default-namespace", 
         "ENABLE_READ_REPLICAS": "true", 
         "CLOUDFLARE_AI_GATEWAY": "vibesdk-gateway", 
-        "CUSTOM_DOMAIN": "", 
+        "CUSTOM_DOMAIN": "vibesdk-production.isaactrinidadllc.workers.dev", 
+        "CUSTOM_PREVIEW_DOMAIN": "isaactrinidadllc.workers.dev", 
         "MAX_SANDBOX_INSTANCES": "10", 
         "SANDBOX_INSTANCE_TYPE": "standard-3" 
     }, 
