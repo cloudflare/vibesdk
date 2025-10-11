@@ -480,7 +480,7 @@ export class PhaseImplementationOperation extends AgentOperation<PhaseImplementa
         logger.info("Generating README.md for the project");
 
         try {
-            let readmePrompt = README_GENERATION_PROMPT;
+            const readmePrompt = README_GENERATION_PROMPT;
             const messages = [...getSystemPromptWithProjectContext(SYSTEM_PROMPT, context, CodeSerializerType.SCOF), createUserMessage(readmePrompt)];
 
             const results = await executeInference({

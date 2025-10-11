@@ -146,13 +146,18 @@ export function usePaginatedApps(options: UsePaginatedAppsOptions): UsePaginated
         throw new Error(response.error?.message || 'Failed to fetch apps');
       }
     } catch (err) {
-      console.error('Error fetching apps:', err);
-      const errorMessage = err instanceof ApiError 
-        ? `${err.message} (${err.status})`
-        : err instanceof Error 
-          ? err.message 
-          : 'Failed to fetch apps';
-      setError(errorMessage);
+      const message = err instanceof ApiError
+        ? (() => {
+            const m = err.message.toLowerCase();
+            if (m.includes('dev proxy') || err.status === 0) return 'Cannot reach server. Check your connection or backend status.';
+            if (m.includes('unexpected response format')) return 'Server is temporarily unavailable. Please retry shortly.';
+            if (m.includes('unauthorized') || err.status === 401) return 'Please sign in to view apps.';
+            return err.message;
+          })()
+        : 'An unexpected error occurred while fetching apps.';
+      console.warn('Error fetching apps:', message);
+      setError(message);
+      setLoading(false);
     } finally {
       setLoading(false);
       setLoadingMore(false);

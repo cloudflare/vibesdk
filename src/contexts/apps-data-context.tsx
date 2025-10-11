@@ -72,7 +72,8 @@ export function AppsDataProvider({ children }: AppsDataProviderProps) {
       setState(prev => ({
         ...prev,
         allApps: [],
-        ...computeRecentApps([]),
+        recentApps: [],
+        moreRecentAvailable: false,
         loading: { ...prev.loading, allApps: false },
         error: { ...prev.error, allApps: null },
       }));
@@ -87,7 +88,7 @@ export function AppsDataProvider({ children }: AppsDataProviderProps) {
       }));
 
       const response = await apiClient.getUserApps();
-      
+
       if (response.success) {
         const apps = response.data?.apps || [];
         const { recentApps, moreRecentAvailable } = computeRecentApps(apps);
@@ -107,11 +108,16 @@ export function AppsDataProvider({ children }: AppsDataProviderProps) {
         }));
       }
     } catch (err) {
-      console.error('Error fetching all apps:', err);
       const errorMessage = err instanceof ApiError 
-        ? `${err.message} (${err.status})`
+        ? (() => {
+            const m = err.message.toLowerCase();
+            if (m.includes('dev proxy') || err.status === 0) return 'Cannot reach server. Check your connection or backend status.';
+            if (m.includes('unexpected response format')) return 'Server is temporarily unavailable. Please retry shortly.';
+            if (m.includes('unauthorized') || err.status === 401) return 'Please sign in to view apps.';
+            return err.message;
+          })()
         : err instanceof Error ? err.message : 'Failed to fetch apps';
-      
+      console.warn('Error fetching all apps:', errorMessage);
       setState(prev => ({
         ...prev,
         loading: { ...prev.loading, allApps: false },
@@ -155,11 +161,16 @@ export function AppsDataProvider({ children }: AppsDataProviderProps) {
         }));
       }
     } catch (err) {
-      console.error('Error fetching favorite apps:', err);
       const errorMessage = err instanceof ApiError
-        ? `${err.message} (${err.status})`
+        ? (() => {
+            const m = err.message.toLowerCase();
+            if (m.includes('dev proxy') || err.status === 0) return 'Cannot reach server. Check your connection or backend status.';
+            if (m.includes('unexpected response format')) return 'Server is temporarily unavailable. Please retry shortly.';
+            if (m.includes('unauthorized') || err.status === 401) return 'Please sign in to view apps.';
+            return err.message;
+          })()
         : err instanceof Error ? err.message : 'Failed to fetch favorite apps';
-      
+      console.warn('Error fetching favorite apps:', errorMessage);
       setState(prev => ({
         ...prev,
         loading: { ...prev.loading, favoriteApps: false },

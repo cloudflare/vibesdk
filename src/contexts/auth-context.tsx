@@ -64,6 +64,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   
   // Ref to store the refresh timer
   const refreshTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const setupTokenRefreshRef = useRef<() => void>(() => {});
 
   // Redirect URL management
   const INTENDED_URL_KEY = 'auth_intended_url';
@@ -128,14 +129,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         });
         
         // Setup token refresh
-        setupTokenRefresh();
+        setupTokenRefreshRef.current();
       } else {
         setUser(null);
         setToken(null);
         setSession(null);
       }
     } catch (error) {
-      console.error('Auth check failed:', error);
+      let friendlyMsg = 'Unable to verify session. Please try again.';
+      if (error instanceof ApiError) {
+        const m = error.message.toLowerCase();
+        if (m.includes('dev proxy') || error.status === 0) {
+          friendlyMsg = 'Cannot reach server. Check your connection or backend status.';
+        } else if (m.includes('unexpected response format')) {
+          friendlyMsg = 'Server is temporarily unavailable. Please retry shortly.';
+        }
+      }
+      console.warn(`Auth check: ${friendlyMsg}`);
       setUser(null);
       setToken(null);
       setSession(null);
@@ -164,10 +174,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           clearInterval(refreshTimerRef.current!);
         }
       } catch (error) {
-        console.error('Session validation failed:', error);
+        const m = error instanceof ApiError ? error.message.toLowerCase() : '';
+        const isNetwork = m.includes('dev proxy') || (error instanceof ApiError && error.status === 0);
+        if (!isNetwork) {
+          console.warn('Session validation failed:', error);
+        }
       }
     }, TOKEN_REFRESH_INTERVAL);
   }, []);
+  setupTokenRefreshRef.current = setupTokenRefresh;
 
   // Cleanup refresh timer on unmount
   useEffect(() => {

@@ -1,13 +1,25 @@
 import { createRoot } from 'react-dom/client';
 import { createBrowserRouter } from 'react-router';
 import { RouterProvider } from 'react-router/dom';
-import { initSentry } from './utils/sentry';
 
 import { routes } from './routes.ts';
 import './index.css';
 
-// Initialize Sentry before rendering
-initSentry();
+// Initialize Sentry lazily to enable code-splitting of Sentry bundle
+if (typeof window !== 'undefined') {
+	const schedule = (cb: () => void) => {
+		// Prefer idle time to avoid blocking initial render
+		if (typeof requestIdleCallback === 'function') return requestIdleCallback(cb);
+		setTimeout(cb, 0);
+	};
+	schedule(() => {
+		import('@/utils/sentry')
+			.then(({ initSentry }) => initSentry())
+			.catch(() => {
+				// Swallow errors to avoid breaking first paint if Sentry fails to load
+			});
+	});
+}
 
 // Type for React Router hydration data  
 import type { RouterState } from 'react-router';

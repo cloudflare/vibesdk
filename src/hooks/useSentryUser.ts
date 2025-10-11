@@ -1,5 +1,4 @@
 import { useEffect } from 'react';
-import { setSentryUser, clearSentryUser } from '@/utils/sentry';
 import { AuthUser } from '@/api-types';
 
 /**
@@ -8,15 +7,17 @@ import { AuthUser } from '@/api-types';
  */
 export function useSentryUser(user: AuthUser | null) {
   useEffect(() => {
-    if (user) {
-      setSentryUser({
-        id: user.id,
-        email: user.email,
-        username: user.displayName,
-      });
-    } else {
-      clearSentryUser();
-    }
+    import('@/utils/sentry').then(({ setSentryUser, clearSentryUser }) => {
+      if (user) {
+        setSentryUser({
+          id: user.id,
+          email: user.email,
+          username: user.displayName,
+        });
+      } else {
+        clearSentryUser();
+      }
+    });
   }, [user]);
 }
 

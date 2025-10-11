@@ -331,62 +331,139 @@ class ApiClient {
 
 		try {
 			const response = await fetch(url, config);
-			
+
 			// For streaming responses, skip JSON parsing if response is ok
 			if (options.skipJsonParsing && response.ok) {
 				return { response, data: null };
 			}
-			
-			const data = await response.json() as ApiResponse<T>;
+
+			const contentType = (response.headers.get('content-type') || '').toLowerCase();
+			const isJson = contentType.includes('application/json');
+			let data: ApiResponse<T> | null = null;
+
+			if (isJson) {
+				try {
+					data = await response.json() as ApiResponse<T>;
+				} catch (parseError) {
+					// Trigger auth modal if unauthorized even when parsing fails
+					if (
+						response.status === 401 &&
+						globalAuthModalTrigger &&
+						this.shouldTriggerAuthModal(endpoint)
+					) {
+						const authContext = this.getAuthContextForEndpoint(endpoint);
+						globalAuthModalTrigger(authContext);
+					}
+
+					if (!response.ok) {
+						const bodyText = await response.text().catch(() => '');
+						throw new ApiError(
+							response.status,
+							response.statusText,
+							bodyText || 'Server returned an invalid error response',
+							endpoint,
+						);
+					} else {
+						// Malformed JSON from server when response.ok
+						throw new ApiError(
+							response.status,
+							response.statusText,
+							'Server returned an unexpected response format',
+							endpoint,
+						);
+					}
+				}
+			} else {
+				// Non-JSON response handling
+				if (
+					response.status === 401 &&
+					globalAuthModalTrigger &&
+					this.shouldTriggerAuthModal(endpoint)
+				) {
+					const authContext = this.getAuthContextForEndpoint(endpoint);
+					globalAuthModalTrigger(authContext);
+				}
+
+				const bodyText = await response.text().catch(() => '');
+				const lowerBody = (bodyText || '').toLowerCase();
+				const isProxyError = lowerBody.includes('http proxy error') || lowerBody.includes('econnrefused');
+
+				if (isProxyError) {
+					// Map Vite dev proxy failures to a friendly network error
+					throw new ApiError(
+						0,
+						'Network Error',
+						'Cannot reach backend server. The dev proxy failed to connect. Please ensure the backend is running.',
+						endpoint,
+					);
+				}
+
+				// If the server responded OK but with unexpected format, provide a friendly message
+				if (response.ok) {
+					throw new ApiError(
+						response.status,
+						response.statusText,
+						'Server returned an unexpected response format. Please retry shortly.',
+						endpoint,
+					);
+				}
+
+				// Non-OK with non-JSON body: pass through body text if available, otherwise a friendly fallback
+				throw new ApiError(
+					response.status,
+					response.statusText,
+					bodyText || 'Server is temporarily unavailable. Please retry shortly.',
+					endpoint,
+				);
+			}
 
 			if (!response.ok) {
-                if (
-                    response.status === 401 &&
-                    globalAuthModalTrigger &&
-                    this.shouldTriggerAuthModal(endpoint)
-                ) {
-                    const authContext = this.getAuthContextForEndpoint(endpoint);
-                    globalAuthModalTrigger(authContext);
-                }
+				if (
+					response.status === 401 &&
+					globalAuthModalTrigger &&
+					this.shouldTriggerAuthModal(endpoint)
+				) {
+					const authContext = this.getAuthContextForEndpoint(endpoint);
+					globalAuthModalTrigger(authContext);
+				}
 
-                const errorData = data.error;
-                if (errorData && errorData.type) {
-                       // Send a toast notification for typed errors
-                    if (!noToast) {
-                        toast.error(errorData.message);
-                    }
-                    switch (errorData.type) {
-                        case SecurityErrorType.CSRF_VIOLATION:
-                            // Handle CSRF failures with retry
-                            if (response.status === 403 && !isRetry) {
-                                // Clear expired token and retry with fresh one
-                                this.csrfTokenInfo = null;
-                                return this.requestRaw(endpoint, options, true);
-                            }
-                            break;
-                        case SecurityErrorType.RATE_LIMITED:
-                            // Handle rate limiting
-                            console.log('Rate limited', errorData);
-                            throw RateLimitExceededError.fromRateLimitError((errorData as RateLimitErrorResponse).details);
-                        default:
-                            // Security error
-                            throw new SecurityError(errorData.type, errorData.message);
-                        }
-                    }
-                    console.log("Came here");
+				const errorData = data?.error;
+				if (errorData && errorData.type) {
+					// Send a toast notification for typed errors
+					if (!noToast) {
+						toast.error(errorData.message);
+					}
+					switch (errorData.type) {
+						case SecurityErrorType.CSRF_VIOLATION:
+							// Handle CSRF failures with retry
+							if (response.status === 403 && !isRetry) {
+								// Clear expired token and retry with fresh one
+								this.csrfTokenInfo = null;
+								return this.requestRaw(endpoint, options, true);
+							}
+							break;
+						case SecurityErrorType.RATE_LIMITED:
+							// Handle rate limiting
+							console.log('Rate limited', errorData);
+							throw RateLimitExceededError.fromRateLimitError((errorData as RateLimitErrorResponse).details);
+						default:
+							// Security error
+							throw new SecurityError(errorData.type, errorData.message);
+						}
+				}
 
-                    throw new ApiError(
-                        response.status,
-                        response.statusText,
-                        data.error?.message || data.message || 'Request failed',
-                        endpoint,
-                    );
+				throw new ApiError(
+					response.status,
+					response.statusText,
+					data?.error?.message || data?.message || 'Request failed',
+					endpoint,
+				);
 			}
 
 		    return { response, data };
 		} catch (error) {
 			if (error instanceof ApiError || error instanceof RateLimitExceededError || error instanceof SecurityError) {
-                console.error(error);
+                // Avoid noisy console.error here; callers will present friendly messages
 				throw error;
 			}
 			throw new ApiError(
