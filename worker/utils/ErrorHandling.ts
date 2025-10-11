@@ -5,6 +5,7 @@
 import { createLogger } from '../logger';
 import { SecurityError } from 'shared/types/errors';
 import { errorResponse } from '../api/responses';
+import { ZodError } from 'zod';
 
 const logger = createLogger('ErrorHandling');
 
@@ -64,6 +65,20 @@ export class ErrorHandler {
                 AppErrorType.AUTHENTICATION_ERROR,
                 error.message,
                 error.statusCode,
+                context
+            );
+        }
+
+        // Handle Zod validation errors explicitly
+        if (error instanceof ZodError) {
+            const messages = error.errors.map(err => {
+                const path = err.path.join('.');
+                return path ? `${path}: ${err.message}` : err.message;
+            }).join(', ');
+            return new AppError(
+                AppErrorType.VALIDATION_ERROR,
+                messages,
+                400,
                 context
             );
         }
