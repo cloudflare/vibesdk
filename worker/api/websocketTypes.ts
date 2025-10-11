@@ -303,6 +303,12 @@ type ConversationResponseMessage = {
 	};
 };
 
+type ConversationClearedMessage = {
+	type: 'conversation_cleared';
+	message: string;
+	clearedMessageCount: number;
+};
+
 type DeterministicCodeFixStartedMessage = {
 	type: 'deterministic_code_fix_started';
 	message: string;
@@ -405,6 +411,7 @@ export type WebSocketMessage =
     | RateLimitErrorMessage
 	| UserSuggestionsProcessingMessage
 	| ConversationResponseMessage
+	| ConversationClearedMessage
     | DeterministicCodeFixStartedMessage
     | DeterministicCodeFixCompletedMessage
 	| ModelConfigsInfoMessage

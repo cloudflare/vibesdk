@@ -6,12 +6,10 @@ export * from './types';
 export * from './core';
 
 import { createLogger, createObjectLogger, LoggerFactory } from './core';
+import { DEFAULT_CONFIG } from './core';
 
 // Configure logger for Cloudflare Workers environment
-LoggerFactory.configure({
-	level: 'info',
-	prettyPrint: false, // JSON output for optimal Cloudflare Workers Logs indexing
-});
+LoggerFactory.configure(DEFAULT_CONFIG);
 
 /**
  * Main Logger utilities - simplified API

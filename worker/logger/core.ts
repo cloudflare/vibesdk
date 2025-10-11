@@ -4,7 +4,7 @@
 import * as Sentry from '@sentry/cloudflare';
 import type { LoggerConfig, ObjectContext, LogEntry, LogLevel } from './types';
 
-const DEFAULT_CONFIG: LoggerConfig = {
+export const DEFAULT_CONFIG: LoggerConfig = {
 	level: 'info',
 	prettyPrint: false,
 };

@@ -59,6 +59,7 @@ export const WebSocketMessageResponses: Record<string, WebSocketMessageType> = {
     // Conversational AI messages
     USER_SUGGESTIONS_PROCESSING: 'user_suggestions_processing',
     CONVERSATION_RESPONSE: 'conversation_response',
+    CONVERSATION_CLEARED: 'conversation_cleared',
     
     // Model configuration info
     MODEL_CONFIGS_INFO: 'model_configs_info',
@@ -88,6 +89,7 @@ export const WebSocketMessageRequests = {
     
     // Conversational AI requests
     USER_SUGGESTION: 'user_suggestion',
+    CLEAR_CONVERSATION: 'clear_conversation',
     
     // Model configuration info request
     GET_MODEL_CONFIGS: 'get_model_configs',

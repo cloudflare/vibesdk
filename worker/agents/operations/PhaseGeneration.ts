@@ -199,7 +199,7 @@ export class PhaseGenerationOperation extends AgentOperation<PhaseGenerationInpu
             const userMessage = userContext?.images && userContext.images.length > 0
                 ? createMultiModalUserMessage(
                     userPrompt,
-                    userContext.images.map(img => `data:${img.mimeType};base64,${img.base64Data}`),
+                    userContext.images,
                     'high'
                 )
                 : createUserMessage(userPrompt);

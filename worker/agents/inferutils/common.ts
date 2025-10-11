@@ -31,6 +31,15 @@ export interface ConversationMessage extends Message {
 	conversationId: string;
 }
 
+export interface ConversationState {
+    // Conversation Session ID
+    id: string;
+    // Running history of messages
+    runningHistory: ConversationMessage[];
+    // Full history of messages
+    fullHistory: ConversationMessage[];
+}
+
 /**
  * Create a standard user message with content
  */

@@ -59,4 +59,4 @@ export interface CodeGenState {
     conversationMessages: ConversationMessage[];
     projectUpdatesAccumulator: string[];
     inferenceContext: InferenceContext;
-}  
+} 

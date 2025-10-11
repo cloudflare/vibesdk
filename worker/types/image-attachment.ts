@@ -24,7 +24,7 @@ export interface ImageAttachment {
 	/** Base64-encoded image data (without data URL prefix) */
 	base64Data: string;
 	/** Size of the original file in bytes */
-	size: number;
+	size?: number;
 	/** Optional dimensions if available */
 	dimensions?: {
 		width: number;
