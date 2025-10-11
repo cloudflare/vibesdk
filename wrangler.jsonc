@@ -131,29 +131,19 @@
              "tag": "v2" 
          } 
  	], 
- 	"routes": [ 
-         { 
-             "pattern": "build.cloudflare.dev", 
-             "custom_domain": true 
-         }, 
-         { 
-             "pattern": "*build-preview.cloudflare.dev/*", 
-             "custom_domain": false, 
-             "zone_id": "db01fac4261b2604aacad8410443a3e2" 
-         } 
-     ], 
- 	"vars": { 
-         "TEMPLATES_REPOSITORY": " `https://github.com/cloudflare/vibesdk-templates` ", 
-         "ALLOWED_EMAIL": "", 
-         "DISPATCH_NAMESPACE": "vibesdk-default-namespace", 
-         "ENABLE_READ_REPLICAS": "true", 
-         "CLOUDFLARE_AI_GATEWAY": "vibesdk-gateway", 
-         "CUSTOM_DOMAIN": "", 
-         "MAX_SANDBOX_INSTANCES": "10", 
-         "SANDBOX_INSTANCE_TYPE": "standard-3" 
-     }, 
- 	"workers_dev": true, 
- 	"preview_urls": false, 
+ 	"routes": [], 
+	"vars": { 
+        "TEMPLATES_REPOSITORY": " `https://github.com/cloudflare/vibesdk-templates` ", 
+        "ALLOWED_EMAIL": "", 
+        "DISPATCH_NAMESPACE": "vibesdk-default-namespace", 
+        "ENABLE_READ_REPLICAS": "true", 
+        "CLOUDFLARE_AI_GATEWAY": "vibesdk-gateway", 
+        "CUSTOM_DOMAIN": "", 
+        "MAX_SANDBOX_INSTANCES": "10", 
+        "SANDBOX_INSTANCE_TYPE": "standard-3" 
+    }, 
+	"workers_dev": true, 
+	"preview_urls": true,
  	"dev": { 
  		"enable_containers": false 
  	} 
