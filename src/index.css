@@ -3,20 +3,48 @@
 
 @font-face{
   font-family: "departureMono";
-  src:  url('./assets/fonts/DepartureMono-Regular.woff') 
+  src:  url('./assets/fonts/DepartureMono-Regular.woff')
+}
+
+@font-face {
+  font-family: "SF Pro Display";
+  src: local("SF Pro Display"), local("SFProDisplay-Regular");
+  font-weight: 400;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: "SF Pro Display";
+  src: local("SF Pro Display Medium"), local("SFProDisplay-Medium");
+  font-weight: 500;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: "SF Pro Display";
+  src: local("SF Pro Display Semibold"), local("SFProDisplay-Semibold");
+  font-weight: 600;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: "SF Pro Display";
+  src: local("SF Pro Display Bold"), local("SFProDisplay-Bold");
+  font-weight: 700;
+  font-style: normal;
 }
 
 /* Subtle chat edge throb effect */
 @keyframes chat-edge-throb {
   0%, 100% {
     box-shadow:
-      0 0 0 0 rgba(246, 130, 31, 0.10),
-      inset 0 0 0 1px rgba(246, 130, 31, 0.16);
+      0 0 0 0 rgba(255, 255, 255, 0.10),
+      inset 0 0 0 1px rgba(255, 255, 255, 0.16);
   }
   50% {
     box-shadow:
-      0 0 0 6px rgba(255, 61, 0, 0.08),
-      inset 0 0 0 2px rgba(255, 61, 0, 0.22);
+      0 0 0 6px rgba(255, 255, 255, 0.08),
+      inset 0 0 0 2px rgba(255, 255, 255, 0.22);
   }
 }
 
@@ -29,7 +57,6 @@
   .chat-edge-throb { animation: none; }
 }
 
-@custom-variant dark (&:is(.dark *));
 @plugin '@tailwindcss/typography';
 @theme inline {
 	--radius-sm:
@@ -83,39 +110,13 @@
 	--radius:
 		0.625rem;
 	--destructive:
-		oklch(0.577 0.245 27.325);
+		#ef4444;
 	--border:
-		oklch(0.922 0 0);
+		#393939;
 	--input:
-		oklch(0.922 0 0);
-	--ring:
-		oklch(0.708 0 0);
-	--build-accent-color: #ff3d00;
-	--build-chat-colors-bg-1: #e7e7e7;
-	--build-chat-colors-bg-2: #f6f6f6;
-	--build-chat-colors-bg-3: #fbfbfc;
-	--build-chat-colors-bg-4: #ffffff;
-	--build-chat-colors-border-primary: #e5e5e5;
-	--build-chat-colors-border-secondary: #eeeeee;
-	--build-chat-colors-border-tertiary: #eeeeee;
-	--build-chat-colors-danger: #950000cc;
-	--build-chat-colors-brand-heavy: #f6821f;
-	--build-chat-colors-brand-primary: #f6821f;
-	--build-chat-colors-brand-subtle: #f6821f;
-	--build-chat-colors-text-inverted: #ffffff;
-	--build-chat-colors-text-primary: #0a0a0a;
-	--build-chat-colors-text-secondary: #171717;
-	--build-chat-colors-text-tertiary: #21212199;
-}
+		#292929;
 
-.dark {
-	--destructive:
-		#ef4444; /* Error red */
-	--border:
-		#393939; /* Primary border color */
-	--input:
-		#292929; /* Input background */
-
+	--build-accent-color: #ffffff;
 	--build-chat-colors-bg-1: #151515;
 	--build-chat-colors-bg-2: #1f2020;
 	--build-chat-colors-bg-3: #292929;
@@ -123,9 +124,10 @@
 	--build-chat-colors-border-primary: #393939;
 	--build-chat-colors-border-secondary: #454746;
 	--build-chat-colors-border-tertiary: #454746;
-	--build-chat-colors-brand-heavy: #f6821f;
-	--build-chat-colors-brand-primary: #f6821f;
-	--build-chat-colors-brand-subtle: #f6821f;
+	--build-chat-colors-danger: #ef4444;
+	--build-chat-colors-brand-heavy: #ffffff;
+	--build-chat-colors-brand-primary: #ffffff;
+	--build-chat-colors-brand-subtle: #ffffff;
 	--build-chat-colors-text-inverted: #000000;
 	--build-chat-colors-text-primary: #ffffff;
 	--build-chat-colors-text-secondary: #cdcaca;
@@ -152,6 +154,10 @@
   	body {
     	@apply bg-bg-3 text-text-primary h-full;
 	}
+	h1, h2, h3, h4, h5, h6 {
+		font-family: 'SF Pro Display', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+		font-weight: 600;
+	}
 	button {
 		@apply cursor-pointer;
 	}
@@ -164,6 +170,8 @@
 	--font-sans:
 		'Inter', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji',
 		'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
+	--font-display:
+		'SF Pro Display', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
 
 	--color-brand: #0092b8;
 	--color-text: #000;

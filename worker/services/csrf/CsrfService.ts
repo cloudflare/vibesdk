@@ -7,9 +7,9 @@ import { createLogger } from '../../logger';
 import { SecurityError, SecurityErrorType } from 'shared/types/errors';
 import { generateSecureToken } from '../../utils/cryptoUtils';
 import { parseCookies, createSecureCookie } from '../../utils/authUtils';
-import { getCSRFConfig } from '../../config/security';
+import { getCSRFConfig, type CSRFConfig } from '../../config/security';
 import { captureSecurityEvent } from '../../observability/sentry';
-import { env } from 'cloudflare:workers'
+import { isDev } from '../../utils/envs';
 
 const logger = createLogger('CsrfService');
 
@@ -21,7 +21,33 @@ interface CSRFTokenData {
 export class CsrfService {
     static readonly COOKIE_NAME = 'csrf-token';
     static readonly HEADER_NAME = 'X-CSRF-Token';
-    static readonly defaults = getCSRFConfig(env)
+    private static defaultsCache: CSRFConfig | null = null;
+
+    static getDefaults(env?: Env): CSRFConfig {
+        // Return cached config if available
+        if (this.defaultsCache) {
+            return this.defaultsCache;
+        }
+
+        // If env is provided, get config from it
+        if (env) {
+            this.defaultsCache = getCSRFConfig(env);
+            return this.defaultsCache;
+        }
+
+        // Fallback defaults for when env is not available (local dev)
+        return {
+            origin: () => true, // Allow all origins in fallback mode
+            tokenTTL: 2 * 60 * 60 * 1000, // 2 hours
+            rotateOnAuth: true,
+            cookieName: 'csrf-token',
+            headerName: 'X-CSRF-Token'
+        };
+    }
+
+    static get defaults(): CSRFConfig {
+        return this.getDefaults();
+    }
     
     /**
      * Generate a cryptographically secure CSRF token
@@ -33,43 +59,44 @@ export class CsrfService {
     /**
      * Set CSRF token cookie with timestamp
      */
-    static setTokenCookie(response: Response, token: string, maxAge: number = 7200): void {
+    static setTokenCookie(response: Response, token: string, maxAge: number = 7200, env?: Env): void {
         const tokenData: CSRFTokenData = {
             token,
             timestamp: Date.now()
         };
-        
+
         const cookie = createSecureCookie({
             name: this.COOKIE_NAME,
             value: JSON.stringify(tokenData),
             sameSite: 'Strict',
             maxAge
-        });
+        }, env);
         response.headers.append('Set-Cookie', cookie);
     }
     
     /**
      * Extract CSRF token from cookies with validation
      */
-    static getTokenFromCookie(request: Request): string | null {
+    static getTokenFromCookie(request: Request, env?: Env): string | null {
         const cookieHeader = request.headers.get('Cookie');
         if (!cookieHeader) return null;
-        
+
         const cookies = parseCookies(cookieHeader);
         const cookieValue = cookies[this.COOKIE_NAME];
-        
+
         if (!cookieValue) return null;
-        
+
         try {
             const tokenData: CSRFTokenData = JSON.parse(cookieValue);
-            
+
             const now = Date.now();
             const tokenAge = now - tokenData.timestamp;
-            
-            if (tokenAge > this.defaults.tokenTTL) {
+
+            const tokenTTL = env ? this.getDefaults(env).tokenTTL : this.defaults.tokenTTL;
+            if (tokenAge > tokenTTL) {
                 logger.debug('CSRF token expired', {
                     tokenAge,
-                    maxAge: this.defaults.tokenTTL
+                    maxAge: tokenTTL
                 });
                 return null;
             }
@@ -96,21 +123,27 @@ export class CsrfService {
     /**
      * Validate CSRF token (double-submit cookie pattern)
      */
-    static validateToken(request: Request): boolean {
+    static validateToken(request: Request, env?: Env): boolean {
+        // Skip CSRF validation in local development
+        if (env && isDev(env)) {
+            logger.debug('Local development mode: skipping CSRF validation');
+            return true;
+        }
+
         const method = request.method.toUpperCase();
-        
+
         // Skip validation for safe methods
         if (['GET', 'HEAD', 'OPTIONS'].includes(method)) {
             return true;
         }
-        
+
         // Skip for WebSocket upgrades
         const upgradeHeader = request.headers.get('upgrade');
         if (upgradeHeader?.toLowerCase() === 'websocket') {
             return true;
         }
         
-        const cookieToken = this.getTokenFromCookie(request);
+        const cookieToken = this.getTokenFromCookie(request, env);
         const headerToken = this.getTokenFromHeader(request);
         
         // Both tokens must exist and match
@@ -170,23 +203,25 @@ export class CsrfService {
      * Middleware to enforce CSRF protection with configuration
      */
     static async enforce(
-        request: Request, 
-        response?: Response
+        request: Request,
+        response?: Response,
+        env?: Env
     ): Promise<void> {
         // Generate and set token for GET requests (to establish cookie)
         if (request.method === 'GET' && response) {
-            const existingToken = this.getTokenFromCookie(request);
+            const existingToken = this.getTokenFromCookie(request, env);
             if (!existingToken) {
                 const newToken = this.generateToken();
-                const maxAge = Math.floor(this.defaults.tokenTTL / 1000);
-                this.setTokenCookie(response, newToken, maxAge);
+                const tokenTTL = env ? this.getDefaults(env).tokenTTL : this.defaults.tokenTTL;
+                const maxAge = Math.floor(tokenTTL / 1000);
+                this.setTokenCookie(response, newToken, maxAge, env);
                 logger.debug('New CSRF token generated for GET request');
             }
             return;
         }
-        
+
         // Validate token for state-changing requests
-        if (!this.validateToken(request)) {
+        if (!this.validateToken(request, env)) {
             throw new SecurityError(
                 SecurityErrorType.CSRF_VIOLATION,
                 'CSRF token validation failed',
@@ -199,49 +234,51 @@ export class CsrfService {
      * Get or generate CSRF token for a request with proper rotation
      */
     static getOrGenerateToken(
-        request: Request, 
-        forceNew: boolean = false
+        request: Request,
+        forceNew: boolean = false,
+        env?: Env
     ): string {
         if (forceNew) {
             const newToken = this.generateToken();
             logger.debug('Forced generation of new CSRF token');
             return newToken;
         }
-        
-        const existingToken = this.getTokenFromCookie(request);
+
+        const existingToken = this.getTokenFromCookie(request, env);
         if (existingToken) {
             logger.debug('Using existing valid CSRF token');
             return existingToken;
         }
-        
+
         const newToken = this.generateToken();
         logger.debug('Generated new CSRF token due to missing/expired token');
         return newToken;
     }
-    
+
     /**
      * Rotate CSRF token (generate new token and invalidate old one)
      */
-    static rotateToken(response: Response): string {
+    static rotateToken(response: Response, env?: Env): string {
         const newToken = this.generateToken();
-        const maxAge = Math.floor(this.defaults.tokenTTL / 1000);
-        
-        this.setTokenCookie(response, newToken, maxAge);
+        const tokenTTL = env ? this.getDefaults(env).tokenTTL : this.defaults.tokenTTL;
+        const maxAge = Math.floor(tokenTTL / 1000);
+
+        this.setTokenCookie(response, newToken, maxAge, env);
         logger.info('CSRF token rotated');
-        
+
         return newToken;
     }
     
     /**
      * Clear CSRF token cookie
      */
-    static clearTokenCookie(response: Response): void {
+    static clearTokenCookie(response: Response, env?: Env): void {
         const cookie = createSecureCookie({
             name: this.COOKIE_NAME,
             value: '',
             sameSite: 'Strict',
             maxAge: 0
-        });
+        }, env);
         response.headers.append('Set-Cookie', cookie);
     }
 }

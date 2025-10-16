@@ -39,7 +39,7 @@ const getCompletedPhaseCount = (phases: PhaseTimelineItem[]) =>
 // Consolidated status-specific loader components
 interface StatusLoaderProps {
 	size?: 'sm' | 'md';
-	color?: 'accent' | 'blue' | 'orange' | 'tertiary' | 'green';
+	color?: 'accent' | 'blue' | 'white' | 'tertiary' | 'green';
 }
 
 const StatusLoader = ({ size = 'md', color = 'accent' }: StatusLoaderProps) => {
@@ -47,7 +47,7 @@ const StatusLoader = ({ size = 'md', color = 'accent' }: StatusLoaderProps) => {
 	const colorMap = {
 		accent: 'text-accent',
 		blue: 'text-blue-400',
-		orange: 'text-orange-400',
+		white: 'text-white',
 		tertiary: 'text-text-tertiary',
 		green: 'text-green-500'
 	};
@@ -59,7 +59,7 @@ const StatusCheck = ({ size = 'md', color = 'green' }: StatusLoaderProps) => {
 	const colorMap = {
 		accent: 'text-accent',
 		blue: 'text-blue-400',
-		orange: 'text-orange-400',
+		white: 'text-white',
 		tertiary: 'text-text-tertiary',
 		green: 'text-green-500'
 	};
@@ -349,7 +349,7 @@ export function PhaseTimeline({
 			return {
 				text: 'Deploying preview',
 				subtitle: 'Updating preview environment...',
-				icon: <StatusLoader color="orange" />,
+				icon: <StatusLoader color="white" />,
 				badge: phaseBadge
 			};
 		}
@@ -823,12 +823,12 @@ export function PhaseTimeline({
 											);
 										} else if (isPreviewDeploying) {
 											return (
-												<div className="space-y-1 relative bg-orange-50/5 border border-orange-200/20 rounded-lg p-3">
+												<div className="space-y-1 relative bg-white/5 border border-white/20 rounded-lg p-3">
 													<div className="flex items-center gap-2">
-														<StatusLoader size="sm" color="orange" />
-														<span className="text-sm font-medium text-orange-400">Deploying preview...</span>
+														<StatusLoader size="sm" color="white" />
+														<span className="text-sm font-medium text-white">Deploying preview...</span>
 													</div>
-													<span className="text-xs text-orange-300/80 ml-5">Updating your preview environment</span>
+													<span className="text-xs text-white/80 ml-5">Updating your preview environment</span>
 												</div>
 											);
 										}

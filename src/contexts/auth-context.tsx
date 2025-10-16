@@ -181,6 +181,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Initialize auth state on mount
   useEffect(() => {
     const initAuth = async () => {
+      // In development mode, create a mock user
+      if (import.meta.env.DEV || import.meta.env.MODE === 'development') {
+        const mockUser: AuthUser = {
+          id: 'dev-user-id',
+          email: 'dev@assista.local',
+          name: 'Development User',
+          isAnonymous: false,
+          createdAt: new Date().toISOString(),
+        };
+        setUser(mockUser);
+        setSession({
+          userId: mockUser.id,
+          email: mockUser.email,
+          sessionId: 'dev-session-id',
+          expiresAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000), // 1 year
+        });
+        setIsLoading(false);
+        return;
+      }
+
       await fetchAuthProviders();
       await checkAuth();
     };

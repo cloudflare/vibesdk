@@ -131,7 +131,7 @@ export function getPasswordStrengthLabel(score: number): {
   if (score === 0) {
     return { label: 'Very Weak', color: 'red', percentage };
   } else if (score === 1) {
-    return { label: 'Weak', color: 'orange', percentage };
+    return { label: 'Weak', color: 'gray', percentage };
   } else if (score === 2) {
     return { label: 'Fair', color: 'yellow', percentage };
   } else if (score === 3) {

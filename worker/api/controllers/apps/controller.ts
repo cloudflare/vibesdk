@@ -4,7 +4,7 @@ import { formatRelativeTime } from '../../../utils/timeFormatter';
 import { BaseController } from '../baseController';
 import { ApiResponse, ControllerResponse } from '../types';
 import type { RouteContext } from '../../types/route-context';
-import { 
+import {
     AppsListData,
     PublicAppsData,
     SingleAppData,
@@ -14,6 +14,7 @@ import {
 } from './types';
 // import { withCache } from '../../../services/cache/wrapper';
 import { createLogger } from '../../../logger';
+import { isDev } from '../../../utils/envs';
 
 export class AppController extends BaseController {
     static logger = createLogger('AppController');
@@ -21,8 +22,12 @@ export class AppController extends BaseController {
     // Get all apps for the current user
     static async getUserApps(_request: Request, env: Env, _ctx: ExecutionContext, context: RouteContext): Promise<ControllerResponse<ApiResponse<AppsListData>>> {
         try {
+            if (isDev(env)) {
+                return AppController.createSuccessResponse({ apps: [] });
+            }
+
             const user = context.user!;
-            
+
             const appService = new AppService(env);
             const userApps = await appService.getUserAppsWithFavorites(user.id);
 
@@ -40,6 +45,10 @@ export class AppController extends BaseController {
     // Get recent apps (last 10)
     static async getRecentApps(_request: Request, env: Env, _ctx: ExecutionContext, context: RouteContext): Promise<ControllerResponse<ApiResponse<AppsListData>>> {
         try {
+            if (isDev(env)) {
+                return AppController.createSuccessResponse({ apps: [] });
+            }
+
             const user = context.user!;
 
             const appService = new AppService(env);
@@ -59,6 +68,10 @@ export class AppController extends BaseController {
     // Get favorite apps - NO CACHE (user-specific, real-time)
     static async getFavoriteApps(_request: Request, env: Env, _ctx: ExecutionContext, context: RouteContext): Promise<ControllerResponse<ApiResponse<AppsListData>>> {
         try {
+            if (isDev(env)) {
+                return AppController.createSuccessResponse({ apps: [] });
+            }
+
             const user = context.user!;
 
             const appService = new AppService(env);
@@ -107,8 +120,20 @@ export class AppController extends BaseController {
     // Get public apps feed (like a global board)
    static getPublicApps = async function(this: AppController, request: Request, env: Env, _ctx: ExecutionContext, _context: RouteContext): Promise<ControllerResponse<ApiResponse<PublicAppsData>>> {
         try {
+            if (isDev(env)) {
+                return AppController.createSuccessResponse({
+                    apps: [],
+                    pagination: {
+                        total: 0,
+                        page: 1,
+                        limit: 20,
+                        totalPages: 0
+                    }
+                });
+            }
+
             const url = new URL(request.url);
-            
+
             // Parse query parameters with type safety
             const limit = Math.min(parseInt(url.searchParams.get('limit') || '20'), 100);
             const page = parseInt(url.searchParams.get('page') || '1');
@@ -118,10 +143,10 @@ export class AppController extends BaseController {
             const period = (url.searchParams.get('period') || 'all') as TimePeriod;
             const framework = url.searchParams.get('framework') || undefined;
             const search = url.searchParams.get('search') || undefined;
-            
+
             const user = await AppController.getOptionalUser(request, env);
             const userId = user?.id;
-            
+
             // Get apps
             const appService = new AppService(env);
             const result = await appService.getPublicApps({
@@ -134,7 +159,7 @@ export class AppController extends BaseController {
                 search,
                 userId
             });
-            
+
             // Format response with relative timestamps
             const responseData: PublicAppsData = {
                 apps: result.data.map(app => ({
@@ -146,7 +171,7 @@ export class AppController extends BaseController {
                 })),
                 pagination: result.pagination
             };
-            
+
             return AppController.createSuccessResponse(responseData);
         } catch (error) {
             AppController.logger.error('Error fetching public apps:', error);

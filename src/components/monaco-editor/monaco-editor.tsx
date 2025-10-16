@@ -173,14 +173,10 @@ export const MonacoEditor = memo<MonacoEditorProps>(function MonacoEditor({
 
 
 	useEffect(() => {
-		let configuredTheme = theme;
-		if (theme === 'system') {
-			configuredTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
-		}
 		editor.current = monaco.editor.create(containerRef.current!, {
 			language: createOptions.language || 'typescript',
 			minimap: { enabled: false },
-			theme: configuredTheme === 'dark' ? 'v1-dev-dark' : 'v1-dev',
+			theme: 'v1-dev-dark',
 			automaticLayout: true,
 			value: defaultCode,
 			fontSize: 13,

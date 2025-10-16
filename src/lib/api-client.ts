@@ -340,10 +340,14 @@ class ApiClient {
 			const data = await response.json() as ApiResponse<T>;
 
 			if (!response.ok) {
+                // Skip auth modal in local development
+                const isLocalDev = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+
                 if (
                     response.status === 401 &&
                     globalAuthModalTrigger &&
-                    this.shouldTriggerAuthModal(endpoint)
+                    this.shouldTriggerAuthModal(endpoint) &&
+                    !isLocalDev
                 ) {
                     const authContext = this.getAuthContextForEndpoint(endpoint);
                     globalAuthModalTrigger(authContext);

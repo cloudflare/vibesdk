@@ -12,6 +12,7 @@ import { RateLimitService } from '../../../services/rate-limit/rateLimits';
 import { validateWebSocketOrigin } from '../../../middleware/security/websocket';
 import { createLogger } from '../../../logger';
 import { getPreviewDomain } from 'worker/utils/urls';
+import { isDev } from '../../../utils/envs';
 
 const defaultCodeGenArgs: CodeGenArgs = {
     query: '',
@@ -74,13 +75,18 @@ export class CodingAgentController extends BaseController {
 
             const agentId = generateId();
             const modelConfigService = new ModelConfigService(env);
-                                
+
             // Fetch all user model configs, api keys and agent instance at once
-            const [userConfigsRecord, agentInstance] = await Promise.all([
-                modelConfigService.getUserModelConfigs(user.id),
-                getAgentStub(env, agentId, false, this.logger)
-            ]);
-                                
+            let userConfigsRecord: Record<string, any>;
+
+            if (isDev(env)) {
+                userConfigsRecord = {};
+            } else {
+                userConfigsRecord = await modelConfigService.getUserModelConfigs(user.id);
+            }
+
+            const agentInstance = await getAgentStub(env, agentId, false, this.logger);
+
             // Convert Record to Map and extract only ModelConfig properties
             const userModelConfigs = new Map();
             for (const [actionKey, mergedConfig] of Object.entries(userConfigsRecord)) {
@@ -103,7 +109,7 @@ export class CodingAgentController extends BaseController {
                 enableRealtimeCodeFix: false, // This costs us too much, so disabled it for now
                 enableFastSmartCodeFix: false,
             }
-                                
+
             this.logger.info(`Initialized inference context for user ${user.id}`, {
                 modelConfigsCount: Object.keys(userModelConfigs).length,
             });

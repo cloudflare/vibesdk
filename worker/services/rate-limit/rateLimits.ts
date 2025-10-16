@@ -191,6 +191,10 @@ export class RateLimitService {
 		user: AuthUser,
 		request: Request
 	): Promise<void> {
+		if (isDev(env)) {
+			this.logger.debug('Local development mode: skipping app creation rate limit');
+			return;
+		}
 		if (!config[RateLimitType.APP_CREATION].enabled) {
 			return;
 		}

@@ -404,7 +404,7 @@ export const PreviewIframe = forwardRef<HTMLIFrameElement, PreviewIframeProps>(
 		return (
 			<div className={`${className} flex flex-col items-center justify-center bg-bg-3 border border-text/10 rounded-lg`}>
 				<div className="text-center p-8 max-w-md">
-					<AlertCircle className="size-8 text-orange-500 mx-auto mb-4" />
+					<AlertCircle className="size-8 text-white mx-auto mb-4" />
 					<h3 className="text-lg font-medium text-text-primary mb-2">
 						Preview Not Available
 					</h3>

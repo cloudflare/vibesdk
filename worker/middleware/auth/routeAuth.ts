@@ -14,6 +14,7 @@ import { AppEnv } from '../../types/appenv';
 import { RateLimitExceededError } from 'shared/types/errors';
 import * as Sentry from '@sentry/cloudflare';
 import { getUserConfigurableSettings } from 'worker/config';
+import { isDev } from '../../utils/envs';
 
 const logger = createLogger('RouteAuth');
 
@@ -70,6 +71,12 @@ export async function routeAuthChecks(
     params?: Record<string, string>
 ): Promise<{ success: boolean; response?: Response }> {
     try {
+        // Skip all auth checks in local development
+        if (isDev(env)) {
+            logger.debug('Local development mode: skipping authentication');
+            return { success: true };
+        }
+
         // Public routes always pass
         console.log('requirement', requirement, 'for user', user);
         if (requirement.level === 'public') {
@@ -143,7 +150,25 @@ export async function enforceAuthRequirement(c: Context<AppEnv>) : Promise<Respo
         logger.error('No authentication level found');
         return errorResponse('No authentication level found', 500);
     }
-    
+
+    // Skip all auth enforcement in local development and provide mock user
+    if (isDev(c.env)) {
+        logger.debug('Local development mode: skipping auth enforcement');
+        if (!user) {
+            // Create mock development user
+            const mockUser: AuthUser = {
+                id: 'dev-user-id',
+                email: 'dev@assista.local',
+                displayName: 'Development User',
+                isAnonymous: false,
+                createdAt: new Date(),
+            };
+            c.set('user', mockUser);
+            c.set('sessionId', 'dev-session-id');
+        }
+        return undefined;
+    }
+
     // Only perform auth if we need it or don't have user yet
     if (!user && (requirement.level === 'authenticated' || requirement.level === 'owner-only')) {
         const userSession = await authMiddleware(c.req.raw, c.env);

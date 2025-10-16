@@ -300,7 +300,7 @@ function DebugPanelCore({ messages, onClear, chatSessionId }: DebugPanelProps) {
         { id: 'generation', label: 'Generation', color: 'bg-blue-100 border-blue-300' },
         { id: 'phase', label: 'Phases', color: 'bg-green-100 border-green-300' },
         { id: 'file', label: 'Files', color: 'bg-purple-100 border-purple-300' },
-        { id: 'deployment', label: 'Deployment', color: 'bg-orange-100 border-orange-300' },
+        { id: 'deployment', label: 'Deployment', color: 'bg-gray-100 border-gray-300' },
         { id: 'system', label: 'System', color: 'bg-red-100 border-red-300' }
       ];
       
@@ -820,7 +820,7 @@ function DebugPanelCore({ messages, onClear, chatSessionId }: DebugPanelProps) {
                           const simpleStats = stats as { avg: number; median: number; p99: number; count: number };
                           const operationConfig = {
                             phaseGeneration: { icon: '🔄', color: 'green', label: 'Phase Generation' },
-                            cfDeployment: { icon: '☁️', color: 'orange', label: 'CF Deployment' },
+                            cfDeployment: { icon: '☁️', color: 'gray', label: 'CF Deployment' },
                             runnerDeployment: { icon: '🚀', color: 'blue', label: 'Runner Deployment' }
                           }[operation] || { icon: '⚙️', color: 'gray', label: operation };
                           

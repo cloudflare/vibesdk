@@ -2,8 +2,11 @@
  * Centralized Authentication Utilities
  */
 
+/// <reference types="../../worker-configuration" />
+
 import type {  AuthUser } from '../types/auth-types';
 import type { User } from '../database/schema';
+import { isDev } from './envs';
 
 /**
  * Extract sessionId from cookie
@@ -117,20 +120,20 @@ export function parseCookies(cookieHeader: string): Record<string, string> {
 /**
  * Clear authentication cookie using secure cookie options
  */
-export function clearAuthCookie(name: string): string {
+export function clearAuthCookie(name: string, env?: Env): string {
 	return createSecureCookie({
 		name,
 		value: '',
 		maxAge: 0,
-	});
+	}, env);
 }
 
 /**
  * Clear all auth cookies from response using consolidated approach
  */
-export function clearAuthCookies(response: Response): void {
-	response.headers.append('Set-Cookie', clearAuthCookie('accessToken'));
-	response.headers.append('Set-Cookie', clearAuthCookie('auth_token'));
+export function clearAuthCookies(response: Response, env?: Env): void {
+	response.headers.append('Set-Cookie', clearAuthCookie('accessToken', env));
+	response.headers.append('Set-Cookie', clearAuthCookie('auth_token', env));
 }
 
 /**
@@ -150,17 +153,19 @@ export interface CookieOptions {
 /**
  * Create secure cookie string with all options
  */
-export function createSecureCookie(options: CookieOptions): string {
+export function createSecureCookie(options: CookieOptions, env?: Env): string {
 	const {
 		name,
 		value,
 		maxAge = 7 * 24 * 60 * 60, // 7 days default
 		httpOnly = true,
-		secure = true,
+		secure,
 		sameSite = 'Lax',
 		path = '/',
 		domain,
 	} = options;
+
+	const isSecure = secure !== undefined ? secure : (env ? !isDev(env) : true);
 
 	const parts = [`${name}=${encodeURIComponent(value)}`];
 
@@ -168,7 +173,7 @@ export function createSecureCookie(options: CookieOptions): string {
 	if (path) parts.push(`Path=${path}`);
 	if (domain) parts.push(`Domain=${domain}`);
 	if (httpOnly) parts.push('HttpOnly');
-	if (secure) parts.push('Secure');
+	if (isSecure) parts.push('Secure');
 	if (sameSite) parts.push(`SameSite=${sameSite}`);
 
 	return parts.join('; ');
@@ -183,6 +188,7 @@ export function setSecureAuthCookies(
 		accessToken: string;
 		accessTokenExpiry?: number; // seconds
 	},
+	env?: Env,
 ): void {
 	const {
 		accessToken,
@@ -198,7 +204,7 @@ export function setSecureAuthCookies(
 			maxAge: accessTokenExpiry,
 			httpOnly: true,
 			sameSite: 'Lax',
-		}),
+		}, env),
 	);
 }
 

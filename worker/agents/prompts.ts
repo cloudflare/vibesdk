@@ -1314,7 +1314,7 @@ export const USER_PROMPT_FORMATTER = {
                     // Get last phase files diff only
                     const fileMap = new Map<string, FileState>();
                     files.forEach((file) => fileMap.set(file.filePath, file));
-                    const lastPhaseFiles = lastPhase.files.map((file) => fileMap.get(file.path)).filter((file) => file !== undefined);
+                    const lastPhaseFiles = lastPhase.files.map((file) => fileMap.get(file.path)).filter((file): file is FileState => file !== undefined);
                     lastPhaseFilesDiff = lastPhaseFiles.map((file) => file.lastDiff).join('\n');
         
                     // Set lastPhase = false for all phases but the last
@@ -1428,11 +1428,23 @@ const ECOMM_INSTRUCTIONS = (): string => `
 const DASHBOARD_INSTRUCTIONS = (): string => `
 ** If applicable to user query group Related Controls and Forms into Well-Labeled Cards / Panels
 ** If applicable to user query offer Quick Actions / Shortcuts for Common Tasks
-** If user asked for analytics/visualizations/statistics - Show sparklines, mini line/bar charts, or simple pie indicators for trends 
+** If user asked for analytics/visualizations/statistics - Show sparklines, mini line/bar charts, or simple pie indicators for trends
 ** If user asked for analytics/visualizations/statistics - Maybe show key metrics in modular cards
 ** If applicable to user query make It Interactive and Contextual (Filters, Search, Pagination)
 ** If applicable to user query add a sidebar and or tabs
 ** Dashboard should be information dense.
+
+**ACI.dev Integration for Dashboards:**
+** When building dashboards that need real-time data, use ACI.dev functions to fetch data from external APIs
+** Use ACI functions for CRUD operations with external services (create, read, update, delete data)
+** Examples:
+  - Use \`aci_execute_function({ functionName: "NOTION__GET_PAGES", arguments: { database_id: "your-db-id" } })\` to fetch Notion data
+  - Use \`aci_execute_function({ functionName: "SLACK__SEND_MESSAGE", arguments: { channel: "#general", text: "Dashboard updated" } })\` for notifications
+  - Use \`aci_execute_function({ functionName: "GOOGLE_SHEETS__READ_RANGE", arguments: { spreadsheet_id: "your-sheet-id", range: "A1:B10" } })\` for spreadsheet data
+  - Use \`aci_execute_function({ functionName: "GITHUB__GET_REPOS", arguments: { owner: "username" } })\` for GitHub data
+** Always handle ACI function responses with proper loading states and error handling
+** Cache ACI function results to avoid unnecessary API calls
+** Provide fallback data or error states when ACI functions are unavailable
 `;
 
 export const getUsecaseSpecificInstructions = (selectedTemplate: TemplateSelection): string => {

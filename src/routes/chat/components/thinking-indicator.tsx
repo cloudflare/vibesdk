@@ -70,7 +70,7 @@ export function ThinkingIndicator({ visible }: ThinkingIndicatorProps) {
               scale: { duration: 2, repeat: Infinity, ease: "easeInOut" }
             }}
           >
-            <Sparkles className="size-3 text-orange-400" />
+            <Sparkles className="size-3 text-white" />
           </motion.div>
           <AnimatePresence mode="wait">
             <motion.span

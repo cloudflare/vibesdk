@@ -42,7 +42,7 @@ export function FileTreeItem({
 					<Loader className="size-3 animate-spin" />
 				) : null}
 				{item.file.needsFixing && (
-					<span className="text-[9px] text-orange-400">fix</span>
+					<span className="text-[9px] text-white">fix</span>
 				)}
 				{item.file.hasRuntimeError && (
 					<span className="text-[9px] text-red-400">error</span>

@@ -29,6 +29,14 @@ export function useAuthGuard(): AuthGuardReturn {
   const { showAuthModal } = useAuthModal();
 
   const requireAuth = useCallback((options: AuthGuardOptions = {}) => {
+    // Skip auth requirement in development mode
+    if (import.meta.env.DEV || import.meta.env.MODE === 'development') {
+      if (options.onSuccess) {
+        options.onSuccess();
+      }
+      return true;
+    }
+
     // If already authenticated, check if anonymous users are allowed
     if (isAuthenticated) {
       if (options.requireFullAuth && user?.isAnonymous) {

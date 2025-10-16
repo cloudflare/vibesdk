@@ -38,7 +38,7 @@ const getProviderInfo = (modelValue?: string) => {
     return { name: 'OpenAI', color: 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400' };
   }
   if (modelValue.includes('anthropic/') || modelValue.includes('claude')) {
-    return { name: 'Anthropic', color: 'bg-orange-100 text-orange-800 dark:bg-orange-900/20 dark:text-orange-400' };
+    return { name: 'Anthropic', color: 'bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-white' };
   }
   if (modelValue.includes('google-ai-studio/') || modelValue.includes('gemini')) {
     return { name: 'Google', color: 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400' };
