@@ -10,7 +10,6 @@ import { AgentOperation, getSystemPromptWithProjectContext, OperationOptions } f
 import { SCOFFormat, SCOFParsingState } from '../output-formats/streaming-formats/scof';
 import { TemplateRegistry } from '../inferutils/schemaFormatters';
 import { IsRealtimeCodeFixerEnabled, RealtimeCodeFixer } from '../assistants/realtimeCodeFixer';
-import { AGENT_CONFIG } from '../inferutils/config';
 import { CodeSerializerType } from '../utils/codeSerializers';
 import type { UserContext } from '../core/types';
 import { imagesToBase64 } from 'worker/utils/images';
@@ -475,20 +474,16 @@ export class PhaseImplementationOperation extends AgentOperation<PhaseImplementa
     
         const fixedFilePromises: Promise<FileOutputType>[] = [];
 
-        let modelConfig = AGENT_CONFIG.phaseImplementation;
-        if (inputs.isFirstPhase) {
-            modelConfig = AGENT_CONFIG.firstPhaseImplementation;
-        }
+        const agentActionName = inputs.isFirstPhase ? 'firstPhaseImplementation' : 'phaseImplementation';
 
         const shouldEnableRealtimeCodeFixer = inputs.shouldAutoFix && IsRealtimeCodeFixerEnabled(options.inferenceContext);
     
         // Execute inference with streaming
         await executeInference({
             env: env,
-            agentActionName: "phaseImplementation",
+            agentActionName,
             context: options.inferenceContext,
             messages,
-            modelConfig,
             stream: {
                 chunk_size: 256,
                 onChunk: (chunk: string) => {
