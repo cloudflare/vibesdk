@@ -1,5 +1,5 @@
 import clsx from 'clsx';
-import { Loader, Check, AlertCircle, ChevronDown, ChevronRight, ArrowUp, Zap } from 'lucide-react';
+import { Loader, Check, AlertCircle, ChevronDown, ChevronRight, ArrowUp, Zap, XCircle } from 'lucide-react';
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import type { RefObject } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
@@ -9,7 +9,7 @@ import { ThinkingIndicator } from './thinking-indicator';
 import type { ProjectStage } from '../utils/project-stage-helpers';
 
 // Unified status type for consistency
-type UnifiedStatus = 'pending' | 'active' | 'completed' | 'error' | 'generating' | 'validating';
+type UnifiedStatus = 'pending' | 'active' | 'completed' | 'error' | 'generating' | 'validating' | 'cancelled';
 
 // Animation variants and transitions for consistent motion
 const statusIconVariants = {
@@ -88,6 +88,8 @@ function StatusIcon({ status, size = 'md', className }: StatusIconProps) {
 			return <Loader className={clsx(iconClasses, 'animate-spin text-blue-400', className)} />;
 		case 'completed':
 			return <Check className={clsx(iconClasses, 'text-green-500', className)} />;
+		case 'cancelled':
+			return <XCircle className={clsx(iconClasses, 'text-orange-400', className)} />;
 		case 'error':
 			return <AlertCircle className={clsx(iconClasses, 'text-red-500', className)} />;
 		case 'active':
@@ -329,7 +331,7 @@ export function PhaseTimeline({
 		if (validatingPhase) {
 			return {
 				text: `Reviewing: ${truncatePhaseName(validatingPhase.name)}`,
-				subtitle: 'Running tests and fixing issues...',
+				subtitle: 'Identifying issues...',
 				icon: <StatusLoader color="blue" />,
 				badge: phaseBadge
 			};
@@ -707,12 +709,12 @@ export function PhaseTimeline({
 										>
 											{/* Phase Implementation Header */}
 											<button
-												onClick={() => phase.status === 'completed' && togglePhase(phase.id)}
+												onClick={() => (phase.status === 'completed' || phase.status === 'cancelled') && togglePhase(phase.id)}
 												className="flex items-start gap-2 relative z-0 w-full text-left hover:bg-zinc-50/5 rounded px-1 py-1 transition-colors group"
-												disabled={phase.status !== 'completed'}
+												disabled={phase.status !== 'completed' && phase.status !== 'cancelled'}
 											>
-												{/* Expand/Collapse chevron for completed phases */}
-												{phase.status === 'completed' && (
+												{/* Expand/Collapse chevron for completed/cancelled phases */}
+												{(phase.status === 'completed' || phase.status === 'cancelled') && (
 													<div className="flex-shrink-0 opacity-60 group-hover:opacity-100 transition-opacity mt-0.5">
 														{expandedPhases.has(phase.id) ? (
 															<ChevronDown className="size-3" />
@@ -723,22 +725,17 @@ export function PhaseTimeline({
 												)}
 
 												<div className="flex-shrink-0 mt-0.5">
-													{phase.status === 'generating' ? (
-														<StatusLoader size="sm" color="accent" />
-													) : phase.status === 'validating' ? (
-														<StatusLoader size="sm" color="blue" />
-													) : (
-														<StatusCheck size="sm" color="green" />
-													)}
+													<StatusIcon status={phase.status} size="sm" />
 												</div>
 												<span className="text-sm font-medium text-text-50 flex-1 break-words">
 													{phase.status === 'completed' ? `Implemented ${phase.name}` :
+													 phase.status === 'cancelled' ? `Cancelled ${phase.name}` :
 													 phase.status === 'validating' ? `Reviewing ${phase.name}` :
 													 `Implementing ${phase.name}`}
 												</span>
 
-												{/* File count badge for collapsed completed phases */}
-												{phase.status === 'completed' && !expandedPhases.has(phase.id) && (
+												{/* File count badge for collapsed completed/cancelled phases */}
+												{(phase.status === 'completed' || phase.status === 'cancelled') && !expandedPhases.has(phase.id) && (
 													<span className="text-xs text-text-primary/50 bg-zinc-100 dark:bg-zinc-800 px-1.5 py-0.5 rounded flex-shrink-0">
 														{phase.files.length} files
 													</span>
@@ -746,7 +743,7 @@ export function PhaseTimeline({
 											</button>
 
 											{/* Phase Files - Show when implementing, validating, or expanded */}
-											{(phase.status === 'generating' || phase.status === 'validating' || (phase.status === 'completed' && expandedPhases.has(phase.id))) && (
+											{(phase.status === 'generating' || phase.status === 'validating' || ((phase.status === 'completed' || phase.status === 'cancelled') && expandedPhases.has(phase.id))) && (
 												<div className="ml-6 space-y-0.5">
 													{phase.files.map((phaseFile) => {
 														// Check if this file exists in the global files array for click handling
@@ -818,7 +815,7 @@ export function PhaseTimeline({
 														<StatusLoader size="sm" color="blue" />
 														<span className="text-sm font-medium text-blue-400">Reviewing phase...</span>
 													</div>
-													<span className="text-xs text-blue-300/80 ml-5">Running tests and fixing any issues</span>
+													<span className="text-xs text-blue-300/80 ml-5">Identifying issues...</span>
 												</div>
 											);
 										} else if (isPreviewDeploying) {

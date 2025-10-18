@@ -164,6 +164,23 @@ export class SandboxSdkClient extends BaseSandboxService {
         }
     }
 
+    async updateProjectName(instanceId: string, projectName: string): Promise<boolean> {
+        try {
+            await this.updateProjectConfiguration(instanceId, projectName);
+            try {
+                const metadata = await this.getInstanceMetadata(instanceId);
+                const updated = { ...metadata, projectName } as InstanceMetadata;
+                await this.storeInstanceMetadata(instanceId, updated);
+            } catch (error) {
+                this.logger.error('Failed to update instance metadata', error);
+            }
+            return true;
+        } catch (error) {
+            this.logger.error('Failed to update project name', error);
+            return false;
+        }
+    }
+
     private getInstanceMetadataFile(instanceId: string): string {
         return `${instanceId}-metadata.json`;
     }
@@ -1394,11 +1411,12 @@ export class SandboxSdkClient extends BaseSandboxService {
     // ==========================================
     // LOG RETRIEVAL
     // ==========================================
-    async getLogs(instanceId: string, onlyRecent?: boolean): Promise<GetLogsResponse> {
+    async getLogs(instanceId: string, onlyRecent?: boolean, durationSeconds?: number): Promise<GetLogsResponse> {
         try {
-            this.logger.info('Retrieving instance logs', { instanceId });
+            this.logger.info('Retrieving instance logs', { instanceId, durationSeconds });
             // Use CLI to get all logs and reset the file
-            const cmd = `timeout 10s monitor-cli logs get -i ${instanceId} --format raw ${onlyRecent ? '--reset' : ''}`;
+            const durationArg = durationSeconds ? `--duration ${durationSeconds}` : '';
+            const cmd = `timeout 10s monitor-cli logs get -i ${instanceId} --format raw ${onlyRecent ? '--reset' : ''} ${durationArg}`;
             const result = await this.executeCommand(instanceId, cmd, 15000);
             return {
                 success: true,
@@ -1633,7 +1651,7 @@ export class SandboxSdkClient extends BaseSandboxService {
                                 line: message.line || 0,
                                 column: message.column,
                                 severity: this.mapESLintSeverity(message.severity),
-                                ruleId: message.ruleId,
+                                ruleId: message.ruleId || '',
                                 source: 'eslint'
                             });
                         }

@@ -15,7 +15,7 @@ export function createDeployPreviewTool(
 		function: {
 			name: 'deploy_preview',
 			description:
-				'Deploys the current application to a preview environment. **ONLY use this tool when:** (1) User explicitly requests deployment/deploy, OR (2) User reports the preview screen is blank/not showing anything, OR (3) User reports the preview page keeps refreshing/reloading. Do NOT use this tool for regular code changes - the preview auto-updates.',
+				'Uploads and syncs the current application to the preview environment. After deployment, the app is live at the preview URL, but runtime logs (get_logs) will only appear when the user interacts with the app - not automatically after deployment. CRITICAL: After deploying, use wait(20-30) to allow time for user interaction before checking logs.',
 			parameters: {
 				type: 'object',
 				properties: {},

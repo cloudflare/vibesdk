@@ -75,7 +75,7 @@ type DeploymentStartedMessage = {
 
 type DeploymentFailedMessage = {
 	type: 'deployment_failed';
-	message: string;
+	error: string;
 };
 
 type DeploymentCompletedMessage = {
@@ -86,10 +86,28 @@ type DeploymentCompletedMessage = {
 	message: string;
 };
 
+type PreviewForceRefreshMessage = {
+	type: 'preview_force_refresh';
+};
+
 type CommandExecutingMessage = {
 	type: 'command_executing';
 	message: string;
 	commands: string[];
+};
+
+type CommandExecutedMessage = {
+	type: 'command_executed';
+	message: string;
+	commands: string[];
+    output?: string;
+};
+
+type CommandExecutionFailedMessage = {
+	type: 'command_execution_failed';
+	message: string;
+	commands: string[];
+    error?: string;
 };
 
 type CodeReviewingMessage = {
@@ -306,6 +324,7 @@ type ConversationResponseMessage = {
 		name: string;
 		status: 'start' | 'success' | 'error';
 		args?: Record<string, unknown>;
+		result?: string;
 	};
 };
 
@@ -313,6 +332,18 @@ type ConversationClearedMessage = {
 	type: 'conversation_cleared';
 	message: string;
 	clearedMessageCount: number;
+};
+
+type ProjectNameUpdatedMessage = {
+	type: 'project_name_updated';
+	message: string;
+	projectName: string;
+};
+
+type BlueprintUpdatedMessage = {
+	type: 'blueprint_updated';
+	message: string;
+	updatedKeys: string[];
 };
 
 type DeterministicCodeFixStartedMessage = {
@@ -389,9 +420,12 @@ export type WebSocketMessage =
 	| DeploymentStartedMessage
 	| DeploymentCompletedMessage
 	| DeploymentFailedMessage
+	| PreviewForceRefreshMessage
 	| CodeReviewingMessage
 	| CodeReviewedMessage
 	| CommandExecutingMessage
+    | CommandExecutedMessage
+    | CommandExecutionFailedMessage
 	| RuntimeErrorFoundMessage
 	| CodeFixEdits
     | StaticAnalysisResults
@@ -419,6 +453,8 @@ export type WebSocketMessage =
 	| UserSuggestionsProcessingMessage
 	| ConversationResponseMessage
 	| ConversationClearedMessage
+    | ProjectNameUpdatedMessage
+    | BlueprintUpdatedMessage
     | DeterministicCodeFixStartedMessage
     | DeterministicCodeFixCompletedMessage
 	| ModelConfigsInfoMessage

@@ -58,6 +58,8 @@ const SYSTEM_PROMPT = `<ROLE>
         - Mobile-first responsive design that scales beautifully
     ** Lay these visual design instructions out explicitly throughout the blueprint **
 
+    ${PROMPT_UTILS.UI_NON_NEGOTIABLES_V3}
+
     ${PROMPT_UTILS.UI_GUIDELINES}
 
     ## Frameworks & Dependencies
@@ -131,7 +133,7 @@ const SYSTEM_PROMPT = `<ROLE>
     - **Icons:** lucide-react, @radix-ui/react-icons, heroicons
     - **Visual Effects:** react-intersection-observer, react-parallax
     - **Charts/Data Viz:** recharts, @tremor/react (if data visualization needed)
-    - **Media/Images:** next/image optimizations, react-image-gallery
+    - **Media/Images:** react-image-gallery or vanilla <img>; prefer aspect-video / aspect-[16/9] and object-cover; avoid Next.js-only APIs
     Suggest whatever additional frameworks are needed to achieve visual excellence.
 </KEY GUIDELINES>
 

@@ -55,6 +55,8 @@ const SYSTEM_PROMPT = `<ROLE>
 
 ${STRATEGIES.FRONTEND_FIRST_PLANNING}
 
+${PROMPT_UTILS.UI_NON_NEGOTIABLES_V3}
+
 ${PROMPT_UTILS.UI_GUIDELINES}
 
 ${PROMPT_UTILS.COMMON_DEP_DOCUMENTATION}
@@ -110,12 +112,18 @@ Adhere to the following guidelines:
     - Each phase should work towards achieving the final product. **ONLY** mark as last phase if you are sure the project is at least 90-95% finished.
     - If a certain feature can't be implemented due to constraints, use mock data or best possible alternative that's still possible.
     - Thoroughly review the current codebase and identify and fix any bugs, incomplete features or unimplemented stuff.
-•   **BEAUTIFUL UI PRIORITY**: Next phase should cover fixes (if any), development, AND significant focus on creating visually stunning, professional-grade UI/UX with:
+•    **BEAUTIFUL UI PRIORITY**: Next phase should cover fixes (if any), development, AND significant focus on creating visually stunning, professional-grade UI/UX with:
     - Modern design patterns and visual hierarchy
     - Smooth animations and micro-interactions  
     - Beautiful color schemes and typography
     - Proper spacing, shadows, and visual polish
     - Engaging user interface elements
+    
+    **UI LAYOUT NON-NEGOTIABLES (Tailwind v3-safe, shadcn/ui first)**
+    - Every page MUST wrap visible content in a root container with: max-w-7xl mx-auto px-4 sm:px-6 lg:px-8
+    - Use vertical section spacing: py-8 md:py-10 lg:py-12 across major content blocks
+    - Prefer shadcn/ui components for structure (e.g., Sidebar, Sheet, Card, Button) and compose with Tailwind utilities
+    - In each page file you modify/create, explicitly apply this structure and mention it in the file description
 •   Use the <PHASES GENERATION STRATEGY> section to guide your phase generation.
 •   Ensure the next phase logically and iteratively builds on the previous one, maintaining visual excellence with modern design patterns, smooth interactions, and professional UI polish.
 •   Provide a clear, concise, to the point description of the next phase and the purpose and contents of each file in it.

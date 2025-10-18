@@ -66,6 +66,7 @@ export interface AgentConfig {
     realtimeCodeFixer: ModelConfig;
     fastCodeFixer: ModelConfig;
     conversationalResponse: ModelConfig;
+    deepDebugger: ModelConfig;
 }
 
 // Provider and reasoning effort types for validation
@@ -84,4 +85,5 @@ export interface InferenceContext extends InferenceMetadata {
     userModelConfigs?: Record<AgentActionKey, ModelConfig>;
     enableRealtimeCodeFix: boolean;
     enableFastSmartCodeFix: boolean;
+    abortSignal?: AbortSignal;
 }

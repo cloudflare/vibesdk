@@ -43,7 +43,7 @@ export async function getAgentStub(env: Env, agentId: string, searchInOtherJuris
 
 export async function getAgentState(env: Env, agentId: string, searchInOtherJurisdictions: boolean = false, logger: StructuredLogger) : Promise<CodeGenState> {
     const agentInstance = await getAgentStub(env, agentId, searchInOtherJurisdictions, logger);
-    return agentInstance.getFullState() as CodeGenState;
+    return await agentInstance.getFullState() as CodeGenState;
 }
 
 export async function cloneAgent(env: Env, agentId: string, logger: StructuredLogger) : Promise<{newAgentId: string, newAgent: DurableObjectStub<SmartCodeGeneratorAgent>}> {

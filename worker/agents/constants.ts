@@ -25,6 +25,7 @@ export const WebSocketMessageResponses: Record<string, WebSocketMessageType> = {
     DEPLOYMENT_STARTED: 'deployment_started',
     DEPLOYMENT_COMPLETED: 'deployment_completed',
     DEPLOYMENT_FAILED: 'deployment_failed',
+    PREVIEW_FORCE_REFRESH: 'preview_force_refresh',
     // Cloudflare deployment messages
     CLOUDFLARE_DEPLOYMENT_STARTED: 'cloudflare_deployment_started',
     CLOUDFLARE_DEPLOYMENT_COMPLETED: 'cloudflare_deployment_completed', 
@@ -41,7 +42,10 @@ export const WebSocketMessageResponses: Record<string, WebSocketMessageType> = {
 
     CODE_REVIEWING: 'code_reviewing',
     CODE_REVIEWED: 'code_reviewed',
+
     COMMAND_EXECUTING: 'command_executing',
+    COMMAND_EXECUTED: 'command_executed',
+    COMMAND_EXECUTION_FAILED: 'command_execution_failed',
     
     // Generation control messages
     GENERATION_STOPPED: 'generation_stopped',
@@ -61,6 +65,8 @@ export const WebSocketMessageResponses: Record<string, WebSocketMessageType> = {
     CONVERSATION_RESPONSE: 'conversation_response',
     CONVERSATION_CLEARED: 'conversation_cleared',
     CONVERSATION_STATE: 'conversation_state',
+    PROJECT_NAME_UPDATED: 'project_name_updated',
+    BLUEPRINT_UPDATED: 'blueprint_updated',
     
     // Model configuration info
     MODEL_CONFIGS_INFO: 'model_configs_info',

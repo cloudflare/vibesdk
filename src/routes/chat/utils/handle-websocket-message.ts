@@ -1,5 +1,6 @@
 import type { WebSocket } from 'partysocket';
 import type { WebSocketMessage, BlueprintType, ConversationMessage } from '@/api-types';
+import { deduplicateMessages, isAssistantMessageDuplicate } from './deduplicate-messages';
 import { logger } from '@/utils/logger';
 import { getFileType } from '@/utils/string';
 import { getPreviewUrl } from '@/lib/utils';
@@ -78,6 +79,9 @@ export interface HandleMessageDeps {
 }
 
 export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
+    // Track review lifecycle within this handler instance
+    let lastReviewIssueCount = 0;
+    let reviewStartAnnounced = false;
     const extractTextContent = (content: ConversationMessage['content']): string => {
         if (!content) return '';
         if (typeof content === 'string') return content;
@@ -140,6 +144,14 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
         }
         
         switch (message.type) {
+            case 'conversation_cleared': {
+                // Reset chat messages to a subtle tool-event entry indicating success
+                setMessages(() => appendToolEvent([], 'conversation_cleared', {
+                    name: message.message || 'conversation reset',
+                    status: 'success'
+                }));
+                break;
+            }
             case 'cf_agent_state': {
                 const { state } = message;
                 logger.debug('🔄 Agent state update received:', state);
@@ -175,22 +187,46 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
 
                     if (state.generatedPhases && state.generatedPhases.length > 0 && phaseTimeline.length === 0) {
                         logger.debug('📋 Restoring phase timeline:', state.generatedPhases);
-                        const timeline = state.generatedPhases.map((phase: any, index: number) => ({
-                            id: `phase-${index}`,
-                            name: phase.name,
-                            description: phase.description,
-                            status: phase.completed ? 'completed' as const : 'generating' as const,
-                            files: phase.files.map((filesConcept: any) => {
-                                const file = state.generatedFilesMap?.[filesConcept.path];
-                                return {
-                                    path: filesConcept.path,
-                                    purpose: filesConcept.purpose,
-                                    status: (file ? 'completed' as const : 'generating' as const),
-                                    contents: file?.fileContents
-                                };
-                            }),
-                            timestamp: Date.now(),
-                        }));
+                        // If not actively generating, mark incomplete phases as cancelled (they were interrupted)
+                        const isActivelyGenerating = state.shouldBeGenerating === true;
+                        
+                        const timeline = state.generatedPhases.map((phase: any, index: number) => {
+                            // Determine phase status:
+                            // - completed if explicitly marked complete
+                            // - cancelled if incomplete and not actively generating (interrupted)
+                            // - generating if incomplete and actively generating
+                            const phaseStatus = phase.completed 
+                                ? 'completed' as const 
+                                : !isActivelyGenerating 
+                                    ? 'cancelled' as const 
+                                    : 'generating' as const;
+                            
+                            return {
+                                id: `phase-${index}`,
+                                name: phase.name,
+                                description: phase.description,
+                                status: phaseStatus,
+                                files: phase.files.map((filesConcept: any) => {
+                                    const file = state.generatedFilesMap?.[filesConcept.path];
+                                    // File status:
+                                    // - completed if it exists in generated files
+                                    // - cancelled if missing and not actively generating (interrupted)
+                                    // - generating if missing and actively generating
+                                    const fileStatus = file 
+                                        ? 'completed' as const 
+                                        : !isActivelyGenerating 
+                                            ? 'cancelled' as const 
+                                            : 'generating' as const;
+                                    return {
+                                        path: filesConcept.path,
+                                        purpose: filesConcept.purpose,
+                                        status: fileStatus,
+                                        contents: file?.fileContents
+                                    };
+                                }),
+                                timestamp: Date.now(),
+                            };
+                        });
                         setPhaseTimeline(timeline);
                     }
                     
@@ -242,27 +278,75 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
             case 'conversation_state': {
                 const { state } = message;
                 const history: ReadonlyArray<ConversationMessage> = state?.runningHistory ?? [];
-                logger.debug('Received conversation_state with messages:', history.length);
+                logger.debug('Received conversation_state with messages:', history.length, 'state:', state);
 
-                const restoredMessages: ChatMessage[] = history.reduce<ChatMessage[]>((acc, msg) => {
-                    if (msg.role !== 'user' && msg.role !== 'assistant') return acc;
+                const restoredMessages: ChatMessage[] = [];
+                let currentAssistant: ChatMessage | null = null;
+                
+                const ensureToolEvents = (assistant: ChatMessage) => {
+                    if (!assistant.ui) assistant.ui = { toolEvents: [] };
+                    if (!assistant.ui.toolEvents) assistant.ui.toolEvents = [];
+                };
+                
+                for (const msg of history) {
                     const text = extractTextContent(msg.content);
-                    if (!text || text.includes('<Internal Memo>')) return acc;
-
-                    const convId = msg.conversationId;
-                    const isArchive = msg.role === 'assistant' && convId.startsWith('archive-');
-
-                    acc.push({
-                        role: msg.role,
-                        conversationId: convId,
-                        content: isArchive ? 'previous history was compacted' : text,
-                    });
-                    return acc;
-                }, []);
+                    if (text?.includes('<Internal Memo>')) continue;
+                    
+                    if (msg.role === 'user') {
+                        restoredMessages.push({
+                            role: 'user',
+                            conversationId: msg.conversationId,
+                            content: text || '',
+                        });
+                        currentAssistant = null;
+                    } else if (msg.role === 'assistant') {
+                        const content = msg.conversationId.startsWith('archive-') 
+                            ? 'previous history was compacted' 
+                            : (text || '');
+                        
+                        // Only merge if same conversationId (continuation), otherwise create new
+                        if (currentAssistant && currentAssistant.conversationId === msg.conversationId) {
+                            if (content) {
+                                currentAssistant.content += (currentAssistant.content ? '\n\n' : '') + content;
+                            }
+                            if (msg.tool_calls?.length) ensureToolEvents(currentAssistant);
+                        } else {
+                            currentAssistant = {
+                                role: 'assistant',
+                                conversationId: msg.conversationId,
+                                content,
+                                ui: msg.tool_calls?.length ? { toolEvents: [] } : undefined,
+                            };
+                            restoredMessages.push(currentAssistant);
+                        }
+                    } else if (msg.role === 'tool' && 'name' in msg && msg.name && currentAssistant) {
+                        ensureToolEvents(currentAssistant);
+                        currentAssistant.ui!.toolEvents!.push({
+                            name: msg.name,
+                            status: 'success',
+                            timestamp: Date.now(),
+                            result: text || undefined,
+                            contentLength: currentAssistant.content.length,
+                        });
+                    }
+                }
 
                 if (restoredMessages.length > 0) {
-                    logger.debug('Replacing messages with conversation_state history:', restoredMessages.length);
-                    setMessages(restoredMessages);
+                    // Deduplicate assistant messages with identical content (even if separated by tool messages)
+                    const deduplicated = deduplicateMessages(restoredMessages);
+                    
+                    logger.debug('Merging conversation_state with', deduplicated.length, 'messages (', restoredMessages.length - deduplicated.length, 'duplicates removed)');
+                    setMessages(prev => {
+                        const hasFetching = prev.some(m => m.role === 'assistant' && m.conversationId === 'fetching-chat');
+                        if (hasFetching) {
+                            const next = appendToolEvent(prev, 'fetching-chat', { 
+                                name: 'fetching your latest conversations', 
+                                status: 'success' 
+                            });
+                            return [...next, ...deduplicated];
+                        }
+                        return deduplicated;
+                    });
                 }
                 break;
             }
@@ -303,12 +387,18 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
             case 'file_regenerating': {
                 setFiles((prev) => setFileGenerating(prev, message.filePath, 'File being regenerated...'));
                 setPhaseTimeline((prev) => updatePhaseFileStatus(prev, message.filePath, 'generating'));
+                // Activates fixing stage only when actual regenerations begin
+                updateStage('fix', { status: 'active', metadata: lastReviewIssueCount > 0 ? `Fixing ${lastReviewIssueCount} issues` : 'Fixing issues' });
                 break;
             }
 
             case 'generation_started': {
                 updateStage('code', { status: 'active' });
                 setTotalFiles(message.totalFiles);
+                setIsGenerating(true);
+                // Reset review tracking for a new generation run
+                lastReviewIssueCount = 0;
+                reviewStartAnnounced = false;
                 break;
             }
 
@@ -316,9 +406,15 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
                 setIsRedeployReady(true);
                 setFiles((prev) => setAllFilesCompleted(prev));
                 setProjectStages((prev) => completeStages(prev, ['code', 'validate', 'fix']));
+                // Ensure fix stage metadata is cleared on final completion
+                updateStage('fix', { status: 'completed', metadata: undefined });
 
                 sendMessage(createAIMessage('generation-complete', 'Code generation has been completed.'));
+                
+                // Reset all phase indicators
                 setIsPhaseProgressActive(false);
+                setIsThinking(false);
+                setIsGenerating(false);
                 break;
             }
 
@@ -335,22 +431,26 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
             }
 
             case 'deployment_failed': {
-                toast.error(`Error: ${message.message}`);
+                toast.error(message.error);
                 break;
             }
 
             case 'code_reviewed': {
                 const reviewData = message.review;
-                const totalIssues = reviewData?.filesToFix?.reduce((count: number, file: any) => 
+                const totalIssues = reviewData?.filesToFix?.reduce((count: number, file: any) =>
                     count + file.issues.length, 0) || 0;
-                
+
+                lastReviewIssueCount = totalIssues;
+
                 let reviewMessage = 'Code review complete';
                 if (reviewData?.issuesFound) {
                     reviewMessage = `Code review complete - ${totalIssues} issue${totalIssues !== 1 ? 's' : ''} found across ${reviewData.filesToFix?.length || 0} file${reviewData.filesToFix?.length !== 1 ? 's' : ''}`;
                 } else {
                     reviewMessage = 'Code review complete - no issues found';
                 }
-                
+
+                // Mark validation as completed at the end of review
+                updateStage('validate', { status: 'completed' });
                 sendMessage(createAIMessage('code_reviewed', reviewMessage));
                 break;
             }
@@ -372,19 +472,28 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
                     (message.staticAnalysis?.typecheck?.issues?.length || 0) +
                     (message.runtimeErrors.length || 0);
 
+                lastReviewIssueCount = totalIssues;
+
+                // Announce review start once, right after main code gen
+                if (!reviewStartAnnounced) {
+                    sendMessage(createAIMessage('review_start', 'App generation complete, now reviewing code indepth'));
+                    reviewStartAnnounced = true;
+                }
+
+                // Only show reviewing as active; do not activate fix until regeneration actually starts
                 updateStage('validate', { status: 'active' });
+                // Show identified issues count while review runs, but keep fix stage pending
+                updateStage('fix', { status: 'pending', metadata: totalIssues > 0 ? `Identified ${totalIssues} issues` : undefined });
 
                 if (totalIssues > 0) {
-                    updateStage('fix', { status: 'active', metadata: `Fixing ${totalIssues} issues` });
-                    
                     const errorDetails = [
                         `Lint Issues: ${JSON.stringify(message.staticAnalysis?.lint?.issues)}`,
                         `Type Errors: ${JSON.stringify(message.staticAnalysis?.typecheck?.issues)}`,
                         `Runtime Errors: ${JSON.stringify(message.runtimeErrors)}`,
                         `Client Errors: ${JSON.stringify(message.clientErrors)}`,
                     ].filter(Boolean).join('\n');
-                    
-                    onDebugMessage?.('warning', 
+
+                    onDebugMessage?.('warning',
                         `Generation Issues Found (${totalIssues} total)`,
                         errorDetails,
                         'Code Generation'
@@ -395,7 +504,7 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
 
             case 'phase_generating': {
                 updateStage('validate', { status: 'completed' });
-                updateStage('fix', { status: 'completed' });
+                updateStage('fix', { status: 'completed', metadata: undefined });
                 sendMessage(createAIMessage('phase_generating', message.message));
                 setIsThinking(true);
                 setIsPhaseProgressActive(true);
@@ -483,6 +592,10 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
                         }
                         return updated;
                     });
+
+                    if (message.phase.name === 'Finalization and Review') {
+                        sendMessage(createAIMessage('core_app_complete', 'Main app generation completed. Doing code cleanups and resolving any lingering issues. Meanwhile, feel free to ask me anything!'));
+                    }
                 }
 
                 logger.debug('🔄 Scheduling preview refresh in 1 second after deployment completion');
@@ -503,9 +616,27 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
                 break;
             }
 
+            case 'preview_force_refresh': {
+                setShouldRefreshPreview(true);
+                setTimeout(() => {
+                    setShouldRefreshPreview(false);
+                }, 100);
+                break;
+            }
+
             case 'generation_stopped': {
                 setIsGenerating(false);
                 setIsGenerationPaused(true);
+                
+                // Reset phase indicators
+                setIsPhaseProgressActive(false);
+                setIsThinking(false);
+                
+                // Show toast notification for user-initiated stop
+                toast.info('Generation stopped', {
+                    description: message.message || 'Code generation has been stopped'
+                });
+                
                 sendMessage(createAIMessage('generation_stopped', message.message));
                 break;
             }
@@ -602,7 +733,11 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
 
                 if (message.tool) {
                     const tool = message.tool;
-                    setMessages(prev => appendToolEvent(prev, conversationId, { name: tool.name, status: tool.status }));
+                    setMessages(prev => appendToolEvent(prev, conversationId, { 
+                        name: tool.name, 
+                        status: tool.status,
+                        result: tool.result 
+                    }));
                     break;
                 }
 
@@ -614,7 +749,15 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
                 setMessages(prev => {
                     const idx = prev.findIndex(m => m.role === 'assistant' && m.conversationId === conversationId);
                     if (idx !== -1) return prev.map((m, i) => i === idx ? { ...m, content: (isArchive ? placeholder : message.message) } : m);
-                    return [...prev, createAIMessage(conversationId, isArchive ? placeholder : message.message)];
+                    
+                    // Deduplicate: Don't add if last assistant message has identical content
+                    const newContent = isArchive ? placeholder : message.message;
+                    if (isAssistantMessageDuplicate(prev, newContent)) {
+                        logger.debug('Skipping duplicate assistant message');
+                        return prev; // Skip duplicate
+                    }
+                    
+                    return [...prev, createAIMessage(conversationId, newContent)];
                 });
                 break;
             }
