@@ -29,6 +29,8 @@ export const PhaseConceptSchema = z.object({
     lastPhase: z.boolean().describe('Whether this is the last phase to be implemented. If true, no next phase is required and the process will end here'),
 })
 
+export const PhaseConceptLiteSchema = PhaseConceptSchema.omit({ files: true, lastPhase: true });
+
 /**
  * Schema for file generation output
  */
@@ -102,6 +104,10 @@ export const BlueprintSchema = z.object({
     // commands: z.array(z.string()).describe('Commands to set up the development environment and install all dependencies not already in the template. These will run before code generation starts.'),
 });
 
+export const BlueprintSchemaLite = BlueprintSchema.omit({
+    initialPhase: true,
+});
+
 export const SetupCommandsSchema = z.object({
     commands: z.array(z.string()).describe('Commands to set up the development environment and install all dependencies not already in the template. These will run before code generation starts.')
 });
@@ -141,6 +147,7 @@ export type TemplateSelection = z.infer<typeof TemplateSelectionSchema>;
 export type Blueprint = z.infer<typeof BlueprintSchema>;
 export type FileConceptType = z.infer<typeof FileConceptSchema>;
 export type PhaseConceptType = z.infer<typeof PhaseConceptSchema>;
+export type PhaseConceptLiteType = z.infer<typeof PhaseConceptLiteSchema>;
 export type FileOutputType = z.infer<typeof FileOutputSchema>
 export type PhaseConceptGenerationSchemaType = z.infer<typeof PhaseConceptGenerationSchema>;
 export type PhaseImplementationSchemaType = z.infer<typeof PhaseImplementationSchema>;
