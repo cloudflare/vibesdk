@@ -4,9 +4,10 @@
  */
  {
 	"$schema": "node_modules/wrangler/config-schema.json",
-	"name": "vibesdk-production",
+	"name": "vibesdkdeploy",
 	"main": "worker/index.ts",
 	"compatibility_date": "2025-08-10",
+    "account_id = "Suhasjose@gmail.com",
 	"compatibility_flags": ["nodejs_compat"],
     "version_metadata": {
         "binding": "CF_VERSION_METADATA"
@@ -141,7 +142,7 @@
     ],
 	"vars": {
         "TEMPLATES_REPOSITORY": "https://github.com/cloudflare/vibesdk-templates",
-        "ALLOWED_EMAIL": "",
+        "ALLOWED_EMAIL": "suhasjose@gmail.com",
         "DISPATCH_NAMESPACE": "vibesdk-default-namespace",
         "ENABLE_READ_REPLICAS": "true",
         "CLOUDFLARE_AI_GATEWAY": "vibesdk-gateway",
