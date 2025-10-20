@@ -1,7 +1,7 @@
 import { FileTreeNode, RuntimeError, StaticAnalysisResponse, TemplateDetails } from "../services/sandbox/sandboxTypes";
 import { TemplateRegistry } from "./inferutils/schemaFormatters";
 import z from 'zod';
-import { Blueprint, BlueprintSchema, ClientReportedErrorSchema, ClientReportedErrorType, FileOutputType, PhaseConceptSchema, PhaseConceptType, TemplateSelection } from "./schemas";
+import { Blueprint, BlueprintSchemaLite, ClientReportedErrorSchema, ClientReportedErrorType, FileOutputType, PhaseConceptSchema, PhaseConceptLiteSchema, PhaseConceptType, TemplateSelection } from "./schemas";
 import { IssueReport } from "./domain/values/IssueReport";
 import { FileState, MAX_PHASES } from "./core/state";
 import { CODE_SERIALIZERS, CodeSerializerType } from "./utils/codeSerializers";
@@ -1056,6 +1056,8 @@ bun add @geist-ui/react@1
 
 The following phases have been completed and implemented:
 
+{{redactionNotice}}
+
 {{phases}}
 
 </COMPLETED_PHASES>
@@ -1259,7 +1261,12 @@ export function generalSystemPromptBuilder(
 
     // Optional blueprint variables
     if (params.blueprint) {
-        variables.blueprint = TemplateRegistry.markdown.serialize(params.blueprint, BlueprintSchema);
+        // Redact the initial phase information from blueprint
+        const blueprint = {
+            ...params.blueprint,
+            initialPhase: undefined,
+        }
+        variables.blueprint = TemplateRegistry.markdown.serialize(blueprint, BlueprintSchemaLite);
         variables.blueprintDependencies = params.blueprint.frameworks?.join(', ') ?? '';
     }
 
@@ -1305,7 +1312,7 @@ ${staticAnalysisText}
 
 
 export const USER_PROMPT_FORMATTER = {
-    PROJECT_CONTEXT: (phases: PhaseConceptType[], files: FileState[], fileTree: FileTreeNode, commandsHistory: string[], serializerType: CodeSerializerType = CodeSerializerType.SIMPLE) => {
+    PROJECT_CONTEXT: (phases: PhaseConceptType[], files: FileState[], fileTree: FileTreeNode, commandsHistory: string[], serializerType: CodeSerializerType = CodeSerializerType.SIMPLE, recentPhasesCount: number = 1) => {
         let lastPhaseFilesDiff = '';
         try {
             if (phases.length > 1) {
@@ -1329,18 +1336,36 @@ export const USER_PROMPT_FORMATTER = {
             console.error('Error processing project context:', error);
         }
 
+        // TODO: Instead of just including diff for last phase, include last diff for each file along with information of which phase it was modified in
+
+        // Split phases into older (redacted) and recent (full) groups
+        const olderPhases = phases.slice(0, -recentPhasesCount);
+        const recentPhases = phases.slice(-recentPhasesCount);
+        
+        // Serialize older phases without files, recent phases with files
+        let phasesText = '';
+        if (olderPhases.length > 0) {
+            const olderPhasesLite = olderPhases.map(({ name, description }) => ({ name, description }));
+            phasesText += TemplateRegistry.markdown.serialize({ phases: olderPhasesLite }, z.object({ phases: z.array(PhaseConceptLiteSchema) }));
+            if (recentPhases.length > 0) {
+                phasesText += '\n\n';
+            }
+        }
+        if (recentPhases.length > 0) {
+            phasesText += TemplateRegistry.markdown.serialize({ phases: recentPhases }, z.object({ phases: z.array(PhaseConceptSchema) }));
+        }
+        
+        const redactionNotice = olderPhases.length > 0 
+            ? `**Note:** File details for the first ${olderPhases.length} phase(s) have been redacted to optimize context. Only the last ${recentPhasesCount} phase(s) include complete file information.\n` 
+            : '';
+
         const variables: Record<string, string> = {
-            phases: TemplateRegistry.markdown.serialize({ phases: phases }, z.object({ phases: z.array(PhaseConceptSchema) })),
+            phases: phasesText,
+            redactionNotice: redactionNotice,
             files: PROMPT_UTILS.serializeFiles(files, serializerType),
             fileTree: PROMPT_UTILS.serializeTreeNodes(fileTree),
             lastDiffs: lastPhaseFilesDiff,
-            commandsHistory: commandsHistory.length > 0 ? `<COMMANDS HISTORY>
-
-The following commands have been executed successfully in the project environment so far (These may not include the ones that are currently pending):
-
-${commandsHistory.join('\n')}
-
-</COMMANDS HISTORY>` : ''
+            commandsHistory: commandsHistory.length > 0 ? `<COMMANDS HISTORY>\n\nThe following commands have been executed successfully in the project environment so far (These may not include the ones that are currently pending):\n\n${commandsHistory.join('\n')}\n\n</COMMANDS HISTORY>` : ''
         };
 
         const prompt = PROMPT_UTILS.replaceTemplateVariables(PROMPT_UTILS.PROJECT_CONTEXT, variables);
