@@ -77,19 +77,55 @@ Before clicking "Deploy to Cloudflare", have these ready:
 ### 🔑 Required API Key
 - **Google Gemini API Key** - Get from [ai.google.dev](https://ai.google.dev)
 
-Once you click "Deploy to Cloudflare", you'll be taken to your Cloudflare dashboard where you can configure your VibeSDK deployment with these variables. 
+Once you click "Deploy to Cloudflare", you'll be taken to your Cloudflare dashboard where you can configure your VibeSDK deployment with these variables.
 
 [![Deploy to Cloudflare Workers](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/cloudflare/vibesdk)
 
+### 🧪 Bootstrap validation
+
+After setting your environment variables, run the automated bootstrap check to verify the Phase 0 requirements:
+
+```bash
+bun scripts/bootstrap-check.ts --env-file .dev.vars
+```
+
+The script confirms that `SANDBOX_INSTANCE_TYPE` is pinned to `standard-3`, the deployed Worker responds at `/api/health`, and your Google AI Studio key returns a live completion. Use the `--no-network` flag if you are preparing an environment without outbound access and want to defer the network checks.
+
+### 💻 Run VibeSDK locally
+
+You can iterate on VibeSDK without deploying to Workers by running the stack locally:
+
+1. Copy `.dev.vars.example` to `.dev.vars` and populate the required secrets (Gemini API key, JWT secret, webhook secret, encryption key, etc.).
+2. Authenticate against Cloudflare's private npm registry so the `@cloudflare/*` packages (for example `@cloudflare/containers`) can be installed. Create or update `~/.npmrc` with entries similar to:
+
+   ```ini
+   @cloudflare:registry=https://npm.pkg.cloudflare.com/
+   //npm.pkg.cloudflare.com/:_authToken=<your Cloudflare npm token>
+   ```
+
+   If you skip this step, dependency installation fails with `403 Forbidden` responses when `bun install` or `npm install` attempts to download the Cloudflare packages.
+3. Install dependencies and start the preview server:
+
+   ```bash
+   bun install
+   bun run dev
+   ```
+
+   Once the dev server boots, visit [http://localhost:5173](http://localhost:5173) to interact with the UI. The `bun run dev` command wires in the sandbox preview worker and mimics the production experience as closely as possible.
+
+If you continue to hit authorization errors after configuring `.npmrc`, verify that the npm token has access to the `@cloudflare/containers` package or request access from the Cloudflare team. Share the failing `bun install` log so we can help troubleshoot any remaining gaps.
+
 ### 🔑 What you'll configure
 
-- `GOOGLE_AI_STUDIO_API_KEY` - Your Google Gemini API key for Gemini models
-- `JWT_SECRET` - Secure random string for session management
-- `WEBHOOK_SECRET` - Webhook authentication secret
-- `SECRETS_ENCRYPTION_KEY` - Encryption key for secrets
-- `SANDBOX_INSTANCE_TYPE` - Container performance tier (optional, see section below)
-- `ALLOWED_EMAIL` - Email address of the user allowed to use the app. This is used to verify the user's identity and prevent unauthorized access.
-- `CUSTOM_DOMAIN` - Custom domain for your app that you have configured in Cloudflare (**Required**). If you use a first-level subdomain such as `abc.xyz.com`, make sure the Advanced Certificate Manager add-on is active on that zone.
+| Variable | Purpose | How to obtain it |
+| --- | --- | --- |
+| `GOOGLE_AI_STUDIO_API_KEY` | Authenticates calls to Google Gemini models | Create or manage keys in **Google AI Studio → [API Keys](https://aistudio.google.com/app/apikey)**. |
+| `JWT_SECRET` | Signs and verifies session tokens inside the platform | Generate a random secret locally (`openssl rand -base64 48`) or let `bun tsx scripts/setup.ts` create one for you. |
+| `WEBHOOK_SECRET` | Verifies inbound webhooks | Generate locally (`openssl rand -base64 32`) or via `scripts/setup.ts`. |
+| `SECRETS_ENCRYPTION_KEY` | Encrypts stored secrets | Generate locally (`openssl rand -base64 48`) or via `scripts/setup.ts`. |
+| `SANDBOX_INSTANCE_TYPE` | Container performance tier (optional, see section below) | Set to `standard-3` unless you need a different tier; this value does not require a secret and can be edited directly in your `.dev.vars`/`.prod.vars`. |
+| `ALLOWED_EMAIL` | Locks preview access to a specific user | Provide the authorized email address in your vars files. |
+| `CUSTOM_DOMAIN` | Custom domain for your app | Configure the domain in Cloudflare, then enter it here (see DNS instructions below). |
 
 ### Custom domain DNS setup
 
