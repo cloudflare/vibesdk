@@ -14,6 +14,14 @@ interface CheckResult {
         warning?: boolean;
 }
 
+interface EnsureResult extends CheckResult {
+        value?: string;
+}
+
+interface EnsureOptions {
+        mask?: boolean;
+}
+
 interface BootstrapOptions {
         skipNetwork?: boolean;
         envFile?: string;
@@ -89,7 +97,16 @@ function formatResult(result: CheckResult): string {
         return `${status} ${result.name}${detailText}`;
 }
 
-function ensureValue(env: Record<string, string | undefined>, key: string): CheckResult {
+
+function isSensitiveKey(key: string): boolean {
+        return /(KEY|SECRET|TOKEN|PASSWORD|API)_?/i.test(key);
+}
+
+function ensureValue(
+        env: Record<string, string | undefined>,
+        key: string,
+        options: EnsureOptions = {},
+): EnsureResult {
         const value = env[key];
         if (!value) {
                 return {
@@ -99,20 +116,22 @@ function ensureValue(env: Record<string, string | undefined>, key: string): Chec
                 };
         }
 
+        const mask = options.mask ?? isSensitiveKey(key);
         return {
                 name: `${key} configured`,
                 success: true,
-                details: `${key}=${value}`,
+                details: mask ? `${key} is set` : `${key}=${value}`,
+                value,
         };
 }
 
 async function checkSandboxInstanceType(env: Record<string, string | undefined>): Promise<CheckResult> {
-        const configured = ensureValue(env, 'SANDBOX_INSTANCE_TYPE');
+        const configured = ensureValue(env, 'SANDBOX_INSTANCE_TYPE', { mask: false });
         if (!configured.success) {
                 return configured;
         }
 
-        if (configured.details?.includes('standard-3')) {
+        if (configured.value === 'standard-3') {
                 return {
                         name: 'Sandbox instance type',
                         success: true,
