@@ -91,6 +91,30 @@ bun scripts/bootstrap-check.ts --env-file .dev.vars
 
 The script confirms that `SANDBOX_INSTANCE_TYPE` is pinned to `standard-3`, the deployed Worker responds at `/api/health`, and your Google AI Studio key returns a live completion. Use the `--no-network` flag if you are preparing an environment without outbound access and want to defer the network checks.
 
+### 💻 Run VibeSDK locally
+
+You can iterate on VibeSDK without deploying to Workers by running the stack locally:
+
+1. Copy `.dev.vars.example` to `.dev.vars` and populate the required secrets (Gemini API key, JWT secret, webhook secret, encryption key, etc.).
+2. Authenticate against Cloudflare's private npm registry so the `@cloudflare/*` packages (for example `@cloudflare/containers`) can be installed. Create or update `~/.npmrc` with entries similar to:
+
+   ```ini
+   @cloudflare:registry=https://npm.pkg.cloudflare.com/
+   //npm.pkg.cloudflare.com/:_authToken=<your Cloudflare npm token>
+   ```
+
+   If you skip this step, dependency installation fails with `403 Forbidden` responses when `bun install` or `npm install` attempts to download the Cloudflare packages.
+3. Install dependencies and start the preview server:
+
+   ```bash
+   bun install
+   bun run dev
+   ```
+
+   Once the dev server boots, visit [http://localhost:5173](http://localhost:5173) to interact with the UI. The `bun run dev` command wires in the sandbox preview worker and mimics the production experience as closely as possible.
+
+If you continue to hit authorization errors after configuring `.npmrc`, verify that the npm token has access to the `@cloudflare/containers` package or request access from the Cloudflare team. Share the failing `bun install` log so we can help troubleshoot any remaining gaps.
+
 ### 🔑 What you'll configure
 
 - `GOOGLE_AI_STUDIO_API_KEY` - Your Google Gemini API key for Gemini models
