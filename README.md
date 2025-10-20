@@ -77,9 +77,19 @@ Before clicking "Deploy to Cloudflare", have these ready:
 ### 🔑 Required API Key
 - **Google Gemini API Key** - Get from [ai.google.dev](https://ai.google.dev)
 
-Once you click "Deploy to Cloudflare", you'll be taken to your Cloudflare dashboard where you can configure your VibeSDK deployment with these variables. 
+Once you click "Deploy to Cloudflare", you'll be taken to your Cloudflare dashboard where you can configure your VibeSDK deployment with these variables.
 
 [![Deploy to Cloudflare Workers](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/cloudflare/vibesdk)
+
+### 🧪 Bootstrap validation
+
+After setting your environment variables, run the automated bootstrap check to verify the Phase 0 requirements:
+
+```bash
+bun scripts/bootstrap-check.ts --env-file .dev.vars
+```
+
+The script confirms that `SANDBOX_INSTANCE_TYPE` is pinned to `standard-3`, the deployed Worker responds at `/api/health`, and your Google AI Studio key returns a live completion. Use the `--no-network` flag if you are preparing an environment without outbound access and want to defer the network checks.
 
 ### 🔑 What you'll configure
 
