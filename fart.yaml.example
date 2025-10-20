@@ -1,0 +1,22 @@
+project: { name: "JPEG Ninjas", mint: "<AUTO_FROM_WIZARD>" }
+modules:
+  points: { per_action: 5, daily_cap: 5000 }
+  quests:
+    - id: "holder-1000"
+      gate: { token_min: 1000 }
+      reward: { points: 500 }
+  rewards: { escrow_vault: true }
+token:
+  standard: token-2022
+  decimals: 6
+  supply_mode: mintable
+  initial_mints:
+    - to: "<treasury_multisig_pubkey>"
+      amount: "100000000000"
+  authorities:
+    mint: "<treasury_multisig_pubkey>"
+    freeze: "<treasury_multisig_pubkey>"
+  post_seed: { renounce_mint_authority: false }
+tokenomics: { transfer_fee_bps: 50, burn_on_shop_spend: 0.02 }
+rpc: { cluster: "devnet" }
+distribution: { wallets: ["phantom"] }
