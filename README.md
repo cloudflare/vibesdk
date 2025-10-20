@@ -117,13 +117,15 @@ If you continue to hit authorization errors after configuring `.npmrc`, verify t
 
 ### 🔑 What you'll configure
 
-- `GOOGLE_AI_STUDIO_API_KEY` - Your Google Gemini API key for Gemini models
-- `JWT_SECRET` - Secure random string for session management
-- `WEBHOOK_SECRET` - Webhook authentication secret
-- `SECRETS_ENCRYPTION_KEY` - Encryption key for secrets
-- `SANDBOX_INSTANCE_TYPE` - Container performance tier (optional, see section below)
-- `ALLOWED_EMAIL` - Email address of the user allowed to use the app. This is used to verify the user's identity and prevent unauthorized access.
-- `CUSTOM_DOMAIN` - Custom domain for your app that you have configured in Cloudflare (**Required**). If you use a first-level subdomain such as `abc.xyz.com`, make sure the Advanced Certificate Manager add-on is active on that zone.
+| Variable | Purpose | How to obtain it |
+| --- | --- | --- |
+| `GOOGLE_AI_STUDIO_API_KEY` | Authenticates calls to Google Gemini models | Create or manage keys in **Google AI Studio → [API Keys](https://aistudio.google.com/app/apikey)**. |
+| `JWT_SECRET` | Signs and verifies session tokens inside the platform | Generate a random secret locally (`openssl rand -base64 48`) or let `bun tsx scripts/setup.ts` create one for you. |
+| `WEBHOOK_SECRET` | Verifies inbound webhooks | Generate locally (`openssl rand -base64 32`) or via `scripts/setup.ts`. |
+| `SECRETS_ENCRYPTION_KEY` | Encrypts stored secrets | Generate locally (`openssl rand -base64 48`) or via `scripts/setup.ts`. |
+| `SANDBOX_INSTANCE_TYPE` | Container performance tier (optional, see section below) | Set to `standard-3` unless you need a different tier; this value does not require a secret and can be edited directly in your `.dev.vars`/`.prod.vars`. |
+| `ALLOWED_EMAIL` | Locks preview access to a specific user | Provide the authorized email address in your vars files. |
+| `CUSTOM_DOMAIN` | Custom domain for your app | Configure the domain in Cloudflare, then enter it here (see DNS instructions below). |
 
 ### Custom domain DNS setup
 
