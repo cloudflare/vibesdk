@@ -1,0 +1,1 @@
+RPG Lite template stub
