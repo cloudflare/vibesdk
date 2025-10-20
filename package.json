@@ -154,7 +154,7 @@
 		"useTabs": true
 	},
 	"overrides": {
-		"vite": "npm:rolldown-vite@latest",
+		"vite": "npm:rolldown-vite@^7.1.13",
 		"@cloudflare/containers": "^0.0.28"
 	}
 }
