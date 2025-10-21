@@ -1,0 +1,8 @@
+[workspace]
+members = [
+  "points",
+  "quests",
+  "escrow",
+  "registry"
+]
+resolver = "2"

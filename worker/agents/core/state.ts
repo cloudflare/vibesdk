@@ -5,6 +5,7 @@ import type { TemplateDetails } from '../../services/sandbox/sandboxTypes';
 // import type { ScreenshotData } from './types';
 import type { ConversationMessage } from '../inferutils/common';
 import type { InferenceContext } from '../inferutils/config.types';
+import type { FartConfig } from 'shared/fartnode/config/types';
 
 export interface FileState extends FileOutputType {
     lasthash: string;
@@ -59,4 +60,5 @@ export interface CodeGenState {
     conversationMessages: ConversationMessage[];
     projectUpdatesAccumulator: string[];
     inferenceContext: InferenceContext;
+    fartConfig?: FartConfig;
 } 

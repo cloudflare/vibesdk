@@ -1,0 +1,11 @@
+[package]
+name = "fartnode-quests"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "fartnode_quests"
+crate-type = ["cdylib", "lib"]
+
+[dependencies]
+anchor-lang = "0.30.1"

@@ -8,6 +8,7 @@ export interface CodeGenArgs {
     selectedTemplate?: string;
     agentMode: 'deterministic' | 'smart';
     images?: ImageAttachment[];
+    fartConfig?: unknown;
 }
 
 /**

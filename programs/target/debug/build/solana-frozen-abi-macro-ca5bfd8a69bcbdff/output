@@ -1,0 +1,1 @@
+cargo:rustc-cfg=RUSTC_WITHOUT_SPECIALIZATION

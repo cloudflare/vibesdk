@@ -170,6 +170,7 @@ export class SimpleCodeGeneratorAgent extends Agent<Env, CodeGenState> {
         shouldBeGenerating: false,
         reviewingInitiated: false,
         projectUpdatesAccumulator: [],
+        fartConfig: undefined,
     };
 
     /*
@@ -266,7 +267,7 @@ export class SimpleCodeGeneratorAgent extends Agent<Env, CodeGenState> {
         ..._args: unknown[]
     ): Promise<CodeGenState> {
 
-        const { query, language, frameworks, hostname, inferenceContext, templateInfo, sandboxSessionId } = initArgs;
+        const { query, language, frameworks, hostname, inferenceContext, templateInfo, sandboxSessionId, fartConfig } = initArgs;
         this.initLogger(inferenceContext.agentId, sandboxSessionId, inferenceContext.userId);
         
         // Generate a blueprint
@@ -306,6 +307,7 @@ export class SimpleCodeGeneratorAgent extends Agent<Env, CodeGenState> {
             sessionId: sandboxSessionId,
             hostname,
             inferenceContext,
+            fartConfig,
         });
 
         try {

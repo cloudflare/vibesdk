@@ -7,6 +7,7 @@ import type { TemplateDetails } from '../../services/sandbox/sandboxTypes';
 import { TemplateSelection } from '../schemas';
 import { CurrentDevState } from './state';
 import { ProcessedImageAttachment } from 'worker/types/image-attachment';
+import type { FartConfig } from 'shared/fartnode/config/types';
 
 export interface AgentInitArgs {
     query: string;
@@ -21,6 +22,7 @@ export interface AgentInitArgs {
     sandboxSessionId: string
     images?: ProcessedImageAttachment[];
     onBlueprintChunk: (chunk: string) => void;
+    fartConfig?: FartConfig;
 }
 
 export interface AllIssues {

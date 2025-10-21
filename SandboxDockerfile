@@ -5,7 +5,7 @@ FROM docker.io/cloudflare/sandbox:0.1.3
 # Install cloudflared and system dependencies in a single layer
 ARG TARGETARCH
 RUN apt-get update && \
-        apt-get install -y git ca-certificates curl procps net-tools && \
+        apt-get install -y git ca-certificates curl procps net-tools build-essential pkg-config libssl-dev libudev-dev clang && \
         update-ca-certificates && \
         case ${TARGETARCH} in \
             "amd64") ARCH="amd64" ;; \
@@ -42,6 +42,21 @@ RUN bun install
 
 # Set proper permissions for data directory
 RUN chmod 755 /app/data
+
+# Install Rust toolchain for Anchor builds
+RUN curl https://sh.rustup.rs -sSf | sh -s -- -y --default-toolchain stable
+ENV PATH="/root/.cargo/bin:${PATH}"
+RUN rustc --version
+
+# Install Solana CLI
+RUN sh -c "$(curl -sSfL https://release.solana.com/stable/install)"
+ENV PATH="/root/.local/share/solana/install/active_release/bin:${PATH}"
+RUN solana --version
+
+# Install Anchor via avm
+RUN cargo install --git https://github.com/coral-xyz/anchor avm --locked
+RUN avm install 0.30.1 && avm use 0.30.1
+RUN anchor --version
 
 # Set environment variable to indicate Docker container environment
 ENV CONTAINER_ENV=docker

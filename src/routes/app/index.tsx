@@ -22,6 +22,7 @@ import {
 	Globe,
 	Trash2,
 	Github,
+	Wallet2,
 } from 'lucide-react';
 import { MonacoEditor } from '@/components/monaco-editor/monaco-editor';
 import { getFileType } from '@/utils/string';
@@ -43,6 +44,7 @@ import { capitalizeFirstLetter, cn, getPreviewUrl } from '@/lib/utils';
 import { ConfirmDeleteDialog } from '@/components/shared/ConfirmDeleteDialog';
 import { useAuthGuard } from '@/hooks/useAuthGuard';
 import { PreviewIframe } from '../chat/components/preview-iframe';
+import { SolanaPanel } from '@/fartnode/components/SolanaPanel';
 
 // Use proper types from API types
 type AppDetails = AppDetailsData;
@@ -748,6 +750,18 @@ export default function AppView() {
 							)} />
 							Prompt
 						</TabsTrigger>
+						<TabsTrigger
+							value="solana"
+							className="px-3 py-1.5 rounded text-xs font-medium data-[state=active]:bg-bg-4 dark:data-[state=active]:bg-bg-3 data-[state=active]:text-text-primary data-[state=active]:shadow-sm"
+						>
+							<Wallet2
+								className={cn(
+									'h-3.5 w-3.5 mr-1.5',
+									activeTab === 'solana' ? 'text-accent' : 'text-accent/60',
+								)}
+							/>
+							Solana
+						</TabsTrigger>
 					</TabsList>
 
 					<TabsContent value="preview" className="flex-1">
@@ -1058,6 +1072,18 @@ export default function AppView() {
 										</p>
 									</div>
 								)}
+							</CardContent>
+						</Card>
+					</TabsContent>
+
+					<TabsContent value="solana" className="flex-1">
+						<Card>
+							<CardHeader>
+								<CardTitle>Solana Preview</CardTitle>
+								<CardDescription>Wallet and program wiring lives here. Stubbed for now.</CardDescription>
+							</CardHeader>
+							<CardContent>
+								<SolanaPanel />
 							</CardContent>
 						</Card>
 					</TabsContent>

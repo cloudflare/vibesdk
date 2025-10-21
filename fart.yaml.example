@@ -1,22 +1,42 @@
-project: { name: "JPEG Ninjas", mint: "<AUTO_FROM_WIZARD>" }
+project:
+  name: FARTNODE Arcade Demo
+  slug: fartnode-arcade
+  description: Devnet playground wiring points, quests, and escrow flows.
+  thumbnail: https://assets.fartnode.dev/thumbnails/arcade.png
+solana:
+  cluster: devnet
+  rpcUrl: https://api.devnet.solana.com
+  programs:
+    points: 6B2f3kVVaNY89qB3nXtK7Cf8YpYdRzY1Cq5h8kuSZ4zt
+    quests: 8qv6Ycp1i6itV7YcCjPV6d4jPAjNVQYg8St1dD4KmG7Z
+    escrow: 5oXmX8XgFu5XjafypvQYbv8XwsnR6bY5d3A6xHS98CDM
+    registry: 7pMvBuvgG8AqCgd2APuYw4U9d1Mnr4Xu7rgUXZqQFKmc
+  mints:
+    points: 9Kj8Hw4sRn8B5oYwX1cDBk2sewFZ5pe5gcm9x85t6Afo
+    rewards: 5YsrSadHUMax9kUenfeyfadKYP1x6sVR8iCLb7gBN7Fv
 modules:
-  points: { per_action: 5, daily_cap: 5000 }
+  points:
+    enabled: true
   quests:
-    - id: "holder-1000"
-      gate: { token_min: 1000 }
-      reward: { points: 500 }
-  rewards: { escrow_vault: true }
-token:
-  standard: token-2022
-  decimals: 6
-  supply_mode: mintable
-  initial_mints:
-    - to: "<treasury_multisig_pubkey>"
-      amount: "100000000000"
-  authorities:
-    mint: "<treasury_multisig_pubkey>"
-    freeze: "<treasury_multisig_pubkey>"
-  post_seed: { renounce_mint_authority: false }
-tokenomics: { transfer_fee_bps: 50, burn_on_shop_spend: 0.02 }
-rpc: { cluster: "devnet" }
-distribution: { wallets: ["phantom"] }
+    enabled: true
+  escrow:
+    enabled: true
+  badges:
+    enabled: false
+    options:
+      watermark: community
+templates:
+  default: arcade
+  available:
+    - arcade
+    - rpg-lite
+attestation:
+  authority: 2spAn1Y7fDGxxn3y1hdyZgADapYvA3GNzy5h4A9LpB6x
+  dnsTxtRecord: "fartnode=demo"
+  siwsDomain: demo.fartnode.xyz
+treasury:
+  vault: 4Kp3KMmZL2YhZUrCx9rbpXR7y7wGayRrQtmY5gux1T8E
+  distribution:
+    creator: 40
+    community: 40
+    treasury: 20

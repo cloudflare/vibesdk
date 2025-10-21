@@ -14,6 +14,7 @@ import { createLogger } from '../../../logger';
 import { getPreviewDomain } from 'worker/utils/urls';
 import { ImageType, uploadImage } from 'worker/utils/images';
 import { ProcessedImageAttachment } from 'worker/types/image-attachment';
+import { assertFartConfig, type FartConfig } from 'shared/fartnode/config/validateConfig';
 
 const defaultCodeGenArgs: CodeGenArgs = {
     query: '',
@@ -49,6 +50,17 @@ export class CodingAgentController extends BaseController {
             const query = body.query;
             if (!query) {
                 return CodingAgentController.createErrorResponse('Missing "query" field in request body', 400);
+            }
+
+            let fartConfig: FartConfig | undefined;
+            if (body.fartConfig) {
+                try {
+                    fartConfig = assertFartConfig(body.fartConfig);
+                } catch (error) {
+                    this.logger.error('Invalid fart.yaml configuration supplied', error);
+                    const message = error instanceof Error ? error.message : 'Invalid fart.yaml configuration';
+                    return CodingAgentController.createErrorResponse(message, 400);
+                }
             }
             const { readable, writable } = new TransformStream({
                 transform(chunk, controller) {
@@ -127,6 +139,7 @@ export class CodingAgentController extends BaseController {
                 agentId: agentId,
                 websocketUrl,
                 httpStatusUrl,
+                configValidated: Boolean(fartConfig),
                 template: {
                     name: templateDetails.name,
                     files: templateDetails.files,
@@ -144,7 +157,8 @@ export class CodingAgentController extends BaseController {
                     writer.write({chunk});
                 },
                 templateInfo: { templateDetails, selection },
-                sandboxSessionId
+                sandboxSessionId,
+                fartConfig,
             }, body.agentMode || defaultCodeGenArgs.agentMode) as Promise<CodeGenState>;
             agentPromise.then(async (_state: CodeGenState) => {
                 writer.write("terminate");
