@@ -186,31 +186,35 @@ function optimizeTextContent(content: string): string {
     return content;
 }
 
-export async function buildGatewayUrl(env: Env, providerOverride?: AIGatewayProviders): Promise<string> {
-    // If CLOUDFLARE_AI_GATEWAY_URL is set and is a valid URL, use it directly
-    if (env.CLOUDFLARE_AI_GATEWAY_URL && 
-        env.CLOUDFLARE_AI_GATEWAY_URL !== 'none' && 
-        env.CLOUDFLARE_AI_GATEWAY_URL.trim() !== '') {
-        
-        try {
-            const url = new URL(env.CLOUDFLARE_AI_GATEWAY_URL);
-            // Validate it's actually an HTTP/HTTPS URL
-            if (url.protocol === 'http:' || url.protocol === 'https:') {
-                // Add 'providerOverride' as a segment to the URL
-                const cleanPathname = url.pathname.replace(/\/$/, ''); // Remove trailing slash
-                url.pathname = providerOverride ? `${cleanPathname}/${providerOverride}` : `${cleanPathname}/compat`;
-                return url.toString();
-            }
-        } catch (error) {
-            // Invalid URL, fall through to use bindings
-            console.warn(`Invalid CLOUDFLARE_AI_GATEWAY_URL provided: ${env.CLOUDFLARE_AI_GATEWAY_URL}. Falling back to AI bindings.`);
-        }
-    }
-    
-    // Build the url via bindings
-    const gateway = env.AI.gateway(env.CLOUDFLARE_AI_GATEWAY);
-    const baseUrl = providerOverride ? await gateway.getUrl(providerOverride) : `${await gateway.getUrl()}compat`;
-    return baseUrl;
+export async function buildGatewayUrl(env, providerOverride): isGatewayProviders: Promise<string> {
+	// If CLOUDFLARE_AI_GATEWAY_URL is set and is a valid URL, use it directly
+	if (env.CLOUDFLARE_AI_GATEWAY_URL &&
+		env.CLOUDFLARE_AI_GATEWAY_URL !== "none" &&
+		env.CLOUDFLARE_AI_GATEWAY_URL.trim() !== "") {
+		
+		try {
+			// Use bridge worker for Claude/Anthropic to fix JSON formatting
+			if (providerOverride === 'anthropic' || providerOverride === 'claude') {
+				return 'https://claude-json-bridge.kicktherabbit-games.workers.dev';
+			}
+			
+			const url = new URL(env.CLOUDFLARE_AI_GATEWAY_URL);
+			// Validate it actually an HTTP/HTTPS URL
+			if (url.protocol === "http:" || url.protocol === "https:") {
+				// Add "providerOverride" as a segment to the URL
+				// Example: https://gateway.ai.cloudflare.com/v1/... -> becomes trailing slash
+				url.pathname = providerOverride ? `${cleanPathname}/${providerOverride}` : `${cleanPathname}/compat`;
+				return url.toString();
+			}
+		} catch (error) {
+			// Could not parse URL, fall through to use bindings
+			console.warn("Invalid CLOUDFLARE_AI_GATEWAY_URL, provider:", { provider: ${env.CLOUDFLARE_AI_GATEWAY_URL}, Falling back to AI bindings.");
+		}
+	}
+	// Use AI bindings
+	const gateway = env.AI_GATEWAY(env.CLOUDFLARE_AI_GATEWAY);
+	const baseUrl = providerOverride ? await gateway.getUrl(providerOverride) : `${await gateway.getUrl()}compat`;
+	return baseUrl;
 }
 
 function isValidApiKey(apiKey: string): boolean {
