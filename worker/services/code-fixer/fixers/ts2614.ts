@@ -18,17 +18,16 @@ const logger = createObjectLogger({ name: 'TS2614Fixer' }, 'TS2614Fixer');
  * Fix TS2614 "Module has no exported member" errors (import/export mismatch)
  * Corrects import statements to match actual export types
  */
-export async function fixImportExportTypeMismatch(
+export function fixImportExportTypeMismatch(
     context: FixerContext,
     issues: CodeIssue[]
-): Promise<FixResult> {
+): FixResult {
     logger.info(`Starting TS2614 fixer with ${issues.length} issues`);
     
     const fixedIssues: FixedIssue[] = [];
     const unfixableIssues: UnfixableIssue[] = [];
     const modifiedFiles: FileObject[] = [];
     const newFiles: FileObject[] = [];
-    const fetchedFiles = new Set(context.fetchedFiles);
 
     for (const issue of issues) {
         logger.info(`Processing TS2614 issue: ${issue.message} at ${issue.filePath}:${issue.line}`);
@@ -36,7 +35,7 @@ export async function fixImportExportTypeMismatch(
         try {
             // Get AST for the file with the import issue
             logger.info(`Getting AST for source file: ${issue.filePath}`);
-            const sourceAST = await getFileAST(issue.filePath, context.files, context.fileFetcher, fetchedFiles);
+            const sourceAST = getFileAST(issue.filePath, context.files);
             if (!sourceAST) {
                 logger.warn(`Failed to get AST for ${issue.filePath}`);
                 unfixableIssues.push({
@@ -70,12 +69,10 @@ export async function fixImportExportTypeMismatch(
 
             // Find the target file
             logger.info(`Searching for target file: ${importInfo.moduleSpecifier}`);
-            const targetFile = await findModuleFile(
+            const targetFile = findModuleFile(
                 importInfo.moduleSpecifier, 
                 issue.filePath, 
-                context.files,
-                context.fileFetcher,
-                fetchedFiles
+                context.files
             );
             
             if (!targetFile) {
@@ -94,7 +91,7 @@ export async function fixImportExportTypeMismatch(
 
             // Get AST for target file to analyze actual exports
             logger.info(`Getting AST for target file: ${targetFile}`);
-            const targetAST = await getFileAST(targetFile, context.files, context.fileFetcher, fetchedFiles);
+            const targetAST = getFileAST(targetFile, context.files);
             if (!targetAST) {
                 logger.warn(`Failed to parse target file: ${targetFile}`);
                 unfixableIssues.push({

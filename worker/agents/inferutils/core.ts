@@ -319,6 +319,7 @@ type InferArgsBase = {
     tools?: ToolDefinition<any, any>[];
     providerOverride?: 'cloudflare' | 'direct';
     userApiKeys?: Record<string, string>;
+    abortSignal?: AbortSignal;
 };
 
 type InferArgsStructured = InferArgsBase & {
@@ -428,6 +429,7 @@ export async function infer<OutputSchema extends z.AnyZodObject>({
     tools,
     reasoning_effort,
     temperature,
+    abortSignal,
 }: InferArgsBase & {
     schema?: OutputSchema;
     schemaName?: string;
@@ -440,7 +442,7 @@ export async function infer<OutputSchema extends z.AnyZodObject>({
     
     // Check tool calling depth to prevent infinite recursion
     const currentDepth = toolCallContext?.depth ?? 0;
-    if (currentDepth >= MAX_TOOL_CALLING_DEPTH) {
+    if (currentDepth >= MAX_TOOL_CALLING_DEPTH && actionKey !== 'deepDebugger') {
         console.warn(`Tool calling depth limit reached (${currentDepth}/${MAX_TOOL_CALLING_DEPTH}). Stopping recursion.`);
         // Return a response indicating max depth reached
         if (schema) {
@@ -553,6 +555,7 @@ export async function infer<OutputSchema extends z.AnyZodObject>({
                 reasoning_effort,
                 temperature,
             }, {
+                signal: abortSignal,
                 headers: {
                     "cf-aig-metadata": JSON.stringify({
                         chatId: metadata.agentId,
@@ -564,6 +567,12 @@ export async function infer<OutputSchema extends z.AnyZodObject>({
             });
             console.log(`Inference response received`);
         } catch (error) {
+            // Check if error is due to abort
+            if (error instanceof Error && (error.name === 'AbortError' || error.message?.includes('aborted') || error.message?.includes('abort'))) {
+                console.log('Inference cancelled by user');
+                throw new InferError('Inference cancelled by user', '');
+            }
+            
             console.error(`Failed to get inference response from OpenAI: ${error}`);
             if ((error instanceof Error && error.message.includes('429')) || (typeof error === 'string' && error.includes('429'))) {
                 throw new RateLimitExceededError('Rate limit exceeded in LLM calls, Please try again later', RateLimitType.LLM_CALLS);
@@ -720,6 +729,7 @@ export async function infer<OutputSchema extends z.AnyZodObject>({
                         tools,
                         reasoning_effort,
                         temperature,
+                        abortSignal,
                     }, newToolCallContext);
                     return output;
                 } else {
@@ -734,6 +744,7 @@ export async function infer<OutputSchema extends z.AnyZodObject>({
                         tools,
                         reasoning_effort,
                         temperature,
+                        abortSignal,
                     }, newToolCallContext);
                     return output;
                 }

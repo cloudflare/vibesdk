@@ -741,6 +741,7 @@ class LogCommands {
     instanceId: string;
     format?: 'json' | 'raw';
     reset?: boolean;
+    durationSeconds?: number;
   }): Promise<void> {
     try {
       const { promises: fs } = require('fs');
@@ -827,6 +828,11 @@ class LogCommands {
         await releaseLock();
       }
       
+      // Filter logs by duration if specified
+      if (options.durationSeconds && options.durationSeconds > 0) {
+        logs = LogCommands.filterLogsByDuration(logs, options.durationSeconds);
+      }
+      
       if (options.format === 'raw') {
         console.log(logs);
       } else {
@@ -848,6 +854,39 @@ class LogCommands {
       );
       process.exit(1);
     }
+  }
+
+  /**
+   * Filter logs by duration (keep only logs newer than X seconds ago)
+   * Log format: [2025-10-17T05:30:24.985Z] [stdout] content
+   */
+  static filterLogsByDuration(logs: string, durationSeconds: number): string {
+    if (!logs || logs.trim().length === 0) {
+      return logs;
+    }
+
+    const lines = logs.split('\n');
+    const now = Date.now();
+    const cutoffTime = now - (durationSeconds * 1000);
+    
+    const filteredLines = lines.filter(line => {
+      // Match log format: [ISO_TIMESTAMP] [stream] content
+      const timestampMatch = line.match(/^\[([^\]]+)\]/);
+      if (!timestampMatch) {
+        // If no timestamp, keep the line (might be continuation of previous log)
+        return true;
+      }
+      
+      try {
+        const timestamp = new Date(timestampMatch[1]).getTime();
+        return timestamp >= cutoffTime;
+      } catch (error) {
+        // If timestamp parsing fails, keep the line
+        return true;
+      }
+    });
+    
+    return filteredLines.join('\n');
   }
 
   static async stats(options: { instanceId: string; dbPath?: string }): Promise<void> {
@@ -1099,7 +1138,8 @@ async function main() {
         'last-sequence': { type: 'string' },
         'count': { type: 'string' },
         'confirm': { type: 'boolean' },
-        'reset': { type: 'boolean' }
+        'reset': { type: 'boolean' },
+        'duration': { type: 'string' },
       },
       allowPositionals: true
     });
@@ -1269,7 +1309,8 @@ async function handleLogCommand(subcommand: string, args: Record<string, unknown
       await LogCommands.get({
         instanceId: String(args['instance-id']),
         format: args.format as 'json' | 'raw',
-        reset: Boolean(args.reset)
+        reset: Boolean(args.reset),
+        durationSeconds: args['duration'] ? Number(args['duration']) : undefined
       });
       break;
       

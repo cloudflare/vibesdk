@@ -59,43 +59,39 @@ export function canModifyFile(filePath: string): boolean {
  * Resolve a module specifier to an actual file path within the project
  * Unified resolution logic used by all fixers
  */
-export async function resolveModuleFile(
+export function resolveModuleFile(
     moduleSpecifier: string,
     fromFilePath: string,
     context: FixerContext
-): Promise<string | null> {
+): string | null {
     // Skip external modules - we cannot modify them
     if (isExternalModule(moduleSpecifier)) {
         return null;
     }
     
     // Use existing findModuleFile logic for internal modules
-    return await findModuleFile(
+    return findModuleFile(
         moduleSpecifier,
         fromFilePath,
-        context.files,
-        context.fileFetcher,
-        context.fetchedFiles as Set<string>
+        context.files
     );
 }
 
 /**
  * Check if a target file exists and can be modified
  */
-export async function canModifyTargetFile(
+export function canModifyTargetFile(
     targetFilePath: string,
     context: FixerContext
-): Promise<boolean> {
+): boolean {
     if (!canModifyFile(targetFilePath)) {
         return false;
     }
     
     try {
-        const content = await getFileContent(
+        const content = getFileContent(
             targetFilePath,
-            context.files,
-            context.fileFetcher,
-            context.fetchedFiles as Set<string>
+            context.files
         );
         return content !== null;
     } catch {

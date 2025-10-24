@@ -137,7 +137,6 @@ export type {
 // Agent/Generator Types
 export type { 
   Blueprint as BlueprintType,
-  ClientReportedErrorType,
   CodeReviewOutputType,
   FileConceptType,
   FileOutputType as GeneratedFile,

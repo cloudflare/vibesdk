@@ -2,8 +2,9 @@ import * as Diff from 'diff';
 import { IFileManager } from '../interfaces/IFileManager';
 import { IStateManager } from '../interfaces/IStateManager';
 import { FileOutputType } from '../../schemas';
-import { TemplateDetails } from '../../../services/sandbox/sandboxTypes';
 import { FileProcessing } from '../../domain/pure/FileProcessing';
+import { FileState } from 'worker/agents/core/state';
+import { TemplateDetails } from '../../../services/sandbox/sandboxTypes';
 
 /**
  * Manages file operations for code generation
@@ -11,110 +12,97 @@ import { FileProcessing } from '../../domain/pure/FileProcessing';
  */
 export class FileManager implements IFileManager {
     constructor(
-        private stateManager: IStateManager
+        private stateManager: IStateManager,
+        private getTemplateDetailsFunc: () => TemplateDetails
     ) {}
-
-    getTemplateFile(path: string): { filePath: string; fileContents: string } | null {
-        const state = this.stateManager.getState();
-        return state.templateDetails?.files?.find(file => file.filePath === path) || null;
-    }
 
     getGeneratedFile(path: string): FileOutputType | null {
         const state = this.stateManager.getState();
         return state.generatedFilesMap[path] || null;
     }
 
+    /**
+     * Get all files combining template and generated files
+     * Template files are overridden by generated files with same path
+     * @returns Array of all files. Only returns important template files, not all!
+     */
+    getAllRelevantFiles(): FileOutputType[] {
+        const state = this.stateManager.getState();
+        return FileProcessing.getAllRelevantFiles(this.getTemplateDetailsFunc(), state.generatedFilesMap);
+    }
+
     getAllFiles(): FileOutputType[] {
         const state = this.stateManager.getState();
-        return FileProcessing.getAllFiles(state.templateDetails, state.generatedFilesMap);
+        return FileProcessing.getAllFiles(this.getTemplateDetailsFunc(), state.generatedFilesMap);
     }
 
-    saveGeneratedFile(file: FileOutputType): void {
-        this.saveGeneratedFiles([file]);
+    saveGeneratedFile(file: FileOutputType): FileState {
+        return this.saveGeneratedFiles([file])[0];
     }
 
-    saveGeneratedFiles(files: FileOutputType[]): void {
-        const state = this.stateManager.getState();
-        const filesMap = { ...state.generatedFilesMap };
+    saveGeneratedFiles(files: FileOutputType[]): FileState[] {
+        const filesMap = { ...this.stateManager.getState().generatedFilesMap };
+        const fileStates: FileState[] = [];
         
         for (const file of files) {
             let lastDiff = '';
             const oldFile = filesMap[file.filePath];
-            if (oldFile) {
+            
+            // Get comparison base: from generatedFilesMap, template/filesystem, or empty string for new files
+            // TODO: fix checking against template files
+            const oldFileContents = oldFile?.fileContents ?? (this.getGeneratedFile(file.filePath)?.fileContents || '');
+            
+            // Generate diff if contents changed
+            if (oldFileContents !== file.fileContents) {
                 try {
-                    // Generate diff of old file and new file
-                    lastDiff = Diff.createPatch(file.filePath, oldFile.fileContents, file.fileContents);
+                    lastDiff = Diff.createPatch(file.filePath, oldFileContents, file.fileContents);
                     if (lastDiff) {
-                        console.log(`Generated diff for file ${file.filePath}:`, lastDiff);
+                        const isNewFile = oldFileContents === '';
+                        console.log(`Generated diff for ${isNewFile ? 'new' : ''} file ${file.filePath}:`, lastDiff);
                     }
                 } catch (error) {
                     console.error(`Failed to generate diff for file ${file.filePath}:`, error);
                 }
             }
-            filesMap[file.filePath] = {
+            
+            const fileState = {
                 ...file,
                 lasthash: '',
                 lastmodified: Date.now(),
                 unmerged: [],
                 lastDiff
-            };
+            }
+            filesMap[file.filePath] = fileState;
+            fileStates.push(fileState);
         }
         
         this.stateManager.setState({
-            ...state,
+            ...this.stateManager.getState(),
             generatedFilesMap: filesMap
         });
+        return fileStates;
     }
 
     deleteFiles(filePaths: string[]): void {
-        const state = this.stateManager.getState();
-        const newFilesMap = { ...state.generatedFilesMap };
+        const newFilesMap = { ...this.stateManager.getState().generatedFilesMap };
         
         for (const filePath of filePaths) {
             delete newFilesMap[filePath];
         }
         
         this.stateManager.setState({
-            ...state,
+            ...this.stateManager.getState(),
             generatedFilesMap: newFilesMap
         });
     }
 
-    getFile(path: string): FileOutputType | null {
-        const generatedFile = this.getGeneratedFile(path);
-        if (generatedFile) {
-            return generatedFile;
-        }
-        
-        const templateFile = this.getTemplateFile(path);
-        if (!templateFile) {
-            return null;
-        }
-        return {...templateFile, filePurpose: 'Template file'};
-    }
-    
-    getFileContents(path: string): string {
-        const generatedFile = this.getGeneratedFile(path);
-        if (generatedFile) {
-            return generatedFile.fileContents;
-        }
-        
-        const templateFile = this.getTemplateFile(path);
-        return templateFile?.fileContents || '';
-    }
-
     fileExists(path: string): boolean {
-        return !!this.getGeneratedFile(path) || !!this.getTemplateFile(path);
+        return !!this.getGeneratedFile(path)
     }
 
     getGeneratedFilePaths(): string[] {
         const state = this.stateManager.getState();
         return Object.keys(state.generatedFilesMap);
-    }
-
-    getTemplateDetails(): TemplateDetails | undefined {
-        const state = this.stateManager.getState();
-        return state.templateDetails;
     }
 
     getGeneratedFilesMap(): Record<string, FileOutputType> {
@@ -125,5 +113,28 @@ export class FileManager implements IFileManager {
     getGeneratedFiles(): FileOutputType[] {
         const state = this.stateManager.getState();
         return Object.values(state.generatedFilesMap);
+    }
+
+    getTemplateFile(filePath: string) : FileOutputType | null {
+        const templateDetails = this.getTemplateDetailsFunc();
+        const fileContents = templateDetails.allFiles[filePath];
+        if (!fileContents) {
+            return null;
+        }
+        return {
+            filePath,
+            fileContents,
+            filePurpose: 'Bootstrapped template file',
+        }
+    }
+
+    getFile(filePath: string) : FileOutputType | null {
+        // First search generated files
+        const generatedFile = this.getGeneratedFile(filePath);
+        if (generatedFile) {
+            return generatedFile;
+        }
+        // Then search template files
+        return this.getTemplateFile(filePath);
     }
 }

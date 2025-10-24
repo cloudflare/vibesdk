@@ -4,8 +4,8 @@
  */
 
 import * as t from '@babel/types';
-import { ImportInfo, ExportInfo, ImportUsage, FileMap, FileFetcher } from '../types';
-import { parseCode, traverseAST, isScriptFile } from './ast';
+import { ImportInfo, ExportInfo, ImportUsage, FileMap } from '../types';
+import { parseCode, traverseAST } from './ast';
 import { createObjectLogger } from '../../../logger';
 
 const logger = createObjectLogger({ name: 'ImportUtils' }, 'ImportUtils');
@@ -371,12 +371,10 @@ export function analyzeNameUsage(ast: t.File, name: string): ImportUsage | null 
 /**
  * Get file content from FileMap or fetch it if not available
  */
-export async function getFileContent(
+export function getFileContent(
     filePath: string, 
     files: FileMap, 
-    fileFetcher?: FileFetcher,
-    fetchedFiles?: Set<string>
-): Promise<string | null> {
+): string | null {
     logger.info(`ImportUtils: Getting content for file: ${filePath}`);
     
     const file = files.get(filePath);
@@ -384,32 +382,8 @@ export async function getFileContent(
         logger.info(`ImportUtils: Found file in context: ${filePath}`);
         return file.content;
     }
-    
-    // Try to fetch if not available and we have a fetcher
-    if (fileFetcher && fetchedFiles && !fetchedFiles.has(filePath)) {
-        try {
-            logger.info(`ImportUtils: Fetching file: ${filePath}`);
-            fetchedFiles.add(filePath); // Mark as attempted
-            const result = await fileFetcher(filePath);
-            
-            if (result && isScriptFile(result.filePath)) {
-                logger.info(`ImportUtils: Successfully fetched ${filePath}, storing in files map`);
-                // Store the fetched file in the mutable files map
-                files.set(filePath, {
-                    filePath: filePath,
-                    content: result.fileContents,
-                    ast: undefined
-                });
-                return result.fileContents;
-            } else {
-                logger.info(`ImportUtils: File ${filePath} was fetched but is not a script file or result is null`);
-            }
-        } catch (error) {
-            logger.warn(`ImportUtils: Failed to fetch file ${filePath}: ${error instanceof Error ? error.message : 'Unknown error'}`);
-        }
-    } else {
-        logger.info(`ImportUtils: Not fetching ${filePath} - fileFetcher: ${!!fileFetcher}, fetchedFiles: ${!!fetchedFiles}, alreadyFetched: ${fetchedFiles?.has(filePath)}`);
-    }
+
+    logger.info(`ImportUtils: File not found in context: ${filePath}`);
     
     return null;
 }
@@ -417,12 +391,10 @@ export async function getFileContent(
 /**
  * Get file AST from FileMap with caching, or parse it if needed
  */
-export async function getFileAST(
+export function getFileAST(
     filePath: string, 
     files: FileMap, 
-    fileFetcher?: FileFetcher,
-    fetchedFiles?: Set<string>
-): Promise<t.File | null> {
+): t.File | null {
     logger.info(`ImportUtils: Getting AST for file: ${filePath}`);
     
     const file = files.get(filePath);
@@ -432,7 +404,7 @@ export async function getFileAST(
         return file.ast;
     }
     
-    const content = await getFileContent(filePath, files, fileFetcher, fetchedFiles);
+    const content = getFileContent(filePath, files);
     if (!content) {
         logger.info(`ImportUtils: No content available for ${filePath}`);
         return null;

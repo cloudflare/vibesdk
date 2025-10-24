@@ -29,37 +29,43 @@ import {
     ListInstancesResponse,
     GitHubPushRequest,
     GitHubPushResponse,
-  } from './sandboxTypes';
+    TemplateDetails,
+} from './sandboxTypes';
   
-  import { createObjectLogger, StructuredLogger } from '../../logger';
-  import { env } from 'cloudflare:workers'
+import { createObjectLogger, StructuredLogger } from '../../logger';
+import { env } from 'cloudflare:workers'
 import { FileOutputType } from 'worker/agents/schemas';
-  /**
-   * Streaming event for enhanced command execution
-   */
-  export interface StreamEvent {
+import { ZipExtractor } from './zipExtractor';
+import { FileTreeBuilder } from './fileTreeBuilder';
+
+/**
+ * Streaming event for enhanced command execution
+ */
+export interface StreamEvent {
     type: 'stdout' | 'stderr' | 'exit' | 'error';
     data?: string;
     code?: number;
     error?: string;
     timestamp: Date;
-  }
+}
   
-  export interface TemplateInfo {
-      name: string;
-      language?: string;
-      frameworks?: string[];
-      description: {
-          selection: string;
-          usage: string;
-      };
-  }
+export interface TemplateInfo {
+    name: string;
+    language?: string;
+    frameworks?: string[];
+    description: {
+        selection: string;
+        usage: string;
+    };
+}
+
+const templateDetailsCache: Record<string, TemplateDetails> = {};
   
-  /**
-   * Abstract base class providing complete RunnerService API compatibility
-   * All implementations MUST support every method defined here
-   */
-  export abstract class BaseSandboxService {
+/**
+ * Abstract base class providing complete RunnerService API compatibility
+ * All implementations MUST support every method defined here
+*/
+export abstract class BaseSandboxService {
     protected logger: StructuredLogger;
     protected sandboxId: string;
   
@@ -111,12 +117,99 @@ import { FileOutputType } from 'worker/agents/schemas';
         }
     }
   
-      /**
-       * Get details for a specific template including files and structure
-       * Returns: { success: boolean, templateDetails?: {...}, error?: string }
-       */
-      abstract getTemplateDetails(templateName: string): Promise<TemplateDetailsResponse>;
-  
+    /**
+     * Get details for a specific template - fully in-memory, no sandbox operations
+     * Downloads zip from R2, extracts in memory, and returns all files with metadata
+     * Returns: { success: boolean, templateDetails?: {...}, error?: string }
+     */
+    static async getTemplateDetails(templateName: string, downloadDir?: string): Promise<TemplateDetailsResponse> {
+        try {
+            if (templateDetailsCache[templateName]) {
+                console.log(`Template details for template: ${templateName} found in cache`);
+                return {
+                    success: true,
+                    templateDetails: templateDetailsCache[templateName]
+                };
+            }
+            // Download template zip from R2
+            const downloadUrl = downloadDir ? `${downloadDir}/${templateName}.zip` : `${templateName}.zip`;
+            const r2Object = await env.TEMPLATES_BUCKET.get(downloadUrl);
+              
+            if (!r2Object) {
+                throw new Error(`Template '${templateName}' not found in bucket`);
+            }
+        
+            const zipData = await r2Object.arrayBuffer();
+            
+            // Extract all files in memory
+            const allFiles = ZipExtractor.extractFiles(zipData);
+            
+            // Build file tree
+            const fileTree = FileTreeBuilder.buildFromTemplateFiles(allFiles, { rootPath: '.' });
+            
+            // Extract dependencies from package.json
+            const packageJsonFile = allFiles.find(f => f.filePath === 'package.json');
+            const packageJson = packageJsonFile ? JSON.parse(packageJsonFile.fileContents) : null;
+            const dependencies = packageJson?.dependencies || {};
+            
+            // Parse metadata files
+            const dontTouchFile = allFiles.find(f => f.filePath === '.donttouch_files.json');
+            const dontTouchFiles = dontTouchFile ? JSON.parse(dontTouchFile.fileContents) : [];
+            
+            const redactedFile = allFiles.find(f => f.filePath === '.redacted_files.json');
+            const redactedFiles = redactedFile ? JSON.parse(redactedFile.fileContents) : [];
+            
+            const importantFile = allFiles.find(f => f.filePath === '.important_files.json');
+            const importantFiles = importantFile ? JSON.parse(importantFile.fileContents) : [];
+            
+            // Get template info from catalog
+            const catalogResponse = await BaseSandboxService.listTemplates();
+            const catalogInfo = catalogResponse.success 
+                ? catalogResponse.templates.find(t => t.name === templateName)
+                : null;
+            
+            // Remove metadata files and convert to map for efficient lookups
+            const filteredFiles = allFiles.filter(f => 
+                !f.filePath.startsWith('.') || 
+                (!f.filePath.endsWith('.json') && !f.filePath.startsWith('.git'))
+            );
+            
+            // Convert array to map: filePath -> fileContents
+            const filesMap: Record<string, string> = {};
+            for (const file of filteredFiles) {
+                filesMap[file.filePath] = file.fileContents;
+            }
+            
+            const templateDetails: TemplateDetails = {
+                name: templateName,
+                description: {
+                    selection: catalogInfo?.description.selection || '',
+                    usage: catalogInfo?.description.usage || ''
+                },
+                fileTree,
+                allFiles: filesMap,
+                language: catalogInfo?.language,
+                deps: dependencies,
+                importantFiles,
+                dontTouchFiles,
+                redactedFiles,
+                frameworks: catalogInfo?.frameworks || []
+            };
+
+            templateDetailsCache[templateName] = templateDetails;
+
+            return {
+                success: true,
+                templateDetails
+            };
+        } catch (error) {
+            return {
+                success: false,
+                error: `Failed to get template details: ${error instanceof Error ? error.message : 'Unknown error'}`
+            };
+        }
+    }
+    
     // ==========================================
     // INSTANCE LIFECYCLE (Required)
     // ==========================================
@@ -167,7 +260,7 @@ import { FileOutputType } from 'worker/agents/schemas';
      */
     abstract getFiles(instanceId: string, filePaths?: string[]): Promise<GetFilesResponse>;
 
-    abstract getLogs(instanceId: string): Promise<GetLogsResponse>;
+    abstract getLogs(instanceId: string, onlyRecent?: boolean, durationSeconds?: number): Promise<GetLogsResponse>;
   
     // ==========================================
     // COMMAND EXECUTION (Required)
@@ -178,6 +271,8 @@ import { FileOutputType } from 'worker/agents/schemas';
      * Returns: { success: boolean, results: [...], message?: string, error?: string }
      */
     abstract executeCommands(instanceId: string, commands: string[], timeout?: number): Promise<ExecuteCommandsResponse>;
+ 
+    abstract updateProjectName(instanceId: string, projectName: string): Promise<boolean>;
   
     // ==========================================
     // ERROR MANAGEMENT (Required)
@@ -187,7 +282,7 @@ import { FileOutputType } from 'worker/agents/schemas';
      * Get all runtime errors from an instance
      * Returns: { success: boolean, errors: [...], hasErrors: boolean, error?: string }
      */
-    abstract getInstanceErrors(instanceId: string): Promise<RuntimeErrorResponse>;
+    abstract getInstanceErrors(instanceId: string, clear?: boolean): Promise<RuntimeErrorResponse>;
   
     /**
      * Clear all runtime errors from an instance
@@ -223,4 +318,4 @@ import { FileOutputType } from 'worker/agents/schemas';
      * Push instance files to existing GitHub repository
      */
     abstract pushToGitHub(instanceId: string, request: GitHubPushRequest, files: FileOutputType[]): Promise<GitHubPushResponse>
-  }
+}

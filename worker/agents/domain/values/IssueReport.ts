@@ -1,6 +1,5 @@
 import { RuntimeError, StaticAnalysisResponse } from '../../../services/sandbox/sandboxTypes';
 import { AllIssues } from '../../core/types';
-import { ClientReportedErrorType } from '../../schemas';
 
 /**
  * Immutable report of issues found during code generation
@@ -10,13 +9,11 @@ export class IssueReport {
     constructor(
         public readonly runtimeErrors: RuntimeError[],
         public readonly staticAnalysis: StaticAnalysisResponse,
-        public readonly clientErrors: ClientReportedErrorType[]
     ) {
         // Freeze to ensure immutability
         Object.freeze(this);
         Object.freeze(this.runtimeErrors);
         Object.freeze(this.staticAnalysis);
-        Object.freeze(this.clientErrors);
     }
 
     /**
@@ -26,7 +23,6 @@ export class IssueReport {
         return new IssueReport(
             issues.runtimeErrors || [],
             issues.staticAnalysis || { success: false, lint: { issues: [] }, typecheck: { issues: [] } },
-            issues.clientErrors || []
         );
     }
 
@@ -34,7 +30,7 @@ export class IssueReport {
      * Check if there are any issues
      */
     hasIssues(): boolean {
-        return this.hasRuntimeErrors() || this.hasStaticAnalysisIssues() || this.hasClientErrors();
+        return this.hasRuntimeErrors() || this.hasStaticAnalysisIssues();
     }
 
     /**
@@ -54,22 +50,14 @@ export class IssueReport {
     }
 
     /**
-     * Check if there are client errors
-     */
-    hasClientErrors(): boolean {
-        return this.clientErrors.length > 0;
-    }
-
-    /**
      * Get total issue count
      */
     getTotalIssueCount(): number {
         const runtimeCount = this.runtimeErrors.length;
         const lintCount = this.staticAnalysis.lint?.issues?.length || 0;
         const typecheckCount = this.staticAnalysis.typecheck?.issues?.length || 0;
-        const clientCount = this.clientErrors.length;
         
-        return runtimeCount + lintCount + typecheckCount + clientCount;
+        return runtimeCount + lintCount + typecheckCount;
     }
 
     /**
@@ -92,10 +80,6 @@ export class IssueReport {
             parts.push(`${typecheckCount} type errors`);
         }
         
-        if (this.clientErrors.length > 0) {
-            parts.push(`${this.clientErrors.length} client errors`);
-        }
-        
         return parts.length > 0 ? parts.join(', ') : 'No issues found';
     }
 
@@ -106,7 +90,6 @@ export class IssueReport {
         return new IssueReport(
             [],
             { success: true, lint: { issues: [] }, typecheck: { issues: [] } },
-            []
         );
     }
 }

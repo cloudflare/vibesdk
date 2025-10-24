@@ -5,7 +5,7 @@
  */
 
 import * as t from '@babel/types';
-import { ImportInfo, ImportUsage, FileMap, FileFetcher } from '../types';
+import { ImportInfo, ImportUsage, FileMap } from '../types';
 import { createFileAST, shouldUseJSXExtension, generateCode, parseCode } from './ast';
 import { analyzeImportUsage, getFileAST } from './imports';
 
@@ -17,13 +17,11 @@ import { analyzeImportUsage, getFileAST } from './imports';
  * Analyze how imports are used to generate appropriate stubs
  * Preserves exact logic from working implementation
  */
-export async function analyzeImportUsageForStub(
+export function analyzeImportUsageForStub(
     importInfo: ImportInfo,
-    files: FileMap,
-    fileFetcher?: FileFetcher,
-    fetchedFiles?: Set<string>
-): Promise<ImportUsage[]> {
-    const sourceAST = await getFileAST(importInfo.filePath, files, fileFetcher, fetchedFiles);
+    files: FileMap
+): ImportUsage[] {
+    const sourceAST = getFileAST(importInfo.filePath, files);
     if (!sourceAST) return [];
 
     const importNames = [
@@ -94,13 +92,11 @@ export function generateStubFileAST(
 /**
  * Generate stub file content as a string
  */
-export async function generateStubFileContent(
+export function generateStubFileContent(
     importInfo: ImportInfo,
     files: FileMap,
-    fileFetcher?: FileFetcher,
-    fetchedFiles?: Set<string>
-): Promise<string> {
-    const usageAnalysis = await analyzeImportUsageForStub(importInfo, files, fileFetcher, fetchedFiles);
+): string {
+    const usageAnalysis = analyzeImportUsageForStub(importInfo, files);
     const stubAST = generateStubFileAST(importInfo, usageAnalysis);
     const generated = generateCode(stubAST);
     

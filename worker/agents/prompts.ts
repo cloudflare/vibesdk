@@ -1,7 +1,7 @@
 import { FileTreeNode, RuntimeError, StaticAnalysisResponse, TemplateDetails } from "../services/sandbox/sandboxTypes";
 import { TemplateRegistry } from "./inferutils/schemaFormatters";
 import z from 'zod';
-import { Blueprint, BlueprintSchemaLite, ClientReportedErrorSchema, ClientReportedErrorType, FileOutputType, PhaseConceptSchema, PhaseConceptLiteSchema, PhaseConceptType, TemplateSelection } from "./schemas";
+import { Blueprint, BlueprintSchemaLite, FileOutputType, PhaseConceptLiteSchema, PhaseConceptSchema, PhaseConceptType, TemplateSelection } from "./schemas";
 import { IssueReport } from "./domain/values/IssueReport";
 import { FileState, MAX_PHASES } from "./core/state";
 import { CODE_SERIALIZERS, CodeSerializerType } from "./utils/codeSerializers";
@@ -110,7 +110,7 @@ and provide a preview url for the application.
                 const errorText = e.message;
                 // Remove any trace lines with no 'tsx' or 'ts' extension in them
                 const cleanedText = errorText.split('\n')
-                                    .map(line => line.includes('/deps/') && !(line.includes('.tsx') || line.includes('.ts')) ? '...' : line)
+                                    .map(line => line.includes('/deps/') && !(line.includes('.tsx') || line.includes('.ts')) ? '' : line).filter(line => line.trim() !== '')
                                     .join('\n');
                 // Truncate to 1000 characters to prevent context overflow
                 return `<error>${cleanedText.slice(0, 1000)}</error>`;
@@ -130,18 +130,6 @@ ${lintOutput}
 
 **TYPE CHECK ANALYSIS:**
 ${typecheckOutput}`;
-    },
-
-    serializeClientReportedErrors(errors: ClientReportedErrorType[]): string {
-        if (errors && errors.length > 0) {
-            const errorsText = TemplateRegistry.markdown.serialize(
-                { errors },
-                z.object({ errors: z.array(ClientReportedErrorSchema) })
-            );
-            return errorsText;
-        } else {
-            return 'No client-reported errors';
-        }
     },
 
     verifyPrompt(prompt: string): string {
@@ -574,45 +562,93 @@ const value = useMemo(() => ({ user, setUser }), [user]);
 \`\`\`
 
 ╔═══════════════════════════════════════════════════════════════════════════════╗
-║  🚨 ZUSTAND STORE SELECTORS - #1 CRASH CAUSE - READ THIS 🚨                  ║
+║  🔥🔥🔥 ZUSTAND ABSOLUTE RULE - VIOLATION = INSTANT CRASH 🔥🔥🔥              ║
+║                                                                               ║
+║  ⚠️  ONLY RULE: Select individual primitives. NO EXCEPTIONS. ⚠️              ║
+║                                                                               ║
+║  ❌ BANNED FOREVER: useStore(s => ({ ... }))                                 ║
+║  ❌ BANNED FOREVER: useStore()  (no selector)                                ║
+║  ❌ BANNED FOREVER: useStore(s => s.getXxx())  (method calls)                ║
+║                                                                               ║
+║  ✅ ONLY ALLOWED: useStore(s => s.primitiveValue)                            ║
 ║                                                                               ║
 ║  Zustand is SUBSCRIPTION-BASED, not context-based like React Context.        ║
 ║  Object/array selectors create NEW references every render = CRASH           ║
 ╚═══════════════════════════════════════════════════════════════════════════════╝
 
-❌ FORBIDDEN PATTERNS (ALL CAUSE INFINITE LOOPS):
+❌ FORBIDDEN PATTERNS (THESE CAUSE INFINITE LOOPS):
 \`\`\`tsx
-// Pattern 1: Object literal selector without useShallow
+// 🔍 SCAN FOR: "useStore(s => ({" or "useStore((s) => ({"
 const { a, b, c } = useStore(s => ({ a: s.a, b: s.b, c: s.c })); // ❌ CRASH
 
-// Pattern 2: No selector (returns whole state object)
+// 🔍 SCAN FOR: "useStore(useShallow"
+import { useShallow } from 'zustand/react/shallow';
+const { a, b, c } = useStore(useShallow(s => ({ a: s.a, b: s.b, c: s.c }))); // ❌ CRASH
+// Why? You're creating a NEW object ({ a, b, c }) every render in the selector
+// useShallow can't help - the object reference is new every time
+
+// 🔍 SCAN FOR: "useStore()" or "= useStore();"
 const { a, b, c } = useStore(); // ❌ CRASH
 const state = useStore(); // ❌ CRASH
 
-// Pattern 3: Calling store methods (return new arrays/objects)
+// 🔍 SCAN FOR: "useStore(s => s.get" or "useStore((state) => state.get"
 const items = useStore(s => s.getItems()); // ❌ INFINITE LOOP
 const filtered = useStore(s => s.items.filter(...)); // ❌ INFINITE LOOP
 const mapped = useStore(s => s.data.map(...)); // ❌ INFINITE LOOP
 \`\`\`
 
-✅ CORRECT PATTERNS (CHOOSE ONE):
+⚠️ CRITICAL MISCONCEPTION - READ THIS:
+Many developers think useShallow fixes object-literal selectors. It does not.
+Avoid using useShallow in selectors entirely.
+
+✅ CORRECT PATTERN - ONLY ONE OPTION:
 \`\`\`tsx
-// Option 1: Separate primitive selectors (RECOMMENDED - foolproof)
+// ONLY ALLOWED: Separate primitive selectors
 const a = useStore(s => s.a);
 const b = useStore(s => s.b);
 const c = useStore(s => s.c);
+// ⚡ EFFICIENCY: Each selector ONLY triggers re-render when ITS value changes
+// This is NOT inefficient! It's the BEST pattern for Zustand. This is actually good quality, elegant code!
+// THERE IS NO OPTION 2. Only individual primitive selectors are allowed.
+// If you need multiple values, call useStore multiple times - it's the ONLY correct pattern.
 
-// Option 2: useShallow wrapper (advanced, only if needed)
-import { useShallow } from 'zustand/react/shallow';
-const { a, b, c } = useStore(useShallow(s => ({ a: s.a, b: s.b, c: s.c })));
-
-// Option 3: Store methods → Select primitives + useMemo in component
+// For derived/computed values: Select primitives + useMemo in component
 const items = useStore(s => s.items);
 const filter = useStore(s => s.filter);
 const filtered = useMemo(() => 
     items.filter(i => i.status === filter), 
     [items, filter]
 );
+\`\`\`
+
+💡 IMPORTANT: Multiple Individual Selectors is MOST EFFICIENT (Debunking Common Myth)
+
+❌ WRONG BELIEF: "Multiple useStore calls = inefficient = many re-renders"
+✅ TRUTH: Each selector ONLY triggers re-render when ITS specific value changes
+
+Example:
+\`\`\`tsx
+const name = useStore(s => s.user.name);  // Subscribes to name only
+const count = useStore(s => s.count);     // Subscribes to count only
+
+// If count changes:
+// ✓ count selector triggers ONE re-render
+// ✓ name selector does NOT trigger (name didn't change)
+// Result: ONE re-render total - perfectly efficient!
+\`\`\`
+
+Contrast with object selector (even with useShallow):
+\`\`\`tsx
+const { name, count } = useStore(useShallow(s => ({ 
+  name: s.user.name, 
+  count: s.count 
+})));
+
+// If count changes:
+// ✗ Creates NEW object { name, count } every render
+// ✗ useShallow sees count changed, triggers re-render
+// ✗ NEW object creation itself can cause infinite loop
+// Result: LESS efficient + risk of crash
 \`\`\`
 
 ⚠️ CRITICAL DIFFERENCES:
@@ -629,7 +665,7 @@ const { user, isLoading } = useStore(); // ❌ CRASH - NOT THE SAME!
 - "The result of getSnapshot should be cached"
 - "Too many re-renders"
 
-→ SCAN FOR: \`useStore(s => ({ ... }))\`, \`useStore(s => s.getXxx())\`, \`useStore()\`
+→ SCAN FOR: \`useStore(s => ({\`, \`useStore(s => s.get\`, \`useStore()\`
 → FIX: Select ONLY primitives, compute derived values with useMemo
 
 ╔═══════════════════════════════════════════════════════════════════════════════╗
@@ -675,10 +711,11 @@ const handleClick = useCallback(() => setCount(prev => prev + 1), []);
 ✅ **NEVER call methods in selectors** - \`useStore(s => s.getXxx())\` = CRASH
 ✅ **No selector = CRASH** - \`useStore()\` returns whole object = infinite loop
 ✅ **Lift state from recursion** - Never useState inside recursive components
-✅ **Actions are stable** - Zustand actions NOT in dependency arrays
-✅ **Functional updates** - \`setState(prev => prev + 1)\` for correctness
+✅ **Store actions are stable** - Zustand actions NOT in dependency arrays
+✅ **Use functional updates** - \`setState(prev => prev + 1)\` for correctness
 ✅ **useRef for non-UI data** - Doesn't trigger re-renders
 ✅ **Derive, don't mirror** - \`const upper = prop.toUpperCase()\` not useState
+✅ **DOM listeners stable** - Keep effect deps static; read live store values via refs; do not reattach listeners on every state change
 
 **QUICK VALIDATION BEFORE SUBMITTING CODE:**
 → Search for: \`useStore(s => ({\`, \`useStore(s => s.get\`, \`useStore()\`
@@ -696,7 +733,7 @@ COMMON_PITFALLS: `<AVOID COMMON PITFALLS>
     3. **NO RUNTIME ERRORS:** Write robust, fault-tolerant code. Handle all edge cases gracefully with fallbacks. Never throw uncaught errors that can crash the application.
     4. **NO UNDEFINED VALUES/PROPERTIES/FUNCTIONS/COMPONENTS etc:** Ensure all variables, functions, and components are defined before use. Never use undefined values. If you use something that isn't already defined, you need to define it.
     5. **STATE UPDATE INTEGRITY:** Never call state setters directly during the render phase; all state updates must originate from event handlers or useEffect hooks to prevent infinite loops.
-    6. **STATE SELECTOR STABILITY:** When using Zustand, ALWAYS select primitive values individually. NEVER \`useStore((state) => ({ ... }))\` (returns new object = infinite loop). NEVER \`useStore(s => s.getXxx())\` (method calls return new references). NEVER \`useStore()\` without selector (whole object = crash). See REACT INFINITE LOOP PREVENTION section for complete patterns.
+    6. **🔥 ZUSTAND ZERO-TOLERANCE RULE 🔥:** ABSOLUTE LAW: useStore(s => s.primitive) ONLY. No object selectors. No exceptions. Any useStore(s => ({...})), useStore(), or useStore(s => s.getXxx()) = INSTANT CRASH. Multiple values? Call useStore multiple times - this is the ONLY correct pattern. See REACT INFINITE LOOP PREVENTION section for complete patterns.
     
     **UI/UX EXCELLENCE CRITICAL RULES:**
     7. **VISUAL HIERARCHY CLARITY:** Every interface must have clear visual hierarchy - never create pages with uniform text sizes or equal visual weight for all elements
@@ -767,7 +804,7 @@ COMMON_PITFALLS: `<AVOID COMMON PITFALLS>
     **FRAMEWORK & SYNTAX SPECIFICS:**
     •   Framework compatibility: Pay attention to version differences (Tailwind v3 vs v4, React Router versions)
     •   No environment variables: App deploys serverless - avoid libraries requiring env vars unless they support defaults
-    •   Next.js best practices: Follow latest patterns to prevent dev server rendering issues
+    •   React/Vite best practices: Follow patterns compatible with Vite + React (avoid Next.js-specific APIs)
     •   Tailwind classes: Verify all classes exist in tailwind.config.js (e.g., avoid undefined classes like \`border-border\`)
     •   Component exports: Export all components properly, avoid mixing default/named imports
     •   UI spacing: Ensure proper padding/margins, avoid left-aligned layouts without proper spacing
@@ -1030,7 +1067,7 @@ bun add @geist-ui/react@1
     • **Mobile-First Excellence:** Design for mobile, enhance for desktop:
         - **Touch Targets:** Minimum 44px touch targets for mobile usability
         - **Typography Scaling:** text-2xl md:text-4xl lg:text-5xl for responsive headers
-        - **Image Handling:** aspect-w-16 aspect-h-9 for consistent image ratios
+        - **Image Handling:** Prefer Tailwind v3-safe utilities like aspect-video or aspect-[16/9] for consistent image ratios
     • **Breakpoint Strategy:** Use Tailwind breakpoints meaningfully:
         - **sm (640px):** Tablet portrait adjustments
         - **md (768px):** Tablet landscape and small desktop
@@ -1048,7 +1085,42 @@ bun add @geist-ui/react@1
     - ✅ **Empty State Beauty:** Inspiring empty states that guide users toward their first success
     - ✅ **Accessibility Excellence:** Proper contrast ratios, keyboard navigation, screen reader support
     - ✅ **Performance Smooth:** 60fps animations and instant perceived load times`,
-    PROJECT_CONTEXT: `Here is everything you will need about the project:
+    UI_NON_NEGOTIABLES_V3: `## UI NON-NEGOTIABLES (Tailwind v3-safe, shadcn/ui first)
+
+1) Root Wrapper & Gutters (copy exactly)
+export default function Page() {
+  return (
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="py-8 md:py-10 lg:py-12">
+        {/* content */}
+      </div>
+    </div>
+  );
+}
+
+2) Prefer shadcn/ui components heavily
+- Use shadcn/ui primitives for structure and widgets (e.g., Button, Card, Input, Sheet, Sidebar)
+- Import from "@/components/ui/..." and compose with Tailwind utilities. Use Radix primitives as needed for composition.
+
+3) Tailwind v3-safe Instructions
+- Avoid CSS @theme or CSS @plugin directives in component styles
+- Prefer built-in utilities only; avoid plugin-only utilities unless template shows they exist
+- For media sizing, prefer aspect-video or aspect-[16/9] and object-cover
+
+4) Good vs Bad
+- BAD: top-level <div> with no gutters (content flush to the left edge)
+- GOOD: wrap with max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 and section spacing py-8 md:py-10 lg:py-12
+
+5) Color & Contrast (light theme defaults)
+- Primary labels: text-foreground
+- Secondary/meta: text-muted-foreground
+- Selected state: bg-accent text-accent-foreground (or bg-primary text-primary-foreground)
+- Icons: text-foreground/80 hover:text-foreground
+- Inputs: bg-secondary text-secondary-foreground border border-input; placeholder:text-muted-foreground
+- Never place muted text over dark backgrounds; if background is dark, use paired *-foreground or text-white
+- Aim for >= 4.5:1 contrast for normal text (>= 3:1 for large)
+`,
+PROJECT_CONTEXT: `Here is everything you will need about the project:
 
 <PROJECT_CONTEXT>
 
@@ -1304,7 +1376,7 @@ ${runtimeErrorsText || 'No runtime errors detected'}
 ${staticAnalysisText}
 
 ## ANALYSIS INSTRUCTIONS
-- **PRIORITIZE** "Maximum update depth exceeded" and useEffect-related errors  
+- **PRIORITIZE** "Maximum update depth exceeded" and useEffect-related errors. If 'Warning: The result of getSnapshot should be cached to avoid an infinite loop' is present, it is a high priority issue to be resolved ASAP. 
 - **CROSS-REFERENCE** error messages with current code structure (line numbers may be outdated)
 - **VALIDATE** reported issues against actual code patterns before fixing
 - **FOCUS** on deployment-blocking runtime errors over linting issues`

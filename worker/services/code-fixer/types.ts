@@ -70,12 +70,6 @@ export interface CodeFixResult {
 // ============================================================================
 // FILE AND AST MANAGEMENT
 // ============================================================================
-
-/**
- * File fetcher callback type for dynamically loading files not in the initial set
- */
-export type FileFetcher = (filePath: string) => Promise<FileObject | null>;
-
 /**
  * Represents a file in the project with its content and cached AST
  */
@@ -96,8 +90,6 @@ export type FileMap = Map<string, ProjectFile>;
 export interface FixerContext {
     /** Map of all files in the project (mutable for caching fetched files) */
     files: FileMap;
-    /** Optional callback to fetch additional files */
-    readonly fileFetcher?: FileFetcher;
     /** Cache of fetched files to prevent duplicate requests */
     readonly fetchedFiles: ReadonlySet<string>;
 }
@@ -174,7 +166,7 @@ export interface FixResult {
 export type FixerFunction = (
     context: FixerContext,
     issues: CodeIssue[]
-) => Promise<FixResult>;
+) => FixResult;
 
 /**
  * Registry of fixer functions by issue code

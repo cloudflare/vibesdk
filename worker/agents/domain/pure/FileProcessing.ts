@@ -3,6 +3,7 @@ import type { StructuredLogger } from '../../../logger';
 import { TemplateDetails } from '../../../services/sandbox/sandboxTypes';
 import { applyUnifiedDiff } from '../../output-formats/diff-formats';
 import { FileState } from 'worker/agents/core/state';
+import { getTemplateFiles, getTemplateImportantFiles } from 'worker/services/sandbox/utils';
 
 /**
  * File processing utilities
@@ -87,18 +88,22 @@ export class FileProcessing {
     }
 
     /**
-     * Get all files combining template and generated files
+     * Get all relevant files combining template (important) and generated files
      * Template files are overridden by generated files with same path
      */
-    static getAllFiles(
+    static getAllRelevantFiles(
         templateDetails: TemplateDetails | undefined,
         generatedFilesMap: Record<string, FileState>
     ): FileState[] {
-        const templateFiles = templateDetails?.files.map(file => ({
-            filePath: file.filePath,
-            fileContents: file.fileContents,
-            filePurpose: 'Boilerplate template file'
-        })) || [];
+        return this.getAllFiles(templateDetails, generatedFilesMap, true);
+    }
+
+    static getAllFiles(
+        templateDetails: TemplateDetails | undefined,
+        generatedFilesMap: Record<string, FileState>,
+        onlyImportantFiles: boolean = false
+    ): FileState[] {
+        const templateFiles = templateDetails?.allFiles ? (onlyImportantFiles ? getTemplateImportantFiles(templateDetails) : getTemplateFiles(templateDetails)) : [];
         
         // Filter out template files that have been overridden by generated files
         const nonOverriddenTemplateFiles = templateFiles.filter(
@@ -108,6 +113,7 @@ export class FileProcessing {
         return [
             ...nonOverriddenTemplateFiles.map(file => ({
                 ...file,
+                filePurpose: 'Boilerplate template file',
                 lastDiff: '',
                 lastmodified: Date.now(),
                 unmerged: [],

@@ -10,7 +10,6 @@ import { AgentOperation, getSystemPromptWithProjectContext, OperationOptions } f
 import { SCOFFormat, SCOFParsingState } from '../output-formats/streaming-formats/scof';
 import { TemplateRegistry } from '../inferutils/schemaFormatters';
 import { IsRealtimeCodeFixerEnabled, RealtimeCodeFixer } from '../assistants/realtimeCodeFixer';
-import { AGENT_CONFIG } from '../inferutils/config';
 import { CodeSerializerType } from '../utils/codeSerializers';
 import type { UserContext } from '../core/types';
 import { imagesToBase64 } from 'worker/utils/images';
@@ -72,6 +71,8 @@ export const SYSTEM_PROMPT = `<ROLE>
     •   If you see any other dependency being referenced, Immediately correct it.
 </CONTEXT>
 
+${PROMPT_UTILS.UI_NON_NEGOTIABLES_V3}
+
 ${PROMPT_UTILS.UI_GUIDELINES}
 
 We follow the following strategy at our team for rapidly delivering projects:
@@ -107,6 +108,23 @@ These are the only dependencies, components and plugins available for the projec
 
 const USER_PROMPT = `**Phase Implementation**
 
+<PRE-IMPLEMENTATION VALIDATION>
+⚠️⚠️⚠️ SCAN YOUR MENTAL CODE DRAFT FOR THESE PATTERNS BEFORE WRITING ⚠️⚠️⚠️
+
+🔍 FORBIDDEN ZUSTAND PATTERNS (auto-fail if found):
+   • useStore(s => ({ ... }))  ← Creating object in selector
+   • useStore()  ← No selector
+   • useStore(s => s.getItems())  ← Calling methods
+   • const { a, b } = useStore(...)  ← Destructuring multiple values
+   • useStore(useShallow)
+
+✅ ONLY ALLOWED ZUSTAND PATTERN:
+   • useStore(s => s.singlePrimitive)  ← One primitive per call
+   • Call useStore multiple times for multiple values
+
+If you find forbidden patterns in your draft, STOP and rewrite before generating files.
+</PRE-IMPLEMENTATION VALIDATION>
+
 <INSTRUCTIONS & CODE QUALITY STANDARDS>
 These are the instructions and quality standards that must be followed to implement this phase.
 **CRITICAL ERROR PREVENTION (Fix These First):**
@@ -116,7 +134,13 @@ These are the instructions and quality standards that must be followed to implem
         - Never call setState during render phase
         - Always use dependency arrays in useEffect with conditional guards
         - Stabilize object/array references with useMemo/useCallback
-        - **Zustand: Select ONLY primitives individually OR use useShallow wrapper**
+        - **🔥 ZUSTAND ABSOLUTE RULE - NO EXCEPTIONS 🔥**
+          • ONLY ALLOWED: useStore(s => s.primitive) - one primitive per call
+          • BANNED: useStore(s => ({ ... })) - object literals crash the app
+          • BANNED: useStore() - no selector crashes the app  
+          • BANNED: useStore(s => s.getXxx()) - method calls crash the app
+          • For multiple values: Call useStore multiple times (this is correct and efficient)
+        - DOM listeners must be stable: attach once; read store values via refs; avoid reattaching per state change
     
     2. **Variable Declaration Order** - CRITICAL
        - Declare/import ALL variables before use
@@ -134,42 +158,34 @@ These are the instructions and quality standards that must be followed to implem
        - Use try-catch for async operations
        - Handle undefined values gracefully
 
-    5. Layout Architecture Requirements (MANDATORY, copy these patterns)
-    - Full-height page layout:
-    <div className="h-screen flex flex-col">
-        <header className="flex-shrink-0">...</header>
-        <main className="flex-1 overflow-auto">...</main>
-    </div>
+    5. UI Layout Non-Negotiables (Tailwind v3-safe)
+    - Root wrapper must include: max-w-7xl mx-auto px-4 sm:px-6 lg:px-8
+    - Use vertical section spacing between major blocks: py-8 md:py-10 lg:py-12
+    - Prefer shadcn/ui components for structure and widgets; compose with Tailwind utilities
+    - Do NOT use CSS @theme or CSS @plugin directives in component styles
+    - For media sizing, prefer aspect-video or aspect-[16/9] and object-cover
 
-    - Sidebar + main layout (Finder/IDE/Dashboard):
-    <div className="h-full flex">
-        <aside className="w-64 min-w-[180px] flex-shrink-0">...</aside>
-        <main className="flex-1 overflow-auto">...</main>
-    </div>
-    Notes:
-    - Always give the sidebar a min-width via CSS (min-w-[180px]) to prevent text cutoff.
-    - Prefer CSS min-w on content instead of relying on % minimums.
+    Contrast Self-Check (light theme)
+    - Dark background without light foreground? Use paired *-foreground (e.g., bg-accent text-accent-foreground)
+    - Primary labels must use text-foreground; avoid text-muted-foreground on primary items
+    - Chat inputs align to light theme: bg-secondary text-secondary-foreground placeholder:text-muted-foreground
 
-    - Resizable panels (horizontal):
-    <ResizablePanelGroup direction="horizontal" className="h-full">
-        <ResizablePanel defaultSize={25}>
-        <aside className="h-full min-w-[180px]">...</aside>
-        </ResizablePanel>
-        <ResizableHandle withHandle />
-        <ResizablePanel defaultSize={75}>
-        <main className="h-full overflow-auto">...</main>
-        </ResizablePanel>
-    </ResizablePanelGroup>
-    Notes:
-    - Parent must have explicit height (h-full / h-screen).
-    - Put a ResizableHandle between panels.
-    - Use CSS min-w-[...] on the sidebar content to guarantee readable width.
+    Optional Patterns & Common Layouts (use as needed)
+    - Sidebar layout: Use shadcn/ui Sidebar primitives
+      • Prefer <SidebarProvider>, <Sidebar>, <SidebarInset> and related primitives from "@/components/ui/sidebar"
+      • Avoid custom sidebars; compose with Tailwind utilities and apply min-w-[180px] to prevent text cutoff
+
+    - Resizable panels: Use shadcn/ui Resizable primitives
+      • Based on react-resizable-panels (already installed in template)
+      • Ensure parent has explicit height (h-full/h-screen) and include a handle between panels
+
+    - Full-height pages: Use flex column with header/footer as needed; keep <main> scrollable (flex-1 overflow-auto)
 
     - Data-driven rendering (always guard):
-    if (isLoading) return <LoadingSkeleton />;
-    if (error) return <ErrorState message={error} />;
-    if (!items?.length) return <EmptyState />;
-    return <List items={items} />;
+      if (isLoading) return <LoadingSkeleton />;
+      if (error) return <ErrorState message={error} />;
+      if (!items?.length) return <EmptyState />;
+      return <List items={items} />;
 
     6. Framer Motion Drag Handle Policy (correct API usage)
     - Framer Motion does NOT support a dragHandle prop.
@@ -280,6 +296,7 @@ Every single file listed in <CURRENT_PHASE> needs to be implemented in this phas
 - NEVER call setState during render phase
 - ALWAYS use proper dependency arrays with conditional guards
 - Validate code before submitting: search for forbidden patterns listed above
+    - Scan for: useStore(s => ({, useStore(), useStore(s => s.get and rewrite immediately
 
 ⚠️  **BACKWARD COMPATIBILITY** - PRESERVE EXISTING FUNCTIONALITY  
 - Do NOT break anything from previous phases
@@ -475,20 +492,16 @@ export class PhaseImplementationOperation extends AgentOperation<PhaseImplementa
     
         const fixedFilePromises: Promise<FileOutputType>[] = [];
 
-        let modelConfig = AGENT_CONFIG.phaseImplementation;
-        if (inputs.isFirstPhase) {
-            modelConfig = AGENT_CONFIG.firstPhaseImplementation;
-        }
+        const agentActionName = inputs.isFirstPhase ? 'firstPhaseImplementation' : 'phaseImplementation';
 
         const shouldEnableRealtimeCodeFixer = inputs.shouldAutoFix && IsRealtimeCodeFixerEnabled(options.inferenceContext);
     
         // Execute inference with streaming
         await executeInference({
             env: env,
-            agentActionName: "phaseImplementation",
+            agentActionName,
             context: options.inferenceContext,
             messages,
-            modelConfig,
             stream: {
                 chunk_size: 256,
                 onChunk: (chunk: string) => {

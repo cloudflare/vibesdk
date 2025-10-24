@@ -1,22 +1,24 @@
-import { Agent, AgentContext, Connection } from 'agents';
+import { Agent, AgentContext, Connection, ConnectionContext } from 'agents';
 import { 
     Blueprint, 
     PhaseConceptGenerationSchemaType, 
     PhaseConceptType,
+    FileConceptType,
     FileOutputType,
     PhaseImplementationSchemaType,
 } from '../schemas';
 import { GitHubPushRequest, PreviewType, StaticAnalysisResponse, TemplateDetails } from '../../services/sandbox/sandboxTypes';
 import {  GitHubExportResult } from '../../services/github/types';
-import { CodeGenState, CurrentDevState, MAX_PHASES, FileState } from './state';
+import { CodeGenState, CurrentDevState, MAX_PHASES } from './state';
 import { AllIssues, AgentSummary, AgentInitArgs, PhaseExecutionResult, UserContext } from './types';
-import { MAX_DEPLOYMENT_RETRIES, PREVIEW_EXPIRED_ERROR, WebSocketMessageResponses } from '../constants';
-import { broadcastToConnections, handleWebSocketClose, handleWebSocketMessage } from './websocket';
+import { PREVIEW_EXPIRED_ERROR, WebSocketMessageResponses } from '../constants';
+import { broadcastToConnections, handleWebSocketClose, handleWebSocketMessage, sendToConnection } from './websocket';
 import { createObjectLogger, StructuredLogger } from '../../logger';
 import { ProjectSetupAssistant } from '../assistants/projectsetup';
-import { UserConversationProcessor } from '../operations/UserConversationProcessor';
+import { UserConversationProcessor, RenderToolCall } from '../operations/UserConversationProcessor';
 import { FileManager } from '../services/implementations/FileManager';
 import { StateManager } from '../services/implementations/StateManager';
+import { DeploymentManager } from '../services/implementations/DeploymentManager';
 // import { WebSocketBroadcaster } from '../services/implementations/WebSocketBroadcaster';
 import { GenerationContext } from '../domain/values/GenerationContext';
 import { IssueReport } from '../domain/values/IssueReport';
@@ -27,49 +29,25 @@ import { PhaseGenerationOperation } from '../operations/PhaseGeneration';
 import { ScreenshotAnalysisOperation } from '../operations/ScreenshotAnalysis';
 // Database schema imports removed - using zero-storage OAuth flow
 import { BaseSandboxService } from '../../services/sandbox/BaseSandboxService';
-import { getSandboxService } from '../../services/sandbox/factory';
 import { WebSocketMessageData, WebSocketMessageType } from '../../api/websocketTypes';
 import { InferenceContext, AgentActionKey } from '../inferutils/config.types';
 import { AGENT_CONFIG } from '../inferutils/config';
 import { ModelConfigService } from '../../database/services/ModelConfigService';
-import { FileFetcher, fixProjectIssues } from '../../services/code-fixer';
-import { FastCodeFixerOperation } from '../operations/FastCodeFixer';
-import { getProtocolForHost } from '../../utils/urls';
+import { fixProjectIssues } from '../../services/code-fixer';
+import { FastCodeFixerOperation } from '../operations/PostPhaseCodeFixer';
 import { looksLikeCommand } from '../utils/common';
 import { generateBlueprint } from '../planning/blueprint';
 import { prepareCloudflareButton } from '../../utils/deployToCf';
 import { AppService } from '../../database';
 import { RateLimitExceededError } from 'shared/types/errors';
-import { generateId } from 'worker/utils/idGenerator';
 import { ImageAttachment, type ProcessedImageAttachment } from '../../types/image-attachment';
 import { OperationOptions } from '../operations/common';
 import { CodingAgentInterface } from '../services/implementations/CodingAgent';
-import { generateAppProxyToken, generateAppProxyUrl } from 'worker/services/aigateway-proxy/controller';
 import { ImageType, uploadImage } from 'worker/utils/images';
 import { ConversationMessage, ConversationState } from '../inferutils/common';
-
-interface WebhookPayload {
-    event: {
-        eventType: 'runtime_error';
-        payload: {
-            error?: { message: string };
-            runId?: string;
-            status?: string;
-            deploymentType?: string;
-            instanceInfo?: unknown;
-            command?: string;
-        };
-        instanceId?: string;
-        runId?: string;
-        timestamp?: string;
-    };
-    context: {
-        sessionId?: string;
-        agentId?: string;
-        userId?: string;
-    };
-    source: string;
-}
+import { DeepCodeDebugger } from '../assistants/codeDebugger';
+import { DeepDebugResult } from './types';
+import { StateMigration } from './stateMigration';
 
 interface Operations {
     codeReview: CodeReviewOperation;
@@ -84,7 +62,7 @@ interface Operations {
 const DEFAULT_CONVERSATION_SESSION_ID = 'default';
 
 /**
- * SimpleCodeGeneratorAgent - Deterministically orhestrated agent
+ * SimpleCodeGeneratorAgent - Deterministically orchestrated agent
  * 
  * Manages the lifecycle of code generation including:
  * - Blueprint, phase generation, phase implementation, review cycles orchestrations
@@ -93,18 +71,25 @@ const DEFAULT_CONVERSATION_SESSION_ID = 'default';
  * - Deployment to sandbox service
  */
 export class SimpleCodeGeneratorAgent extends Agent<Env, CodeGenState> {
+    private static readonly MAX_COMMANDS_HISTORY = 10;
+    private static readonly PROJECT_NAME_PREFIX_MAX_LENGTH = 20;
+
     protected projectSetupAssistant: ProjectSetupAssistant | undefined;
-    protected sandboxServiceClient: BaseSandboxService | undefined;
-    protected fileManager: FileManager = new FileManager(
-        new StateManager(() => this.state, (s) => this.setState(s)),
-    );
+    protected stateManager!: StateManager;
+    protected fileManager!: FileManager;
     protected codingAgent: CodingAgentInterface = new CodingAgentInterface(this);
+    
+    protected deploymentManager!: DeploymentManager;
 
     private previewUrlCache: string = '';
+    private templateDetailsCache: TemplateDetails | null = null;
     
     // In-memory storage for user-uploaded images (not persisted in DO state)
-    // These are temporary and will be lost if the DO is evicted
     private pendingUserImages: ProcessedImageAttachment[] = []
+    private generationPromise: Promise<void> | null = null;
+    private deepDebugPromise: Promise<{ transcript: string } | { error: string }> | null = null;
+    
+    private currentAbortController?: AbortController;
     
     protected operations: Operations = {
         codeReview: new CodeReviewOperation(),
@@ -115,13 +100,6 @@ export class SimpleCodeGeneratorAgent extends Agent<Env, CodeGenState> {
         fastCodeFixer: new FastCodeFixerOperation(),
         processUserMessage: new UserConversationProcessor()
     };
-
-    isGenerating: boolean = false;
-    
-    // Deployment queue management to prevent concurrent deployments
-    private currentDeploymentPromise: Promise<PreviewType | null> | null = null;
-    
-    private healthCheckInterval: ReturnType<typeof setInterval> | null = null;
     
     public _logger: StructuredLogger | undefined;
 
@@ -144,7 +122,7 @@ export class SimpleCodeGeneratorAgent extends Agent<Env, CodeGenState> {
     }
 
     getAgentId() {
-        return this.state.inferenceContext.agentId
+        return this.state.inferenceContext.agentId;
     }
 
     initialState: CodeGenState = {
@@ -153,12 +131,10 @@ export class SimpleCodeGeneratorAgent extends Agent<Env, CodeGenState> {
         generatedPhases: [],
         generatedFilesMap: {},
         agentMode: 'deterministic',
-        generationPromise: undefined,
         sandboxInstanceId: undefined,
-        templateDetails: {} as TemplateDetails,
+        templateName: '',
         commandsHistory: [],
         lastPackageJson: '',
-        clientReportedErrors: [],
         pendingUserInputs: [],
         inferenceContext: {} as InferenceContext,
         sessionId: '',
@@ -170,7 +146,169 @@ export class SimpleCodeGeneratorAgent extends Agent<Env, CodeGenState> {
         shouldBeGenerating: false,
         reviewingInitiated: false,
         projectUpdatesAccumulator: [],
+        lastDeepDebugTranscript: null,
     };
+
+    constructor(ctx: AgentContext, env: Env) {
+        super(ctx, env);
+        this.sql`CREATE TABLE IF NOT EXISTS full_conversations (id TEXT PRIMARY KEY, messages TEXT)`;
+        this.sql`CREATE TABLE IF NOT EXISTS compact_conversations (id TEXT PRIMARY KEY, messages TEXT)`;
+        
+        // Initialize StateManager
+        this.stateManager = new StateManager(
+            () => this.state,
+            (s) => this.setState(s)
+        );
+        
+        // Initialize FileManager
+        this.fileManager = new FileManager(this.stateManager, () => this.getTemplateDetails());
+        
+        // Initialize DeploymentManager first (manages sandbox client caching)
+        // DeploymentManager will use its own getClient() override for caching
+        this.deploymentManager = new DeploymentManager(
+            {
+                stateManager: this.stateManager,
+                fileManager: this.fileManager,
+                getLogger: () => this.logger(),
+                env: this.env
+            },
+            SimpleCodeGeneratorAgent.PROJECT_NAME_PREFIX_MAX_LENGTH,
+            SimpleCodeGeneratorAgent.MAX_COMMANDS_HISTORY
+        );
+    }
+
+    /**
+     * Initialize the code generator with project blueprint and template
+     * Sets up services and begins deployment process
+     */
+    async initialize(
+        initArgs: AgentInitArgs,
+        ..._args: unknown[]
+    ): Promise<CodeGenState> {
+
+        const { query, language, frameworks, hostname, inferenceContext, templateInfo } = initArgs;
+        const sandboxSessionId = DeploymentManager.generateNewSessionId();
+        this.initLogger(inferenceContext.agentId, sandboxSessionId, inferenceContext.userId);
+        
+        // Generate a blueprint
+        this.logger().info('Generating blueprint', { query, queryLength: query.length, imagesCount: initArgs.images?.length || 0 });
+        this.logger().info(`Using language: ${language}, frameworks: ${frameworks ? frameworks.join(", ") : "none"}`);
+        
+        const blueprint = await generateBlueprint({
+            env: this.env,
+            inferenceContext,
+            query,
+            language: language!,
+            frameworks: frameworks!,
+            templateDetails: templateInfo.templateDetails,
+            templateMetaInfo: templateInfo.selection,
+            images: initArgs.images,
+            stream: {
+                chunk_size: 256,
+                onChunk: (chunk) => {
+                    // initArgs.writer.write({chunk});
+                    initArgs.onBlueprintChunk(chunk);
+                }
+            }
+        })
+
+        const packageJson = templateInfo.templateDetails?.allFiles['package.json'];
+
+        this.templateDetailsCache = templateInfo.templateDetails;
+        
+        this.setState({
+            ...this.initialState,
+            query,
+            blueprint,
+            templateName: templateInfo.templateDetails.name,
+            sandboxInstanceId: undefined,
+            generatedPhases: [],
+            commandsHistory: [],
+            lastPackageJson: packageJson,
+            sessionId: sandboxSessionId,
+            hostname,
+            inferenceContext,
+        });
+
+        this.initializeAsync().catch((error: unknown) => {
+            this.broadcastError("Initialization failed", error);
+        });
+        this.logger().info(`Agent ${this.getAgentId()} session: ${this.state.sessionId} initialized successfully`);
+        await this.saveToDatabase();
+        return this.state;
+    }
+
+    private async initializeAsync(): Promise<void> {
+        try {
+            const [, setupCommands] = await Promise.all([
+                this.deployToSandbox(),
+                this.getProjectSetupAssistant().generateSetupCommands(),
+                this.generateReadme()
+            ]);
+            this.logger().info("Deployment to sandbox service and initial commands predictions completed successfully");
+            await this.executeCommands(setupCommands.commands);
+            this.logger().info("Initial commands executed successfully");
+        } catch (error) {
+            this.logger().error("Error during async initialization:", error);
+            // throw error;
+        }
+    }
+
+    async isInitialized() {
+        return this.getAgentId() ? true : false
+    }
+
+    async onStart(_props?: Record<string, unknown> | undefined): Promise<void> {
+        this.logger().info(`Agent ${this.getAgentId()} session: ${this.state.sessionId} onStart`);
+        // Ignore if agent not initialized
+        if (!this.state.templateName?.trim()) {
+            this.logger().info(`Agent ${this.getAgentId()} session: ${this.state.sessionId} not initialized, ignoring onStart`);
+            return;
+        }
+        this.logger().info(`Agent ${this.getAgentId()} session: ${this.state.sessionId} onStart being processed, template name: ${this.state.templateName}`);
+        // Fill the template cache
+        await this.ensureTemplateDetails();
+        this.logger().info(`Agent ${this.getAgentId()} session: ${this.state.sessionId} onStart processed successfully`);
+    }
+    
+    onStateUpdate(_state: CodeGenState, _source: "server" | Connection) {}
+
+    setState(state: CodeGenState): void {
+        try {
+            super.setState(state);
+        } catch (error) {
+            this.broadcastError("Error setting state", error);
+            this.logger().error("State details:", {
+                originalState: JSON.stringify(this.state, null, 2),
+                newState: JSON.stringify(state, null, 2)
+            });
+        }
+    }
+
+    onConnect(connection: Connection, ctx: ConnectionContext) {
+        this.logger().info(`Agent connected for agent ${this.getAgentId()}`, { connection, ctx });
+        sendToConnection(connection, 'agent_connected', {
+            state: this.state,
+            templateDetails: this.getTemplateDetails()
+        });
+    }
+
+    async ensureTemplateDetails() {
+        if (!this.templateDetailsCache) {
+            this.logger().info(`Template details being cached for template: ${this.state.templateName}`);
+            const results = await BaseSandboxService.getTemplateDetails(this.state.templateName);
+            if (!results.success || !results.templateDetails) {
+                throw new Error(`Failed to get template details for template: ${this.state.templateName}`);
+            }
+            this.templateDetailsCache = results.templateDetails;
+            this.logger().info(`Template details for template: ${this.state.templateName} cached successfully`);
+        }
+        return this.templateDetailsCache;
+    }
+
+    private getTemplateDetails() {
+        return this.templateDetailsCache!;
+    }
 
     /*
     * Each DO has 10 gb of sqlite storage. However, the way agents sdk works, it stores the 'state' object of the agent as a single row
@@ -225,12 +363,6 @@ export class SimpleCodeGeneratorAgent extends Agent<Env, CodeGenState> {
         }
     }
 
-    constructor(ctx: AgentContext, env: Env) {
-        super(ctx, env);
-        this.sql`CREATE TABLE IF NOT EXISTS full_conversations (id TEXT PRIMARY KEY, messages TEXT)`;
-        this.sql`CREATE TABLE IF NOT EXISTS compact_conversations (id TEXT PRIMARY KEY, messages TEXT)`;
-    }
-
     async saveToDatabase() {
         this.logger().info(`Blueprint generated successfully for agent ${this.getAgentId()}`);
         // Save the app to database (authenticated users only)
@@ -257,101 +389,6 @@ export class SimpleCodeGeneratorAgent extends Agent<Env, CodeGenState> {
         this.logger().info(`Agent initialized successfully for agent ${this.state.inferenceContext.agentId}`);
     }
 
-    /**
-     * Initialize the code generator with project blueprint and template
-     * Sets up services and begins deployment process
-     */
-    async initialize(
-        initArgs: AgentInitArgs,
-        ..._args: unknown[]
-    ): Promise<CodeGenState> {
-
-        const { query, language, frameworks, hostname, inferenceContext, templateInfo, sandboxSessionId } = initArgs;
-        this.initLogger(inferenceContext.agentId, sandboxSessionId, inferenceContext.userId);
-        
-        // Generate a blueprint
-        this.logger().info('Generating blueprint', { query, queryLength: query.length, imagesCount: initArgs.images?.length || 0 });
-        this.logger().info(`Using language: ${language}, frameworks: ${frameworks ? frameworks.join(", ") : "none"}`);
-        
-        const blueprint = await generateBlueprint({
-            env: this.env,
-            inferenceContext,
-            query,
-            language: language!,
-            frameworks: frameworks!,
-            templateDetails: templateInfo.templateDetails,
-            templateMetaInfo: templateInfo.selection,
-            images: initArgs.images,
-            stream: {
-                chunk_size: 256,
-                onChunk: (chunk) => {
-                    // initArgs.writer.write({chunk});
-                    initArgs.onBlueprintChunk(chunk);
-                }
-            }
-        })
-
-        const packageJsonFile = templateInfo.templateDetails?.files.find(file => file.filePath === 'package.json');
-        const packageJson = packageJsonFile ? packageJsonFile.fileContents : '';
-        
-        this.setState({
-            ...this.initialState,
-            query,
-            blueprint,
-            templateDetails: templateInfo.templateDetails,
-            sandboxInstanceId: undefined,
-            generatedPhases: [],
-            commandsHistory: [],
-            lastPackageJson: packageJson,
-            sessionId: sandboxSessionId,
-            hostname,
-            inferenceContext,
-        });
-
-        try {
-            // Deploy to sandbox service and generate initial setup commands in parallel
-            Promise.all([this.deployToSandbox(), this.getProjectSetupAssistant().generateSetupCommands(), this.generateReadme()]).then(async ([, setupCommands, _readme]) => {
-                this.logger().info("Deployment to sandbox service and initial commands predictions completed successfully");
-                await this.executeCommands(setupCommands.commands);
-                this.logger().info("Initial commands executed successfully");
-            }).catch(error => {
-                this.logger().error("Error during deployment:", error);
-                this.broadcast(WebSocketMessageResponses.ERROR, {
-                    error: `Error during deployment: ${error instanceof Error ? error.message : String(error)}`
-                });
-            });
-        } catch (error) {
-            this.logger().error("Error during deployment:", error);
-            this.broadcast(WebSocketMessageResponses.ERROR, {
-                error: `Error during deployment: ${error instanceof Error ? error.message : String(error)}`
-            });
-        }
-        this.logger().info(`Agent ${this.getAgentId()} session: ${this.state.sessionId} initialized successfully`);
-        await this.saveToDatabase();
-        return this.state;
-    }
-
-    async isInitialized() {
-        return this.getAgentId() ? true : false
-    }  
-    
-    onStateUpdate(_state: CodeGenState, _source: "server" | Connection) {
-        // You can leave this empty to disable logging
-        // Or, you can log a more specific message, for example:
-        this.logger().info("State was updated.");
-    }
-
-    setState(state: CodeGenState): void {
-        try {
-            super.setState(state);
-        } catch (error) {
-            this.logger().error("Error setting state:", error);
-            this.broadcast(WebSocketMessageResponses.ERROR, {
-                error: `Error setting state: ${error instanceof Error ? error.message : String(error)}; Original state: ${JSON.stringify(this.state, null, 2)}; New state: ${JSON.stringify(state, null, 2)}`
-            });
-        }
-    }
-
     getPreviewUrlCache() {
         return this.previewUrlCache;
     }
@@ -363,7 +400,7 @@ export class SimpleCodeGeneratorAgent extends Agent<Env, CodeGenState> {
                 agentId: this.getAgentId(),
                 query: this.state.query,
                 blueprint: this.state.blueprint,
-                template: this.state.templateDetails,
+                template: this.getTemplateDetails(),
                 inferenceContext: this.state.inferenceContext
             });
         }
@@ -371,36 +408,15 @@ export class SimpleCodeGeneratorAgent extends Agent<Env, CodeGenState> {
     }
 
     getSessionId() {
-        return this.state.sessionId
-    }
-
-    resetSessionId() {
-        const newSessionId = generateId();
-        this.logger().info(`New Sandbox sessionId initialized: ${newSessionId}. Old sessionId: ${this.state.sessionId}`)
-        this.setState({
-            ...this.state,
-            sessionId: newSessionId
-        })
-        // Reset sandbox service client
-        this.sandboxServiceClient = undefined;
-        
-        // Clear health check interval since we're abandoning the old instance
-        if (this.healthCheckInterval !== null) {
-            clearInterval(this.healthCheckInterval);
-            this.healthCheckInterval = null;
-        }
+        return this.deploymentManager.getSessionId();
     }
 
     getSandboxServiceClient(): BaseSandboxService {
-        if (this.sandboxServiceClient === undefined) {
-            this.logger().info('Initializing sandbox service client');
-            this.sandboxServiceClient = getSandboxService(this.getSessionId(), this.getAgentId());
-        }
-        return this.sandboxServiceClient;
+        return this.deploymentManager.getClient();
     }
 
     isCodeGenerating(): boolean {
-        return this.isGenerating;
+        return this.generationPromise !== null;
     }
 
     rechargePhasesCounter(max_phases: number = MAX_PHASES): void {
@@ -425,15 +441,101 @@ export class SimpleCodeGeneratorAgent extends Agent<Env, CodeGenState> {
         return this.state.phasesCounter;
     }
 
-    private getOperationOptions(): OperationOptions {
+    getOperationOptions(): OperationOptions {
         return {
             env: this.env,
             agentId: this.getAgentId(),
-            context: GenerationContext.from(this.state, this.logger()),
+            context: GenerationContext.from(this.state, this.getTemplateDetails(), this.logger()),
             logger: this.logger(),
-            inferenceContext: this.state.inferenceContext,
+            inferenceContext: this.getInferenceContext(),
             agent: this.codingAgent
         };
+    }
+
+    /**
+     * Gets or creates an abort controller for the current operation
+     * Reuses existing controller for nested operations (e.g., tool calling)
+     */
+    protected getOrCreateAbortController(): AbortController {
+        // Don't reuse aborted controllers
+        if (this.currentAbortController && !this.currentAbortController.signal.aborted) {
+            return this.currentAbortController;
+        }
+        
+        // Create new controller in memory for new operation
+        this.currentAbortController = new AbortController();
+        
+        return this.currentAbortController;
+    }
+    
+    /**
+     * Cancels the current inference operation if any
+     */
+    public cancelCurrentInference(): boolean {
+        if (this.currentAbortController) {
+            this.logger().info('Cancelling current inference operation');
+            this.currentAbortController.abort();
+            this.currentAbortController = undefined;
+            return true;
+        }
+        return false;
+    }
+    
+    /**
+     * Clears abort controller after successful completion
+     */
+    protected clearAbortController(): void {
+        this.currentAbortController = undefined;
+    }
+    
+    /**
+     * Gets inference context with abort signal
+     * Reuses existing abort controller for nested operations
+     */
+    protected getInferenceContext(): InferenceContext {
+        const controller = this.getOrCreateAbortController();
+        
+        return {
+            ...this.state.inferenceContext,
+            abortSignal: controller.signal,
+        };
+    }
+
+    private createNewIncompletePhase(phaseConcept: PhaseConceptType) {
+        this.setState({
+            ...this.state,
+            generatedPhases: [...this.state.generatedPhases, {
+                ...phaseConcept,
+                completed: false
+            }]
+        })
+
+        this.logger().info("Created new incomplete phase:", JSON.stringify(this.state.generatedPhases, null, 2));
+    }
+
+    private markPhaseComplete(phaseName: string) {
+        // First find the phase
+        const phases = this.state.generatedPhases;
+        if (!phases.some(p => p.name === phaseName)) {
+            this.logger().error(`Phase ${phaseName} not found in generatedPhases array`);
+            throw new Error(`Phase ${phaseName} not found in generatedPhases array`);
+        }
+        
+        // Update the phase
+        this.setState({
+            ...this.state,
+            generatedPhases: phases.map(p => p.name === phaseName ? { ...p, completed: true } : p)
+        });
+
+        this.logger().info("Completed phases:", JSON.stringify(phases, null, 2));
+    }
+
+    private broadcastError(context: string, error: unknown): void {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        this.logger().error(`${context}:`, error);
+        this.broadcast(WebSocketMessageResponses.ERROR, {
+            error: `${context}: ${errorMessage}`
+        });
     }
 
     async generateReadme() {
@@ -495,31 +597,42 @@ export class SimpleCodeGeneratorAgent extends Agent<Env, CodeGenState> {
             this.logger().info("Code generation already completed and no user inputs pending");
             return;
         }
-        if (this.isGenerating) {
+        if (this.isCodeGenerating()) {
             this.logger().info("Code generation already in progress");
             return;
         }
-        this.isGenerating = true;
+        this.generationPromise = this.launchStateMachine(reviewCycles);
+        await this.generationPromise;
+    }
 
+    private async launchStateMachine(reviewCycles: number) {
         this.broadcast(WebSocketMessageResponses.GENERATION_STARTED, {
             message: 'Starting code generation',
             totalFiles: this.getTotalFiles()
         });
+        this.logger().info('Starting code generation', {
+            totalFiles: this.getTotalFiles()
+        });
         let currentDevState = CurrentDevState.PHASE_IMPLEMENTING;
         const generatedPhases = this.state.generatedPhases;
-        const completedPhases = generatedPhases.filter(phase => !phase.completed);
+        const incompletedPhases = generatedPhases.filter(phase => !phase.completed);
         let phaseConcept : PhaseConceptType | undefined;
-        if (completedPhases.length > 0) {
-            phaseConcept = completedPhases[completedPhases.length - 1];
+        if (incompletedPhases.length > 0) {
+            phaseConcept = incompletedPhases[incompletedPhases.length - 1];
+            this.logger().info('Resuming code generation from incompleted phase', {
+                phase: phaseConcept
+            });
         } else if (generatedPhases.length > 0) {
             currentDevState = CurrentDevState.PHASE_GENERATING;
+            this.logger().info('Resuming code generation after generating all phases', {
+                phase: generatedPhases[generatedPhases.length - 1]
+            });
         } else {
             phaseConcept = this.state.blueprint.initialPhase;
-            this.setState({
-                ...this.state,
-                currentPhase: phaseConcept,
-                generatedPhases: [{...phaseConcept, completed: false}]
+            this.logger().info('Starting code generation from initial phase', {
+                phase: phaseConcept
             });
+            this.createNewIncompletePhase(phaseConcept);
         }
 
         let staticAnalysisCache: StaticAnalysisResponse | undefined;
@@ -563,15 +676,16 @@ export class SimpleCodeGeneratorAgent extends Agent<Env, CodeGenState> {
 
             this.logger().info("State machine completed successfully");
         } catch (error) {
-            this.logger().error("Error in state machine:", error);
             if (error instanceof RateLimitExceededError) {
+                this.logger().error("Error in state machine:", error);
                 this.broadcast(WebSocketMessageResponses.RATE_LIMIT_ERROR, { error });
+            } else {
+                this.broadcastError("Error during generation", error);
             }
-            const errorMessage = error instanceof Error ? error.message : String(error);
-            this.broadcast(WebSocketMessageResponses.ERROR, {
-                error: `Error during generation: ${errorMessage}`
-            });
         } finally {
+            // Clear abort controller after generation completes
+            this.clearAbortController();
+            
             const appService = new AppService(this.env);
             await appService.updateApp(
                 this.getAgentId(),
@@ -579,7 +693,7 @@ export class SimpleCodeGeneratorAgent extends Agent<Env, CodeGenState> {
                     status: 'completed',
                 }
             );
-            this.isGenerating = false;
+            this.generationPromise = null;
             this.broadcast(WebSocketMessageResponses.GENERATION_COMPLETE, {
                 message: "Code generation and review process completed.",
                 instanceId: this.state.sandboxInstanceId,
@@ -643,14 +757,10 @@ export class SimpleCodeGeneratorAgent extends Agent<Env, CodeGenState> {
                 userContext: userContext,
             };
         } catch (error) {
-            this.logger().error("Error generating phase", error);
             if (error instanceof RateLimitExceededError) {
                 throw error;
             }
-            this.broadcast(WebSocketMessageResponses.ERROR, {
-                message: "Error generating phase",
-                error: error
-            });
+            this.broadcastError("Error generating phase", error);
             return {
                 currentDevState: CurrentDevState.IDLE,
             };
@@ -683,17 +793,22 @@ export class SimpleCodeGeneratorAgent extends Agent<Env, CodeGenState> {
             });
     
             let currentIssues : AllIssues;
-            if (staticAnalysis) {
-                // If have cached static analysis, fetch everything else fresh
-                currentIssues = {
-                    runtimeErrors: await this.fetchRuntimeErrors(true),
-                    staticAnalysis: staticAnalysis,
-                    clientErrors: this.state.clientReportedErrors
-                };
+            if (this.state.sandboxInstanceId) {
+                if (staticAnalysis) {
+                    // If have cached static analysis, fetch everything else fresh
+                    currentIssues = {
+                        runtimeErrors: await this.fetchRuntimeErrors(true),
+                        staticAnalysis: staticAnalysis,
+                    };
+                } else {
+                    currentIssues = await this.fetchAllIssues(true)
+                }
             } else {
-                currentIssues = await this.fetchAllIssues(true)
+                currentIssues = {
+                    runtimeErrors: [],
+                    staticAnalysis: { success: true, lint: { issues: [] }, typecheck: { issues: [] } },
+                }
             }
-            
             // Implement the phase with user context (suggestions and images)
             await this.implementPhase(phaseConcept, currentIssues, userContext);
     
@@ -758,7 +873,7 @@ export class SimpleCodeGeneratorAgent extends Agent<Env, CodeGenState> {
                         
                         const fileToRegenerate = this.fileManager.getGeneratedFile(fileToFix.filePath);
                         if (!fileToRegenerate) {
-                            this.logger().warn(`File to fix not found in generated files: ${fileToFix.filePath}`);
+                            this.logger().warn(`File to fix not found in generated files: ${fileToFix.filePath}, skipping`);
                             continue;
                         }
                         
@@ -824,16 +939,7 @@ export class SimpleCodeGeneratorAgent extends Agent<Env, CodeGenState> {
             lastPhase: true
         }
         
-        this.setState({
-            ...this.state,
-            generatedPhases: [
-                ...this.state.generatedPhases,
-                {
-                    ...phaseConcept,
-                    completed: false
-                }
-            ]
-        });
+        this.createNewIncompletePhase(phaseConcept);
 
         const currentIssues = await this.fetchAllIssues(true);
         
@@ -845,6 +951,59 @@ export class SimpleCodeGeneratorAgent extends Agent<Env, CodeGenState> {
 
         // Transition to IDLE - generation complete
         return CurrentDevState.REVIEWING;
+    }
+
+    async executeDeepDebug(
+        issue: string,
+        toolRenderer: RenderToolCall,
+        streamCb: (chunk: string) => void,
+        focusPaths?: string[],
+    ): Promise<DeepDebugResult> {
+        
+        const debugPromise = (async () => {
+            try {
+                const previousTranscript = this.state.lastDeepDebugTranscript ?? undefined;
+                const operationOptions = this.getOperationOptions();
+                const filesIndex = operationOptions.context.allFiles
+                    .filter((f) =>
+                        !focusPaths?.length ||
+                        focusPaths.some((p) => f.filePath.includes(p)),
+                    );
+
+                const runtimeErrors = await this.fetchRuntimeErrors(true);
+
+                const dbg = new DeepCodeDebugger(
+                    operationOptions.env,
+                    operationOptions.inferenceContext,
+                );
+
+                const out = await dbg.run(
+                    { issue, previousTranscript },
+                    { filesIndex, agent: this.codingAgent, runtimeErrors },
+                    streamCb,
+                    toolRenderer,
+                );
+
+                // Save transcript for next session
+                this.setState({
+                    ...this.state,
+                    lastDeepDebugTranscript: out,
+                });
+
+                return { success: true as const, transcript: out };
+            } catch (e) {
+                this.logger().error('Deep debugger failed', e);
+                return { success: false as const, error: `Deep debugger failed: ${String(e)}` };
+            } finally{
+                // Clear promise after completion
+                this.deepDebugPromise = null;
+            }
+        })();
+
+        // Store promise before awaiting
+        this.deepDebugPromise = debugPromise;
+
+        return await debugPromise;
     }
 
     /**
@@ -899,16 +1058,7 @@ export class SimpleCodeGeneratorAgent extends Agent<Env, CodeGenState> {
             return undefined;
         }
         
-        this.setState({
-            ...this.state,
-            generatedPhases: [
-                ...this.state.generatedPhases,
-                {
-                    ...result,
-                    completed: false
-                }
-            ],
-        });
+        this.createNewIncompletePhase(result);
         // Notify phase generation complete
         this.broadcast(WebSocketMessageResponses.PHASE_GENERATED, {
             message: `Generated next phase: ${result.name}`,
@@ -922,7 +1072,7 @@ export class SimpleCodeGeneratorAgent extends Agent<Env, CodeGenState> {
      * Implement a single phase of code generation
      * Streams file generation with real-time updates and incorporates technical instructions
      */
-    async implementPhase(phase: PhaseConceptType, currentIssues: AllIssues, userContext?: UserContext, streamChunks: boolean = true): Promise<PhaseImplementationSchemaType> {
+    async implementPhase(phase: PhaseConceptType, currentIssues: AllIssues, userContext?: UserContext, streamChunks: boolean = true, postPhaseFixing: boolean = true): Promise<PhaseImplementationSchemaType> {
         const issues = IssueReport.from(currentIssues);
         
         const implementationMsg = userContext?.suggestions && userContext.suggestions.length > 0
@@ -975,7 +1125,7 @@ export class SimpleCodeGeneratorAgent extends Agent<Env, CodeGenState> {
             message: `Validating files for phase: ${phase.name}`,
             phase: phase,
         });
-    
+
         // Await the already-created realtime code fixer promises
         const finalFiles = await Promise.allSettled(result.fixedFilePromises).then((results: PromiseSettledResult<FileOutputType>[]) => {
             return results.map((result) => {
@@ -1001,9 +1151,11 @@ export class SimpleCodeGeneratorAgent extends Agent<Env, CodeGenState> {
         // Deploy generated files
         if (finalFiles.length > 0) {
             await this.deployToSandbox(finalFiles, false, phase.name);
-            await this.applyDeterministicCodeFixes();
-            if (this.state.inferenceContext.enableFastSmartCodeFix) {
-                await this.applyFastSmartCodeFixes();
+            if (postPhaseFixing) {
+                await this.applyDeterministicCodeFixes();
+                if (this.state.inferenceContext.enableFastSmartCodeFix) {
+                    await this.applyFastSmartCodeFixes();
+                }
             }
         }
 
@@ -1031,15 +1183,7 @@ export class SimpleCodeGeneratorAgent extends Agent<Env, CodeGenState> {
             message: "Files generated successfully for phase"
         });
     
-        const previousPhases = this.state.generatedPhases;
-        // Replace the phase with the new one
-        const updatedPhases = previousPhases.map(p => p.name === phase.name ? {...p, completed: true} : p);
-        this.setState({
-            ...this.state,
-            generatedPhases: updatedPhases,
-        });
-
-        this.logger().info("Completed phases:", JSON.stringify(updatedPhases, null, 2));
+        this.markPhaseComplete(phase.name);
         
         return {
             files: finalFiles,
@@ -1122,7 +1266,6 @@ export class SimpleCodeGeneratorAgent extends Agent<Env, CodeGenState> {
         this.broadcast(WebSocketMessageResponses.CODE_REVIEWING, {
             message: "Running code review...",
             staticAnalysis: issues.staticAnalysis,
-            clientErrors: issues.clientErrors,
             runtimeErrors: issues.runtimeErrors
         });
 
@@ -1160,15 +1303,15 @@ export class SimpleCodeGeneratorAgent extends Agent<Env, CodeGenState> {
             this.getOperationOptions()
         );
 
-        this.fileManager.saveGeneratedFile(result);
+        const fileState = this.fileManager.saveGeneratedFile(result);
 
         this.broadcast(WebSocketMessageResponses.FILE_REGENERATED, {
             message: `Regenerated file: ${file.filePath}`,
-            file: result,
+            file: fileState,
             original_issues: issues,
         });
         
-        return result;
+        return fileState;
     }
 
     getTotalFiles(): number {
@@ -1192,198 +1335,11 @@ export class SimpleCodeGeneratorAgent extends Agent<Env, CodeGenState> {
         return this.state;
     }
     
-    /**
-     * Migrate old snake_case file properties to camelCase format
-     * This is needed for apps created before the schema migration
-     */
     private migrateStateIfNeeded(): void {
-        let needsMigration = false;
-        
-        // Helper function to migrate a file object from snake_case to camelCase
-        const migrateFile = (file: any): any => {
-            const hasOldFormat = 'file_path' in file || 'file_contents' in file || 'file_purpose' in file;
-            
-            if (hasOldFormat) {
-                return {
-                    filePath: file.filePath || file.file_path,
-                    fileContents: file.fileContents || file.file_contents,
-                    filePurpose: file.filePurpose || file.file_purpose,
-                };
-            }
-            return file;
-        };
-
-        // Migrate generatedFilesMap
-        const migratedFilesMap: Record<string, FileState> = {};
-        for (const [key, file] of Object.entries(this.state.generatedFilesMap)) {
-            const migratedFile = migrateFile(file);
-            
-            // Add FileState-specific properties if missing
-            migratedFilesMap[key] = {
-                ...migratedFile,
-                lasthash: migratedFile.lasthash || '',
-                lastmodified: migratedFile.lastmodified || Date.now(),
-                unmerged: migratedFile.unmerged || []
-            };
-            
-            if (migratedFile !== file) {
-                needsMigration = true;
-            }
+        const migratedState = StateMigration.migrateIfNeeded(this.state, this.logger());
+        if (migratedState) {
+            this.setState(migratedState);
         }
-
-        // Migrate templateDetails.files
-        let migratedTemplateDetails = this.state.templateDetails;
-        if (migratedTemplateDetails?.files) {
-            const migratedTemplateFiles = migratedTemplateDetails.files.map(file => {
-                const migratedFile = migrateFile(file);
-                if (migratedFile !== file) {
-                    needsMigration = true;
-                }
-                return migratedFile;
-            });
-            
-            if (needsMigration) {
-                migratedTemplateDetails = {
-                    ...migratedTemplateDetails,
-                    files: migratedTemplateFiles
-                };
-            }
-        }
-
-        // Fix conversation message exponential bloat caused by incorrect message accumulation
-        let migratedConversationMessages = this.state.conversationMessages;
-        const MIN_MESSAGES_FOR_CLEANUP = 25;
-        
-        if (migratedConversationMessages && migratedConversationMessages.length > 0) {
-            const originalCount = migratedConversationMessages.length;
-            
-            // Deduplicate messages by conversationId
-            const seen = new Set<string>();
-            const uniqueMessages = [];
-            
-            for (const message of migratedConversationMessages) {
-                // Use conversationId as primary unique key since it should be unique per message
-                let key = message.conversationId;
-                if (!key) {
-                    // Fallback for messages without conversationId
-                    const contentStr = typeof message.content === 'string' 
-                        ? message.content.substring(0, 100)
-                        : JSON.stringify(message.content || '').substring(0, 100);
-                    key = `${message.role || 'unknown'}_${contentStr}_${Date.now()}`;
-                }
-                
-                if (!seen.has(key)) {
-                    seen.add(key);
-                    uniqueMessages.push(message);
-                }
-            }
-            
-            // Sort messages by timestamp (extracted from conversationId) to maintain chronological order
-            uniqueMessages.sort((a, b) => {
-                const getTimestamp = (msg: any) => {
-                    if (msg.conversationId && typeof msg.conversationId === 'string' && msg.conversationId.startsWith('conv-')) {
-                        const parts = msg.conversationId.split('-');
-                        if (parts.length >= 2) {
-                            return parseInt(parts[1]) || 0;
-                        }
-                    }
-                    return 0;
-                };
-                return getTimestamp(a) - getTimestamp(b);
-            });
-            
-            // Smart filtering: if we have more than MIN_MESSAGES_FOR_CLEANUP, remove internal memos but keep actual conversations
-            if (uniqueMessages.length > MIN_MESSAGES_FOR_CLEANUP) {
-                const realConversations = [];
-                const internalMemos = [];
-                
-                for (const message of uniqueMessages) {
-                    const content = typeof message.content === 'string' ? message.content : JSON.stringify(message.content || '');
-                    const isInternalMemo = content.includes('**<Internal Memo>**') || content.includes('Project Updates:');
-                    
-                    if (isInternalMemo) {
-                        internalMemos.push(message);
-                    } else {
-                        realConversations.push(message);
-                    }
-                }
-                
-                this.logger().info('Conversation cleanup analysis', {
-                    totalUniqueMessages: uniqueMessages.length,
-                    realConversations: realConversations.length,
-                    internalMemos: internalMemos.length,
-                    willRemoveInternalMemos: uniqueMessages.length > MIN_MESSAGES_FOR_CLEANUP
-                });
-                
-                // Keep all real conversations, remove internal memos if we exceed the threshold
-                migratedConversationMessages = realConversations;
-            } else {
-                // If we have few messages, keep everything
-                migratedConversationMessages = uniqueMessages;
-            }
-            
-            if (migratedConversationMessages.length !== originalCount) {
-                this.logger().info('Fixed conversation message exponential bloat', {
-                    originalCount,
-                    deduplicatedCount: uniqueMessages.length,
-                    finalCount: migratedConversationMessages.length,
-                    duplicatesRemoved: originalCount - uniqueMessages.length,
-                    internalMemosRemoved: uniqueMessages.length - migratedConversationMessages.length
-                });
-                needsMigration = true;
-            }
-        }
-
-        let migratedInferenceContext = this.state.inferenceContext;
-        if (migratedInferenceContext && 'userApiKeys' in migratedInferenceContext) {
-            migratedInferenceContext = {
-                ...migratedInferenceContext
-            };
-            
-            // Completely remove the userApiKeys property for security
-            delete (migratedInferenceContext as any).userApiKeys;
-            needsMigration = true;
-        }
-
-        // Check for deprecated properties
-        const stateHasDeprecatedProps = 'latestScreenshot' in (this.state as any);
-        if (stateHasDeprecatedProps) {
-            needsMigration = true;
-        }
-
-        // Check if projectUpdatesAccumulator is not in state
-        const stateHasProjectUpdatesAccumulator = 'projectUpdatesAccumulator' in (this.state as any);
-        if (!stateHasProjectUpdatesAccumulator) {
-            needsMigration = true;
-        }
-        
-        // Apply migration if needed
-        if (needsMigration) {
-            this.logger().info('Migrating state: schema format, conversation cleanup, and security fixes', {
-                generatedFilesCount: Object.keys(migratedFilesMap).length,
-                templateFilesCount: migratedTemplateDetails?.files?.length || 0,
-                finalConversationCount: migratedConversationMessages?.length || 0,
-                removedUserApiKeys: this.state.inferenceContext && 'userApiKeys' in this.state.inferenceContext
-            });
-            
-            const newState = {
-                ...this.state,
-                generatedFilesMap: migratedFilesMap,
-                templateDetails: migratedTemplateDetails,
-                conversationMessages: migratedConversationMessages,
-                inferenceContext: migratedInferenceContext,
-                projectUpdatesAccumulator: []
-            };
-            
-            // Remove deprecated properties
-            if (stateHasDeprecatedProps) {
-                delete (newState as any).latestScreenshot;
-            }
-            
-            this.setState(newState);
-        }
-
-        
     }
 
     getFileGenerated(filePath: string) {
@@ -1395,47 +1351,24 @@ export class SimpleCodeGeneratorAgent extends Agent<Env, CodeGenState> {
     }
 
     async fetchRuntimeErrors(clear: boolean = true) {
-        await this.waitForPreview();
-
-        if (!this.state.sandboxInstanceId || !this.fileManager) {
-            this.logger().warn("No sandbox instance ID available to fetch errors from.");
-            return [];
-        }
+        await this.deploymentManager.waitForPreview();
 
         try {
-            const resp = await this.getSandboxServiceClient().getInstanceErrors(this.state.sandboxInstanceId);
-            if (!resp || !resp.success) {
-                this.logger().error(`Failed to fetch runtime errors: ${resp?.error || 'Unknown error'}, Will initiate redeploy`);
-                // Initiate redeploy
-                this.deployToSandbox();
-                return [];
-            }
-            
-            const errors = resp?.errors || [];
-
-            if (errors.filter(error => error.message.includes('Unterminated string in JSON at position')).length > 0) {
-                this.logger().error('Unterminated string in JSON at position, will initiate redeploy');
-                // Initiate redeploy
-                this.deployToSandbox();
-                return [];
-            }
+            const errors = await this.deploymentManager.fetchRuntimeErrors(clear);
             
             if (errors.length > 0) {
-                this.logger().info(`Found ${errors.length} runtime errors: ${errors.map(e => e.message).join(', ')}`);
                 this.broadcast(WebSocketMessageResponses.RUNTIME_ERROR_FOUND, {
                     errors,
                     message: "Runtime errors found",
                     count: errors.length
                 });
-                
-                if (clear) {
-                    await this.getSandboxServiceClient().clearInstanceErrors(this.state.sandboxInstanceId);
-                }
             }
 
             return errors;
         } catch (error) {
             this.logger().error("Exception fetching runtime errors:", error);
+            // If fetch fails, initiate redeploy
+            this.deployToSandbox();
             return [];
         }
     }
@@ -1444,54 +1377,19 @@ export class SimpleCodeGeneratorAgent extends Agent<Env, CodeGenState> {
      * Perform static code analysis on the generated files
      * This helps catch potential issues early in the development process
      */
-    async runStaticAnalysisCode(): Promise<StaticAnalysisResponse> {
-        const { sandboxInstanceId } = this.state;
-
-        if (!sandboxInstanceId) {
-            this.logger().warn("No sandbox instance ID available to lint code.");
-            return { success: false, lint: { issues: [], }, typecheck: { issues: [], } };
-        }
-
-        this.logger().info(`Linting code in sandbox instance ${sandboxInstanceId}`);
-
-        const files = this.fileManager.getGeneratedFilePaths();
-
+    async runStaticAnalysisCode(files?: string[]): Promise<StaticAnalysisResponse> {
         try {
-            const analysisResponse = await this.getSandboxServiceClient()?.runStaticAnalysisCode(sandboxInstanceId, files);
-
-            if (!analysisResponse || analysisResponse.error) {
-                const errorMsg = `Code linting failed: ${analysisResponse?.error || 'Unknown error'}, full response: ${JSON.stringify(analysisResponse)}`;
-                this.logger().error(errorMsg);
-                this.broadcast(WebSocketMessageResponses.ERROR, { error: errorMsg, analysisResponse });
-                throw new Error(errorMsg);
-            }
+            const analysisResponse = await this.deploymentManager.runStaticAnalysis(files);
 
             const { lint, typecheck } = analysisResponse;
-            const { issues: lintIssues, summary: lintSummary } = lint;
-
-            this.logger().info(`Linting found ${lintIssues.length} issues: ` +
-                `${lintSummary?.errorCount || 0} errors, ` +
-                `${lintSummary?.warningCount || 0} warnings, ` +
-                `${lintSummary?.infoCount || 0} info`);
-
-            const { issues: typeCheckIssues, summary: typeCheckSummary } = typecheck;
-
-            this.logger().info(`Typecheck found ${typeCheckIssues.length} issues: ` +
-                `${typeCheckSummary?.errorCount || 0} errors, ` +
-                `${typeCheckSummary?.warningCount || 0} warnings, ` +
-                `${typeCheckSummary?.infoCount || 0} info`);
-
             this.broadcast(WebSocketMessageResponses.STATIC_ANALYSIS_RESULTS, {
-                lint: { issues: lintIssues, summary: lintSummary },
-                typecheck: { issues: typeCheckIssues, summary: typeCheckSummary }
+                lint: { issues: lint.issues, summary: lint.summary },
+                typecheck: { issues: typecheck.issues, summary: typecheck.summary }
             });
 
             return analysisResponse;
         } catch (error) {
-            this.logger().error("Error linting code:", error);
-            const errorMessage = error instanceof Error ? error.message : String(error);
-            this.broadcast(WebSocketMessageResponses.ERROR, { error: `Failed to lint code: ${errorMessage}` });
-            // throw new Error(`Failed to lint code: ${errorMessage}`);
+            this.broadcastError("Failed to lint code", error);
             return { success: false, lint: { issues: [], }, typecheck: { issues: [], } };
         }
     }
@@ -1507,7 +1405,7 @@ export class SimpleCodeGeneratorAgent extends Agent<Env, CodeGenState> {
                 return;
             }
             const issues = staticAnalysis.typecheck.issues.concat(staticAnalysis.lint.issues);
-            const allFiles = this.fileManager.getAllFiles();
+            const allFiles = this.fileManager.getAllRelevantFiles();
 
             const fastCodeFixer = await this.operations.fastCodeFixer.execute({
                 query: this.state.query,
@@ -1522,9 +1420,7 @@ export class SimpleCodeGeneratorAgent extends Agent<Env, CodeGenState> {
             }
             this.logger().info(`Fast smart code fixes applied in ${Date.now() - startTime}ms`);            
         } catch (error) {
-            this.logger().error("Error applying fast smart code fixes:", error);
-            const errorMessage = error instanceof Error ? error.message : String(error);
-            this.broadcast(WebSocketMessageResponses.ERROR, { error: `Failed to apply fast smart code fixes: ${errorMessage}` });
+            this.broadcastError("Failed to apply fast smart code fixes", error);
             return;
         }
     }
@@ -1549,35 +1445,13 @@ export class SimpleCodeGeneratorAgent extends Agent<Env, CodeGenState> {
             this.logger().info(`Attempting to fix ${typeCheckIssues.length} TypeScript issues using deterministic code fixer`);
             const allFiles = this.fileManager.getAllFiles();
 
-            // Create file fetcher callback
-            const fileFetcher: FileFetcher = async (filePath: string) => {
-                // Fetch a single file from the instance
-                try {
-                    const result = await this.getSandboxServiceClient().getFiles(this.state.sandboxInstanceId!, [filePath]);
-                    if (result.success && result.files.length > 0) {
-                        this.logger().info(`Successfully fetched file: ${filePath}`);
-                        return {
-                            filePath: filePath,
-                            fileContents: result.files[0].fileContents,
-                            filePurpose: `Fetched file: ${filePath}`
-                        };
-                    } else {
-                        this.logger().debug(`File not found: ${filePath}`);
-                    }
-                } catch (error) {
-                    this.logger().debug(`Failed to fetch file ${filePath}: ${error instanceof Error ? error.message : 'Unknown error'}`);
-                }
-                return null;
-            };
-            
-            const fixResult = await fixProjectIssues(
+            const fixResult = fixProjectIssues(
                 allFiles.map(file => ({
                     filePath: file.filePath,
                     fileContents: file.fileContents,
                     filePurpose: ''
                 })),
-                typeCheckIssues,
-                fileFetcher
+                typeCheckIssues
             );
 
             this.broadcast(WebSocketMessageResponses.DETERMINISTIC_CODE_FIX_COMPLETED, {
@@ -1620,10 +1494,7 @@ export class SimpleCodeGeneratorAgent extends Agent<Env, CodeGenState> {
             }
             this.logger().info(`Applied deterministic code fixes: ${JSON.stringify(fixResult, null, 2)}`);
         } catch (error) {
-            this.logger().error('Error applying deterministic code fixes:', error);
-            this.broadcast(WebSocketMessageResponses.ERROR, {
-                error: `Deterministic code fixer failed: ${error instanceof Error ? error.message : String(error)}`
-            });
+            this.broadcastError('Deterministic code fixer failed', error);
         }
         // return undefined;
     }
@@ -1633,300 +1504,218 @@ export class SimpleCodeGeneratorAgent extends Agent<Env, CodeGenState> {
             this.fetchRuntimeErrors(resetIssues),
             this.runStaticAnalysisCode()
         ]);
+        this.logger().info("Fetched all issues:", JSON.stringify({ runtimeErrors, staticAnalysis }));
         
-        const clientErrors = this.state.clientReportedErrors;
-        this.logger().info("Fetched all issues:", JSON.stringify({ runtimeErrors, staticAnalysis, clientErrors }));
-        
-        return { runtimeErrors, staticAnalysis, clientErrors };
+        return { runtimeErrors, staticAnalysis };
     }
 
-    async waitForPreview(): Promise<void> {
-        this.logger().info("Waiting for preview");
-        if (!this.state.sandboxInstanceId) {
-            const preview = await this.deployToSandbox();
-            if (!preview) {
-                this.logger().error("Failed create preview");
-                return;
-            }
-        }
-        this.logger().info("Waiting for preview completed");
-    }
-
-    async deployToSandbox(files: FileOutputType[] = [], redeploy: boolean = false, commitMessage?: string): Promise<PreviewType | null> {
-        // If there's already a deployment in progress, wait for it to complete
-        if (this.currentDeploymentPromise) {
-            this.logger().info('Deployment already in progress, waiting for completion');
-            try {
-                const result = await this.currentDeploymentPromise;
-                if (result) {
-                    this.logger().info('Previous deployment completed successfully, returning its result', { result });
-                    return result;
-                }
-            } catch (error) {
-                // Only proceed with new deployment if previous one failed
-                this.logger().warn('Previous deployment failed, proceeding with new deployment:', error);
-            }
-            return null;
-        }
-    
-        this.logger().info("Deploying to sandbox", { files, redeploy, commitMessage, sessionId: this.state.sessionId });
-    
-        // Start the actual deployment and track it
-        this.currentDeploymentPromise = this.executeDeployment(files, redeploy, commitMessage);
-        
-        // Create timeout that resets session if deployment hangs
-        let timeoutId: ReturnType<typeof setTimeout> | null = null;
-        const timeoutPromise = new Promise<never>((_, reject) => {
-            timeoutId = setTimeout(() => {
-                this.logger().warn('Deployment timed out after 60 seconds, resetting sessionId to provision new sandbox instance');
-                this.resetSessionId();
-                reject(new Error('Deployment timed out after 60 seconds'));
-            }, 60000);
-        });
-        
+    async updateProjectName(newName: string): Promise<boolean> {
         try {
-            const result = await Promise.race([
-                this.currentDeploymentPromise,
-                timeoutPromise
-            ]);
-            return result;
-        } finally {
-            if (timeoutId !== null) {
-                clearTimeout(timeoutId);
-            }
-            this.currentDeploymentPromise = null;
-        }
-    }
-
-    private async createNewPreview(): Promise<PreviewType | null> {
-        // Create new deployment
-        const templateName = this.state.templateDetails?.name || 'scratch';
-        // Generate a unique suffix
-        let prefix = (this.state.blueprint?.projectName || templateName).toLowerCase().replace(/[^a-z0-9]/g, '-');
-        const uniqueSuffix = generateId();
-        // Only use the first 20 characters of the prefix
-        prefix = prefix.slice(0, 20);
-        const projectName = `${prefix}-${uniqueSuffix}`.toLowerCase();
-        
-        // Generate webhook URL for this agent instance
-        const webhookUrl = this.generateWebhookUrl();
-
-        // If AI template is configured, pass AI vars
-        let localEnvVars: Record<string, string> = {};
-        if (this.state.templateDetails.name.includes('agents')) {
-            localEnvVars = {
-                "CF_AI_BASE_URL": generateAppProxyUrl(this.env),
-                "CF_AI_API_KEY": await generateAppProxyToken(this.state.inferenceContext.agentId, this.state.inferenceContext.userId, this.env)
-            }
-        }
-        
-        const createResponse = await this.getSandboxServiceClient().createInstance(templateName, `v1-${projectName}`, webhookUrl, localEnvVars);
-        if (!createResponse || !createResponse.success || !createResponse.runId) {
-            throw new Error(`Failed to create sandbox instance: ${createResponse?.error || 'Unknown error'}`);
-        }
-
-        this.logger().info(`Received createInstance response: ${JSON.stringify(createResponse, null, 2)}`)
-
-        if (createResponse.runId && createResponse.previewURL) {
-            this.previewUrlCache = createResponse.previewURL;
-            return createResponse;
-        }
-
-        throw new Error(`Failed to create sandbox instance: ${createResponse?.error || 'Unknown error'}`);
-    }
-
-    private async ensurePreviewExists(redeploy: boolean = false) {
-        let { sandboxInstanceId } = this.state;
-        let previewURL: string | undefined;
-        let tunnelURL: string | undefined;
-        let redeployed = false;
-
-        // Check if the instance is running
-        if (sandboxInstanceId) {
-            const status = await this.getSandboxServiceClient().getInstanceStatus(sandboxInstanceId);
-            if (!status.success || !status.isHealthy) {
-                this.logger().error(`DEPLOYMENT CHECK FAILED: Failed to get status for instance ${sandboxInstanceId}, redeploying...`);
-                sandboxInstanceId = undefined;
-            } else {
-                this.logger().info(`DEPLOYMENT CHECK PASSED: Instance ${sandboxInstanceId} is running, previewURL: ${status.previewURL}, tunnelURL: ${status.tunnelURL}`);
-                previewURL = status.previewURL;
-                tunnelURL = status.tunnelURL;
-            }
-        }
-
-        if (!sandboxInstanceId || redeploy) {
-            const results = await this.createNewPreview();
-            if (!results || !results.runId || !results.previewURL) {
-                throw new Error('Failed to create new deployment');
-            }
-            sandboxInstanceId = results.runId;
-            previewURL = results.previewURL;
-            tunnelURL = results.tunnelURL;
-            redeployed = true;
+            const valid = /^[a-z0-9-_]{3,50}$/.test(newName);
+            if (!valid) return false;
+            const updatedBlueprint = { ...this.state.blueprint, projectName: newName } as Blueprint;
             this.setState({
                 ...this.state,
-                sandboxInstanceId,
+                blueprint: updatedBlueprint
             });
-
-            if (this.state.commandsHistory && this.state.commandsHistory.length > 0) {
-                // Run all commands in background
-                let cmds = this.state.commandsHistory;
-                if (cmds.length > 10) {
-                    cmds =  Array.from(new Set(this.state.commandsHistory));
-                    // I am aware this will messup the ordering of commands and may cause issues but those would be in very rare cases
-                    // because usually LLMs will only generate install commands or rm commands. 
-                    // This is to handle the bug still present in a lot of apps because of an exponential growth of commands
+            let ok = true;
+            if (this.state.sandboxInstanceId) {
+                try {
+                    ok = await this.getSandboxServiceClient().updateProjectName(this.state.sandboxInstanceId, newName);
+                } catch (_) {
+                    ok = false;
                 }
-                this.getSandboxServiceClient().executeCommands(sandboxInstanceId, cmds);
-                this.broadcast(WebSocketMessageResponses.COMMAND_EXECUTING, {
-                    message: "Executing setup commands",
-                    commands: cmds,
-                });
             }
-
-            // Clear any existing health check interval before creating a new one
-            if (this.healthCheckInterval !== null) {
-                clearInterval(this.healthCheckInterval);
-                this.healthCheckInterval = null;
+            try {
+                const appService = new AppService(this.env);
+                const dbOk = await appService.updateApp(this.getAgentId(), { title: newName });
+                ok = ok && dbOk;
+            } catch (error) {
+                this.logger().error('Error updating project name in database:', error);
+                ok = false;
             }
+            this.broadcast(WebSocketMessageResponses.PROJECT_NAME_UPDATED, {
+                message: 'Project name updated',
+                projectName: newName
+            });
+            return ok;
+        } catch (error) {
+            this.logger().error('Error updating project name:', error);
+            return false;
+        }
+    }
 
-            // Launch a set interval to check the health of the deployment. If it fails, redeploy
-            this.healthCheckInterval = setInterval(async () => {
-                // Don't trigger redeploy if there's already a deployment in progress
-                if (this.currentDeploymentPromise !== null) {
-                    return;
-                }
-                
-                const status = await this.getSandboxServiceClient().getInstanceStatus(sandboxInstanceId!);
-                if (!status || !status.success || !status.isHealthy) {
-                    this.logger().error(`DEPLOYMENT CHECK FAILED: Failed to get status for instance ${sandboxInstanceId}, redeploying...`);
-                    // Clear the interval to prevent it from running again
-                    if (this.healthCheckInterval !== null) {
-                        clearInterval(this.healthCheckInterval);
-                        this.healthCheckInterval = null;
-                    }
-                    await this.deployToSandbox([], true);
-                }
-            }, 5000);
+    async updateBlueprint(patch: Partial<Blueprint>): Promise<Blueprint> {
+        const keys = Object.keys(patch) as (keyof Blueprint)[];
+        const allowed = new Set<keyof Blueprint>([
+            'title',
+            'projectName',
+            'detailedDescription',
+            'description',
+            'colorPalette',
+            'views',
+            'userFlow',
+            'dataFlow',
+            'architecture',
+            'pitfalls',
+            'frameworks',
+            'implementationRoadmap'
+        ]);
+        const filtered: Partial<Blueprint> = {};
+        for (const k of keys) {
+            if (allowed.has(k) && typeof (patch as any)[k] !== 'undefined') {
+                (filtered as any)[k] = (patch as any)[k];
+            }
+        }
+        if (typeof filtered.projectName === 'string' && filtered.projectName) {
+            await this.updateProjectName(filtered.projectName);
+            delete (filtered as any).projectName;
+        }
+        const updated: Blueprint = { ...this.state.blueprint, ...(filtered as Blueprint) } as Blueprint;
+        this.setState({
+            ...this.state,
+            blueprint: updated
+        });
+        this.broadcast(WebSocketMessageResponses.BLUEPRINT_UPDATED, {
+            message: 'Blueprint updated',
+            updatedKeys: Object.keys(filtered)
+        });
+        return updated;
+    }
 
-            // Launch a static analysis on the codebase in the background to build cache
-            // this.runStaticAnalysisCode();
+    // ===== Debugging helpers for assistants =====
+    async readFiles(paths: string[]): Promise<{ files: { path: string; content: string }[] }> {
+        const { sandboxInstanceId } = this.state;
+        if (!sandboxInstanceId) {
+            return { files: [] };
+        }
+        const resp = await this.getSandboxServiceClient().getFiles(sandboxInstanceId, paths);
+        if (!resp.success) {
+            this.logger().warn('readFiles failed', { error: resp.error });
+            return { files: [] };
+        }
+        return { files: resp.files.map(f => ({ path: f.filePath, content: f.fileContents })) };
+    }
+
+    async execCommands(commands: string[], timeout?: number) {
+        const { sandboxInstanceId } = this.state;
+        if (!sandboxInstanceId) {
+            return { success: false, results: [], error: 'No sandbox instance' } as any;
+        }
+        return await this.getSandboxServiceClient().executeCommands(sandboxInstanceId, commands, timeout);
+    }
+
+    async regenerateFileByPath(path: string, issues: string[]): Promise<{ path: string; diff: string }> {
+        const { sandboxInstanceId } = this.state;
+        if (!sandboxInstanceId) {
+            throw new Error('No sandbox instance available');
+        }
+        // Prefer local file manager; fallback to sandbox
+        let fileContents = '';
+        let filePurpose = '';
+        try {
+            const fmFile = this.fileManager.getGeneratedFile(path);
+            if (fmFile) {
+                fileContents = fmFile.fileContents;
+                filePurpose = fmFile.filePurpose || '';
+            } else {
+                const resp = await this.getSandboxServiceClient().getFiles(sandboxInstanceId, [path]);
+                const f = resp.success ? resp.files.find(f => f.filePath === path) : undefined;
+                if (!f) throw new Error(resp.error || `File not found: ${path}`);
+                fileContents = f.fileContents;
+            }
+        } catch (e) {
+            throw new Error(`Failed to read file for regeneration: ${String(e)}`);
         }
 
+        const regenerated = await this.regenerateFile({ filePath: path, fileContents, filePurpose }, issues, 0);
+        // Persist to sandbox instance
+        await this.getSandboxServiceClient().writeFiles(sandboxInstanceId, [{ filePath: regenerated.filePath, fileContents: regenerated.fileContents }], `Deep debugger fix: ${path}`);
+        return { path, diff: regenerated.lastDiff };
+    }
+
+    async generateFiles(
+        phaseName: string,
+        phaseDescription: string,
+        requirements: string[],
+        files: FileConceptType[]
+    ): Promise<{ files: Array<{ path: string; purpose: string; diff: string }> }> {
+        this.logger().info('Generating files for deep debugger', {
+            phaseName,
+            requirementsCount: requirements.length,
+            filesCount: files.length
+        });
+
+        // Create phase structure with explicit files
+        const phase: PhaseConceptType = {
+            name: phaseName,
+            description: phaseDescription,
+            files: files,
+            lastPhase: true
+        };
+
+        // Call existing implementPhase with postPhaseFixing=false
+        // This skips deterministic fixes and fast smart fixes
+        const result = await this.implementPhase(
+            phase,
+            {
+                runtimeErrors: [],
+                staticAnalysis: { 
+                    success: true, 
+                    lint: { issues: [] }, 
+                    typecheck: { issues: [] } 
+                },
+            },
+            { suggestions: requirements },
+            true, // streamChunks
+            false // postPhaseFixing = false (skip auto-fixes)
+        );
+
+        // Return files with diffs from FileState
         return {
-            sandboxInstanceId,
-            previewURL,
-            tunnelURL,
-            redeployed,
+            files: result.files.map(f => ({
+                path: f.filePath,
+                purpose: f.filePurpose || '',
+                diff: (f as any).lastDiff || '' // FileState has lastDiff
+            }))
         };
     }
 
-    private async executeDeployment(files: FileOutputType[] = [], redeploy: boolean = false, commitMessage?: string, retries: number = MAX_DEPLOYMENT_RETRIES): Promise<PreviewType | null> {
-        try {
-            this.broadcast(WebSocketMessageResponses.DEPLOYMENT_STARTED, {
-                message: "Deploying code to sandbox service",
-                files: files.map(file => ({
-                    filePath: file.filePath,
-                }))
-            });
-    
-            this.logger().info("Deploying code to sandbox service");
-    
-            const {
-                sandboxInstanceId,
-                previewURL,
-                tunnelURL,
-                redeployed,
-            } = await this.ensurePreviewExists(redeploy);
-            
-            // Deploy files
-            const filesToWrite = files.length > 0 && !redeployed    // If redeployed, we should write all files again
-                ? files.map(file => ({
-                    filePath: file.filePath,
-                    fileContents: file.fileContents
-                }))
-                : Object.values(this.state.generatedFilesMap).map(file => ({
-                    filePath: file.filePath,
-                    fileContents: file.fileContents
-                }));
-
-            if (filesToWrite.length > 0) {
-                const writeResponse = await this.getSandboxServiceClient().writeFiles(sandboxInstanceId, filesToWrite, commitMessage);
-                if (!writeResponse || !writeResponse.success) {
-                    this.logger().error(`File writing failed. Error: ${writeResponse?.error}`);
-                    throw new Error(`File writing failed. Error: ${writeResponse?.error}`);
+    async deployToSandbox(files: FileOutputType[] = [], redeploy: boolean = false, commitMessage?: string, clearLogs: boolean = false): Promise<PreviewType | null> {
+        // Call deployment manager with callbacks for broadcasting at the right times
+        const result = await this.deploymentManager.deployToSandbox(
+            files,
+            redeploy,
+            commitMessage,
+            clearLogs,
+            {
+                onStarted: (data) => {
+                    this.broadcast(WebSocketMessageResponses.DEPLOYMENT_STARTED, data);
+                },
+                onCompleted: (data) => {
+                    this.broadcast(WebSocketMessageResponses.DEPLOYMENT_COMPLETED, data);
+                },
+                onError: (data) => {
+                    this.broadcast(WebSocketMessageResponses.DEPLOYMENT_FAILED, data);
                 }
             }
+        );
 
-            const preview = {
-                runId: sandboxInstanceId,
-                previewURL: previewURL,
-                tunnelURL: tunnelURL,
-            };
-
-            this.broadcast(WebSocketMessageResponses.DEPLOYMENT_COMPLETED, {
-                message: "Deployment completed",
-                ...preview,
-            });
-
-            return preview;
-        } catch (error) {
-            this.logger().error("Error deploying to sandbox service:", error, { sessionId: this.state.sessionId, sandboxInstanceId: this.state.sandboxInstanceId });
-            const errorMsg = error instanceof Error ? error.message : String(error);
-            if (errorMsg.includes('Network connection lost') || errorMsg.includes('Container service disconnected') || errorMsg.includes('Internal error in Durable Object storage')) {
-                // For this particular error, reset the sandbox sessionId
-                this.resetSessionId();
-            }
-
-            this.setState({
-                ...this.state,
-                sandboxInstanceId: undefined,
-            });
-            if (retries > 0) {
-                this.broadcast(WebSocketMessageResponses.DEPLOYMENT_FAILED, {
-                    error: `Error deploying to sandbox service: ${errorMsg}, Will retry...`,
-                });
-                // Wait for exponential backoff
-                await new Promise(resolve => setTimeout(resolve, Math.pow(2, MAX_DEPLOYMENT_RETRIES - retries) * 1000));
-                return this.executeDeployment(files, redeploy, commitMessage, retries - 1);
-            }
-            this.broadcast(WebSocketMessageResponses.DEPLOYMENT_FAILED, {
-                error: `Error deploying to sandbox service: ${errorMsg}. Please report an issue if this persists`,
-            });
-            return null;
-        }
+        return result;
     }
-
+    
     /**
      * Deploy the generated code to Cloudflare Workers
      */
     async deployToCloudflare(): Promise<{ deploymentUrl?: string; workersUrl?: string } | null> {
         try {
-            this.logger().info('Starting Cloudflare deployment');
-            await this.waitForPreview();
-            this.broadcast(WebSocketMessageResponses.CLOUDFLARE_DEPLOYMENT_STARTED, {
-                message: 'Starting deployment to Cloudflare Workers...',
-                instanceId: this.state.sandboxInstanceId,
-            });
-
-            // Check if we have generated files
-            if (!this.state.generatedFilesMap || Object.keys(this.state.generatedFilesMap).length === 0) {
-                this.logger().error('No generated files available for deployment');
-                this.broadcast(WebSocketMessageResponses.CLOUDFLARE_DEPLOYMENT_ERROR, {
-                    message: 'Deployment failed: No generated code available',
-                    error: 'No files have been generated yet'
-                });
-                return null;
-            }
-
-            // Check if we have a sandbox instance ID
+            // Ensure sandbox instance exists first
             if (!this.state.sandboxInstanceId) {
-                this.logger().info('[DeployToCloudflare] No sandbox instance ID available, will initiate deployment');
-                // Need to redeploy
+                this.logger().info('No sandbox instance, deploying to sandbox first');
                 await this.deployToSandbox();
-
+                
                 if (!this.state.sandboxInstanceId) {
-                    this.logger().error('[DeployToCloudflare] Failed to deploy to sandbox service');
+                    this.logger().error('Failed to deploy to sandbox service');
                     this.broadcast(WebSocketMessageResponses.CLOUDFLARE_DEPLOYMENT_ERROR, {
                         message: 'Deployment failed: Failed to deploy to sandbox service',
                         error: 'Sandbox service unavailable'
@@ -1935,86 +1724,76 @@ export class SimpleCodeGeneratorAgent extends Agent<Env, CodeGenState> {
                 }
             }
 
-            this.logger().info('[DeployToCloudflare] Prerequisites met, initiating deployment', {
-                sandboxInstanceId: this.state.sandboxInstanceId,
-                fileCount: Object.keys(this.state.generatedFilesMap).length
-            });
-
-            const deploymentResult = await this.getSandboxServiceClient().deployToCloudflareWorkers(this.state.sandboxInstanceId);
-            this.logger().info('[DeployToCloudflare] Deployment result:', deploymentResult);
-            if (!deploymentResult.success) {
-                this.logger().error('Deployment failed', {
-                    message: deploymentResult.message,
-                    error: deploymentResult.error
-                });
-                if (deploymentResult.error?.includes('Failed to read instance metadata') || deploymentResult.error?.includes(`/bin/sh: 1: cd: can't cd to i-`)) {
-                    this.logger().error('Deployment sandbox died');
-                    // Re-deploy
+            // Call service - handles orchestration, callbacks for broadcasting
+            const result = await this.deploymentManager.deployToCloudflare({
+                onStarted: (data) => {
+                    this.broadcast(WebSocketMessageResponses.CLOUDFLARE_DEPLOYMENT_STARTED, data);
+                },
+                onCompleted: (data) => {
+                    this.broadcast(WebSocketMessageResponses.CLOUDFLARE_DEPLOYMENT_COMPLETED, data);
+                },
+                onError: (data) => {
+                    this.broadcast(WebSocketMessageResponses.CLOUDFLARE_DEPLOYMENT_ERROR, data);
+                },
+                onPreviewExpired: () => {
+                    // Re-deploy sandbox and broadcast error
                     this.deployToSandbox();
                     this.broadcast(WebSocketMessageResponses.CLOUDFLARE_DEPLOYMENT_ERROR, {
                         message: PREVIEW_EXPIRED_ERROR,
                         error: PREVIEW_EXPIRED_ERROR
                     });
-                } else {
-                    this.broadcast(WebSocketMessageResponses.CLOUDFLARE_DEPLOYMENT_ERROR, {
-                        message: `Deployment failed: ${deploymentResult.message}`,
-                        error: deploymentResult.error || 'Unknown deployment error'
-                    });
                 }
-                return null;
+            });
+
+            // Update database with deployment ID if successful
+            if (result.deploymentUrl && result.deploymentId) {
+                const appService = new AppService(this.env);
+                await appService.updateDeploymentId(
+                    this.getAgentId(),
+                    result.deploymentId
+                );
             }
 
-            const deploymentUrl = deploymentResult.deployedUrl;
-
-            this.logger().info('[DeployToCloudflare] Cloudflare deployment completed successfully', {
-                deploymentUrl,
-                deploymentId: deploymentResult.deploymentId,
-                sandboxInstanceId: this.state.sandboxInstanceId,
-                message: deploymentResult.message
-            });
-
-            const appService = new AppService(this.env);
-            // Update cloudflare URL in database
-            await appService.updateDeploymentId(
-                this.getAgentId(),
-                deploymentResult.deploymentId || ''
-            );
-
-            // Broadcast success message
-            this.broadcast(WebSocketMessageResponses.CLOUDFLARE_DEPLOYMENT_COMPLETED, {
-                message: deploymentResult.message || 'Successfully deployed to Cloudflare Workers!',
-                deploymentUrl,
-            });
-
-            return { deploymentUrl };
+            return result.deploymentUrl ? { deploymentUrl: result.deploymentUrl } : null;
 
         } catch (error) {
-            // return ErrorHandler.handleOperationError(
-            //     this.logger(),
-            //     this,
-            //     'Cloudflare deployment',
-            //     error,
-            //     WebSocketMessageResponses.CLOUDFLARE_DEPLOYMENT_ERROR
-            // );
-            this.logger().error('Cloudflare deployment failed', error);
+            this.logger().error('Cloudflare deployment error:', error);
             this.broadcast(WebSocketMessageResponses.CLOUDFLARE_DEPLOYMENT_ERROR, {
-                message: `Deployment failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
-                error: error instanceof Error ? error.message : 'Unknown error'
+                message: 'Deployment failed',
+                error: error instanceof Error ? error.message : String(error)
             });
             return null;
         }
     }
 
     async waitForGeneration(): Promise<void> {
-        if (this.state.generationPromise) {
+        if (this.generationPromise) {
             try {
-                await this.state.generationPromise;
+                await this.generationPromise;
                 this.logger().info("Code generation completed successfully");
             } catch (error) {
                 this.logger().error("Error during code generation:", error);
             }
         } else {
             this.logger().error("No generation process found");
+        }
+    }
+
+    isDeepDebugging(): boolean {
+        return this.deepDebugPromise !== null;
+    }
+
+    async waitForDeepDebug(): Promise<void> {
+        if (this.deepDebugPromise) {
+            try {
+                await this.deepDebugPromise;
+                this.logger().info("Deep debug session completed successfully");
+            } catch (error) {
+                this.logger().error("Error during deep debug session:", error);
+            } finally {
+                // Clear promise after waiting completes
+                this.deepDebugPromise = null;
+            }
         }
     }
 
@@ -2051,111 +1830,6 @@ export class SimpleCodeGeneratorAgent extends Agent<Env, CodeGenState> {
             this.onProjectUpdate(message);
         }
         broadcastToConnections(this, msg, data || {} as WebSocketMessageData<T>);
-    }
-
-    /**
-     * Handle HTTP requests to this agent instance
-     * Includes webhook processing for internal requests
-     */
-    async fetch(request: Request): Promise<Response> {
-        const url = new URL(request.url);
-        const pathname = url.pathname;
-
-        // Handle internal webhook requests
-        if (pathname.startsWith('/webhook/')) {
-            return this.handleWebhook(request);
-        }
-
-        // Delegate to parent class for other requests
-        return super.fetch(request);
-    }
-
-    /**
-     * Generate webhook URL for this agent instance
-     */
-    private generateWebhookUrl(): string {
-        // Use the agent's session ID as the agent identifier
-        const agentId = this.getAgentId() || 'unknown';
-        
-        // Generate webhook URL with agent ID for routing
-        return `${getProtocolForHost(this.state.hostname)}://${this.state.hostname}/api/webhook/sandbox/${agentId}/runtime_error`;
-    }
-
-    /**
-     * Handle webhook events from sandbox service
-     */
-    async handleWebhook(request: Request): Promise<Response> {
-        try {
-            const url = new URL(request.url);
-            const pathParts = url.pathname.split('/');
-            const eventType = pathParts[pathParts.length - 1];
-
-            this.logger().info('Received webhook from sandbox service', { 
-                eventType, 
-                agentId: this.getAgentId() 
-            });
-
-            const payload = await request.json() as WebhookPayload;
-            const { event, context, source } = payload;
-
-            if (source !== 'webhook') {
-                return new Response('Invalid source', { status: 400 });
-            }
-
-            // Process the webhook event
-            await this.processWebhookEvent(event, context);
-
-            return new Response(JSON.stringify({ success: true }), {
-                headers: { 'Content-Type': 'application/json' },
-                status: 200
-            });
-
-        } catch (error) {
-            this.logger().error('Error handling webhook', error);
-            return new Response('Internal server error', { status: 500 });
-        }
-    }
-
-    /**
-     * Process webhook events and trigger appropriate actions
-     */
-    private async processWebhookEvent(event: WebhookPayload['event'], context: WebhookPayload['context']): Promise<void> {
-        try {
-            switch (event.eventType) {
-                case 'runtime_error':
-                    await this.handleRuntimeErrorWebhook(event, context);
-                    break;
-                default:
-                    this.logger().warn('Unhandled webhook event type', { eventType: event.eventType });
-            }
-        } catch (error) {
-            this.logger().error('Error processing webhook event', error);
-        }
-    }
-
-    /**
-     * Handle runtime error webhook events
-     */
-    private async handleRuntimeErrorWebhook(event: WebhookPayload['event'], _context: WebhookPayload['context']): Promise<void> {
-        if (!event.payload.error) {
-            this.logger().error('Invalid runtime error event: No error provided');
-            return;
-        }
-        this.logger().info('Processing runtime error webhook', {
-            errorMessage: event.payload.error.message,
-            runId: event.payload.runId,
-            instanceId: event.instanceId
-        });
-
-        // Broadcast runtime error to connected clients
-        this.broadcast(WebSocketMessageResponses.RUNTIME_ERROR_FOUND, {
-            error: event.payload.error,
-            runId: event.payload.runId,
-            instanceInfo: event.payload.instanceInfo,
-            instanceId: event.instanceId,
-            timestamp: event.timestamp,
-            source: 'webhook'
-        });
     }
 
     /**
@@ -2284,26 +1958,23 @@ export class SimpleCodeGeneratorAgent extends Agent<Env, CodeGenState> {
         const failedCommands = commands.filter(cmd => !successfulCommands.includes(cmd));
         
         if (failedCommands.length > 0) {
-            this.logger().warn(`Failed to execute commands: ${failedCommands.join(", ")}`);
-            this.broadcast(WebSocketMessageResponses.ERROR, {
-                error: `Failed to execute commands: ${failedCommands.join(", ")}`
-            });
+            this.broadcastError('Failed to execute commands', new Error(failedCommands.join(", ")));
         } else {
             this.logger().info(`All commands executed successfully: ${successfulCommands.join(", ")}`);
         }
 
-        // Add commands to history
         this.setState({
             ...this.state,
-            commandsHistory: [
-                ...(this.state.commandsHistory || []),
-                ...successfulCommands
-            ]
+            commandsHistory: [...(this.state.commandsHistory || []), ...successfulCommands]
         });
     }
 
-    async getLogs(_reset?: boolean): Promise<string> {
-        const response = await this.getSandboxServiceClient().getLogs(this.state.sandboxInstanceId!);
+    async getLogs(_reset?: boolean, durationSeconds?: number): Promise<string> {
+        if (!this.state.sandboxInstanceId) {
+            throw new Error('Cannot get logs: No sandbox instance available');
+        }
+        
+        const response = await this.getSandboxServiceClient().getLogs(this.state.sandboxInstanceId, _reset, durationSeconds);
         if (response.success) {
             return `STDOUT: ${response.logs.stdout}\nSTDERR: ${response.logs.stderr}`;
         } else {
@@ -2339,12 +2010,19 @@ export class SimpleCodeGeneratorAgent extends Agent<Env, CodeGenState> {
                 fileCount: Object.keys(this.state.generatedFilesMap).length
             });
 
-            // Check if we have generated files
-            if (!this.state.generatedFilesMap || Object.keys(this.state.generatedFilesMap).length === 0) {
-                throw new Error('No generated files available for export');
+            // Prepare README with Cloudflare button BEFORE push (if it exists)
+            const readmeFile = this.fileManager.getGeneratedFile('README.md');
+            if (readmeFile && readmeFile.fileContents.includes('[cloudflarebutton]')) {
+                readmeFile.fileContents = readmeFile.fileContents.replaceAll(
+                    '[cloudflarebutton]', 
+                    prepareCloudflareButton(options.repositoryHtmlUrl, 'markdown')
+                );
+                this.fileManager.saveGeneratedFile(readmeFile);
+                this.logger().info('README prepared with Cloudflare deploy button');
+                
+                // Deploy updated README to sandbox so it's visible in preview
+                await this.deployToSandbox([readmeFile], false, "feat: README updated with Cloudflare deploy button");
             }
-
-            await this.waitForPreview();
 
             // Broadcast export started
             this.broadcast(WebSocketMessageResponses.GITHUB_EXPORT_STARTED, {
@@ -2353,43 +2031,26 @@ export class SimpleCodeGeneratorAgent extends Agent<Env, CodeGenState> {
                 isPrivate: options.isPrivate
             });
 
-
-            // Update progress for creating repository
+            // Update progress for uploading
             this.broadcast(WebSocketMessageResponses.GITHUB_EXPORT_PROGRESS, {
                 message: 'Uploading to GitHub repository...',
                 step: 'uploading_files',
                 progress: 30
             });
             
-            const allFiles = this.fileManager.getGeneratedFiles();
-            // Use consolidated export method that handles the complete flow
-            const exportResult = await this.getSandboxServiceClient().pushToGitHub(this.state.sandboxInstanceId!, options, allFiles);
+            // Call service to handle GitHub push (all files including prepared README)
+            const exportResult = await this.deploymentManager.pushToGitHub(options);
 
             if (!exportResult?.success) {
                 throw new Error(`Failed to export to GitHub repository: ${exportResult?.error}`);
             }
 
-            this.logger().info('GitHub export completed successfully', { options, commitSha: exportResult.commitSha });
+            this.logger().info('GitHub export completed successfully', { 
+                repositoryUrl: exportResult.repositoryUrl,
+                cloneUrl: exportResult.cloneUrl
+            });
 
-            // Commit the readme
-            // First prepare the readme by replacing [cloudflarebutton] placeholder with actual thing
-            const readmeFile = this.fileManager.getFile('README.md');
-            if (readmeFile) {
-                try {
-                    readmeFile.fileContents = readmeFile.fileContents.replaceAll('[cloudflarebutton]', prepareCloudflareButton(options.repositoryHtmlUrl, 'markdown'));
-                    this.fileManager.saveGeneratedFile(readmeFile);
-                    await this.deployToSandbox([readmeFile], false, "feat: README updated with cloudflare deploy button");
-                    // Export again
-                    await this.getSandboxServiceClient().pushToGitHub(this.state.sandboxInstanceId!, options, allFiles);
-                    this.logger().info('Readme committed successfully');
-                } catch (error) {
-                    this.logger().error('Failed to commit readme', error);
-                }
-            } else {
-                this.logger().info('Readme not found, skipping commit');
-            }
-
-            // Step 3: Finalize
+            // Finalize and update database
             this.broadcast(WebSocketMessageResponses.GITHUB_EXPORT_PROGRESS, {
                 message: 'Finalizing GitHub export...',
                 step: 'finalizing',
@@ -2398,7 +2059,6 @@ export class SimpleCodeGeneratorAgent extends Agent<Env, CodeGenState> {
 
             this.logger().info('Finalizing GitHub export...');
             const appService = new AppService(this.env);
-            // Update database with GitHub repository URL and visibility
             await appService.updateGitHubRepository(
                 this.getAgentId() || '',
                 options.repositoryHtmlUrl || '',
@@ -2480,7 +2140,7 @@ export class SimpleCodeGeneratorAgent extends Agent<Env, CodeGenState> {
             const { conversationResponse, conversationState } = conversationalResponse;
             this.setConversationState(conversationState);
 
-             if (!this.isGenerating) {
+             if (!this.generationPromise) {
                 // If idle, start generation process
                 this.logger().info('User input during IDLE state, starting generation');
                 this.generateAllFiles().catch(error => {
@@ -2493,17 +2153,14 @@ export class SimpleCodeGeneratorAgent extends Agent<Env, CodeGenState> {
             });
 
         } catch (error) {
-            this.logger().error('Error handling user input:', error);
             if (error instanceof RateLimitExceededError) {
-                this.logger().error('throwing Rate limit exceeded', error);
+                this.logger().error('Rate limit exceeded:', error);
                 this.broadcast(WebSocketMessageResponses.RATE_LIMIT_ERROR, {
                     error
                 });
                 return;
             }
-            this.broadcast(WebSocketMessageResponses.ERROR, {
-                error: `Error processing user input: ${error instanceof Error ? error.message : String(error)}`
-            });
+            this.broadcastError('Error processing user input', error);
         }
     }
 

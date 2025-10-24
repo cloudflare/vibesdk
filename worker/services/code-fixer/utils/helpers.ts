@@ -17,19 +17,17 @@ import { resolveModuleFile, validateModuleOperation } from './modules';
  * Standard pattern: Get source file AST and import info
  * Used by TS2305, TS2613, TS2614 fixers
  */
-export async function getSourceFileAndImport(
+export function getSourceFileAndImport(
     issue: CodeIssue,
     context: FixerContext
-): Promise<{
+): {
     sourceAST: t.File;
     importInfo: { moduleSpecifier: string; defaultImport?: string; namedImports: string[]; specifier?: string };
-} | null> {
+} | null {
     // Get AST for the source file
-    const sourceAST = await getFileAST(
+    const sourceAST = getFileAST(
         issue.filePath,
         context.files,
-        context.fileFetcher,
-        context.fetchedFiles as Set<string>
     );
     
     if (!sourceAST) {
@@ -49,14 +47,14 @@ export async function getSourceFileAndImport(
  * Standard pattern: Get target file for a module specifier
  * Used by TS2305, TS2613, TS2614 fixers
  */
-export async function getTargetFileAndAST(
+export function getTargetFileAndAST(
     moduleSpecifier: string,
     fromFilePath: string,
     context: FixerContext
-): Promise<{
+): {
     targetFilePath: string;
     targetAST: t.File;
-} | null> {
+} | null {
     // Validate the module operation first
     const validation = validateModuleOperation(moduleSpecifier, null);
     if (!validation.valid) {
@@ -64,7 +62,7 @@ export async function getTargetFileAndAST(
     }
     
     // Resolve the target file
-    const targetFilePath = await resolveModuleFile(moduleSpecifier, fromFilePath, context);
+    const targetFilePath = resolveModuleFile(moduleSpecifier, fromFilePath, context);
     if (!targetFilePath) {
         return null;
     }
@@ -76,11 +74,9 @@ export async function getTargetFileAndAST(
     }
     
     // Get AST for target file
-    const targetAST = await getFileAST(
+    const targetAST = getFileAST(
         targetFilePath,
         context.files,
-        context.fileFetcher,
-        context.fetchedFiles as Set<string>
     );
     
     if (!targetAST) {
@@ -94,17 +90,17 @@ export async function getTargetFileAndAST(
  * Combined pattern: Get both source and target files
  * Used by import/export fixers that need both files
  */
-export async function getSourceAndTargetFiles(
+export function getSourceAndTargetFiles(
     issue: CodeIssue,
     context: FixerContext
-): Promise<{
+): {
     sourceAST: t.File;
     importInfo: { moduleSpecifier: string; defaultImport?: string; namedImports: string[]; specifier?: string };
     targetFilePath: string;
     targetAST: t.File;
-} | null> {
+} | null {
     // Get source file and import info
-    const sourceResult = await getSourceFileAndImport(issue, context);
+    const sourceResult = getSourceFileAndImport(issue, context);
     if (!sourceResult) {
         return null;
     }
@@ -112,7 +108,7 @@ export async function getSourceAndTargetFiles(
     const { sourceAST, importInfo } = sourceResult;
     
     // Get target file and AST
-    const targetResult = await getTargetFileAndAST(
+    const targetResult = getTargetFileAndAST(
         importInfo.moduleSpecifier,
         issue.filePath,
         context

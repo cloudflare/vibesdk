@@ -3,7 +3,7 @@
  * Extracted from working ImportExportAnalyzer to preserve exact functionality
  */
 
-import { FileMap, FileFetcher } from '../types';
+import { FileMap } from '../types';
 import { isScriptFile } from './ast';
 import { getFileContent } from './imports';
 
@@ -31,13 +31,11 @@ export function resolvePathAlias(importSpecifier: string): string {
  * Resolve relative import paths to absolute paths within the project
  * Preserves exact logic from working implementation
  */
-export async function resolveImportPath(
+export function resolveImportPath(
     importSpecifier: string, 
     currentFilePath: string,
-    files: FileMap,
-    fileFetcher?: FileFetcher,
-    fetchedFiles?: Set<string>
-): Promise<string> {
+    files: FileMap
+): string {
     if (importSpecifier.startsWith('./') || importSpecifier.startsWith('../')) {
         // Relative import - resolve relative to current file directory
         const currentDirParts = currentFilePath.split('/').slice(0, -1);
@@ -63,7 +61,7 @@ export async function resolveImportPath(
             if (!resolvedPath.endsWith(ext)) {
                 const withExt = resolvedPath + ext;
                 try {
-                    const fileContent = await getFileContent(withExt, files, fileFetcher, fetchedFiles);
+                    const fileContent = getFileContent(withExt, files);
                     if (fileContent) return withExt;
                 } catch {
                     // File doesn't exist or can't be fetched, try next extension
@@ -86,18 +84,16 @@ export async function resolveImportPath(
  * Find a module file using fuzzy matching and file fetching
  * Preserves exact logic from working ImportExportAnalyzer.findModuleFile
  */
-export async function findModuleFile(
+export function findModuleFile(
     importSpecifier: string, 
     currentFilePath: string,
-    files: FileMap,
-    fileFetcher?: FileFetcher,
-    fetchedFiles?: Set<string>
-): Promise<string | null> {
+    files: FileMap
+): string | null {
     // Handle path aliases like @/components/ui/button
     const resolvedSpecifier = resolvePathAlias(importSpecifier);
     
     // Try exact match first (relative/absolute paths)
-    const exactMatch = await resolveImportPath(resolvedSpecifier, currentFilePath, files, fileFetcher, fetchedFiles);
+    const exactMatch = resolveImportPath(resolvedSpecifier, currentFilePath, files);
     if (exactMatch) {
         // Check if file exists in files Map after potential fetching
         const allFiles = Array.from(files.keys());
@@ -127,7 +123,7 @@ export async function findModuleFile(
         
         try {
             // Try to get file content (this will trigger fetching if available)
-            const content = await getFileContent(candidatePath, files, fileFetcher, fetchedFiles);
+            const content = getFileContent(candidatePath, files);
             if (content) {
                 return candidatePath;
             }

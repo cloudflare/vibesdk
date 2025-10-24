@@ -1,8 +1,6 @@
 # FROM docker.io/cloudflare/sandbox:0.1.3
-FROM docker.io/cloudflare/sandbox:0.1.3
-# FROM --platform=linux/arm64 docker.io/cloudflare/sandbox:0.1.3
+FROM docker.io/cloudflare/sandbox:0.4.7
 
-# Install cloudflared and system dependencies in a single layer
 ARG TARGETARCH
 RUN apt-get update && \
         apt-get install -y git ca-certificates curl procps net-tools && \
@@ -20,37 +18,48 @@ RUN apt-get update && \
         git config --global user.name "Cloudflare Vibesdk bot"
 
 # Create directory for error monitoring system
-RUN mkdir -p /app/container /app/data
+RUN mkdir -p /workspace/container /workspace/data
 
 # Copy the process monitoring system
-COPY container/ /app/container/
+COPY container/ /workspace/container/
+
+# Expose the ports you want to expose
 
 # Install dependencies for the monitoring system
-WORKDIR /app/container
+WORKDIR /workspace/container
 RUN bun install && bun run build
 
 # Make scripts executable
-RUN chmod +x /app/container/cli-tools.ts
+RUN chmod +x /workspace/container/cli-tools.ts
+
+# Ensure bunx is available (should be included with bun)
+RUN which bunx || ln -sf $(which bun) /usr/local/bin/bunx
+
+# Install tsc via bunx
+RUN bunx tsc --version
 
 # Create symlinks for easier CLI usage
-RUN ln -sf /app/container/cli-tools.ts /usr/local/bin/monitor-cli
+RUN ln -sf /workspace/container/cli-tools.ts /usr/local/bin/monitor-cli
 
-# Setup common templates packages cache
-WORKDIR /app/container/packages-cache
-ENV BUN_INSTALL_CACHE_DIR=/app/container/packages-cache
-RUN bun install
+# # Setup common templates packages cache
+# WORKDIR /app/container/packages-cache
+# ENV BUN_INSTALL_CACHE_DIR=/app/container/packages-cache
+# RUN bun install
 
 # Set proper permissions for data directory
-RUN chmod 755 /app/data
+RUN chmod 755 /workspace/data
 
 # Set environment variable to indicate Docker container environment
 ENV CONTAINER_ENV=docker
 ENV VITE_LOGGER_TYPE=json 
 
-# Reset workdir
-WORKDIR /app
+# # Set environment variable to indicate Docker container environment
+# ENV CONTAINER_ENV=docker
+
+# # Reset workdir
+WORKDIR /container-server
 
 EXPOSE 3000
 
-# Run the same command as the original image
-CMD ["bun", "index.ts"]
+# Use startup script
+CMD ["./startup.sh"]

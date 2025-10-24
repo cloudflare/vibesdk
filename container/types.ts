@@ -328,40 +328,6 @@ export const getLogDbPath = (): string => {
   return process.env.CLI_LOG_DB_PATH || `${getDataDirectory()}/logs.db`;
 };
 
-// CLI tools path resolution for different environments
-export const getCliToolsPath = (): string => {
-  // In Docker container, use absolute path
-  if (process.env.CONTAINER_ENV === 'docker') {
-    return '/app/container/cli-tools.ts';
-  }
-  
-  // For local development, try to find the cli-tools.ts file
-  const path = require('path');
-  const fs = require('fs');
-  
-  // Common locations to check
-  const possiblePaths = [
-    './cli-tools.ts',
-    './container/cli-tools.ts',
-    '../container/cli-tools.ts',
-    path.join(__dirname, 'cli-tools.ts'),
-    path.join(process.cwd(), 'container/cli-tools.ts')
-  ];
-  
-  for (const possiblePath of possiblePaths) {
-    try {
-      if (fs.existsSync(possiblePath)) {
-        return path.resolve(possiblePath);
-      }
-    } catch (error) {
-      // Continue checking other paths
-    }
-  }
-  
-  // Fallback to relative path
-  return './cli-tools.ts';
-};
-
 // Legacy constants for backward compatibility
 export const ERROR_DB_PATH = getErrorDbPath();
 export const LOG_DB_PATH = getLogDbPath();

@@ -1,5 +1,4 @@
 import {
-    TemplateDetailsResponse,
     BootstrapResponse,
     GetInstanceResponse,
     BootstrapStatusResponse,
@@ -14,7 +13,6 @@ import {
     DeploymentResult,
     GetLogsResponse,
     ListInstancesResponse,
-    TemplateDetailsResponseSchema,
     BootstrapResponseSchema,
     BootstrapRequest,
     GetInstanceResponseSchema,
@@ -114,12 +112,6 @@ export class RemoteSandboxServiceClient extends BaseSandboxService{
                 error: "Failed to validate response"
             };
         }
-    }
-    /**
-     * Get details for a specific template.
-     */
-    async getTemplateDetails(templateName: string): Promise<TemplateDetailsResponse> {
-        return this.makeRequest(`/templates/${templateName}`, 'GET', TemplateDetailsResponseSchema);
     }
 
     /**
@@ -234,11 +226,19 @@ export class RemoteSandboxServiceClient extends BaseSandboxService{
         return this.makeRequest('/instances', 'GET');
     }
 
+    async updateProjectName(instanceId: string, projectName: string): Promise<boolean> {
+        return this.makeRequest(`/instances/${instanceId}/name`, 'POST', undefined, { projectName });
+    }
+
     /**
      * Get logs from a runner instance
      */
-    async getLogs(instanceId: string): Promise<GetLogsResponse> {
-        return this.makeRequest(`/instances/${instanceId}/logs`, 'GET');
+    async getLogs(instanceId: string, onlyRecent?: boolean, durationSeconds?: number): Promise<GetLogsResponse> {
+        const params = new URLSearchParams();
+        if (onlyRecent) params.append('reset', 'true');
+        if (durationSeconds) params.append('duration', durationSeconds.toString());
+        const queryString = params.toString() ? `?${params.toString()}` : '';
+        return this.makeRequest(`/instances/${instanceId}/logs${queryString}`, 'GET');
     }
 
     // temp, debug

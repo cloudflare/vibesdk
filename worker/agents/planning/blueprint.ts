@@ -9,6 +9,7 @@ import { TemplateRegistry } from '../inferutils/schemaFormatters';
 import z from 'zod';
 import { imagesToBase64 } from 'worker/utils/images';
 import { ProcessedImageAttachment } from 'worker/types/image-attachment';
+import { getTemplateImportantFiles } from 'worker/services/sandbox/utils';
 
 const logger = createLogger('Blueprint');
 
@@ -57,6 +58,8 @@ const SYSTEM_PROMPT = `<ROLE>
         - Balanced proportions and golden ratio principles
         - Mobile-first responsive design that scales beautifully
     ** Lay these visual design instructions out explicitly throughout the blueprint **
+
+    ${PROMPT_UTILS.UI_NON_NEGOTIABLES_V3}
 
     ${PROMPT_UTILS.UI_GUIDELINES}
 
@@ -131,7 +134,7 @@ const SYSTEM_PROMPT = `<ROLE>
     - **Icons:** lucide-react, @radix-ui/react-icons, heroicons
     - **Visual Effects:** react-intersection-observer, react-parallax
     - **Charts/Data Viz:** recharts, @tremor/react (if data visualization needed)
-    - **Media/Images:** next/image optimizations, react-image-gallery
+    - **Media/Images:** react-image-gallery or vanilla <img>; prefer aspect-video / aspect-[16/9] and object-cover; avoid Next.js-only APIs
     Suggest whatever additional frameworks are needed to achieve visual excellence.
 </KEY GUIDELINES>
 
@@ -185,7 +188,7 @@ export async function generateBlueprint({ env, inferenceContext, query, language
         // ---------------------------------------------------------------------------
 
         const filesText = TemplateRegistry.markdown.serialize(
-            { files: templateDetails.files.filter(f => !f.filePath.includes('package.json')) },
+            { files: getTemplateImportantFiles(templateDetails).filter(f => !f.filePath.includes('package.json')) },
             z.object({ files: z.array(TemplateFileSchema) })
         );
 

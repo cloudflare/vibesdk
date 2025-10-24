@@ -7,7 +7,6 @@ import { FileObject } from './types';
 import { CodeIssue } from '../sandbox/sandboxTypes';
 import { 
     CodeFixResult, 
-    FileFetcher, 
     FixerContext, 
     FileMap, 
     ProjectFile,
@@ -35,14 +34,12 @@ import { fixIncorrectNamedImport } from './fixers/ts2724';
  * 
  * @param allFiles - Initial files to work with
  * @param issues - TypeScript compilation issues to fix
- * @param fileFetcher - Optional callback to fetch additional files on-demand
  * @returns Promise containing fix results with modified/new files
  */
-export async function fixProjectIssues(
+export function fixProjectIssues(
     allFiles: FileObject[],
-    issues: CodeIssue[],
-    fileFetcher?: FileFetcher
-): Promise<CodeFixResult> {
+    issues: CodeIssue[]
+): CodeFixResult {
     try {
         // Build file map (mutable for caching fetched files)
         const fileMap = createFileMap(allFiles);
@@ -51,7 +48,6 @@ export async function fixProjectIssues(
         const fetchedFiles = new Set<string>();
         const context: FixerContext = {
             files: fileMap,
-            fileFetcher,
             fetchedFiles
         };
         
@@ -65,7 +61,7 @@ export async function fixProjectIssues(
         const sortedIssues = sortFixOrder(fixableIssues);
         
         // Apply fixes sequentially, updating context after each
-        const results = await applyFixesSequentially(
+        const results = applyFixesSequentially(
             context, 
             sortedIssues, 
             fixerRegistry
@@ -209,11 +205,11 @@ function sortFixOrder(issues: CodeIssue[]): CodeIssue[] {
 /**
  * Apply fixes sequentially, updating context after each fix
  */
-async function applyFixesSequentially(
+function applyFixesSequentially(
     context: FixerContext,
     sortedIssues: CodeIssue[],
     fixerRegistry: FixerRegistry
-): Promise<CodeFixResult> {
+): CodeFixResult {
     const fixedIssues: any[] = [];
     const unfixableIssues: any[] = [];
     const modifiedFiles = new Map<string, FileObject>();
@@ -259,7 +255,7 @@ async function applyFixesSequentially(
         
         try {
             // Apply fixer
-            const result = await fixer(context, issues);
+            const result = fixer(context, issues);
             
             // Collect results
             fixedIssues.push(...result.fixedIssues);
@@ -354,7 +350,6 @@ export type {
     FixedIssue,
     UnfixableIssue,
     FileObject,
-    FileFetcher,
     FixerContext,
     FileMap,
     ProjectFile

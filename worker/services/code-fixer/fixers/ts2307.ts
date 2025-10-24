@@ -20,24 +20,23 @@ const logger = createObjectLogger({ name: 'TS2307Fixer' }, 'TS2307Fixer');
  * Fix TS2307 "Cannot find module" errors
  * Preserves exact logic from working ImportExportFixer.fixModuleNotFound
  */
-export async function fixModuleNotFound(
+export function fixModuleNotFound(
     context: FixerContext,
     issues: CodeIssue[]
-): Promise<FixResult> {
+): FixResult {
     logger.info(`Starting TS2307 fixer with ${issues.length} issues`);
     
     const fixedIssues: FixedIssue[] = [];
     const unfixableIssues = [];
     const modifiedFiles = [];
     const newFiles = [];
-    const fetchedFiles = new Set(context.fetchedFiles);
 
     for (const issue of issues) {
         logger.info(`Processing TS2307 issue: ${issue.message} at ${issue.filePath}:${issue.line}`);
         
         try {
             logger.info(`Getting AST for file: ${issue.filePath}`);
-            const ast = await getFileAST(issue.filePath, context.files, context.fileFetcher, fetchedFiles);
+            const ast = getFileAST(issue.filePath, context.files);
             if (!ast) {
                 logger.warn(`Failed to get AST for ${issue.filePath}`);
                 unfixableIssues.push({
@@ -81,12 +80,10 @@ export async function fixModuleNotFound(
             
             logger.info(`Searching for local module file: ${moduleSpecifier}`);
             // Try to find existing file with fuzzy matching
-            const foundFile = await findModuleFile(
+            const foundFile = findModuleFile(
                 moduleSpecifier, 
                 issue.filePath, 
-                context.files,
-                context.fileFetcher,
-                fetchedFiles
+                context.files
             );
             logger.info(`Module file search result: ${foundFile || 'NOT FOUND'}`);
             
@@ -124,11 +121,9 @@ export async function fixModuleNotFound(
                 logger.info(`Resolved stub file path: "${targetFilePath}"`);
                 
                 logger.info(`Generating stub content for import: ${importInfo.defaultImport ? 'default: ' + importInfo.defaultImport + ', ' : ''}named: [${importInfo.namedImports.join(', ')}]`);
-                const stubContent = await generateStubFileContent(
+                const stubContent = generateStubFileContent(
                     importInfo, 
-                    context.files,
-                    context.fileFetcher,
-                    fetchedFiles
+                    context.files
                 );
                 logger.info(`Generated stub content (${stubContent.length} characters)`);
                 

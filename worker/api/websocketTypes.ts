@@ -1,7 +1,7 @@
-import type { ClientReportedErrorType, CodeReviewOutputType, FileConceptType, FileOutputType } from "../agents/schemas";
+import type { CodeReviewOutputType, FileConceptType, FileOutputType } from "../agents/schemas";
 import type { CodeGenState } from "../agents/core/state";
 import type { ConversationState } from "../agents/inferutils/common";
-import type { CodeIssue, RuntimeError, StaticAnalysisResponse } from "../services/sandbox/sandboxTypes";
+import type { CodeIssue, RuntimeError, StaticAnalysisResponse, TemplateDetails } from "../services/sandbox/sandboxTypes";
 import type { CodeFixResult } from "../services/code-fixer";
 import { IssueReport } from "../agents/domain/values/IssueReport";
 import type { RateLimitExceededError } from 'shared/types/errors';
@@ -14,6 +14,12 @@ type ErrorMessage = {
 type StateMessage = {
 	type: 'cf_agent_state';
 	state: CodeGenState;
+};
+
+type AgentConnectedMessage = {
+    type: 'agent_connected';
+    state: CodeGenState;
+    templateDetails: TemplateDetails;
 };
 
 type ConversationStateMessage = {
@@ -67,23 +73,27 @@ type GenerationCompleteMessage = {
 	previewURL?: string;
 };
 
-type DeploymentStartedMessage = {
+export type DeploymentStartedMessage = {
 	type: 'deployment_started';
 	message: string;
 	files: { filePath: string }[];
 };
 
-type DeploymentFailedMessage = {
+export type DeploymentFailedMessage = {
 	type: 'deployment_failed';
-	message: string;
+	error: string;
 };
 
-type DeploymentCompletedMessage = {
+export type DeploymentCompletedMessage = {
 	type: 'deployment_completed';
 	previewURL: string;
 	tunnelURL: string;
 	instanceId: string;
 	message: string;
+};
+
+type PreviewForceRefreshMessage = {
+	type: 'preview_force_refresh';
 };
 
 type CommandExecutingMessage = {
@@ -92,11 +102,24 @@ type CommandExecutingMessage = {
 	commands: string[];
 };
 
+type CommandExecutedMessage = {
+	type: 'command_executed';
+	message: string;
+	commands: string[];
+    output?: string;
+};
+
+type CommandExecutionFailedMessage = {
+	type: 'command_execution_failed';
+	message: string;
+	commands: string[];
+    error?: string;
+};
+
 type CodeReviewingMessage = {
 	type: 'code_reviewing';
 	message: string;
 	staticAnalysis?: StaticAnalysisResponse;
-	clientErrors: ClientReportedErrorType[];
 	runtimeErrors: RuntimeError[];
 };
 
@@ -199,13 +222,13 @@ type GenerationResumedMessage = {
 	instanceId: string;
 };
 
-type CloudflareDeploymentStartedMessage = {
+export type CloudflareDeploymentStartedMessage = {
 	type: 'cloudflare_deployment_started';
 	message: string;
 	instanceId: string;
 };
 
-type CloudflareDeploymentCompletedMessage = {
+export type CloudflareDeploymentCompletedMessage = {
 	type: 'cloudflare_deployment_completed';
 	message: string;
 	instanceId: string;
@@ -213,7 +236,7 @@ type CloudflareDeploymentCompletedMessage = {
 	workersUrl?: string;
 };
 
-type CloudflareDeploymentErrorMessage = {
+export type CloudflareDeploymentErrorMessage = {
 	type: 'cloudflare_deployment_error';
 	message: string;
 	instanceId: string;
@@ -306,6 +329,7 @@ type ConversationResponseMessage = {
 		name: string;
 		status: 'start' | 'success' | 'error';
 		args?: Record<string, unknown>;
+		result?: string;
 	};
 };
 
@@ -313,6 +337,18 @@ type ConversationClearedMessage = {
 	type: 'conversation_cleared';
 	message: string;
 	clearedMessageCount: number;
+};
+
+type ProjectNameUpdatedMessage = {
+	type: 'project_name_updated';
+	message: string;
+	projectName: string;
+};
+
+type BlueprintUpdatedMessage = {
+	type: 'blueprint_updated';
+	message: string;
+	updatedKeys: string[];
 };
 
 type DeterministicCodeFixStartedMessage = {
@@ -378,6 +414,7 @@ type ServerLogMessage = {
 
 export type WebSocketMessage =
 	| StateMessage
+	| AgentConnectedMessage
 	| ConversationStateMessage
 	| GenerationStartedMessage
 	| FileGeneratingMessage
@@ -389,9 +426,12 @@ export type WebSocketMessage =
 	| DeploymentStartedMessage
 	| DeploymentCompletedMessage
 	| DeploymentFailedMessage
+	| PreviewForceRefreshMessage
 	| CodeReviewingMessage
 	| CodeReviewedMessage
 	| CommandExecutingMessage
+    | CommandExecutedMessage
+    | CommandExecutionFailedMessage
 	| RuntimeErrorFoundMessage
 	| CodeFixEdits
     | StaticAnalysisResults
@@ -419,6 +459,8 @@ export type WebSocketMessage =
 	| UserSuggestionsProcessingMessage
 	| ConversationResponseMessage
 	| ConversationClearedMessage
+    | ProjectNameUpdatedMessage
+    | BlueprintUpdatedMessage
     | DeterministicCodeFixStartedMessage
     | DeterministicCodeFixCompletedMessage
 	| ModelConfigsInfoMessage

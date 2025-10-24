@@ -27,10 +27,10 @@ const logger = createObjectLogger({ name: 'TS2724Fixer' }, 'TS2724Fixer');
  * Fix TS2724 "Incorrect named import" errors
  * Replaces incorrect named imports with the suggested correct ones from TypeScript
  */
-export async function fixIncorrectNamedImport(
+export function fixIncorrectNamedImport(
     context: FixerContext,
     issues: CodeIssue[]
-): Promise<FixResult> {
+): FixResult {
     const logs = createFixerLogMessages('TS2724Fixer', issues.length);
     logger.info(logs.start);
     
@@ -51,11 +51,9 @@ export async function fixIncorrectNamedImport(
     for (const [filePath, fileIssues] of issuesByFile) {
         try {
             // Get source file AST once
-            const sourceAST = await getFileAST(
+            const sourceAST = getFileAST(
                 filePath,
-                context.files,
-                context.fileFetcher,
-                context.fetchedFiles as Set<string>
+                context.files
             );
             
             if (!sourceAST) {
@@ -114,22 +112,18 @@ export async function fixIncorrectNamedImport(
                 // Verify the suggested export actually exists in the target module
                 // Resolve the module path
                 const resolvedPath = resolvePathAlias(moduleSpecifier);
-                const targetFile = await findModuleFile(
+                const targetFile = findModuleFile(
                     resolvedPath,
                     filePath,
-                    context.files,
-                    context.fileFetcher,
-                    context.fetchedFiles as Set<string>
+                    context.files
                 );
                 
                 
                 if (targetFile) {
                     // Get exports from the target file
-                    const targetAST = await getFileAST(
+                    const targetAST = getFileAST(
                         targetFile,
-                        context.files,
-                        context.fileFetcher,
-                        context.fetchedFiles as Set<string>
+                        context.files
                     );
                     
                     if (targetAST) {

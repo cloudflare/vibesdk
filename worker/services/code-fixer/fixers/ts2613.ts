@@ -19,24 +19,23 @@ const logger = createObjectLogger({ name: 'TS2613Fixer' }, 'TS2613Fixer');
  * Fix TS2613 "Module is not a module" errors
  * Preserves exact logic from working ImportExportFixer.fixModuleIsNotModule
  */
-export async function fixModuleIsNotModule(
+export function fixModuleIsNotModule(
     context: FixerContext,
     issues: CodeIssue[]
-): Promise<FixResult> {
+): FixResult {
     logger.info(`Starting TS2613 fixer with ${issues.length} issues`);
     
     const fixedIssues: FixedIssue[] = [];
     const unfixableIssues: UnfixableIssue[] = [];
     const modifiedFiles: FileObject[] = [];
     const newFiles: FileObject[] = [];
-    const fetchedFiles = new Set(context.fetchedFiles);
 
     for (const issue of issues) {
         logger.info(`Processing TS2613 issue: ${issue.message} at ${issue.filePath}:${issue.line}`);
         
         try {
             logger.info(`Getting AST for file: ${issue.filePath}`);
-            const ast = await getFileAST(issue.filePath, context.files, context.fileFetcher, fetchedFiles);
+            const ast = getFileAST(issue.filePath, context.files);
             if (!ast) {
                 logger.warn(`Failed to get AST for ${issue.filePath}`);
                 unfixableIssues.push({
@@ -71,12 +70,10 @@ export async function fixModuleIsNotModule(
 
             const moduleSpecifier = importInfo ? importInfo.moduleSpecifier : (namespaceImport?.moduleSpecifier || '');
             logger.info(`Searching for target file: ${moduleSpecifier}`);
-            const targetFile = await findModuleFile(
+            const targetFile = findModuleFile(
                 moduleSpecifier, 
                 issue.filePath, 
-                context.files,
-                context.fileFetcher,
-                fetchedFiles
+                context.files
             );
             
             if (!targetFile) {
@@ -94,10 +91,7 @@ export async function fixModuleIsNotModule(
             logger.info(`Found target file: ${targetFile}`);
 
             logger.info(`Getting AST for target file: ${targetFile}`);
-            logger.info(`Files in context: ${Array.from(context.files.keys()).join(', ')}`);
-            logger.info(`FetchedFiles: ${Array.from(fetchedFiles).join(', ')}`);
-            logger.info(`FileFetcher available: ${!!context.fileFetcher}`);
-            const targetAST = await getFileAST(targetFile, context.files, context.fileFetcher, fetchedFiles);
+            const targetAST = getFileAST(targetFile, context.files);
             logger.info(`getFileAST result for ${targetFile}: ${!!targetAST}`);
             if (!targetAST) {
                 logger.warn(`Failed to parse target file: ${targetFile}`);

@@ -17,7 +17,7 @@ import { logger } from '@/utils/logger';
 import { apiClient } from '@/lib/api-client';
 import { appEvents } from '@/lib/app-events';
 import { createWebSocketMessageHandler, type HandleMessageDeps } from '../utils/handle-websocket-message';
-import { isConversationalMessage, addOrUpdateMessage, createUserMessage, handleRateLimitError, createAIMessage, type ChatMessage } from '../utils/message-helpers';
+import { isConversationalMessage, addOrUpdateMessage, createUserMessage, handleRateLimitError, createAIMessage, appendToolEvent, type ChatMessage } from '../utils/message-helpers';
 import { sendWebSocketMessage } from '../utils/websocket-helpers';
 import { initialStages as defaultStages, updateStage as updateStageHelper } from '../utils/project-stage-helpers';
 import type { ProjectStage } from '../utils/project-stage-helpers';
@@ -41,10 +41,10 @@ export interface PhaseTimelineItem {
 	files: {
 		path: string;
 		purpose: string;
-		status: 'generating' | 'completed' | 'error' | 'validating';
+		status: 'generating' | 'completed' | 'error' | 'validating' | 'cancelled';
 		contents?: string;
 	}[];
-	status: 'generating' | 'completed' | 'error' | 'validating';
+	status: 'generating' | 'completed' | 'error' | 'validating' | 'cancelled';
 	timestamp: number;
 }
 
@@ -468,8 +468,13 @@ export function useChat({
 					});
 				} else if (connectionStatus.current === 'idle') {
 					setIsBootstrapping(false);
-					// Get existing progress
-					sendMessage(createAIMessage('fetching-chat', 'Fetching your previous chat...'));
+					// Show fetching indicator as a tool-event style message
+					setMessages(() =>
+						appendToolEvent([], 'fetching-chat', {
+							name: 'fetching your latest conversations',
+							status: 'start',
+						}),
+					);
 
 					// Fetch existing agent connection details
 					const response = await apiClient.connectToAgent(urlChatId);

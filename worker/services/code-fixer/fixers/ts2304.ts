@@ -14,15 +14,14 @@ import { handleFixerError } from '../utils/helpers';
  * Fix TS2304 "Cannot find name" errors
  * Preserves exact logic from working DeclarationFixer.fixUndefinedName
  */
-export async function fixUndefinedName(
+export function fixUndefinedName(
     context: FixerContext,
     issues: CodeIssue[]
-): Promise<FixResult> {
+): FixResult {
     const fixedIssues: FixedIssue[] = [];
     const unfixableIssues: UnfixableIssue[] = [];
     const modifiedFilesMap = new Map<string, FileObject>();
     const newFiles: FileObject[] = [];
-    const fetchedFiles = new Set(context.fetchedFiles);
     
     // Group issues by file to handle multiple undefined names in the same file
     const issuesByFile = new Map<string, CodeIssue[]>();
@@ -35,11 +34,9 @@ export async function fixUndefinedName(
     // Process each file's issues together
     for (const [filePath, fileIssues] of issuesByFile) {
         try {
-            const fileContent = await getFileContent(
+            const fileContent = getFileContent(
                 filePath, 
-                context.files, 
-                context.fileFetcher, 
-                fetchedFiles
+                context.files
             );
             
             if (!fileContent) {

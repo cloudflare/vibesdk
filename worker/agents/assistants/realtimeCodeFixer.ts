@@ -9,7 +9,7 @@ import Assistant from "./assistant";
 import { applySearchReplaceDiff } from "../output-formats/diff-formats";
 import { infer } from "../inferutils/core";
 import { MatchingStrategy, FailedBlock } from "../output-formats/diff-formats/search-replace";
-import { AIModels, ModelConfig, InferenceContext } from "../inferutils/config.types";
+import { AgentActionKey, AIModels, InferenceContext } from "../inferutils/config.types";
 import { AGENT_CONFIG } from "../inferutils/config";
 // import { analyzeTypeScriptFile } from "../../services/code-fixer/analyzer";
 
@@ -212,23 +212,23 @@ export class RealtimeCodeFixer extends Assistant<Env> {
     altPassModelOverride?: string;
     userPrompt: string;
     systemPrompt: string;
-    modelConfigOverride?: ModelConfig;
+    agentActionNameOverride?: AgentActionKey;
 
     constructor(
         env: Env,
         inferenceContext: InferenceContext,
         lightMode: boolean = false,
         altPassModelOverride?: string,// = AIModels.GEMINI_2_5_FLASH,
-        modelConfigOverride?: ModelConfig,
+        agentActionNameOverride?: AgentActionKey,
         systemPrompt: string = SYSTEM_PROMPT,
         userPrompt: string = USER_PROMPT
     ) {
         super(env, inferenceContext);
         this.lightMode = lightMode;
         this.altPassModelOverride = altPassModelOverride;
+        this.agentActionNameOverride = agentActionNameOverride;
         this.userPrompt = userPrompt;
         this.systemPrompt = systemPrompt;
-        this.modelConfigOverride = modelConfigOverride;
     }
 
     async run(
@@ -284,13 +284,12 @@ Don't be nitpicky, If there are no actual issues, just say "No issues found".
 
                 const fixResult = await executeInference({
                     env: this.env,
-                    agentActionName: "realtimeCodeFixer",
+                    agentActionName: this.agentActionNameOverride ?? "realtimeCodeFixer",
                     context: this.inferenceContext,
                     messages,
                     modelName: (i !== 0 && this.altPassModelOverride) || this.lightMode ? this.altPassModelOverride : undefined,
                     temperature: (i !== 0 && this.altPassModelOverride) || this.lightMode ? 0.0 : undefined,
                     reasoning_effort: (i !== 0 && this.altPassModelOverride) || this.lightMode ? 'low' : undefined,
-                    modelConfig: this.modelConfigOverride,
                 });
 
                 if (!fixResult) {

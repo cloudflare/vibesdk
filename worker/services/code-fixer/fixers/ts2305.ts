@@ -24,10 +24,10 @@ const logger = createObjectLogger({ name: 'TS2305Fixer' }, 'TS2305Fixer');
  * Fix TS2305 "Module has no exported member" errors
  * Adds missing exports as stubs to the target file
  */
-export async function fixMissingExportedMember(
+export function fixMissingExportedMember(
     context: FixerContext,
     issues: CodeIssue[]
-): Promise<FixResult> {
+): FixResult {
     const logs = createFixerLogMessages('TS2305Fixer', issues.length);
     logger.info(logs.start);
     
@@ -49,7 +49,7 @@ export async function fixMissingExportedMember(
             }
             
             // Get source and target files using DRY helper
-            const filesResult = await getSourceAndTargetFiles(issue, context);
+            const filesResult = getSourceAndTargetFiles(issue, context);
             if (!filesResult) {
                 logger.warn(`Failed to get source and target files for ${issue.filePath}`);
                 unfixableIssues.push(createUnfixableIssue(

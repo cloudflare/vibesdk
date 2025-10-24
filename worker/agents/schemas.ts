@@ -112,26 +112,6 @@ export const SetupCommandsSchema = z.object({
     commands: z.array(z.string()).describe('Commands to set up the development environment and install all dependencies not already in the template. These will run before code generation starts.')
 });
 
-export const ClientReportedErrorSchema = z.object({
-    type: z.string().describe('Type of error'),
-    data: z.object({
-        errorType: z.string().describe('Type of error'),
-        consecutiveCount: z.number().describe('Number of consecutive errors'),
-        url: z.string().describe('URL where the error occurred'),
-        timestamp: z.string().describe('Timestamp of the error'),
-        error: z.object({
-            message: z.string().describe('Error message'),
-            fullBodyText: z.string().describe('Full error body text'),
-            fullBodyHtml: z.string().describe('Full error body HTML'),
-            errorElementsFound: z.number().describe('Number of error elements found'),
-        }).describe('Error details'),
-        browserInfo: z.object({
-            userAgent: z.string().describe('User agent'),
-            url: z.string().describe('URL where the error occurred'),
-        }).describe('Browser information'),
-    }).describe('Error data'),
-});
-
 // Screenshot Analysis Schema
 export const ScreenshotAnalysisSchema = z.object({
     hasIssues: z.boolean().describe('Whether any issues were found in the screenshot'),
@@ -155,7 +135,6 @@ export type FileGenerationOutputType = z.infer<typeof FileGenerationOutput>;
 export type DocumentationOutputType = z.infer<typeof DocumentationOutput>;
 export type CodeReviewOutputType = z.infer<typeof CodeReviewOutput>;
 export type SetupCommandsType = z.infer<typeof SetupCommandsSchema>;
-export type ClientReportedErrorType = z.infer<typeof ClientReportedErrorSchema>;
 export type ScreenshotAnalysisType = z.infer<typeof ScreenshotAnalysisSchema>;
 
 // Conversational AI Schemas

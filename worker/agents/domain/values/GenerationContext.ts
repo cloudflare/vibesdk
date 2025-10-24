@@ -30,22 +30,22 @@ export class GenerationContext {
     /**
      * Create context from current state
      */
-    static from(state: CodeGenState, logger?: Pick<StructuredLogger, 'info' | 'warn'>): GenerationContext {
+    static from(state: CodeGenState, templateDetails: TemplateDetails, logger?: Pick<StructuredLogger, 'info' | 'warn'>): GenerationContext {
         const dependencies = DependencyManagement.mergeDependencies(
-            state.templateDetails?.deps || {},
+            templateDetails.deps || {},
             state.lastPackageJson,
             logger
         );
 
-        const allFiles = FileProcessing.getAllFiles(
-            state.templateDetails,
+        const allFiles = FileProcessing.getAllRelevantFiles(
+            templateDetails,
             state.generatedFilesMap
         );
 
         return new GenerationContext(
             state.query,
             state.blueprint,
-            state.templateDetails,
+            templateDetails,
             dependencies,
             allFiles,
             state.generatedPhases,

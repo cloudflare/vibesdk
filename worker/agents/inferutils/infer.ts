@@ -123,6 +123,7 @@ export async function executeInference<T extends z.AnyZodObject>(   {
                 stream,
                 reasoning_effort: useCheaperModel ? undefined : reasoning_effort,
                 temperature,
+                abortSignal: context.abortSignal,
             }) : await infer({
                 env,
                 metadata: context,
@@ -134,6 +135,7 @@ export async function executeInference<T extends z.AnyZodObject>(   {
                 actionKey: agentActionName,
                 reasoning_effort: useCheaperModel ? undefined : reasoning_effort,
                 temperature,
+                abortSignal: context.abortSignal,
             });
             logger.info(`Successfully completed ${agentActionName} operation`);
             // console.log(result);
@@ -142,6 +144,13 @@ export async function executeInference<T extends z.AnyZodObject>(   {
             if (error instanceof RateLimitExceededError || error instanceof SecurityError) {
                 throw error;
             }
+            
+            // Check if cancellation - don't retry, propagate immediately
+            if (error instanceof InferError && error.message.includes('cancelled')) {
+                logger.info(`${agentActionName} operation cancelled by user, not retrying`);
+                throw error;
+            }
+            
             const isLastAttempt = attempt === retryLimit - 1;
             logger.error(
                 `Error during ${agentActionName} operation (attempt ${attempt + 1}/${retryLimit}):`,
