@@ -112,8 +112,16 @@ export class CodingAgentInterface {
         issue: string,
         toolRenderer: RenderToolCall,
         streamCb: (chunk: string) => void,
-        focusPaths?: string[],
+        focusPaths?: string[]
     ): Promise<DeepDebugResult> {
         return this.agentStub.executeDeepDebug(issue, toolRenderer, streamCb, focusPaths);
+    }
+
+    handleGitInfoRefs(): Promise<string> {
+        return this.agentStub.handleGitInfoRefs();
+    }
+
+    handleGitUploadPack(): Promise<Uint8Array> {
+        return this.agentStub.handleGitUploadPack();
     }
 }

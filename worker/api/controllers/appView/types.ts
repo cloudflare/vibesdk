@@ -38,6 +38,16 @@ export interface AppStarToggleData {
     starCount: number;
 }
 
+/**
+ * Response data for git clone token generation
+ */
+export interface GitCloneTokenData {
+    token: string;
+    expiresIn: number;
+    expiresAt: string;
+    cloneUrl: string;
+}
+
 // /**
 //  * Response data for forkApp
 //  */

@@ -6,5 +6,5 @@
 		"types": ["./worker-configuration.d.ts", "vite/client", "jest"],
 		"lib": ["ES2023"]
 	},
-	"include": ["./worker-configuration.d.ts", "./shared", "./worker"]
+	"include": ["./worker-configuration.d.ts", "./shared", "./worker", "./worker/types"]
 }

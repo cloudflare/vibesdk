@@ -53,6 +53,8 @@ export default defineConfig({
 			// 'path': 'path-browserify',
 			// Add this line to fix the 'debug' package issue
 			debug: 'debug/src/browser',
+			// Force isomorphic-git to use ESM build (not CommonJS)
+			'isomorphic-git': path.resolve(__dirname, './node_modules/isomorphic-git/index.js'),
 			// "@": path.resolve(__dirname, "./src"),
 			'@': path.resolve(__dirname, './src'),
             'shared': path.resolve(__dirname, './shared'),

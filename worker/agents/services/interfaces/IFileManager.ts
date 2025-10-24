@@ -24,12 +24,12 @@ export interface IFileManager {
     /**
      * Save a generated file
      */
-    saveGeneratedFile(file: FileOutputType): void;
+    saveGeneratedFile(file: FileOutputType, commitMessage: string): void;
 
     /**
      * Save multiple generated files
      */
-    saveGeneratedFiles(files: FileOutputType[]): void;
+    saveGeneratedFiles(files: FileOutputType[], commitMessage: string): void;
 
     /**
      * Delete files from the file manager

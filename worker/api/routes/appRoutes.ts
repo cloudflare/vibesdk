@@ -65,6 +65,18 @@ export function setupAppRoutes(app: Hono<AppEnv>): void {
     // Delete app - OWNER ONLY
     appRouter.delete('/:id', setAuthLevel(AuthConfig.ownerOnly), adaptController(AppController, AppController.deleteApp));
     
+    // ========================================
+    // GIT CLONE ROUTES
+    // ========================================
+    
+    // Generate git clone token for private repos - OWNER ONLY
+    appRouter.post('/:id/git/token', setAuthLevel(AuthConfig.ownerOnly), adaptController(AppViewController, AppViewController.generateGitCloneToken));
+    
+    // Git protocol endpoints (public with internal access check)
+    // Note: These return raw Response (not JSON), but adaptController handles that fine
+    appRouter.get('/:id.git/info/refs', setAuthLevel(AuthConfig.public), adaptController(AppViewController, AppViewController.handleGitInfoRefs));
+    appRouter.post('/:id.git/git-upload-pack', setAuthLevel(AuthConfig.public), adaptController(AppViewController, AppViewController.handleGitUploadPack));
+    
     // Mount the app router under /api/apps
     app.route('/api/apps', appRouter);
 }

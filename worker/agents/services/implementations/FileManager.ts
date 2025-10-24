@@ -5,6 +5,7 @@ import { FileOutputType } from '../../schemas';
 import { FileProcessing } from '../../domain/pure/FileProcessing';
 import { FileState } from 'worker/agents/core/state';
 import { TemplateDetails } from '../../../services/sandbox/sandboxTypes';
+import { GitVersionControl } from 'worker/agents/git';
 
 /**
  * Manages file operations for code generation
@@ -13,7 +14,8 @@ import { TemplateDetails } from '../../../services/sandbox/sandboxTypes';
 export class FileManager implements IFileManager {
     constructor(
         private stateManager: IStateManager,
-        private getTemplateDetailsFunc: () => TemplateDetails
+        private getTemplateDetailsFunc: () => TemplateDetails,
+        private git: GitVersionControl
     ) {}
 
     getGeneratedFile(path: string): FileOutputType | null {
@@ -36,11 +38,11 @@ export class FileManager implements IFileManager {
         return FileProcessing.getAllFiles(this.getTemplateDetailsFunc(), state.generatedFilesMap);
     }
 
-    saveGeneratedFile(file: FileOutputType): FileState {
-        return this.saveGeneratedFiles([file])[0];
+    saveGeneratedFile(file: FileOutputType, commitMessage: string): FileState {
+        return this.saveGeneratedFiles([file], commitMessage)[0];
     }
 
-    saveGeneratedFiles(files: FileOutputType[]): FileState[] {
+    saveGeneratedFiles(files: FileOutputType[], commitMessage: string): FileState[] {
         const filesMap = { ...this.stateManager.getState().generatedFilesMap };
         const fileStates: FileState[] = [];
         
@@ -80,6 +82,12 @@ export class FileManager implements IFileManager {
             ...this.stateManager.getState(),
             generatedFilesMap: filesMap
         });
+
+        try {
+            this.git.commit(fileStates, commitMessage);
+        } catch (error) {
+            console.error(`Failed to commit files:`, error, commitMessage);
+        }
         return fileStates;
     }
 

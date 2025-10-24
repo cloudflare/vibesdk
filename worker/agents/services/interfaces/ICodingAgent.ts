@@ -59,4 +59,8 @@ export abstract class ICodingAgent {
         streamCb: (chunk: string) => void,
         focusPaths?: string[],
     ): Promise<DeepDebugResult>;
+
+    // Git clone protocol handlers
+    abstract handleGitInfoRefs(): Promise<string>;
+    abstract handleGitUploadPack(): Promise<Uint8Array>;
 }
