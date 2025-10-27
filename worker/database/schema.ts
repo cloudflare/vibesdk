@@ -1,9 +1,11 @@
 import { sql } from 'drizzle-orm';
 import { sqliteTable, text, integer, real, index, uniqueIndex } from 'drizzle-orm/sqlite-core';
 
-// Schema enum arrays derived from config types  
+// Schema enum arrays derived from config types
 const REASONING_EFFORT_VALUES = ['low', 'medium', 'high'] as const;
 const PROVIDER_OVERRIDE_VALUES = ['cloudflare', 'direct'] as const;
+const DEPLOYMENT_PROVIDER_VALUES = ['cloudflare', 'vercel', 'netlify', 'github-pages'] as const;
+const DEPLOYMENT_STATUS_VALUES = ['pending', 'building', 'deploying', 'ready', 'failed', 'cancelled'] as const;
 
 // ========================================
 // CORE USER AND IDENTITY MANAGEMENT
@@ -190,6 +192,83 @@ export const apps = sqliteTable('apps', {
     visibilityStatusIdx: index('apps_visibility_status_idx').on(table.visibility, table.status),
     createdAtIdx: index('apps_created_at_idx').on(table.createdAt),
     updatedAtIdx: index('apps_updated_at_idx').on(table.updatedAt),
+}));
+
+/**
+ * Deployments table - Track deployments across multiple providers
+ */
+export const deployments = sqliteTable('deployments', {
+	id: text('id').primaryKey(),
+	appId: text('app_id').notNull().references(() => apps.id, { onDelete: 'cascade' }),
+
+	// Deployment Provider
+	provider: text('provider', { enum: DEPLOYMENT_PROVIDER_VALUES }).notNull(),
+
+	// Deployment Details
+	deploymentId: text('deployment_id'), // Provider-specific deployment ID
+	buildId: text('build_id'), // Provider-specific build ID
+
+	// URLs
+	deploymentUrl: text('deployment_url'), // Primary deployment URL
+	previewUrl: text('preview_url'), // Preview/staging URL
+
+	// Status
+	status: text('status', { enum: DEPLOYMENT_STATUS_VALUES }).notNull().default('pending'),
+
+	// Configuration
+	config: text('config', { mode: 'json' }), // Provider-specific configuration
+
+	// Environment
+	isProduction: integer('is_production', { mode: 'boolean' }).default(false),
+
+	// Error Information
+	errorMessage: text('error_message'),
+	logs: text('logs', { mode: 'json' }), // Deployment logs as JSON array
+
+	// Metadata
+	createdAt: integer('created_at', { mode: 'timestamp' }).default(sql`CURRENT_TIMESTAMP`),
+	updatedAt: integer('updated_at', { mode: 'timestamp' }).default(sql`CURRENT_TIMESTAMP`),
+	deployedAt: integer('deployed_at', { mode: 'timestamp' }),
+}, (table) => ({
+	appIdx: index('deployments_app_idx').on(table.appId),
+	providerIdx: index('deployments_provider_idx').on(table.provider),
+	statusIdx: index('deployments_status_idx').on(table.status),
+	appProviderIdx: index('deployments_app_provider_idx').on(table.appId, table.provider),
+	createdAtIdx: index('deployments_created_at_idx').on(table.createdAt),
+}));
+
+/**
+ * Deployment Credentials table - Store user deployment credentials securely
+ */
+export const deploymentCredentials = sqliteTable('deployment_credentials', {
+	id: text('id').primaryKey(),
+	userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+
+	// Provider Information
+	provider: text('provider', { enum: DEPLOYMENT_PROVIDER_VALUES }).notNull(),
+
+	// Credential Name
+	name: text('name').notNull(), // User-friendly name
+
+	// Encrypted Credentials
+	encryptedCredentials: text('encrypted_credentials').notNull(), // AES-256 encrypted credentials JSON
+
+	// Preview (for display)
+	credentialPreview: text('credential_preview'), // Masked preview (e.g., "••••••1234")
+
+	// Status
+	isActive: integer('is_active', { mode: 'boolean' }).default(true),
+	isDefault: integer('is_default', { mode: 'boolean' }).default(false), // Default credential for this provider
+
+	// Metadata
+	createdAt: integer('created_at', { mode: 'timestamp' }).default(sql`CURRENT_TIMESTAMP`),
+	updatedAt: integer('updated_at', { mode: 'timestamp' }).default(sql`CURRENT_TIMESTAMP`),
+	lastUsed: integer('last_used', { mode: 'timestamp' }),
+}, (table) => ({
+	userIdx: index('deployment_credentials_user_idx').on(table.userId),
+	providerIdx: index('deployment_credentials_provider_idx').on(table.provider),
+	userProviderIdx: index('deployment_credentials_user_provider_idx').on(table.userId, table.provider),
+	isDefaultIdx: index('deployment_credentials_is_default_idx').on(table.isDefault),
 }));
 
 /**
@@ -615,3 +694,9 @@ export type NewUserModelProvider = typeof userModelProviders.$inferInsert;
 
 export type Star = typeof stars.$inferSelect;
 export type NewStar = typeof stars.$inferInsert;
+
+export type Deployment = typeof deployments.$inferSelect;
+export type NewDeployment = typeof deployments.$inferInsert;
+
+export type DeploymentCredential = typeof deploymentCredentials.$inferSelect;
+export type NewDeploymentCredential = typeof deploymentCredentials.$inferInsert;

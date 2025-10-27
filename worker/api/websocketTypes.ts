@@ -376,6 +376,38 @@ type ServerLogMessage = {
 	source?: string;
 };
 
+type DeploymentStartedMessage = {
+	type: 'deployment_started';
+	provider: 'cloudflare' | 'vercel' | 'netlify' | 'github-pages';
+	message: string;
+	deploymentId?: string;
+};
+
+type DeploymentProgressMessage = {
+	type: 'deployment_progress';
+	provider: 'cloudflare' | 'vercel' | 'netlify' | 'github-pages';
+	message: string;
+	deploymentId?: string;
+	status: 'pending' | 'building' | 'deploying' | 'ready' | 'failed' | 'cancelled';
+};
+
+type DeploymentCompletedMessage = {
+	type: 'deployment_completed';
+	provider: 'cloudflare' | 'vercel' | 'netlify' | 'github-pages';
+	message: string;
+	deploymentId: string;
+	deploymentUrl: string;
+	previewUrl?: string;
+};
+
+type DeploymentErrorMessage = {
+	type: 'deployment_error';
+	provider: 'cloudflare' | 'vercel' | 'netlify' | 'github-pages';
+	message: string;
+	deploymentId?: string;
+	error: string;
+};
+
 export type WebSocketMessage =
 	| StateMessage
 	| ConversationStateMessage
@@ -424,7 +456,11 @@ export type WebSocketMessage =
 	| ModelConfigsInfoMessage
 	| TerminalCommandMessage
 	| TerminalOutputMessage
-	| ServerLogMessage;
+	| ServerLogMessage
+	| DeploymentStartedMessage
+	| DeploymentProgressMessage
+	| DeploymentCompletedMessage
+	| DeploymentErrorMessage;
 
 // A type representing all possible message type strings (e.g., 'generation_started', 'file_generating', etc.)
 export type WebSocketMessageType = WebSocketMessage['type'];
