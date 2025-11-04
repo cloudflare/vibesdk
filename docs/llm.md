@@ -2818,6 +2818,318 @@ CSRF tokens stored in `oauthStates` table:
 
 ---
 
+## User Secrets Store (Durable Object)
+
+**Location:** `/worker/services/secrets/`
+
+**Purpose:** Secure, encrypted storage for user API keys and secrets with key rotation support
+
+### **Architecture**
+
+**Storage:** Durable Object with SQLite backend
+- One DO instance per user (userId as DO ID)
+- XChaCha20-Poly1305 encryption (AEAD)
+- Hierarchical key derivation: MEK → UMK → DEK
+- Key rotation metadata tracking
+
+**Core Components:**
+1. **UserSecretsStore** (`UserSecretsStore.ts`) - Main DO class
+2. **KeyDerivation** (`KeyDerivation.ts`) - PBKDF2-based key derivation
+3. **EncryptionService** (`EncryptionService.ts`) - XChaCha20-Poly1305 encryption
+4. **Types** (`types.ts`) - Type definitions
+
+### **Key Features**
+
+**1. Hierarchical Key Derivation**
+```
+Master Encryption Key (MEK) [from env.SECRETS_ENCRYPTION_KEY]
+    ↓ PBKDF2 with userId salt
+User Master Key (UMK)
+    ↓ PBKDF2 with secret-specific salt
+Data Encryption Key (DEK) - unique per secret
+```
+
+**2. Encryption**
+- Algorithm: XChaCha20-Poly1305 (AEAD)
+- Unique salt per secret (16 bytes)
+- Unique nonce per encryption (24 bytes)
+- Authentication tag for integrity verification
+
+**3. Key Rotation**
+- Tracks master key fingerprint (SHA-256)
+- Detects key changes automatically
+- Re-encrypts all secrets with new key
+- Maintains rotation statistics
+
+**4. Security Features**
+- Access counting (tracks how many times secret accessed)
+- Secret expiration timestamps
+- Soft deletion (90-day retention)
+- Key preview masking (shows first/last 4 chars)
+
+### **Database Schema**
+
+**Tables:**
+```sql
+-- Main secrets table
+CREATE TABLE secrets (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    name TEXT NOT NULL,
+    secret_type TEXT NOT NULL,
+    encrypted_value BLOB NOT NULL,
+    nonce BLOB NOT NULL,
+    salt BLOB NOT NULL,
+    key_preview TEXT NOT NULL,
+    metadata TEXT,
+    access_count INTEGER DEFAULT 0,
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL,
+    expires_at INTEGER,
+    is_active INTEGER DEFAULT 1,
+    key_fingerprint TEXT NOT NULL
+);
+
+-- Key rotation tracking
+CREATE TABLE key_rotation_metadata (
+    id INTEGER PRIMARY KEY DEFAULT 1,
+    current_key_fingerprint TEXT NOT NULL,
+    last_rotation_at INTEGER NOT NULL,
+    rotation_count INTEGER DEFAULT 0
+);
+```
+
+### **API Methods (RPC - No Exceptions)**
+
+**Critical:** All DO RPC methods return `null` or `boolean` on error, never throw exceptions.
+
+```typescript
+// Store new secret
+async storeSecret(request: StoreSecretRequest): Promise<SecretMetadata | null>
+
+// Get decrypted value
+async getSecretValue(secretId: string): Promise<SecretWithValue | null>
+
+// List secrets (metadata only)
+async listSecrets(): Promise<SecretMetadata[]>
+
+// Update secret
+async updateSecret(secretId: string, updates: UpdateSecretRequest): Promise<SecretMetadata | null>
+
+// Delete secret (soft delete)
+async deleteSecret(secretId: string): Promise<boolean>
+
+// Get key rotation info
+async getKeyRotationInfo(): Promise<KeyRotationInfo>
+```
+
+### **Type Definitions**
+
+```typescript
+interface StoreSecretRequest {
+    name: string;
+    secretType: 'api_key' | 'oauth_token' | 'webhook_secret' | 'encryption_key' | 'other';
+    value: string;
+    metadata?: Record<string, unknown>;
+    expiresAt?: number;
+}
+
+interface SecretMetadata {
+    id: string;
+    userId: string;
+    name: string;
+    secretType: string;
+    keyPreview: string;
+    metadata?: Record<string, unknown>;
+    accessCount: number;
+    createdAt: number;
+    updatedAt: number;
+    expiresAt?: number;
+}
+
+interface SecretWithValue {
+    value: string;
+    metadata: SecretMetadata;
+}
+
+interface KeyRotationInfo {
+    currentKeyFingerprint: string;
+    lastRotationAt: number;
+    rotationCount: number;
+    totalSecrets: number;
+    secretsRotated: number;
+}
+```
+
+### **Usage Example**
+
+```typescript
+// Get DO stub
+const id = env.UserSecretsStore.idFromName(user.id);
+const store = env.UserSecretsStore.get(id);
+
+// Store secret
+const metadata = await store.storeSecret({
+    name: 'OpenAI API Key',
+    secretType: 'api_key',
+    value: 'sk-...',
+    metadata: { provider: 'openai' }
+});
+
+if (!metadata) {
+    throw new Error('Failed to store secret');
+}
+
+// Retrieve decrypted value
+const secret = await store.getSecretValue(metadata.id);
+
+if (!secret) {
+    throw new Error('Secret not found or expired');
+}
+
+console.log(secret.value); // Decrypted value
+console.log(secret.metadata.accessCount); // Incremented on each access
+
+// List all secrets (no values)
+const secrets = await store.listSecrets();
+
+// Update secret
+const updated = await store.updateSecret(metadata.id, {
+    name: 'OpenAI API Key (Production)',
+    expiresAt: Date.now() + 86400000 // 24 hours
+});
+
+// Delete secret
+const deleted = await store.deleteSecret(metadata.id);
+```
+
+### **Controller Integration**
+
+**Location:** `/worker/api/controllers/user-secrets/controller.ts`
+
+```typescript
+// Example: Get secret value
+static async getSecretValue(
+    request: Request,
+    env: Env,
+    ctx: ExecutionContext,
+    context: RouteContext
+): Promise<ControllerResponse<ApiResponse<UserSecretValueData>>> {
+    const user = context.user!;
+    const secretId = context.pathParams.secretId;
+    
+    const stub = this.getUserSecretsStub(env, user.id);
+    const result = await stub.getSecretValue(secretId);
+    
+    if (!result) {
+        return UserSecretsController.createErrorResponse(
+            'Secret not found or has expired',
+            404
+        );
+    }
+    
+    return UserSecretsController.createSuccessResponse(result);
+}
+```
+
+### **Key Rotation Process**
+
+**Automatic Detection:**
+1. On DO initialization, checks current master key fingerprint
+2. Compares with stored fingerprint in database
+3. If different, triggers key rotation
+
+**Re-encryption:**
+```typescript
+async performKeyRotation() {
+    // 1. Fetch all active secrets
+    const secrets = this.ctx.storage.sql.exec(`
+        SELECT * FROM secrets WHERE is_active = 1
+    `);
+    
+    // 2. Decrypt with old key, encrypt with new key
+    for (const secret of secrets) {
+        const decrypted = await this.decrypt(secret.encrypted_value, ...);
+        const encrypted = await this.encrypt(decrypted);
+        // 3. Update in database atomically
+    }
+    
+    // 4. Update rotation metadata
+}
+```
+
+### **Security Considerations**
+
+**✅ Good Practices:**
+- Master key stored in Worker environment variable
+- Unique salt per secret
+- AEAD encryption with integrity verification
+- Key rotation support
+- Soft deletion for recovery
+- Access tracking for audit
+
+**⚠️ Important Notes:**
+- DO RPC methods return `null`/`boolean` instead of throwing exceptions
+- Master key must be 64 hex characters (32 bytes)
+- Expired secrets automatically filtered from results
+- Soft deleted secrets retained for 90 days
+
+### **Testing**
+
+**Location:** `/test/worker/services/secrets/`
+
+Comprehensive test suite with 90 tests:
+- Unit tests for KeyDerivation (17 tests)
+- Unit tests for EncryptionService (18 tests)
+- E2E tests for UserSecretsStore (55 tests)
+
+**Run tests:**
+```bash
+npm test test/worker/services/secrets
+# Or with Bun:
+bun run test:bun test/worker/services/secrets
+```
+
+**Test Coverage:**
+- CRUD operations
+- Encryption/decryption
+- Key rotation
+- Expiration handling
+- Concurrency (10 parallel operations)
+- Large scale (20+ secrets, 5KB values)
+- Data integrity verification
+- Error handling
+
+### **Configuration**
+
+**Environment Variables:**
+```bash
+# Required: 64 hex characters (32 bytes)
+SECRETS_ENCRYPTION_KEY=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+```
+
+**Wrangler Configuration:**
+```jsonc
+{
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "UserSecretsStore",
+        "class_name": "UserSecretsStore"
+      }
+    ]
+  },
+  "migrations": [
+    {
+      "tag": "v3",
+      "new_sqlite_classes": ["UserSecretsStore"]
+    }
+  ]
+}
+```
+
+---
+
 # 🎨 FRONTEND RENDERING PATTERNS
 
 ## Component Architecture
