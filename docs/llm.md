@@ -3078,10 +3078,10 @@ async performKeyRotation() {
 
 **Location:** `/test/worker/services/secrets/`
 
-Comprehensive test suite with 90 tests:
-- Unit tests for KeyDerivation (17 tests)
-- Unit tests for EncryptionService (18 tests)
-- E2E tests for UserSecretsStore (55 tests)
+Comprehensive test suite with **90+ tests** (3 test files):
+- **KeyDerivation.test.ts** - 17 unit tests for key derivation
+- **EncryptionService.test.ts** - 18 unit tests for encryption/decryption
+- **UserSecretsStore.test.ts** - 55+ E2E tests for full DO lifecycle
 
 **Run tests:**
 ```bash

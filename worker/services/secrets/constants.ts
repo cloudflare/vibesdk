@@ -8,8 +8,8 @@
  */
 export const CRYPTO_CONSTANTS = {
     // Key derivation
-    UMK_ITERATIONS: 100000,      // User Master Key derivation (PBKDF2)
-    DEK_ITERATIONS: 10000,       // Data Encryption Key derivation (PBKDF2)
+    UMK_ITERATIONS: 600000,      // User Master Key derivation (PBKDF2-SHA256)
+    DEK_ITERATIONS: 100000,       // Data Encryption Key derivation (PBKDF2-SHA256)
     SALT_SIZE: 16,               // bytes
     NONCE_SIZE: 24,              // bytes (XChaCha20)
     KEY_SIZE: 32,                // bytes (256 bits)

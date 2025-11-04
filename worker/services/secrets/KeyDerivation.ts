@@ -35,6 +35,13 @@ export class KeyDerivation {
      * UMK = PBKDF2(MEK, salt=userId, 100k iterations)
      * 
      * This creates a unique key per user while only storing one master key
+     * 
+     * Security Note: Deterministic Salt Design
+     * - userId is used as salt for DETERMINISTIC derivation (same userId → same UMK)
+     * - This is REQUIRED for Durable Object architecture (DO must derive same key on each invocation)
+     * - Random salt would require persistent storage, defeating hierarchical key design
+     * - If MEK is compromised, attacker can decrypt everything regardless (MEK compromise = total failure)
+     * - Context prefix provides domain separation: vibesdk:user:{userId}
      */
     async deriveUserMasterKey(userId: string): Promise<Uint8Array> {
         if (!userId || userId.trim().length === 0) {
@@ -43,7 +50,7 @@ export class KeyDerivation {
         
         const encoder = new TextEncoder();
         
-        // Use userId as salt with context prefix
+        // Use userId as salt with context prefix for deterministic derivation
         const salt = encoder.encode(`${CRYPTO_CONSTANTS.UMK_CONTEXT_PREFIX}${userId}`);
         
         // Import master key as key material

@@ -29,6 +29,15 @@ export class EncryptionService {
     /**
      * Encrypt a secret value using XChaCha20-Poly1305
      * Returns encrypted data with nonce and salt for decryption
+     * 
+     * Security Note: Memory Zeroing Limitation
+     * - DEK (Uint8Array) is properly zeroed after use
+     * - Plaintext string CANNOT be zeroed (JavaScript strings are immutable)
+     * - This is a fundamental JavaScript limitation - no equivalent to C's memset(0)
+     * - Plaintext remains in heap until garbage collection
+     * - Cloudflare Workers have short lifetimes, reducing exposure window
+     * - Key material (DEK, UMK) IS properly zeroed - most critical assets protected
+     * - WASM could solve this but adds significant complexity
      */
     async encrypt(value: string): Promise<EncryptedSecretData> {
         // Generate random salt and derive DEK
@@ -43,8 +52,10 @@ export class EncryptionService {
         
         const keyPreview = this.createKeyPreview(value);
         
-        // Zero out DEK from memory (security best practice)
+        // Zero out DEK and plaintext bytes from memory (security best practice)
+        // Note: Original 'value' string cannot be zeroed (JS limitation documented above)
         dek.fill(0);
+        plaintext.fill(0);
         
         return {
             encryptedValue: ciphertext,
@@ -70,10 +81,14 @@ export class EncryptionService {
             const cipher = xchacha20poly1305(dek, encrypted.nonce);
             const plaintext = cipher.decrypt(encrypted.encryptedValue);
             
-            // Zero out DEK from memory (security best practice)
-            dek.fill(0);
+            // Decode to string before zeroing bytes
+            const result = new TextDecoder().decode(plaintext);
             
-            return new TextDecoder().decode(plaintext);
+            // Zero out DEK and plaintext bytes from memory (security best practice)
+            dek.fill(0);
+            plaintext.fill(0);
+            
+            return result;
         } catch (error) {
             throw new Error('Failed to decrypt secret: invalid data or tampering detected');
         }
