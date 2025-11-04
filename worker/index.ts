@@ -13,6 +13,7 @@ import { handleGitProtocolRequest, isGitProtocolRequest } from './api/handlers/g
 
 // Durable Object and Service exports
 export { UserAppSandboxService, DeployerService } from './services/sandbox/sandboxSdkClient';
+export { UserSecretsStore } from './services/secrets/UserSecretsStore';
 
 // export const CodeGeneratorAgent = Sentry.instrumentDurableObjectWithSentry(sentryOptions, SmartCodeGeneratorAgent);
 // export const DORateLimitStore = Sentry.instrumentDurableObjectWithSentry(sentryOptions, BaseDORateLimitStore);
