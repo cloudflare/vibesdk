@@ -55,12 +55,32 @@ export const PreviewIframe = forwardRef<HTMLIFrameElement, PreviewIframeProps>(
 		// ====================================================================
 
 		/**
-		 * Test if URL is accessible using a simple HEAD request
-		 * Returns preview type if accessible, null otherwise
+		 * Extract app ID from subdomain URL
+		 * e.g., https://v1-app-xyz.vibesdk.com/ -> v1-app-xyz
+		 */
+		const getAppIdFromUrl = useCallback((url: string): string | null => {
+			try {
+				const urlObj = new URL(url);
+				return urlObj.hostname.split('.')[0];
+			} catch {
+				return null;
+			}
+		}, []);
+
+		/**
+		 * Test if app preview is available using the direct status check endpoint
+		 * This bypasses the subdomain entirely and checks sandbox/dispatcher directly
 		 */
 		const testAvailability = useCallback(async (url: string): Promise<'sandbox' | 'dispatcher' | null> => {
 			try {
-				const response = await fetch(url, {
+				const appId = getAppIdFromUrl(url);
+				if (!appId) {
+					console.log('Invalid app URL:', url);
+					return null;
+				}
+
+				const statusUrl = `/api/apps/${appId}/preview-status`;
+				const response = await fetch(statusUrl, {
 					method: 'HEAD',
 					mode: 'cors', // Using CORS to read security-validated headers
 					cache: 'no-cache',
