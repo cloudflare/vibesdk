@@ -65,7 +65,7 @@ export function createGitTool(
 		},
 		implementation: async ({ command, message, limit, oid, includeDiff }: GitToolArgs) => {
 			try {
-				const gitInstance = agent.getGit();
+				const gitInstance = agent.git;
 				
 				switch (command) {
 					case 'commit': {

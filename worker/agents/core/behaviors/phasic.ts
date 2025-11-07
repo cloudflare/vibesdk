@@ -10,7 +10,6 @@ import { CurrentDevState, MAX_PHASES, PhasicState } from '../state';
 import { AllIssues, AgentInitArgs, PhaseExecutionResult, UserContext } from '../types';
 import { WebSocketMessageResponses } from '../../constants';
 import { UserConversationProcessor } from '../../operations/UserConversationProcessor';
-import { DeploymentManager } from '../../services/implementations/DeploymentManager';
 // import { WebSocketBroadcaster } from '../services/implementations/WebSocketBroadcaster';
 import { GenerationContext, PhasicGenerationContext } from '../../domain/values/GenerationContext';
 import { IssueReport } from '../../domain/values/IssueReport';
@@ -25,22 +24,23 @@ import { FastCodeFixerOperation } from '../../operations/PostPhaseCodeFixer';
 import { customizePackageJson, customizeTemplateFiles, generateProjectName } from '../../utils/templateCustomizer';
 import { generateBlueprint } from '../../planning/blueprint';
 import { RateLimitExceededError } from 'shared/types/errors';
-import {  type ProcessedImageAttachment } from '../../../types/image-attachment';
+import {  ImageAttachment, type ProcessedImageAttachment } from '../../../types/image-attachment';
 import { OperationOptions } from '../../operations/common';
 import { ConversationMessage } from '../../inferutils/common';
 import { generateNanoId } from 'worker/utils/idGenerator';
 import { IdGenerator } from '../../utils/idGenerator';
-import { BaseAgentBehavior, BaseAgentOperations } from '../baseAgent';
+import { BaseCodingBehavior, BaseCodingOperations } from './base';
 import { ICodingAgent } from '../../services/interfaces/ICodingAgent';
 import { SimpleCodeGenerationOperation } from '../../operations/SimpleCodeGeneration';
+import { StateMigration } from '../stateMigration';
 
-interface PhasicOperations extends BaseAgentOperations {
+interface PhasicOperations extends BaseCodingOperations {
     generateNextPhase: PhaseGenerationOperation;
     implementPhase: PhaseImplementationOperation;
 }
 
 /**
- * PhasicAgentBehavior - Deterministically orchestrated agent
+ * PhasicCodingBehavior - Deterministically orchestrated agent
  * 
  * Manages the lifecycle of code generation including:
  * - Blueprint, phase generation, phase implementation, review cycles orchestrations
@@ -48,7 +48,9 @@ interface PhasicOperations extends BaseAgentOperations {
  * - Code validation and error correction
  * - Deployment to sandbox service
  */
-export class PhasicAgentBehavior extends BaseAgentBehavior<PhasicState> implements ICodingAgent {
+export class PhasicCodingBehavior extends BaseCodingBehavior<PhasicState> implements ICodingAgent {
+    protected static readonly PROJECT_NAME_PREFIX_MAX_LENGTH = 20;
+    
     protected operations: PhasicOperations = {
         regenerateFile: new FileRegenerationOperation(),
         fastCodeFixer: new FastCodeFixerOperation(),
@@ -67,13 +69,11 @@ export class PhasicAgentBehavior extends BaseAgentBehavior<PhasicState> implemen
         ..._args: unknown[]
     ): Promise<PhasicState> {
         await super.initialize(initArgs);
-
-        const { query, language, frameworks, hostname, inferenceContext, templateInfo } = initArgs;
-        const sandboxSessionId = DeploymentManager.generateNewSessionId();
-
+        const { query, language, frameworks, hostname, inferenceContext, templateInfo, sandboxSessionId } = initArgs;
+        
         // Generate a blueprint
-        this.logger().info('Generating blueprint', { query, queryLength: query.length, imagesCount: initArgs.images?.length || 0 });
-        this.logger().info(`Using language: ${language}, frameworks: ${frameworks ? frameworks.join(", ") : "none"}`);
+        this.logger.info('Generating blueprint', { query, queryLength: query.length, imagesCount: initArgs.images?.length || 0 });
+        this.logger.info(`Using language: ${language}, frameworks: ${frameworks ? frameworks.join(", ") : "none"}`);
         
         const blueprint = await generateBlueprint({
             env: this.env,
@@ -81,30 +81,27 @@ export class PhasicAgentBehavior extends BaseAgentBehavior<PhasicState> implemen
             query,
             language: language!,
             frameworks: frameworks!,
-            templateDetails: templateInfo.templateDetails,
-            templateMetaInfo: templateInfo.selection,
+            templateDetails: templateInfo?.templateDetails,
+            templateMetaInfo: templateInfo?.selection,
             images: initArgs.images,
             stream: {
                 chunk_size: 256,
                 onChunk: (chunk) => {
-                    // initArgs.writer.write({chunk});
                     initArgs.onBlueprintChunk(chunk);
                 }
             }
         })
-
-        const packageJson = templateInfo.templateDetails?.allFiles['package.json'];
-
-        this.templateDetailsCache = templateInfo.templateDetails;
-
+                
+        const packageJson = templateInfo?.templateDetails?.allFiles['package.json'];
+                
         const projectName = generateProjectName(
-            blueprint?.projectName || templateInfo.templateDetails.name,
+            blueprint?.projectName || templateInfo?.templateDetails.name || '',
             generateNanoId(),
-            PhasicAgentBehavior.PROJECT_NAME_PREFIX_MAX_LENGTH
+            PhasicCodingBehavior.PROJECT_NAME_PREFIX_MAX_LENGTH
         );
-        
-        this.logger().info('Generated project name', { projectName });
-        
+                        
+        this.logger.info('Generated project name', { projectName });
+                        
         this.setState({
             ...this.state,
             projectName,
@@ -115,23 +112,20 @@ export class PhasicAgentBehavior extends BaseAgentBehavior<PhasicState> implemen
             generatedPhases: [],
             commandsHistory: [],
             lastPackageJson: packageJson,
-            sessionId: sandboxSessionId,
+            sessionId: sandboxSessionId!,
             hostname,
             inferenceContext,
         });
-
-        await this.gitInit();
-        
         // Customize template files (package.json, wrangler.jsonc, .bootstrap.js, .gitignore)
         const customizedFiles = customizeTemplateFiles(
             templateInfo.templateDetails.allFiles,
             {
                 projectName,
-                commandsHistory: [] // Empty initially, will be updated later
+                commandsHistory: []
             }
         );
         
-        this.logger().info('Customized template files', { 
+        this.logger.info('Customized template files', { 
             files: Object.keys(customizedFiles) 
         });
         
@@ -147,18 +141,24 @@ export class PhasicAgentBehavior extends BaseAgentBehavior<PhasicState> implemen
             'Initialize project configuration files'
         );
         
-        this.logger().info('Committed customized template files to git');
+        this.logger.info('Committed customized template files to git');
 
         this.initializeAsync().catch((error: unknown) => {
             this.broadcastError("Initialization failed", error);
         });
-        this.logger().info(`Agent ${this.getAgentId()} session: ${this.state.sessionId} initialized successfully`);
-        await this.saveToDatabase();
+        this.logger.info(`Agent ${this.getAgentId()} session: ${this.state.sessionId} initialized successfully`);
         return this.state;
     }
 
     async onStart(props?: Record<string, unknown> | undefined): Promise<void> {
         await super.onStart(props);
+    }
+
+    migrateStateIfNeeded(): void {
+        const migratedState = StateMigration.migrateIfNeeded(this.state, this.logger);
+        if (migratedState) {
+            this.setState(migratedState);
+        }
 
         // migrate overwritten package.jsons
         const oldPackageJson = this.fileManager.getFile('package.json')?.fileContents || this.state.lastPackageJson;
@@ -171,18 +171,6 @@ export class PhasicAgentBehavior extends BaseAgentBehavior<PhasicState> implemen
                     filePurpose: 'Project configuration file'
                 }
             ], 'chore: fix overwritten package.json');
-        }
-    }
-
-    setState(state: PhasicState): void {
-        try {
-            super.setState(state);
-        } catch (error) {
-            this.broadcastError("Error setting state", error);
-            this.logger().error("State details:", {
-                originalState: JSON.stringify(this.state, null, 2),
-                newState: JSON.stringify(state, null, 2)
-            });
         }
     }
 
@@ -212,8 +200,8 @@ export class PhasicAgentBehavior extends BaseAgentBehavior<PhasicState> implemen
         return {
             env: this.env,
             agentId: this.getAgentId(),
-            context: GenerationContext.from(this.state, this.getTemplateDetails(), this.logger()) as PhasicGenerationContext,
-            logger: this.logger(),
+            context: GenerationContext.from(this.state, this.getTemplateDetails(), this.logger) as PhasicGenerationContext,
+            logger: this.logger,
             inferenceContext: this.getInferenceContext(),
             agent: this
         };
@@ -228,14 +216,14 @@ export class PhasicAgentBehavior extends BaseAgentBehavior<PhasicState> implemen
             }]
         })
 
-        this.logger().info("Created new incomplete phase:", JSON.stringify(this.state.generatedPhases, null, 2));
+        this.logger.info("Created new incomplete phase:", JSON.stringify(this.state.generatedPhases, null, 2));
     }
 
     private markPhaseComplete(phaseName: string) {
         // First find the phase
         const phases = this.state.generatedPhases;
         if (!phases.some(p => p.name === phaseName)) {
-            this.logger().warn(`Phase ${phaseName} not found in generatedPhases array, skipping save`);
+            this.logger.warn(`Phase ${phaseName} not found in generatedPhases array, skipping save`);
             return;
         }
         
@@ -245,7 +233,7 @@ export class PhasicAgentBehavior extends BaseAgentBehavior<PhasicState> implemen
             generatedPhases: phases.map(p => p.name === phaseName ? { ...p, completed: true } : p)
         });
 
-        this.logger().info("Completed phases:", JSON.stringify(phases, null, 2));
+        this.logger.info("Completed phases:", JSON.stringify(phases, null, 2));
     }
 
     async queueUserRequest(request: string, images?: ProcessedImageAttachment[]): Promise<void> {
@@ -258,7 +246,7 @@ export class PhasicAgentBehavior extends BaseAgentBehavior<PhasicState> implemen
     }
 
     private async launchStateMachine() {
-        this.logger().info("Launching state machine");
+        this.logger.info("Launching state machine");
 
         let currentDevState = CurrentDevState.PHASE_IMPLEMENTING;
         const generatedPhases = this.state.generatedPhases;
@@ -266,17 +254,17 @@ export class PhasicAgentBehavior extends BaseAgentBehavior<PhasicState> implemen
         let phaseConcept : PhaseConceptType | undefined;
         if (incompletedPhases.length > 0) {
             phaseConcept = incompletedPhases[incompletedPhases.length - 1];
-            this.logger().info('Resuming code generation from incompleted phase', {
+            this.logger.info('Resuming code generation from incompleted phase', {
                 phase: phaseConcept
             });
         } else if (generatedPhases.length > 0) {
             currentDevState = CurrentDevState.PHASE_GENERATING;
-            this.logger().info('Resuming code generation after generating all phases', {
+            this.logger.info('Resuming code generation after generating all phases', {
                 phase: generatedPhases[generatedPhases.length - 1]
             });
         } else {
             phaseConcept = this.state.blueprint.initialPhase;
-            this.logger().info('Starting code generation from initial phase', {
+            this.logger.info('Starting code generation from initial phase', {
                 phase: phaseConcept
             });
             this.createNewIncompletePhase(phaseConcept);
@@ -289,7 +277,7 @@ export class PhasicAgentBehavior extends BaseAgentBehavior<PhasicState> implemen
             let executionResults: PhaseExecutionResult;
             // State machine loop - continues until IDLE state
             while (currentDevState !== CurrentDevState.IDLE) {
-                this.logger().info(`[generateAllFiles] Executing state: ${currentDevState}`);
+                this.logger.info(`[generateAllFiles] Executing state: ${currentDevState}`);
                 switch (currentDevState) {
                     case CurrentDevState.PHASE_GENERATING:
                         executionResults = await this.executePhaseGeneration();
@@ -315,9 +303,9 @@ export class PhasicAgentBehavior extends BaseAgentBehavior<PhasicState> implemen
                 }
             }
 
-            this.logger().info("State machine completed successfully");
+            this.logger.info("State machine completed successfully");
         } catch (error) {
-            this.logger().error("Error in state machine:", error);
+            this.logger.error("Error in state machine:", error);
         }
     }
 
@@ -325,7 +313,7 @@ export class PhasicAgentBehavior extends BaseAgentBehavior<PhasicState> implemen
      * Execute phase generation state - generate next phase with user suggestions
      */
     async executePhaseGeneration(): Promise<PhaseExecutionResult> {
-        this.logger().info("Executing PHASE_GENERATING state");
+        this.logger.info("Executing PHASE_GENERATING state");
         try {
             const currentIssues = await this.fetchAllIssues();
             
@@ -342,7 +330,7 @@ export class PhasicAgentBehavior extends BaseAgentBehavior<PhasicState> implemen
 
             if (userContext && userContext?.suggestions && userContext.suggestions.length > 0) {
                 // Only reset pending user inputs if user suggestions were read
-                this.logger().info("Resetting pending user inputs", { 
+                this.logger.info("Resetting pending user inputs", { 
                     userSuggestions: userContext.suggestions,
                     hasImages: !!userContext.images,
                     imageCount: userContext.images?.length || 0
@@ -350,7 +338,7 @@ export class PhasicAgentBehavior extends BaseAgentBehavior<PhasicState> implemen
                 
                 // Clear images after they're passed to phase generation
                 if (userContext?.images && userContext.images.length > 0) {
-                    this.logger().info('Clearing stored user images after passing to phase generation');
+                    this.logger.info('Clearing stored user images after passing to phase generation');
                     this.pendingUserImages = [];
                 }
             }
@@ -358,7 +346,7 @@ export class PhasicAgentBehavior extends BaseAgentBehavior<PhasicState> implemen
             const nextPhase = await this.generateNextPhase(currentIssues, userContext);
                 
             if (!nextPhase) {
-                this.logger().info("No more phases to implement, transitioning to FINALIZING");
+                this.logger.info("No more phases to implement, transitioning to FINALIZING");
                 return {
                     currentDevState: CurrentDevState.FINALIZING,
                 };
@@ -392,16 +380,16 @@ export class PhasicAgentBehavior extends BaseAgentBehavior<PhasicState> implemen
      */
     async executePhaseImplementation(phaseConcept?: PhaseConceptType, staticAnalysis?: StaticAnalysisResponse, userContext?: UserContext): Promise<{currentDevState: CurrentDevState, staticAnalysis?: StaticAnalysisResponse}> {
         try {
-            this.logger().info("Executing PHASE_IMPLEMENTING state");
+            this.logger.info("Executing PHASE_IMPLEMENTING state");
     
             if (phaseConcept === undefined) {
                 phaseConcept = this.state.currentPhase;
                 if (phaseConcept === undefined) {
-                    this.logger().error("No phase concept provided to implement, will call phase generation");
+                    this.logger.error("No phase concept provided to implement, will call phase generation");
                     const results = await this.executePhaseGeneration();
                     phaseConcept = results.result;
                     if (phaseConcept === undefined) {
-                        this.logger().error("No phase concept provided to implement, will return");
+                        this.logger.error("No phase concept provided to implement, will return");
                         return {currentDevState: CurrentDevState.FINALIZING};
                     }
                 }
@@ -432,14 +420,14 @@ export class PhasicAgentBehavior extends BaseAgentBehavior<PhasicState> implemen
             // Implement the phase with user context (suggestions and images)
             await this.implementPhase(phaseConcept, currentIssues, userContext);
     
-            this.logger().info(`Phase ${phaseConcept.name} completed, generating next phase`);
+            this.logger.info(`Phase ${phaseConcept.name} completed, generating next phase`);
 
             const phasesCounter = this.decrementPhasesCounter();
 
             if ((phaseConcept.lastPhase || phasesCounter <= 0) && this.state.pendingUserInputs.length === 0) return {currentDevState: CurrentDevState.FINALIZING, staticAnalysis: staticAnalysis};
             return {currentDevState: CurrentDevState.PHASE_GENERATING, staticAnalysis: staticAnalysis};
         } catch (error) {
-            this.logger().error("Error implementing phase", error);
+            this.logger.error("Error implementing phase", error);
             if (error instanceof RateLimitExceededError) {
                 throw error;
             }
@@ -451,9 +439,9 @@ export class PhasicAgentBehavior extends BaseAgentBehavior<PhasicState> implemen
      * Execute review cycle state - review and cleanup
      */
     async executeReviewCycle(): Promise<CurrentDevState> {
-        this.logger().info("Executing REVIEWING state - review and cleanup");
+        this.logger.info("Executing REVIEWING state - review and cleanup");
         if (this.state.reviewingInitiated) {
-            this.logger().info("Reviewing already initiated, skipping");
+            this.logger.info("Reviewing already initiated, skipping");
             return CurrentDevState.IDLE;
         }
         this.setState({
@@ -464,14 +452,14 @@ export class PhasicAgentBehavior extends BaseAgentBehavior<PhasicState> implemen
         // If issues/errors found, prompt user if they want to review and cleanup
         const issues = await this.fetchAllIssues(false);
         if (issues.runtimeErrors.length > 0 || issues.staticAnalysis.typecheck.issues.length > 0) {
-            this.logger().info("Reviewing stage - issues found, prompting user to review and cleanup");
+            this.logger.info("Reviewing stage - issues found, prompting user to review and cleanup");
             const message : ConversationMessage = {
                 role: "assistant",
                 content: `<system_context>If the user responds with yes, launch the 'deep_debug' tool with the prompt to fix all the issues in the app</system_context>\nThere might be some bugs in the app. Do you want me to try to fix them?`,
                 conversationId: IdGenerator.generateConversationId(),
             }
             // Store the message in the conversation history so user's response can trigger the deep debug tool
-            this.addConversationMessage(message);
+            this.infrastructure.addConversationMessage(message);
             
             this.broadcast(WebSocketMessageResponses.CONVERSATION_RESPONSE, {
                 message: message.content,
@@ -487,11 +475,11 @@ export class PhasicAgentBehavior extends BaseAgentBehavior<PhasicState> implemen
      * Execute finalizing state - final review and cleanup (runs only once)
      */
     async executeFinalizing(): Promise<CurrentDevState> {
-        this.logger().info("Executing FINALIZING state - final review and cleanup");
+        this.logger.info("Executing FINALIZING state - final review and cleanup");
 
         // Only do finalizing stage if it wasn't done before
         if (this.state.mvpGenerated) {
-            this.logger().info("Finalizing stage already done");
+            this.logger.info("Finalizing stage already done");
             return CurrentDevState.REVIEWING;
         }
         this.setState({
@@ -514,7 +502,7 @@ export class PhasicAgentBehavior extends BaseAgentBehavior<PhasicState> implemen
         await this.implementPhase(phaseConcept, currentIssues);
 
         const numFilesGenerated = this.fileManager.getGeneratedFilePaths().length;
-        this.logger().info(`Finalization complete. Generated ${numFilesGenerated}/${this.getTotalFiles()} files.`);
+        this.logger.info(`Finalization complete. Generated ${numFilesGenerated}/${this.getTotalFiles()} files.`);
 
         // Transition to IDLE - generation complete
         return CurrentDevState.REVIEWING;
@@ -558,12 +546,12 @@ export class PhasicAgentBehavior extends BaseAgentBehavior<PhasicState> implemen
         // Execute delete commands if any
         const filesToDelete = result.files.filter(f => f.changes?.toLowerCase().trim() === 'delete');
         if (filesToDelete.length > 0) {
-            this.logger().info(`Deleting ${filesToDelete.length} files: ${filesToDelete.map(f => f.path).join(", ")}`);
+            this.logger.info(`Deleting ${filesToDelete.length} files: ${filesToDelete.map(f => f.path).join(", ")}`);
             this.deleteFiles(filesToDelete.map(f => f.path));
         }
         
         if (result.files.length === 0) {
-            this.logger().info("No files generated for next phase");
+            this.logger.info("No files generated for next phase");
             // Notify phase generation complete
             this.broadcast(WebSocketMessageResponses.PHASE_GENERATED, {
                 message: `No files generated for next phase`,
@@ -654,11 +642,11 @@ export class PhasicAgentBehavior extends BaseAgentBehavior<PhasicState> implemen
         // Update state with completed phase
         await this.fileManager.saveGeneratedFiles(finalFiles, `feat: ${phase.name}\n\n${phase.description}`);
 
-        this.logger().info("Files generated for phase:", phase.name, finalFiles.map(f => f.filePath));
+        this.logger.info("Files generated for phase:", phase.name, finalFiles.map(f => f.filePath));
 
         // Execute commands if provided
         if (result.commands && result.commands.length > 0) {
-            this.logger().info("Phase implementation suggested install commands:", result.commands);
+            this.logger.info("Phase implementation suggested install commands:", result.commands);
             await this.executeCommands(result.commands, false);
         }
     
@@ -679,9 +667,9 @@ export class PhasicAgentBehavior extends BaseAgentBehavior<PhasicState> implemen
             phase: phase
         });
     
-        this.logger().info("Files generated for phase:", phase.name, finalFiles.map(f => f.filePath));
+        this.logger.info("Files generated for phase:", phase.name, finalFiles.map(f => f.filePath));
     
-        this.logger().info(`Validation complete for phase: ${phase.name}`);
+        this.logger.info(`Validation complete for phase: ${phase.name}`);
     
         // Notify phase completion
         this.broadcast(WebSocketMessageResponses.PHASE_IMPLEMENTED, {
@@ -763,7 +751,7 @@ export class PhasicAgentBehavior extends BaseAgentBehavior<PhasicState> implemen
                 defaultConfigs
             };
         } catch (error) {
-            this.logger().error('Error fetching model configs info:', error);
+            this.logger.error('Error fetching model configs info:', error);
             throw error;
         }
     }
@@ -775,11 +763,11 @@ export class PhasicAgentBehavior extends BaseAgentBehavior<PhasicState> implemen
     private async applyFastSmartCodeFixes() : Promise<void> {
         try {
             const startTime = Date.now();
-            this.logger().info("Applying fast smart code fixes");
+            this.logger.info("Applying fast smart code fixes");
             // Get static analysis and do deterministic fixes
             const staticAnalysis = await this.runStaticAnalysisCode();
             if (staticAnalysis.typecheck.issues.length + staticAnalysis.lint.issues.length == 0) {
-                this.logger().info("No issues found, skipping fast smart code fixes");
+                this.logger.info("No issues found, skipping fast smart code fixes");
                 return;
             }
             const issues = staticAnalysis.typecheck.issues.concat(staticAnalysis.lint.issues);
@@ -794,9 +782,9 @@ export class PhasicAgentBehavior extends BaseAgentBehavior<PhasicState> implemen
             if (fastCodeFixer.length > 0) {
                 await this.fileManager.saveGeneratedFiles(fastCodeFixer, "fix: Fast smart code fixes");
                 await this.deployToSandbox(fastCodeFixer);
-                this.logger().info("Fast smart code fixes applied successfully");
+                this.logger.info("Fast smart code fixes applied successfully");
             }
-            this.logger().info(`Fast smart code fixes applied in ${Date.now() - startTime}ms`);            
+            this.logger.info(`Fast smart code fixes applied in ${Date.now() - startTime}ms`);            
         } catch (error) {
             this.broadcastError("Failed to apply fast smart code fixes", error);
             return;
@@ -809,7 +797,7 @@ export class PhasicAgentBehavior extends BaseAgentBehavior<PhasicState> implemen
         requirements: string[],
         files: FileConceptType[]
     ): Promise<{ files: Array<{ path: string; purpose: string; diff: string }> }> {
-        this.logger().info('Generating files for deep debugger', {
+        this.logger.info('Generating files for deep debugger', {
             phaseName,
             requirementsCount: requirements.length,
             filesCount: files.length
@@ -848,5 +836,17 @@ export class PhasicAgentBehavior extends BaseAgentBehavior<PhasicState> implemen
                 diff: (f as any).lastDiff || '' // FileState has lastDiff
             }))
         };
+    }
+
+    async handleUserInput(userMessage: string, images?: ImageAttachment[]): Promise<void> {
+        const result = await super.handleUserInput(userMessage, images);
+        if (!this.generationPromise) {
+            // If idle, start generation process
+            this.logger.info('User input during IDLE state, starting generation');
+            this.generateAllFiles().catch(error => {
+                this.logger.error('Error starting generation from user input:', error);
+            });
+        }
+        return result;
     }
 }

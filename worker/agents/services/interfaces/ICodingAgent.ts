@@ -25,8 +25,6 @@ export interface ICodingAgent {
     
     deployPreview(clearLogs?: boolean, forceRedeploy?: boolean): Promise<string>;
     
-    clearConversation(): void;
-    
     updateProjectName(newName: string): Promise<boolean>;
     
     getOperationOptions(): OperationOptions;
@@ -63,7 +61,7 @@ export interface ICodingAgent {
         focusPaths?: string[],
     ): Promise<DeepDebugResult>;
     
-    getGit(): GitVersionControl;
+    get git(): GitVersionControl;
     
     getSandboxServiceClient(): BaseSandboxService;
 }
