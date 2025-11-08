@@ -1,0 +1,17 @@
+{
+  "extends": "../tsconfig.node.json",
+  "compilerOptions": {
+    "moduleResolution": "bundler",
+    "module": "ESNext",
+    "types": [
+      "@cloudflare/vitest-pool-workers",
+      "@cloudflare/workers-types"
+    ],
+    "lib": ["ES2023"]
+  },
+  "include": [
+    "./**/*.ts",
+    "../worker-configuration.d.ts",
+    "../worker/**/*.ts"
+  ]
+}

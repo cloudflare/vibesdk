@@ -6,5 +6,6 @@
 		"types": ["@cloudflare/workers-types", "./worker-configuration.d.ts", "vite/client", "jest"],
 		"lib": ["ES2023"]
 	},
-	"include": ["./worker-configuration.d.ts", "./shared", "./worker", "./worker/types"]
+	"include": ["./worker-configuration.d.ts", "./shared", "./worker", "./worker/types"],
+	"exclude": ["**/__tests__/**/*", "**/*.test.ts"]
 }

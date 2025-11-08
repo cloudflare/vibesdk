@@ -36,7 +36,7 @@ vibesdk is an AI-powered full-stack application generation platform built on Clo
   - Tools: tools for LLM (read-files, run-analysis, regenerate-file, etc.)
   - Git: isomorphic-git with SQLite filesystem
 - Database: `worker/database/` (Drizzle ORM, D1)
-- Services: `worker/services/` (sandbox, code-fixer, oauth, rate-limit)
+- Services: `worker/services/` (sandbox, code-fixer, oauth, rate-limit, secrets)
 - API: `worker/api/` (routes, controllers, handlers)
 
 **Other:**
@@ -116,6 +116,15 @@ Edit `/worker/agents/operations/UserConversationProcessor.ts` (system prompt lin
 - Diagnostic priority: run_analysis → get_runtime_errors → get_logs
 - Can fix multiple files in parallel (regenerate_file)
 - Cannot run during code generation (checked via isCodeGenerating())
+
+**User Secrets Store (Durable Object):**
+- Location: `/worker/services/secrets/`
+- Purpose: Encrypted storage for user API keys with key rotation
+- Architecture: One DO per user, XChaCha20-Poly1305 encryption, SQLite backend
+- Key derivation: MEK → UMK → DEK (hierarchical PBKDF2)
+- Features: Key rotation, soft deletion, access tracking, expiration support
+- RPC Methods: Return `null`/`boolean` on error, never throw exceptions
+- Testing: 90 comprehensive tests in `/test/worker/services/secrets/`
 
 **Git System:**
 - GitVersionControl class wraps isomorphic-git

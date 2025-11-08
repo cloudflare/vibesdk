@@ -16,6 +16,8 @@
 		"test": "vitest run",
 		"test:watch": "vitest",
 		"test:coverage": "vitest run --coverage",
+		"test:bun": "bun run vitest run",
+		"test:bun:watch": "bun run vitest",
 		"db:generate": "drizzle-kit generate --config=drizzle.config.local.ts",
 		"db:generate:remote": "drizzle-kit generate --config=drizzle.config.remote.ts",
 		"db:migrate:local": "wrangler d1 migrations apply vibesdk-db --local",

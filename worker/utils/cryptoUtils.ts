@@ -31,7 +31,10 @@ export async function sha256Hash(text: string): Promise<string> {
     const encoder = new TextEncoder();
     const data = encoder.encode(text);
     const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-    return base64url(new Uint8Array(hashBuffer));
+    const hashArray = new Uint8Array(hashBuffer);
+    return Array.from(hashArray)
+        .map(b => b.toString(16).padStart(2, '0'))
+        .join('');
 }
 
 export async function timingSafeEqual(a: string, b: string): Promise<boolean> {
