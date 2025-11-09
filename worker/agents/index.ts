@@ -8,42 +8,63 @@ import { TemplateDetails } from '../services/sandbox/sandboxTypes';
 import { TemplateSelection } from './schemas';
 import type { ImageAttachment } from '../types/image-attachment';
 import { BaseSandboxService } from 'worker/services/sandbox/BaseSandboxService';
+import { AgentState, CurrentDevState } from './core/state';
+import { CodeGeneratorAgent } from './core/codingAgent';
+import { BehaviorType, ProjectType } from './core/types';
 
-export async function getAgentStub(env: Env, agentId: string) : Promise<DurableObjectStub<SmartCodeGeneratorAgent>> {
-    return getAgentByName<Env, SmartCodeGeneratorAgent>(env.CodeGenObject, agentId);
+type AgentStubProps = {
+    behaviorType?: BehaviorType;
+    projectType?: ProjectType;
+};
+
+export async function getAgentStub(
+    env: Env, 
+    agentId: string,
+    props?: AgentStubProps
+) : Promise<DurableObjectStub<CodeGeneratorAgent>> {
+    const options = props ? { props } : undefined;
+    return getAgentByName<Env, CodeGeneratorAgent>(env.CodeGenObject, agentId, options);
 }
 
-export async function getAgentStubLightweight(env: Env, agentId: string) : Promise<DurableObjectStub<SmartCodeGeneratorAgent>> {
-    return getAgentByName<Env, SmartCodeGeneratorAgent>(env.CodeGenObject, agentId, {
+export async function getAgentStubLightweight(env: Env, agentId: string) : Promise<DurableObjectStub<CodeGeneratorAgent>> {
+    return getAgentByName<Env, CodeGeneratorAgent>(env.CodeGenObject, agentId, {
         // props: { readOnlyMode: true }
     });
 }
 
-export async function getAgentState(env: Env, agentId: string) : Promise<CodeGenState> {
+export async function getAgentState(env: Env, agentId: string) : Promise<AgentState> {
     const agentInstance = await getAgentStub(env, agentId);
-    return await agentInstance.getFullState() as CodeGenState;
+    return await agentInstance.getFullState() as AgentState;
 }
 
-export async function cloneAgent(env: Env, agentId: string) : Promise<{newAgentId: string, newAgent: DurableObjectStub<SmartCodeGeneratorAgent>}> {
+export async function cloneAgent(env: Env, agentId: string) : Promise<{newAgentId: string, newAgent: DurableObjectStub<CodeGeneratorAgent>}> {
     const agentInstance = await getAgentStub(env, agentId);
     if (!agentInstance || !await agentInstance.isInitialized()) {
         throw new Error(`Agent ${agentId} not found`);
     }
     const newAgentId = generateId();
 
-    const newAgent = await getAgentStub(env, newAgentId);
-    const originalState = await agentInstance.getFullState() as CodeGenState;
-    const newState = {
+    const originalState = await agentInstance.getFullState();
+
+    const newState: AgentState = {
         ...originalState,
         sessionId: newAgentId,
         sandboxInstanceId: undefined,
         pendingUserInputs: [],
-        currentDevState: 0,
-        generationPromise: undefined,
         shouldBeGenerating: false,
-        // latestScreenshot: undefined,
-        clientReportedErrors: [],
-    };
+        projectUpdatesAccumulator: [],
+        reviewingInitiated: false,
+        mvpGenerated: false,
+        ...(originalState.behaviorType === 'phasic' ? {
+            generatedPhases: [],
+            currentDevState: CurrentDevState.IDLE,
+        } : {}),
+    } as AgentState;
+
+    const newAgent = await getAgentStub(env, newAgentId, {
+        behaviorType: originalState.behaviorType,
+        projectType: originalState.projectType,
+    });
 
     await newAgent.setState(newState);
     return {newAgentId, newAgent};

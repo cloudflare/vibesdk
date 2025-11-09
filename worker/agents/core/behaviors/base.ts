@@ -5,8 +5,9 @@ import {
     Blueprint,
 } from '../../schemas';
 import { ExecuteCommandsResponse, PreviewType, RuntimeError, StaticAnalysisResponse, TemplateDetails } from '../../../services/sandbox/sandboxTypes';
-import { BaseProjectState } from '../state';
-import { AllIssues, AgentSummary, AgentInitArgs, BehaviorType } from '../types';
+import { AgentState, BaseProjectState } from '../state';
+import { AllIssues, AgentSummary, AgentInitArgs, BehaviorType, DeploymentTarget } from '../types';
+import { ModelConfig } from '../../inferutils/config.types';
 import { PREVIEW_EXPIRED_ERROR, WebSocketMessageResponses } from '../../constants';
 import { ProjectSetupAssistant } from '../../assistants/projectsetup';
 import { UserConversationProcessor, RenderToolCall } from '../../operations/UserConversationProcessor';
@@ -34,6 +35,7 @@ import { SimpleCodeGenerationOperation } from '../../operations/SimpleCodeGenera
 import { AgentComponent } from '../AgentComponent';
 import type { AgentInfrastructure } from '../AgentCore';
 import { sendToConnection } from '../websocket';
+import { GitVersionControl } from '../../git';
 
 export interface BaseCodingOperations {
     regenerateFile: FileRegenerationOperation;
@@ -107,7 +109,7 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
     onConnect(connection: Connection, ctx: ConnectionContext) {
         this.logger.info(`Agent connected for agent ${this.getAgentId()}`, { connection, ctx });
         sendToConnection(connection, 'agent_connected', {
-            state: this.state,
+            state: this.state as unknown as AgentState,
             templateDetails: this.getTemplateDetails()
         });
     }
@@ -311,6 +313,15 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
         return inputs;
     }
 
+    clearConversation(): void {
+        this.infrastructure.clearConversation();
+    }
+
+    getGit(): GitVersionControl {
+        return this.git;
+    }
+
+
     /**
      * State machine controller for code generation with user interaction support
      * Executes phases sequentially with review cycles and proper state transitions
@@ -446,8 +457,9 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
                 description: config.description
             }));
 
-            const userConfigs: Record<string, any> = {};
-            const defaultConfigs: Record<string, any> = {};
+            type ModelConfigInfo = ModelConfig & { isUserOverride?: boolean };
+            const userConfigs: Record<string, ModelConfigInfo> = {};
+            const defaultConfigs: Record<string, ModelConfig> = {};
 
             for (const [actionKey, mergedConfig] of Object.entries(userConfigsRecord)) {
                 if (mergedConfig.isUserOverride) {
@@ -460,8 +472,7 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
                         isUserOverride: true
                     };
                 }
-                
-                // Always include default config
+
                 const defaultConfig = AGENT_CONFIG[actionKey as AgentActionKey];
                 if (defaultConfig) {
                     defaultConfigs[actionKey] = {
@@ -867,14 +878,16 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
             fileCount: result.files.length
         });
 
-        // Return files with diffs from FileState
-        return {
-            files: result.files.map(f => ({
+        const savedFiles = result.files.map(f => {
+            const fileState = this.state.generatedFilesMap[f.filePath];
+            return {
                 path: f.filePath,
                 purpose: f.filePurpose || '',
-                diff: (f as any).lastDiff || '' // FileState has lastDiff
-            }))
-        };
+                diff: fileState?.lastDiff || ''
+            };
+        });
+
+        return { files: savedFiles };
     }
 
     // A wrapper for LLM tool to deploy to sandbox
@@ -917,7 +930,7 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
     /**
      * Deploy the generated code to Cloudflare Workers
      */
-    async deployToCloudflare(): Promise<{ deploymentUrl?: string; workersUrl?: string } | null> {
+    async deployToCloudflare(target: DeploymentTarget = 'platform'): Promise<{ deploymentUrl?: string; workersUrl?: string } | null> {
         try {
             // Ensure sandbox instance exists first
             if (!this.state.sandboxInstanceId) {
@@ -936,22 +949,25 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
 
             // Call service - handles orchestration, callbacks for broadcasting
             const result = await this.deploymentManager.deployToCloudflare({
-                onStarted: (data) => {
-                    this.broadcast(WebSocketMessageResponses.CLOUDFLARE_DEPLOYMENT_STARTED, data);
-                },
-                onCompleted: (data) => {
-                    this.broadcast(WebSocketMessageResponses.CLOUDFLARE_DEPLOYMENT_COMPLETED, data);
-                },
-                onError: (data) => {
-                    this.broadcast(WebSocketMessageResponses.CLOUDFLARE_DEPLOYMENT_ERROR, data);
-                },
-                onPreviewExpired: () => {
-                    // Re-deploy sandbox and broadcast error
-                    this.deployToSandbox();
-                    this.broadcast(WebSocketMessageResponses.CLOUDFLARE_DEPLOYMENT_ERROR, {
-                        message: PREVIEW_EXPIRED_ERROR,
-                        error: PREVIEW_EXPIRED_ERROR
-                    });
+                target,
+                callbacks: {
+                    onStarted: (data) => {
+                        this.broadcast(WebSocketMessageResponses.CLOUDFLARE_DEPLOYMENT_STARTED, data);
+                    },
+                    onCompleted: (data) => {
+                        this.broadcast(WebSocketMessageResponses.CLOUDFLARE_DEPLOYMENT_COMPLETED, data);
+                    },
+                    onError: (data) => {
+                        this.broadcast(WebSocketMessageResponses.CLOUDFLARE_DEPLOYMENT_ERROR, data);
+                    },
+                    onPreviewExpired: () => {
+                        // Re-deploy sandbox and broadcast error
+                        this.deployToSandbox();
+                        this.broadcast(WebSocketMessageResponses.CLOUDFLARE_DEPLOYMENT_ERROR, {
+                            message: PREVIEW_EXPIRED_ERROR,
+                            error: PREVIEW_EXPIRED_ERROR
+                        });
+                    }
                 }
             });
 

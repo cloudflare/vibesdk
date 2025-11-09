@@ -1,5 +1,5 @@
 import type { WebSocket } from 'partysocket';
-import type { WebSocketMessage, BlueprintType, ConversationMessage } from '@/api-types';
+import type { WebSocketMessage, BlueprintType, ConversationMessage, AgentState, PhasicState } from '@/api-types';
 import { deduplicateMessages, isAssistantMessageDuplicate } from './deduplicate-messages';
 import { logger } from '@/utils/logger';
 import { getFileType } from '@/utils/string';
@@ -22,6 +22,9 @@ import { completeStages } from './project-stage-helpers';
 import { sendWebSocketMessage } from './websocket-helpers';
 import type { FileType, PhaseTimelineItem } from '../hooks/use-chat';
 import { toast } from 'sonner';
+
+const isPhasicState = (state: AgentState): state is PhasicState =>
+	state.behaviorType === 'phasic';
 
 export interface HandleMessageDeps {
     // State setters
@@ -191,12 +194,12 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
                         );
                     }
 
-                    if (state.generatedPhases && state.generatedPhases.length > 0 && phaseTimeline.length === 0) {
+                    if (isPhasicState(state) && state.generatedPhases.length > 0 && phaseTimeline.length === 0) {
                         logger.debug('📋 Restoring phase timeline:', state.generatedPhases);
                         // If not actively generating, mark incomplete phases as cancelled (they were interrupted)
                         const isActivelyGenerating = state.shouldBeGenerating === true;
                         
-                        const timeline = state.generatedPhases.map((phase: any, index: number) => {
+                        const timeline = state.generatedPhases.map((phase, index: number) => {
                             // Determine phase status:
                             // - completed if explicitly marked complete
                             // - cancelled if incomplete and not actively generating (interrupted)
@@ -212,7 +215,7 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
                                 name: phase.name,
                                 description: phase.description,
                                 status: phaseStatus,
-                                files: phase.files.map((filesConcept: any) => {
+                                files: phase.files.map(filesConcept => {
                                     const file = state.generatedFilesMap?.[filesConcept.path];
                                     // File status:
                                     // - completed if it exists in generated files

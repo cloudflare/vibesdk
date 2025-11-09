@@ -14,7 +14,7 @@ import { handleGitProtocolRequest, isGitProtocolRequest } from './api/handlers/g
 export { UserAppSandboxService, DeployerService } from './services/sandbox/sandboxSdkClient';
 export { CodeGeneratorAgent } from './agents/core/codingAgent';
 
-// export const CodeGeneratorAgent = Sentry.instrumentDurableObjectWithSentry(sentryOptions, SmartCodeGeneratorAgent);
+// export const CodeGeneratorAgent = Sentry.instrumentDurableObjectWithSentry(sentryOptions, CodeGeneratorAgent);
 // export const DORateLimitStore = Sentry.instrumentDurableObjectWithSentry(sentryOptions, BaseDORateLimitStore);
 export const DORateLimitStore = BaseDORateLimitStore;
 

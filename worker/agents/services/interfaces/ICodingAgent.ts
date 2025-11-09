@@ -2,7 +2,7 @@ import { FileOutputType, FileConceptType, Blueprint } from "worker/agents/schema
 import { BaseSandboxService } from "worker/services/sandbox/BaseSandboxService";
 import { ExecuteCommandsResponse, PreviewType, StaticAnalysisResponse, RuntimeError } from "worker/services/sandbox/sandboxTypes";
 import { ProcessedImageAttachment } from "worker/types/image-attachment";
-import { BehaviorType, DeepDebugResult } from "worker/agents/core/types";
+import { BehaviorType, DeepDebugResult, DeploymentTarget } from "worker/agents/core/types";
 import { RenderToolCall } from "worker/agents/operations/UserConversationProcessor";
 import { WebSocketMessageType, WebSocketMessageData } from "worker/api/websocketTypes";
 import { GitVersionControl } from "worker/agents/git/git";
@@ -19,9 +19,11 @@ export interface ICodingAgent {
     
     broadcast<T extends WebSocketMessageType>(msg: T, data?: WebSocketMessageData<T>): void;
     
-    deployToCloudflare(): Promise<{ deploymentUrl?: string; workersUrl?: string } | null>;
+    deployToCloudflare(target?: DeploymentTarget): Promise<{ deploymentUrl?: string; workersUrl?: string } | null>;
     
     queueUserRequest(request: string, images?: ProcessedImageAttachment[]): void;
+    
+    clearConversation(): void;
     
     deployPreview(clearLogs?: boolean, forceRedeploy?: boolean): Promise<string>;
     
@@ -62,6 +64,7 @@ export interface ICodingAgent {
     ): Promise<DeepDebugResult>;
     
     get git(): GitVersionControl;
+    getGit(): GitVersionControl;
     
     getSandboxServiceClient(): BaseSandboxService;
 }

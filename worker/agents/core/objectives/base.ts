@@ -1,5 +1,5 @@
 import { BaseProjectState } from '../state';
-import { ProjectType, RuntimeType, ExportResult, ExportOptions } from '../types';
+import { ProjectType, RuntimeType, ExportResult, ExportOptions, DeployResult, DeployOptions } from '../types';
 import { AgentComponent } from '../AgentComponent';
 import type { AgentInfrastructure } from '../AgentCore';
 
@@ -17,6 +17,13 @@ import type { AgentInfrastructure } from '../AgentCore';
  */
 export abstract class ProjectObjective<TState extends BaseProjectState = BaseProjectState> 
     extends AgentComponent<TState> {
+        
+    // GitHub token cache (ephemeral, lost on DO eviction)
+    protected githubTokenCache: {
+        token: string;
+        username: string;
+        expiresAt: number;
+    } | null = null;
     
     constructor(infrastructure: AgentInfrastructure<TState>) {
         super(infrastructure);
@@ -47,14 +54,14 @@ export abstract class ProjectObjective<TState extends BaseProjectState = BasePro
     abstract getTemplateType(): string | null;
     
     /**
-     * Export/deploy project to target platform
-     * 
-     * This is where objective-specific deployment logic lives:
-     * - AppObjective: Deploy to Cloudflare Workers + Pages
-     * - WorkflowObjective: Deploy to Cloudflare Workers only
-     * - PresentationObjective: Export to PDF/Google Slides/PowerPoint
+     * Deploy project to its runtime target
      */
-    abstract export(options?: ExportOptions): Promise<ExportResult>;
+    abstract deploy(options?: DeployOptions): Promise<DeployResult>;
+    
+    /**
+     * Export project artifacts (GitHub repo, PDF, etc.)
+     */
+    abstract export(options: ExportOptions): Promise<ExportResult>;
     
     // ==========================================
     // OPTIONAL LIFECYCLE HOOKS
@@ -86,5 +93,49 @@ export abstract class ProjectObjective<TState extends BaseProjectState = BasePro
      */
     async validate(): Promise<{ valid: boolean; errors?: string[] }> {
         return { valid: true };
+    }
+
+    /**
+     * Cache GitHub OAuth token in memory for subsequent exports
+     * Token is ephemeral - lost on DO eviction
+     */
+    setGitHubToken(token: string, username: string, ttl: number = 3600000): void {
+        this.githubTokenCache = {
+            token,
+            username,
+            expiresAt: Date.now() + ttl
+        };
+        this.logger.info('GitHub token cached', { 
+            username, 
+            expiresAt: new Date(this.githubTokenCache.expiresAt).toISOString() 
+        });
+    }
+
+    /**
+     * Get cached GitHub token if available and not expired
+     */
+    getGitHubToken(): { token: string; username: string } | null {
+        if (!this.githubTokenCache) {
+            return null;
+        }
+        
+        if (Date.now() >= this.githubTokenCache.expiresAt) {
+            this.logger.info('GitHub token expired, clearing cache');
+            this.githubTokenCache = null;
+            return null;
+        }
+        
+        return {
+            token: this.githubTokenCache.token,
+            username: this.githubTokenCache.username
+        };
+    }
+
+    /**
+     * Clear cached GitHub token
+     */
+    clearGitHubToken(): void {
+        this.githubTokenCache = null;
+        this.logger.info('GitHub token cleared');
     }
 }

@@ -138,13 +138,15 @@ export type {
 // Agent/Generator Types
 export type { 
   Blueprint as BlueprintType,
+  PhasicBlueprint,
   CodeReviewOutputType,
   FileConceptType,
   FileOutputType as GeneratedFile,
 } from 'worker/agents/schemas';
 
 export type { 
-  CodeGenState 
+  AgentState,
+  PhasicState
 } from 'worker/agents/core/state';
 
 export type {

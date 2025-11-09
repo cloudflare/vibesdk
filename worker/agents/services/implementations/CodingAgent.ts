@@ -3,7 +3,7 @@ import { Blueprint, FileConceptType } from "worker/agents/schemas";
 import { ExecuteCommandsResponse, StaticAnalysisResponse, RuntimeError } from "worker/services/sandbox/sandboxTypes";
 import { ICodingAgent } from "../interfaces/ICodingAgent";
 import { OperationOptions } from "worker/agents/operations/common";
-import { DeepDebugResult } from "worker/agents/core/types";
+import { DeepDebugResult, DeploymentTarget } from "worker/agents/core/types";
 import { RenderToolCall } from "worker/agents/operations/UserConversationProcessor";
 import { WebSocketMessageResponses } from "worker/agents/constants";
 
@@ -35,8 +35,8 @@ export class CodingAgentInterface {
         }
     }
 
-    async deployToCloudflare(): Promise<string> {
-        const response = await this.agentStub.deployToCloudflare();
+    async deployToCloudflare(target?: DeploymentTarget): Promise<string> {
+        const response = await this.agentStub.deployToCloudflare(target);
         if (response && response.deploymentUrl) {
             return `Deployment successful: ${response.deploymentUrl}`;
         } else {
@@ -57,7 +57,7 @@ export class CodingAgentInterface {
     }
 
     getGit() {
-        return this.agentStub.getGit();
+        return this.agentStub.git;
     }
 
     updateProjectName(newName: string): Promise<boolean> {

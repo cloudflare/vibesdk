@@ -8,6 +8,7 @@ import {
 import { StaticAnalysisResponse } from '../../../services/sandbox/sandboxTypes';
 import { CurrentDevState, MAX_PHASES, PhasicState } from '../state';
 import { AllIssues, AgentInitArgs, PhaseExecutionResult, UserContext } from '../types';
+import { ModelConfig } from '../../inferutils/config.types';
 import { WebSocketMessageResponses } from '../../constants';
 import { UserConversationProcessor } from '../../operations/UserConversationProcessor';
 // import { WebSocketBroadcaster } from '../services/implementations/WebSocketBroadcaster';
@@ -70,6 +71,7 @@ export class PhasicCodingBehavior extends BaseCodingBehavior<PhasicState> implem
     ): Promise<PhasicState> {
         await super.initialize(initArgs);
         const { query, language, frameworks, hostname, inferenceContext, templateInfo, sandboxSessionId } = initArgs;
+        const projectType = initArgs.projectType || this.state.projectType || 'app';
         
         // Generate a blueprint
         this.logger.info('Generating blueprint', { query, queryLength: query.length, imagesCount: initArgs.images?.length || 0 });
@@ -84,6 +86,7 @@ export class PhasicCodingBehavior extends BaseCodingBehavior<PhasicState> implem
             templateDetails: templateInfo?.templateDetails,
             templateMetaInfo: templateInfo?.selection,
             images: initArgs.images,
+            projectType,
             stream: {
                 chunk_size: 256,
                 onChunk: (chunk) => {
@@ -102,7 +105,7 @@ export class PhasicCodingBehavior extends BaseCodingBehavior<PhasicState> implem
                         
         this.logger.info('Generated project name', { projectName });
                         
-        this.setState({
+        const nextState: PhasicState = {
             ...this.state,
             projectName,
             query,
@@ -115,7 +118,9 @@ export class PhasicCodingBehavior extends BaseCodingBehavior<PhasicState> implem
             sessionId: sandboxSessionId!,
             hostname,
             inferenceContext,
-        });
+            projectType,
+        };
+        this.setState(nextState);
         // Customize template files (package.json, wrangler.jsonc, .bootstrap.js, .gitignore)
         const customizedFiles = customizeTemplateFiles(
             templateInfo.templateDetails.allFiles,
@@ -155,7 +160,7 @@ export class PhasicCodingBehavior extends BaseCodingBehavior<PhasicState> implem
     }
 
     migrateStateIfNeeded(): void {
-        const migratedState = StateMigration.migrateIfNeeded(this.state, this.logger);
+        const migratedState = StateMigration.migrateIfNeeded(this.state, this.logger) as PhasicState | null;
         if (migratedState) {
             this.setState(migratedState);
         }
@@ -717,8 +722,9 @@ export class PhasicCodingBehavior extends BaseCodingBehavior<PhasicState> implem
                 description: config.description
             }));
 
-            const userConfigs: Record<string, any> = {};
-            const defaultConfigs: Record<string, any> = {};
+            type ModelConfigInfo = ModelConfig & { isUserOverride?: boolean };
+            const userConfigs: Record<string, ModelConfigInfo> = {};
+            const defaultConfigs: Record<string, ModelConfig> = {};
 
             for (const [actionKey, mergedConfig] of Object.entries(userConfigsRecord)) {
                 if (mergedConfig.isUserOverride) {
@@ -731,8 +737,7 @@ export class PhasicCodingBehavior extends BaseCodingBehavior<PhasicState> implem
                         isUserOverride: true
                     };
                 }
-                
-                // Always include default config
+
                 const defaultConfig = AGENT_CONFIG[actionKey as AgentActionKey];
                 if (defaultConfig) {
                     defaultConfigs[actionKey] = {
@@ -817,10 +822,10 @@ export class PhasicCodingBehavior extends BaseCodingBehavior<PhasicState> implem
             phase,
             {
                 runtimeErrors: [],
-                staticAnalysis: { 
-                    success: true, 
-                    lint: { issues: [] }, 
-                    typecheck: { issues: [] } 
+                staticAnalysis: {
+                    success: true,
+                    lint: { issues: [] },
+                    typecheck: { issues: [] }
                 },
             },
             { suggestions: requirements },
@@ -828,14 +833,16 @@ export class PhasicCodingBehavior extends BaseCodingBehavior<PhasicState> implem
             false // postPhaseFixing = false (skip auto-fixes)
         );
 
-        // Return files with diffs from FileState
-        return {
-            files: result.files.map(f => ({
+        const savedFiles = result.files.map(f => {
+            const fileState = this.state.generatedFilesMap[f.filePath];
+            return {
                 path: f.filePath,
                 purpose: f.filePurpose || '',
-                diff: (f as any).lastDiff || '' // FileState has lastDiff
-            }))
-        };
+                diff: fileState?.lastDiff || ''
+            };
+        });
+
+        return { files: savedFiles };
     }
 
     async handleUserInput(userMessage: string, images?: ImageAttachment[]): Promise<void> {

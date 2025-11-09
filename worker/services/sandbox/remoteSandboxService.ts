@@ -31,6 +31,7 @@ import {
     GitHubPushResponseSchema,
 } from './sandboxTypes';
 import { BaseSandboxService } from "./BaseSandboxService";
+import { DeploymentTarget } from 'worker/agents/core/types';
 import { env } from 'cloudflare:workers'
 import z from 'zod';
 import { FileOutputType } from 'worker/agents/schemas';
@@ -193,7 +194,14 @@ export class RemoteSandboxServiceClient extends BaseSandboxService{
      * @param instanceId The ID of the runner instance to deploy
      * @param credentials Optional Cloudflare deployment credentials
      */
-    async deployToCloudflareWorkers(instanceId: string): Promise<DeploymentResult> {
+    async deployToCloudflareWorkers(instanceId: string, target: DeploymentTarget = 'platform'): Promise<DeploymentResult> {
+        if (target === 'user') {
+            return {
+                success: false,
+                message: 'User-targeted deployments are not available with remote sandbox runner',
+                error: 'unsupported_target'
+            };
+        }
         return this.makeRequest(`/instances/${instanceId}/deploy`, 'POST', DeploymentResultSchema);
     }
 

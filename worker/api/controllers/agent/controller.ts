@@ -1,7 +1,8 @@
 import { WebSocketMessageResponses } from '../../../agents/constants';
 import { BaseController } from '../baseController';
 import { generateId } from '../../../utils/idGenerator';
-import { CodeGenState } from '../../../agents/core/state';
+import { AgentState } from '../../../agents/core/state';
+import { BehaviorType, ProjectType } from '../../../agents/core/types';
 import { getAgentStub, getTemplateForQuery } from '../../../agents';
 import { AgentConnectionData, AgentPreviewResponse, CodeGenArgs } from './types';
 import { ApiResponse, ControllerResponse } from '../types';
@@ -22,6 +23,19 @@ const defaultCodeGenArgs: CodeGenArgs = {
     frameworks: ['react', 'vite'],
     selectedTemplate: 'auto',
     agentMode: 'deterministic',
+    behaviorType: 'phasic',
+    projectType: 'app',
+};
+
+const resolveBehaviorType = (body: CodeGenArgs): BehaviorType => {
+    if (body.behaviorType) {
+        return body.behaviorType;
+    }
+    return body.agentMode === 'smart' ? 'agentic' : 'phasic';
+};
+
+const resolveProjectType = (body: CodeGenArgs): ProjectType => {
+    return body.projectType || defaultCodeGenArgs.projectType || 'app';
 };
 
 
@@ -77,11 +91,13 @@ export class CodingAgentController extends BaseController {
 
             const agentId = generateId();
             const modelConfigService = new ModelConfigService(env);
+            const behaviorType = resolveBehaviorType(body);
+            const projectType = resolveProjectType(body);
                                 
             // Fetch all user model configs, api keys and agent instance at once
             const [userConfigsRecord, agentInstance] = await Promise.all([
                 modelConfigService.getUserModelConfigs(user.id),
-                getAgentStub(env, agentId)
+                getAgentStub(env, agentId, { behaviorType, projectType })
             ]);
                                 
             // Convert Record to Map and extract only ModelConfig properties
@@ -144,9 +160,11 @@ export class CodingAgentController extends BaseController {
                 onBlueprintChunk: (chunk: string) => {
                     writer.write({chunk});
                 },
+                behaviorType,
+                projectType,
                 templateInfo: { templateDetails, selection },
-            }, body.agentMode || defaultCodeGenArgs.agentMode) as Promise<CodeGenState>;
-            agentPromise.then(async (_state: CodeGenState) => {
+            }) as Promise<AgentState>;
+            agentPromise.then(async (_state: AgentState) => {
                 writer.write("terminate");
                 writer.close();
                 this.logger.info(`Agent ${agentId} terminated successfully`);

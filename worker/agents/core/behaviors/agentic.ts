@@ -61,6 +61,7 @@ export class AgenticCodingBehavior extends BaseCodingBehavior<AgenticState> impl
             query,
             language: language!,
             frameworks: frameworks!,
+            projectType: this.state.projectType,
             templateDetails: templateInfo?.templateDetails,
             templateMetaInfo: templateInfo?.selection,
             images: initArgs.images,

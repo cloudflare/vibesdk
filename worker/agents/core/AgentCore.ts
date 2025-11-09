@@ -6,6 +6,7 @@ import { BaseProjectState } from "./state";
 import { WebSocketMessageType } from "../../api/websocketTypes";
 import { WebSocketMessageData } from "../../api/websocketTypes";
 import { ConversationMessage, ConversationState } from "../inferutils/common";
+import { TemplateDetails } from "worker/services/sandbox/sandboxTypes";
 
 /**
  * Infrastructure interface for agent implementations.
@@ -34,4 +35,12 @@ export interface AgentInfrastructure<TState extends BaseProjectState> {
     readonly fileManager: FileManager;
     readonly deploymentManager: DeploymentManager;
     readonly git: GitVersionControl;
+
+    // Git export infrastructure
+    exportGitObjects(): Promise<{
+        gitObjects: Array<{ path: string; data: Uint8Array }>;
+        query: string;
+        hasCommits: boolean;
+        templateDetails: TemplateDetails | null;
+    }>;
 }
