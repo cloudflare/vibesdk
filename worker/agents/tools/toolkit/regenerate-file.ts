@@ -38,7 +38,7 @@ CRITICAL: Provide detailed, specific issues - not vague descriptions. See system
 					path,
 					issuesCount: issues.length,
 				});
-				return await agent.regenerateFile(path, issues);
+				return await agent.regenerateFileByPath(path, issues);
 			} catch (error) {
 				return {
 					error:

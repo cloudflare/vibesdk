@@ -1,12 +1,13 @@
-import { CodeGenState, FileState } from './state';
+import { AgentState, FileState } from './state';
 import { StructuredLogger } from '../../logger';
 import { TemplateDetails } from 'worker/services/sandbox/sandboxTypes';
 import { generateNanoId } from '../../utils/idGenerator';
 import { generateProjectName } from '../utils/templateCustomizer';
 
 export class StateMigration {
-    static migrateIfNeeded(state: CodeGenState, logger: StructuredLogger): CodeGenState | null {
+    static migrateIfNeeded(state: AgentState, logger: StructuredLogger): AgentState | null {
         let needsMigration = false;
+        const legacyState = state as unknown as Record<string, unknown>;
         
         //------------------------------------------------------------------------------------
         // Migrate files from old schema
@@ -170,6 +171,27 @@ export class StateMigration {
             logger.info('Generating missing projectName', { projectName: migratedProjectName });
         }
 
+        let migratedProjectType = state.projectType;
+        if (!('projectType' in legacyState) || !migratedProjectType) {
+            migratedProjectType = 'app';
+            needsMigration = true;
+            logger.info('Adding default projectType for legacy state', { projectType: migratedProjectType });
+        }
+
+        let migratedBehaviorType = state.behaviorType;
+        if ('agentMode' in legacyState) {
+            const legacyAgentMode = (legacyState as { agentMode?: string }).agentMode;
+            const nextBehaviorType = legacyAgentMode === 'smart' ? 'agentic' : 'phasic';
+            if (nextBehaviorType !== migratedBehaviorType) {
+                migratedBehaviorType = nextBehaviorType;
+                needsMigration = true;
+            }
+            logger.info('Migrating behaviorType from agentMode', {
+                legacyAgentMode,
+                behaviorType: migratedBehaviorType
+            });
+        }
+
         if (needsMigration) {
             logger.info('Migrating state: schema format, conversation cleanup, security fixes, and bootstrap setup', {
                 generatedFilesCount: Object.keys(migratedFilesMap).length,
@@ -177,15 +199,17 @@ export class StateMigration {
                 removedUserApiKeys: state.inferenceContext && 'userApiKeys' in state.inferenceContext,
             });
             
-            const newState = {
+            const newState: AgentState = {
                 ...state,
                 generatedFilesMap: migratedFilesMap,
                 conversationMessages: migratedConversationMessages,
                 inferenceContext: migratedInferenceContext,
                 projectUpdatesAccumulator: [],
                 templateName: migratedTemplateName,
-                projectName: migratedProjectName
-            };
+                projectName: migratedProjectName,
+                projectType: migratedProjectType,
+                behaviorType: migratedBehaviorType
+            } as AgentState;
             
             // Remove deprecated fields
             if (stateHasDeprecatedProps) {
@@ -193,6 +217,9 @@ export class StateMigration {
             }
             if (hasTemplateDetails) {
                 delete (newState as any).templateDetails;
+            }
+            if ('agentMode' in legacyState) {
+                delete (newState as any).agentMode;
             }
             
             return newState;

@@ -10,6 +10,7 @@ import z from 'zod';
 import { imagesToBase64 } from 'worker/utils/images';
 import { ProcessedImageAttachment } from 'worker/types/image-attachment';
 import { getTemplateImportantFiles } from 'worker/services/sandbox/utils';
+import { ProjectType } from '../core/types';
 
 const logger = createLogger('Blueprint');
 
@@ -225,12 +226,31 @@ Preinstalled dependencies:
 {{dependencies}}
 </STARTING TEMPLATE>`;
 
+const PROJECT_TYPE_BLUEPRINT_GUIDANCE: Record<ProjectType, string> = {
+    app: '',
+    workflow: `## Workflow Project Context
+- Focus entirely on backend flows running on Cloudflare Workers (no UI/screens)
+- Describe REST endpoints, scheduled jobs, queue consumers, Durable Objects, and data storage bindings in detail
+- User flow should outline request/response shapes and operational safeguards
+- Implementation roadmap must mention testing strategies (unit tests, integration tests) and deployment validation steps.`,
+    presentation: `## Presentation Project Context
+- Design a Spectacle-based slide deck with a cohesive narrative arc (intro, problem, solution, showcase, CTA)
+- Produce visually rich slides with precise layout, typography, imagery, and animation guidance
+- User flow should actually be a \"story flow\" describing slide order, transitions, interactions, and speaker cues
+- Implementation roadmap must reference Spectacle features (themes, deck index, slide components, animations, print/external export mode)
+- Prioritize static data and storytelling polish; avoid backend complexity entirely.`,
+};
+
+const getProjectTypeGuidance = (projectType: ProjectType): string =>
+    PROJECT_TYPE_BLUEPRINT_GUIDANCE[projectType] || '';
+
 interface BaseBlueprintGenerationArgs {
     env: Env;
     inferenceContext: InferenceContext;
     query: string;
     language: string;
     frameworks: string[];
+    projectType: ProjectType;
     images?: ProcessedImageAttachment[];
     stream?: {
         chunk_size: number;
@@ -256,7 +276,7 @@ export async function generateBlueprint(args: AgenticBlueprintGenerationArgs): P
 export async function generateBlueprint(
     args: PhasicBlueprintGenerationArgs | AgenticBlueprintGenerationArgs
 ): Promise<Blueprint> {
-    const { env, inferenceContext, query, language, frameworks, templateDetails, templateMetaInfo, images, stream } = args;
+    const { env, inferenceContext, query, language, frameworks, templateDetails, templateMetaInfo, images, stream, projectType } = args;
     const isAgentic = !templateDetails || !templateMetaInfo;
     
     try {
@@ -276,6 +296,10 @@ export async function generateBlueprint(
             );
             const fileTreeText = PROMPT_UTILS.serializeTreeNodes(templateDetails.fileTree);
             systemPrompt = systemPrompt.replace('{{filesText}}', filesText).replace('{{fileTreeText}}', fileTreeText);
+        }
+        const projectGuidance = getProjectTypeGuidance(projectType);
+        if (projectGuidance) {
+            systemPrompt = `${systemPrompt}\n\n${projectGuidance}`;
         }
         
         const systemPromptMessage = createSystemMessage(generalSystemPromptBuilder(systemPrompt, {

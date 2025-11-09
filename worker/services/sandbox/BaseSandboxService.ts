@@ -34,6 +34,7 @@ import { createObjectLogger, StructuredLogger } from '../../logger';
 import { env } from 'cloudflare:workers'
 import { ZipExtractor } from './zipExtractor';
 import { FileTreeBuilder } from './fileTreeBuilder';
+import { DeploymentTarget } from 'worker/agents/core/types';
 
 /**
  * Streaming event for enhanced command execution
@@ -305,7 +306,7 @@ export abstract class BaseSandboxService {
      * Deploy instance to Cloudflare Workers
      * Returns: { success: boolean, message: string, deployedUrl?: string, deploymentId?: string, error?: string }
      */
-    abstract deployToCloudflareWorkers(instanceId: string): Promise<DeploymentResult>;
+    abstract deployToCloudflareWorkers(instanceId: string, target?: DeploymentTarget): Promise<DeploymentResult>;
   
     // ==========================================
     // GITHUB INTEGRATION (Required)

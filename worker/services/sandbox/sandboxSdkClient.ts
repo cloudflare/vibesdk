@@ -32,6 +32,7 @@ import {
     buildDeploymentConfig, 
     parseWranglerConfig, 
     deployToDispatch, 
+    deployWorker,
 } from '../deployer/deploy';
 import { 
     createAssetManifest 
@@ -43,6 +44,7 @@ import { ResourceProvisioningResult } from './types';
 import { getPreviewDomain } from '../../utils/urls';
 import { isDev } from 'worker/utils/envs'
 import { FileTreeBuilder } from './fileTreeBuilder';
+import { DeploymentTarget } from 'worker/agents/core/types';
 // Export the Sandbox class in your Worker
 export { Sandbox as UserAppSandboxService, Sandbox as DeployerService} from "@cloudflare/sandbox";
 
@@ -1058,8 +1060,6 @@ export class SandboxSdkClient extends BaseSandboxService {
                 instanceId = `i-${generateId()}`;
             }
             this.logger.info('Creating sandbox instance', { instanceId, templateName, projectName });
-            
-            let results: {previewURL: string, tunnelURL: string, processId: string, allocatedPort: number} | undefined;
             await this.ensureTemplateExists(templateName);
 
             const [donttouchFiles, redactedFiles] = await Promise.all([
@@ -1080,17 +1080,16 @@ export class SandboxSdkClient extends BaseSandboxService {
                     error: 'Failed to setup instance'
                 };
             }
-            results = setupResult;
             // Store instance metadata
             const metadata = {
                 templateName: templateName,
                 projectName: projectName,
                 startTime: new Date().toISOString(),
                 webhookUrl: webhookUrl,
-                previewURL: results?.previewURL,
-                processId: results?.processId,
-                tunnelURL: results?.tunnelURL,
-                allocatedPort: results?.allocatedPort,
+                previewURL: setupResult?.previewURL,
+                processId: setupResult?.processId,
+                tunnelURL: setupResult?.tunnelURL,
+                allocatedPort: setupResult?.allocatedPort,
                 donttouch_files: donttouchFiles,
                 redacted_files: redactedFiles,
             };
@@ -1100,9 +1099,9 @@ export class SandboxSdkClient extends BaseSandboxService {
                 success: true,
                 runId: instanceId,
                 message: `Successfully created instance from template ${templateName}`,
-                previewURL: results?.previewURL,
-                tunnelURL: results?.tunnelURL,
-                processId: results?.processId,
+                previewURL: setupResult?.previewURL,
+                tunnelURL: setupResult?.tunnelURL,
+                processId: setupResult?.processId,
             };
         } catch (error) {
             this.logger.error('createInstance', error, { templateName: templateName, projectName: projectName });
@@ -1574,8 +1573,6 @@ export class SandboxSdkClient extends BaseSandboxService {
 
     async clearInstanceErrors(instanceId: string): Promise<ClearErrorsResponse> {
         try {
-            let clearedCount = 0;
-
             // Try enhanced error system first - clear ALL errors
             try {
                 const cmd = `timeout 10s monitor-cli errors clear -i ${instanceId} --confirm`;
@@ -1600,11 +1597,11 @@ export class SandboxSdkClient extends BaseSandboxService {
                 this.logger.warn('Error clearing unavailable, falling back to legacy', enhancedError);
             }
 
-            this.logger.info(`Cleared ${clearedCount} errors for instance ${instanceId}`);
+            this.logger.info(`Cleared errors for instance ${instanceId}`);
 
             return {
                 success: true,
-                message: `Cleared ${clearedCount} errors`
+                message: `Cleared errors`
             };
         } catch (error) {
             this.logger.error('clearInstanceErrors', error, { instanceId });
@@ -1785,7 +1782,7 @@ export class SandboxSdkClient extends BaseSandboxService {
     // ==========================================
     // DEPLOYMENT
     // ==========================================
-    async deployToCloudflareWorkers(instanceId: string): Promise<DeploymentResult> {
+    async deployToCloudflareWorkers(instanceId: string, target: DeploymentTarget = 'platform'): Promise<DeploymentResult> {
         try {
             this.logger.info('Starting deployment', { instanceId });
             
@@ -1819,7 +1816,7 @@ export class SandboxSdkClient extends BaseSandboxService {
             
             // Step 2: Parse wrangler config from KV
             this.logger.info('Reading wrangler configuration from KV');
-            let wranglerConfigContent = await env.VibecoderStore.get(this.getWranglerKVKey(instanceId));
+            const wranglerConfigContent = await env.VibecoderStore.get(this.getWranglerKVKey(instanceId));
             
             if (!wranglerConfigContent) {
                 // This should never happen unless KV itself has some issues
@@ -1925,8 +1922,14 @@ export class SandboxSdkClient extends BaseSandboxService {
             );
             
             // Step 7: Deploy using pure function
-            this.logger.info('Deploying to Cloudflare');
-            if ('DISPATCH_NAMESPACE' in env) {
+            const useDispatch = target === 'platform';
+            this.logger.info('Deploying to Cloudflare', { target });
+            
+            if (useDispatch) {
+                if (!('DISPATCH_NAMESPACE' in env)) {
+                    throw new Error('DISPATCH_NAMESPACE not found in environment variables, cannot deploy without dispatch namespace');
+                }
+                
                 this.logger.info('Using dispatch namespace', { dispatchNamespace: env.DISPATCH_NAMESPACE });
                 await deployToDispatch(
                     {
@@ -1939,7 +1942,13 @@ export class SandboxSdkClient extends BaseSandboxService {
                     config.assets
                 );
             } else {
-                throw new Error('DISPATCH_NAMESPACE not found in environment variables, cannot deploy without dispatch namespace');
+                await deployWorker(
+                    deployConfig,
+                    fileContents,
+                    additionalModules,
+                    config.migrations,
+                    config.assets
+                );
             }
             
             // Step 8: Determine deployment URL
@@ -1950,7 +1959,7 @@ export class SandboxSdkClient extends BaseSandboxService {
                 instanceId,
                 deployedUrl, 
                 deploymentId,
-                mode: 'dispatch-namespace'
+                mode: useDispatch ? 'dispatch-namespace' : 'user-worker'
             });
             
             return {

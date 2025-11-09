@@ -21,7 +21,7 @@ import { ViewModeSwitch } from './components/view-mode-switch';
 import { DebugPanel, type DebugMessage } from './components/debug-panel';
 import { DeploymentControls } from './components/deployment-controls';
 import { useChat, type FileType } from './hooks/use-chat';
-import { type ModelConfigsData, type BlueprintType, SUPPORTED_IMAGE_MIME_TYPES } from '@/api-types';
+import { type ModelConfigsData, type BlueprintType, type PhasicBlueprint, SUPPORTED_IMAGE_MIME_TYPES } from '@/api-types';
 import { Copy } from './components/copy';
 import { useFileContentStream } from './hooks/use-file-content-stream';
 import { logger } from '@/utils/logger';
@@ -41,6 +41,9 @@ import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { sendWebSocketMessage } from './utils/websocket-helpers';
+
+const isPhasicBlueprint = (blueprint?: BlueprintType | null): blueprint is PhasicBlueprint =>
+	!!blueprint && 'implementationRoadmap' in blueprint;
 
 export default function Chat() {
 	const { chatId: urlChatId } = useParams();
@@ -471,11 +474,13 @@ export default function Chat() {
 		const completedPhases = phaseTimeline.filter(p => p.status === 'completed').length;
 
 		// Get predicted phase count from blueprint, fallback to current phase count
-		const predictedPhaseCount = blueprint?.implementationRoadmap?.length || 0;
+		const predictedPhaseCount = isPhasicBlueprint(blueprint)
+			? blueprint.implementationRoadmap.length
+			: 0;
 		const totalPhases = Math.max(predictedPhaseCount, phaseTimeline.length, 1);
 
 		return [completedPhases, totalPhases];
-	}, [phaseTimeline, blueprint?.implementationRoadmap]);
+	}, [phaseTimeline, blueprint]);
 
 	if (import.meta.env.DEV) {
 		logger.debug({

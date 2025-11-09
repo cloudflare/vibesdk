@@ -50,13 +50,12 @@ export function handleWebSocketMessage(
                 });
                 break;
             case WebSocketMessageRequests.DEPLOY:
-                // Use objective.export() for deployment (project-specific logic)
-                agent.getObjective().export({ type: 'cloudflare' }).then((deploymentResult) => {
-                    if (!deploymentResult) {
-                        logger.error('Failed to deploy to Cloudflare Workers');
+                agent.deployProject().then((deploymentResult) => {
+                    if (!deploymentResult.success) {
+                        logger.error('Deployment failed', deploymentResult);
                         return;
                     }
-                    logger.info('Successfully deployed to Cloudflare Workers!', deploymentResult);
+                    logger.info('Deployment completed', deploymentResult);
                 }).catch((error: unknown) => {
                     logger.error('Error during deployment:', error);
                 });

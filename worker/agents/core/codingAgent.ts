@@ -1,6 +1,7 @@
 import { Agent, AgentContext } from "agents";
-import { AgentInitArgs, BehaviorType } from "./types";
+import { AgentInitArgs, AgentSummary, BehaviorType, DeployOptions, DeployResult, ExportOptions, ExportResult, DeploymentTarget } from "./types";
 import { AgenticState, AgentState, BaseProjectState, CurrentDevState, MAX_PHASES, PhasicState } from "./state";
+import { Blueprint } from "../schemas";
 import { BaseCodingBehavior } from "./behaviors/base";
 import { createObjectLogger, StructuredLogger } from '../../logger';
 import { InferenceContext } from "../inferutils/config.types";
@@ -16,8 +17,7 @@ import { ProjectType } from './types';
 import { Connection } from 'agents';
 import { handleWebSocketMessage, handleWebSocketClose, broadcastToConnections } from './websocket';
 import { WebSocketMessageData, WebSocketMessageType } from "worker/api/websocketTypes";
-import { GitHubPushRequest, TemplateDetails } from "worker/services/sandbox/sandboxTypes";
-import { GitHubExportResult, GitHubService } from "worker/services/github";
+import { PreviewType, TemplateDetails } from "worker/services/sandbox/sandboxTypes";
 import { WebSocketMessageResponses } from "../constants";
 import { AppService } from "worker/database";
 import { ConversationMessage, ConversationState } from "../inferutils/common";
@@ -27,22 +27,20 @@ import { ProjectObjective } from "./objectives/base";
 import { AppObjective } from "./objectives/app";
 import { WorkflowObjective } from "./objectives/workflow";
 import { PresentationObjective } from "./objectives/presentation";
+import { FileOutputType } from "../schemas";
 
 const DEFAULT_CONVERSATION_SESSION_ID = 'default';
 
+interface AgentBootstrapProps {
+    behaviorType?: BehaviorType;
+    projectType?: ProjectType;
+}
+
 export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentInfrastructure<AgentState> {
     public _logger: StructuredLogger | undefined;
-    private behavior: BaseCodingBehavior<BaseProjectState>;
-    private objective: ProjectObjective<BaseProjectState>;
+    private behavior!: BaseCodingBehavior<AgentState>;
+    private objective!: ProjectObjective<BaseProjectState>;
     protected static readonly PROJECT_NAME_PREFIX_MAX_LENGTH = 20;
-    
-    // GitHub token cache (ephemeral, lost on DO eviction)
-    protected githubTokenCache: {
-        token: string;
-        username: string;
-        expiresAt: number;
-    } | null = null;
-    
     // Services
     readonly fileManager: FileManager;
     readonly deploymentManager: DeploymentManager;
@@ -56,30 +54,30 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
     // Initialization
     // ==========================================
     
-    initialState: AgentState = {
-        blueprint: {} as any, // Will be populated during initialization
-        projectName: "",
-        projectType: 'app', // Default project type
-        query: "",
-        generatedPhases: [],
-        generatedFilesMap: {},
+    initialState = {
         behaviorType: 'phasic',
-        sandboxInstanceId: undefined,
+        projectType: 'app',
+        projectName: "",
+        query: "",
+        sessionId: '',
+        hostname: '',
+        blueprint: {} as unknown as Blueprint,
         templateName: '',
+        generatedFilesMap: {},
+        conversationMessages: [],
+        inferenceContext: {} as InferenceContext,
+        shouldBeGenerating: false,
+        sandboxInstanceId: undefined,
         commandsHistory: [],
         lastPackageJson: '',
         pendingUserInputs: [],
-        inferenceContext: {} as InferenceContext,
-        sessionId: '',
-        hostname: '',
-        conversationMessages: [],
-        currentDevState: CurrentDevState.IDLE,
-        phasesCounter: MAX_PHASES,
-        mvpGenerated: false,
-        shouldBeGenerating: false,
-        reviewingInitiated: false,
         projectUpdatesAccumulator: [],
         lastDeepDebugTranscript: null,
+        mvpGenerated: false,
+        reviewingInitiated: false,
+        generatedPhases: [],
+        currentDevState: CurrentDevState.IDLE,
+        phasesCounter: MAX_PHASES,
     } as AgentState;
 
     constructor(ctx: AgentContext, env: Env) {
@@ -110,8 +108,19 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
             10 // MAX_COMMANDS_HISTORY
         );
         
-        const behaviorTypeProp = (ctx.props as Record<string, unknown>)?.behaviorType as BehaviorType | undefined;
-        const behaviorType = this.state.behaviorType || behaviorTypeProp || 'phasic';
+        const props = (ctx.props as AgentBootstrapProps) || {};
+        const isInitialized = Boolean(this.state.query);
+        const behaviorType = isInitialized
+            ? this.state.behaviorType
+            : props.behaviorType ?? this.state.behaviorType ?? 'phasic';
+        const projectType = isInitialized
+            ? this.state.projectType
+            : props.projectType ?? this.state.projectType ?? 'app';
+
+        if (isInitialized && this.state.behaviorType !== behaviorType) {
+            throw new Error(`State behaviorType mismatch: expected ${behaviorType}, got ${this.state.behaviorType}`);
+        }
+
         if (behaviorType === 'phasic') {
             this.behavior = new PhasicCodingBehavior(this as AgentInfrastructure<PhasicState>);
         } else {
@@ -119,7 +128,7 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
         }
         
         // Create objective based on project type
-        this.objective = this.createObjective(this.state.projectType || 'app');
+        this.objective = this.createObjective(projectType);
     }
     
     /**
@@ -252,8 +261,41 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
     /**
      * Get the behavior (defines how code is generated)
      */
-    getBehavior(): BaseCodingBehavior<BaseProjectState> {
+    getBehavior(): BaseCodingBehavior<AgentState> {
         return this.behavior;
+    }
+
+    async getFullState(): Promise<AgentState> {
+        return await this.behavior.getFullState();
+    }
+
+    async getSummary(): Promise<AgentSummary> {
+        return this.behavior.getSummary();
+    }
+
+    getPreviewUrlCache(): string {
+        return this.behavior.getPreviewUrlCache();
+    }
+
+    deployToSandbox(
+        files: FileOutputType[] = [],
+        redeploy: boolean = false,
+        commitMessage?: string,
+        clearLogs: boolean = false
+    ): Promise<PreviewType | null> {
+        return this.behavior.deployToSandbox(files, redeploy, commitMessage, clearLogs);
+    }
+
+    deployToCloudflare(target?: DeploymentTarget): Promise<{ deploymentUrl?: string; workersUrl?: string } | null> {
+        return this.behavior.deployToCloudflare(target);
+    }
+
+    deployProject(options?: DeployOptions): Promise<DeployResult> {
+        return this.objective.deploy(options);
+    }
+
+    exportProject(options: ExportOptions): Promise<ExportResult> {
+        return this.objective.export(options);
     }
     
     protected async saveToDatabase() {
@@ -521,194 +563,4 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
             throw error;
         }
     }
-
-    /**
-     * Cache GitHub OAuth token in memory for subsequent exports
-     * Token is ephemeral - lost on DO eviction
-     */
-    setGitHubToken(token: string, username: string, ttl: number = 3600000): void {
-        this.githubTokenCache = {
-            token,
-            username,
-            expiresAt: Date.now() + ttl
-        };
-        this.logger().info('GitHub token cached', { 
-            username, 
-            expiresAt: new Date(this.githubTokenCache.expiresAt).toISOString() 
-        });
-    }
-
-    /**
-     * Get cached GitHub token if available and not expired
-     */
-    getGitHubToken(): { token: string; username: string } | null {
-        if (!this.githubTokenCache) {
-            return null;
-        }
-        
-        if (Date.now() >= this.githubTokenCache.expiresAt) {
-            this.logger().info('GitHub token expired, clearing cache');
-            this.githubTokenCache = null;
-            return null;
-        }
-        
-        return {
-            token: this.githubTokenCache.token,
-            username: this.githubTokenCache.username
-        };
-    }
-
-    /**
-     * Clear cached GitHub token
-     */
-    clearGitHubToken(): void {
-        this.githubTokenCache = null;
-        this.logger().info('GitHub token cleared');
-    }
-
-
-    /**
-     * Export generated code to a GitHub repository
-     */
-    async pushToGitHub(options: GitHubPushRequest): Promise<GitHubExportResult> {
-        try {
-            this.logger().info('Starting GitHub export using DO git');
-
-            // Broadcast export started
-            this.broadcast(WebSocketMessageResponses.GITHUB_EXPORT_STARTED, {
-                message: `Starting GitHub export to repository "${options.cloneUrl}"`,
-                repositoryName: options.repositoryHtmlUrl,
-                isPrivate: options.isPrivate
-            });
-
-            // Export git objects from DO
-            this.broadcast(WebSocketMessageResponses.GITHUB_EXPORT_PROGRESS, {
-                message: 'Preparing git repository...',
-                step: 'preparing',
-                progress: 20
-            });
-
-            const { gitObjects, query, templateDetails } = await this.exportGitObjects();
-            
-            this.logger().info('Git objects exported', {
-                objectCount: gitObjects.length,
-                hasTemplate: !!templateDetails
-            });
-
-            // Get app createdAt timestamp for template base commit
-            let appCreatedAt: Date | undefined = undefined;
-            try {
-                const appId = this.getAgentId();
-                if (appId) {
-                    const appService = new AppService(this.env);
-                    const app = await appService.getAppDetails(appId);
-                    if (app && app.createdAt) {
-                        appCreatedAt = new Date(app.createdAt);
-                        this.logger().info('Using app createdAt for template base', {
-                            createdAt: appCreatedAt.toISOString()
-                        });
-                    }
-                }
-            } catch (error) {
-                this.logger().warn('Failed to get app createdAt, using current time', { error });
-                appCreatedAt = new Date(); // Fallback to current time
-            }
-
-            // Push to GitHub using new service
-            this.broadcast(WebSocketMessageResponses.GITHUB_EXPORT_PROGRESS, {
-                message: 'Uploading to GitHub repository...',
-                step: 'uploading_files',
-                progress: 40
-            });
-
-            const result = await GitHubService.exportToGitHub({
-                gitObjects,
-                templateDetails,
-                appQuery: query,
-                appCreatedAt,
-                token: options.token,
-                repositoryUrl: options.repositoryHtmlUrl,
-                username: options.username,
-                email: options.email
-            });
-
-            if (!result.success) {
-                throw new Error(result.error || 'Failed to export to GitHub');
-            }
-
-            this.logger().info('GitHub export completed', { 
-                commitSha: result.commitSha
-            });
-
-            // Cache token for subsequent exports
-            if (options.token && options.username) {
-                try {
-                    this.setGitHubToken(options.token, options.username);
-                    this.logger().info('GitHub token cached after successful export');
-                } catch (cacheError) {
-                    // Non-fatal - continue with finalization
-                    this.logger().warn('Failed to cache GitHub token', { error: cacheError });
-                }
-            }
-
-            // Update database
-            this.broadcast(WebSocketMessageResponses.GITHUB_EXPORT_PROGRESS, {
-                message: 'Finalizing GitHub export...',
-                step: 'finalizing',
-                progress: 90
-            });
-
-            const agentId = this.getAgentId();
-            this.logger().info('[DB Update] Updating app with GitHub repository URL', {
-                agentId,
-                repositoryUrl: options.repositoryHtmlUrl,
-                visibility: options.isPrivate ? 'private' : 'public'
-            });
-
-            const appService = new AppService(this.env);
-            const updateResult = await appService.updateGitHubRepository(
-                agentId || '',
-                options.repositoryHtmlUrl || '',
-                options.isPrivate ? 'private' : 'public'
-            );
-
-            this.logger().info('[DB Update] Database update result', {
-                agentId,
-                success: updateResult,
-                repositoryUrl: options.repositoryHtmlUrl
-            });
-
-            // Broadcast success
-            this.broadcast(WebSocketMessageResponses.GITHUB_EXPORT_COMPLETED, {
-                message: `Successfully exported to GitHub repository: ${options.repositoryHtmlUrl}`,
-                repositoryUrl: options.repositoryHtmlUrl,
-                cloneUrl: options.cloneUrl,
-                commitSha: result.commitSha
-            });
-
-            this.logger().info('GitHub export completed successfully', { 
-                repositoryUrl: options.repositoryHtmlUrl,
-                commitSha: result.commitSha
-            });
-            
-            return { 
-                success: true, 
-                repositoryUrl: options.repositoryHtmlUrl,
-                cloneUrl: options.cloneUrl
-            };
-
-        } catch (error) {
-            this.logger().error('GitHub export failed', error);
-            this.broadcast(WebSocketMessageResponses.GITHUB_EXPORT_ERROR, {
-                message: `GitHub export failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
-                error: error instanceof Error ? error.message : 'Unknown error'
-            });
-            return { 
-                success: false, 
-                repositoryUrl: options.repositoryHtmlUrl,
-                cloneUrl: options.cloneUrl 
-            };
-        }
-    }
-
 }
