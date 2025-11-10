@@ -8,6 +8,10 @@ on:
   pull_request_review_comment:
     types: [created]
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   comprehensive-review:
     name: PR Description & Code Review
@@ -30,6 +34,29 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+      
+      - name: Delete Previous Claude Comments
+        run: |
+          echo "🧹 Deleting previous Claude comments from github-actions bot..."
+          
+          # Get all comments from github-actions bot containing 'Claude'
+          CLAUDE_COMMENTS=$(gh api repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/comments \
+            --jq '[.[] | select(.user.login == "github-actions[bot]") | select(.body | contains("Claude")) | .id]')
+          
+          if [ "$CLAUDE_COMMENTS" = "[]" ] || [ -z "$CLAUDE_COMMENTS" ]; then
+            echo "No previous Claude comments found"
+          else
+            echo "Found Claude comments to delete:"
+            echo "$CLAUDE_COMMENTS" | jq -r '.[]' | while read comment_id; do
+              echo "Deleting comment $comment_id"
+              gh api repos/${{ github.repository }}/issues/comments/$comment_id -X DELETE || echo "Failed to delete comment $comment_id"
+            done
+            echo "✅ Deleted previous Claude comments"
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        continue-on-error: true
+      
       - name: Detect Critical Paths
         id: critical_paths
         run: |
@@ -147,41 +174,3 @@ jobs:
             --max-turns ${{ steps.critical_paths.outputs.is_critical == 'true' && '90' || '65' }}
             --model claude-sonnet-4-5-20250929
       
-      - name: Intelligent Comment Cleanup
-        uses: anthropics/claude-code-action@v1
-        if: always()
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
-          prompt: |
-            Clean up stale bot comments on PR #${{ github.event.pull_request.number }}.
-            
-            **Task:**
-            1. Fetch all comments on this PR
-            2. Identify bot comments (users ending in [bot]) that are stale/outdated:
-               - Old reviews superseded by newer ones
-               - Old PR description suggestions
-               - Previously collapsed/outdated markers
-               - Progress/status comments from previous workflow runs
-            3. Keep only the most recent comment per category per bot
-            4. DELETE all stale comments (do not collapse)
-            
-            **Get all comments:**
-            ```bash
-            gh api repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/comments --jq '.[] | {id, user: .user.login, body, created_at}'
-            ```
-            
-            **Delete a comment:**
-            ```bash
-            gh api repos/${{ github.repository }}/issues/comments/COMMENT_ID -X DELETE
-            ```
-            
-            Be intelligent:
-            - Preserve the newest useful comment in each category
-            - Delete everything else that's redundant or stale
-            - If unsure, keep the comment (conservative approach)
-          
-          claude_args: |
-            --allowed-tools "Bash(gh api repos/*/issues/*/comments:*),Bash(gh api repos/*/issues/comments/*:*)"
-            --max-turns 8
-            --model claude-haiku-4-5-20251001

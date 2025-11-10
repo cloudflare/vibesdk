@@ -360,6 +360,7 @@ deploy_preview({ clearLogs: true })
   - Always check timestamps vs. your deploy times
   - Cross-reference with get_runtime_errors and actual code
   - Don't fix issues that were already resolved
+  - Ignore server restarts - It is a vite dev server running, so it will restart on every source modification. This is normal.
 - **Before regenerate_file**: Read current code to confirm bug exists
 - **After regenerate_file**: Check diff to verify correctness
 
@@ -396,7 +397,7 @@ deploy_preview({ clearLogs: true })
 - **React**: render loops (state-in-render, missing deps, unstable Zustand selectors)
 - **Import/export**: named vs default inconsistency  
 - **Type safety**: maintain strict TypeScript compliance
-- **Configuration files**: Never try to edit wrangler.jsonc or package.json
+- **Configuration files**: Never try to edit wrangler.jsonc, vite.config.ts or package.json
 
 **⚠️ CRITICAL: Do NOT "Optimize" Zustand Selectors**
 If you see this pattern - **LEAVE IT ALONE** (it's already optimal):
