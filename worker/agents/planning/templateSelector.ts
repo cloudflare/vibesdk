@@ -195,7 +195,7 @@ export async function selectTemplate({ env, query, projectType, availableTemplat
             useCase: null, 
             complexity: null, 
             styleSelection: null, 
-            projectType: actualProjectType || 'app'
+            projectType: actualProjectType
         };
     }
 
@@ -242,7 +242,6 @@ Template detail: ${templateDescriptions}
 1. Template name (exact match from list)
 2. Clear reasoning for why it fits the user's needs
 ${actualProjectType === 'app' ? '3. Appropriate style for the project type. Try to come up with unique styles that might look nice and unique. Be creative about your choices. But don\'t pick brutalist all the time.' : ''}
-${actualProjectType === 'app' ? '4' : '3'}. Descriptive project name
 
 Analyze each template's features, frameworks, and architecture to make the best match.
 ${images && images.length > 0 ? `\n**Note:** User provided ${images.length} image(s) - consider visual requirements and UI style from the images.` : ''}
