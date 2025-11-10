@@ -1,11 +1,11 @@
-import { Connection, ConnectionContext } from 'agents';
+import { Connection } from 'agents';
 import { 
     FileConceptType,
     FileOutputType,
     Blueprint,
 } from '../../schemas';
 import { ExecuteCommandsResponse, PreviewType, RuntimeError, StaticAnalysisResponse, TemplateDetails } from '../../../services/sandbox/sandboxTypes';
-import { AgentState, BaseProjectState } from '../state';
+import { BaseProjectState } from '../state';
 import { AllIssues, AgentSummary, AgentInitArgs, BehaviorType, DeploymentTarget, ProjectType } from '../types';
 import { ModelConfig } from '../../inferutils/config.types';
 import { PREVIEW_EXPIRED_ERROR, WebSocketMessageResponses } from '../../constants';
@@ -34,7 +34,6 @@ import { ICodingAgent } from '../../services/interfaces/ICodingAgent';
 import { SimpleCodeGenerationOperation } from '../../operations/SimpleCodeGeneration';
 import { AgentComponent } from '../AgentComponent';
 import type { AgentInfrastructure } from '../AgentCore';
-import { sendToConnection } from '../websocket';
 import { GitVersionControl } from '../../git';
 
 export interface BaseCodingOperations {
@@ -110,14 +109,6 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
         }
     }
     onStateUpdate(_state: TState, _source: "server" | Connection) {}
-
-    onConnect(connection: Connection, ctx: ConnectionContext) {
-        this.logger.info(`Agent connected for agent ${this.getAgentId()}`, { connection, ctx });
-        sendToConnection(connection, 'agent_connected', {
-            state: this.state as unknown as AgentState,
-            templateDetails: this.getTemplateDetails()
-        });
-    }
 
     async ensureTemplateDetails() {
         if (!this.templateDetailsCache) {

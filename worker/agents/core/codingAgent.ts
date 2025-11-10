@@ -1,4 +1,4 @@
-import { Agent, AgentContext } from "agents";
+import { Agent, AgentContext, ConnectionContext } from "agents";
 import { AgentInitArgs, AgentSummary, BehaviorType, DeployOptions, DeployResult, ExportOptions, ExportResult, DeploymentTarget } from "./types";
 import { AgenticState, AgentState, BaseProjectState, CurrentDevState, MAX_PHASES, PhasicState } from "./state";
 import { Blueprint } from "../schemas";
@@ -15,7 +15,7 @@ import { SqlExecutor } from '../git';
 import { AgentInfrastructure } from "./AgentCore";
 import { ProjectType } from './types';
 import { Connection } from 'agents';
-import { handleWebSocketMessage, handleWebSocketClose, broadcastToConnections } from './websocket';
+import { handleWebSocketMessage, handleWebSocketClose, broadcastToConnections, sendToConnection } from './websocket';
 import { WebSocketMessageData, WebSocketMessageType } from "worker/api/websocketTypes";
 import { PreviewType, TemplateDetails } from "worker/services/sandbox/sandboxTypes";
 import { WebSocketMessageResponses } from "../constants";
@@ -217,6 +217,14 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
         
         await this.behavior.ensureTemplateDetails();
         this.logger().info(`Agent ${this.getAgentId()} session: ${this.state.sessionId} onStart processed successfully`);
+    }
+    
+    onConnect(connection: Connection, ctx: ConnectionContext) {
+        this.logger().info(`Agent connected for agent ${this.getAgentId()}`, { connection, ctx });
+        sendToConnection(connection, 'agent_connected', {
+            state: this.state,
+            templateDetails: this.behavior.getTemplateDetails()
+        });
     }
 
     private initLogger(agentId: string, userId: string, sessionId?: string) {
