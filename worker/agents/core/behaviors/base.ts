@@ -6,7 +6,7 @@ import {
 } from '../../schemas';
 import { ExecuteCommandsResponse, PreviewType, RuntimeError, StaticAnalysisResponse, TemplateDetails } from '../../../services/sandbox/sandboxTypes';
 import { AgentState, BaseProjectState } from '../state';
-import { AllIssues, AgentSummary, AgentInitArgs, BehaviorType, DeploymentTarget } from '../types';
+import { AllIssues, AgentSummary, AgentInitArgs, BehaviorType, DeploymentTarget, ProjectType } from '../types';
 import { ModelConfig } from '../../inferutils/config.types';
 import { PREVIEW_EXPIRED_ERROR, WebSocketMessageResponses } from '../../constants';
 import { ProjectSetupAssistant } from '../../assistants/projectsetup';
@@ -73,7 +73,7 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
         return this.state.behaviorType;
     }
 
-    constructor(infrastructure: AgentInfrastructure<TState>) {
+    constructor(infrastructure: AgentInfrastructure<TState>, protected projectType: ProjectType) {
         super(infrastructure);
     }
 

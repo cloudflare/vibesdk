@@ -1,5 +1,12 @@
 import z from 'zod';
 
+// Schema for AI project type prediction
+export const ProjectTypePredictionSchema = z.object({
+    projectType: z.enum(['app', 'workflow', 'presentation']).describe('The predicted type of project based on the user query'),
+    reasoning: z.string().describe('Brief explanation for why this project type was selected'),
+    confidence: z.enum(['high', 'medium', 'low']).describe('Confidence level in the prediction'),
+});
+
 // Schema for AI template selection output
 export const TemplateSelectionSchema = z.object({
     selectedTemplateName: z.string().nullable().describe('The name of the most suitable template, or null if none are suitable.'),
@@ -7,7 +14,7 @@ export const TemplateSelectionSchema = z.object({
     useCase: z.enum(['SaaS Product Website', 'Dashboard', 'Blog', 'Portfolio', 'E-Commerce', 'General', 'Other']).describe('The use case for which the template is selected, if applicable.').nullable(),
     complexity: z.enum(['simple', 'moderate', 'complex']).describe('The complexity of developing the project based on the the user query').nullable(),
     styleSelection: z.enum(['Minimalist Design', 'Brutalism', 'Retro', 'Illustrative', 'Kid_Playful', 'Custom']).describe('Pick a style relevant to the user query').nullable(),
-    projectName: z.string().describe('The name of the project based on the user query'),
+    projectType: z.enum(['app', 'workflow', 'presentation']).default('app').describe('The type of project based on the user query'),
 });
 
 export const FileOutputSchema = z.object({

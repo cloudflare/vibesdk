@@ -34,8 +34,8 @@ const resolveBehaviorType = (body: CodeGenArgs): BehaviorType => {
     return body.agentMode === 'smart' ? 'agentic' : 'phasic';
 };
 
-const resolveProjectType = (body: CodeGenArgs): ProjectType => {
-    return body.projectType || defaultCodeGenArgs.projectType || 'app';
+const resolveProjectType = (body: CodeGenArgs): ProjectType | 'auto' => {
+    return body.projectType || defaultCodeGenArgs.projectType || 'auto';
 };
 
 
@@ -95,10 +95,7 @@ export class CodingAgentController extends BaseController {
             const projectType = resolveProjectType(body);
                                 
             // Fetch all user model configs, api keys and agent instance at once
-            const [userConfigsRecord, agentInstance] = await Promise.all([
-                modelConfigService.getUserModelConfigs(user.id),
-                getAgentStub(env, agentId, { behaviorType, projectType })
-            ]);
+            const userConfigsRecord = await modelConfigService.getUserModelConfigs(user.id);
                                 
             // Convert Record to Map and extract only ModelConfig properties
             const userModelConfigs = new Map();
@@ -126,8 +123,9 @@ export class CodingAgentController extends BaseController {
             this.logger.info(`Initialized inference context for user ${user.id}`, {
                 modelConfigsCount: Object.keys(userModelConfigs).length,
             });
+            this.logger.info(`Creating project of type: ${projectType}`);
 
-            const { templateDetails, selection } = await getTemplateForQuery(env, inferenceContext, query, body.images, this.logger);
+            const { templateDetails, selection, projectType: finalProjectType } = await getTemplateForQuery(env, inferenceContext, query, projectType, body.images, this.logger);
 
             const websocketUrl = `${url.protocol === 'https:' ? 'wss:' : 'ws:'}//${url.host}/api/agent/${agentId}/ws`;
             const httpStatusUrl = `${url.origin}/api/agent/${agentId}`;
@@ -149,6 +147,7 @@ export class CodingAgentController extends BaseController {
                     files: getTemplateImportantFiles(templateDetails),
                 }
             });
+            const agentInstance = await getAgentStub(env, agentId, { behaviorType, projectType: finalProjectType });
 
             const agentPromise = agentInstance.initialize({
                 query,
@@ -160,8 +159,6 @@ export class CodingAgentController extends BaseController {
                 onBlueprintChunk: (chunk: string) => {
                     writer.write({chunk});
                 },
-                behaviorType,
-                projectType,
                 templateInfo: { templateDetails, selection },
             }) as Promise<AgentState>;
             agentPromise.then(async (_state: AgentState) => {

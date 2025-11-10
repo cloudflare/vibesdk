@@ -184,11 +184,10 @@ export class AgenticCodingBehavior extends BaseCodingBehavior<AgenticState> impl
             );
             
             // Create build session for tools
-            // Note: AgenticCodingBehavior is currently used for 'app' type projects
             const session: BuildSession = {
                 agent: this,
                 filesIndex: Object.values(this.state.generatedFilesMap),
-                projectType: 'app'
+                projectType: this.state.projectType || 'app'
             };
             
             // Create tool renderer for UI feedback

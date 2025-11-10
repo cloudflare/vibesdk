@@ -71,7 +71,6 @@ export class PhasicCodingBehavior extends BaseCodingBehavior<PhasicState> implem
     ): Promise<PhasicState> {
         await super.initialize(initArgs);
         const { query, language, frameworks, hostname, inferenceContext, templateInfo, sandboxSessionId } = initArgs;
-        const projectType = initArgs.projectType || this.state.projectType || 'app';
         
         // Generate a blueprint
         this.logger.info('Generating blueprint', { query, queryLength: query.length, imagesCount: initArgs.images?.length || 0 });
@@ -86,7 +85,7 @@ export class PhasicCodingBehavior extends BaseCodingBehavior<PhasicState> implem
             templateDetails: templateInfo?.templateDetails,
             templateMetaInfo: templateInfo?.selection,
             images: initArgs.images,
-            projectType,
+            projectType: this.projectType,
             stream: {
                 chunk_size: 256,
                 onChunk: (chunk) => {
@@ -118,7 +117,7 @@ export class PhasicCodingBehavior extends BaseCodingBehavior<PhasicState> implem
             sessionId: sandboxSessionId!,
             hostname,
             inferenceContext,
-            projectType,
+            projectType: this.projectType,
         };
         this.setState(nextState);
         // Customize template files (package.json, wrangler.jsonc, .bootstrap.js, .gitignore)
