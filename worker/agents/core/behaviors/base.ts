@@ -750,7 +750,7 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
     async execCommands(commands: string[], shouldSave: boolean, timeout?: number): Promise<ExecuteCommandsResponse> {
         const { sandboxInstanceId } = this.state;
         if (!sandboxInstanceId) {
-            return { success: false, results: [], error: 'No sandbox instance' } as any;
+            return { success: false, results: [], error: 'No sandbox instance' };
         }
         const result = await this.getSandboxServiceClient().executeCommands(sandboxInstanceId, commands, timeout);
         if (shouldSave) {
