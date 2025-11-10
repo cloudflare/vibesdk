@@ -74,9 +74,10 @@ export async function getTemplateForQuery(
     env: Env,
     inferenceContext: InferenceContext,
     query: string,
+    projectType: ProjectType | 'auto',
     images: ImageAttachment[] | undefined,
     logger: StructuredLogger,
-) : Promise<{templateDetails: TemplateDetails, selection: TemplateSelection}> {
+) : Promise<{templateDetails: TemplateDetails, selection: TemplateSelection, projectType: ProjectType}> {
     // Fetch available templates
     const templatesResponse = await SandboxSdkClient.listTemplates();
     if (!templatesResponse || !templatesResponse.success) {
@@ -87,6 +88,7 @@ export async function getTemplateForQuery(
         env,
         inferenceContext,
         query,
+        projectType,
         availableTemplates: templatesResponse.templates,
         images,
     });
@@ -110,5 +112,5 @@ export async function getTemplateForQuery(
     }
             
     const templateDetails = templateDetailsResponse.templateDetails;
-    return { templateDetails, selection: analyzeQueryResponse };
+    return { templateDetails, selection: analyzeQueryResponse, projectType: analyzeQueryResponse.projectType };
 }

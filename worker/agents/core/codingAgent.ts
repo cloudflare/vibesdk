@@ -122,9 +122,9 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
         }
 
         if (behaviorType === 'phasic') {
-            this.behavior = new PhasicCodingBehavior(this as AgentInfrastructure<PhasicState>);
+            this.behavior = new PhasicCodingBehavior(this as AgentInfrastructure<PhasicState>, projectType);
         } else {
-            this.behavior = new AgenticCodingBehavior(this as AgentInfrastructure<AgenticState>);
+            this.behavior = new AgenticCodingBehavior(this as AgentInfrastructure<AgenticState>, projectType);
         }
         
         // Create objective based on project type
@@ -562,5 +562,27 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
             this.logger().error('exportGitObjects failed', error);
             throw error;
         }
+    }
+
+    /**
+     * Cache GitHub OAuth token in memory for subsequent exports
+     * Token is ephemeral - lost on DO eviction
+     */
+    setGitHubToken(token: string, username: string, ttl: number = 3600000): void {
+        this.objective.setGitHubToken(token, username, ttl);
+    }
+
+    /**
+     * Get cached GitHub token if available and not expired
+     */
+    getGitHubToken(): { token: string; username: string } | null {
+        return this.objective.getGitHubToken();
+    }
+
+    /**
+     * Clear cached GitHub token
+     */
+    clearGitHubToken(): void {
+        this.objective.clearGitHubToken();
     }
 }

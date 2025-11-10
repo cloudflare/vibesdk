@@ -28,6 +28,7 @@ import {
     GetLogsResponse,
     ListInstancesResponse,
     TemplateDetails,
+    TemplateInfo,
 } from './sandboxTypes';
   
 import { createObjectLogger, StructuredLogger } from '../../logger';
@@ -45,16 +46,6 @@ export interface StreamEvent {
     code?: number;
     error?: string;
     timestamp: Date;
-}
-  
-export interface TemplateInfo {
-    name: string;
-    language?: string;
-    frameworks?: string[];
-    description: {
-        selection: string;
-        usage: string;
-    };
 }
 
 const templateDetailsCache: Record<string, TemplateDetails> = {};
@@ -101,7 +92,8 @@ export abstract class BaseSandboxService {
                     name: t.name,
                     language: t.language,
                     frameworks: t.frameworks || [],
-                    description: t.description
+                    description: t.description,
+                    projectType: t.projectType || 'app'
                 })),
                 count: filteredTemplates.length
             };
