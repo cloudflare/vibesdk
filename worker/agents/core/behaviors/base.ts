@@ -78,10 +78,15 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
     }
 
     public async initialize(
-        _initArgs: AgentInitArgs,
+        initArgs: AgentInitArgs,
         ..._args: unknown[]
     ): Promise<TState> {
         this.logger.info("Initializing agent");
+        const {templateInfo} = initArgs;
+        if (templateInfo) {
+            this.templateDetailsCache = templateInfo.templateDetails;
+        }
+        await this.ensureTemplateDetails();
         return this.state;
     }
 
