@@ -89,13 +89,13 @@ export function Blueprint({
 				</div>
 
 				{/* Views */}
-				{phasicBlueprint && phasicBlueprint.views.length > 0 && (
+				{phasicBlueprint && phasicBlueprint.views?.length > 0 && (
 					<div>
 						<h3 className="text-sm font-medium mb-3 text-text-50/70 uppercase tracking-wider">
 							Views
 						</h3>
 						<div className="space-y-3">
-							{phasicBlueprint.views.map((view, index) => (
+							{phasicBlueprint.views?.map((view, index) => (
 								<div key={`view-${index}`} className="space-y-1">
 									<h4 className="text-xs font-medium text-text-50/70">
 										{view.name}
@@ -165,13 +165,13 @@ export function Blueprint({
 				)}
 
 				{/* Implementation Roadmap */}
-				{phasicBlueprint && phasicBlueprint.implementationRoadmap.length > 0 && (
+				{phasicBlueprint && phasicBlueprint.implementationRoadmap?.length > 0 && (
 					<div>
 						<h3 className="text-sm font-medium mb-2 text-text-50/70 uppercase tracking-wider">
 							Implementation Roadmap
 						</h3>
 						<div className="space-y-3">
-							{phasicBlueprint.implementationRoadmap.map((roadmapItem, index) => (
+							{phasicBlueprint.implementationRoadmap?.map((roadmapItem, index) => (
 								<div key={`roadmap-${index}`} className="space-y-1">
 									<h4 className="text-xs font-medium text-text-50/70">
 										Phase {index + 1}: {roadmapItem.phase}
@@ -220,14 +220,14 @@ export function Blueprint({
 				)}
 
 				{/* Pitfalls */}
-				{phasicBlueprint && phasicBlueprint.pitfalls.length > 0 && (
+				{phasicBlueprint && phasicBlueprint.pitfalls?.length > 0 && (
 					<div>
 						<h3 className="text-sm font-medium mb-2 text-text-50/70 uppercase tracking-wider">
 							Pitfalls
 						</h3>
 						<div className="prose prose-sm prose-invert">
 							<ul className="">
-								{phasicBlueprint.pitfalls.map((pitfall, index) => (
+								{phasicBlueprint.pitfalls?.map((pitfall, index) => (
 									<li key={`pitfall-${index}`} className="">
 										{pitfall}
 									</li>

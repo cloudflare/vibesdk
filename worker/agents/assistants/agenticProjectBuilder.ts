@@ -52,7 +52,6 @@ Build a complete, functional, polished project from the user's requirements usin
 - **Testing**: Sandbox/Container preview with live reload
 
 ## Platform Constraints
-- **NEVER edit wrangler.jsonc or package.json** - these are locked
 - **Only use dependencies from project's package.json** - no others exist
 - All projects run in Cloudflare Workers environment
 - **No Node.js APIs** (no fs, path, process, etc.)
