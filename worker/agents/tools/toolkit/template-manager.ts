@@ -2,6 +2,7 @@ import { ToolDefinition, ErrorResult } from '../types';
 import { StructuredLogger } from '../../../logger';
 import { ICodingAgent } from 'worker/agents/services/interfaces/ICodingAgent';
 import { BaseSandboxService } from 'worker/services/sandbox/BaseSandboxService';
+import { TemplateFile } from 'worker/services/sandbox/sandboxTypes';
 
 export type TemplateManagerArgs = {
     command: 'list' | 'select';
@@ -10,7 +11,7 @@ export type TemplateManagerArgs = {
 
 export type TemplateManagerResult =
     | { summary: string }
-    | { message: string; templateName: string; files: Array<{ path: string; content: string }> }
+    | { message: string; templateName: string; files: TemplateFile[] }
     | ErrorResult;
 
 /**
