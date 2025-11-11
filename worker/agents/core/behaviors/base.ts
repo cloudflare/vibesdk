@@ -6,7 +6,7 @@ import {
     AgenticBlueprint,
     PhasicBlueprint,
 } from '../../schemas';
-import { ExecuteCommandsResponse, PreviewType, RuntimeError, StaticAnalysisResponse, TemplateDetails } from '../../../services/sandbox/sandboxTypes';
+import { ExecuteCommandsResponse, PreviewType, RuntimeError, StaticAnalysisResponse, TemplateDetails, TemplateFile } from '../../../services/sandbox/sandboxTypes';
 import { BaseProjectState, AgenticState } from '../state';
 import { AllIssues, AgentSummary, AgentInitArgs, BehaviorType, DeploymentTarget, ProjectType } from '../types';
 import { ModelConfig } from '../../inferutils/config.types';
@@ -16,6 +16,7 @@ import { UserConversationProcessor, RenderToolCall } from '../../operations/User
 import { FileRegenerationOperation } from '../../operations/FileRegeneration';
 // Database schema imports removed - using zero-storage OAuth flow
 import { BaseSandboxService } from '../../../services/sandbox/BaseSandboxService';
+import { getTemplateImportantFiles } from '../../../services/sandbox/utils';
 import { createScratchTemplateDetails } from '../../utils/templates';
 import { WebSocketMessageData, WebSocketMessageType } from '../../../api/websocketTypes';
 import { InferenceContext, AgentActionKey } from '../../inferutils/config.types';
@@ -778,17 +779,39 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
     }
 
     // ===== Debugging helpers for assistants =====
+    listFiles(): FileOutputType[] {
+        return this.fileManager.getAllRelevantFiles();
+    }
+
     async readFiles(paths: string[]): Promise<{ files: { path: string; content: string }[] }> {
-        const { sandboxInstanceId } = this.state;
-        if (!sandboxInstanceId) {
-            return { files: [] };
+        const results: { path: string; content: string }[] = [];
+        const notFoundInFileManager: string[] = [];
+
+        // First, try to read from FileManager (template + generated files)
+        for (const path of paths) {
+            const file = this.fileManager.getFile(path);
+            if (file) {
+                results.push({ path, content: file.fileContents });
+            } else {
+                notFoundInFileManager.push(path);
+            }
         }
-        const resp = await this.getSandboxServiceClient().getFiles(sandboxInstanceId, paths);
-        if (!resp.success) {
-            this.logger.warn('readFiles failed', { error: resp.error });
-            return { files: [] };
+
+        // If some files not found in FileManager and sandbox exists, try sandbox
+        if (notFoundInFileManager.length > 0 && this.state.sandboxInstanceId) {
+            const resp = await this.getSandboxServiceClient().getFiles(
+                this.state.sandboxInstanceId,
+                notFoundInFileManager
+            );
+            if (resp.success) {
+                results.push(...resp.files.map(f => ({
+                    path: f.filePath,
+                    content: f.fileContents
+                })));
+            }
         }
-        return { files: resp.files.map(f => ({ path: f.filePath, content: f.fileContents })) };
+
+        return { files: results };
     }
 
     async execCommands(commands: string[], shouldSave: boolean, timeout?: number): Promise<ExecuteCommandsResponse> {
@@ -1032,7 +1055,7 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
         }
     }
 
-    async importTemplate(templateName: string, commitMessage: string = `chore: init template ${templateName}`): Promise<{ templateName: string; filesImported: number }> {
+    async importTemplate(templateName: string, commitMessage: string = `chore: init template ${templateName}`): Promise<{ templateName: string; filesImported: number; files: TemplateFile[] }> {
         this.logger.info(`Importing template into project: ${templateName}`);
         const results = await BaseSandboxService.getTemplateDetails(templateName);
         if (!results.success || !results.templateDetails) {
@@ -1060,7 +1083,14 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
             lastPackageJson: templateDetails.allFiles['package.json'] || this.state.lastPackageJson,
         });
 
-        return { templateName: templateDetails.name, filesImported: filesToSave.length };
+        // Get important files for return value
+        const importantFiles = getTemplateImportantFiles(templateDetails);
+
+        return {
+            templateName: templateDetails.name,
+            filesImported: filesToSave.length,
+            files: importantFiles
+        };
     }
 
     async waitForGeneration(): Promise<void> {

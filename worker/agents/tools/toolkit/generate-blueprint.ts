@@ -4,7 +4,9 @@ import { ICodingAgent } from 'worker/agents/services/interfaces/ICodingAgent';
 import { generateBlueprint, type AgenticBlueprintGenerationArgs } from 'worker/agents/planning/blueprint';
 import type { Blueprint } from 'worker/agents/schemas';
 
-type GenerateBlueprintArgs = Record<string, never>;
+type GenerateBlueprintArgs = {
+    prompt: string;
+};
 type GenerateBlueprintResult = { message: string; blueprint: Blueprint };
 
 /**
@@ -19,10 +21,19 @@ export function createGenerateBlueprintTool(
         function: {
             name: 'generate_blueprint',
             description:
-                'Generate a blueprint using the backend blueprint generator. Produces a plan-based blueprint for agentic behavior and a detailed PRD for phasic.',
-            parameters: { type: 'object', properties: {}, additionalProperties: false },
+                'Generate a blueprint using the backend blueprint generator. Produces a plan-based blueprint for agentic behavior and a detailed PRD for phasic. Provide a description/prompt for the project to generate a blueprint.',
+            parameters: {
+                type: 'object',
+                properties: {
+                    prompt: {
+                        type: 'string',
+                        description: 'Prompt/user query for building the project. Use this to provide clarifications, additional requirements, or refined specifications based on conversation context.'
+                    }
+                },
+                required: ['prompt'],
+            },
         },
-        implementation: async () => {
+        implementation: async ({ prompt }: GenerateBlueprintArgs) => {
             const { env, inferenceContext, context } = agent.getOperationOptions();
 
             const isAgentic = agent.getBehavior() === 'agentic';
@@ -34,7 +45,7 @@ export function createGenerateBlueprintTool(
             const args: AgenticBlueprintGenerationArgs = {
                 env,
                 inferenceContext,
-                query: context.query,
+                query: prompt,
                 language,
                 frameworks,
                 templateDetails: context.templateDetails,

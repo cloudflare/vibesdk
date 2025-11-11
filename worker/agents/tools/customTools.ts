@@ -22,7 +22,8 @@ import { createWaitForGenerationTool } from './toolkit/wait-for-generation';
 import { createWaitForDebugTool } from './toolkit/wait-for-debug';
 import { createGitTool } from './toolkit/git';
 import { ICodingAgent } from '../services/interfaces/ICodingAgent';
-import { createInitializeSlidesTool } from './toolkit/initialize-slides';
+import { createTemplateManagerTool } from './toolkit/template-manager';
+import { createVirtualFilesystemTool } from './toolkit/virtual-filesystem';
 import { createGenerateImagesTool } from './toolkit/generate-images';
 
 export async function executeToolWithDefinition<TArgs, TResult>(
@@ -86,13 +87,15 @@ export function buildAgenticBuilderTools(session: DebugSession, logger: Structur
         // PRD generation + refinement
         createGenerateBlueprintTool(session.agent, logger),
         createAlterBlueprintTool(session.agent, logger),
+        // Template management (combined list + select)
+        createTemplateManagerTool(session.agent, logger),
+        // Virtual filesystem operations (list + read from Durable Object storage)
+        createVirtualFilesystemTool(session.agent, logger),
         // Build + analysis toolchain
-        createReadFilesTool(session.agent, logger),
         createGenerateFilesTool(session.agent, logger),
         createRegenerateFileTool(session.agent, logger),
         createRunAnalysisTool(session.agent, logger),
         // Runtime + deploy
-        createInitializeSlidesTool(session.agent, logger),
         createDeployPreviewTool(session.agent, logger),
         createGetRuntimeErrorsTool(session.agent, logger),
         createGetLogsTool(session.agent, logger),
@@ -100,7 +103,7 @@ export function buildAgenticBuilderTools(session: DebugSession, logger: Structur
         createExecCommandsTool(session.agent, logger),
         createWaitTool(logger),
         createGitTool(session.agent, logger),
-        // Optional future: images
+        // WIP: images
         createGenerateImagesTool(session.agent, logger),
     ];
 

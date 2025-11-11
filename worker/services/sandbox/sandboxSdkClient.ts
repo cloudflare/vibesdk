@@ -22,6 +22,8 @@ import {
     GetLogsResponse,
     ListInstancesResponse,
     StoredError,
+    TemplateFile,
+    InstanceCreationRequest,
 } from './sandboxTypes';
 
 import { createObjectLogger } from '../../logger';
@@ -50,7 +52,6 @@ export { Sandbox as UserAppSandboxService, Sandbox as DeployerService} from "@cl
 
 
 interface InstanceMetadata {
-    templateName: string;
     projectName: string;
     startTime: string;
     webhookUrl?: string;
@@ -232,24 +233,24 @@ export class SandboxSdkClient extends BaseSandboxService {
         }
     }
 
-    /** Write a binary file to the sandbox using small base64 chunks to avoid large control messages. */
-    private async writeBinaryFileViaBase64(targetPath: string, data: ArrayBuffer, bytesPerChunk: number = 16 * 1024): Promise<void> {
-        const dir = targetPath.includes('/') ? targetPath.slice(0, targetPath.lastIndexOf('/')) : '.';
-        // Ensure directory and clean target file
-        await this.safeSandboxExec(`mkdir -p '${dir}'`);
-        await this.safeSandboxExec(`rm -f '${targetPath}'`);
+    // /** Write a binary file to the sandbox using small base64 chunks to avoid large control messages. */
+    // private async writeBinaryFileViaBase64(targetPath: string, data: ArrayBuffer, bytesPerChunk: number = 16 * 1024): Promise<void> {
+    //     const dir = targetPath.includes('/') ? targetPath.slice(0, targetPath.lastIndexOf('/')) : '.';
+    //     // Ensure directory and clean target file
+    //     await this.safeSandboxExec(`mkdir -p '${dir}'`);
+    //     await this.safeSandboxExec(`rm -f '${targetPath}'`);
 
-        const buffer = new Uint8Array(data);
-        for (let i = 0; i < buffer.length; i += bytesPerChunk) {
-            const chunk = buffer.subarray(i, Math.min(i + bytesPerChunk, buffer.length));
-            const base64Chunk = btoa(String.fromCharCode(...chunk));
-            // Append decoded bytes into the target file inside the sandbox
-            const appendResult = await this.safeSandboxExec(`printf '%s' '${base64Chunk}' | base64 -d >> '${targetPath}'`);
-            if (appendResult.exitCode !== 0) {
-                throw new Error(`Failed to append to ${targetPath}: ${appendResult.stderr}`);
-            }
-        }
-    }
+    //     const buffer = new Uint8Array(data);
+    //     for (let i = 0; i < buffer.length; i += bytesPerChunk) {
+    //         const chunk = buffer.subarray(i, Math.min(i + bytesPerChunk, buffer.length));
+    //         const base64Chunk = btoa(String.fromCharCode(...chunk));
+    //         // Append decoded bytes into the target file inside the sandbox
+    //         const appendResult = await this.safeSandboxExec(`printf '%s' '${base64Chunk}' | base64 -d >> '${targetPath}'`);
+    //         if (appendResult.exitCode !== 0) {
+    //             throw new Error(`Failed to append to ${targetPath}: ${appendResult.stderr}`);
+    //         }
+    //     }
+    // }
 
     /**
      * Write multiple files efficiently using a single shell script
@@ -257,7 +258,7 @@ export class SandboxSdkClient extends BaseSandboxService {
      * Uses base64 encoding to handle all content safely
      */
     private async writeFilesViaScript(
-        files: Array<{path: string, content: string}>,
+        files: TemplateFile[],
         session: ExecutionSession
     ): Promise<Array<{file: string, success: boolean, error?: string}>> {
         if (files.length === 0) return [];
@@ -267,8 +268,8 @@ export class SandboxSdkClient extends BaseSandboxService {
         // Generate shell script
         const scriptLines = ['#!/bin/bash'];
         
-        for (const { path, content } of files) {
-            const utf8Bytes = new TextEncoder().encode(content);
+        for (const { filePath, fileContents } of files) {
+            const utf8Bytes = new TextEncoder().encode(fileContents);
             
             // Convert bytes to base64 in chunks to avoid stack overflow
             const chunkSize = 8192;
@@ -288,7 +289,7 @@ export class SandboxSdkClient extends BaseSandboxService {
             const base64 = base64Chunks.join('');
             
             scriptLines.push(
-                `mkdir -p "$(dirname "${path}")" && echo '${base64}' | base64 -d > "${path}" && echo "OK:${path}" || echo "FAIL:${path}"`
+                `mkdir -p "$(dirname "${filePath}")" && echo '${base64}' | base64 -d > "${filePath}" && echo "OK:${filePath}" || echo "FAIL:${filePath}"`
             );
         }
 
@@ -297,7 +298,7 @@ export class SandboxSdkClient extends BaseSandboxService {
 
         try {
             // Write script (1 request)
-            const writeResult = await session.writeFile(scriptPath, script);
+            const writeResult = await session.writeFile(scriptPath, script);    // TODO: Checksum integrity verification
             if (!writeResult.success) {
                 throw new Error('Failed to write batch script');
             }
@@ -313,10 +314,10 @@ export class SandboxSdkClient extends BaseSandboxService {
                 if (match[1]) successPaths.add(match[1]);
             }
             
-            const results = files.map(({ path }) => ({
-                file: path,
-                success: successPaths.has(path),
-                error: successPaths.has(path) ? undefined : 'Write failed'
+            const results = files.map(({ filePath }) => ({
+                file: filePath,
+                success: successPaths.has(filePath),
+                error: successPaths.has(filePath) ? undefined : 'Write failed'
             }));
 
             const successCount = successPaths.size;
@@ -339,11 +340,47 @@ export class SandboxSdkClient extends BaseSandboxService {
 
         } catch (error) {
             this.logger.error('Batch write failed', error);
-            return files.map(({ path }) => ({
-                file: path,
+            return files.map(({ filePath }) => ({
+                file: filePath,
                 success: false,
                 error: error instanceof Error ? error.message : 'Unknown error'
             }));
+        }
+    }
+
+    async writeFilesBulk(instanceId: string, files: TemplateFile[]): Promise<WriteFilesResponse> {
+        try {
+            const session = await this.getInstanceSession(instanceId);
+            // Use batch script for efficient writing (3 requests for any number of files)
+            const filesToWrite = files.map(file => ({
+                filePath: `/workspace/${instanceId}/${file.filePath}`,
+                fileContents: file.fileContents
+            }));
+            
+            const writeResults = await this.writeFilesViaScript(filesToWrite, session);
+            
+            // Map results back to original format
+            const results: WriteFilesResponse['results'] = [];
+            for (const writeResult of writeResults) {
+                results.push({
+                    file: writeResult.file.replace(`/workspace/${instanceId}/`, ''),
+                    success: writeResult.success,
+                    error: writeResult.error
+                });
+            }
+
+            return {
+                success: true,
+                results,
+                message: 'Files written successfully'
+            };
+        } catch (error) {
+            this.logger.error('writeFiles', error, { instanceId });
+            return {
+                success: false,
+                results: files.map(f => ({ file: f.filePath, success: false, error: 'Instance error' })),
+                message: 'Failed to write files'
+            };
         }
     }
 
@@ -433,48 +470,6 @@ export class SandboxSdkClient extends BaseSandboxService {
         
         throw new Error('No available ports found in range 8001-8999');
     }
-
-    private async checkTemplateExists(templateName: string): Promise<boolean> {
-        // Single command to check if template directory and package.json both exist
-        const checkResult = await this.safeSandboxExec(`test -f ${templateName}/package.json && echo "exists" || echo "missing"`);
-        return checkResult.exitCode === 0 && checkResult.stdout.trim() === "exists";
-    }
-
-    async downloadTemplate(templateName: string, downloadDir?: string) : Promise<ArrayBuffer> {
-        // Fetch the zip file from R2
-        const downloadUrl = downloadDir ? `${downloadDir}/${templateName}.zip` : `${templateName}.zip`;
-        this.logger.info(`Fetching object: ${downloadUrl} from R2 bucket`);
-        const r2Object = await env.TEMPLATES_BUCKET.get(downloadUrl);
-          
-        if (!r2Object) {
-            throw new Error(`Object '${downloadUrl}' not found in bucket`);
-        }
-    
-        const zipData = await r2Object.arrayBuffer();
-    
-        this.logger.info(`Downloaded zip file (${zipData.byteLength} bytes)`);
-        return zipData;
-    }
-
-    private async ensureTemplateExists(templateName: string, downloadDir?: string, isInstance: boolean = false) {
-        if (!await this.checkTemplateExists(templateName)) {
-            // Download and extract template
-            this.logger.info(`Template doesnt exist, Downloading template from: ${templateName}`);
-            
-            const zipData = await this.downloadTemplate(templateName, downloadDir);
-            // Stream zip to sandbox in safe base64 chunks and write directly as binary
-            await this.writeBinaryFileViaBase64(`${templateName}.zip`, zipData);
-            this.logger.info(`Wrote zip file to sandbox in chunks: ${templateName}.zip`);
-            
-            const setupResult = await this.safeSandboxExec(`unzip -o -q ${templateName}.zip -d ${isInstance ? '.' : templateName}`);
-        
-            if (setupResult.exitCode !== 0) {
-                throw new Error(`Failed to download/extract template: ${setupResult.stderr}`);
-            }
-        } else {
-            this.logger.info(`Template already exists`);
-        }
-    }
     
     private async buildFileTree(instanceId: string): Promise<FileTreeNode | undefined> {
         try {
@@ -539,7 +534,6 @@ export class SandboxSdkClient extends BaseSandboxService {
                     // Create lightweight instance details from metadata
                     const instanceDetails: InstanceDetails = {
                         runId: instanceId,
-                        templateName: metadata.templateName,
                         startTime: new Date(metadata.startTime),
                         uptime: Math.floor((Date.now() - new Date(metadata.startTime).getTime()) / 1000),
                         directory: instanceId,
@@ -633,7 +627,7 @@ export class SandboxSdkClient extends BaseSandboxService {
         return false;
     }
 
-    private async startDevServer(instanceId: string, port: number): Promise<string> {
+    private async startDevServer(instanceId: string, initCommand: string, port: number): Promise<string> {
         try {
             // Use session-based process management
             // Note: Environment variables should already be set via setLocalEnvVars
@@ -641,7 +635,7 @@ export class SandboxSdkClient extends BaseSandboxService {
             
             // Start process with env vars inline for those not in .dev.vars
             const process = await session.startProcess(
-                `VITE_LOGGER_TYPE=json PORT=${port} monitor-cli process start --instance-id ${instanceId} --port ${port} -- bun run dev`
+                `VITE_LOGGER_TYPE=json PORT=${port} monitor-cli process start --instance-id ${instanceId} --port ${port} -- ${initCommand}`
             );
             this.logger.info('Development server started', { instanceId, processId: process.id });
             
@@ -900,7 +894,12 @@ export class SandboxSdkClient extends BaseSandboxService {
         }
     }
 
-    private async setupInstance(instanceId: string, projectName: string, localEnvVars?: Record<string, string>): Promise<{previewURL: string, tunnelURL: string, processId: string, allocatedPort: number} | undefined> {
+    private async setupInstance(
+        instanceId: string,
+        projectName: string,
+        initCommand: string,
+        localEnvVars?: Record<string, string>,
+    ): Promise<{previewURL: string, tunnelURL: string, processId: string, allocatedPort: number} | undefined> {
         try {
             const sandbox = this.getSandbox();
             // Update project configuration with the specified project name
@@ -926,12 +925,11 @@ export class SandboxSdkClient extends BaseSandboxService {
                 this.logger.warn('Failed to store wrangler config in KV', { instanceId, error: error instanceof Error ? error.message : 'Unknown error' });
                 // Non-blocking - continue with setup
             }
-            
+            // If on local development, start cloudflared tunnel
+            let tunnelUrlPromise = Promise.resolve('');
             // Allocate single port for both dev server and tunnel
             const allocatedPort = await this.allocateAvailablePort();
 
-            // If on local development, start cloudflared tunnel
-            let tunnelUrlPromise = Promise.resolve('');
             if (isDev(env) || env.USE_TUNNEL_FOR_PREVIEW) {
                 this.logger.info('Starting cloudflared tunnel for local development', { instanceId });
                 tunnelUrlPromise = this.startCloudflaredTunnel(instanceId, allocatedPort);
@@ -951,7 +949,7 @@ export class SandboxSdkClient extends BaseSandboxService {
                         await this.setLocalEnvVars(instanceId, localEnvVars);
                     }
                     // Start dev server on allocated port
-                    const processId = await this.startDevServer(instanceId, allocatedPort);
+                    const processId = await this.startDevServer(instanceId, initCommand, allocatedPort);
                     this.logger.info('Instance created successfully', { instanceId, processId, port: allocatedPort });
                         
                     // Expose the same port for preview URL
@@ -986,46 +984,15 @@ export class SandboxSdkClient extends BaseSandboxService {
         
         return undefined;
     }
-
-    private async fetchDontTouchFiles(templateName: string): Promise<string[]> {
-        let donttouchFiles: string[] = [];
-        try {
-            // Read .donttouch_files.json using default session with full path
-            const session = await this.getDefaultSession();
-            const donttouchFile = await session.readFile(`${templateName}/.donttouch_files.json`);
-            if (!donttouchFile.success) {
-                this.logger.warn('Failed to read .donttouch_files.json');
-                return donttouchFiles;
-            }
-            donttouchFiles = JSON.parse(donttouchFile.content) as string[];
-        } catch (error) {
-            this.logger.warn(`Failed to read .donttouch_files.json: ${error instanceof Error ? error.message : 'Unknown error'}`);
-        }
-        return donttouchFiles;
-    }
-
-    private async fetchRedactedFiles(templateName: string): Promise<string[]> {
-        let redactedFiles: string[] = [];
-        try {
-            // Read .redacted_files.json using default session with full path
-            const session = await this.getDefaultSession();
-            const redactedFile = await session.readFile(`${templateName}/.redacted_files.json`);
-            if (!redactedFile.success) {
-                this.logger.warn('Failed to read .redacted_files.json');
-                return redactedFiles;
-            }
-            redactedFiles = JSON.parse(redactedFile.content) as string[];
-        } catch (error) {
-            this.logger.warn(`Failed to read .redacted_files.json: ${error instanceof Error ? error.message : 'Unknown error'}`);
-        }
-        return redactedFiles;
-    }
-
-    async createInstance(templateName: string, projectName: string, webhookUrl?: string, localEnvVars?: Record<string, string>): Promise<BootstrapResponse> {
+    
+    async createInstance(
+        options: InstanceCreationRequest
+    ): Promise<BootstrapResponse> {
+        const { files, projectName, webhookUrl, envVars, initCommand } = options;   
         try {
             // Environment variables will be set via session creation on first use
-            if (localEnvVars && Object.keys(localEnvVars).length > 0) {
-                this.logger.info('Environment variables will be configured via session', { envVars: Object.keys(localEnvVars) });
+            if (envVars && Object.keys(envVars).length > 0) {
+                this.logger.info('Environment variables will be configured via session', { envVars: Object.keys(envVars) });
             }
             let instanceId: string;
             if (env.ALLOCATION_STRATEGY === 'one_to_one') {
@@ -1059,20 +1026,24 @@ export class SandboxSdkClient extends BaseSandboxService {
             } else {
                 instanceId = `i-${generateId()}`;
             }
-            this.logger.info('Creating sandbox instance', { instanceId, templateName, projectName });
-            await this.ensureTemplateExists(templateName);
+            this.logger.info('Creating sandbox instance', { instanceId, projectName });
 
-            const [donttouchFiles, redactedFiles] = await Promise.all([
-                this.fetchDontTouchFiles(templateName),
-                this.fetchRedactedFiles(templateName)
-            ]);
+            const dontTouchFile = files.find(f => f.filePath === '.donttouch_files.json');
+            const dontTouchFiles = dontTouchFile ? JSON.parse(dontTouchFile.fileContents) : [];
             
-            const moveTemplateResult = await this.safeSandboxExec(`mv ${templateName} ${instanceId}`);
-            if (moveTemplateResult.exitCode !== 0) {
-                throw new Error(`Failed to move template: ${moveTemplateResult.stderr}`);
+            const redactedFile = files.find(f => f.filePath === '.redacted_files.json');
+            const redactedFiles = redactedFile ? JSON.parse(redactedFile.fileContents) : [];
+
+            // Write files in bulk to sandbox
+            const rawResults = await this.writeFilesBulk(instanceId, files);
+            if (!rawResults.success) {
+                return {
+                    success: false,
+                    error: 'Failed to write files to sandbox'
+                };
             }
-            
-            const setupPromise = () => this.setupInstance(instanceId, projectName, localEnvVars);
+
+            const setupPromise = () => this.setupInstance(instanceId, projectName, initCommand, envVars);
             const setupResult = await setupPromise();
             if (!setupResult) {
                 return {
@@ -1082,7 +1053,6 @@ export class SandboxSdkClient extends BaseSandboxService {
             }
             // Store instance metadata
             const metadata = {
-                templateName: templateName,
                 projectName: projectName,
                 startTime: new Date().toISOString(),
                 webhookUrl: webhookUrl,
@@ -1090,7 +1060,7 @@ export class SandboxSdkClient extends BaseSandboxService {
                 processId: setupResult?.processId,
                 tunnelURL: setupResult?.tunnelURL,
                 allocatedPort: setupResult?.allocatedPort,
-                donttouch_files: donttouchFiles,
+                donttouch_files: dontTouchFiles,
                 redacted_files: redactedFiles,
             };
             await this.storeInstanceMetadata(instanceId, metadata);
@@ -1098,13 +1068,13 @@ export class SandboxSdkClient extends BaseSandboxService {
             return {
                 success: true,
                 runId: instanceId,
-                message: `Successfully created instance from template ${templateName}`,
+                message: `Successfully created instance ${instanceId}`,
                 previewURL: setupResult?.previewURL,
                 tunnelURL: setupResult?.tunnelURL,
                 processId: setupResult?.processId,
             };
         } catch (error) {
-            this.logger.error('createInstance', error, { templateName: templateName, projectName: projectName });
+            this.logger.error(`Failed to create instance for project ${projectName}`, error);
             return {
                 success: false,
                 error: `Failed to create instance: ${error instanceof Error ? error.message : 'Unknown error'}`
@@ -1134,7 +1104,6 @@ export class SandboxSdkClient extends BaseSandboxService {
 
             const instanceDetails: InstanceDetails = {
                 runId: instanceId,
-                templateName: metadata.templateName,
                 startTime,
                 uptime,
                 directory: instanceId,
@@ -1275,31 +1244,13 @@ export class SandboxSdkClient extends BaseSandboxService {
     async writeFiles(instanceId: string, files: WriteFilesRequest['files']): Promise<WriteFilesResponse> {
         try {
             const session = await this.getInstanceSession(instanceId);
-
-            const results = [];
-
             // Filter out donttouch files
             const metadata = await this.getInstanceMetadata(instanceId);
             const donttouchFiles = new Set(metadata.donttouch_files);
             
             const filteredFiles = files.filter(file => !donttouchFiles.has(file.filePath));
-
-            // Use batch script for efficient writing (3 requests for any number of files)
-            const filesToWrite = filteredFiles.map(file => ({
-                path: `/workspace/${instanceId}/${file.filePath}`,
-                content: file.fileContents
-            }));
-            
-            const writeResults = await this.writeFilesViaScript(filesToWrite, session);
-            
-            // Map results back to original format
-            for (const writeResult of writeResults) {
-                results.push({
-                    file: writeResult.file.replace(`/workspace/${instanceId}/`, ''),
-                    success: writeResult.success,
-                    error: writeResult.error
-                });
-            }
+            const rawResults = await this.writeFilesBulk(instanceId, filteredFiles);
+            const results = rawResults.results;
 
             // Add files that were not written to results
             const wereDontTouchFiles = files.filter(file => donttouchFiles.has(file.filePath));

@@ -7,6 +7,7 @@ import { RenderToolCall } from "worker/agents/operations/UserConversationProcess
 import { WebSocketMessageType, WebSocketMessageData } from "worker/api/websocketTypes";
 import { GitVersionControl } from "worker/agents/git/git";
 import { OperationOptions } from "worker/agents/operations/common";
+import { TemplateFile } from "worker/services/sandbox/sandboxTypes";
 
 export interface ICodingAgent {
     getBehavior(): BehaviorType;
@@ -33,10 +34,12 @@ export interface ICodingAgent {
 
     getProjectType(): ProjectType;
 
-    importTemplate(templateName: string, commitMessage?: string): Promise<{ templateName: string; filesImported: number }>;
-    
+    importTemplate(templateName: string, commitMessage?: string): Promise<{ templateName: string; filesImported: number; files: TemplateFile[] }>;
+
     getOperationOptions(): OperationOptions;
-    
+
+    listFiles(): FileOutputType[];
+
     readFiles(paths: string[]): Promise<{ files: { path: string; content: string }[] }>;
     
     runStaticAnalysisCode(files?: string[]): Promise<StaticAnalysisResponse>;
@@ -70,7 +73,6 @@ export interface ICodingAgent {
     ): Promise<DeepDebugResult>;
     
     get git(): GitVersionControl;
-    getGit(): GitVersionControl;
     
     getSandboxServiceClient(): BaseSandboxService;
 }

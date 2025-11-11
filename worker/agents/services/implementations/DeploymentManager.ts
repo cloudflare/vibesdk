@@ -554,7 +554,6 @@ export class DeploymentManager extends BaseAgentService<BaseProjectState> implem
      */
     private async createNewInstance(): Promise<BootstrapResponse | null> {
         const state = this.getState();
-        const templateName = state.templateName;
         const projectName = state.projectName;
 
         // Add AI proxy vars if AI template
@@ -572,18 +571,21 @@ export class DeploymentManager extends BaseAgentService<BaseProjectState> implem
                 };
             }
         }
-        
+
+        // Get latest files
+        const files = this.fileManager.getAllFiles();
+
         // Create instance
         const client = this.getClient();
         const logger = this.getLog();
-        
-        const createResponse = await client.createInstance(
-            templateName,
-            `v1-${projectName}`,
-            undefined,
-            localEnvVars
-        );
-        
+
+        const createResponse = await client.createInstance({
+            files,
+            projectName,
+            initCommand: 'bun run dev',
+            envVars: localEnvVars
+        });
+
         if (!createResponse || !createResponse.success || !createResponse.runId) {
             throw new Error(`Failed to create sandbox instance: ${createResponse?.error || 'Unknown error'}`);
         }
