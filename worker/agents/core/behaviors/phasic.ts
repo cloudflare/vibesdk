@@ -70,7 +70,11 @@ export class PhasicCodingBehavior extends BaseCodingBehavior<PhasicState> implem
         ..._args: unknown[]
     ): Promise<PhasicState> {
         await super.initialize(initArgs);
-        const { query, language, frameworks, hostname, inferenceContext, templateInfo, sandboxSessionId } = initArgs;
+        const { templateInfo } = initArgs;
+        if (!templateInfo || !templateInfo.templateDetails) {
+            throw new Error('Phasic initialization requires templateInfo.templateDetails');
+        }
+        const { query, language, frameworks, hostname, inferenceContext, sandboxSessionId } = initArgs;
         
         // Generate a blueprint
         this.logger.info('Generating blueprint', { query, queryLength: query.length, imagesCount: initArgs.images?.length || 0 });
@@ -94,7 +98,7 @@ export class PhasicCodingBehavior extends BaseCodingBehavior<PhasicState> implem
             }
         })
                 
-        const packageJson = templateInfo?.templateDetails?.allFiles['package.json'];
+        const packageJson = templateInfo.templateDetails.allFiles['package.json'];
                 
         const projectName = generateProjectName(
             blueprint?.projectName || templateInfo?.templateDetails.name || '',

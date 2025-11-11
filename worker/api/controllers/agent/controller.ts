@@ -17,25 +17,22 @@ import { ImageType, uploadImage } from 'worker/utils/images';
 import { ProcessedImageAttachment } from 'worker/types/image-attachment';
 import { getTemplateImportantFiles } from 'worker/services/sandbox/utils';
 
-const defaultCodeGenArgs: CodeGenArgs = {
-    query: '',
+const defaultCodeGenArgs: Partial<CodeGenArgs> = {
     language: 'typescript',
     frameworks: ['react', 'vite'],
     selectedTemplate: 'auto',
-    agentMode: 'deterministic',
-    behaviorType: 'phasic',
-    projectType: 'app',
 };
 
 const resolveBehaviorType = (body: CodeGenArgs): BehaviorType => {
-    if (body.behaviorType) {
-        return body.behaviorType;
-    }
-    return body.agentMode === 'smart' ? 'agentic' : 'phasic';
+    if (body.behaviorType) return body.behaviorType;
+    const pt = body.projectType;
+    if (pt === 'presentation' || pt === 'workflow' || pt === 'general') return 'agentic';
+    // default (including 'app' and when projectType omitted)
+    return 'phasic';
 };
 
 const resolveProjectType = (body: CodeGenArgs): ProjectType | 'auto' => {
-    return body.projectType || defaultCodeGenArgs.projectType || 'auto';
+    return body.projectType || 'auto';
 };
 
 
@@ -93,6 +90,8 @@ export class CodingAgentController extends BaseController {
             const modelConfigService = new ModelConfigService(env);
             const behaviorType = resolveBehaviorType(body);
             const projectType = resolveProjectType(body);
+
+            this.logger.info(`Resolved behaviorType: ${behaviorType}, projectType: ${projectType} for agent ${agentId}`);
                                 
             // Fetch all user model configs, api keys and agent instance at once
             const userConfigsRecord = await modelConfigService.getUserModelConfigs(user.id);
@@ -137,19 +136,28 @@ export class CodingAgentController extends BaseController {
                 }));
             }
         
+            const isPhasic = behaviorType === 'phasic';
+
             writer.write({
                 message: 'Code generation started',
                 agentId: agentId,
                 websocketUrl,
                 httpStatusUrl,
-                template: {
-                    name: templateDetails.name,
-                    files: getTemplateImportantFiles(templateDetails),
-                }
+                behaviorType,
+                projectType: finalProjectType,
+                template: isPhasic
+                    ? {
+                        name: templateDetails.name,
+                        files: getTemplateImportantFiles(templateDetails),
+                      }
+                      : {
+                        name: 'scratch',
+                        files: [],
+                      }
             });
             const agentInstance = await getAgentStub(env, agentId, { behaviorType, projectType: finalProjectType });
 
-            const agentPromise = agentInstance.initialize({
+            const baseInitArgs = {
                 query,
                 language: body.language || defaultCodeGenArgs.language,
                 frameworks: body.frameworks || defaultCodeGenArgs.frameworks,
@@ -159,8 +167,13 @@ export class CodingAgentController extends BaseController {
                 onBlueprintChunk: (chunk: string) => {
                     writer.write({chunk});
                 },
-                templateInfo: { templateDetails, selection },
-            }) as Promise<AgentState>;
+            } as const;
+
+            const initArgs = isPhasic
+                ? { ...baseInitArgs, templateInfo: { templateDetails, selection } }
+                : baseInitArgs;
+
+            const agentPromise = agentInstance.initialize(initArgs) as Promise<AgentState>;
             agentPromise.then(async (_state: AgentState) => {
                 writer.write("terminate");
                 writer.close();

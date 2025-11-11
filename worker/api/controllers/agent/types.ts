@@ -1,4 +1,4 @@
-import { PreviewType } from "../../../services/sandbox/sandboxTypes";
+import type { PreviewType } from "../../../services/sandbox/sandboxTypes";
 import type { ImageAttachment } from '../../../types/image-attachment';
 import type { BehaviorType, ProjectType } from '../../../agents/core/types';
 
@@ -7,7 +7,6 @@ export interface CodeGenArgs {
     language?: string;
     frameworks?: string[];
     selectedTemplate?: string;
-    agentMode?: 'deterministic' | 'smart';
     behaviorType?: BehaviorType;
     projectType?: ProjectType;
     images?: ImageAttachment[];
@@ -21,6 +20,5 @@ export interface AgentConnectionData {
     agentId: string;
 }
 
-export interface AgentPreviewResponse extends PreviewType {
-}
+export type AgentPreviewResponse = PreviewType;
     

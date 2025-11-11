@@ -53,17 +53,24 @@ async function predictProjectType(
 - Visual storytelling with slides
 - Examples: "Create slides about AI", "Make a product pitch deck", "Build a presentation on climate change"
 
+**general** - From-scratch content or mixed artifacts
+- Docs/notes/specs in Markdown/MDX, or a slide deck initialized later
+- Start with docs when users ask for write-ups; initialize slides if explicitly requested or clearly appropriate
+- No sandbox/runtime unless slides/app are initialized by the builder
+- Examples: "Write a spec", "Draft an outline and slides if helpful", "Create teaching materials"
+
 ## RULES:
 - Default to 'app' when uncertain
 - Choose 'workflow' only when explicitly about APIs, automation, or backend-only tasks
 - Choose 'presentation' only when explicitly about slides, decks, or presentations
+- Choose 'general' for docs/notes/specs or when the user asks to start from scratch without a specific runtime template
 - Consider the presence of UI/visual requirements as indicator for 'app'
 - High confidence when keywords are explicit, medium/low when inferring`;
 
         const userPrompt = `**User Request:** "${query}"
 
 **Task:** Determine the project type and provide:
-1. Project type (app, workflow, or presentation)
+1. Project type (app, workflow, presentation, or general)
 2. Reasoning for your classification
 3. Confidence level (high, medium, low)
 
@@ -178,7 +185,7 @@ Reasoning: "Social template provides user interactions, content sharing, and com
  */
 export async function selectTemplate({ env, query, projectType, availableTemplates, inferenceContext, images }: SelectTemplateArgs, retryCount: number = 3): Promise<TemplateSelection> {
     // Step 1: Predict project type if 'auto'
-    let actualProjectType: ProjectType = projectType === 'auto' 
+    const actualProjectType: ProjectType = projectType === 'auto' 
         ? await predictProjectType(env, query, inferenceContext, images)
         : (projectType || 'app') as ProjectType;
     

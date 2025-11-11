@@ -11,7 +11,6 @@ import { buildToolCallRenderer } from '../../operations/UserConversationProcesso
 import { PhaseGenerationOperation } from '../../operations/PhaseGeneration';
 import { FastCodeFixerOperation } from '../../operations/PostPhaseCodeFixer';
 import { customizeTemplateFiles, generateProjectName } from '../../utils/templateCustomizer';
-import { generateBlueprint } from '../../planning/blueprint';
 import { IdGenerator } from '../../utils/idGenerator';
 import { generateNanoId } from '../../../utils/idGenerator';
 import { BaseCodingBehavior, BaseCodingOperations } from './base';
@@ -49,34 +48,13 @@ export class AgenticCodingBehavior extends BaseCodingBehavior<AgenticState> impl
     ): Promise<AgenticState> {
         await super.initialize(initArgs);
 
-        const { query, language, frameworks, hostname, inferenceContext, templateInfo, sandboxSessionId } = initArgs;
-
-        // Generate a blueprint
-        this.logger.info('Generating blueprint', { query, queryLength: query.length, imagesCount: initArgs.images?.length || 0 });
-        this.logger.info(`Using language: ${language}, frameworks: ${frameworks ? frameworks.join(", ") : "none"}`);
-        
-        const blueprint = await generateBlueprint({
-            env: this.env,
-            inferenceContext,
-            query,
-            language: language!,
-            frameworks: frameworks!,
-            projectType: this.state.projectType,
-            templateDetails: templateInfo?.templateDetails,
-            templateMetaInfo: templateInfo?.selection,
-            images: initArgs.images,
-            stream: {
-                chunk_size: 256,
-                onChunk: (chunk) => {
-                    initArgs.onBlueprintChunk(chunk);
-                }
-            }
-        })
+        const { query, hostname, inferenceContext, templateInfo, sandboxSessionId } = initArgs;
 
         const packageJson = templateInfo?.templateDetails?.allFiles['package.json'];
 
+        const baseName = (query || 'project').toString();
         const projectName = generateProjectName(
-            blueprint.projectName,
+            baseName,
             generateNanoId(),
             AgenticCodingBehavior.PROJECT_NAME_PREFIX_MAX_LENGTH
         );
@@ -87,14 +65,22 @@ export class AgenticCodingBehavior extends BaseCodingBehavior<AgenticState> impl
             ...this.state,
             projectName,
             query,
-            blueprint,
-            templateName: templateInfo?.templateDetails.name || '',
+            blueprint: {
+                title: baseName,
+                projectName,
+                description: query,
+                colorPalette: ['#1e1e1e'],
+                frameworks: [],
+                plan: []
+            },
+            templateName: templateInfo?.templateDetails?.name || (this.projectType === 'general' ? 'scratch' : ''),
             sandboxInstanceId: undefined,
             commandsHistory: [],
             lastPackageJson: packageJson,
             sessionId: sandboxSessionId!,
             hostname,
             inferenceContext,
+            projectType: this.projectType,
         });
         
         if (templateInfo) {
@@ -125,10 +111,6 @@ export class AgenticCodingBehavior extends BaseCodingBehavior<AgenticState> impl
             
             this.logger.info('Committed customized template files to git');
         }
-
-        this.initializeAsync().catch((error: unknown) => {
-            this.broadcastError("Initialization failed", error);
-        });
         this.logger.info(`Agent ${this.getAgentId()} session: ${this.state.sessionId} initialized successfully`);
         return this.state;
     }

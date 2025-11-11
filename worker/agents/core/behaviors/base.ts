@@ -3,9 +3,11 @@ import {
     FileConceptType,
     FileOutputType,
     Blueprint,
+    AgenticBlueprint,
+    PhasicBlueprint,
 } from '../../schemas';
 import { ExecuteCommandsResponse, PreviewType, RuntimeError, StaticAnalysisResponse, TemplateDetails } from '../../../services/sandbox/sandboxTypes';
-import { BaseProjectState } from '../state';
+import { BaseProjectState, AgenticState } from '../state';
 import { AllIssues, AgentSummary, AgentInitArgs, BehaviorType, DeploymentTarget, ProjectType } from '../types';
 import { ModelConfig } from '../../inferutils/config.types';
 import { PREVIEW_EXPIRED_ERROR, WebSocketMessageResponses } from '../../constants';
@@ -14,6 +16,7 @@ import { UserConversationProcessor, RenderToolCall } from '../../operations/User
 import { FileRegenerationOperation } from '../../operations/FileRegeneration';
 // Database schema imports removed - using zero-storage OAuth flow
 import { BaseSandboxService } from '../../../services/sandbox/BaseSandboxService';
+import { createScratchTemplateDetails } from '../../utils/templates';
 import { WebSocketMessageData, WebSocketMessageType } from '../../../api/websocketTypes';
 import { InferenceContext, AgentActionKey } from '../../inferutils/config.types';
 import { AGENT_CONFIG } from '../../inferutils/config';
@@ -72,6 +75,10 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
         return this.state.behaviorType;
     }
 
+    protected isAgenticState(state: BaseProjectState): state is AgenticState {
+        return state.behaviorType === 'agentic';
+    }
+
     constructor(infrastructure: AgentInfrastructure<TState>, protected projectType: ProjectType) {
         super(infrastructure);
     }
@@ -81,11 +88,12 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
         ..._args: unknown[]
     ): Promise<TState> {
         this.logger.info("Initializing agent");
-        const {templateInfo} = initArgs;
+        const { templateInfo } = initArgs;
         if (templateInfo) {
             this.templateDetailsCache = templateInfo.templateDetails;
+            
+            await this.ensureTemplateDetails();
         }
-        await this.ensureTemplateDetails();
         return this.state;
     }
 
@@ -101,8 +109,8 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
                 this.generateReadme()
             ]);
             this.logger.info("Deployment to sandbox service and initial commands predictions completed successfully");
-            await this.executeCommands(setupCommands.commands);
-            this.logger.info("Initial commands executed successfully");
+                await this.executeCommands(setupCommands.commands);
+                this.logger.info("Initial commands executed successfully");
         } catch (error) {
             this.logger.error("Error during async initialization:", error);
             // throw error;
@@ -111,7 +119,12 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
     onStateUpdate(_state: TState, _source: "server" | Connection) {}
 
     async ensureTemplateDetails() {
+        // Skip fetching details for "scratch" baseline
         if (!this.templateDetailsCache) {
+            if (this.state.templateName === 'scratch') {
+                this.logger.info('Skipping template details fetch for scratch baseline');
+                return;
+            }
             this.logger.info(`Loading template details for: ${this.state.templateName}`);
             const results = await BaseSandboxService.getTemplateDetails(this.state.templateName);
             if (!results.success || !results.templateDetails) {
@@ -143,6 +156,11 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
 
     public getTemplateDetails(): TemplateDetails {
         if (!this.templateDetailsCache) {
+            // Synthesize a minimal scratch template when starting from scratch
+            if (this.state.templateName === 'scratch') {
+                this.templateDetailsCache = createScratchTemplateDetails();
+                return this.templateDetailsCache;
+            }
             this.ensureTemplateDetails();
             throw new Error('Template details not loaded. Call ensureTemplateDetails() first.');
         }
@@ -283,6 +301,21 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
             file: readme
         });
         this.logger.info('README.md generated successfully');
+    }
+
+    async setBlueprint(blueprint: Blueprint): Promise<void> {
+        this.setState({
+            ...this.state,
+            blueprint: blueprint as AgenticBlueprint | PhasicBlueprint,
+        });
+        this.broadcast(WebSocketMessageResponses.BLUEPRINT_UPDATED, {
+            message: 'Blueprint updated',
+            updatedKeys: Object.keys(blueprint || {})
+        });
+    }
+
+    getProjectType() {
+        return this.state.projectType;
     }
 
     async queueUserRequest(request: string, images?: ProcessedImageAttachment[]): Promise<void> {
@@ -536,8 +569,10 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
             return errors;
         } catch (error) {
             this.logger.error("Exception fetching runtime errors:", error);
-            // If fetch fails, initiate redeploy
-            this.deployToSandbox();
+            // If fetch fails, optionally redeploy in phasic mode only
+            if (this.state.behaviorType === 'phasic') {
+                this.deployToSandbox();
+            }
             const message = "<runtime errors not available at the moment as preview is not deployed>";
             return [{ message, timestamp: new Date().toISOString(), level: 0, rawOutput: message }];
         }
@@ -690,7 +725,7 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
      */
     async updateBlueprint(patch: Partial<Blueprint>): Promise<Blueprint> {
         // Fields that are safe to update after generation starts
-        // Excludes: initialPhase (breaks generation), plan (internal state)
+        // Excludes: initialPhase (breaks phasic generation)
         const safeUpdatableFields = new Set([
             'title',
             'description',
@@ -710,6 +745,15 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
         for (const [key, value] of Object.entries(patch)) {
             if (safeUpdatableFields.has(key) && value !== undefined) {
                 filtered[key] = value;
+            }
+        }
+
+        // Agentic: allow initializing plan if not set yet (first-time plan initialization only)
+        if (this.isAgenticState(this.state)) {
+            const currentPlan = this.state.blueprint?.plan;
+            const patchPlan = 'plan' in patch ? patch.plan : undefined;
+            if (Array.isArray(patchPlan) && (!Array.isArray(currentPlan) || currentPlan.length === 0)) {
+                filtered['plan'] = patchPlan;
             }
         }
 
@@ -986,6 +1030,37 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
             });
             return null;
         }
+    }
+
+    async importTemplate(templateName: string, commitMessage: string = `chore: init template ${templateName}`): Promise<{ templateName: string; filesImported: number }> {
+        this.logger.info(`Importing template into project: ${templateName}`);
+        const results = await BaseSandboxService.getTemplateDetails(templateName);
+        if (!results.success || !results.templateDetails) {
+            throw new Error(`Failed to get template details for: ${templateName}`);
+        }
+
+        const templateDetails = results.templateDetails;
+        const customizedFiles = customizeTemplateFiles(templateDetails.allFiles, {
+            projectName: this.state.projectName,
+            commandsHistory: this.getBootstrapCommands()
+        });
+
+        const filesToSave = Object.entries(customizedFiles).map(([filePath, content]) => ({
+            filePath,
+            fileContents: content,
+            filePurpose: 'Template file'
+        }));
+
+        await this.fileManager.saveGeneratedFiles(filesToSave, commitMessage);
+
+        // Update state
+        this.setState({
+            ...this.state,
+            templateName: templateDetails.name,
+            lastPackageJson: templateDetails.allFiles['package.json'] || this.state.lastPackageJson,
+        });
+
+        return { templateName: templateDetails.name, filesImported: filesToSave.length };
     }
 
     async waitForGeneration(): Promise<void> {
