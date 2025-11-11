@@ -1034,6 +1034,9 @@ export class SandboxSdkClient extends BaseSandboxService {
             const redactedFile = files.find(f => f.filePath === '.redacted_files.json');
             const redactedFiles = redactedFile ? JSON.parse(redactedFile.fileContents) : [];
 
+            // Create directory for instance
+            await this.sandbox.exec(`mkdir -p /workspace/${instanceId}`);
+
             // Write files in bulk to sandbox
             const rawResults = await this.writeFilesBulk(instanceId, files);
             if (!rawResults.success) {
