@@ -29,6 +29,7 @@ import {
     ListInstancesResponse,
     TemplateDetails,
     TemplateInfo,
+    InstanceCreationRequest,
 } from './sandboxTypes';
   
 import { createObjectLogger, StructuredLogger } from '../../logger';
@@ -207,8 +208,11 @@ export abstract class BaseSandboxService {
     /**
      * Create a new instance from a template
      * Returns: { success: boolean, instanceId?: string, error?: string }
+     * @param options - Instance creation options
      */
-    abstract createInstance(templateName: string, projectName: string, webhookUrl?: string, localEnvVars?: Record<string, string>): Promise<BootstrapResponse>;
+    abstract createInstance(
+        options: InstanceCreationRequest
+    ): Promise<BootstrapResponse>;
 
     /**
      * List all instances across all sessions

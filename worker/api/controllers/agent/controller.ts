@@ -88,8 +88,8 @@ export class CodingAgentController extends BaseController {
 
             const agentId = generateId();
             const modelConfigService = new ModelConfigService(env);
-            const behaviorType = resolveBehaviorType(body);
             const projectType = resolveProjectType(body);
+            const behaviorType = resolveBehaviorType(body);
 
             this.logger.info(`Resolved behaviorType: ${behaviorType}, projectType: ${projectType} for agent ${agentId}`);
                                 
@@ -135,8 +135,6 @@ export class CodingAgentController extends BaseController {
                     return uploadImage(env, image, ImageType.UPLOADS);
                 }));
             }
-        
-            const isPhasic = behaviorType === 'phasic';
 
             writer.write({
                 message: 'Code generation started',
@@ -145,15 +143,10 @@ export class CodingAgentController extends BaseController {
                 httpStatusUrl,
                 behaviorType,
                 projectType: finalProjectType,
-                template: isPhasic
-                    ? {
-                        name: templateDetails.name,
-                        files: getTemplateImportantFiles(templateDetails),
-                      }
-                      : {
-                        name: 'scratch',
-                        files: [],
-                      }
+                template: {
+                    name: templateDetails.name,
+                    files: getTemplateImportantFiles(templateDetails),
+                }
             });
             const agentInstance = await getAgentStub(env, agentId, { behaviorType, projectType: finalProjectType });
 
@@ -169,9 +162,7 @@ export class CodingAgentController extends BaseController {
                 },
             } as const;
 
-            const initArgs = isPhasic
-                ? { ...baseInitArgs, templateInfo: { templateDetails, selection } }
-                : baseInitArgs;
+            const initArgs = { ...baseInitArgs, templateInfo: { templateDetails, selection } }
 
             const agentPromise = agentInstance.initialize(initArgs) as Promise<AgentState>;
             agentPromise.then(async (_state: AgentState) => {

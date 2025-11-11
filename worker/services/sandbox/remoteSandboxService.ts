@@ -14,7 +14,6 @@ import {
     GetLogsResponse,
     ListInstancesResponse,
     BootstrapResponseSchema,
-    BootstrapRequest,
     GetInstanceResponseSchema,
     BootstrapStatusResponseSchema,
     WriteFilesResponseSchema,
@@ -29,6 +28,7 @@ import {
     GitHubPushRequest,
     GitHubPushResponse,
     GitHubPushResponseSchema,
+    InstanceCreationRequest,
 } from './sandboxTypes';
 import { BaseSandboxService } from "./BaseSandboxService";
 import { DeploymentTarget } from 'worker/agents/core/types';
@@ -118,14 +118,10 @@ export class RemoteSandboxServiceClient extends BaseSandboxService{
     /**
      * Create a new runner instance.
      */
-    async createInstance(templateName: string, projectName: string, webhookUrl?: string, localEnvVars?: Record<string, string>): Promise<BootstrapResponse> {
-        const requestBody: BootstrapRequest = { 
-            templateName, 
-            projectName, 
-            ...(webhookUrl && { webhookUrl }),
-            ...(localEnvVars && { envVars: localEnvVars })
-        };
-        return this.makeRequest('/instances', 'POST', BootstrapResponseSchema, requestBody);
+    async createInstance(
+        options: InstanceCreationRequest
+    ): Promise<BootstrapResponse> {
+        return this.makeRequest('/instances', 'POST', BootstrapResponseSchema, options);
     }
 
     /**
