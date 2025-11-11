@@ -136,7 +136,7 @@ export type {
 } from 'worker/database/types';
 
 // Agent/Generator Types
-export type { 
+export type {
   Blueprint as BlueprintType,
   PhasicBlueprint,
   CodeReviewOutputType,
@@ -144,10 +144,15 @@ export type {
   FileOutputType as GeneratedFile,
 } from 'worker/agents/schemas';
 
-export type { 
+export type {
   AgentState,
   PhasicState
 } from 'worker/agents/core/state';
+
+export type {
+  BehaviorType,
+  ProjectType
+} from 'worker/agents/core/types';
 
 export type {
   ConversationMessage,
@@ -170,7 +175,7 @@ export type {
 export type { RateLimitError } from "worker/services/rate-limit/errors";
 export type { AgentPreviewResponse, CodeGenArgs } from 'worker/api/controllers/agent/types';
 export type { RateLimitErrorResponse } from 'worker/api/responses';
-export { RateLimitExceededError, SecurityError, SecurityErrorType } from 'shared/types/errors';
+export { RateLimitExceededError, SecurityError, SecurityErrorType } from '../shared/types/errors.js';
 
 export type { AIModels } from 'worker/agents/inferutils/config.types';
 // Model selection types

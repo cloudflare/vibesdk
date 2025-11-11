@@ -57,13 +57,13 @@ import type{
     AgentPreviewResponse,
     PlatformStatusData,
     RateLimitError
-} from '@/api-types';
+} from '../api-types.js';
 import {
-    
+
     RateLimitExceededError,
     SecurityError,
     SecurityErrorType,
-} from '@/api-types';
+} from '../api-types.js';
 import { toast } from 'sonner';
 
 /**
