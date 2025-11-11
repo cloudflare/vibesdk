@@ -239,6 +239,11 @@ const PROJECT_TYPE_BLUEPRINT_GUIDANCE: Record<ProjectType, string> = {
 - User flow should actually be a \"story flow\" describing slide order, transitions, interactions, and speaker cues
 - Implementation roadmap must reference Spectacle features (themes, deck index, slide components, animations, print/external export mode)
 - Prioritize static data and storytelling polish; avoid backend complexity entirely.`,
+    general: `## Objective Context
+- Start from scratch; choose the most suitable representation for the request.
+- If the outcome is documentation/specs/notes, prefer Markdown/MDX and do not assume any runtime.
+- If a slide deck is helpful, outline the deck structure and content. Avoid assuming a specific file layout; keep the plan flexible.
+- Keep dependencies minimal; introduce runtime only when clearly needed.`,
 };
 
 const getProjectTypeGuidance = (projectType: ProjectType): string =>

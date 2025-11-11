@@ -2,7 +2,7 @@ import { FileOutputType, FileConceptType, Blueprint } from "worker/agents/schema
 import { BaseSandboxService } from "worker/services/sandbox/BaseSandboxService";
 import { ExecuteCommandsResponse, PreviewType, StaticAnalysisResponse, RuntimeError } from "worker/services/sandbox/sandboxTypes";
 import { ProcessedImageAttachment } from "worker/types/image-attachment";
-import { BehaviorType, DeepDebugResult, DeploymentTarget } from "worker/agents/core/types";
+import { BehaviorType, DeepDebugResult, DeploymentTarget, ProjectType } from "worker/agents/core/types";
 import { RenderToolCall } from "worker/agents/operations/UserConversationProcessor";
 import { WebSocketMessageType, WebSocketMessageData } from "worker/api/websocketTypes";
 import { GitVersionControl } from "worker/agents/git/git";
@@ -28,6 +28,12 @@ export interface ICodingAgent {
     deployPreview(clearLogs?: boolean, forceRedeploy?: boolean): Promise<string>;
     
     updateProjectName(newName: string): Promise<boolean>;
+
+    setBlueprint(blueprint: Blueprint): Promise<void>;
+
+    getProjectType(): ProjectType;
+
+    importTemplate(templateName: string, commitMessage?: string): Promise<{ templateName: string; filesImported: number }>;
     
     getOperationOptions(): OperationOptions;
     

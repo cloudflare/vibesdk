@@ -5,6 +5,7 @@ import { InferenceContext } from './inferutils/config.types';
 import { SandboxSdkClient } from '../services/sandbox/sandboxSdkClient';
 import { selectTemplate } from './planning/templateSelector';
 import { TemplateDetails } from '../services/sandbox/sandboxTypes';
+import { createScratchTemplateDetails } from './utils/templates';
 import { TemplateSelection } from './schemas';
 import type { ImageAttachment } from '../types/image-attachment';
 import { BaseSandboxService } from 'worker/services/sandbox/BaseSandboxService';
@@ -78,6 +79,19 @@ export async function getTemplateForQuery(
     images: ImageAttachment[] | undefined,
     logger: StructuredLogger,
 ) : Promise<{templateDetails: TemplateDetails, selection: TemplateSelection, projectType: ProjectType}> {
+    // In 'general' mode, we intentionally start from scratch without a real template
+    if (projectType === 'general') {
+        const scratch: TemplateDetails = createScratchTemplateDetails();
+        const selection: TemplateSelection = {
+            selectedTemplateName: null,
+            reasoning: 'General (from-scratch) mode: no template selected',
+            useCase: 'General',
+            complexity: 'moderate',
+            styleSelection: 'Custom',
+            projectType: 'general',
+        } as TemplateSelection; // satisfies schema shape
+        return { templateDetails: scratch, selection, projectType: 'general' };
+    }
     // Fetch available templates
     const templatesResponse = await SandboxSdkClient.listTemplates();
     if (!templatesResponse || !templatesResponse.success) {
@@ -96,8 +110,10 @@ export async function getTemplateForQuery(
     logger.info('Selected template', { selectedTemplate: analyzeQueryResponse });
             
     if (!analyzeQueryResponse.selectedTemplateName) {
-        logger.error('No suitable template found for code generation');
-        throw new Error('No suitable template found for code generation');
+        // For non-general requests when no template is selected, fall back to scratch
+        logger.warn('No suitable template found; falling back to scratch');
+        const scratch: TemplateDetails = createScratchTemplateDetails();
+        return { templateDetails: scratch, selection: analyzeQueryResponse, projectType: analyzeQueryResponse.projectType };
     }
             
     const selectedTemplate = templatesResponse.templates.find(template => template.name === analyzeQueryResponse.selectedTemplateName);

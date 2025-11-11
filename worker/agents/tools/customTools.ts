@@ -9,6 +9,7 @@ import { createDeployPreviewTool } from './toolkit/deploy-preview';
 import { createDeepDebuggerTool } from "./toolkit/deep-debugger";
 import { createRenameProjectTool } from './toolkit/rename-project';
 import { createAlterBlueprintTool } from './toolkit/alter-blueprint';
+import { createGenerateBlueprintTool } from './toolkit/generate-blueprint';
 import { DebugSession } from '../assistants/codeDebugger';
 import { createReadFilesTool } from './toolkit/read-files';
 import { createExecCommandsTool } from './toolkit/exec-commands';
@@ -21,6 +22,8 @@ import { createWaitForGenerationTool } from './toolkit/wait-for-generation';
 import { createWaitForDebugTool } from './toolkit/wait-for-debug';
 import { createGitTool } from './toolkit/git';
 import { ICodingAgent } from '../services/interfaces/ICodingAgent';
+import { createInitializeSlidesTool } from './toolkit/initialize-slides';
+import { createGenerateImagesTool } from './toolkit/generate-images';
 
 export async function executeToolWithDefinition<TArgs, TResult>(
     toolDef: ToolDefinition<TArgs, TResult>,
@@ -60,32 +63,61 @@ export function buildTools(
 }
 
 export function buildDebugTools(session: DebugSession, logger: StructuredLogger, toolRenderer?: RenderToolCall): ToolDefinition<any, any>[] {
-  const tools = [
-    createGetLogsTool(session.agent, logger),
-    createGetRuntimeErrorsTool(session.agent, logger),
-    createReadFilesTool(session.agent, logger),
-    createRunAnalysisTool(session.agent, logger),
-    createExecCommandsTool(session.agent, logger),
-    createRegenerateFileTool(session.agent, logger),
-    createGenerateFilesTool(session.agent, logger),
-    createDeployPreviewTool(session.agent, logger),
-    createWaitTool(logger),
-    createGitTool(session.agent, logger),
-  ];
+    const tools = [
+        createGetLogsTool(session.agent, logger),
+        createGetRuntimeErrorsTool(session.agent, logger),
+        createReadFilesTool(session.agent, logger),
+        createRunAnalysisTool(session.agent, logger),
+        createExecCommandsTool(session.agent, logger),
+        createRegenerateFileTool(session.agent, logger),
+        createGenerateFilesTool(session.agent, logger),
+        createDeployPreviewTool(session.agent, logger),
+        createWaitTool(logger),
+        createGitTool(session.agent, logger),
+    ];
+    return withRenderer(tools, toolRenderer);
+}
 
-  // Attach tool renderer for UI visualization if provided
-  if (toolRenderer) {
+/**
+ * Toolset for the Agentic Project Builder (autonomous build assistant)
+ */
+export function buildAgenticBuilderTools(session: DebugSession, logger: StructuredLogger, toolRenderer?: RenderToolCall): ToolDefinition<any, any>[] {
+    const tools = [
+        // PRD generation + refinement
+        createGenerateBlueprintTool(session.agent, logger),
+        createAlterBlueprintTool(session.agent, logger),
+        // Build + analysis toolchain
+        createReadFilesTool(session.agent, logger),
+        createGenerateFilesTool(session.agent, logger),
+        createRegenerateFileTool(session.agent, logger),
+        createRunAnalysisTool(session.agent, logger),
+        // Runtime + deploy
+        createInitializeSlidesTool(session.agent, logger),
+        createDeployPreviewTool(session.agent, logger),
+        createGetRuntimeErrorsTool(session.agent, logger),
+        createGetLogsTool(session.agent, logger),
+        // Utilities
+        createExecCommandsTool(session.agent, logger),
+        createWaitTool(logger),
+        createGitTool(session.agent, logger),
+        // Optional future: images
+        createGenerateImagesTool(session.agent, logger),
+    ];
+
+    return withRenderer(tools, toolRenderer);
+}
+
+/** Decorate tool definitions with a renderer for UI visualization */
+function withRenderer(tools: ToolDefinition<any, any>[], toolRenderer?: RenderToolCall): ToolDefinition<any, any>[] {
+    if (!toolRenderer) return tools;
     return tools.map(td => ({
-      ...td,
-      onStart: (args: Record<string, unknown>) => toolRenderer({ name: td.function.name, status: 'start', args }),
-      onComplete: (args: Record<string, unknown>, result: unknown) => toolRenderer({ 
-        name: td.function.name, 
-        status: 'success', 
-        args,
-        result: typeof result === 'string' ? result : JSON.stringify(result)
-      })
+        ...td,
+        onStart: (args: Record<string, unknown>) => toolRenderer({ name: td.function.name, status: 'start', args }),
+        onComplete: (args: Record<string, unknown>, result: unknown) => toolRenderer({
+            name: td.function.name,
+            status: 'success',
+            args,
+            result: typeof result === 'string' ? result : JSON.stringify(result)
+        })
     }));
-  }
-
-  return tools;
 }

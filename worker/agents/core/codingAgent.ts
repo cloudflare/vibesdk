@@ -1,5 +1,5 @@
 import { Agent, AgentContext, ConnectionContext } from "agents";
-import { AgentInitArgs, AgentSummary, BehaviorType, DeployOptions, DeployResult, ExportOptions, ExportResult, DeploymentTarget } from "./types";
+import { AgentInitArgs, AgentSummary, DeployOptions, DeployResult, ExportOptions, ExportResult, DeploymentTarget, BehaviorType } from "./types";
 import { AgenticState, AgentState, BaseProjectState, CurrentDevState, MAX_PHASES, PhasicState } from "./state";
 import { Blueprint } from "../schemas";
 import { BaseCodingBehavior } from "./behaviors/base";
@@ -27,6 +27,7 @@ import { ProjectObjective } from "./objectives/base";
 import { AppObjective } from "./objectives/app";
 import { WorkflowObjective } from "./objectives/workflow";
 import { PresentationObjective } from "./objectives/presentation";
+import { GeneralObjective } from "./objectives/general";
 import { FileOutputType } from "../schemas";
 
 const DEFAULT_CONVERSATION_SESSION_ID = 'default';
@@ -107,19 +108,12 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
             },
             10 // MAX_COMMANDS_HISTORY
         );
-        
-        const props = (ctx.props as AgentBootstrapProps) || {};
-        const isInitialized = Boolean(this.state.query);
-        const behaviorType = isInitialized
-            ? this.state.behaviorType
-            : props.behaviorType ?? this.state.behaviorType ?? 'phasic';
-        const projectType = isInitialized
-            ? this.state.projectType
-            : props.projectType ?? this.state.projectType ?? 'app';
+    }
 
-        if (isInitialized && this.state.behaviorType !== behaviorType) {
-            throw new Error(`State behaviorType mismatch: expected ${behaviorType}, got ${this.state.behaviorType}`);
-        }
+    onFirstInit(props?: AgentBootstrapProps): void {
+        this.logger().info('Bootstrapping CodeGeneratorAgent', { props });
+        const behaviorType = props?.behaviorType ?? this.state.behaviorType ?? 'phasic';
+        const projectType = props?.projectType ?? this.state.projectType ?? 'app';
 
         if (behaviorType === 'phasic') {
             this.behavior = new PhasicCodingBehavior(this as AgentInfrastructure<PhasicState>, projectType);
@@ -144,6 +138,8 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
                 return new WorkflowObjective(infrastructure);
             case 'presentation':
                 return new PresentationObjective(infrastructure);
+            case 'general':
+                return new GeneralObjective(infrastructure);
             default:
                 // Default to app for backward compatibility
                 return new AppObjective(infrastructure);
@@ -161,7 +157,7 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
         const { inferenceContext } = initArgs;
         const sandboxSessionId = DeploymentManager.generateNewSessionId();
         this.initLogger(inferenceContext.agentId, inferenceContext.userId, sandboxSessionId);
-        
+
         // Infrastructure setup
         await this.gitInit();
         
@@ -192,14 +188,20 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
      */
     async onStart(props?: Record<string, unknown> | undefined): Promise<void> {
         this.logger().info(`Agent ${this.getAgentId()} session: ${this.state.sessionId} onStart`, { props });
-        
+
+        if (!this.behavior) {
+            // First-time initialization
+            this.logger().info('First-time onStart initialization detected, invoking onFirstInit');
+            this.onFirstInit(props as AgentBootstrapProps);
+        }
+
+        this.behavior.onStart(props);
+
         // Ignore if agent not initialized
         if (!this.state.query) {
             this.logger().warn(`Agent ${this.getAgentId()} session: ${this.state.sessionId} onStart ignored, agent not initialized`);
             return;
         }
-
-        this.behavior.onStart(props);
         
         // Ensure state is migrated for any previous versions
         this.behavior.migrateStateIfNeeded();
@@ -305,6 +307,10 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
     exportProject(options: ExportOptions): Promise<ExportResult> {
         return this.objective.export(options);
     }
+
+    importTemplate(templateName: string, commitMessage?: string): Promise<{ templateName: string; filesImported: number }> {
+        return this.behavior.importTemplate(templateName, commitMessage);
+    }
     
     protected async saveToDatabase() {
         this.logger().info(`Blueprint generated successfully for agent ${this.getAgentId()}`);
@@ -321,9 +327,9 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
             framework: this.state.blueprint.frameworks.join(','),
             visibility: 'private',
             status: 'generating',
-            createdAt: new Date(),
+                createdAt: new Date(),
             updatedAt: new Date()
-        });
+            });
         this.logger().info(`App saved successfully to database for agent ${this.state.inferenceContext.agentId}`, { 
             agentId: this.state.inferenceContext.agentId, 
             userId: this.state.inferenceContext.userId,
@@ -351,7 +357,9 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
                 if (Array.isArray(parsed)) {
                     fullHistory = parsed as ConversationMessage[];
                 }
-            } catch (_e) {}
+            } catch (_e) {
+                this.logger().warn('Failed to parse full conversation history', _e);
+            }
         }
         if (fullHistory.length === 0) {
             fullHistory = currentConversation;
@@ -365,7 +373,9 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
                 if (Array.isArray(parsed)) {
                     runningHistory = parsed as ConversationMessage[];
                 }
-            } catch (_e) {}
+            } catch (_e) {
+                this.logger().warn('Failed to parse compact conversation history', _e);
+            }
         }
         if (runningHistory.length === 0) {
             runningHistory = currentConversation;
