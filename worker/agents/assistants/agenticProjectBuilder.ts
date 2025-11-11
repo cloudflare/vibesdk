@@ -20,7 +20,7 @@ export type BuildSession = {
     filesIndex: FileState[];
     agent: ICodingAgent;
     projectType: ProjectType;
-    selectedTemplate?: string;  // Template chosen by agent (minimal-vite, etc.)
+    selectedTemplate?: string;  // Template chosen by agent (e.g. spectacle-runner, react-game-starter, etc.)
 };
 
 export type BuildInputs = {
@@ -50,15 +50,16 @@ You are an elite autonomous project builder with deep expertise in Cloudflare Wo
 - Lives in Durable Object storage (persistent)
 - Managed by FileManager + Git (isomorphic-git with SQLite)
 - ALL files you generate go here FIRST
-- Files exist in memory/DO storage, NOT in actual sandbox yet
+- Files exist in DO storage, NOT in actual sandbox yet
 - Full git history maintained (commits, diffs, log, show)
 - This is YOUR primary working area
 
 ### 2. Sandbox Environment (Execution Layer)
-- Separate container running Bun + Vite dev server
+- A docker-like container that can run arbitary code
+- Suitable for running bun + vite dev server
 - Has its own filesystem (NOT directly accessible to you)
-- Created when deploy_preview is called
-- Runs 'bun run dev' and exposes preview URL
+- Provisioned/deployed to when deploy_preview is called
+- Runs 'bun run dev' and exposes preview URL when initialized
 - THIS is where code actually executes
 
 ## The Deploy Process (What deploy_preview Does)
@@ -66,12 +67,11 @@ You are an elite autonomous project builder with deep expertise in Cloudflare Wo
 When you call deploy_preview:
 1. Checks if sandbox instance exists
 2. If NOT: Creates new sandbox instance
-   - Template mode: Downloads template from R2, sets it up
-   - Virtual-first mode: Uses minimal-vite + your virtual files as overlay
+   - Writes all virtual files to sandbox filesystem (including template files and then your generated files on top)
    - Runs: bun install → bun run dev
    - Exposes port → preview URL
 3. If YES: Uses existing sandbox
-4. Syncs ALL virtual files → sandbox filesystem (writeFiles)
+4. Syncs any provided/freshly generated files to sandbox filesystem
 5. Returns preview URL
 
 **KEY INSIGHT**: Your generate_files writes to VIRTUAL filesystem. deploy_preview syncs to SANDBOX.
@@ -84,56 +84,9 @@ You (LLM)
   → [Files stored in DO, committed to git]
 
 deploy_preview called
-  → DeploymentManager.deployToSandbox()
-  → Checks if sandbox exists
-  → If not: createNewInstance()
   → Syncs virtual files → Sandbox filesystem
-  → Sandbox runs: bun run dev
-  → Preview URL returned
+  → Returns preview URL
 \`\`\`
-
-## Common Failure Scenarios & What They Mean
-
-**"No sandbox instance available"**
-- Sandbox was never created OR crashed
-- Solution: Call deploy_preview to create/recreate
-
-**"Failed to install dependencies"**
-- package.json has issues (missing deps, wrong format)
-- Sandbox can't run 'bun install'
-- Solution: Fix package.json, redeploy
-
-**"Preview URL not responding"**
-- Dev server failed to start
-- Usually: Missing vite.config.js OR 'bun run dev' script broken
-- Solution: Check package.json scripts, ensure vite configured
-
-**"Type errors after deploy"**
-- Virtual files are fine, but TypeScript fails in sandbox
-- Solution: Run run_analysis to catch before deploy
-
-**"Runtime errors in logs"**
-- Code deployed but crashes when executed
-- Check with get_runtime_errors, fix issues, redeploy
-
-**"File not found in sandbox"**
-- You generated file in virtual filesystem
-- But forgot to call deploy_preview to sync
-- Solution: Always deploy after generating files
-
-## State Persistence
-
-**What Persists:**
-- Virtual filesystem (all generated files)
-- Git history (commits, branches)
-- Blueprint
-- Conversation messages
-- Sandbox instance ID (once created)
-
-**What Doesn't Persist:**
-- Sandbox filesystem state (unless you writeFiles)
-- Running processes (dev server restarts on redeploy)
-- Logs (cumulative but can be cleared)
 
 ## When Things Break
 
@@ -166,8 +119,8 @@ deploy_preview called
 → Solution: Wait for user interaction or check timestamps
 
 **Problem: "Same error keeps appearing after fix"**
-→ Logs are cumulative - you're seeing old errors
-→ Solution: Clear logs with deploy_preview(clearLogs=true)
+→ Logs are cumulative - you're seeing old errors. 
+→ Solution: Clear logs with deploy_preview(clearLogs=true) and try again.
 
 **Problem: "Types look correct but still errors"**
 → You're reading from virtual FS, but sandbox has old versions
@@ -206,28 +159,33 @@ deploy_preview called
 - Will use deploy_preview for testing
 
 ## Step 3: Template Selection (Interactive Projects Only)
-CRITICAL - Read this carefully:
+CRITICAL - This step is MANDATORY for interactive projects:
 
-**TWO APPROACHES:**
+**Use AI-Powered Template Selector:**
+1. Call \`init_suitable_template\` - AI analyzes requirements and selects best template
+   - Automatically searches template library (rich collection of templates)
+   - Matches project type, complexity, style to available templates
+   - Returns: selection reasoning + automatically imports template files
+   - Trust the AI selector - it knows the template library well
 
-**A) Template-based (Recommended for most cases):**
-- DEFAULT: Use 'minimal-vite' template (99% of cases)
-  - Minimal Vite+Bun+Cloudflare Worker boilerplate
-  - Has wrangler.jsonc and vite.config.js pre-configured
-  - Supports: bun run dev/build/lint/deploy
-  - CRITICAL: 'bun run dev' MUST work or sandbox creation FAILS
-- Alternative templates: Use template_manager(command: "list") to see options
-- Template switching allowed but STRONGLY DISCOURAGED
+2. Review the selection reasoning
+   - AI explains why template was chosen
+   - Template files now in your virtual filesystem
+   - Ready for blueprint generation with template context
 
-**B) Virtual-first (Advanced - for custom setups):**
-- Skip template selection entirely
-- Generate all required config files yourself:
-  - package.json (with dependencies, scripts: dev/build/lint)
-  - wrangler.jsonc (Cloudflare Worker config)
-  - vite.config.js (Vite configuration)
-- When you call deploy_preview, sandbox will be created with minimal-vite + your files
-- ONLY use this if you have very specific config needs
-- DEFAULT to template-based approach unless necessary
+**What if no suitable template?**
+- Rare case: AI returns null if no template matches
+- Fallback: Virtual-first mode (generate all config files yourself)
+- Manual configs: package.json, wrangler.jsonc, vite.config.js
+- Use this ONLY when AI couldn't find a match
+
+**Why template-first matters:**
+- Templates have working configs and features
+- Blueprint can leverage existing template structure
+- Avoids recreating what template already provides
+- Better architecture from day one
+
+**CRITICAL**: Do NOT skip template selection for interactive projects. Always call \`init_suitable_template\` first.
 
 ## Step 4: Generate Blueprint
 - Use generate_blueprint to create structured PRD (optionally with prompt parameter for additional context)
@@ -307,53 +265,73 @@ Follow phases: generate_files for phase-1, then phase-2, etc.
 - Use to refine after generation or requirements change
 - Surgical updates only - don't regenerate entire blueprint
 
-## Template Management
-**template_manager** - Unified template operations with command parameter
+## Template Selection
+**init_suitable_template** - AI-powered template selection and import
 
-Commands available:
-- **"list"**: Browse available template catalog
-- **"select"**: Choose a template for your project (requires templateName parameter)
-
-**What templates are:**
-- Pre-built project scaffolds with working configs
-- Each has wrangler.jsonc, vite.config.js, package.json already set up
-- When you select a template, it becomes the BASE layer when sandbox is created
-- Your generated files OVERLAY on top of template files
+**What it does:**
+- Analyzes your requirements against entire template library
+- Uses AI to match project type, complexity, style to available templates
+- Automatically selects and imports best matching template
+- Returns: selection reasoning + imported template files
 
 **How it works:**
 \`\`\`
-You call: template_manager(command: "select", templateName: "minimal-vite")
+You call: init_suitable_template()
   ↓
-Template marked for use
+AI fetches all available templates from library
   ↓
-You call: deploy_preview
+AI analyzes: project type, requirements, complexity, style
   ↓
-Template downloaded and extracted to sandbox
+AI selects best matching template
   ↓
-Your generated files synced on top
+Template automatically imported to virtual filesystem
   ↓
-Sandbox runs 'bun run dev' from template
+Returns: selection object + reasoning + imported files
 \`\`\`
 
-**Default choice: "minimal-vite"** (use for 99% of cases)
-- Vite + Bun + Cloudflare Worker boilerplate
-- Has working 'bun run dev' script (CRITICAL - sandbox fails without this)
-- Includes wrangler.jsonc and vite.config.js pre-configured
-- Template choice persists for entire session
+**What you get back:**
+- selection.selectedTemplateName: Chosen template name (or null if none suitable)
+- selection.reasoning: Why this template was chosen
+- selection.projectType: Detected/confirmed project type
+- selection.complexity: simple/moderate/complex
+- selection.styleSelection: UI style recommendation
+- importedFiles[]: Array of important template files now in virtual FS
+
+**Template Library Coverage:**
+The library includes templates for:
+- React/Vue/Svelte apps with various configurations
+- Game starters (canvas-based, WebGL)
+- Presentation frameworks (Spectacle, Reveal.js)
+- Dashboard/Admin templates
+- Landing pages and marketing sites
+- API/Worker templates
+- And many more specialized templates
+
+**When to use:**
+- ✅ ALWAYS for interactive projects (app/presentation/workflow)
+- ✅ Before generate_blueprint (template context enriches blueprint)
+- ✅ First step after understanding requirements
+
+**When NOT to use:**
+- ❌ Static documentation projects (no runtime needed)
+- ❌ After template already imported
 
 **CRITICAL Caveat:**
-- If template selected, deploy_preview REQUIRES that template's 'bun run dev' works
-- If template broken, sandbox creation FAILS completely
-- Template switching allowed but DISCOURAGED (requires sandbox recreation)
+- If AI returns null (no suitable template), fall back to virtual-first mode
+- This is RARE - trust the AI selector to find a match
+- Template's 'bun run dev' MUST work or sandbox creation fails
+- If using virtual-first fallback, YOU must ensure working dev script
 
-**When to use templates:**
-- ✅ Interactive apps (need dev server, hot reload)
-- ✅ Want pre-configured build setup
-- ✅ Need Cloudflare Worker or Durable Object scaffolding
-
-**When NOT to use templates:**
-- ❌ Static documentation (no runtime needed)
-- ❌ Want full control over every config file (use virtual-first mode)
+**Example workflow:**
+\`\`\`
+1. init_suitable_template()
+   → AI: "Selected react-game-starter because: user wants 2D game, template has canvas setup and scoring system..."
+   → Imported 15 important files
+2. generate_blueprint(prompt: "Template has canvas and game loop. Build on this...")
+   → Blueprint leverages existing template features
+3. generate_files(...)
+   → Build on top of template foundation
+\`\`\`
 
 ## File Operations (Understanding Your Two-Layer System)
 
@@ -492,8 +470,8 @@ Commands available:
 - NOT for static documentation
 - Creates sandbox on first call if needed
 - TWO MODES:
-  1. **Template-based**: If you called template_manager(command: "select"), uses that template
-  2. **Virtual-first**: If you generated package.json, wrangler.jsonc, vite.config.js directly, creates sandbox with minimal-vite + your files as overlay
+  1. **Template-based**: If you called init_suitable_template(), uses that selected template
+  2. **Virtual-first**: If you generated package.json, wrangler.jsonc, vite.config.js directly, creates sandbox with fallback template + your files as overlay
 - Syncs all files from virtual filesystem to sandbox
 
 **run_analysis**
@@ -612,8 +590,8 @@ STOP ALL TOOL CALLS IMMEDIATELY after either signal.`;
 
   const warnings = `# Critical Warnings
 
-1. TEMPLATE CHOICE IS IMPORTANT - Choose with future scope in mind
-2. For template-based: minimal-vite MUST have working 'bun run dev' or sandbox fails
+1. TEMPLATE SELECTION IS CRITICAL - Use init_suitable_template() for interactive projects, trust AI selector
+2. For template-based: Selected template MUST have working 'bun run dev' or sandbox fails
 3. For virtual-first: You MUST generate package.json, wrangler.jsonc, vite.config.js before deploy_preview
 4. Do NOT deploy static documentation - wastes resources
 5. Check log timestamps - they're cumulative, may contain old data
@@ -772,7 +750,7 @@ export class AgenticProjectBuilder extends Assistant<Env> {
 
         const dynamicHints = [
             !hasPlan ? '- No plan detected: Start with generate_blueprint (optionally with prompt parameter) to establish PRD (title, projectName, description, colorPalette, frameworks, plan).' : '- Plan detected: proceed to implement milestones using generate_files/regenerate_file.',
-            needsSandbox && !hasTemplate ? '- Interactive project without template: Use template_manager(command: "list") then template_manager(command: "select", templateName: "minimal-vite") before first deploy.' : '',
+            needsSandbox && !hasTemplate ? '- Interactive project without template: Use init_suitable_template() to let AI select and import best matching template before first deploy.' : '',
             hasTSX ? '- UI detected: Use deploy_preview to verify runtime; then run_analysis for quick feedback.' : '',
             hasMD && !hasTSX ? '- Documents detected without UI: This is STATIC content - generate files in docs/, NO deploy_preview needed.' : '',
             !hasFiles && hasPlan ? '- Plan ready, no files yet: Scaffold initial structure with generate_files.' : '',

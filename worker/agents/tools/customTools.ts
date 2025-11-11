@@ -22,7 +22,7 @@ import { createWaitForGenerationTool } from './toolkit/wait-for-generation';
 import { createWaitForDebugTool } from './toolkit/wait-for-debug';
 import { createGitTool } from './toolkit/git';
 import { ICodingAgent } from '../services/interfaces/ICodingAgent';
-import { createTemplateManagerTool } from './toolkit/template-manager';
+import { createInitSuitableTemplateTool } from './toolkit/init-suitable-template';
 import { createVirtualFilesystemTool } from './toolkit/virtual-filesystem';
 import { createGenerateImagesTool } from './toolkit/generate-images';
 
@@ -87,8 +87,8 @@ export function buildAgenticBuilderTools(session: DebugSession, logger: Structur
         // PRD generation + refinement
         createGenerateBlueprintTool(session.agent, logger),
         createAlterBlueprintTool(session.agent, logger),
-        // Template management (combined list + select)
-        createTemplateManagerTool(session.agent, logger),
+        // Template selection
+        createInitSuitableTemplateTool(session.agent, logger),
         // Virtual filesystem operations (list + read from Durable Object storage)
         createVirtualFilesystemTool(session.agent, logger),
         // Build + analysis toolchain
