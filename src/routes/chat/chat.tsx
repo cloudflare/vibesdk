@@ -357,9 +357,9 @@ export default function Chat() {
 	}, [behaviorType, files]);
 
 	const showMainView = useMemo(() => {
-		// For agentic mode: show preview panel when blueprint generation starts, files appear, or preview URL is available
+		// For agentic mode: only show preview panel when files or preview URL exist
 		if (behaviorType === 'agentic') {
-			return isGeneratingBlueprint || !!blueprint || files.length > 0 || !!previewUrl;
+			return files.length > 0 || !!previewUrl;
 		}
 		// For phasic mode: keep existing logic
 		return streamedBootstrapFiles.length > 0 || !!blueprint || files.length > 0;
@@ -388,14 +388,20 @@ export default function Chat() {
 				setActiveFilePath(files[0].filePath);
 			}
 			hasSeenPreview.current = true;
-		} else if (previewUrl && !hasSeenPreview.current && isPhase1Complete) {
-			setView('preview');
-			setShowTooltip(true);
-			setTimeout(() => {
-				setShowTooltip(false);
-			}, 3000); // Auto-hide tooltip after 3 seconds
+		} else if (previewUrl && !hasSeenPreview.current) {
+			// Agentic: auto-switch immediately when preview URL available
+			// Phasic: require phase 1 complete
+			const shouldSwitch = behaviorType === 'agentic' || isPhase1Complete;
+
+			if (shouldSwitch) {
+				setView('preview');
+				setShowTooltip(true);
+				setTimeout(() => {
+					setShowTooltip(false);
+				}, 3000);
+			}
 		}
-	}, [previewUrl, isPhase1Complete, isStaticContent, files, activeFilePath]);
+	}, [previewUrl, isPhase1Complete, isStaticContent, files, activeFilePath, behaviorType]);
 
 	useEffect(() => {
 		if (chatId) {
