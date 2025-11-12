@@ -185,14 +185,14 @@ Reasoning: "Social template provides user interactions, content sharing, and com
  */
 export async function selectTemplate({ env, query, projectType, availableTemplates, inferenceContext, images }: SelectTemplateArgs, retryCount: number = 3): Promise<TemplateSelection> {
     // Step 1: Predict project type if 'auto'
-    const actualProjectType: ProjectType = projectType === 'auto' 
+    const actualProjectType: ProjectType = projectType === 'auto'
         ? await predictProjectType(env, query, inferenceContext, images)
         : (projectType || 'app') as ProjectType;
     
     logger.info(`Using project type: ${actualProjectType}${projectType === 'auto' ? ' (auto-detected)' : ''}`);
 
     // Step 2: Filter templates by project type
-    const filteredTemplates = availableTemplates.filter(t => t.projectType === actualProjectType);
+    const filteredTemplates = projectType === 'general' ? availableTemplates : availableTemplates.filter(t => t.projectType === actualProjectType);
     
     if (filteredTemplates.length === 0) {
         logger.warn(`No templates available for project type: ${actualProjectType}`);

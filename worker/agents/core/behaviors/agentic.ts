@@ -92,9 +92,10 @@ export class AgenticCodingBehavior extends BaseCodingBehavior<AgenticState> impl
             hostname,
             inferenceContext,
             projectType: this.projectType,
+            behaviorType: 'agentic'
         });
         
-        if (templateInfo) {
+        if (templateInfo && templateInfo.templateDetails.name !== 'scratch') {
             // Customize template files (package.json, wrangler.jsonc, .bootstrap.js, .gitignore)
             const customizedFiles = customizeTemplateFiles(
                 templateInfo.templateDetails.allFiles,

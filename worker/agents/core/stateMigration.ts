@@ -207,21 +207,6 @@ export class StateMigration {
             needsMigration = true;
             logger.info('Adding default projectType for legacy state', { projectType: migratedProjectType });
         }
-
-        let migratedBehaviorType = state.behaviorType;
-        if (isStateWithAgentMode(state)) {
-            const legacyAgentMode = state.agentMode;
-            const nextBehaviorType = legacyAgentMode === 'smart' ? 'agentic' : 'phasic';
-            if (nextBehaviorType !== migratedBehaviorType) {
-                migratedBehaviorType = nextBehaviorType;
-                needsMigration = true;
-            }
-            logger.info('Migrating behaviorType from agentMode', {
-                legacyAgentMode,
-                behaviorType: migratedBehaviorType
-            });
-        }
-
         if (needsMigration) {
             logger.info('Migrating state: schema format, conversation cleanup, security fixes, and bootstrap setup', {
                 generatedFilesCount: Object.keys(migratedFilesMap).length,
@@ -238,7 +223,6 @@ export class StateMigration {
                 templateName: migratedTemplateName,
                 projectName: migratedProjectName,
                 projectType: migratedProjectType,
-                behaviorType: migratedBehaviorType
             } as AgentState;
             
             // Remove deprecated fields
