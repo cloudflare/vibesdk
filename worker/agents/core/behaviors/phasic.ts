@@ -468,7 +468,7 @@ export class PhasicCodingBehavior extends BaseCodingBehavior<PhasicState> implem
                 conversationId: IdGenerator.generateConversationId(),
             }
             // Store the message in the conversation history so user's response can trigger the deep debug tool
-            this.infrastructure.addConversationMessage(message);
+            this.infrastructure.addConversationMessage(message, true);
             
             this.broadcast(WebSocketMessageResponses.CONVERSATION_RESPONSE, {
                 message: message.content,
@@ -851,13 +851,6 @@ export class PhasicCodingBehavior extends BaseCodingBehavior<PhasicState> implem
 
     async handleUserInput(userMessage: string, images?: ImageAttachment[]): Promise<void> {
         const result = await super.handleUserInput(userMessage, images);
-        if (!this.generationPromise) {
-            // If idle, start generation process
-            this.logger.info('User input during IDLE state, starting generation');
-            this.generateAllFiles().catch(error => {
-                this.logger.error('Error starting generation from user input:', error);
-            });
-        }
         return result;
     }
 }

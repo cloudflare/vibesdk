@@ -163,7 +163,7 @@ export class AgenticCodingBehavior extends BaseCodingBehavior<AgenticState> impl
     private async handleMessageCompletion(conversationMessage: ConversationMessage): Promise<void> {
         this.toolCallCounter++;
 
-        this.infrastructure.addConversationMessage(conversationMessage);
+        this.infrastructure.addConversationMessage(conversationMessage, false);
 
         this.logger.debug('Message synced to conversation', {
             role: conversationMessage.role,
@@ -293,7 +293,7 @@ export class AgenticCodingBehavior extends BaseCodingBehavior<AgenticState> impl
                 this.infrastructure.addConversationMessage({
                     ...compiledMessage,
                     conversationId: buildConversationId,
-                });
+                }, false);
                 this.logger.info('User requests processed', {
                     conversationId: buildConversationId,
                 });

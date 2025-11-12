@@ -417,9 +417,9 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
         }
     }
 
-    addConversationMessage(message: ConversationMessage) {
+    addConversationMessage(message: ConversationMessage, replaceExisting: boolean = false) {
         const conversationState = this.getConversationState();
-        if (!conversationState.runningHistory.find(msg => msg.conversationId === message.conversationId)) {
+        if (!replaceExisting || !conversationState.runningHistory.find(msg => msg.conversationId === message.conversationId)) {
             conversationState.runningHistory.push(message);
         } else  {
             conversationState.runningHistory = conversationState.runningHistory.map(msg => {
@@ -429,7 +429,7 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
                 return msg;
             });
         }
-        if (!conversationState.fullHistory.find(msg => msg.conversationId === message.conversationId)) {
+        if (!replaceExisting || !conversationState.fullHistory.find(msg => msg.conversationId === message.conversationId)) {
             conversationState.fullHistory.push(message);
         } else {
             conversationState.fullHistory = conversationState.fullHistory.map(msg => {
@@ -475,6 +475,13 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
             });
 
             await this.behavior.handleUserInput(userMessage, images);
+            if (!this.behavior.isCodeGenerating()) {
+                // If idle, start generation process
+                this.logger().info('User input during IDLE state, starting generation');
+                this.behavior.generateAllFiles().catch(error => {
+                    this.logger().error('Error starting generation from user input:', error);
+                });
+            }
 
         } catch (error) {
             if (error instanceof RateLimitExceededError) {

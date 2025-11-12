@@ -28,7 +28,7 @@ export interface AgentInfrastructure<TState extends BaseProjectState> {
 
     setConversationState(state: ConversationState): void;
     getConversationState(): ConversationState;
-    addConversationMessage(message: ConversationMessage): void;
+    addConversationMessage(message: ConversationMessage, replaceExisting: boolean): void;
     clearConversation(): void;
     
     // Services
