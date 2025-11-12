@@ -1,4 +1,4 @@
-import { ChatCompletionFunctionTool } from 'openai/resources';
+import { ChatCompletionFunctionTool, ChatCompletionMessageFunctionToolCall } from 'openai/resources';
 export interface MCPServerConfig {
 	name: string;
 	sseUrl: string;
@@ -26,8 +26,8 @@ export type ToolDefinition<
     TResult = unknown
 > = ChatCompletionFunctionTool & {
     implementation: ToolImplementation<TArgs, TResult>;
-    onStart?: (args: TArgs) => void;
-    onComplete?: (args: TArgs, result: TResult) => void;
+    onStart?: (toolCall: ChatCompletionMessageFunctionToolCall, args: TArgs) => Promise<void>;
+    onComplete?: (toolCall: ChatCompletionMessageFunctionToolCall, args: TArgs, result: TResult) => Promise<void>;
 };
 
 export type ExtractToolArgs<T> = T extends ToolImplementation<infer A, any> ? A : never;

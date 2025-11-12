@@ -5,7 +5,7 @@ import { InferenceContext } from "../inferutils/config.types";
 import { createUserMessage, createSystemMessage, createAssistantMessage } from "../inferutils/common";
 import { generalSystemPromptBuilder, USER_PROMPT_FORMATTER } from "../prompts";
 import { CodeSerializerType } from "../utils/codeSerializers";
-import { CodingAgentInterface } from "../services/implementations/CodingAgent";
+import { ICodingAgent } from "../services/interfaces/ICodingAgent";
 
 export function getSystemPromptWithProjectContext(
     systemPrompt: string,
@@ -23,9 +23,9 @@ export function getSystemPromptWithProjectContext(
         })), 
         createUserMessage(
             USER_PROMPT_FORMATTER.PROJECT_CONTEXT(
-                context.getCompletedPhases(),
+                GenerationContext.getCompletedPhases(context),
                 allFiles, 
-                context.getFileTree(),
+                GenerationContext.getFileTree(context),
                 commandsHistory,
                 serializerType  
             )
@@ -35,18 +35,32 @@ export function getSystemPromptWithProjectContext(
     return messages;
 }
 
-export interface OperationOptions {
+/**
+ * Operation options with context type constraint
+ * @template TContext - Context type (defaults to GenerationContext for universal operations)
+ */
+export interface OperationOptions<TContext extends GenerationContext = GenerationContext> {
     env: Env;
     agentId: string;
-    context: GenerationContext;
+    context: TContext;
     logger: StructuredLogger;
     inferenceContext: InferenceContext;
-    agent: CodingAgentInterface;
+    agent: ICodingAgent;
 }
 
-export abstract class AgentOperation<InputType, OutputType> {
+/**
+ * Base class for agent operations with type-safe context enforcement
+ * @template TContext - Required context type (defaults to GenerationContext)
+ * @template TInput - Operation input type
+ * @template TOutput - Operation output type
+ */
+export abstract class AgentOperation<
+    TContext extends GenerationContext = GenerationContext,
+    TInput = unknown,
+    TOutput = unknown
+> {
     abstract execute(
-        inputs: InputType,
-        options: OperationOptions
-    ): Promise<OutputType>;
+        inputs: TInput,
+        options: OperationOptions<TContext>
+    ): Promise<TOutput>;
 }

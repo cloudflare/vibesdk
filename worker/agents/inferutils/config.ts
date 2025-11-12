@@ -160,6 +160,13 @@ export const AGENT_CONFIG: AgentConfig = {
         temperature: 0.1,
         fallbackModel: AIModels.GEMINI_2_5_FLASH,
     },
+    agenticProjectBuilder: {
+        name: AIModels.GEMINI_2_5_PRO,
+        reasoning_effort: 'high',
+        max_tokens: 8000,
+        temperature: 0.7,
+        fallbackModel: AIModels.GEMINI_2_5_FLASH,
+    },
 };
 
 

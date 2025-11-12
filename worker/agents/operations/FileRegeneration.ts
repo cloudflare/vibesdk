@@ -2,6 +2,7 @@ import { FileGenerationOutputType } from '../schemas';
 import { AgentOperation, OperationOptions } from '../operations/common';
 import { RealtimeCodeFixer } from '../assistants/realtimeCodeFixer';
 import { FileOutputType } from '../schemas';
+import { GenerationContext } from '../domain/values/GenerationContext';
 
 export interface FileRegenerationInputs {
     file: FileOutputType;
@@ -99,10 +100,10 @@ useEffect(() => {
 - If an issue cannot be fixed surgically, explain why instead of forcing a fix
 </FIX_PROTOCOL>`;
 
-export class FileRegenerationOperation extends AgentOperation<FileRegenerationInputs, FileGenerationOutputType> {    
+export class FileRegenerationOperation extends AgentOperation<GenerationContext, FileRegenerationInputs, FileGenerationOutputType> {    
     async execute(
         inputs: FileRegenerationInputs,
-        options: OperationOptions
+        options: OperationOptions<GenerationContext>
     ): Promise<FileGenerationOutputType> {
         try {
             // Use realtime code fixer to fix the file with enhanced surgical fix prompts

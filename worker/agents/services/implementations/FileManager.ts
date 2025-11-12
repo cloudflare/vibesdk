@@ -3,7 +3,7 @@ import { IFileManager } from '../interfaces/IFileManager';
 import { IStateManager } from '../interfaces/IStateManager';
 import { FileOutputType } from '../../schemas';
 import { FileProcessing } from '../../domain/pure/FileProcessing';
-import { FileState } from 'worker/agents/core/state';
+import { BaseProjectState, FileState } from 'worker/agents/core/state';
 import { TemplateDetails } from '../../../services/sandbox/sandboxTypes';
 import { GitVersionControl } from 'worker/agents/git';
 
@@ -13,7 +13,7 @@ import { GitVersionControl } from 'worker/agents/git';
  */
 export class FileManager implements IFileManager {
     constructor(
-        private stateManager: IStateManager,
+        private stateManager: IStateManager<BaseProjectState>,
         private getTemplateDetailsFunc: () => TemplateDetails,
         private git: GitVersionControl
     ) {

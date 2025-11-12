@@ -21,13 +21,12 @@ import { ViewModeSwitch } from './components/view-mode-switch';
 import { DebugPanel, type DebugMessage } from './components/debug-panel';
 import { DeploymentControls } from './components/deployment-controls';
 import { useChat, type FileType } from './hooks/use-chat';
-import { type ModelConfigsData, type BlueprintType, SUPPORTED_IMAGE_MIME_TYPES } from '@/api-types';
+import { type ModelConfigsData, type BlueprintType, type PhasicBlueprint, SUPPORTED_IMAGE_MIME_TYPES, ProjectType } from '@/api-types';
 import { Copy } from './components/copy';
 import { useFileContentStream } from './hooks/use-file-content-stream';
 import { logger } from '@/utils/logger';
 import { useApp } from '@/hooks/use-app';
 import { useAuth } from '@/contexts/auth-context';
-import { AgentModeDisplay } from '@/components/agent-mode-display';
 import { useGitHubExport } from '@/hooks/use-github-export';
 import { GitHubExportModal } from '@/components/github-export-modal';
 import { GitCloneModal } from '@/components/shared/GitCloneModal';
@@ -42,13 +41,16 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { sendWebSocketMessage } from './utils/websocket-helpers';
 
+const isPhasicBlueprint = (blueprint?: BlueprintType | null): blueprint is PhasicBlueprint =>
+	!!blueprint && 'implementationRoadmap' in blueprint;
+
 export default function Chat() {
 	const { chatId: urlChatId } = useParams();
 
 	const [searchParams] = useSearchParams();
 	const userQuery = searchParams.get('query');
-	const agentMode = searchParams.get('agentMode') || 'deterministic';
-	
+	const projectType = searchParams.get('projectType') || 'app';
+
 	// Extract images from URL params if present
 	const userImages = useMemo(() => {
 		const imagesParam = searchParams.get('images');
@@ -139,11 +141,13 @@ export default function Chat() {
 		runtimeErrorCount,
 		staticIssueCount,
 		isDebugging,
+		// Behavior type from backend
+		behaviorType,
 	} = useChat({
 		chatId: urlChatId,
 		query: userQuery,
 		images: userImages,
-		agentMode: agentMode as 'deterministic' | 'smart',
+		projectType: projectType as ProjectType,
 		onDebugMessage: addDebugMessage,
 	});
 
@@ -337,13 +341,29 @@ export default function Chat() {
 		return isPhase1Complete && !!urlChatId;
 	}, [isPhase1Complete, urlChatId]);
 
-	const showMainView = useMemo(
-		() =>
-			streamedBootstrapFiles.length > 0 ||
-			!!blueprint ||
-			files.length > 0,
-		[streamedBootstrapFiles, blueprint, files.length],
-	);
+	// Detect if agentic mode is showing static content (docs, markdown)
+	const isStaticContent = useMemo(() => {
+		if (behaviorType !== 'agentic' || files.length === 0) return false;
+
+		// Check if all files are static (markdown, text, or in docs/ directory)
+		return files.every(file => {
+			const path = file.filePath.toLowerCase();
+			return path.endsWith('.md') ||
+			       path.endsWith('.mdx') ||
+			       path.endsWith('.txt') ||
+			       path.startsWith('docs/') ||
+			       path.includes('/docs/');
+		});
+	}, [behaviorType, files]);
+
+	const showMainView = useMemo(() => {
+		// For agentic mode: only show preview panel when files or preview URL exist
+		if (behaviorType === 'agentic') {
+			return files.length > 0 || !!previewUrl;
+		}
+		// For phasic mode: keep existing logic
+		return streamedBootstrapFiles.length > 0 || !!blueprint || files.length > 0;
+	}, [behaviorType, isGeneratingBlueprint, blueprint, files.length, previewUrl, streamedBootstrapFiles.length]);
 
 	const [mainMessage, ...otherMessages] = useMemo(() => messages, [messages]);
 
@@ -360,14 +380,28 @@ export default function Chat() {
 	}, [messages.length, scrollToBottom]);
 
 	useEffect(() => {
-		if (previewUrl && !hasSeenPreview.current && isPhase1Complete) {
-			setView('preview');
-			setShowTooltip(true);
-			setTimeout(() => {
-				setShowTooltip(false);
-			}, 3000); // Auto-hide tooltip after 3 seconds
+		// For static content in agentic mode, show editor view instead of preview
+		if (isStaticContent && files.length > 0 && !hasSeenPreview.current) {
+			setView('editor');
+			// Auto-select first file if none selected
+			if (!activeFilePath) {
+				setActiveFilePath(files[0].filePath);
+			}
+			hasSeenPreview.current = true;
+		} else if (previewUrl && !hasSeenPreview.current) {
+			// Agentic: auto-switch immediately when preview URL available
+			// Phasic: require phase 1 complete
+			const shouldSwitch = behaviorType === 'agentic' || isPhase1Complete;
+
+			if (shouldSwitch) {
+				setView('preview');
+				setShowTooltip(true);
+				setTimeout(() => {
+					setShowTooltip(false);
+				}, 3000);
+			}
 		}
-	}, [previewUrl, isPhase1Complete]);
+	}, [previewUrl, isPhase1Complete, isStaticContent, files, activeFilePath, behaviorType]);
 
 	useEffect(() => {
 		if (chatId) {
@@ -492,11 +526,13 @@ export default function Chat() {
 		const completedPhases = phaseTimeline.filter(p => p.status === 'completed').length;
 
 		// Get predicted phase count from blueprint, fallback to current phase count
-		const predictedPhaseCount = blueprint?.implementationRoadmap?.length || 0;
+		const predictedPhaseCount = isPhasicBlueprint(blueprint)
+			? blueprint.implementationRoadmap.length
+			: 0;
 		const totalPhases = Math.max(predictedPhaseCount, phaseTimeline.length, 1);
 
 		return [completedPhases, totalPhases];
-	}, [phaseTimeline, blueprint?.implementationRoadmap]);
+	}, [phaseTimeline, blueprint]);
 
 	if (import.meta.env.DEV) {
 		logger.debug({
@@ -554,18 +590,6 @@ export default function Chat() {
 									<UserMessage
 										message={query ?? displayQuery}
 									/>
-									{import.meta.env
-										.VITE_AGENT_MODE_ENABLED && (
-										<div className="flex justify-between items-center py-2 border-b border-border-primary/50 mb-4">
-											<AgentModeDisplay
-												mode={
-													agentMode as
-														| 'deterministic'
-														| 'smart'
-												}
-											/>
-										</div>
-									)}
 								</>
 							)}
 
@@ -627,34 +651,37 @@ export default function Chat() {
 								</div>
 							)}
 
-							<PhaseTimeline
-								projectStages={projectStages}
-								phaseTimeline={phaseTimeline}
-								files={files}
-								view={view}
-								activeFile={activeFile}
-								onFileClick={handleFileClick}
-								isThinkingNext={isThinking}
-								isPreviewDeploying={isPreviewDeploying}
-								progress={progress}
-								total={total}
-								parentScrollRef={messagesContainerRef}
-								onViewChange={(viewMode) => {
-									setView(viewMode);
-									hasSwitchedFile.current = true;
-								}}
-								chatId={chatId}
-								isDeploying={isDeploying}
-								handleDeployToCloudflare={handleDeployToCloudflare}
-								runtimeErrorCount={runtimeErrorCount}
-								staticIssueCount={staticIssueCount}
-								isDebugging={isDebugging}
-								isGenerating={isGenerating}
-								isThinking={isThinking}
-							/>
+							{/* Only show PhaseTimeline for phasic mode */}
+							{behaviorType !== 'agentic' && (
+								<PhaseTimeline
+									projectStages={projectStages}
+									phaseTimeline={phaseTimeline}
+									files={files}
+									view={view}
+									activeFile={activeFile}
+									onFileClick={handleFileClick}
+									isThinkingNext={isThinking}
+									isPreviewDeploying={isPreviewDeploying}
+									progress={progress}
+									total={total}
+									parentScrollRef={messagesContainerRef}
+									onViewChange={(viewMode) => {
+										setView(viewMode);
+										hasSwitchedFile.current = true;
+									}}
+									chatId={chatId}
+									isDeploying={isDeploying}
+									handleDeployToCloudflare={handleDeployToCloudflare}
+									runtimeErrorCount={runtimeErrorCount}
+									staticIssueCount={staticIssueCount}
+									isDebugging={isDebugging}
+									isGenerating={isGenerating}
+									isThinking={isThinking}
+								/>
+							)}
 
-							{/* Deployment and Generation Controls */}
-							{chatId && (
+							{/* Deployment and Generation Controls - Only for phasic mode */}
+							{chatId && behaviorType !== 'agentic' && (
 								<motion.div
 									ref={deploymentControlsRef}
 									initial={{ opacity: 0, y: 20 }}

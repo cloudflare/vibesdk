@@ -68,6 +68,7 @@ export const WebSocketMessageResponses: Record<string, WebSocketMessageType> = {
     CONVERSATION_STATE: 'conversation_state',
     PROJECT_NAME_UPDATED: 'project_name_updated',
     BLUEPRINT_UPDATED: 'blueprint_updated',
+    BLUEPRINT_CHUNK: 'blueprint_chunk',
     
     // Model configuration info
     MODEL_CONFIGS_INFO: 'model_configs_info',
@@ -113,6 +114,8 @@ export const MAX_TOOL_CALLING_DEPTH_DEFAULT = 7;
 export const getMaxToolCallingDepth = (agentActionKey: AgentActionKey | 'testModelConfig') => {
     switch (agentActionKey) {
         case 'deepDebugger':
+            return 100;
+        case 'agenticProjectBuilder':
             return 100;
         default:
             return MAX_TOOL_CALLING_DEPTH_DEFAULT;

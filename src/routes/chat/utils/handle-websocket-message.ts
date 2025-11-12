@@ -1,5 +1,5 @@
 import type { WebSocket } from 'partysocket';
-import type { WebSocketMessage, BlueprintType, ConversationMessage } from '@/api-types';
+import type { WebSocketMessage, BlueprintType, ConversationMessage, AgentState, PhasicState, BehaviorType } from '@/api-types';
 import { deduplicateMessages, isAssistantMessageDuplicate } from './deduplicate-messages';
 import { logger } from '@/utils/logger';
 import { getFileType } from '@/utils/string';
@@ -11,7 +11,7 @@ import {
     setAllFilesCompleted,
     updatePhaseFileStatus,
 } from './file-state-helpers';
-import { 
+import {
     createAIMessage,
     handleRateLimitError,
     handleStreamingMessage,
@@ -22,6 +22,10 @@ import { completeStages } from './project-stage-helpers';
 import { sendWebSocketMessage } from './websocket-helpers';
 import type { FileType, PhaseTimelineItem } from '../hooks/use-chat';
 import { toast } from 'sonner';
+import { createRepairingJSONParser } from '@/utils/ndjson-parser/ndjson-parser';
+
+const isPhasicState = (state: AgentState): state is PhasicState =>
+	state.behaviorType === 'phasic';
 
 export interface HandleMessageDeps {
     // State setters
@@ -47,7 +51,8 @@ export interface HandleMessageDeps {
     setRuntimeErrorCount: React.Dispatch<React.SetStateAction<number>>;
     setStaticIssueCount: React.Dispatch<React.SetStateAction<number>>;
     setIsDebugging: React.Dispatch<React.SetStateAction<boolean>>;
-    
+    setBehaviorType: React.Dispatch<React.SetStateAction<BehaviorType>>;
+
     // Current state
     isInitialStateRestored: boolean;
     blueprint: BlueprintType | undefined;
@@ -59,6 +64,7 @@ export interface HandleMessageDeps {
     projectStages: any[];
     isGenerating: boolean;
     urlChatId: string | undefined;
+    behaviorType: BehaviorType;
     
     // Functions
     updateStage: (stageId: string, updates: any) => void;
@@ -93,6 +99,10 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
         }
         return '';
     };
+
+    // Blueprint chunk parser (maintained across chunks)
+    let blueprintParser: ReturnType<typeof createRepairingJSONParser> | null = null;
+
     return (websocket: WebSocket, message: WebSocketMessage) => {
         const {
             setFiles,
@@ -115,6 +125,7 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
             setIsGenerating,
             setIsPhaseProgressActive,
             setIsDebugging,
+            setBehaviorType,
             isInitialStateRestored,
             blueprint,
             query,
@@ -125,6 +136,7 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
             projectStages,
             isGenerating,
             urlChatId,
+            behaviorType,
             updateStage,
             sendMessage,
             loadBootstrapFiles,
@@ -159,7 +171,12 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
                 
                 if (!isInitialStateRestored) {
                     logger.debug('📥 Performing initial state restoration');
-                    
+
+                    if (state.behaviorType && state.behaviorType !== behaviorType) {
+                        setBehaviorType(state.behaviorType);
+                        logger.debug('🔄 Restored behaviorType from backend:', state.behaviorType);
+                    }
+
                     if (state.blueprint && !blueprint) {
                         setBlueprint(state.blueprint);
                         updateStage('blueprint', { status: 'completed' });
@@ -191,12 +208,12 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
                         );
                     }
 
-                    if (state.generatedPhases && state.generatedPhases.length > 0 && phaseTimeline.length === 0) {
+                    if (isPhasicState(state) && state.generatedPhases.length > 0 && phaseTimeline.length === 0) {
                         logger.debug('📋 Restoring phase timeline:', state.generatedPhases);
                         // If not actively generating, mark incomplete phases as cancelled (they were interrupted)
                         const isActivelyGenerating = state.shouldBeGenerating === true;
                         
-                        const timeline = state.generatedPhases.map((phase: any, index: number) => {
+                        const timeline = state.generatedPhases.map((phase, index: number) => {
                             // Determine phase status:
                             // - completed if explicitly marked complete
                             // - cancelled if incomplete and not actively generating (interrupted)
@@ -212,7 +229,7 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
                                 name: phase.name,
                                 description: phase.description,
                                 status: phaseStatus,
-                                files: phase.files.map((filesConcept: any) => {
+                                files: phase.files.map(filesConcept => {
                                     const file = state.generatedFilesMap?.[filesConcept.path];
                                     // File status:
                                     // - completed if it exists in generated files
@@ -248,6 +265,20 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
                             logger.debug('🚀 Requesting preview deployment for existing chat with files');
                             sendWebSocketMessage(websocket, 'preview');
                         }
+                    }
+
+                    // Display queued user messages from state
+                    const queuedInputs = state.pendingUserInputs || [];
+                    if (queuedInputs.length > 0) {
+                        logger.debug('📋 Restoring queued user messages:', queuedInputs);
+                        const queuedMessages: ChatMessage[] = queuedInputs.map((msg, idx) => ({
+                            role: 'user',
+                            content: msg,
+                            conversationId: `queued-${idx}`,
+                            status: 'queued' as const,
+                            queuePosition: idx + 1
+                        }));
+                        setMessages(prev => [...prev, ...queuedMessages]);
                     }
 
                     setIsInitialStateRestored(true);
@@ -832,6 +863,27 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
                     
                     return [...prev, createAIMessage(conversationId, newContent)];
                 });
+                break;
+            }
+
+            case 'blueprint_chunk': {
+                // Initialize parser on first chunk
+                if (!blueprintParser) {
+                    blueprintParser = createRepairingJSONParser();
+                    logger.debug('Blueprint streaming started');
+                }
+
+                // Feed chunk to parser
+                blueprintParser.feed(message.chunk);
+
+                // Try to parse partial blueprint
+                try {
+                    const partial = blueprintParser.finalize();
+                    setBlueprint(partial);
+                    logger.debug('Blueprint chunk processed, partial blueprint updated');
+                } catch (e) {
+                    logger.debug('Blueprint chunk accumulated, waiting for more data');
+                }
                 break;
             }
 

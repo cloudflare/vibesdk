@@ -1,9 +1,9 @@
 import { ToolDefinition } from '../types';
 import { StructuredLogger } from '../../../logger';
-import { CodingAgentInterface } from 'worker/agents/services/implementations/CodingAgent';
+import { ICodingAgent } from 'worker/agents/services/interfaces/ICodingAgent';
 
 export function createWaitForGenerationTool(
-	agent: CodingAgentInterface,
+	agent: ICodingAgent,
 	logger: StructuredLogger
 ): ToolDefinition<Record<string, never>, { status: string } | { error: string }> {
 	return {
