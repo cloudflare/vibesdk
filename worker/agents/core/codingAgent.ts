@@ -387,16 +387,19 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
         const deduplicateMessages = (messages: ConversationMessage[]): ConversationMessage[] => {
             const seen = new Set<string>();
             return messages.filter(msg => {
-                if (seen.has(msg.conversationId)) {
+                const key = `${msg.conversationId}-${msg.role}-${msg.tool_call_id || ''}`;
+                if (seen.has(key)) {
                     return false;
                 }
-                seen.add(msg.conversationId);
+                seen.add(key);
                 return true;
             });
         };
 
         runningHistory = deduplicateMessages(runningHistory);
         fullHistory = deduplicateMessages(fullHistory);
+
+        this.logger().info(`Loaded conversation state ${id}, full_length: ${fullHistory.length}, compact_length: ${runningHistory.length}`, fullHistory);
         
         return {
             id: id,
@@ -409,7 +412,7 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
         const serializedFull = JSON.stringify(conversations.fullHistory);
         const serializedCompact = JSON.stringify(conversations.runningHistory);
         try {
-            this.logger().info(`Saving conversation state ${conversations.id}, full_length: ${serializedFull.length}, compact_length: ${serializedCompact.length}`);
+            this.logger().info(`Saving conversation state ${conversations.id}, full_length: ${serializedFull.length}, compact_length: ${serializedCompact.length}`, serializedFull);
             this.sql`INSERT OR REPLACE INTO compact_conversations (id, messages) VALUES (${conversations.id}, ${serializedCompact})`;
             this.sql`INSERT OR REPLACE INTO full_conversations (id, messages) VALUES (${conversations.id}, ${serializedFull})`;
         } catch (error) {
@@ -417,9 +420,15 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
         }
     }
 
-    addConversationMessage(message: ConversationMessage, replaceExisting: boolean = false) {
+    addConversationMessage(message: ConversationMessage) {
         const conversationState = this.getConversationState();
-        if (!replaceExisting || !conversationState.runningHistory.find(msg => msg.conversationId === message.conversationId)) {
+        if (!conversationState.runningHistory.find(msg => msg.conversationId === message.conversationId)) {
+            this.logger().info('Adding conversation message', {
+                message,
+                conversationId: message.conversationId,
+                runningHistoryLength: conversationState.runningHistory.length,
+                fullHistoryLength: conversationState.fullHistory.length
+            });
             conversationState.runningHistory.push(message);
         } else  {
             conversationState.runningHistory = conversationState.runningHistory.map(msg => {
@@ -429,7 +438,7 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
                 return msg;
             });
         }
-        if (!replaceExisting || !conversationState.fullHistory.find(msg => msg.conversationId === message.conversationId)) {
+        if (!conversationState.fullHistory.find(msg => msg.conversationId === message.conversationId)) {
             conversationState.fullHistory.push(message);
         } else {
             conversationState.fullHistory = conversationState.fullHistory.map(msg => {

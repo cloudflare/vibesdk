@@ -556,14 +556,32 @@ export async function infer<OutputSchema extends z.AnyZodObject>({
 
         let messagesToPass = [...optimizedMessages];
         if (toolCallContext && toolCallContext.messages) {
-            // Minimal core fix with logging: exclude prior tool messages that have empty name
             const ctxMessages = toolCallContext.messages;
-            const droppedToolMsgs = ctxMessages.filter(m => m.role === 'tool' && (!m.name || m.name.trim() === ''));
-            if (droppedToolMsgs.length) {
-                console.warn(`[TOOL_CALL_WARNING] Dropping ${droppedToolMsgs.length} prior tool message(s) with empty name to avoid provider error`, droppedToolMsgs);
-            }
-            const filteredCtx = ctxMessages.filter(m => m.role !== 'tool' || (m.name && m.name.trim() !== ''));
-            messagesToPass.push(...filteredCtx);
+            let validToolCallIds = new Set<string>();
+
+            const filtered = ctxMessages.filter(msg => {
+                // Update valid IDs when we see assistant with tool_calls
+                if (msg.role === 'assistant' && msg.tool_calls) {
+                    validToolCallIds = new Set(msg.tool_calls.map(tc => tc.id));
+                    return true;
+                }
+
+                // Filter tool messages
+                if (msg.role === 'tool') {
+                    if (!msg.name?.trim()) {
+                        console.warn('[TOOL_ORPHAN] Dropping tool message with empty name:', msg.tool_call_id);
+                        return false;
+                    }
+                    if (!msg.tool_call_id || !validToolCallIds.has(msg.tool_call_id)) {
+                        console.warn('[TOOL_ORPHAN] Dropping orphaned tool message:', msg.name, msg.tool_call_id);
+                        return false;
+                    }
+                }
+
+                return true;
+            });
+
+            messagesToPass.push(...filtered);
         }
 
         if (format) {

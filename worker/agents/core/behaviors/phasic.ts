@@ -468,7 +468,7 @@ export class PhasicCodingBehavior extends BaseCodingBehavior<PhasicState> implem
                 conversationId: IdGenerator.generateConversationId(),
             }
             // Store the message in the conversation history so user's response can trigger the deep debug tool
-            this.infrastructure.addConversationMessage(message, true);
+            this.infrastructure.addConversationMessage(message);
             
             this.broadcast(WebSocketMessageResponses.CONVERSATION_RESPONSE, {
                 message: message.content,

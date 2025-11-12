@@ -47,8 +47,6 @@ export class AgenticCodingBehavior extends BaseCodingBehavior<AgenticState> impl
     private toolCallCounter: number = 0;
     private readonly COMPACTIFY_CHECK_INTERVAL = 9; // Check compactification every 9 tool calls
 
-    private currentConversationId: string | undefined;
-
     /**
      * Initialize the code generator with project blueprint and template
      * Sets up services and begins deployment process
@@ -163,7 +161,7 @@ export class AgenticCodingBehavior extends BaseCodingBehavior<AgenticState> impl
     private async handleMessageCompletion(conversationMessage: ConversationMessage): Promise<void> {
         this.toolCallCounter++;
 
-        this.infrastructure.addConversationMessage(conversationMessage, false);
+        this.infrastructure.addConversationMessage(conversationMessage);
 
         this.logger.debug('Message synced to conversation', {
             role: conversationMessage.role,
@@ -173,18 +171,6 @@ export class AgenticCodingBehavior extends BaseCodingBehavior<AgenticState> impl
         if (this.toolCallCounter % this.COMPACTIFY_CHECK_INTERVAL === 0) {
             await this.compactifyIfNeeded();
         }
-    }
-
-    private resetConversationId(): string {
-        this.currentConversationId = undefined;
-        return this.getCurrentConversationId();
-    }
-
-    private getCurrentConversationId(): string {
-        if (!this.currentConversationId) {
-            this.currentConversationId = IdGenerator.generateConversationId();
-        }
-        return this.currentConversationId;
     }
 
     /**
@@ -200,7 +186,7 @@ export class AgenticCodingBehavior extends BaseCodingBehavior<AgenticState> impl
             (args) => {
                 this.broadcast(WebSocketMessageResponses.CONVERSATION_RESPONSE, {
                     message: '',
-                    conversationId: this.getCurrentConversationId(),
+                    conversationId: IdGenerator.generateConversationId(),
                     isStreaming: false,
                     tool: args
                 });
@@ -251,21 +237,21 @@ export class AgenticCodingBehavior extends BaseCodingBehavior<AgenticState> impl
             projectName: this.state.projectName
         });
 
-        // Generate unique conversation ID for this build session
-        const buildConversationId = this.resetConversationId();
-
         // Broadcast generation started
         this.broadcast(WebSocketMessageResponses.GENERATION_STARTED, {
             message: 'Starting project generation...',
             totalFiles: 1
         });
 
-        // Send initial message to frontend
-        this.broadcast(WebSocketMessageResponses.CONVERSATION_RESPONSE, {
-            message: 'Initializing project builder...',
-            conversationId: buildConversationId,
-            isStreaming: false
-        });
+        const aiConversationId = IdGenerator.generateConversationId();
+
+        if (!this.state.mvpGenerated) {
+            this.broadcast(WebSocketMessageResponses.CONVERSATION_RESPONSE, {
+                message: 'Initializing project builder...',
+                conversationId: aiConversationId,
+                isStreaming: false
+            });
+        }
 
         try {
             const generator = new AgenticProjectBuilder(
@@ -292,10 +278,7 @@ export class AgenticCodingBehavior extends BaseCodingBehavior<AgenticState> impl
                 // Save the message to conversation history
                 this.infrastructure.addConversationMessage({
                     ...compiledMessage,
-                    conversationId: buildConversationId,
-                }, false);
-                this.logger.info('User requests processed', {
-                    conversationId: buildConversationId,
+                    conversationId: IdGenerator.generateConversationId(),
                 });
             }
             
@@ -316,14 +299,14 @@ export class AgenticCodingBehavior extends BaseCodingBehavior<AgenticState> impl
                         tool
                     });
                 },
-                buildConversationId
+                aiConversationId
             );
 
             // Create conversation sync callback
             const onToolComplete = async (toolMessage: Message) => {
                 await this.handleMessageCompletion({
                     ...toolMessage,
-                    conversationId: this.getCurrentConversationId()
+                    conversationId: IdGenerator.generateConversationId()
                 });
 
                 // If user messages are queued, we throw an abort error, that shall break the tool call chain.
@@ -336,7 +319,7 @@ export class AgenticCodingBehavior extends BaseCodingBehavior<AgenticState> impl
                 const conversationMessage: ConversationMessage = {
                     ...message,
                     content: typeof message.content === 'string' ? message.content : JSON.stringify(message.content),
-                    conversationId: this.getCurrentConversationId(),
+                    conversationId: IdGenerator.generateConversationId(),
                 };
                 await this.handleMessageCompletion(conversationMessage);
             };
@@ -353,7 +336,7 @@ export class AgenticCodingBehavior extends BaseCodingBehavior<AgenticState> impl
                 (chunk: string) => {
                     this.broadcast(WebSocketMessageResponses.CONVERSATION_RESPONSE, {
                         message: chunk,
-                        conversationId: this.getCurrentConversationId(),
+                        conversationId: aiConversationId,
                         isStreaming: true
                     });
                 },
@@ -369,11 +352,6 @@ export class AgenticCodingBehavior extends BaseCodingBehavior<AgenticState> impl
                 this.state.mvpGenerated = true;
                 this.logger.info('MVP generated');
             }
-
-            this.broadcast(WebSocketMessageResponses.GENERATION_COMPLETED, {
-                message: 'Project generation completed',
-                filesGenerated: Object.keys(this.state.generatedFilesMap).length
-            });
 
             // Final checks after generation completes
             await this.compactifyIfNeeded();
