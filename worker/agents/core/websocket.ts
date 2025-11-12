@@ -157,7 +157,7 @@ export function handleWebSocketMessage(
                     }
                 }
                 
-                agent.getBehavior().handleUserInput(parsedMessage.message, parsedMessage.images).catch((error: unknown) => {
+                agent.handleUserInput(parsedMessage.message, parsedMessage.images).catch((error: unknown) => {
                     logger.error('Error handling user suggestion:', error);
                     sendError(connection, `Error processing user suggestion: ${error instanceof Error ? error.message : String(error)}`);
                 });

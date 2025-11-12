@@ -201,6 +201,7 @@ export function useChat({
 			setRuntimeErrorCount,
 			setStaticIssueCount,
 			setIsDebugging,
+			setBehaviorType,
 			// Current state
 			isInitialStateRestored,
 			blueprint,
@@ -212,6 +213,7 @@ export function useChat({
 			projectStages,
 			isGenerating,
 			urlChatId,
+			behaviorType,
 			// Functions
 			updateStage,
 			sendMessage,
@@ -230,6 +232,7 @@ export function useChat({
 			projectStages,
 			isGenerating,
 			urlChatId,
+			behaviorType,
 			updateStage,
 			sendMessage,
 			loadBootstrapFiles,

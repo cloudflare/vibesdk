@@ -773,18 +773,9 @@ export class AgenticProjectBuilder extends Assistant<Env> {
 
         let userPrompt = getUserPrompt(inputs, fileSummaries, templateInfo);
 
-        if (historyMessages.length > 0) {
-            userPrompt = `<system_context>
-## Timestamp:
-${new Date().toISOString()}
-</system_context>
-
-${userPrompt}`;
-        }
-
         const system = createSystemMessage(systemPrompt);
         const user = createUserMessage(userPrompt);
-        const messages: Message[] = this.save([system, ...historyMessages, user]);
+        const messages: Message[] = this.save([system, user, ...historyMessages]);
 
         // Build tools with renderer and conversation sync callback
         const tools = buildAgenticBuilderTools(session, this.logger, toolRenderer, onToolComplete);

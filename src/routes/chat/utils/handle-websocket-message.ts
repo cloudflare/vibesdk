@@ -1,5 +1,5 @@
 import type { WebSocket } from 'partysocket';
-import type { WebSocketMessage, BlueprintType, ConversationMessage, AgentState, PhasicState } from '@/api-types';
+import type { WebSocketMessage, BlueprintType, ConversationMessage, AgentState, PhasicState, BehaviorType } from '@/api-types';
 import { deduplicateMessages, isAssistantMessageDuplicate } from './deduplicate-messages';
 import { logger } from '@/utils/logger';
 import { getFileType } from '@/utils/string';
@@ -50,7 +50,8 @@ export interface HandleMessageDeps {
     setRuntimeErrorCount: React.Dispatch<React.SetStateAction<number>>;
     setStaticIssueCount: React.Dispatch<React.SetStateAction<number>>;
     setIsDebugging: React.Dispatch<React.SetStateAction<boolean>>;
-    
+    setBehaviorType: React.Dispatch<React.SetStateAction<BehaviorType>>;
+
     // Current state
     isInitialStateRestored: boolean;
     blueprint: BlueprintType | undefined;
@@ -62,6 +63,7 @@ export interface HandleMessageDeps {
     projectStages: any[];
     isGenerating: boolean;
     urlChatId: string | undefined;
+    behaviorType: BehaviorType;
     
     // Functions
     updateStage: (stageId: string, updates: any) => void;
@@ -118,6 +120,7 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
             setIsGenerating,
             setIsPhaseProgressActive,
             setIsDebugging,
+            setBehaviorType,
             isInitialStateRestored,
             blueprint,
             query,
@@ -128,6 +131,7 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
             projectStages,
             isGenerating,
             urlChatId,
+            behaviorType,
             updateStage,
             sendMessage,
             loadBootstrapFiles,
@@ -162,7 +166,12 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
                 
                 if (!isInitialStateRestored) {
                     logger.debug('📥 Performing initial state restoration');
-                    
+
+                    if (state.behaviorType && state.behaviorType !== behaviorType) {
+                        setBehaviorType(state.behaviorType);
+                        logger.debug('🔄 Restored behaviorType from backend:', state.behaviorType);
+                    }
+
                     if (state.blueprint && !blueprint) {
                         setBlueprint(state.blueprint);
                         updateStage('blueprint', { status: 'completed' });
@@ -251,6 +260,20 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
                             logger.debug('🚀 Requesting preview deployment for existing chat with files');
                             sendWebSocketMessage(websocket, 'preview');
                         }
+                    }
+
+                    // Display queued user messages from state
+                    const queuedInputs = state.pendingUserInputs || [];
+                    if (queuedInputs.length > 0) {
+                        logger.debug('📋 Restoring queued user messages:', queuedInputs);
+                        const queuedMessages: ChatMessage[] = queuedInputs.map((msg, idx) => ({
+                            role: 'user',
+                            content: msg,
+                            conversationId: `queued-${idx}`,
+                            status: 'queued' as const,
+                            queuePosition: idx + 1
+                        }));
+                        setMessages(prev => [...prev, ...queuedMessages]);
                     }
 
                     setIsInitialStateRestored(true);
