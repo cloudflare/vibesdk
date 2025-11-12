@@ -56,8 +56,8 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
     // ==========================================
     
     initialState = {
-        behaviorType: 'phasic',
-        projectType: 'app',
+        behaviorType: 'unknown' as BehaviorType,
+        projectType: 'unknown' as ProjectType,
         projectName: "",
         query: "",
         sessionId: '',

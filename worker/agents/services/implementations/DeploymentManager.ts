@@ -575,6 +575,10 @@ export class DeploymentManager extends BaseAgentService<BaseProjectState> implem
         // Get latest files
         const files = this.fileManager.getAllFiles();
 
+        this.getLog().info('Files to deploy', {
+            files: files.map(f => f.filePath)
+        });
+
         // Create instance
         const client = this.getClient();
         const logger = this.getLog();

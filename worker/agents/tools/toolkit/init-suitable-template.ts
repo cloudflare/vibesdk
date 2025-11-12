@@ -87,8 +87,7 @@ export function createInitSuitableTemplateTool(
 
                 // Import the selected template
                 const importResult = await agent.importTemplate(
-                    selection.selectedTemplateName,
-                    `Selected template: ${selection.selectedTemplateName}`
+                    selection.selectedTemplateName
                 );
 
                 logger.info('Template imported successfully', {
