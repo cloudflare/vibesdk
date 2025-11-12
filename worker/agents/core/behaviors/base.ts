@@ -1055,31 +1055,22 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
         }
     }
 
-    async importTemplate(templateName: string, commitMessage: string = `chore: init template ${templateName}`): Promise<{ templateName: string; filesImported: number; files: TemplateFile[] }> {
+    async importTemplate(templateName: string): Promise<{ templateName: string; filesImported: number; files: TemplateFile[] }> {
         this.logger.info(`Importing template into project: ${templateName}`);
-        const results = await BaseSandboxService.getTemplateDetails(templateName);
-        if (!results.success || !results.templateDetails) {
-            throw new Error(`Failed to get template details for: ${templateName}`);
-        }
-
-        const templateDetails = results.templateDetails;
-        const customizedFiles = customizeTemplateFiles(templateDetails.allFiles, {
-            projectName: this.state.projectName,
-            commandsHistory: this.getBootstrapCommands()
-        });
-
-        const filesToSave = Object.entries(customizedFiles).map(([filePath, content]) => ({
-            filePath,
-            fileContents: content,
-            filePurpose: 'Template file'
-        }));
-
-        await this.fileManager.saveGeneratedFiles(filesToSave, commitMessage);
-
+        
         // Update state
         this.setState({
             ...this.state,
-            templateName: templateDetails.name,
+            templateName: templateName,
+        });
+
+        const templateDetails = await this.ensureTemplateDetails();
+        if (!templateDetails) {
+            throw new Error(`Failed to get template details for: ${templateName}`);
+        }
+
+        this.setState({
+            ...this.state,
             lastPackageJson: templateDetails.allFiles['package.json'] || this.state.lastPackageJson,
         });
 
@@ -1088,7 +1079,7 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
 
         return {
             templateName: templateDetails.name,
-            filesImported: filesToSave.length,
+            filesImported: Object.keys(templateDetails.allFiles).length,
             files: importantFiles
         };
     }

@@ -235,6 +235,8 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
         this._logger.setFields({
             agentId,
             userId,
+            projectType: this.state.projectType,
+            behaviorType: this.state.behaviorType
         });
         if (sessionId) {
             this._logger.setField('sessionId', sessionId);
@@ -308,12 +310,12 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
         return this.objective.export(options);
     }
 
-    importTemplate(templateName: string, commitMessage?: string): Promise<{ templateName: string; filesImported: number }> {
-        return this.behavior.importTemplate(templateName, commitMessage);
+    importTemplate(templateName: string): Promise<{ templateName: string; filesImported: number }> {
+        return this.behavior.importTemplate(templateName);
     }
     
     protected async saveToDatabase() {
-        this.logger().info(`Blueprint generated successfully for agent ${this.getAgentId()}`);
+        this.logger().info(`Saving agent ${this.getAgentId()} to database`);
         // Save the app to database (authenticated users only)
         const appService = new AppService(this.env);
         await appService.createApp({

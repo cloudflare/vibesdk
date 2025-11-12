@@ -34,7 +34,7 @@ export interface ICodingAgent {
 
     getProjectType(): ProjectType;
 
-    importTemplate(templateName: string, commitMessage?: string): Promise<{ templateName: string; filesImported: number; files: TemplateFile[] }>;
+    importTemplate(templateName: string): Promise<{ templateName: string; filesImported: number; files: TemplateFile[] }>;
 
     getOperationOptions(): OperationOptions;
 

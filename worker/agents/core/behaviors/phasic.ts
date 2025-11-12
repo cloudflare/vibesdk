@@ -122,6 +122,7 @@ export class PhasicCodingBehavior extends BaseCodingBehavior<PhasicState> implem
             hostname,
             inferenceContext,
             projectType: this.projectType,
+            behaviorType: 'phasic'
         };
         this.setState(nextState);
         // Customize template files (package.json, wrangler.jsonc, .bootstrap.js, .gitignore)
