@@ -10,7 +10,7 @@ import { ArrowRight, Image as ImageIcon } from 'react-feather';
 import { useParams, useSearchParams, useNavigate } from 'react-router';
 import { MonacoEditor } from '../../components/monaco-editor/monaco-editor';
 import { AnimatePresence, motion } from 'framer-motion';
-import { Expand, Github, GitBranch, LoaderCircle, RefreshCw, MoreHorizontal, RotateCcw, X } from 'lucide-react';
+import { Expand, Github, GitBranch, LoaderCircle, RefreshCw, MoreHorizontal, RotateCcw, X, Loader } from 'lucide-react';
 import clsx from 'clsx';
 import { Blueprint } from './components/blueprint';
 import { FileExplorer } from './components/file-explorer';
@@ -40,6 +40,9 @@ import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { sendWebSocketMessage } from './utils/websocket-helpers';
+import { detectContentType, type PresentationType } from './utils/content-detector';
+import { SpectaclePreview } from './components/spectacle-preview';
+import { MarkdownDocsPreview } from './components/markdown-docs-preview';
 
 const isPhasicBlueprint = (blueprint?: BlueprintType | null): blueprint is PhasicBlueprint =>
 	!!blueprint && 'implementationRoadmap' in blueprint;
@@ -161,6 +164,9 @@ export default function Chat() {
 	const [view, setView] = useState<'editor' | 'preview' | 'blueprint' | 'terminal'>(
 		'editor',
 	);
+
+	// Sub-view for presentations: toggle between iframe, slide navigator, and docs
+	const [presentationSubView, setPresentationSubView] = useState<'iframe' | 'slides' | 'docs'>('iframe');
 
 	// Terminal state
 	// const [terminalLogs, setTerminalLogs] = useState<TerminalLog[]>([]);
@@ -338,8 +344,11 @@ export default function Chat() {
 	}, [phaseTimeline]);
 
 	const isGitHubExportReady = useMemo(() => {
+		if (behaviorType === 'agentic') {
+			return files.length > 0 && !!urlChatId;
+		}
 		return isPhase1Complete && !!urlChatId;
-	}, [isPhase1Complete, urlChatId]);
+	}, [behaviorType, files.length, isPhase1Complete, urlChatId]);
 
 	// Detect if agentic mode is showing static content (docs, markdown)
 	const isStaticContent = useMemo(() => {
@@ -355,6 +364,22 @@ export default function Chat() {
 			       path.includes('/docs/');
 		});
 	}, [behaviorType, files]);
+
+	// Detect content type (spectacle presentation, documentation, or app)
+	const contentDetection = useMemo(() => {
+		return detectContentType(files);
+	}, [files]);
+
+	const presentationType: PresentationType = contentDetection.type;
+
+	// Preview available when there's a URL, or when viewing presentations/docs
+	const previewAvailable = useMemo(() => {
+		return (
+			!!previewUrl ||
+			presentationType === 'spectacle' ||
+			presentationType === 'documentation'
+		);
+	}, [previewUrl, presentationType]);
 
 	const showMainView = useMemo(() => {
 		// For agentic mode: only show preview panel when files or preview URL exist
@@ -380,15 +405,29 @@ export default function Chat() {
 	}, [messages.length, scrollToBottom]);
 
 	useEffect(() => {
-		// For static content in agentic mode, show editor view instead of preview
-		if (isStaticContent && files.length > 0 && !hasSeenPreview.current) {
+		if (hasSeenPreview.current) return;
+
+		// Auto-switch based on content type
+		if (presentationType === 'spectacle' || presentationType === 'documentation') {
+			// For presentations and docs, switch to preview immediately when files exist
+			if (files.length > 0) {
+				setView('preview');
+				setShowTooltip(true);
+				setTimeout(() => {
+					setShowTooltip(false);
+				}, 3000);
+				hasSeenPreview.current = true;
+			}
+		} else if (isStaticContent && files.length > 0) {
+			// For other static content, show editor view
 			setView('editor');
 			// Auto-select first file if none selected
 			if (!activeFilePath) {
 				setActiveFilePath(files[0].filePath);
 			}
 			hasSeenPreview.current = true;
-		} else if (previewUrl && !hasSeenPreview.current) {
+		} else if (previewUrl) {
+			// For apps, wait for preview URL
 			// Agentic: auto-switch immediately when preview URL available
 			// Phasic: require phase 1 complete
 			const shouldSwitch = behaviorType === 'agentic' || isPhase1Complete;
@@ -399,9 +438,22 @@ export default function Chat() {
 				setTimeout(() => {
 					setShowTooltip(false);
 				}, 3000);
+				hasSeenPreview.current = true;
 			}
 		}
-	}, [previewUrl, isPhase1Complete, isStaticContent, files, activeFilePath, behaviorType]);
+	}, [previewUrl, isPhase1Complete, isStaticContent, files, activeFilePath, behaviorType, presentationType]);
+
+	// Auto-switch to docs tab when documentation is actively being generated
+	useEffect(() => {
+		if (presentationType === 'spectacle' && contentDetection.hasDocumentation && view === 'preview') {
+			// Check if any documentation files are currently being generated
+			const docsBeingGenerated = contentDetection.documentationFiles?.some(file => file.isGenerating);
+
+			if (docsBeingGenerated && presentationSubView !== 'docs') {
+				setPresentationSubView('docs');
+			}
+		}
+	}, [presentationType, contentDetection, view, presentationSubView, files]);
 
 	useEffect(() => {
 		if (chatId) {
@@ -877,119 +929,289 @@ export default function Chat() {
 						animate={{ opacity: 1, scale: 1 }}
 						transition={{ duration: 0.3, ease: 'easeInOut' }}
 					>
-							{view === 'preview' && previewUrl && (
-								<div className="flex-1 flex flex-col bg-bg-3 rounded-xl shadow-md shadow-bg-2 overflow-hidden border border-border-primary">
-									<div className="grid grid-cols-3 px-2 h-10 border-b bg-bg-2">
-										<div className="flex items-center">
-											<ViewModeSwitch
-												view={view}
-												onChange={handleViewModeChange}
-												previewAvailable={!!previewUrl}
-												showTooltip={showTooltip}
-											/>
-										</div>
+							{view === 'preview' && (
+								<>
+									{/* Spectacle Presentation Preview */}
+									{presentationType === 'spectacle' && (
+										<div className="flex-1 flex flex-col bg-bg-3 rounded-xl shadow-md shadow-bg-2 overflow-hidden border border-border-primary">
+											{/* Toolbar */}
+											<div className="grid grid-cols-3 px-2 h-10 border-b bg-bg-2">
+												<div className="flex items-center gap-2">
+													<ViewModeSwitch
+														view={view}
+														onChange={handleViewModeChange}
+														previewAvailable={previewAvailable}
+														showTooltip={showTooltip}
+														presentationType={presentationType}
+													/>
+													{/* Tab switcher for presentations */}
+													<div className="flex items-center gap-1 bg-bg-1 rounded-md p-0.5">
+														<button
+															onClick={() => setPresentationSubView('iframe')}
+															className={clsx(
+																'px-2 py-1 text-xs rounded transition-colors',
+																presentationSubView === 'iframe'
+																	? 'bg-bg-4 text-text-primary'
+																	: 'text-text-50/70 hover:text-text-primary hover:bg-bg-3'
+															)}
+														>
+															Live
+														</button>
+														<button
+															onClick={() => setPresentationSubView('slides')}
+															className={clsx(
+																'px-2 py-1 text-xs rounded transition-colors',
+																presentationSubView === 'slides'
+																	? 'bg-bg-4 text-text-primary'
+																	: 'text-text-50/70 hover:text-text-primary hover:bg-bg-3'
+															)}
+														>
+															Slides
+														</button>
+														{/* Show Docs tab when documentation also exists */}
+														{contentDetection.hasDocumentation && (
+															<button
+																onClick={() => setPresentationSubView('docs')}
+																className={clsx(
+																	'px-2 py-1 text-xs rounded transition-colors',
+																	presentationSubView === 'docs'
+																		? 'bg-bg-4 text-text-primary'
+																		: 'text-text-50/70 hover:text-text-primary hover:bg-bg-3'
+																)}
+															>
+																Docs
+															</button>
+														)}
+													</div>
+												</div>
 
-										<div className="flex items-center justify-center">
-											<div className="flex items-center gap-2">
-												<span className="text-sm font-mono text-text-50/70">
-													{blueprint?.title ??
-														'Preview'}
-												</span>
-												<Copy text={previewUrl} />
-												<button
-													className="p-1 hover:bg-bg-2 rounded transition-colors"
-													onClick={() => {
-														setManualRefreshTrigger(
-															Date.now(),
-														);
-													}}
-													title="Refresh preview"
-												>
-													<RefreshCw className="size-4 text-text-primary/50" />
-												</button>
+												<div className="flex items-center justify-center">
+													<div className="flex items-center gap-2">
+														<span className="text-sm font-mono text-text-50/70">
+															{blueprint?.title ?? 'Presentation'}
+														</span>
+														{previewUrl && (
+															<>
+																<Copy text={previewUrl} />
+																<button
+																	className="p-1 hover:bg-bg-2 rounded transition-colors"
+																	onClick={() => {
+																		setManualRefreshTrigger(Date.now());
+																	}}
+																	title="Refresh preview"
+																>
+																	<RefreshCw className="size-4 text-text-primary/50" />
+																</button>
+															</>
+														)}
+													</div>
+												</div>
+
+												<div className="flex items-center justify-end gap-1.5">
+													<ModelConfigInfo
+														configs={modelConfigs}
+														onRequestConfigs={handleRequestConfigs}
+														loading={loadingConfigs}
+													/>
+													<button
+														className="group relative flex items-center gap-1.5 p-1.5 group-hover:pl-2 group-hover:pr-2.5 rounded-full group-hover:rounded-md transition-all duration-300 ease-in-out hover:bg-bg-4 border border-transparent hover:border-border-primary hover:shadow-sm overflow-hidden"
+														onClick={() => setIsGitCloneModalOpen(true)}
+														title="Clone Repository"
+													>
+														<GitBranch className="size-3.5 text-brand-primary transition-colors duration-300 flex-shrink-0" />
+														<span className="max-w-0 group-hover:max-w-[70px] opacity-0 group-hover:opacity-100 overflow-hidden transition-all duration-300 ease-in-out whitespace-nowrap text-xs font-medium text-text-primary">
+															Git Clone
+														</span>
+													</button>
+													<button
+														className={`flex items-center gap-1.5 px-2 py-1 rounded-md transition-all duration-200 text-xs font-medium shadow-sm ${
+															isGitHubExportReady
+																? 'bg-gray-800 hover:bg-gray-900 text-white'
+																: 'bg-gray-600 text-gray-400 cursor-not-allowed'
+														}`}
+														onClick={isGitHubExportReady ? githubExport.openModal : undefined}
+														disabled={!isGitHubExportReady}
+														title={
+															isGitHubExportReady
+																? "Export to GitHub"
+																: behaviorType === 'agentic'
+																	? urlChatId
+																		? "Generate files to enable GitHub export"
+																		: "Waiting for chat session to initialize..."
+																	: !isPhase1Complete
+																		? "Complete Phase 1 to enable GitHub export"
+																		: "Waiting for chat session to initialize..."
+														}
+													>
+														<Github className="size-3.5" />
+														GitHub
+													</button>
+													{previewUrl && (
+														<button
+															className="p-1.5 rounded-full transition-all duration-300 ease-in-out hover:bg-bg-4 border border-transparent hover:border-border-primary hover:shadow-sm"
+															onClick={() => {
+																previewRef.current?.requestFullscreen();
+															}}
+															title="Fullscreen"
+														>
+															<Expand className="size-3.5 text-text-primary/60 hover:text-brand-primary transition-colors duration-300" />
+														</button>
+													)}
+												</div>
 											</div>
-										</div>
 
-										<div className="flex items-center justify-end gap-1.5">
-											{/* <button
-												className="flex items-center gap-1.5 px-2 py-1 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white rounded-md transition-all duration-200 text-xs font-medium shadow-sm"
-												onClick={() => handleDeployToCloudflare(chatId!)}
-												disabled={isDeploying}
-												title="Save & Deploy"
-											>
-												{isDeploying ? (
-													<LoaderCircle className="size-3 animate-spin" />
-												) : (
-													<Save className="size-3" />
-												)}
-												{isDeploying ? 'Deploying...' : 'Save'}
-											</button> */}
-											<ModelConfigInfo
-												configs={modelConfigs}
-												onRequestConfigs={handleRequestConfigs}
-												loading={loadingConfigs}
-											/>
-											<button
-												className="group relative flex items-center gap-1.5 p-1.5 group-hover:pl-2 group-hover:pr-2.5 rounded-full group-hover:rounded-md transition-all duration-300 ease-in-out hover:bg-bg-4 border border-transparent hover:border-border-primary hover:shadow-sm overflow-hidden"
-												onClick={() => setIsGitCloneModalOpen(true)}
-												title="Clone Repository"
-											>
-												<GitBranch className="size-3.5 text-brand-primary transition-colors duration-300 flex-shrink-0" />
-												<span className="max-w-0 group-hover:max-w-[70px] opacity-0 group-hover:opacity-100 overflow-hidden transition-all duration-300 ease-in-out whitespace-nowrap text-xs font-medium text-text-primary">
-													Git Clone
-												</span>
-											</button>
-											<button
-												className={`flex items-center gap-1.5 px-2 py-1 rounded-md transition-all duration-200 text-xs font-medium shadow-sm ${
-													isGitHubExportReady
-														? 'bg-gray-800 hover:bg-gray-900 text-white'
-														: 'bg-gray-600 text-gray-400 cursor-not-allowed'
-												}`}
-												onClick={isGitHubExportReady ? githubExport.openModal : undefined}
-												disabled={!isGitHubExportReady}
-												title={
-													isGitHubExportReady
-														? "Export to GitHub"
-														: !isPhase1Complete
-															? "Complete Phase 1 to enable GitHub export"
-															: "Waiting for chat session to initialize..."
-												}
-												aria-label={
-													isGitHubExportReady
-														? "Export to GitHub"
-														: !isPhase1Complete
-															? "GitHub export disabled - complete Phase 1 first"
-															: "GitHub export disabled - waiting for chat session"
-												}
-											>
-												<Github className="size-3.5" />
-												GitHub
-											</button>
-											<button
-												className="p-1.5 rounded-full transition-all duration-300 ease-in-out hover:bg-bg-4 border border-transparent hover:border-border-primary hover:shadow-sm"
-												onClick={() => {
-													previewRef.current?.requestFullscreen();
-												}}
-												title="Fullscreen"
-											>
-												<Expand className="size-3.5 text-text-primary/60 hover:text-brand-primary transition-colors duration-300" />
-											</button>
+											{/* Content area */}
+											{presentationSubView === 'iframe' && previewUrl ? (
+												<PreviewIframe
+													src={previewUrl}
+													ref={previewRef}
+													className="flex-1 w-full h-full border-0"
+													title="Preview"
+													shouldRefreshPreview={shouldRefreshPreview}
+													manualRefreshTrigger={manualRefreshTrigger}
+													webSocket={websocket}
+												/>
+											) : presentationSubView === 'slides' && contentDetection.primaryFile ? (
+												<SpectaclePreview
+													deckFile={contentDetection.primaryFile}
+													isGenerating={isGenerating || isGeneratingBlueprint}
+												/>
+											) : presentationSubView === 'docs' && contentDetection.documentationFiles ? (
+												<MarkdownDocsPreview
+													files={contentDetection.documentationFiles}
+													isGenerating={isGenerating || isGeneratingBlueprint}
+												/>
+											) : (
+												<div className="flex-1 flex items-center justify-center text-text-tertiary">
+													<div className="text-center">
+														<Loader className="size-8 animate-spin text-accent mx-auto mb-2" />
+														<p className="text-sm">Waiting for preview...</p>
+													</div>
+												</div>
+											)}
 										</div>
-									</div>
-									<PreviewIframe
-										src={previewUrl}
-										ref={previewRef}
-										className="flex-1 w-full h-full border-0"
-										title="Preview"
-										shouldRefreshPreview={
-											shouldRefreshPreview
-										}
-										manualRefreshTrigger={
-											manualRefreshTrigger
-										}
-										webSocket={websocket}
-									/>
-								</div>
+									)}
+
+									{/* Documentation Preview */}
+									{presentationType === 'documentation' && contentDetection.relatedFiles && (
+										<MarkdownDocsPreview
+											files={contentDetection.relatedFiles}
+											isGenerating={isGenerating || isGeneratingBlueprint}
+										/>
+									)}
+
+									{/* Standard App Preview (iframe) */}
+									{presentationType === 'app' && previewUrl && (
+										<div className="flex-1 flex flex-col bg-bg-3 rounded-xl shadow-md shadow-bg-2 overflow-hidden border border-border-primary">
+											<div className="grid grid-cols-3 px-2 h-10 border-b bg-bg-2">
+												<div className="flex items-center">
+													<ViewModeSwitch
+														view={view}
+														onChange={handleViewModeChange}
+														previewAvailable={previewAvailable}
+														showTooltip={showTooltip}
+														presentationType={presentationType}
+													/>
+												</div>
+
+												<div className="flex items-center justify-center">
+													<div className="flex items-center gap-2">
+														<span className="text-sm font-mono text-text-50/70">
+															{blueprint?.title ??
+																'Preview'}
+														</span>
+														<Copy text={previewUrl} />
+														<button
+															className="p-1 hover:bg-bg-2 rounded transition-colors"
+															onClick={() => {
+																setManualRefreshTrigger(
+																	Date.now(),
+																);
+															}}
+															title="Refresh preview"
+														>
+															<RefreshCw className="size-4 text-text-primary/50" />
+														</button>
+													</div>
+												</div>
+
+												<div className="flex items-center justify-end gap-1.5">
+													<ModelConfigInfo
+														configs={modelConfigs}
+														onRequestConfigs={handleRequestConfigs}
+														loading={loadingConfigs}
+													/>
+													<button
+														className="group relative flex items-center gap-1.5 p-1.5 group-hover:pl-2 group-hover:pr-2.5 rounded-full group-hover:rounded-md transition-all duration-300 ease-in-out hover:bg-bg-4 border border-transparent hover:border-border-primary hover:shadow-sm overflow-hidden"
+														onClick={() => setIsGitCloneModalOpen(true)}
+														title="Clone Repository"
+													>
+														<GitBranch className="size-3.5 text-brand-primary transition-colors duration-300 flex-shrink-0" />
+														<span className="max-w-0 group-hover:max-w-[70px] opacity-0 group-hover:opacity-100 overflow-hidden transition-all duration-300 ease-in-out whitespace-nowrap text-xs font-medium text-text-primary">
+															Git Clone
+														</span>
+													</button>
+													<button
+														className={`flex items-center gap-1.5 px-2 py-1 rounded-md transition-all duration-200 text-xs font-medium shadow-sm ${
+															isGitHubExportReady
+																? 'bg-gray-800 hover:bg-gray-900 text-white'
+																: 'bg-gray-600 text-gray-400 cursor-not-allowed'
+														}`}
+														onClick={isGitHubExportReady ? githubExport.openModal : undefined}
+														disabled={!isGitHubExportReady}
+														title={
+															isGitHubExportReady
+																? "Export to GitHub"
+																: behaviorType === 'agentic'
+																	? urlChatId
+																		? "Generate files to enable GitHub export"
+																		: "Waiting for chat session to initialize..."
+																	: !isPhase1Complete
+																		? "Complete Phase 1 to enable GitHub export"
+																		: "Waiting for chat session to initialize..."
+														}
+														aria-label={
+															isGitHubExportReady
+																? "Export to GitHub"
+																: behaviorType === 'agentic'
+																	? urlChatId
+																		? "GitHub export disabled - generate files first"
+																		: "GitHub export disabled - waiting for chat session"
+																	: !isPhase1Complete
+																		? "GitHub export disabled - complete Phase 1 first"
+																		: "GitHub export disabled - waiting for chat session"
+														}
+													>
+														<Github className="size-3.5" />
+														GitHub
+													</button>
+													<button
+														className="p-1.5 rounded-full transition-all duration-300 ease-in-out hover:bg-bg-4 border border-transparent hover:border-border-primary hover:shadow-sm"
+														onClick={() => {
+															previewRef.current?.requestFullscreen();
+														}}
+														title="Fullscreen"
+													>
+														<Expand className="size-3.5 text-text-primary/60 hover:text-brand-primary transition-colors duration-300" />
+													</button>
+												</div>
+											</div>
+											<PreviewIframe
+												src={previewUrl}
+												ref={previewRef}
+												className="flex-1 w-full h-full border-0"
+												title="Preview"
+												shouldRefreshPreview={
+													shouldRefreshPreview
+												}
+												manualRefreshTrigger={
+													manualRefreshTrigger
+												}
+												webSocket={websocket}
+											/>
+										</div>
+									)}
+								</>
 							)}
 
 							{view === 'blueprint' && (
@@ -1000,8 +1222,9 @@ export default function Chat() {
 											<ViewModeSwitch
 												view={view}
 												onChange={handleViewModeChange}
-												previewAvailable={!!previewUrl}
+												previewAvailable={previewAvailable}
 												showTooltip={showTooltip}
+												presentationType={presentationType}
 											/>
 										</div>
 
@@ -1115,10 +1338,9 @@ export default function Chat() {
 													onChange={
 														handleViewModeChange
 													}
-													previewAvailable={
-														!!previewUrl
-													}
+													previewAvailable={previewAvailable}
 													showTooltip={showTooltip}
+													presentationType={presentationType}
 												/>
 											</div>
 
