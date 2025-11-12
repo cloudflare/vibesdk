@@ -13,7 +13,7 @@ interface MarkdownDocsPreviewProps {
 
 export function MarkdownDocsPreview({
 	files,
-	isGenerating,
+	isGenerating: _isGenerating,
 }: MarkdownDocsPreviewProps) {
 	// Prioritize README as default, otherwise first file
 	const defaultFile = useMemo(() => {

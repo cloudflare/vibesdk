@@ -137,7 +137,7 @@ export class SlideParser {
 	 */
 	private findMatchingClosingTag(
 		content: string,
-		start: number,
+		_start: number,
 		searchFrom: number
 	): number {
 		let depth = 1; // We've already found one opening <Slide>
