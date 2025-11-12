@@ -320,6 +320,7 @@ type InferArgsBase = {
     providerOverride?: 'cloudflare' | 'direct';
     userApiKeys?: Record<string, string>;
     abortSignal?: AbortSignal;
+    onAssistantMessage?: (message: Message) => Promise<void>;
 };
 
 type InferArgsStructured = InferArgsBase & {
@@ -417,7 +418,7 @@ async function executeToolCalls(openAiToolCalls: ChatCompletionMessageFunctionTo
                 if (!td) {
                     throw new Error(`Tool ${tc.function.name} not found`);
                 }
-                const result = await executeToolWithDefinition(td, args);
+                const result = await executeToolWithDefinition(tc, td, args);
                 console.log(`Tool execution result for ${tc.function.name}:`, result);
                 return {
                     id: tc.id,
@@ -427,6 +428,11 @@ async function executeToolCalls(openAiToolCalls: ChatCompletionMessageFunctionTo
                 };
             } catch (error) {
                 console.error(`Tool execution failed for ${tc.function.name}:`, error);
+                // Check if error is an abort error
+                if (error instanceof AbortError) {
+                    console.warn(`Tool call was aborted while executing ${tc.function.name}, ending tool call chain with the latest tool call result`);
+                    throw error;
+                }
                 return {
                     id: tc.id,
                     name: tc.function.name,
@@ -436,6 +442,28 @@ async function executeToolCalls(openAiToolCalls: ChatCompletionMessageFunctionTo
             }
         })
     );
+}
+
+function updateToolCallContext(toolCallContext: ToolCallContext | undefined, assistantMessage: Message, executedToolCalls: ToolCallResult[]) {
+    const newMessages = [
+        ...(toolCallContext?.messages || []),
+        assistantMessage,
+        ...executedToolCalls
+            .filter(result => result.name && result.name.trim() !== '')
+            .map((result, _) => ({
+                role: "tool" as MessageRole,
+                content: result.result ? JSON.stringify(result.result) : 'done',
+                name: result.name,
+                tool_call_id: result.id,
+            })),
+        ];
+
+    const newDepth = (toolCallContext?.depth ?? 0) + 1;
+    const newToolCallContext = {
+        messages: newMessages,
+        depth: newDepth
+    };
+    return newToolCallContext;
 }
 
 export function infer<OutputSchema extends z.AnyZodObject>(
@@ -471,6 +499,7 @@ export async function infer<OutputSchema extends z.AnyZodObject>({
     reasoning_effort,
     temperature,
     abortSignal,
+    onAssistantMessage,
 }: InferArgsBase & {
     schema?: OutputSchema;
     schemaName?: string;
@@ -622,6 +651,10 @@ export async function infer<OutputSchema extends z.AnyZodObject>({
         }
         let toolCalls: ChatCompletionMessageFunctionToolCall[] = [];
 
+        /*
+        * Handle LLM response
+        */
+
         let content = '';
         if (stream) {
             // If streaming is enabled, handle the stream response
@@ -715,6 +748,16 @@ export async function infer<OutputSchema extends z.AnyZodObject>({
             console.log(`Total tokens used in prompt: ${totalTokens}`);
         }
 
+        const assistantMessage = { role: "assistant" as MessageRole, content, tool_calls: toolCalls };
+
+        if (onAssistantMessage) {
+            await onAssistantMessage(assistantMessage);
+        }
+
+        /*
+        * Handle tool calls
+        */
+
         if (!content && !stream && !toolCalls.length) {
             // // Only error if not streaming and no content
             // console.error('No content received from OpenAI', JSON.stringify(response, null, 2));
@@ -725,33 +768,32 @@ export async function infer<OutputSchema extends z.AnyZodObject>({
         let executedToolCalls: ToolCallResult[] = [];
         if (tools) {
             // console.log(`Tool calls:`, JSON.stringify(toolCalls, null, 2), 'definition:', JSON.stringify(tools, null, 2));
-            executedToolCalls = await executeToolCalls(toolCalls, tools);
+            try {
+                executedToolCalls = await executeToolCalls(toolCalls, tools);
+            } catch (error) {
+                console.error(`Tool execution failed for ${toolCalls[0].function.name}:`, error);
+                // Check if error is an abort error
+                if (error instanceof AbortError) {
+                    console.warn(`Tool call was aborted, ending tool call chain with the latest tool call result`);
+
+                    const newToolCallContext = updateToolCallContext(toolCallContext, assistantMessage, executedToolCalls);
+                    return { string: content, toolCallContext: newToolCallContext };
+                }
+                // Otherwise, continue
+            }
         }
+
+        /*
+        * Handle tool call results
+        */
 
         if (executedToolCalls.length) {
             console.log(`Tool calls executed:`, JSON.stringify(executedToolCalls, null, 2));
-            // Generate a new response with the tool calls executed
-            const newMessages = [
-                ...(toolCallContext?.messages || []),
-                { role: "assistant" as MessageRole, content, tool_calls: toolCalls },
-                ...executedToolCalls
-                    .filter(result => result.name && result.name.trim() !== '')
-                    .map((result, _) => ({
-                        role: "tool" as MessageRole,
-                        content: result.result ? JSON.stringify(result.result) : 'done',
-                        name: result.name,
-                        tool_call_id: result.id,
-                    })),
-            ];
 
-            const newDepth = (toolCallContext?.depth ?? 0) + 1;
-            const newToolCallContext = {
-                messages: newMessages,
-                depth: newDepth
-            };
+            const newToolCallContext = updateToolCallContext(toolCallContext, assistantMessage, executedToolCalls);
             
             const executedCallsWithResults = executedToolCalls.filter(result => result.result);
-            console.log(`${actionKey}: Tool calling depth: ${newDepth}/${getMaxToolCallingDepth(actionKey)}`);
+            console.log(`${actionKey}: Tool calling depth: ${newToolCallContext.depth}/${getMaxToolCallingDepth(actionKey)}`);
             
             if (executedCallsWithResults.length) {
                 if (schema && schemaName) {
@@ -771,6 +813,7 @@ export async function infer<OutputSchema extends z.AnyZodObject>({
                         reasoning_effort,
                         temperature,
                         abortSignal,
+                        onAssistantMessage,
                     }, newToolCallContext);
                     return output;
                 } else {
@@ -786,6 +829,7 @@ export async function infer<OutputSchema extends z.AnyZodObject>({
                         reasoning_effort,
                         temperature,
                         abortSignal,
+                        onAssistantMessage,
                     }, newToolCallContext);
                     return output;
                 }

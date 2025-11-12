@@ -3,6 +3,7 @@ import {
     createSystemMessage,
     createUserMessage,
     Message,
+    ConversationMessage,
 } from '../inferutils/common';
 import { executeInference } from '../inferutils/infer';
 import { InferenceContext, ModelConfig } from '../inferutils/config.types';
@@ -15,6 +16,7 @@ import { FileState } from '../core/state';
 import { ICodingAgent } from '../services/interfaces/ICodingAgent';
 import { ProjectType } from '../core/types';
 import { Blueprint, AgenticBlueprint } from '../schemas';
+import { prepareMessagesForInference } from '../utils/common';
 
 export type BuildSession = {
     filesIndex: FileState[];
@@ -697,12 +699,6 @@ function summarizeFiles(filesIndex: FileState[]): string {
     return `Generated Files (${filesIndex.length} total):\n${summary}`;
 }
 
-/**
- * AgenticProjectBuilder
- * 
- * Similar to DeepCodeDebugger but for building entire projects.
- * Uses tool-calling approach to scaffold, deploy, verify, and iterate.
- */
 export class AgenticProjectBuilder extends Assistant<Env> {
     logger = createObjectLogger(this, 'AgenticProjectBuilder');
     modelConfigOverride?: ModelConfig;
@@ -721,6 +717,9 @@ export class AgenticProjectBuilder extends Assistant<Env> {
         session: BuildSession,
         streamCb?: (chunk: string) => void,
         toolRenderer?: RenderToolCall,
+        onToolComplete?: (message: Message) => Promise<void>,
+        onAssistantMessage?: (message: Message) => Promise<void>,
+        conversationHistory?: ConversationMessage[]
     ): Promise<string> {
         this.logger.info('Starting project build', {
             projectName: inputs.projectName,
@@ -756,16 +755,39 @@ export class AgenticProjectBuilder extends Assistant<Env> {
             !hasFiles && hasPlan ? '- Plan ready, no files yet: Scaffold initial structure with generate_files.' : '',
         ].filter(Boolean).join('\n');
 
-        // Build prompts
-        const systemPrompt = getSystemPrompt(dynamicHints);
-        const userPrompt = getUserPrompt(inputs, fileSummaries, templateInfo);
-        
+        let historyMessages: Message[] = [];
+        if (conversationHistory && conversationHistory.length > 0) {
+            const prepared = await prepareMessagesForInference(this.env, conversationHistory);
+            historyMessages = prepared as Message[];
+
+            this.logger.info('Loaded conversation history', {
+                messageCount: historyMessages.length
+            });
+        }
+
+        let systemPrompt = getSystemPrompt(dynamicHints);
+
+        if (historyMessages.length > 0) {
+            systemPrompt += `\n\n# Conversation History\nYou are being provided with the full conversation history from your previous interactions. Review it to understand context and avoid repeating work.`;
+        }
+
+        let userPrompt = getUserPrompt(inputs, fileSummaries, templateInfo);
+
+        if (historyMessages.length > 0) {
+            userPrompt = `<system_context>
+## Timestamp:
+${new Date().toISOString()}
+</system_context>
+
+${userPrompt}`;
+        }
+
         const system = createSystemMessage(systemPrompt);
         const user = createUserMessage(userPrompt);
-        const messages: Message[] = this.save([system, user]);
+        const messages: Message[] = this.save([system, ...historyMessages, user]);
 
-        // Prepare tools (same as debugger)
-        const tools = buildAgenticBuilderTools(session, this.logger, toolRenderer);
+        // Build tools with renderer and conversation sync callback
+        const tools = buildAgenticBuilderTools(session, this.logger, toolRenderer, onToolComplete);
 
         let output = '';
 
@@ -780,14 +802,15 @@ export class AgenticProjectBuilder extends Assistant<Env> {
                 stream: streamCb
                     ? { chunk_size: 64, onChunk: (c) => streamCb(c) }
                     : undefined,
+                onAssistantMessage,
             });
-            
+
             output = result?.string || '';
-            
+
             this.logger.info('Project build completed', {
                 outputLength: output.length
             });
-            
+
         } catch (error) {
             this.logger.error('Project build failed', error);
             throw error;
