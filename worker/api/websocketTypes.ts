@@ -352,6 +352,11 @@ type BlueprintUpdatedMessage = {
 	updatedKeys: string[];
 };
 
+type BlueprintChunkMessage = {
+	type: 'blueprint_chunk';
+	chunk: string;
+};
+
 type DeterministicCodeFixStartedMessage = {
 	type: 'deterministic_code_fix_started';
 	message: string;
@@ -462,6 +467,7 @@ export type WebSocketMessage =
 	| ConversationClearedMessage
     | ProjectNameUpdatedMessage
     | BlueprintUpdatedMessage
+    | BlueprintChunkMessage
     | DeterministicCodeFixStartedMessage
     | DeterministicCodeFixCompletedMessage
 	| ModelConfigsInfoMessage
