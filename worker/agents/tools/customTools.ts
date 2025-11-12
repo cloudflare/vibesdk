@@ -25,14 +25,17 @@ import { ICodingAgent } from '../services/interfaces/ICodingAgent';
 import { createInitSuitableTemplateTool } from './toolkit/init-suitable-template';
 import { createVirtualFilesystemTool } from './toolkit/virtual-filesystem';
 import { createGenerateImagesTool } from './toolkit/generate-images';
+import { Message } from '../inferutils/common';
+import { ChatCompletionMessageFunctionToolCall } from 'openai/resources';
 
 export async function executeToolWithDefinition<TArgs, TResult>(
+    toolCall: ChatCompletionMessageFunctionToolCall,
     toolDef: ToolDefinition<TArgs, TResult>,
     args: TArgs
 ): Promise<TResult> {
-    toolDef.onStart?.(args);
+    await toolDef.onStart?.(toolCall, args);
     const result = await toolDef.implementation(args);
-    toolDef.onComplete?.(args, result);
+    await toolDef.onComplete?.(toolCall, args, result);
     return result;
 }
 
@@ -82,7 +85,12 @@ export function buildDebugTools(session: DebugSession, logger: StructuredLogger,
 /**
  * Toolset for the Agentic Project Builder (autonomous build assistant)
  */
-export function buildAgenticBuilderTools(session: DebugSession, logger: StructuredLogger, toolRenderer?: RenderToolCall): ToolDefinition<any, any>[] {
+export function buildAgenticBuilderTools(
+    session: DebugSession,
+    logger: StructuredLogger,
+    toolRenderer?: RenderToolCall,
+    onToolComplete?: (message: Message) => Promise<void>
+): ToolDefinition<any, any>[] {
     const tools = [
         // PRD generation + refinement
         createGenerateBlueprintTool(session.agent, logger),
@@ -107,20 +115,47 @@ export function buildAgenticBuilderTools(session: DebugSession, logger: Structur
         createGenerateImagesTool(session.agent, logger),
     ];
 
-    return withRenderer(tools, toolRenderer);
+    return withRenderer(tools, toolRenderer, onToolComplete);
 }
 
-/** Decorate tool definitions with a renderer for UI visualization */
-function withRenderer(tools: ToolDefinition<any, any>[], toolRenderer?: RenderToolCall): ToolDefinition<any, any>[] {
+/**
+ * Decorate tool definitions with a renderer for UI visualization and conversation sync
+ */
+function withRenderer(
+    tools: ToolDefinition<any, any>[],
+    toolRenderer?: RenderToolCall,
+    onComplete?: (message: Message) => Promise<void>
+): ToolDefinition<any, any>[] {
     if (!toolRenderer) return tools;
+
     return tools.map(td => ({
         ...td,
-        onStart: (args: Record<string, unknown>) => toolRenderer({ name: td.function.name, status: 'start', args }),
-        onComplete: (args: Record<string, unknown>, result: unknown) => toolRenderer({
-            name: td.function.name,
-            status: 'success',
-            args,
-            result: typeof result === 'string' ? result : JSON.stringify(result)
-        })
+        onStart: async (_tc: ChatCompletionMessageFunctionToolCall, args: Record<string, unknown>) => {
+            if (toolRenderer) {
+                toolRenderer({ name: td.function.name, status: 'start', args });
+            }
+        },
+        onComplete: async (tc: ChatCompletionMessageFunctionToolCall, args: Record<string, unknown>, result: unknown) => {
+            // UI rendering
+            if (toolRenderer) {
+                toolRenderer({
+                    name: td.function.name,
+                    status: 'success',
+                    args,
+                    result: typeof result === 'string' ? result : JSON.stringify(result)
+                });
+            }
+
+            // Conversation sync callback
+            if (onComplete) {
+                const toolMessage: Message = {
+                    role: 'tool',
+                    content: typeof result === 'string' ? result : JSON.stringify(result),
+                    name: td.function.name,
+                    tool_call_id: tc.id,
+                };
+                await onComplete(toolMessage);
+            }
+        }
     }));
 }

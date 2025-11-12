@@ -39,6 +39,7 @@ interface InferenceParamsBase {
     reasoning_effort?: ReasoningEffort;
     modelConfig?: ModelConfig;
     context: InferenceContext;
+    onAssistantMessage?: (message: Message) => Promise<void>;
 }
 
 interface InferenceParamsStructured<T extends z.AnyZodObject> extends InferenceParamsBase {
@@ -60,7 +61,7 @@ export async function executeInference<T extends z.AnyZodObject>(   {
     messages,
     temperature,
     maxTokens,
-    retryLimit = 5, // Increased retry limit for better reliability
+    retryLimit = 5,
     stream,
     tools,
     reasoning_effort,
@@ -69,7 +70,8 @@ export async function executeInference<T extends z.AnyZodObject>(   {
     format,
     modelName,
     modelConfig,
-    context
+    context,
+    onAssistantMessage
 }: InferenceParamsBase &    {
     schema?: T;
     format?: SchemaFormat;
@@ -124,6 +126,7 @@ export async function executeInference<T extends z.AnyZodObject>(   {
                 reasoning_effort: useCheaperModel ? undefined : reasoning_effort,
                 temperature,
                 abortSignal: context.abortSignal,
+                onAssistantMessage,
             }) : await infer({
                 env,
                 metadata: context,
@@ -136,6 +139,7 @@ export async function executeInference<T extends z.AnyZodObject>(   {
                 reasoning_effort: useCheaperModel ? undefined : reasoning_effort,
                 temperature,
                 abortSignal: context.abortSignal,
+                onAssistantMessage,
             });
             logger.info(`Successfully completed ${agentActionName} operation`);
             // console.log(result);
