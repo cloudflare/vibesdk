@@ -1,21 +1,52 @@
 import clsx from 'clsx';
 import { AnimatePresence, motion } from 'framer-motion';
-import { Eye, Code } from 'lucide-react';
+import { Eye, Code, FileText, Presentation } from 'lucide-react';
+import type { PresentationType } from '../utils/content-detector';
 
 export function ViewModeSwitch({
 	view,
 	onChange,
 	previewAvailable = false,
 	showTooltip = false,
+	presentationType = null,
 }: {
 	view: 'preview' | 'editor' | 'blueprint'
 	onChange: (mode: 'preview' | 'editor' | 'blueprint') => void;
 	previewAvailable: boolean;
 	showTooltip: boolean;
+	presentationType?: PresentationType;
 }) {
 	if (!previewAvailable) {
 		return null;
 	}
+
+	// Get icon and label based on presentation type
+	const getPreviewIcon = () => {
+		switch (presentationType) {
+			case 'spectacle':
+				return Presentation;
+			case 'documentation':
+				return FileText;
+			case 'app':
+			default:
+				return Eye;
+		}
+	};
+
+	const getPreviewLabel = () => {
+		switch (presentationType) {
+			case 'spectacle':
+				return 'Slides';
+			case 'documentation':
+				return 'Docs';
+			case 'app':
+			default:
+				return 'Preview';
+		}
+	};
+
+	const PreviewIcon = getPreviewIcon();
+	const previewLabel = getPreviewLabel();
 
 	return (
 		<div className="flex items-center gap-1 bg-bg-1 rounded-md p-0.5 relative">
@@ -40,8 +71,9 @@ export function ViewModeSwitch({
 						? 'bg-bg-4 text-text-primary'
 						: 'text-text-50/70 hover:text-text-primary hover:bg-accent',
 				)}
+				title={previewLabel}
 			>
-				<Eye className="size-4" />
+				<PreviewIcon className="size-4" />
 			</button>
 			<button
 				onClick={() => onChange('editor')}
@@ -51,6 +83,7 @@ export function ViewModeSwitch({
 						? 'bg-bg-4 text-text-primary'
 						: 'text-text-50/70 hover:text-text-primary hover:bg-accent',
 				)}
+				title="Code"
 			>
 				<Code className="size-4" />
 			</button>

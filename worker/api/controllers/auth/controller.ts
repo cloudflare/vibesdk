@@ -13,13 +13,15 @@ import {
     oauthProviderSchema
 } from './authSchemas';
 import { SecurityError } from 'shared/types/errors';
-import { 
+import {
     formatAuthResponse,
-    mapUserResponse, 
-    setSecureAuthCookies, 
-    clearAuthCookies, 
-    extractSessionId
+    mapUserResponse,
+    setSecureAuthCookies,
+    clearAuthCookies,
+    extractSessionId,
+    extractToken
 } from '../../../utils/authUtils';
+import { JWTUtils } from '../../../utils/jwtUtils';
 import { RouteContext } from '../../types/route-context';
 import { authMiddleware } from '../../../middleware/auth/auth';
 import { CsrfService } from '../../../services/csrf/CsrfService';
@@ -535,6 +537,53 @@ export class AuthController extends BaseController {
             });
         } catch (error) {
             return AuthController.handleError(error, 'revoke API key');
+        }
+    }
+
+    /**
+     * Get CLI authentication token
+     * GET /api/auth/cli-token
+     * Returns the user's existing session token for CLI authentication
+     */
+    static async getCliToken(request: Request, env: Env, _ctx: ExecutionContext, routeContext: RouteContext): Promise<Response> {
+        try {
+            const user = routeContext.user;
+            if (!user) {
+                return AuthController.createErrorResponse('Unauthorized', 401);
+            }
+
+            // Extract existing session token from request
+            const token = extractToken(request);
+
+            if (!token) {
+                return AuthController.createErrorResponse('No active session found', 401);
+            }
+
+            // Verify token and get expiry information
+            const jwtUtils = JWTUtils.getInstance(env);
+            try {
+                const payload = await jwtUtils.verifyToken(token);
+
+                if (!payload) {
+                    return AuthController.createErrorResponse('Invalid session token', 401);
+                }
+
+                const expiresIn = payload.exp - Math.floor(Date.now() / 1000);
+                const expiresAt = new Date(payload.exp * 1000).toISOString();
+
+                this.logger.info('CLI token retrieved', { userId: user.id });
+
+                return AuthController.createSuccessResponse({
+                    token,
+                    expiresIn,
+                    expiresAt,
+                    instructions: 'Use this token with: /login --token <token>'
+                });
+            } catch (error) {
+                return AuthController.createErrorResponse('Invalid or expired session', 401);
+            }
+        } catch (error) {
+            return AuthController.handleError(error, 'get CLI token');
         }
     }
 
