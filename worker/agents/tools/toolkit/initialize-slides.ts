@@ -35,7 +35,7 @@ export function createInitializeSlidesTool(
         },
         implementation: async ({ theme, force_preview }: InitializeSlidesArgs) => {
             logger.info('Initializing slides via Spectacle template', { theme });
-            const { templateName, filesImported } = await agent.importTemplate('spectacle', `chore: init slides (theme=${theme || 'default'})`);
+            const { templateName, filesImported } = await agent.importTemplate('spectacle');
             logger.info('Imported template', { templateName, filesImported });
 
             const deployMsg = await agent.deployPreview(true, !!force_preview);

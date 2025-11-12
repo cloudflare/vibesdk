@@ -82,6 +82,12 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
 
     constructor(infrastructure: AgentInfrastructure<TState>, protected projectType: ProjectType) {
         super(infrastructure);
+
+        this.setState({
+            ...this.state,
+            behaviorType: this.getBehavior(),
+            projectType: this.projectType,
+        });
     }
 
     public async initialize(
@@ -95,6 +101,8 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
             
             await this.ensureTemplateDetails();
         }
+
+        // Reset the logg
         return this.state;
     }
 
@@ -1064,6 +1072,7 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
             templateName: templateName,
         });
 
+        this.templateDetailsCache = null;   // Clear template details cache
         const templateDetails = await this.ensureTemplateDetails();
         if (!templateDetails) {
             throw new Error(`Failed to get template details for: ${templateName}`);
