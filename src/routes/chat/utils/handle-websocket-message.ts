@@ -11,7 +11,7 @@ import {
     setAllFilesCompleted,
     updatePhaseFileStatus,
 } from './file-state-helpers';
-import { 
+import {
     createAIMessage,
     handleRateLimitError,
     handleStreamingMessage,
@@ -22,6 +22,7 @@ import { completeStages } from './project-stage-helpers';
 import { sendWebSocketMessage } from './websocket-helpers';
 import type { FileType, PhaseTimelineItem } from '../hooks/use-chat';
 import { toast } from 'sonner';
+import { createRepairingJSONParser } from '@/utils/ndjson-parser/ndjson-parser';
 
 const isPhasicState = (state: AgentState): state is PhasicState =>
 	state.behaviorType === 'phasic';
@@ -98,6 +99,10 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
         }
         return '';
     };
+
+    // Blueprint chunk parser (maintained across chunks)
+    let blueprintParser: ReturnType<typeof createRepairingJSONParser> | null = null;
+
     return (websocket: WebSocket, message: WebSocketMessage) => {
         const {
             setFiles,
@@ -858,6 +863,27 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
                     
                     return [...prev, createAIMessage(conversationId, newContent)];
                 });
+                break;
+            }
+
+            case 'blueprint_chunk': {
+                // Initialize parser on first chunk
+                if (!blueprintParser) {
+                    blueprintParser = createRepairingJSONParser();
+                    logger.debug('Blueprint streaming started');
+                }
+
+                // Feed chunk to parser
+                blueprintParser.feed(message.chunk);
+
+                // Try to parse partial blueprint
+                try {
+                    const partial = blueprintParser.finalize();
+                    setBlueprint(partial);
+                    logger.debug('Blueprint chunk processed, partial blueprint updated');
+                } catch (e) {
+                    logger.debug('Blueprint chunk accumulated, waiting for more data');
+                }
                 break;
             }
 

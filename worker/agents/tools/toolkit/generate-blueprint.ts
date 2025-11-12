@@ -3,6 +3,7 @@ import { StructuredLogger } from '../../../logger';
 import { ICodingAgent } from 'worker/agents/services/interfaces/ICodingAgent';
 import { generateBlueprint, type AgenticBlueprintGenerationArgs } from 'worker/agents/planning/blueprint';
 import type { Blueprint } from 'worker/agents/schemas';
+import { WebSocketMessageResponses } from '../../constants';
 
 type GenerateBlueprintArgs = {
     prompt: string;
@@ -50,6 +51,12 @@ export function createGenerateBlueprintTool(
                 frameworks,
                 templateDetails: context.templateDetails,
                 projectType: agent.getProjectType(),
+                stream: {
+                    chunk_size: 256,
+                    onChunk: (chunk: string) => {
+                        agent.broadcast(WebSocketMessageResponses.BLUEPRINT_CHUNK, { chunk });
+                    }
+                }
             };
             const blueprint = await generateBlueprint(args);
 
