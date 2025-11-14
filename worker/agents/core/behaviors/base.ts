@@ -176,6 +176,11 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
         return this.templateDetailsCache;
     }
 
+    protected isPreviewable(): boolean {
+        // If there are 'package.json', and 'wrangler.jsonc' files, then it is previewable
+        return this.fileManager.fileExists('package.json') && this.fileManager.fileExists('wrangler.jsonc');
+    }
+
     /**
      * Update bootstrap script when commands history changes
      * Called after significant command executions
@@ -289,12 +294,6 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
 
     async generateReadme() {
         this.logger.info('Generating README.md');
-        // Only generate if it doesn't exist
-        if (this.fileManager.fileExists('README.md')) {
-            this.logger.info('README.md already exists');
-            return;
-        }
-
         this.broadcast(WebSocketMessageResponses.FILE_GENERATING, {
             message: 'Generating README.md',
             filePath: 'README.md',
@@ -972,6 +971,11 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
     }
 
     async deployToSandbox(files: FileOutputType[] = [], redeploy: boolean = false, commitMessage?: string, clearLogs: boolean = false): Promise<PreviewType | null> {
+        // Only deploy if project is previewable
+        if (!this.isPreviewable()) {
+            throw new Error('Project is not previewable');
+        }
+        
         // Call deployment manager with callbacks for broadcasting at the right times
         const result = await this.deploymentManager.deployToSandbox(
             files,
@@ -1085,6 +1089,11 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
 
         // Get important files for return value
         const importantFiles = getTemplateImportantFiles(templateDetails);
+
+        // Notify frontend about template metadata update
+        this.broadcast(WebSocketMessageResponses.TEMPLATE_UPDATED, {
+            templateDetails
+        });
 
         return {
             templateName: templateDetails.name,
