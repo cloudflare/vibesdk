@@ -39,14 +39,6 @@ export class AppObjective<TState extends BaseProjectState = BaseProjectState>
   getRuntime(): RuntimeType {
     return 'sandbox';
   }
-  
-  needsTemplate(): boolean {
-    return true;
-  }
-  
-  getTemplateType(): string | null {
-    return this.state.templateName;
-  }
 
   // ==========================================
   // LIFECYCLE HOOKS

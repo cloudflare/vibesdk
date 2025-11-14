@@ -1,6 +1,6 @@
 import { ProjectObjective } from './base';
 import { BaseProjectState } from '../state';
-import { ProjectType, RuntimeType, ExportResult, ExportOptions, DeployResult, DeployOptions } from '../types';
+import { ProjectType, ExportResult, ExportOptions, DeployResult, DeployOptions } from '../types';
 import type { AgentInfrastructure } from '../AgentCore';
 import { WebSocketMessageResponses, PREVIEW_EXPIRED_ERROR } from '../../constants';
 import { AppService } from '../../../database/services/AppService';
@@ -28,23 +28,6 @@ export class PresentationObjective<TState extends BaseProjectState = BaseProject
   getType(): ProjectType {
     return 'presentation';
   }
-
-  // ==========================================
-  // RUNTIME & INFRASTRUCTURE
-  // ==========================================
-  
-  getRuntime(): RuntimeType {
-    return 'sandbox';
-  }
-  
-  needsTemplate(): boolean {
-    return true;
-  }
-  
-  getTemplateType(): string | null {
-    return 'spectacle'; // New template to be created
-  }
-
   // ==========================================
   // DEPLOYMENT & EXPORT
   // ==========================================
