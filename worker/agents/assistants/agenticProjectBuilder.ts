@@ -26,7 +26,7 @@ export type BuildSession = {
     filesIndex: FileState[];
     agent: ICodingAgent;
     projectType: ProjectType;
-    selectedTemplate?: string;  // Template chosen by agent (e.g. spectacle-runner, react-game-starter, etc.)
+    selectedTemplate?: string;
 };
 
 export type BuildInputs = {
@@ -300,24 +300,6 @@ Template automatically imported to virtual filesystem
   ↓
 Returns: selection object + reasoning + imported files
 \`\`\`
-
-**What you get back:**
-- selection.selectedTemplateName: Chosen template name (or null if none suitable)
-- selection.reasoning: Why this template was chosen
-- selection.projectType: Detected/confirmed project type
-- selection.complexity: simple/moderate/complex
-- selection.styleSelection: UI style recommendation
-- importedFiles[]: Array of important template files now in virtual FS
-
-**Template Library Coverage:**
-The library includes templates for:
-- React/Vue/Svelte apps with various configurations
-- Game starters (canvas-based, WebGL)
-- Presentation frameworks (Spectacle, Reveal.js)
-- Dashboard/Admin templates
-- Landing pages and marketing sites
-- API/Worker templates
-- And many more specialized templates
 
 **When to use:**
 - ✅ ALWAYS for interactive projects (app/presentation/workflow)

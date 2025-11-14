@@ -109,22 +109,6 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
             10 // MAX_COMMANDS_HISTORY
         );
     }
-
-    onFirstInit(props?: AgentBootstrapProps): void {
-        this.logger().info('Bootstrapping CodeGeneratorAgent', { props });
-        const behaviorType = props?.behaviorType ?? this.state.behaviorType ?? 'phasic';
-        const projectType = props?.projectType ?? this.state.projectType ?? 'app';
-
-        if (behaviorType === 'phasic') {
-            this.behavior = new PhasicCodingBehavior(this as AgentInfrastructure<PhasicState>, projectType);
-        } else {
-            this.behavior = new AgenticCodingBehavior(this as AgentInfrastructure<AgenticState>, projectType);
-        }
-        
-        // Create objective based on project type
-        this.objective = this.createObjective(projectType);
-    }
-    
     /**
      * Factory method to create the appropriate objective based on project type
      */
@@ -189,11 +173,19 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
     async onStart(props?: Record<string, unknown> | undefined): Promise<void> {
         this.logger().info(`Agent ${this.getAgentId()} session: ${this.state.sessionId} onStart`, { props });
 
-        if (!this.behavior) {
-            // First-time initialization
-            this.logger().info('First-time onStart initialization detected, invoking onFirstInit');
-            this.onFirstInit(props as AgentBootstrapProps);
+        this.logger().info('Bootstrapping CodeGeneratorAgent', { props });
+        const agentProps = props as AgentBootstrapProps;
+        const behaviorType = agentProps?.behaviorType ?? this.state.behaviorType ?? 'phasic';
+        const projectType = agentProps?.projectType ?? this.state.projectType ?? 'app';
+
+        if (behaviorType === 'phasic') {
+            this.behavior = new PhasicCodingBehavior(this as AgentInfrastructure<PhasicState>, projectType);
+        } else {
+            this.behavior = new AgenticCodingBehavior(this as AgentInfrastructure<AgenticState>, projectType);
         }
+        
+        // Create objective based on project type
+        this.objective = this.createObjective(projectType);
 
         this.behavior.onStart(props);
 
