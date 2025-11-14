@@ -1,10 +1,13 @@
-import { useState, useEffect, useMemo } from 'react';
-import { Loader } from 'lucide-react';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import { Loader, FileText, FileDown } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeExternalLinks from 'rehype-external-links';
 import { DocsSidebar } from './docs-sidebar';
-import type { FileType } from '../hooks/use-chat';
+import { ExportButton } from './export-button';
+import { exportMarkdownAsFile } from '@/utils/markdown-export';
+import type { FileType } from '@/api-types';
+import './markdown-docs-preview.css';
 
 interface MarkdownDocsPreviewProps {
 	files: FileType[];
@@ -35,6 +38,20 @@ export function MarkdownDocsPreview({
 	}, [defaultFile, activeFilePath]);
 
 	const activeFile = files.find((f) => f.filePath === activeFilePath);
+
+	// Ref for print export
+	const contentRef = useRef<HTMLElement>(null);
+
+	// Export handlers
+	const handleExportMarkdown = useCallback(() => {
+		if (!activeFile) return;
+		const filename = activeFile.filePath.split('/').pop() || 'documentation.md';
+		exportMarkdownAsFile(activeFile.fileContents || '', filename);
+	}, [activeFile]);
+
+	const handlePrint = useCallback(() => {
+		window.print();
+	}, []);
 
 	// Extract table of contents from markdown headings
 	const tableOfContents = useMemo(() => {
@@ -76,7 +93,7 @@ export function MarkdownDocsPreview({
 	}, [activeFile]);
 
 	return (
-		<div className="flex-1 flex bg-bg-3 rounded-xl shadow-md shadow-bg-2 overflow-hidden border border-border-primary">
+		<div className="flex-1 flex overflow-hidden">
 			{/* Sidebar */}
 			<DocsSidebar
 				files={files}
@@ -88,15 +105,34 @@ export function MarkdownDocsPreview({
 			<div className="flex-1 flex flex-col overflow-hidden">
 				{/* Header */}
 				<div className="flex items-center gap-3 px-6 h-12 bg-bg-2 border-b border-border-primary">
-					<span className="text-sm font-medium text-text-primary">
-						{activeFile?.filePath || 'Documentation'}
-					</span>
-					{activeFile?.isGenerating && (
-						<div className="flex items-center gap-2 text-xs text-accent">
-							<Loader className="size-3 animate-spin" />
-							<span>Generating...</span>
-						</div>
-					)}
+					{/* Left: File name and status */}
+					<div className="flex items-center gap-3 flex-1">
+						<span className="text-sm font-medium text-text-primary">
+							{activeFile?.filePath || 'Documentation'}
+						</span>
+						{activeFile?.isGenerating && (
+							<div className="flex items-center gap-2 text-xs text-accent">
+								<Loader className="size-3 animate-spin" />
+								<span>Generating...</span>
+							</div>
+						)}
+					</div>
+
+					{/* Right: Export buttons */}
+					<div className="flex items-center gap-2 export-button-container">
+						<ExportButton
+							icon={FileText}
+							onClick={handleExportMarkdown}
+							tooltip="Download Markdown"
+							disabled={!activeFile}
+						/>
+						<ExportButton
+							icon={FileDown}
+							onClick={handlePrint}
+							tooltip="Print to PDF"
+							disabled={!activeFile}
+						/>
+					</div>
 				</div>
 
 				{/* Content with TOC */}
@@ -113,7 +149,7 @@ export function MarkdownDocsPreview({
 								<p>Waiting for content...</p>
 							</div>
 						) : (
-							<article className="prose prose-sm prose-invert max-w-none">
+							<article ref={contentRef} className="prose prose-sm prose-invert max-w-none">
 								<ReactMarkdown
 									remarkPlugins={[remarkGfm]}
 									rehypePlugins={[[rehypeExternalLinks, { target: '_blank' }]]}

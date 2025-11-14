@@ -1,52 +1,27 @@
 import clsx from 'clsx';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Eye, Code, FileText, Presentation } from 'lucide-react';
-import type { PresentationType } from '../utils/content-detector';
 
 export function ViewModeSwitch({
 	view,
 	onChange,
 	previewAvailable = false,
 	showTooltip = false,
-	presentationType = null,
+	hasDocumentation = false,
+	previewUrl,
+	projectType,
 }: {
-	view: 'preview' | 'editor' | 'blueprint'
-	onChange: (mode: 'preview' | 'editor' | 'blueprint') => void;
+	view: 'preview' | 'editor' | 'docs' | 'blueprint' | 'presentation'
+	onChange: (mode: 'preview' | 'editor' | 'docs' | 'blueprint' | 'presentation') => void;
 	previewAvailable: boolean;
 	showTooltip: boolean;
-	presentationType?: PresentationType;
+	hasDocumentation: boolean;
+	previewUrl?: string;
+	projectType?: string;
 }) {
 	if (!previewAvailable) {
 		return null;
 	}
-
-	// Get icon and label based on presentation type
-	const getPreviewIcon = () => {
-		switch (presentationType) {
-			case 'spectacle':
-				return Presentation;
-			case 'documentation':
-				return FileText;
-			case 'app':
-			default:
-				return Eye;
-		}
-	};
-
-	const getPreviewLabel = () => {
-		switch (presentationType) {
-			case 'spectacle':
-				return 'Slides';
-			case 'documentation':
-				return 'Docs';
-			case 'app':
-			default:
-				return 'Preview';
-		}
-	};
-
-	const PreviewIcon = getPreviewIcon();
-	const previewLabel = getPreviewLabel();
 
 	return (
 		<div className="flex items-center gap-1 bg-bg-1 rounded-md p-0.5 relative">
@@ -63,18 +38,22 @@ export function ViewModeSwitch({
 				)}
 			</AnimatePresence>
 
-			<button
-				onClick={() => onChange('preview')}
-				className={clsx(
-					'p-1 flex items-center justify-between h-full rounded-md transition-colors',
-					view === 'preview'
-						? 'bg-bg-4 text-text-primary'
-						: 'text-text-50/70 hover:text-text-primary hover:bg-accent',
-				)}
-				title={previewLabel}
-			>
-				<PreviewIcon className="size-4" />
-			</button>
+			{/* Preview button - show when app has preview URL */}
+			{previewUrl && (
+				<button
+					onClick={() => onChange('preview')}
+					className={clsx(
+						'p-1 flex items-center justify-between h-full rounded-md transition-colors',
+						view === 'preview'
+							? 'bg-bg-4 text-text-primary'
+							: 'text-text-50/70 hover:text-text-primary hover:bg-accent',
+					)}
+					title="Preview"
+				>
+					<Eye className="size-4" />
+				</button>
+			)}
+
 			<button
 				onClick={() => onChange('editor')}
 				className={clsx(
@@ -87,6 +66,38 @@ export function ViewModeSwitch({
 			>
 				<Code className="size-4" />
 			</button>
+
+			{/* Docs button - show when documentation exists */}
+			{hasDocumentation && (
+				<button
+					onClick={() => onChange('docs')}
+					className={clsx(
+						'p-1 flex items-center justify-between h-full rounded-md transition-colors',
+						view === 'docs'
+							? 'bg-bg-4 text-text-primary'
+							: 'text-text-50/70 hover:text-text-primary hover:bg-accent',
+					)}
+					title="Docs"
+				>
+					<FileText className="size-4" />
+				</button>
+			)}
+
+			{/* Presentation button - show when project type is presentation */}
+			{projectType === 'presentation' && (
+				<button
+					onClick={() => onChange('presentation')}
+					className={clsx(
+						'p-1 flex items-center justify-between h-full rounded-md transition-colors',
+						view === 'presentation'
+							? 'bg-bg-4 text-text-primary'
+							: 'text-text-50/70 hover:text-text-primary hover:bg-accent',
+					)}
+					title="Presentation"
+				>
+					<Presentation className="size-4" />
+				</button>
+			)}
 			{/* {terminalAvailable && (
 				<button
 					onClick={() => onChange('terminal')}
