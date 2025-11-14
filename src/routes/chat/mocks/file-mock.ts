@@ -1,4 +1,4 @@
-import type { FileType } from '../hooks/use-chat';
+import type { FileType } from '@/api-types';
 
 // Mock file contents for different file types
 const mockFileContents = {

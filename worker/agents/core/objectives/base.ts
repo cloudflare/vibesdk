@@ -1,5 +1,5 @@
 import { BaseProjectState } from '../state';
-import { ProjectType, RuntimeType, ExportResult, ExportOptions, DeployResult, DeployOptions } from '../types';
+import { ProjectType, ExportResult, ExportOptions, DeployResult, DeployOptions } from '../types';
 import { AgentComponent } from '../AgentComponent';
 import type { AgentInfrastructure } from '../AgentCore';
 

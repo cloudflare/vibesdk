@@ -3,7 +3,8 @@ import { Loader, Check, AlertCircle, ChevronDown, ChevronRight, ArrowUp, Zap, XC
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import type { RefObject } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import type { PhaseTimelineItem, FileType } from '../hooks/use-chat';
+import type { PhaseTimelineItem } from '../hooks/use-chat';
+import type { FileType } from '@/api-types';
 import { ThinkingIndicator } from './thinking-indicator';
 
 import type { ProjectStage } from '../utils/project-stage-helpers';
