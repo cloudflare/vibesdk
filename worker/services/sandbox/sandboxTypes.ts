@@ -37,6 +37,9 @@ export const TemplateDetailsSchema = z.object({
     importantFiles: z.array(z.string()),
     dontTouchFiles: z.array(z.string()),
     redactedFiles: z.array(z.string()),
+    // Presentation-specific metadata
+    renderMode: z.enum(['sandbox', 'browser']).optional(),
+    slideDirectory: z.string().optional(),
 })
 export type TemplateDetails = z.infer<typeof TemplateDetailsSchema>
 
