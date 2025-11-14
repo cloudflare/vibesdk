@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { FileText, Folder, FolderOpen, Loader, ChevronRight } from 'lucide-react';
 import clsx from 'clsx';
-import type { FileType } from '../hooks/use-chat';
+import type { FileType } from '@/api-types';
 
 interface DocsSidebarProps {
 	files: FileType[];

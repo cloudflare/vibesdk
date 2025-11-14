@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import type { FileType } from './use-chat';
+import type { FileType } from '@/api-types';
 
 /**
  * A hook that streams file contents one by one at a specified rate

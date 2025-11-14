@@ -1,4 +1,5 @@
-import type { FileType, PhaseTimelineItem } from '../hooks/use-chat';
+import type { PhaseTimelineItem } from '../hooks/use-chat';
+import type { FileType } from '@/api-types';
 import { getFileType } from '@/utils/string';
 
 /**
