@@ -1,4 +1,6 @@
 import { WebSocket } from 'partysocket';
+
+export type Edit = Omit<CodeFixEdits, 'type'>;
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import {
@@ -8,7 +10,9 @@ import {
 	type CodeFixEdits,
 	type ImageAttachment,
 	type ProjectType,
-	type BehaviorType
+	type BehaviorType,
+	type FileType,
+	type TemplateMetadata
 } from '@/api-types';
 import {
 	createRepairingJSONParser,
@@ -24,16 +28,6 @@ import { sendWebSocketMessage } from '../utils/websocket-helpers';
 import { initialStages as defaultStages, updateStage as updateStageHelper } from '../utils/project-stage-helpers';
 import type { ProjectStage } from '../utils/project-stage-helpers';
 
-
-export interface FileType {
-	filePath: string;
-	fileContents: string;
-	explanation?: string;
-	isGenerating?: boolean;
-	needsFixing?: boolean;
-	hasErrors?: boolean;
-	language?: string;
-}
 
 // New interface for phase timeline tracking
 export interface PhaseTimelineItem {
@@ -91,6 +85,7 @@ export function useChat({
 	const [previewUrl, setPreviewUrl] = useState<string>();
 	const [query, setQuery] = useState<string>();
 	const [behaviorType, setBehaviorType] = useState<BehaviorType>(getInitialBehaviorType());
+	const [templateMetadata, setTemplateMetadata] = useState<TemplateMetadata | null>(null);
 
 	const [websocket, setWebsocket] = useState<WebSocket>();
 
@@ -202,6 +197,7 @@ export function useChat({
 			setStaticIssueCount,
 			setIsDebugging,
 			setBehaviorType,
+			setTemplateMetadata,
 			// Current state
 			isInitialStateRestored,
 			blueprint,
@@ -687,5 +683,7 @@ export function useChat({
 		isDebugging,
 		// Behavior type from backend
 		behaviorType,
+		// Template metadata
+		templateMetadata,
 	};
 }

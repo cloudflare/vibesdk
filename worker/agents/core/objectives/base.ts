@@ -1,5 +1,5 @@
 import { BaseProjectState } from '../state';
-import { ProjectType, RuntimeType, ExportResult, ExportOptions, DeployResult, DeployOptions } from '../types';
+import { ProjectType, ExportResult, ExportOptions, DeployResult, DeployOptions } from '../types';
 import { AgentComponent } from '../AgentComponent';
 import type { AgentInfrastructure } from '../AgentCore';
 
@@ -37,21 +37,6 @@ export abstract class ProjectObjective<TState extends BaseProjectState = BasePro
      * Get project type identifier
      */
     abstract getType(): ProjectType;
-    
-    /**
-     * Get runtime type (where it runs during development)
-     */
-    abstract getRuntime(): RuntimeType;
-    
-    /**
-     * Does this project need a template?
-     */
-    abstract needsTemplate(): boolean;
-    
-    /**
-     * Get template type if needed
-     */
-    abstract getTemplateType(): string | null;
     
     /**
      * Deploy project to its runtime target

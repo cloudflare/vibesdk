@@ -17,7 +17,12 @@ import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { ConfigCard } from './config-card';
 import { ConfigModal } from './config-modal';
-import type { ModelConfig, UserModelConfigWithMetadata, ModelConfigUpdate } from '@/api-types';
+import type {
+  ModelConfig,
+  UserModelConfigWithMetadata,
+  ModelConfigUpdate,
+  AgentDisplayConfig
+} from '@/api-types';
 
 // Define workflow-based tab structure with dynamic agent categorization
 export const WORKFLOW_TABS = {
@@ -116,13 +121,6 @@ const categorizeAgent = (agentKey: string): string => {
   // Default to advanced for completely unknown agents
   return 'advanced';
 };
-
-// Frontend-specific agent display interface 
-export interface AgentDisplayConfig {
-  key: string;
-  name: string;
-  description: string;
-}
 
 interface ModelConfigTabsProps {
   agentConfigs: AgentDisplayConfig[];

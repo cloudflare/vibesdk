@@ -1,5 +1,5 @@
 import type { WebSocket } from 'partysocket';
-import type { WebSocketMessage, BlueprintType, ConversationMessage, AgentState, PhasicState, BehaviorType } from '@/api-types';
+import type { WebSocketMessage, BlueprintType, ConversationMessage, AgentState, PhasicState, BehaviorType, TemplateMetadata } from '@/api-types';
 import { deduplicateMessages, isAssistantMessageDuplicate } from './deduplicate-messages';
 import { logger } from '@/utils/logger';
 import { getFileType } from '@/utils/string';
@@ -20,7 +20,8 @@ import {
 } from './message-helpers';
 import { completeStages } from './project-stage-helpers';
 import { sendWebSocketMessage } from './websocket-helpers';
-import type { FileType, PhaseTimelineItem } from '../hooks/use-chat';
+import type { PhaseTimelineItem } from '../hooks/use-chat';
+import type { FileType } from '@/api-types';
 import { toast } from 'sonner';
 import { createRepairingJSONParser } from '@/utils/ndjson-parser/ndjson-parser';
 
@@ -52,6 +53,7 @@ export interface HandleMessageDeps {
     setStaticIssueCount: React.Dispatch<React.SetStateAction<number>>;
     setIsDebugging: React.Dispatch<React.SetStateAction<boolean>>;
     setBehaviorType: React.Dispatch<React.SetStateAction<BehaviorType>>;
+    setTemplateMetadata: React.Dispatch<React.SetStateAction<TemplateMetadata | null>>;
 
     // Current state
     isInitialStateRestored: boolean;
@@ -126,6 +128,7 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
             setIsPhaseProgressActive,
             setIsDebugging,
             setBehaviorType,
+            setTemplateMetadata,
             isInitialStateRestored,
             blueprint,
             query,
@@ -186,13 +189,18 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
                         setQuery(state.query);
                     }
 
-                    if (templateDetails?.allFiles && bootstrapFiles.length === 0) {
-                        const files = Object.entries(templateDetails.allFiles).map(([filePath, fileContents]) => ({
-                            filePath,
-                            fileContents,
-                        })).filter((file) => templateDetails.importantFiles.includes(file.filePath));
-                        logger.debug('📥 Restoring bootstrap files:', files);
-                        loadBootstrapFiles(files);
+
+                    if (templateDetails) {
+                        if (templateDetails.allFiles && bootstrapFiles.length === 0) {
+                            const files = Object.entries(templateDetails.allFiles).map(([filePath, fileContents]) => ({
+                                filePath,
+                                fileContents,
+                            })).filter((file) => templateDetails.importantFiles.includes(file.filePath));
+                            logger.debug('📥 Restoring bootstrap files:', files);
+                            loadBootstrapFiles(files);
+                        }
+                        setTemplateMetadata(templateDetails);
+                        logger.debug('Restored template metadata:', templateDetails);
                     }
 
                     if (state.generatedFilesMap && files.length === 0) {
@@ -290,6 +298,12 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
                         sendWebSocketMessage(websocket, 'generate_all');
                     }
                 }
+                break;
+            }
+            case 'template_updated': {
+                const { templateDetails } = message;
+                setTemplateMetadata(templateDetails);
+                logger.debug('📥 Template metadata updated:', templateDetails);
                 break;
             }
             case 'cf_agent_state': {

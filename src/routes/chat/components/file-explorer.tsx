@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { LucideNetwork, ChevronRight, File } from 'lucide-react';
-import type { FileType } from '../hooks/use-chat';
+import type { FileType } from '@/api-types';
 import clsx from 'clsx';
 
 interface FileTreeItem {

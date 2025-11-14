@@ -1,17 +1,23 @@
 import clsx from 'clsx';
 import { AnimatePresence, motion } from 'framer-motion';
-import { Eye, Code } from 'lucide-react';
+import { Eye, Code, FileText, Presentation } from 'lucide-react';
 
 export function ViewModeSwitch({
 	view,
 	onChange,
 	previewAvailable = false,
 	showTooltip = false,
+	hasDocumentation = false,
+	previewUrl,
+	projectType,
 }: {
-	view: 'preview' | 'editor' | 'blueprint'
-	onChange: (mode: 'preview' | 'editor' | 'blueprint') => void;
+	view: 'preview' | 'editor' | 'docs' | 'blueprint' | 'presentation'
+	onChange: (mode: 'preview' | 'editor' | 'docs' | 'blueprint' | 'presentation') => void;
 	previewAvailable: boolean;
 	showTooltip: boolean;
+	hasDocumentation: boolean;
+	previewUrl?: string;
+	projectType?: string;
 }) {
 	if (!previewAvailable) {
 		return null;
@@ -32,17 +38,22 @@ export function ViewModeSwitch({
 				)}
 			</AnimatePresence>
 
-			<button
-				onClick={() => onChange('preview')}
-				className={clsx(
-					'p-1 flex items-center justify-between h-full rounded-md transition-colors',
-					view === 'preview'
-						? 'bg-bg-4 text-text-primary'
-						: 'text-text-50/70 hover:text-text-primary hover:bg-accent',
-				)}
-			>
-				<Eye className="size-4" />
-			</button>
+			{/* Preview button - show when app has preview URL */}
+			{previewUrl && (
+				<button
+					onClick={() => onChange('preview')}
+					className={clsx(
+						'p-1 flex items-center justify-between h-full rounded-md transition-colors',
+						view === 'preview'
+							? 'bg-bg-4 text-text-primary'
+							: 'text-text-50/70 hover:text-text-primary hover:bg-accent',
+					)}
+					title="Preview"
+				>
+					<Eye className="size-4" />
+				</button>
+			)}
+
 			<button
 				onClick={() => onChange('editor')}
 				className={clsx(
@@ -51,9 +62,42 @@ export function ViewModeSwitch({
 						? 'bg-bg-4 text-text-primary'
 						: 'text-text-50/70 hover:text-text-primary hover:bg-accent',
 				)}
+				title="Code"
 			>
 				<Code className="size-4" />
 			</button>
+
+			{/* Docs button - show when documentation exists */}
+			{hasDocumentation && (
+				<button
+					onClick={() => onChange('docs')}
+					className={clsx(
+						'p-1 flex items-center justify-between h-full rounded-md transition-colors',
+						view === 'docs'
+							? 'bg-bg-4 text-text-primary'
+							: 'text-text-50/70 hover:text-text-primary hover:bg-accent',
+					)}
+					title="Docs"
+				>
+					<FileText className="size-4" />
+				</button>
+			)}
+
+			{/* Presentation button - show when project type is presentation */}
+			{projectType === 'presentation' && (
+				<button
+					onClick={() => onChange('presentation')}
+					className={clsx(
+						'p-1 flex items-center justify-between h-full rounded-md transition-colors',
+						view === 'presentation'
+							? 'bg-bg-4 text-text-primary'
+							: 'text-text-50/70 hover:text-text-primary hover:bg-accent',
+					)}
+					title="Presentation"
+				>
+					<Presentation className="size-4" />
+				</button>
+			)}
 			{/* {terminalAvailable && (
 				<button
 					onClick={() => onChange('terminal')}

@@ -163,7 +163,7 @@ export class FileManager implements IFileManager {
     }
 
     fileExists(path: string): boolean {
-        return !!this.getGeneratedFile(path)
+        return !!this.getFile(path)
     }
 
     getGeneratedFilePaths(): string[] {

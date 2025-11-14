@@ -35,14 +35,6 @@ export class WorkflowObjective<TState extends BaseProjectState = BaseProjectStat
   getRuntime(): RuntimeType {
     return 'worker';
   }
-  
-  needsTemplate(): boolean {
-    return false; // In-memory templates
-  }
-  
-  getTemplateType(): string | null {
-    return null;
-  }
 
   // ==========================================
   // DEPLOYMENT & EXPORT
