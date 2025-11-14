@@ -39,21 +39,6 @@ export abstract class ProjectObjective<TState extends BaseProjectState = BasePro
     abstract getType(): ProjectType;
     
     /**
-     * Get runtime type (where it runs during development)
-     */
-    abstract getRuntime(): RuntimeType;
-    
-    /**
-     * Does this project need a template?
-     */
-    abstract needsTemplate(): boolean;
-    
-    /**
-     * Get template type if needed
-     */
-    abstract getTemplateType(): string | null;
-    
-    /**
      * Deploy project to its runtime target
      */
     abstract deploy(options?: DeployOptions): Promise<DeployResult>;
