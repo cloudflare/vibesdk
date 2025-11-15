@@ -184,7 +184,9 @@ export abstract class BaseSandboxService {
                 importantFiles,
                 dontTouchFiles,
                 redactedFiles,
-                frameworks: catalogInfo?.frameworks || []
+                frameworks: catalogInfo?.frameworks || [],
+                renderMode: catalogInfo?.renderMode,
+                slideDirectory: catalogInfo?.slideDirectory,
             };
 
             templateDetailsCache[templateName] = templateDetails;
