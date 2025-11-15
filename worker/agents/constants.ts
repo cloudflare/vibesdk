@@ -69,7 +69,8 @@ export const WebSocketMessageResponses: Record<string, WebSocketMessageType> = {
     PROJECT_NAME_UPDATED: 'project_name_updated',
     BLUEPRINT_UPDATED: 'blueprint_updated',
     BLUEPRINT_CHUNK: 'blueprint_chunk',
-    
+    TEMPLATE_UPDATED: 'template_updated',
+
     // Model configuration info
     MODEL_CONFIGS_INFO: 'model_configs_info',
     

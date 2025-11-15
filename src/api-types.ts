@@ -116,11 +116,6 @@ export type {
   TemplateDetails,
 } from 'worker/services/sandbox/sandboxTypes';
 
-export interface TemplateMetadata {
-  renderMode?: string;
-  slideDirectory?: string;
-}
-
 // WebSocket Types
 export type {
   WebSocketMessage,

@@ -120,16 +120,14 @@ function buildFileTree(files: FileType[]): FileTreeItem[] {
 
 export function FileExplorer({
 	files,
-	bootstrapFiles,
 	currentFile,
 	onFileClick,
 }: {
 	files: FileType[];
-	bootstrapFiles: FileType[];
 	currentFile: FileType | undefined;
 	onFileClick: (file: FileType) => void;
 }) {
-	const fileTree = buildFileTree([...bootstrapFiles, ...files]);
+	const fileTree = buildFileTree(files);
 
 	return (
 		<div className="w-full max-w-[200px] bg-bg-3 border-r border-text/10 h-full overflow-y-auto">

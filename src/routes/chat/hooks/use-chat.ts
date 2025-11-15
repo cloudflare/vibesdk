@@ -1,7 +1,7 @@
 import { WebSocket } from 'partysocket';
 
 export type Edit = Omit<CodeFixEdits, 'type'>;
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import {
     RateLimitExceededError,
@@ -12,7 +12,7 @@ import {
 	type ProjectType,
 	type BehaviorType,
 	type FileType,
-	type TemplateMetadata
+	type TemplateDetails,
 } from '@/api-types';
 import {
 	createRepairingJSONParser,
@@ -20,6 +20,7 @@ import {
 } from '@/utils/ndjson-parser/ndjson-parser';
 import { getFileType } from '@/utils/string';
 import { logger } from '@/utils/logger';
+import { mergeFiles } from '@/utils/file-helpers';
 import { apiClient } from '@/lib/api-client';
 import { appEvents } from '@/lib/app-events';
 import { createWebSocketMessageHandler, type HandleMessageDeps } from '../utils/handle-websocket-message';
@@ -85,7 +86,7 @@ export function useChat({
 	const [previewUrl, setPreviewUrl] = useState<string>();
 	const [query, setQuery] = useState<string>();
 	const [behaviorType, setBehaviorType] = useState<BehaviorType>(getInitialBehaviorType());
-	const [templateMetadata, setTemplateMetadata] = useState<TemplateMetadata | null>(null);
+	const [templateDetails, setTemplateDetails] = useState<TemplateDetails | null>(null);
 
 	const [websocket, setWebsocket] = useState<WebSocket>();
 
@@ -197,7 +198,7 @@ export function useChat({
 			setStaticIssueCount,
 			setIsDebugging,
 			setBehaviorType,
-			setTemplateMetadata,
+			setTemplateDetails,
 			// Current state
 			isInitialStateRestored,
 			blueprint,
@@ -641,6 +642,8 @@ export function useChat({
 		}
 	}, [websocket, sendMessage, isDeploying, onDebugMessage]);
 
+	const allFiles = useMemo(() => mergeFiles(bootstrapFiles, files), [bootstrapFiles, files]);
+
 	return {
 		messages,
 		edit,
@@ -683,7 +686,7 @@ export function useChat({
 		isDebugging,
 		// Behavior type from backend
 		behaviorType,
-		// Template metadata
-		templateMetadata,
+		templateDetails,
+		allFiles,
 	};
 }

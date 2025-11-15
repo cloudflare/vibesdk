@@ -1,5 +1,5 @@
 import type { WebSocket } from 'partysocket';
-import type { WebSocketMessage, BlueprintType, ConversationMessage, AgentState, PhasicState, BehaviorType, TemplateMetadata } from '@/api-types';
+import type { WebSocketMessage, BlueprintType, ConversationMessage, AgentState, PhasicState, BehaviorType, TemplateDetails } from '@/api-types';
 import { deduplicateMessages, isAssistantMessageDuplicate } from './deduplicate-messages';
 import { logger } from '@/utils/logger';
 import { getFileType } from '@/utils/string';
@@ -53,7 +53,7 @@ export interface HandleMessageDeps {
     setStaticIssueCount: React.Dispatch<React.SetStateAction<number>>;
     setIsDebugging: React.Dispatch<React.SetStateAction<boolean>>;
     setBehaviorType: React.Dispatch<React.SetStateAction<BehaviorType>>;
-    setTemplateMetadata: React.Dispatch<React.SetStateAction<TemplateMetadata | null>>;
+    setTemplateDetails: React.Dispatch<React.SetStateAction<TemplateDetails | null>>;
 
     // Current state
     isInitialStateRestored: boolean;
@@ -128,7 +128,7 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
             setIsPhaseProgressActive,
             setIsDebugging,
             setBehaviorType,
-            setTemplateMetadata,
+            setTemplateDetails,
             isInitialStateRestored,
             blueprint,
             query,
@@ -191,6 +191,14 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
 
 
                     if (templateDetails) {
+                        // Store template details for manifest parsing and validation
+                        setTemplateDetails(templateDetails);
+                        logger.debug('📥 Stored template details:', {
+                            renderMode: templateDetails.renderMode,
+                            slideDirectory: templateDetails.slideDirectory,
+                            fileCount: Object.keys(templateDetails.allFiles || {}).length,
+                        });
+
                         if (templateDetails.allFiles && bootstrapFiles.length === 0) {
                             const files = Object.entries(templateDetails.allFiles).map(([filePath, fileContents]) => ({
                                 filePath,
@@ -199,8 +207,6 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
                             logger.debug('📥 Restoring bootstrap files:', files);
                             loadBootstrapFiles(files);
                         }
-                        setTemplateMetadata(templateDetails);
-                        logger.debug('Restored template metadata:', templateDetails);
                     }
 
                     if (state.generatedFilesMap && files.length === 0) {
@@ -302,8 +308,22 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
             }
             case 'template_updated': {
                 const { templateDetails } = message;
-                setTemplateMetadata(templateDetails);
-                logger.debug('📥 Template metadata updated:', templateDetails);
+                // Update stored template details
+                setTemplateDetails(templateDetails);
+                logger.debug('📥 Template details updated:', {
+                    renderMode: templateDetails.renderMode,
+                    slideDirectory: templateDetails.slideDirectory,
+                    fileCount: Object.keys(templateDetails.allFiles || {}).length,
+                });
+
+                if (templateDetails.allFiles && bootstrapFiles.length === 0) {
+                    const files = Object.entries(templateDetails.allFiles).map(([filePath, fileContents]) => ({
+                        filePath,
+                        fileContents,
+                    })).filter((file) => templateDetails.importantFiles.includes(file.filePath));
+                    logger.debug('📥 Restoring bootstrap files:', files);
+                    loadBootstrapFiles(files);
+                }
                 break;
             }
             case 'cf_agent_state': {

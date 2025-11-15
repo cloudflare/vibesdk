@@ -28,7 +28,8 @@ import { createAIMessage } from './utils/message-helpers';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { sendWebSocketMessage } from './utils/websocket-helpers';
-import { detectContentType, type ContentType } from './utils/content-detector';
+import { detectContentType } from './utils/content-detector';
+import { mergeFiles } from '@/utils/file-helpers';
 import { ChatModals } from './components/chat-modals';
 import { MainContentPanel } from './components/main-content-panel';
 import { ChatInput } from './components/chat-input';
@@ -136,7 +137,7 @@ export default function Chat() {
 		// Behavior type from backend
 		behaviorType,
 		// Template metadata
-		templateMetadata,
+		templateDetails,
 	} = useChat({
 		chatId: urlChatId,
 		query: userQuery,
@@ -144,6 +145,8 @@ export default function Chat() {
 		projectType: projectType as ProjectType,
 		onDebugMessage: addDebugMessage,
 	});
+
+	const slideDirectory = templateDetails?.slideDirectory;
 
 	// GitHub export functionality - use urlChatId directly from URL params
 	const githubExport = useGitHubExport(websocket, urlChatId, refetchApp);
@@ -229,6 +232,12 @@ export default function Chat() {
 			tps: 600,
 			enabled: isBootstrapping,
 		});
+
+	// Merge streamed bootstrap files with generated files
+	const allStreamedFiles = useMemo(
+		() => mergeFiles(streamedBootstrapFiles, files),
+		[streamedBootstrapFiles, files]
+	);
 
 	const handleFileClick = useCallback((file: FileType) => {
 		logger.debug('handleFileClick()', file);
@@ -357,7 +366,7 @@ export default function Chat() {
 	const previewAvailable = useMemo(() => {
 		if (hasDocumentation) return true;
 		if (projectType === 'app') return !!previewUrl;
-		if (projectType === 'presentation') return false; // TODO: true after integration
+		if (projectType === 'presentation') return true;
 		if (projectType === 'general') return hasDocumentation;
 		return false;
 	}, [hasDocumentation, projectType, previewUrl]);
@@ -821,8 +830,7 @@ export default function Chat() {
 								onManualRefresh={() => setManualRefreshTrigger(Date.now())}
 								blueprint={blueprint}
 								activeFile={activeFile}
-								files={files}
-								streamedBootstrapFiles={streamedBootstrapFiles}
+								allFiles={allStreamedFiles}
 								edit={edit}
 								onFileClick={handleFileClick}
 								isGenerating={isGenerating}
@@ -837,7 +845,7 @@ export default function Chat() {
 								urlChatId={urlChatId}
 								isPhase1Complete={isPhase1Complete}
 								websocket={websocket}
-								templateMetadata={templateMetadata}
+								slideDirectory={slideDirectory}
 								previewRef={previewRef}
 								editorRef={editorRef}
 							/>

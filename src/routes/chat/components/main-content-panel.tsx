@@ -13,7 +13,7 @@ import { PreviewHeaderActions } from './preview-header-actions';
 import { EditorHeaderActions } from './editor-header-actions';
 import { Copy } from './copy';
 import { PresentationRenderer } from './presentation/PresentationRenderer';
-import type { FileType, BlueprintType, BehaviorType, ModelConfigsInfo, TemplateMetadata } from '@/api-types';
+import type { FileType, BlueprintType, BehaviorType, ModelConfigsInfo } from '@/api-types';
 import type { ContentDetectionResult } from '../utils/content-detector';
 import type { GitHubExportHook } from '@/hooks/use-github-export';
 import type { Edit } from '../hooks/use-chat';
@@ -41,8 +41,7 @@ interface MainContentPanelProps {
 
 	// Editor state
 	activeFile?: FileType;
-	files: FileType[];
-	streamedBootstrapFiles: FileType[];
+	allFiles: FileType[];
 	edit?: Edit | null;
 	onFileClick: (file: FileType) => void;
 
@@ -65,7 +64,7 @@ interface MainContentPanelProps {
 	urlChatId?: string;
 	isPhase1Complete: boolean;
 	websocket?: WebSocket;
-	templateMetadata?: TemplateMetadata | null;
+	slideDirectory?: string;
 
 	// Refs
 	previewRef: RefObject<HTMLIFrameElement | null>;
@@ -87,8 +86,7 @@ export function MainContentPanel(props: MainContentPanelProps) {
 		onManualRefresh,
 		blueprint,
 		activeFile,
-		files,
-		streamedBootstrapFiles,
+		allFiles,
 		edit,
 		onFileClick,
 		isGenerating,
@@ -103,7 +101,7 @@ export function MainContentPanel(props: MainContentPanelProps) {
 		urlChatId,
 		isPhase1Complete,
 		websocket,
-		templateMetadata,
+		slideDirectory,
 		previewRef,
 		editorRef,
 	} = props;
@@ -221,8 +219,7 @@ export function MainContentPanel(props: MainContentPanelProps) {
 			<div className="flex-1 relative">
 				<div className="absolute inset-0 flex" ref={editorRef}>
 					<FileExplorer
-						files={files}
-						bootstrapFiles={streamedBootstrapFiles}
+						files={allFiles}
 						currentFile={activeFile}
 						onFileClick={onFileClick}
 					/>
@@ -262,12 +259,12 @@ export function MainContentPanel(props: MainContentPanelProps) {
 			<span className="text-sm font-mono text-text-50/70">Presentation</span>,
 			<div className="flex-1 overflow-hidden">
 				<PresentationRenderer
-					files={files}
+					files={allFiles}
 					activeFile={activeFile ?? null}
-					templateMetadata={templateMetadata}
 					onFileChange={(filePath) => {
 						console.log('[MainContentPanel] File changed:', filePath);
 					}}
+					slideDirectory={slideDirectory}
 				/>
 			</div>,
 			undefined,
