@@ -1,11 +1,6 @@
-import { ToolDefinition, ErrorResult } from '../types';
+import { tool, t, ErrorResult } from '../types';
 import { StructuredLogger } from '../../../logger';
 import { ICodingAgent } from 'worker/agents/services/interfaces/ICodingAgent';
-
-export type RegenerateFileArgs = {
-	path: string;
-	issues: string[];
-};
 
 export type RegenerateFileResult =
 	| { path: string; diff: string }
@@ -14,25 +9,18 @@ export type RegenerateFileResult =
 export function createRegenerateFileTool(
 	agent: ICodingAgent,
 	logger: StructuredLogger,
-): ToolDefinition<RegenerateFileArgs, RegenerateFileResult> {
-	return {
-		type: 'function' as const,
-		function: {
-			name: 'regenerate_file',
-			description:
-				`Autonomous AI agent that applies surgical fixes to code files. Takes file path and array of specific issues to fix. Returns diff showing changes made.
+) {
+	return tool({
+		name: 'regenerate_file',
+		description:
+			`Autonomous AI agent that applies surgical fixes to code files. Takes file path and array of specific issues to fix. Returns diff showing changes made.
 
 CRITICAL: Provide detailed, specific issues - not vague descriptions. See system prompt for full usage guide. These would be implemented by an independent LLM AI agent`,
-			parameters: {
-				type: 'object',
-				properties: {
-					path: { type: 'string' },
-					issues: { type: 'array', items: { type: 'string' } },
-				},
-				required: ['path', 'issues'],
-			},
+		args: {
+			path: t.file.write().describe('Relative path to file from project root'),
+			issues: t.array(t.string()).describe('Specific, detailed issues to fix in the file'),
 		},
-		implementation: async ({ path, issues }) => {
+		run: async ({ path, issues }) => {
 			try {
 				logger.info('Regenerating file', {
 					path,
@@ -48,5 +36,5 @@ CRITICAL: Provide detailed, specific issues - not vague descriptions. See system
 				};
 			}
 		},
-	};
+	});
 }
