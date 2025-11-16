@@ -82,16 +82,10 @@ export class LoopDetector {
 	 * Generate contextual warning message for injection into conversation history
 	 *
 	 * @param toolName - Name of the tool that's being repeated
-	 * @param assistantType - Type of assistant for completion tool reference
 	 * @returns Message object to inject into conversation
 	 */
-	generateWarning(toolName: string, assistantType: 'builder' | 'debugger'): Message {
+	generateWarning(toolName: string): Message {
 		this.state.repetitionWarnings++;
-
-		const completionTool =
-			assistantType === 'builder'
-				? 'mark_generation_complete'
-				: 'mark_debugging_complete';
 
 		const warningMessage = `
 [!ALERT] CRITICAL: POSSIBLE REPETITION DETECTED
@@ -101,13 +95,13 @@ You just attempted to execute "${toolName}" with identical arguments for the ${t
 This indicates you may be stuck in a loop. Please take one of these actions:
 
 1. **If your task is complete:**
-   - Call ${completionTool} with a summary of what you accomplished
+   - Call the appropriate completion tool with a summary of what you accomplished
    - STOP immediately after calling the completion tool
    - Make NO further tool calls
 
 2. **If you previously declared completion:**
    - Review your recent messages
-   - If you already called ${completionTool}, HALT immediately
+   - If you already called the completion tool, HALT immediately
    - Do NOT repeat the same work
 
 3. **If your task is NOT complete:**
@@ -119,7 +113,7 @@ This indicates you may be stuck in a loop. Please take one of these actions:
 
 DO NOT repeat the same action. Doing the same thing repeatedly will not produce different results.
 
-Once you call ${completionTool}, make NO further tool calls - the system will stop automatically.`.trim();
+Once you call the completion tool, make NO further tool calls - the system will stop automatically.`.trim();
 
 		return createUserMessage(warningMessage);
 	}

@@ -1,67 +1,9 @@
 import type { ChatCompletionMessageFunctionToolCall } from 'openai/resources';
 import type { ToolDefinition, ToolCallResult, ResourceAccess } from '../tools/types';
+import { hasResourceConflict } from '../tools/resources';
 
-/**
- * Execution plan for a set of tool calls with dependency-aware parallelization.
- *
- * The plan groups tools into parallel execution groups, where:
- * - Groups execute sequentially (one after another)
- * - Tools within a group execute in parallel (simultaneously)
- * - Dependencies between tools are automatically respected
- */
 export interface ExecutionPlan {
-	/**
-	 * Parallel execution groups ordered by dependency
-	 * Each group's tools can run simultaneously
-	 * Groups execute in sequence (group N+1 after group N completes)
-	 */
 	parallelGroups: ChatCompletionMessageFunctionToolCall[][];
-}
-
-
-/**
- * Detect resource conflicts between two tool calls.
- */
-function hasResourceConflict(
-	res1: ResourceAccess,
-	res2: ResourceAccess
-): boolean {
-	// File conflicts
-	if (res1.files && res2.files) {
-		const f1 = res1.files;
-		const f2 = res2.files;
-
-		// Read-read = no conflict
-		if (f1.mode === 'read' && f2.mode === 'read') {
-			// No conflict
-		} else {
-			// Write-write or read-write conflict
-			// Empty paths = all files = conflict
-			if (f1.paths.length === 0 || f2.paths.length === 0) {
-				return true;
-			}
-
-			// Check specific path overlap
-			const set1 = new Set(f1.paths);
-			const set2 = new Set(f2.paths);
-			for (const p of set1) {
-				if (set2.has(p)) return true;
-			}
-		}
-	}
-
-	// Git conflicts
-	if (res1.git?.index && res2.git?.index) return true;
-	if (res1.git?.history && res2.git?.history) return true;
-
-	// any overlap = conflict
-	if (res1.sandbox && res2.sandbox) return true;
-	if (res1.deployment && res2.deployment) return true;
-	if (res1.blueprint && res2.blueprint) return true;
-	if (res1.logs && res2.logs) return true;
-	if (res1.staticAnalysis && res2.staticAnalysis) return true;
-
-	return false;
 }
 
 /**
