@@ -9,7 +9,6 @@ import {
 import { executeInference } from '../inferutils/infer';
 import { InferenceContext, ModelConfig } from '../inferutils/config.types';
 import { createObjectLogger } from '../../logger';
-import type { ToolDefinition } from '../tools/types';
 import { AGENT_CONFIG } from '../inferutils/config';
 import { buildDebugTools } from '../tools/customTools';
 import { RenderToolCall } from '../operations/UserConversationProcessor';
@@ -19,6 +18,10 @@ import { RuntimeError } from 'worker/services/sandbox/sandboxTypes';
 import { FileState } from '../core/state';
 import { InferError } from '../inferutils/core';
 import { ICodingAgent } from '../services/interfaces/ICodingAgent';
+import { createMarkDebuggingCompleteTool } from '../tools/toolkit/completion-signals';
+import { LoopDetector } from '../inferutils/loopDetection';
+import { CompletionDetector } from '../inferutils/completionDetection';
+import { wrapToolsWithLoopDetection } from './utils';
 
 const SYSTEM_PROMPT = `You are an elite autonomous code debugging specialist with deep expertise in root-cause analysis, modern web frameworks (React, Vite, Cloudflare Workers), TypeScript/JavaScript, build tools, and runtime environments.
 
@@ -95,6 +98,20 @@ You are smart, methodical, focused and evidence-based. You choose your own path 
 - **deploy_preview**: Deploy to Cloudflare Workers preview environment to verify fixes
 - **wait**: Sleep for N seconds (use after deploy to allow time for user interaction before checking logs)
 - **git**: Execute git commands (commit, log, show, reset) - see detailed guide below. **WARNING: reset is UNTESTED - use with extreme caution!**
+
+## EFFICIENT TOOL USAGE:
+The system automatically handles parallel execution. Call multiple tools in a single response when beneficial:
+
+**Automatic Parallelization:**
+- Diagnostic tools can run simultaneously (run_analysis, get_runtime_errors, get_logs)
+- File reads execute in parallel (read_files on different files)
+- File writes on different files execute in parallel (regenerate_file - see detailed guide below)
+- Conflicting operations execute sequentially (multiple git commits, same file edits)
+
+**Examples:**
+  • GOOD - Call run_analysis() and get_runtime_errors() together → both execute simultaneously
+  • GOOD - Call regenerate_file on App.tsx, utils.ts, and helpers.ts together → all execute in parallel
+  • BAD - Call regenerate_file on same file twice → forced sequential execution
 
 ## How to Use regenerate_file (CRITICAL)
 
@@ -325,7 +342,7 @@ git({ command: 'reset', oid: 'abc123...' })
 **Best Practices:**
 - **Use descriptive messages**: "fix: resolve null pointer in auth.ts" not "fix bug"
 - **Commit before deploying**: Save your work before deploy_preview in case you need to revert
-- **Commit before TASK_COMPLETE**: Always commit your final working state before finishing
+- **Commit before completion**: Always commit your final working state before finishing
 
 **Example Workflow:**
 \`\`\`typescript
@@ -435,17 +452,20 @@ You're done when:
 - ❌ You applied fixes but didn't verify them
 
 **When you complete the task:**
-1. Write: "TASK_COMPLETE: [brief summary]"
+1. Call the \`mark_debugging_complete\` tool with:
+   - summary: Brief overview of what was accomplished
+   - filesModified: Number of files you regenerated/fixed
 2. Provide a concise final report:
    - Issues found and root cause
    - Fixes applied (file paths)
    - Verification results
    - Current state
-3. **CRITICAL: Once you write "TASK_COMPLETE", IMMEDIATELY HALT with no more tool calls. Your work is done.**
+3. **CRITICAL: After calling \`mark_debugging_complete\`, make NO further tool calls. Your work is done.**
 
-**If stuck:** 
-1. State: "TASK_STUCK: [reason]" + what you tried
-2. **CRITICAL: Once you write "TASK_STUCK", IMMEDIATELY HALT with no more tool calls. Stop immediately.**
+**If stuck and cannot proceed:**
+1. Call \`mark_debugging_complete\` with summary explaining what you tried and why you're stuck
+2. Provide a report of what you attempted and what's blocking progress
+3. **CRITICAL: After calling the completion tool, make NO further tool calls. Stop immediately.**
 
 ## Working Style
 - Use your internal reasoning - think deeply, output concisely
@@ -532,17 +552,6 @@ Diagnose and fix all user issues.
 
 Begin.`;
 
-type ToolCallRecord = {
-    toolName: string;
-    args: string; // JSON stringified args for comparison
-    timestamp: number;
-};
-
-type LoopDetectionState = {
-    recentCalls: ToolCallRecord[];
-    repetitionWarnings: number;
-};
-
 export type DebugSession = {
     filesIndex: FileState[];
     agent: ICodingAgent;
@@ -571,10 +580,7 @@ export class DeepCodeDebugger extends Assistant<Env> {
     logger = createObjectLogger(this, 'DeepCodeDebugger');
     modelConfigOverride?: ModelConfig;
 
-    private loopDetection: LoopDetectionState = {
-        recentCalls: [],
-        repetitionWarnings: 0,
-    };
+    private loopDetector = new LoopDetector();
 
     constructor(
         env: Env,
@@ -583,51 +589,6 @@ export class DeepCodeDebugger extends Assistant<Env> {
     ) {
         super(env, inferenceContext);
         this.modelConfigOverride = modelConfigOverride;
-    }
-
-    private detectRepetition(toolName: string, args: Record<string, unknown>): boolean {
-        const argsStr = JSON.stringify(args);
-        const now = Date.now();
-
-        // Keep only recent calls (last 10 minutes)
-        this.loopDetection.recentCalls = this.loopDetection.recentCalls.filter(
-            (call) => now - call.timestamp < 600000,
-        );
-
-        // Count how many times this exact call was made recently
-        const matchingCalls = this.loopDetection.recentCalls.filter(
-            (call) => call.toolName === toolName && call.args === argsStr,
-        );
-
-        // Record this call
-        this.loopDetection.recentCalls.push({ toolName, args: argsStr, timestamp: now });
-
-        // Repetition detected if same call made 3+ times
-        return matchingCalls.length >= 2;
-    }
-
-    private injectLoopWarning(toolName: string): void {
-        this.loopDetection.repetitionWarnings++;
-
-        const warningMessage = `
-⚠️ CRITICAL: REPETITION DETECTED
-
-You just attempted to execute "${toolName}" with identical arguments for the ${this.loopDetection.repetitionWarnings}th time.
-
-RECOMMENDED ACTIONS:
-1. If your task is complete, state "TASK_COMPLETE: [summary]" and STOP. Once you write 'TASK_COMPLETE' or 'TASK_STUCK', You shall not make any more tool/function calls.
-2. If you observe you have already declared 'TASK_COMPLETE' or 'TASK_STUCK' in the past, Halt immediately. It might be that you are stuck in a loop.
-3. If not complete, try a DIFFERENT approach:
-   - Use different tools
-   - Use different arguments  
-   - Read different files
-   - Apply a different fix strategy
-
-DO NOT repeat the same action. The definition of insanity is doing the same thing expecting different results.
-
-If you're genuinely stuck after trying 3 different approaches, honestly report: "TASK_STUCK: [reason]"`;
-
-        this.save([createUserMessage(warningMessage)]);
     }
 
     async run(
@@ -658,26 +619,18 @@ If you're genuinely stuck after trying 3 different approaches, honestly report: 
 
         const logger = this.logger;
 
-        // Wrap tools with loop detection
+        // Build tools with loop detection
         const rawTools = buildDebugTools(session, logger, toolRenderer);
-        const tools: ToolDefinition<any, any>[] = rawTools.map((tool) => ({
-            ...tool,
-            implementation: async (args: any) => {
-                // Check for repetition before executing
-                if (this.detectRepetition(tool.function.name, args)) {
-                    this.logger.warn(`Loop detected for tool: ${tool.function.name}`);
-                    this.injectLoopWarning(tool.function.name);
-                    
-                    // // CRITICAL: Block execution to prevent infinite loops
-                    // return {
-                    //     error: `Loop detected: You've called ${tool.function.name} with the same arguments multiple times. Try a different approach or stop if the task is complete.`
-                    // };
-                }
+        rawTools.push(createMarkDebuggingCompleteTool(logger));
 
-                // Only execute if no loop detected
-                return await tool.implementation(args);
-            },
-        }));
+        const tools = wrapToolsWithLoopDetection(rawTools, this.loopDetector);
+
+        // Configure completion detection
+        const completionConfig = {
+            detector: new CompletionDetector(['mark_debugging_complete']),
+            operationalMode: 'initial' as const,
+            allowWarningInjection: true,
+        };
 
         let out = '';
 
@@ -689,9 +642,8 @@ If you're genuinely stuck after trying 3 different approaches, honestly report: 
                 modelConfig: this.modelConfigOverride || AGENT_CONFIG.deepDebugger,
                 messages,
                 tools,
-                stream: streamCb
-                    ? { chunk_size: 64, onChunk: (c) => streamCb(c) }
-                    : undefined,
+                stream: streamCb ? { chunk_size: 64, onChunk: (c) => streamCb(c) } : undefined,
+                completionConfig,
             });
             out = result?.string || '';
         } catch (e) {
@@ -703,12 +655,7 @@ If you're genuinely stuck after trying 3 different approaches, honestly report: 
                 throw e;
             }
         }
-        
-        // Check for completion signals to prevent unnecessary continuation
-        if (out.includes('TASK_COMPLETE') || out.includes('Mission accomplished') || out.includes('TASK_STUCK')) {
-            this.logger.info('Agent signaled task completion or stuck state, stopping');
-        }
-        
+
         this.save([createAssistantMessage(out)]);
         return out;
     }
