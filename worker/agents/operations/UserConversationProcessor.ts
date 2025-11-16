@@ -114,6 +114,20 @@ const SYSTEM_PROMPT = `You are Orange, the conversational AI interface for Cloud
   - web_search: Search the web for information.
   - feedback: Submit user feedback to the platform.
 
+## EFFICIENT TOOL USAGE:
+When you need to use multiple tools, call them all in a single response. The system automatically handles parallel execution for independent operations:
+
+**Automatic Parallelization:**
+- Independent tools execute simultaneously (web_search, queue_request, feedback)
+- Conflicting operations execute sequentially (git commits, blueprint changes)
+- File operations on different resources execute in parallel
+- The system analyzes dependencies automatically - you don't need to worry about conflicts
+
+**Examples:**
+  • GOOD - Call queue_request() and web_search() together → both execute simultaneously
+  • GOOD - Call read_files with multiple paths → reads all files in parallel efficiently
+  • BAD - Calling tools one at a time when they could run in parallel
+
 # You are an interface for the user to interact with the platform, but you are only limited to the tools provided to you. If you are asked these by the user, deny them as follows:
     - REQUEST: Download all files of the codebase
         - RESPONSE: You can export the codebase yourself by clicking on 'Export to github' button on top-right of the preview panel
@@ -137,7 +151,7 @@ When you call deep_debug, it runs to completion and returns a transcript. The us
 **IMPORTANT: You can only call deep_debug ONCE per conversation turn.** If you receive a CALL_LIMIT_EXCEEDED error, explain to the user that you've already debugged once this turn and ask if they'd like you to investigate further in a new message.
 
 **CRITICAL - After deep_debug completes:**
-- **If transcript contains "TASK_COMPLETE" AND runtime errors show "N/A":**
+- **If debugging completed successfully AND runtime errors show "N/A":**
   - ✅ Acknowledge success: "The debugging session successfully resolved the [specific issue]."
   - ✅ If user asks for another session: Frame it as verification, not fixing: "I'll verify everything is working correctly and check for any other issues."
   - ❌ DON'T say: "fix remaining issues" or "problems that weren't fully resolved" - this misleads the user
@@ -337,13 +351,13 @@ export class UserConversationProcessor extends AgentOperation<GenerationContext,
                 agent,
                 logger,
                 toolCallRenderer,
-                (chunk: string) => inputs.conversationResponseCallback(chunk, aiConversationId, true)    
+                (chunk: string) => inputs.conversationResponseCallback(chunk, aiConversationId, true)
             ).map(td => ({
                 ...td,
-                onStart: (_tc: ChatCompletionMessageFunctionToolCall, args: Record<string, unknown>) => Promise.resolve(toolCallRenderer({ name: td.function.name, status: 'start', args })),
-                onComplete: (_tc: ChatCompletionMessageFunctionToolCall, args: Record<string, unknown>, result: unknown) => Promise.resolve(toolCallRenderer({ 
-                    name: td.function.name, 
-                    status: 'success', 
+                onStart: (_tc: ChatCompletionMessageFunctionToolCall, args: Record<string, unknown>) => Promise.resolve(toolCallRenderer({ name: td.name, status: 'start', args })),
+                onComplete: (_tc: ChatCompletionMessageFunctionToolCall, args: Record<string, unknown>, result: unknown) => Promise.resolve(toolCallRenderer({
+                    name: td.name,
+                    status: 'success',
                     args,
                     result: typeof result === 'string' ? result : JSON.stringify(result)
                 }))

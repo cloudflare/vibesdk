@@ -1,4 +1,4 @@
-import { infer, InferError, InferResponseString, InferResponseObject, AbortError } from './core';
+import { infer, InferError, InferResponseString, InferResponseObject, AbortError, CompletionConfig } from './core';
 import { createAssistantMessage, createUserMessage, Message } from './common';
 import z from 'zod';
 // import { CodeEnhancementOutput, CodeEnhancementOutputType } from '../codegen/phasewiseGenerator';
@@ -40,6 +40,7 @@ interface InferenceParamsBase {
     modelConfig?: ModelConfig;
     context: InferenceContext;
     onAssistantMessage?: (message: Message) => Promise<void>;
+    completionConfig?: CompletionConfig;
 }
 
 interface InferenceParamsStructured<T extends z.AnyZodObject> extends InferenceParamsBase {
@@ -71,7 +72,8 @@ export async function executeInference<T extends z.AnyZodObject>(   {
     modelName,
     modelConfig,
     context,
-    onAssistantMessage
+    onAssistantMessage,
+    completionConfig,
 }: InferenceParamsBase &    {
     schema?: T;
     format?: SchemaFormat;
@@ -127,6 +129,7 @@ export async function executeInference<T extends z.AnyZodObject>(   {
                 temperature,
                 abortSignal: context.abortSignal,
                 onAssistantMessage,
+                completionConfig,
             }) : await infer({
                 env,
                 metadata: context,
@@ -140,6 +143,7 @@ export async function executeInference<T extends z.AnyZodObject>(   {
                 temperature,
                 abortSignal: context.abortSignal,
                 onAssistantMessage,
+                completionConfig,
             });
             logger.info(`Successfully completed ${agentActionName} operation`);
             // console.log(result);

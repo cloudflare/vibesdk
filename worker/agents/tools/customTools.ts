@@ -119,7 +119,7 @@ export function buildAgenticBuilderTools(
 }
 
 /**
- * Decorate tool definitions with a renderer for UI visualization and conversation sync
+ * Decorate tools with renderer for UI visualization and conversation sync
  */
 function withRenderer(
     tools: ToolDefinition<any, any>[],
@@ -128,34 +128,38 @@ function withRenderer(
 ): ToolDefinition<any, any>[] {
     if (!toolRenderer) return tools;
 
-    return tools.map(td => ({
-        ...td,
-        onStart: async (_tc: ChatCompletionMessageFunctionToolCall, args: Record<string, unknown>) => {
-            if (toolRenderer) {
-                toolRenderer({ name: td.function.name, status: 'start', args });
-            }
-        },
-        onComplete: async (tc: ChatCompletionMessageFunctionToolCall, args: Record<string, unknown>, result: unknown) => {
-            // UI rendering
-            if (toolRenderer) {
-                toolRenderer({
-                    name: td.function.name,
-                    status: 'success',
-                    args,
-                    result: typeof result === 'string' ? result : JSON.stringify(result)
-                });
-            }
+    return tools.map(td => {
+        const originalOnStart = td.onStart;
+        const originalOnComplete = td.onComplete;
 
-            // Conversation sync callback
-            if (onComplete) {
-                const toolMessage: Message = {
-                    role: 'tool',
-                    content: typeof result === 'string' ? result : JSON.stringify(result),
-                    name: td.function.name,
-                    tool_call_id: tc.id,
-                };
-                await onComplete(toolMessage);
+        return {
+            ...td,
+            onStart: async (tc: ChatCompletionMessageFunctionToolCall, args: Record<string, unknown>) => {
+                await originalOnStart?.(tc, args);
+                if (toolRenderer) {
+                    toolRenderer({ name: td.name, status: 'start', args });
+                }
+            },
+            onComplete: async (tc: ChatCompletionMessageFunctionToolCall, args: Record<string, unknown>, result: unknown) => {
+                await originalOnComplete?.(tc, args, result);
+                if (toolRenderer) {
+                    toolRenderer({
+                        name: td.name,
+                        status: 'success',
+                        args,
+                        result: typeof result === 'string' ? result : JSON.stringify(result)
+                    });
+                }
+                if (onComplete) {
+                    const toolMessage: Message = {
+                        role: 'tool',
+                        content: typeof result === 'string' ? result : JSON.stringify(result),
+                        name: td.name,
+                        tool_call_id: tc.id,
+                    };
+                    await onComplete(toolMessage);
+                }
             }
-        }
-    }));
+        };
+    });
 }

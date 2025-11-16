@@ -13,16 +13,17 @@ import {
     type ReasoningEffort,
     type ChatCompletionChunk,
 } from 'openai/resources.mjs';
-import { Message, MessageContent, MessageRole } from './common';
-import { ToolCallResult, ToolDefinition } from '../tools/types';
+import { Message, MessageContent, MessageRole, CompletionSignal } from './common';
+import { ToolCallResult, ToolDefinition, toOpenAITool } from '../tools/types';
 import { AgentActionKey, AIModels, InferenceMetadata } from './config.types';
+import type { CompletionDetector } from './completionDetection';
 // import { SecretsService } from '../../database';
 import { RateLimitService } from '../../services/rate-limit/rateLimits';
 import { getUserConfigurableSettings } from '../../config';
 import { SecurityError, RateLimitExceededError } from 'shared/types/errors';
-import { executeToolWithDefinition } from '../tools/customTools';
 import { RateLimitType } from 'worker/services/rate-limit/config';
 import { getMaxToolCallingDepth, MAX_LLM_MESSAGES } from '../constants';
+import { executeToolCallsWithDependencies } from './toolExecution';
 
 function optimizeInputs(messages: Message[]): Message[] {
     return messages.map((message) => ({
@@ -99,7 +100,7 @@ function accumulateToolCallDelta(
         const before = entry.function.arguments;
         const chunk = deltaToolCall.function.arguments;
 
-        // Check if we already have complete JSON and this is extra data
+        // Check if we already have complete JSON and this is extra data. Question: Do we want this?
         let isComplete = false;
         if (before.length > 0) {
             try {
@@ -321,6 +322,7 @@ type InferArgsBase = {
     userApiKeys?: Record<string, string>;
     abortSignal?: AbortSignal;
     onAssistantMessage?: (message: Message) => Promise<void>;
+    completionConfig?: CompletionConfig;
 };
 
 type InferArgsStructured = InferArgsBase & {
@@ -336,6 +338,17 @@ type InferWithCustomFormatArgs = InferArgsStructured & {
 export interface ToolCallContext {
     messages: Message[];
     depth: number;
+    completionSignal?: CompletionSignal;
+    warningInjected?: boolean;
+}
+
+/**
+ * Configuration for completion signal detection and auto-warning injection.
+ */
+export interface CompletionConfig {
+    detector?: CompletionDetector;
+    operationalMode?: 'initial' | 'followup';
+    allowWarningInjection?: boolean;
 }
 
 export function serializeCallChain(context: ToolCallContext, finalResponse: string): string {
@@ -409,42 +422,16 @@ export type InferResponseString = {
  * Execute all tool calls from OpenAI response
  */
 async function executeToolCalls(openAiToolCalls: ChatCompletionMessageFunctionToolCall[], originalDefinitions: ToolDefinition[]): Promise<ToolCallResult[]> {
-    const toolDefinitions = new Map(originalDefinitions.map(td => [td.function.name, td]));
-    return Promise.all(
-        openAiToolCalls.map(async (tc) => {
-            try {
-                const args = tc.function.arguments ? JSON.parse(tc.function.arguments) : {};
-                const td = toolDefinitions.get(tc.function.name);
-                if (!td) {
-                    throw new Error(`Tool ${tc.function.name} not found`);
-                }
-                const result = await executeToolWithDefinition(tc, td, args);
-                console.log(`Tool execution result for ${tc.function.name}:`, result);
-                return {
-                    id: tc.id,
-                    name: tc.function.name,
-                    arguments: args,
-                    result
-                };
-            } catch (error) {
-                console.error(`Tool execution failed for ${tc.function.name}:`, error);
-                // Check if error is an abort error
-                if (error instanceof AbortError) {
-                    console.warn(`Tool call was aborted while executing ${tc.function.name}, ending tool call chain with the latest tool call result`);
-                    throw error;
-                }
-                return {
-                    id: tc.id,
-                    name: tc.function.name,
-                    arguments: {},
-                    result: { error: `Failed to execute ${tc.function.name}: ${error instanceof Error ? error.message : 'Unknown error'}` }
-            };
-            }
-        })
-    );
+    // Use dependency-aware execution engine
+    return executeToolCallsWithDependencies(openAiToolCalls, originalDefinitions);
 }
 
-function updateToolCallContext(toolCallContext: ToolCallContext | undefined, assistantMessage: Message, executedToolCalls: ToolCallResult[]) {
+function updateToolCallContext(
+    toolCallContext: ToolCallContext | undefined,
+    assistantMessage: Message,
+    executedToolCalls: ToolCallResult[],
+    completionDetector?: CompletionDetector
+) {
     const newMessages = [
         ...(toolCallContext?.messages || []),
         assistantMessage,
@@ -459,9 +446,18 @@ function updateToolCallContext(toolCallContext: ToolCallContext | undefined, ass
         ];
 
     const newDepth = (toolCallContext?.depth ?? 0) + 1;
-    const newToolCallContext = {
+
+    // Detect completion signal from executed tool calls
+    let completionSignal = toolCallContext?.completionSignal;
+    if (completionDetector && !completionSignal) {
+        completionSignal = completionDetector.detectCompletion(executedToolCalls);
+    }
+
+    const newToolCallContext: ToolCallContext = {
         messages: newMessages,
-        depth: newDepth
+        depth: newDepth,
+        completionSignal,
+        warningInjected: toolCallContext?.warningInjected || false
     };
     return newToolCallContext;
 }
@@ -500,6 +496,7 @@ export async function infer<OutputSchema extends z.AnyZodObject>({
     temperature,
     abortSignal,
     onAssistantMessage,
+    completionConfig,
 }: InferArgsBase & {
     schema?: OutputSchema;
     schemaName?: string;
@@ -628,7 +625,12 @@ export async function infer<OutputSchema extends z.AnyZodObject>({
 
         console.log(`Running inference with ${modelName} using structured output with ${format} format, reasoning effort: ${reasoning_effort}, max tokens: ${maxTokens}, temperature: ${temperature}, baseURL: ${baseURL}`);
 
-        const toolsOpts = tools ? { tools, tool_choice: 'auto' as const } : {};
+        const toolsOpts = tools ? {
+            tools: tools.map(t => {
+                return toOpenAITool(t);
+            }),
+            tool_choice: 'auto' as const
+        } : {};
         let response: OpenAI.ChatCompletion | OpenAI.ChatCompletionChunk | Stream<OpenAI.ChatCompletionChunk>;
         try {
             // Call OpenAI API with proper structured output format
@@ -789,12 +791,12 @@ export async function infer<OutputSchema extends z.AnyZodObject>({
             try {
                 executedToolCalls = await executeToolCalls(toolCalls, tools);
             } catch (error) {
-                console.error(`Tool execution failed for ${toolCalls[0].function.name}:`, error);
+                console.error(`Tool execution failed${toolCalls.length > 0 ? ` for ${toolCalls[0].function.name}` : ''}:`, error);
                 // Check if error is an abort error
                 if (error instanceof AbortError) {
                     console.warn(`Tool call was aborted, ending tool call chain with the latest tool call result`);
 
-                    const newToolCallContext = updateToolCallContext(toolCallContext, assistantMessage, executedToolCalls);
+                    const newToolCallContext = updateToolCallContext(toolCallContext, assistantMessage, executedToolCalls, completionConfig?.detector);
                     return { string: content, toolCallContext: newToolCallContext };
                 }
                 // Otherwise, continue
@@ -808,10 +810,30 @@ export async function infer<OutputSchema extends z.AnyZodObject>({
         if (executedToolCalls.length) {
             console.log(`Tool calls executed:`, JSON.stringify(executedToolCalls, null, 2));
 
-            const newToolCallContext = updateToolCallContext(toolCallContext, assistantMessage, executedToolCalls);
-            
-            const executedCallsWithResults = executedToolCalls.filter(result => result.result);
-            console.log(`${actionKey}: Tool calling depth: ${newToolCallContext.depth}/${getMaxToolCallingDepth(actionKey)}`);
+            const newToolCallContext = updateToolCallContext(toolCallContext, assistantMessage, executedToolCalls, completionConfig?.detector);
+
+            // Stop recursion if completion signal detected
+            if (newToolCallContext.completionSignal?.signaled) {
+                console.log(`[COMPLETION] ${newToolCallContext.completionSignal.toolName} called, stopping recursion`);
+
+                if (schema && schemaName) {
+                    throw new AbortError(
+                        `Completion signaled: ${newToolCallContext.completionSignal.summary || 'Task complete'}`,
+                        newToolCallContext
+                    );
+                }
+                return {
+                    string: content || newToolCallContext.completionSignal.summary || 'Task complete',
+                    toolCallContext: newToolCallContext
+                };
+            }
+
+            // Filter completion tools from recursion trigger
+            const executedCallsWithResults = executedToolCalls.filter(result =>
+                result.result !== undefined &&
+                !(completionConfig?.detector?.isCompletionTool(result.name))
+            );
+            console.log(`${actionKey}: Tool depth ${newToolCallContext.depth}/${getMaxToolCallingDepth(actionKey)}`);
             
             if (executedCallsWithResults.length) {
                 if (schema && schemaName) {
@@ -832,6 +854,7 @@ export async function infer<OutputSchema extends z.AnyZodObject>({
                         temperature,
                         abortSignal,
                         onAssistantMessage,
+                        completionConfig,
                     }, newToolCallContext);
                     return output;
                 } else {
@@ -848,6 +871,7 @@ export async function infer<OutputSchema extends z.AnyZodObject>({
                         temperature,
                         abortSignal,
                         onAssistantMessage,
+                        completionConfig,
                     }, newToolCallContext);
                     return output;
                 }
