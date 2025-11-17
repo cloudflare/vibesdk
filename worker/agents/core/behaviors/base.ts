@@ -435,7 +435,7 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
                         focusPaths.some((p) => f.filePath.includes(p)),
                     );
 
-                const runtimeErrors = await this.fetchRuntimeErrors(true);
+                const runtimeErrors = await this.fetchRuntimeErrors(false);
 
                 const dbg = new DeepCodeDebugger(
                     operationOptions.env,
