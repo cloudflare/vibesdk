@@ -20,6 +20,8 @@ import { OperationOptions } from 'worker/agents/operations/common';
 import { compactifyContext } from '../../utils/conversationCompactifier';
 import { ConversationMessage, createMultiModalUserMessage, createUserMessage, Message } from '../../inferutils/common';
 import { AbortError } from 'worker/agents/inferutils/core';
+import { ImageAttachment, ProcessedImageAttachment } from 'worker/types/image-attachment';
+import { ImageType, uploadImage } from 'worker/utils/images';
 
 interface AgenticOperations extends BaseCodingOperations {
     generateNextPhase: PhaseGenerationOperation;
@@ -127,31 +129,48 @@ export class AgenticCodingBehavior extends BaseCodingBehavior<AgenticState> impl
         await super.onStart(props);
     }
 
-    // /**
-    //  * Override handleUserInput to just queue messages without AI processing
-    //  * Messages will be injected into conversation after tool call completions
-    //  */
-    // async handleUserInput(userMessage: string, images?: ImageAttachment[]): Promise<void> {
-    //     let processedImages: ProcessedImageAttachment[] | undefined;
+    /**
+     * Override handleUserInput to just queue messages without AI processing
+     * Messages will be injected into conversation after tool call completions
+     */
+    async handleUserInput(userMessage: string, images?: ImageAttachment[]): Promise<void> {
+        let processedImages: ProcessedImageAttachment[] | undefined;
 
-    //     if (images && images.length > 0) {
-    //         processedImages = await Promise.all(images.map(async (image) => {
-    //             return await uploadImage(this.env, image, ImageType.UPLOADS);
-    //         }));
+        if (images && images.length > 0) {
+            processedImages = await Promise.all(images.map(async (image) => {
+                return await uploadImage(this.env, image, ImageType.UPLOADS);
+            }));
 
-    //         this.logger.info('Uploaded images for queued request', {
-    //             imageCount: processedImages.length
-    //         });
-    //     }
+            this.logger.info('Uploaded images for queued request', {
+                imageCount: processedImages.length
+            });
+        }
 
-    //     await this.queueUserRequest(userMessage, processedImages);
+        await this.queueUserRequest(userMessage, processedImages);
 
-    //     this.logger.info('User message queued during agentic build', {
-    //         message: userMessage,
-    //         queueSize: this.state.pendingUserInputs.length,
-    //         hasImages: !!processedImages && processedImages.length > 0
-    //     });
-    // }
+        if (this.isCodeGenerating()) {
+            // Code generating - render tool call for UI
+            this.broadcast(WebSocketMessageResponses.CONVERSATION_RESPONSE, {
+                message: '',
+                conversationId: IdGenerator.generateConversationId(),
+                isStreaming: false,
+                tool: {
+                    name: 'Message Queued',
+                    status: 'success',
+                    args: {
+                        userMessage,
+                        images: processedImages
+                    }
+                }
+            });
+        }
+
+        this.logger.info('User message queued during agentic build', {
+            message: userMessage,
+            queueSize: this.state.pendingUserInputs.length,
+            hasImages: !!processedImages && processedImages.length > 0
+        });
+    }
 
     /**
      * Handle tool call completion - sync to conversation and check queue/compactification
