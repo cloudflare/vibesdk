@@ -2,6 +2,12 @@
 #CUSTOM_DOMAIN="your-domain.com" # Your custom domain for CORS
 #ENVIRONMENT="prod" # Options: dev, staging, prod
 
+# Cloudflare Credentials (Required for manual deployment via `bun run deploy`)
+# These are automatically provided when using "Deploy to Cloudflare" button
+# Get these from: https://dash.cloudflare.com/profile/api-tokens
+#CLOUDFLARE_API_TOKEN="" # API token with Account-level permissions (see README for required permissions)
+#CLOUDFLARE_ACCOUNT_ID="" # Your Cloudflare account ID
+
 # Essential Secrets:
 #CLOUDFLARE_AI_GATEWAY_TOKEN="" # If this has read and edit permissions, the AI Gateway will be created automatically. run is required at the least
 

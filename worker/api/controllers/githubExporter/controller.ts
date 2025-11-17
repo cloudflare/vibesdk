@@ -320,6 +320,15 @@ export class GitHubExporterController extends BaseController {
                 agentId: string;
             };
 
+            const appService = new AppService(env);
+            const ownershipResult = await appService.checkAppOwnership(body.agentId, context.user.id);
+            if (!ownershipResult.isOwner) {
+                return GitHubExporterController.createErrorResponse<never>(
+                    'You do not have permission to access this app',
+                    403
+                );
+            }
+
             this.logger.info('Export initiated', { userId: context.user.id, agentId: body.agentId });
 
             if (!body.repositoryName) {
@@ -433,6 +442,15 @@ export class GitHubExporterController extends BaseController {
                 return GitHubExporterController.createErrorResponse<never>(
                     'Repository URL and agent ID are required',
                     400
+                );
+            }
+
+            const appService = new AppService(env);
+            const ownershipResult = await appService.checkAppOwnership(body.agentId, context.user.id);
+            if (!ownershipResult.isOwner) {
+                return GitHubExporterController.createErrorResponse<never>(
+                    'You do not have permission to access this app',
+                    403
                 );
             }
 
