@@ -23,6 +23,10 @@ interface PresentationRendererProps {
 	activeFile: FileType | null;
 	onFileChange?: (filePath: string, content: string) => void;
 	slideDirectory?: string;
+	speakerMode?: boolean;
+	previewMode?: boolean;
+	fullscreenMode?: boolean;
+	onFullscreenChange?: (isFullscreen: boolean) => void;
 }
 
 export function PresentationRenderer({
@@ -30,6 +34,10 @@ export function PresentationRenderer({
 	activeFile,
 	onFileChange,
 	slideDirectory = 'public/slides',
+	speakerMode = false,
+	previewMode = false,
+	fullscreenMode = false,
+	onFullscreenChange,
 }: PresentationRendererProps) {
 	const [slides, setSlides] = useState<CompiledSlide[]>([]);
 	const [isInitializing, setIsInitializing] = useState(true);
@@ -387,9 +395,13 @@ export function PresentationRenderer({
 	return (
 		<PresentationView
 			slides={slides}
+			manifestMetadata={manifest?.metadata ?? null}
 			slidesCss={slidesCss}
 			tailwindConfigScript={tailwindConfigScript}
-			manifestMetadata={manifest?.metadata ?? null}
+			speakerMode={speakerMode}
+			previewMode={previewMode}
+			fullscreenMode={fullscreenMode}
+			onFullscreenChange={onFullscreenChange}
 		/>
 	);
 }

@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback, type ReactNode } from 'react';
 import { Loader, FileText, FileDown } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -207,7 +207,7 @@ export function MarkdownDocsPreview({
 /**
  * Create ID from heading text for anchor links
  */
-function createId(children: any): string {
+function createId(children: ReactNode): string {
 	const text = extractText(children);
 	return text
 		.toLowerCase()
@@ -218,9 +218,12 @@ function createId(children: any): string {
 /**
  * Extract text from React children
  */
-function extractText(children: any): string {
+function extractText(children: ReactNode): string {
 	if (typeof children === 'string') return children;
 	if (Array.isArray(children)) return children.map(extractText).join('');
-	if (children?.props?.children) return extractText(children.props.children);
+	if (children && typeof children === 'object' && 'props' in children) {
+		const element = children as { props: { children?: ReactNode } };
+		return extractText(element.props.children);
+	}
 	return '';
 }

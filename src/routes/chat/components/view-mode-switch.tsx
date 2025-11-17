@@ -55,7 +55,7 @@ export function ViewModeSwitch({
 			)}
 
 			{/* Preview button - show when app has preview URL */}
-			{previewUrl && (
+			{previewUrl && projectType !== 'presentation' && (
 				<button
 					onClick={() => onChange('preview')}
 					className={clsx(

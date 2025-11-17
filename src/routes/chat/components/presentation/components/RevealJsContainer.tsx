@@ -19,6 +19,7 @@ interface RevealJsContainerProps {
 	activeIndex?: number;
 	onReady?: () => void;
 	thumbnailMode?: boolean;
+	printMode?: boolean;
 }
 
 export interface RevealJsContainerHandle {
@@ -30,7 +31,7 @@ export interface RevealJsContainerHandle {
 
 const RevealJsContainerBase = forwardRef<RevealJsContainerHandle, RevealJsContainerProps>(
 	function RevealJsContainer(
-		{ slides, onSlideChange, manifestMetadata, activeIndex, onReady, thumbnailMode },
+		{ slides, onSlideChange, manifestMetadata, activeIndex, onReady, thumbnailMode, printMode },
 		ref,
 	) {
 		const deckDivRef = useRef<HTMLDivElement>(null);
@@ -75,11 +76,12 @@ const RevealJsContainerBase = forwardRef<RevealJsContainerHandle, RevealJsContai
 			if (!deckDivRef.current) return;
 
 			const isThumbnail = thumbnailMode ?? false;
+			const isPrint = printMode ?? false;
 
-			const controls = isThumbnail ? false : manifestMetadata?.controls ?? true;
-			const progress = isThumbnail ? false : manifestMetadata?.progress ?? true;
+			const controls = isThumbnail || isPrint ? false : manifestMetadata?.controls ?? true;
+			const progress = isThumbnail || isPrint ? false : manifestMetadata?.progress ?? true;
 			const center = manifestMetadata?.center ?? true;
-			const transition = isThumbnail ? 'none' : manifestMetadata?.transition ?? 'slide';
+			const transition = isThumbnail || isPrint ? 'none' : manifestMetadata?.transition ?? 'slide';
 			const slideNumber = isThumbnail ? false : manifestMetadata?.slideNumber ?? false;
 
 			deckRef.current = new Reveal(deckDivRef.current, {
@@ -102,6 +104,9 @@ const RevealJsContainerBase = forwardRef<RevealJsContainerHandle, RevealJsContai
 				embedded: true,
 				touch: true,
 				fragments: true,
+				pdfSeparateFragments: false,
+				pdfMaxPagesPerSlide: 1,
+				view: isPrint ? 'print' : null,
 			});
 
 			deckRef.current.initialize().then(() => {
@@ -133,7 +138,7 @@ const RevealJsContainerBase = forwardRef<RevealJsContainerHandle, RevealJsContai
 					console.warn('[RevealJsContainer] Cleanup failed:', e);
 				}
 			};
-		}, [onSlideChange, manifestMetadata, thumbnailMode]);
+		}, [onSlideChange, manifestMetadata, thumbnailMode, printMode]);
 
 		useEffect(() => {
 			if (!deckRef.current || !isInitializedRef.current) return;
@@ -209,6 +214,10 @@ export const RevealJsContainer = memo(
 		}
 
 		if (prevProps.thumbnailMode !== nextProps.thumbnailMode) {
+			return false;
+		}
+
+		if (prevProps.printMode !== nextProps.printMode) {
 			return false;
 		}
 

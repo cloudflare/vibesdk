@@ -190,7 +190,7 @@ export class GlobalRegistry {
 		const failedFiles: string[] = [];
 		const errors: Array<{ file: string; error: string }> = [];
 
-		// Compile all library files
+		// Compile all library files and collect exports
 		for (const file of libraryFiles) {
 			try {
 				const result = await loadModule({
@@ -200,10 +200,9 @@ export class GlobalRegistry {
 					allFiles: allFilesMap,
 				});
 
-				// Extract exports
+				// Extract exports and accumulate them
 				if (typeof result.exports === 'object' && result.exports !== null) {
 					Object.assign(allExports, result.exports);
-					window.PresentationRuntime!.SlideComponents = { ...allExports };
 				}
 			} catch (error) {
 				failedFiles.push(file.filePath);
@@ -213,7 +212,7 @@ export class GlobalRegistry {
 			}
 		}
 
-		// Finalize runtime with full export set
+		// Finalize runtime with full export set (only set once after all files compiled)
 		this.applyRuntimeExports(allExports);
 
 		this.componentCache = allExports;

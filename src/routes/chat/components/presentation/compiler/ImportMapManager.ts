@@ -3,14 +3,19 @@
  * Creates shims to share bundled React with CDN packages
  */
 
+import { globalBlobManager } from './BlobURLManager';
+
 interface ImportMap {
 	imports: Record<string, string>;
 	scopes?: Record<string, Record<string, string>>;
 }
 
-function createBundledModuleShims(): { 
-	react: string; 
-	reactDom: string; 
+// Store shim blob URLs for cleanup
+const shimBlobURLs: string[] = [];
+
+function createBundledModuleShims(): {
+	react: string;
+	reactDom: string;
 	jsxRuntime: string;
 } {
 	const reactShim = `
@@ -52,17 +57,25 @@ function createBundledModuleShims(): {
 		export const jsxs = window.React.createElement;
 		export const Fragment = window.React.Fragment;
 	`.trim();
-	
+
+	// Create blob URLs using global manager for proper cleanup
+	const reactUrl = globalBlobManager.createBlobURL(
+		new Blob([reactShim], { type: 'application/javascript' })
+	);
+	const reactDomUrl = globalBlobManager.createBlobURL(
+		new Blob([reactDomShim], { type: 'application/javascript' })
+	);
+	const jsxRuntimeUrl = globalBlobManager.createBlobURL(
+		new Blob([jsxRuntimeShim], { type: 'application/javascript' })
+	);
+
+	// Track shim URLs for cleanup
+	shimBlobURLs.push(reactUrl, reactDomUrl, jsxRuntimeUrl);
+
 	return {
-		react: URL.createObjectURL(
-			new Blob([reactShim], { type: 'application/javascript' })
-		),
-		reactDom: URL.createObjectURL(
-			new Blob([reactDomShim], { type: 'application/javascript' })
-		),
-		jsxRuntime: URL.createObjectURL(
-			new Blob([jsxRuntimeShim], { type: 'application/javascript' })
-		),
+		react: reactUrl,
+		reactDom: reactDomUrl,
+		jsxRuntime: jsxRuntimeUrl,
 	};
 }
 
@@ -101,16 +114,17 @@ export function initializeImportMaps(): void {
 		return;
 	}
 
+	// Set flag immediately to prevent race conditions
+	isInitialized = true;
+
 	if (!HTMLScriptElement.supports || !HTMLScriptElement.supports('importmap')) {
 		console.warn('[ImportMapManager] Import maps not supported');
-		isInitialized = true;
 		return;
 	}
 
 	const existing = document.querySelector('script[type="importmap"]');
 	if (existing) {
 		console.log('[ImportMapManager] Import map already exists');
-		isInitialized = true;
 		return;
 	}
 
@@ -125,7 +139,6 @@ export function initializeImportMaps(): void {
 	script.textContent = JSON.stringify(DEFAULT_IMPORT_MAP, null, 2);
 	document.head.appendChild(script);
 
-	isInitialized = true;
 	console.log('[ImportMapManager] Import map initialized with React shims', DEFAULT_IMPORT_MAP);
 }
 
@@ -148,4 +161,15 @@ export function resolveBareSpecifier(specifier: string): string | undefined {
 
 export function isImportMapsSupported(): boolean {
 	return !!(HTMLScriptElement.supports && HTMLScriptElement.supports('importmap'));
+}
+
+/**
+ * Cleanup function to revoke React shim blob URLs
+ * Call this when cleaning up the presentation system
+ */
+export function cleanupImportMapShims(): void {
+	for (const url of shimBlobURLs) {
+		globalBlobManager.revokeBlobURL(url);
+	}
+	shimBlobURLs.length = 0;
 }

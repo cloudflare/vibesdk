@@ -4,13 +4,29 @@
 
 import type { ComponentType } from 'react';
 import { DependencyLoader } from './DependencyLoader';
+import { globalBlobManager } from './BlobURLManager';
 
 interface ModuleCache {
 	loader: DependencyLoader;
 	exports: ComponentType<unknown> | Record<string, unknown>;
+	contentHash: string;
 }
 
 const moduleCache = new Map<string, ModuleCache>();
+
+/**
+ * Generate a hash from string content
+ * Used for content-based cache keys
+ */
+function hashCode(str: string): string {
+	let hash = 0;
+	for (let i = 0; i < str.length; i++) {
+		const char = str.charCodeAt(i);
+		hash = (hash << 5) - hash + char;
+		hash = hash | 0; // Convert to 32-bit integer
+	}
+	return hash.toString(36);
+}
 
 export interface LoadModuleOptions {
 	/** Source code to compile */
@@ -39,7 +55,9 @@ export interface LoadModuleResult {
 export async function loadModule(options: LoadModuleOptions): Promise<LoadModuleResult> {
 	const { code, moduleId, allFiles } = options;
 
-	const cacheKey = `${moduleId}:${code.length}`;
+	// Use content hash for cache key to prevent collisions
+	const contentHash = hashCode(code);
+	const cacheKey = `${moduleId}:${contentHash}`;
 
 	// Check cache
 	const cached = moduleCache.get(cacheKey);
@@ -50,6 +68,17 @@ export async function loadModule(options: LoadModuleOptions): Promise<LoadModule
 			blobUrl: loaderModule?.blobUrl || '',
 			code: loaderModule?.code || '',
 		};
+	}
+
+	// Check if we have an old cache entry with different content hash
+	const oldCacheKey = Array.from(moduleCache.keys()).find((key) => key.startsWith(`${moduleId}:`));
+	if (oldCacheKey && oldCacheKey !== cacheKey) {
+		const oldCache = moduleCache.get(oldCacheKey);
+		if (oldCache) {
+			// Revoke old blob URLs before replacing
+			oldCache.loader.clear();
+			moduleCache.delete(oldCacheKey);
+		}
 	}
 
 	try {
@@ -75,6 +104,7 @@ export async function loadModule(options: LoadModuleOptions): Promise<LoadModule
 		const cacheEntry: ModuleCache = {
 			loader,
 			exports: module as ComponentType<unknown> | Record<string, unknown>,
+			contentHash,
 		};
 		moduleCache.set(cacheKey, cacheEntry);
 

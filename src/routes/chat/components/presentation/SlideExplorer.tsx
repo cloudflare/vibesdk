@@ -18,7 +18,7 @@ export function SlideExplorer({
 	thumbnailsByIndex,
 }: SlideExplorerProps) {
 	return (
-		<div className="flex-shrink-0 w-[260px] lg:w-[280px] xl:w-[300px] bg-bg-3 border-r border-border-primary h-full overflow-y-auto presentation-print-sidebar">
+		<div className="slide-explorer flex-shrink-0 w-[260px] lg:w-[280px] xl:w-[300px] bg-bg-3 border-r border-border-primary h-full overflow-y-auto">
 			<div className="p-4 px-5 text-sm flex items-center gap-2 text-text-50/80 font-semibold border-b border-border-primary bg-bg-2">
 				<Presentation className="size-4 text-accent" />
 				<span>Slides</span>

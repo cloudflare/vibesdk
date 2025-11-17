@@ -1,4 +1,4 @@
-import { type RefObject, type ReactNode } from 'react';
+import { type RefObject, type ReactNode, useState, useCallback } from 'react';
 import { WebSocket } from 'partysocket';
 import { MonacoEditor } from '../../../components/monaco-editor/monaco-editor';
 import { motion } from 'framer-motion';
@@ -256,6 +256,30 @@ export function MainContentPanel(props: MainContentPanelProps) {
 		);
 	};
 
+	const [presentationSpeakerMode, setPresentationSpeakerMode] = useState(false);
+	const [presentationPreviewMode, setPresentationPreviewMode] = useState(false);
+	const [presentationFullscreen, setPresentationFullscreen] = useState(false);
+
+	const handleToggleSpeakerMode = useCallback(() => {
+		setPresentationSpeakerMode((prev) => !prev);
+		if (presentationPreviewMode) setPresentationPreviewMode(false);
+	}, [presentationPreviewMode]);
+
+	const handleTogglePreviewMode = useCallback(() => {
+		setPresentationPreviewMode((prev) => !prev);
+		if (presentationSpeakerMode) setPresentationSpeakerMode(false);
+	}, [presentationSpeakerMode]);
+
+	const handleToggleFullscreen = useCallback(() => {
+		if (!document.fullscreenElement) {
+			document.documentElement.requestFullscreen();
+			setPresentationFullscreen(true);
+		} else {
+			document.exitFullscreen();
+			setPresentationFullscreen(false);
+		}
+	}, []);
+
 	const renderPresentationView = () => {
 		if (projectType !== 'presentation') return null;
 
@@ -269,9 +293,21 @@ export function MainContentPanel(props: MainContentPanelProps) {
 						console.log('[MainContentPanel] File changed:', filePath);
 					}}
 					slideDirectory={slideDirectory}
+					speakerMode={presentationSpeakerMode}
+					previewMode={presentationPreviewMode}
+					fullscreenMode={presentationFullscreen}
+					onFullscreenChange={setPresentationFullscreen}
 				/>
 			</div>,
-			<PresentationHeaderActions onExportPdf={() => window.print()} />,
+			<PresentationHeaderActions
+				onExportPdf={() => window.print()}
+				onToggleSpeakerMode={handleToggleSpeakerMode}
+				onTogglePreviewMode={handleTogglePreviewMode}
+				onToggleFullscreen={handleToggleFullscreen}
+				speakerMode={presentationSpeakerMode}
+				previewMode={presentationPreviewMode}
+				fullscreen={presentationFullscreen}
+			/>,
 			{ previewAvailable: true, showTooltip: false }
 		);
 	};

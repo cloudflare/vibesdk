@@ -9,6 +9,7 @@ import {
 	TAILWIND_CDN,
 	HTML2CANVAS_CDN,
 } from '../compiler/cdnConfig';
+import { globalBlobManager } from '../compiler/BlobURLManager';
 
 interface SandboxSlide {
 	id: string;
@@ -102,6 +103,7 @@ export function PresentationSandbox({
 	const rootRef = useRef<Root | null>(null);
 	const revealRef = useRef<RevealJsContainerHandle | null>(null);
 	const capturingRef = useRef(false);
+	const tailwindConfigBlobRef = useRef<string | null>(null);
 
 	const handleInternalSlideChange = useCallback(
 		(index: number) => {
@@ -131,7 +133,8 @@ export function PresentationSandbox({
 						const blob = new Blob([tailwindConfigScript], {
 							type: 'application/javascript',
 						});
-						const url = URL.createObjectURL(blob);
+						const url = globalBlobManager.createBlobURL(blob);
+						tailwindConfigBlobRef.current = url;
 						const configScript = doc.createElement('script');
 						configScript.src = url;
 						head.appendChild(configScript);
@@ -246,6 +249,11 @@ export function PresentationSandbox({
 					win.removeEventListener('keydown', handler);
 					keyboardHandlers.delete(win);
 				}
+			}
+			// Revoke Tailwind config blob URL
+			if (tailwindConfigBlobRef.current) {
+				globalBlobManager.revokeBlobURL(tailwindConfigBlobRef.current);
+				tailwindConfigBlobRef.current = null;
 			}
 		};
 	}, []);

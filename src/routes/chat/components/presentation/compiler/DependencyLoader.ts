@@ -5,6 +5,7 @@
 import { transformCode, preloadBabel } from './BabelCompiler';
 import { parseImports, resolveImportPath, isBareImport } from './ImportResolver';
 import { resolveBareSpecifier } from './ImportMapManager';
+import { globalBlobManager } from './BlobURLManager';
 
 interface LoadedModule {
 	blobUrl: string;
@@ -20,6 +21,7 @@ export class DependencyLoader {
 	private files: Map<string, string>;
 	public loadedModules = new Map<string, LoadedModule>();
 	private loading = new Set<string>();
+	private loadingStack: string[] = []; // Track dependency chain for better error messages
 
 	constructor(options: DependencyLoaderOptions) {
 		this.files = options.files;
@@ -28,16 +30,20 @@ export class DependencyLoader {
 	async loadModule(filePath: string): Promise<LoadedModule> {
 		await preloadBabel();
 
+		// Check cache first
 		const cached = this.loadedModules.get(filePath);
 		if (cached) {
 			return cached;
 		}
 
+		// Check for circular dependency
 		if (this.loading.has(filePath)) {
-			throw new Error(`Circular dependency detected: ${filePath}`);
+			const chain = [...this.loadingStack, filePath].join(' → ');
+			throw new Error(`Circular dependency detected: ${chain}`);
 		}
 
 		this.loading.add(filePath);
+		this.loadingStack.push(filePath);
 
 		try {
 			const code = this.files.get(filePath);
@@ -95,7 +101,7 @@ export class DependencyLoader {
 			const blob = new Blob([transformed.code], {
 				type: 'application/javascript;charset=utf-8',
 			});
-			const blobUrl = URL.createObjectURL(blob);
+			const blobUrl = globalBlobManager.createBlobURL(blob);
 
 			const module: LoadedModule = {
 				blobUrl,
@@ -108,6 +114,7 @@ export class DependencyLoader {
 			return module;
 		} finally {
 			this.loading.delete(filePath);
+			this.loadingStack.pop();
 		}
 	}
 
@@ -124,9 +131,10 @@ export class DependencyLoader {
 
 	clear(): void {
 		for (const module of this.loadedModules.values()) {
-			URL.revokeObjectURL(module.blobUrl);
+			globalBlobManager.revokeBlobURL(module.blobUrl);
 		}
 		this.loadedModules.clear();
 		this.loading.clear();
+		this.loadingStack = [];
 	}
 }
