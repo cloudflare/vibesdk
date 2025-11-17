@@ -42,7 +42,7 @@ export default function Chat() {
 
 	const [searchParams] = useSearchParams();
 	const userQuery = searchParams.get('query');
-	const projectType = searchParams.get('projectType') || 'app';
+	const urlProjectType = searchParams.get('projectType') || 'app';
 
 	// Extract images from URL params if present
 	const userImages = useMemo(() => {
@@ -136,13 +136,14 @@ export default function Chat() {
 		isDebugging,
 		// Behavior type from backend
 		behaviorType,
+		projectType,
 		// Template metadata
 		templateDetails,
 	} = useChat({
 		chatId: urlChatId,
 		query: userQuery,
 		images: userImages,
-		projectType: projectType as ProjectType,
+		projectType: urlProjectType as ProjectType,
 		onDebugMessage: addDebugMessage,
 	});
 
@@ -158,6 +159,12 @@ export default function Chat() {
 	const [view, setView] = useState<'editor' | 'preview' | 'docs' | 'blueprint' | 'terminal' | 'presentation'>(
 		'editor',
 	);
+
+	useEffect(() => {
+		if (projectType === 'presentation') {
+			setView('presentation');
+		}
+	}, [projectType]);
 
 	// Terminal state
 	// const [terminalLogs, setTerminalLogs] = useState<TerminalLog[]>([]);
@@ -234,10 +241,9 @@ export default function Chat() {
 		});
 
 	// Merge streamed bootstrap files with generated files
-	const allStreamedFiles = useMemo(
-		() => mergeFiles(streamedBootstrapFiles, files),
-		[streamedBootstrapFiles, files]
-	);
+	const allStreamedFiles = useMemo(() => {
+		return mergeFiles(streamedBootstrapFiles, files);
+	}, [streamedBootstrapFiles, files, projectType]);
 
 	const handleFileClick = useCallback((file: FileType) => {
 		logger.debug('handleFileClick()', file);
@@ -372,13 +378,18 @@ export default function Chat() {
 	}, [hasDocumentation, projectType, previewUrl]);
 
 	const showMainView = useMemo(() => {
-		// For agentic mode: only show preview panel when files or preview URL exist
+		// For agentic mode: show preview panel when files exist, preview URL exists, OR it's a presentation project
 		if (behaviorType === 'agentic') {
-			return files.length > 0 || !!previewUrl;
+			const hasFiles = files.length > 0;
+			const hasPreview = !!previewUrl;
+			const isPresentation = projectType === 'presentation';
+			const result = hasFiles || hasPreview || isPresentation;
+			return result;
 		}
 		// For phasic mode: keep existing logic
-		return streamedBootstrapFiles.length > 0 || !!blueprint || files.length > 0;
-	}, [behaviorType, isGeneratingBlueprint, blueprint, files.length, previewUrl, streamedBootstrapFiles.length]);
+		const result = streamedBootstrapFiles.length > 0 || !!blueprint || files.length > 0;
+		return result;
+	}, [behaviorType, blueprint, files.length, previewUrl, streamedBootstrapFiles.length, projectType]);
 
 	const [mainMessage, ...otherMessages] = useMemo(() => messages, [messages]);
 
@@ -422,7 +433,7 @@ export default function Chat() {
 				setActiveFilePath(files[0].filePath);
 			}
 			hasSeenPreview.current = true;
-		} else if (previewUrl) {
+		} else if (previewUrl && projectType === 'app') {
 			// For apps, wait for preview URL
 			// Agentic: auto-switch immediately when preview URL available
 			// Phasic: require phase 1 complete
@@ -440,7 +451,7 @@ export default function Chat() {
 
 		// Update ref for next comparison
 		prevMarkdownCountRef.current = markdownFiles.length;
-	}, [previewUrl, isPhase1Complete, isStaticContent, files, activeFilePath, behaviorType, hasDocumentation]);
+	}, [previewUrl, isPhase1Complete, isStaticContent, files, activeFilePath, behaviorType, hasDocumentation, projectType]);
 
 	useEffect(() => {
 		if (chatId) {
@@ -811,9 +822,13 @@ export default function Chat() {
 				/>
 				</motion.div>
 
-				<AnimatePresence>
+				<AnimatePresence mode="wait">
 					{showMainView && (
-						<div
+						<motion.div
+							key="main-content-panel"
+							initial={{ opacity: 0 }}
+							animate={{ opacity: 1 }}
+							exit={{ opacity: 0 }}
 							className="flex-1 flex shrink-0 basis-0 p-4 pl-0 ml-2 z-30 min-h-0"
 						>
 							<MainContentPanel
@@ -849,7 +864,7 @@ export default function Chat() {
 								previewRef={previewRef}
 								editorRef={editorRef}
 							/>
-						</div>
+						</motion.div>
 					)}
 				</AnimatePresence>
 			</div>

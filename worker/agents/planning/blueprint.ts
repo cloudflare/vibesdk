@@ -234,10 +234,10 @@ const PROJECT_TYPE_BLUEPRINT_GUIDANCE: Record<ProjectType, string> = {
 - User flow should outline request/response shapes and operational safeguards
 - Implementation roadmap must mention testing strategies (unit tests, integration tests) and deployment validation steps.`,
     presentation: `## Presentation Project Context
-- Design a Spectacle-based slide deck with a cohesive narrative arc (intro, problem, solution, showcase, CTA)
+- Design a beautiful slide deck with a cohesive narrative arc (intro, problem, solution, showcase, CTA)
 - Produce visually rich slides with precise layout, typography, imagery, and animation guidance
 - User flow should actually be a \"story flow\" describing slide order, transitions, interactions, and speaker cues
-- Implementation roadmap must reference Spectacle features (themes, deck index, slide components, animations, print/external export mode)
+- Implementation roadmap must reference presentation scaffold / template features (themes, deck index, slide components, animations, print/external export mode)
 - Prioritize static data and storytelling polish; avoid backend complexity entirely.`,
     general: `## Objective Context
 - Start from scratch; choose the most suitable representation for the request.
@@ -329,16 +329,6 @@ export async function generateBlueprint(
             systemPromptMessage,
             userMessage
         ];
-
-        // Log messages to console for debugging
-        // logger.info('Blueprint messages:', JSON.stringify(messages, null, 2));
-        
-        // let reasoningEffort: "high" | "medium" | "low" | undefined = "medium" as const;
-        // if (templateMetaInfo?.complexity === 'simple' || templateMetaInfo?.complexity === 'moderate') {
-        //     console.log(`Using medium reasoning for simple/moderate queries`);
-        //     modelName = AIModels.OPENAI_O4_MINI;
-        //     reasoningEffort = undefined;
-        // }
 
         const { object: results } = await executeInference({
             env,

@@ -1,5 +1,5 @@
 import type { WebSocket } from 'partysocket';
-import type { WebSocketMessage, BlueprintType, ConversationMessage, AgentState, PhasicState, BehaviorType, TemplateDetails } from '@/api-types';
+import type { WebSocketMessage, BlueprintType, ConversationMessage, AgentState, PhasicState, BehaviorType, ProjectType, TemplateDetails } from '@/api-types';
 import { deduplicateMessages, isAssistantMessageDuplicate } from './deduplicate-messages';
 import { logger } from '@/utils/logger';
 import { getFileType } from '@/utils/string';
@@ -53,6 +53,7 @@ export interface HandleMessageDeps {
     setStaticIssueCount: React.Dispatch<React.SetStateAction<number>>;
     setIsDebugging: React.Dispatch<React.SetStateAction<boolean>>;
     setBehaviorType: React.Dispatch<React.SetStateAction<BehaviorType>>;
+    setInternalProjectType: React.Dispatch<React.SetStateAction<ProjectType>>;
     setTemplateDetails: React.Dispatch<React.SetStateAction<TemplateDetails | null>>;
 
     // Current state
@@ -128,6 +129,7 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
             setIsPhaseProgressActive,
             setIsDebugging,
             setBehaviorType,
+            setInternalProjectType,
             setTemplateDetails,
             isInitialStateRestored,
             blueprint,
@@ -178,6 +180,11 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
                     if (state.behaviorType && state.behaviorType !== behaviorType) {
                         setBehaviorType(state.behaviorType);
                         logger.debug('🔄 Restored behaviorType from backend:', state.behaviorType);
+                    }
+
+                    if (state.projectType) {
+                        setInternalProjectType(state.projectType);
+                        logger.debug('🔄 Restored projectType from backend:', state.projectType);
                     }
 
                     if (state.blueprint && !blueprint) {
@@ -329,6 +336,12 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
             case 'cf_agent_state': {
                 const { state } = message;
                 logger.debug('🔄 Agent state update received:', state);
+                
+                // Sync projectType from backend if it changed
+                if (state.projectType) {
+                    console.log('🎯 [WS] Backend projectType in cf_agent_state:', state.projectType);
+                    setInternalProjectType(state.projectType);
+                }
 
                 if (state.shouldBeGenerating && !isGenerating) {
                     logger.debug('🔄 shouldBeGenerating=true, updating UI to active state');

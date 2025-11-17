@@ -6,13 +6,13 @@ import { WebSocketMessageResponses, PREVIEW_EXPIRED_ERROR } from '../../constant
 import { AppService } from '../../../database/services/AppService';
 
 /**
- * WIP - PresentationObjective - Slides/Docs/Marketing Materials
- * 
- * Produces: Spectacle-based presentations
+ * PresentationObjective - Interactive slide presentations
+ *
+ * Produces: Browser-based slide presentations
  * Runtime: Sandbox
- * Template: Spectacle template (R2-backed)
+ * Templates: Presentation templates (R2-backed)
  * Export: PDF, Google Slides, PowerPoint
- * 
+ *
  */
 export class PresentationObjective<TState extends BaseProjectState = BaseProjectState> 
   extends ProjectObjective<TState> {

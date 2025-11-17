@@ -38,6 +38,22 @@ export function ViewModeSwitch({
 				)}
 			</AnimatePresence>
 
+			{/* Presentation button - show when project type is presentation */}
+			{projectType === 'presentation' && (
+				<button
+					onClick={() => onChange('presentation')}
+					className={clsx(
+						'p-1 flex items-center justify-between h-full rounded-md transition-colors',
+						view === 'presentation'
+							? 'bg-bg-4 text-text-primary'
+							: 'text-text-50/70 hover:text-text-primary hover:bg-accent',
+					)}
+					title="Presentation"
+				>
+					<Presentation className="size-4" />
+				</button>
+			)}
+
 			{/* Preview button - show when app has preview URL */}
 			{previewUrl && (
 				<button
@@ -80,22 +96,6 @@ export function ViewModeSwitch({
 					title="Docs"
 				>
 					<FileText className="size-4" />
-				</button>
-			)}
-
-			{/* Presentation button - show when project type is presentation */}
-			{projectType === 'presentation' && (
-				<button
-					onClick={() => onChange('presentation')}
-					className={clsx(
-						'p-1 flex items-center justify-between h-full rounded-md transition-colors',
-						view === 'presentation'
-							? 'bg-bg-4 text-text-primary'
-							: 'text-text-50/70 hover:text-text-primary hover:bg-accent',
-					)}
-					title="Presentation"
-				>
-					<Presentation className="size-4" />
 				</button>
 			)}
 			{/* {terminalAvailable && (

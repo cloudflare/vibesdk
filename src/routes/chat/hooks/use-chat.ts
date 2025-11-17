@@ -86,6 +86,7 @@ export function useChat({
 	const [previewUrl, setPreviewUrl] = useState<string>();
 	const [query, setQuery] = useState<string>();
 	const [behaviorType, setBehaviorType] = useState<BehaviorType>(getInitialBehaviorType());
+	const [internalProjectType, setInternalProjectType] = useState<ProjectType>(projectType);
 	const [templateDetails, setTemplateDetails] = useState<TemplateDetails | null>(null);
 
 	const [websocket, setWebsocket] = useState<WebSocket>();
@@ -198,6 +199,7 @@ export function useChat({
 			setStaticIssueCount,
 			setIsDebugging,
 			setBehaviorType,
+			setInternalProjectType,
 			setTemplateDetails,
 			// Current state
 			isInitialStateRestored,
@@ -686,6 +688,7 @@ export function useChat({
 		isDebugging,
 		// Behavior type from backend
 		behaviorType,
+		projectType: internalProjectType,
 		templateDetails,
 		allFiles,
 	};

@@ -1070,10 +1070,17 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
     async importTemplate(templateName: string): Promise<{ templateName: string; filesImported: number; files: TemplateFile[] }> {
         this.logger.info(`Importing template into project: ${templateName}`);
         
-        // Update state
+        // Get template catalog info to sync projectType
+        const catalogResponse = await BaseSandboxService.listTemplates();
+        const catalogInfo = catalogResponse.success 
+            ? catalogResponse.templates.find(t => t.name === templateName)
+            : null;
+        
+        // Update state with template name and projectType if available
         this.setState({
             ...this.state,
             templateName: templateName,
+            ...(catalogInfo?.projectType ? { projectType: catalogInfo.projectType } : {}),
         });
 
         this.templateDetailsCache = null;   // Clear template details cache

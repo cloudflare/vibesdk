@@ -13,6 +13,7 @@ import { PreviewHeaderActions } from './preview-header-actions';
 import { EditorHeaderActions } from './editor-header-actions';
 import { Copy } from './copy';
 import { PresentationRenderer } from './presentation/PresentationRenderer';
+import { PresentationHeaderActions } from './presentation/PresentationHeaderActions';
 import type { FileType, BlueprintType, BehaviorType, ModelConfigsInfo } from '@/api-types';
 import type { ContentDetectionResult } from '../utils/content-detector';
 import type { GitHubExportHook } from '@/hooks/use-github-export';
@@ -152,7 +153,10 @@ export function MainContentPanel(props: MainContentPanelProps) {
 	};
 
 	const renderPreviewView = () => {
-		if (projectType !== 'app' || !previewUrl) return null;
+		if (!previewUrl) {
+            console.log('Preview not available');
+            return null;
+        }
 
 		return renderViewWithHeader(
 			<div className="flex items-center gap-2">
@@ -267,8 +271,8 @@ export function MainContentPanel(props: MainContentPanelProps) {
 					slideDirectory={slideDirectory}
 				/>
 			</div>,
-			undefined,
-			{ previewAvailable: false, showTooltip: false }
+			<PresentationHeaderActions onExportPdf={() => window.print()} />,
+			{ previewAvailable: true, showTooltip: false }
 		);
 	};
 
