@@ -116,3 +116,13 @@ export async function mapImagesInMultiModalMessage(message: ConversationMessage,
 
     return message;
 }
+
+/**
+ * Represents a completion signal detected from tool execution
+ */
+export interface CompletionSignal {
+	signaled: boolean;
+	toolName: string;
+	summary?: string;
+	timestamp: number;
+}

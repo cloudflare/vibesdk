@@ -1,5 +1,5 @@
-import { env } from 'cloudflare:workers'
-import { ToolDefinition } from '../types';
+import { env } from 'cloudflare:workers';
+import { tool, t } from '../types';
 
 interface SerpApiResponse {
     knowledge_graph?: {
@@ -195,58 +195,37 @@ async function fetchWebContent(url: string): Promise<string> {
     }
 }
 
-// Define the argument and result types for the web search tool
 type WebSearchArgs = {
-    query?: string;
-    url?: string; 
-    num_results?: number;
+	query?: string;
+	url?: string;
+	num_results: number;
 };
 
-type WebSearchResult = { content?: string; error?: string }
+type WebSearchResult = { content?: string; error?: string };
 
 const toolWebSearch = async (args: WebSearchArgs): Promise<WebSearchResult> => {
-    const { query, url, num_results = 5 } = args;
-    if (typeof url === 'string') {
-        const content = await fetchWebContent(url);
-        return { content };
-    }
-    if (typeof query === 'string') {
-        const content = await performWebSearch(
-            query,
-            num_results as number,
-        );
-        return { content };
-    }
-    return { error: 'Either query or url parameter is required' };
+	const { query, url, num_results } = args;
+	if (typeof url === 'string') {
+		const content = await fetchWebContent(url);
+		return { content };
+	}
+	if (typeof query === 'string') {
+		const content = await performWebSearch(
+			query,
+			num_results as number
+		);
+		return { content };
+	}
+	return { error: 'Either query or url parameter is required' };
 };
 
-export const toolWebSearchDefinition: ToolDefinition<WebSearchArgs, WebSearchResult> = {
-    implementation: toolWebSearch,
-    type: 'function' as const,
-    function: {
-        name: 'web_search',
-        description:
-            'Search the web using Google or fetch content from a specific URL',
-        parameters: {
-            type: 'object',
-            properties: {
-                query: {
-                    type: 'string',
-                    description: 'Search query for Google search',
-                },
-                url: {
-                    type: 'string',
-                    description:
-                        'Specific URL to fetch content from (alternative to search)',
-                },
-                num_results: {
-                    type: 'number',
-                    description:
-                        'Number of search results to return (default: 5, max: 10)',
-                    default: 5,
-                },
-            },
-            required: [],
-        },
-    },
-};
+export const toolWebSearchDefinition = tool({
+	name: 'web_search',
+	description: 'Search the web using Google or fetch content from a specific URL',
+	args: {
+		query: t.string().optional().describe('Search query for Google search'),
+		url: t.string().optional().describe('Specific URL to fetch content from (alternative to search)'),
+		num_results: t.number().default(5).describe('Number of search results to return (default: 5, max: 10)'),
+	},
+	run: toolWebSearch,
+});

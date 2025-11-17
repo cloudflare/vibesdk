@@ -17,6 +17,10 @@ import { ICodingAgent } from '../services/interfaces/ICodingAgent';
 import { ProjectType } from '../core/types';
 import { Blueprint, AgenticBlueprint } from '../schemas';
 import { prepareMessagesForInference } from '../utils/common';
+import { createMarkGenerationCompleteTool } from '../tools/toolkit/completion-signals';
+import { CompletionDetector } from '../inferutils/completionDetection';
+import { LoopDetector } from '../inferutils/loopDetection';
+import { wrapToolsWithLoopDetection } from './utils';
 
 export type BuildSession = {
     filesIndex: FileState[];
@@ -194,10 +198,13 @@ CRITICAL - This step is MANDATORY for interactive projects:
 - Blueprint defines: title, description, features, architecture, plan
 - Refine with alter_blueprint if needed
 - NEVER start building without a plan
+- If the project is too simple, plan can be empty or very small, but minimal blueprint should exist
 
 ## Step 5: Build Incrementally
 - Use generate_files for new features/components (goes to virtual FS)
-- Use regenerate_file for surgical fixes to existing files (goes to virtual FS)
+    - generate_files tool can write multiple files in a single call (2-3 files at once max), sequentially, use it effectively
+    - You can also call generate_files multiple times at once to generate multiple sets of files in a single turn.
+- Use regenerate_file for surgical modifications to existing files (goes to virtual FS)
 - Commit frequently with clear messages (git operates on virtual FS)
 - For interactive projects:
   - After generating files: deploy_preview (syncs virtual → sandbox)
@@ -212,6 +219,9 @@ CRITICAL - This step is MANDATORY for interactive projects:
 - Ensure professional quality and polish`;
 
   const tools = `# Available Tools (Detailed Reference)
+
+Tools are powerful and the only way for you to take actions. Use them properly and effectively.
+ultrathink and ultrareason to optimize how you build out the project and make the best use of tools.
 
 ## Planning & Architecture
 
@@ -248,7 +258,7 @@ CRITICAL - This step is MANDATORY for interactive projects:
 **CRITICAL After-Effects:**
 1. Blueprint stored in agent state
 2. You now have clear plan to follow
-3. Use plan phases to guide generate_files calls
+3. Use plan phases to guide generate_files calls. You may use multiple generate_files calls to generate multiple sets of files in a single turn.
 4. **Do NOT start building without blueprint** (fundamental rule)
 
 **Example workflow:**
@@ -259,7 +269,7 @@ You: generate_blueprint (creates PRD with phases)
   ↓
 Review blueprint, refine with alter_blueprint if needed
   ↓
-Follow phases: generate_files for phase-1, then phase-2, etc.
+Implement the plan and fullfill the requirements
 \`\`\`
 
 **alter_blueprint**
@@ -324,17 +334,6 @@ The library includes templates for:
 - Template's 'bun run dev' MUST work or sandbox creation fails
 - If using virtual-first fallback, YOU must ensure working dev script
 
-**Example workflow:**
-\`\`\`
-1. init_suitable_template()
-   → AI: "Selected react-game-starter because: user wants 2D game, template has canvas setup and scoring system..."
-   → Imported 15 important files
-2. generate_blueprint(prompt: "Template has canvas and game loop. Build on this...")
-   → Blueprint leverages existing template features
-3. generate_files(...)
-   → Build on top of template foundation
-\`\`\`
-
 ## File Operations (Understanding Your Two-Layer System)
 
 **CRITICAL: Where Your Files Live**
@@ -355,7 +354,7 @@ You work with TWO separate filesystems:
 
 **The File Flow You Control:**
 \`\`\`
-You call: generate_files or regenerate_file
+You call: generate_files to generate multiple files at once or regenerate_file for surgical modifications to existing files
   ↓
 Files written to VIRTUAL filesystem (Durable Object storage)
   ↓
@@ -405,7 +404,8 @@ Commands available:
 
 **What it does:**
 - Generates complete file contents from scratch
-- Can create multiple files in one call (batch operation)
+- Can create multiple files in one call (batch operation) but sequentially
+- You can also call generate_files multiple times at once to generate multiple sets of files in a single turn.
 - Automatically commits to git with descriptive message
 - **Where files go**: Virtual filesystem only (not in sandbox yet)
 
@@ -519,7 +519,12 @@ Commands available:
 
 **generate_images**
 - Future image generation capability
-- Currently a stub - do NOT rely on this`;
+- Currently a stub - do NOT rely on this
+
+---
+
+You can call multiple tools one after another in a single turn. When you are absolutely sure of your actions, make multiple calls to tools and finish. You would be notified when the tool calls are completed.
+`;
 
   const staticVsSandbox = `# CRITICAL: Static vs Sandbox Detection
 
@@ -575,20 +580,16 @@ ${PROMPT_UTILS.COMMON_PITFALLS}
 
   const completion = `# Completion Discipline
 
-When you're done:
-**BUILD_COMPLETE: <brief summary of what was built>**
-- All requirements met
-- All errors fixed
-- Testing completed
-- Ready for user
+When initial project generation is complete:
+- Call mark_generation_complete tool with:
+  - summary: Brief description of what was built (2-3 sentences)
+  - filesGenerated: Count of files created
+- Requirements: All features implemented, errors fixed, testing done
+- CRITICAL: Make NO further tool calls after calling mark_generation_complete
 
-If blocked:
-**BUILD_STUCK: <reason you cannot proceed>**
-- Clear explanation of blocker
-- What you tried
-- What you need to proceed
-
-STOP ALL TOOL CALLS IMMEDIATELY after either signal.`;
+For follow-up requests (adding features, making changes):
+- Just respond naturally when done
+- Do NOT call mark_generation_complete for follow-ups`;
 
   const warnings = `# Critical Warnings
 
@@ -627,22 +628,25 @@ const getUserPrompt = (
     fileSummaries: string,
     templateInfo?: string
 ): string => {
-    const { query, projectName, blueprint } = inputs;
+    const { query, projectName } = inputs;
     return `## Build Task
 **Project Name**: ${projectName}
 **User Request**: ${query}
 
-${blueprint ? `## Project Blueprint
+${
+//     blueprint ? `## Project Blueprint
 
-The following blueprint defines the structure, features, and requirements for this project:
+// The following blueprint defines the structure, features, and requirements for this project:
 
-\`\`\`json
-${JSON.stringify(blueprint, null, 2)}
-\`\`\`
+// \`\`\`json
+// ${JSON.stringify(blueprint, null, 2)}
+// \`\`\`
 
-**Use this blueprint to guide your implementation.** It outlines what needs to be built.` : `## Note
+// **Use this blueprint to guide your implementation.** It outlines what needs to be built.` : `## Note
 
-No blueprint provided. Design the project structure based on the user request above.`}
+// No blueprint provided. Design the project structure based on the user request above.`
+''
+}
 
 ${templateInfo ? `## Template Context
 
@@ -657,28 +661,6 @@ ${fileSummaries ? `## Current Codebase
 ${fileSummaries}` : `## Starting Fresh
 
 This is a new project. Start from the template or scratch.`}
-
-## Your Mission
-
-Build a complete, production-ready solution that best fulfills the request. If it needs a full web experience, build it. If it’s a backend workflow, implement it. If it’s narrative content, write documents; if slides are appropriate, build a deck and verify via preview.
-
-**Approach (internal planning):**
-1. Understand requirements and decide representation (UI, backend, slides, documents)
-2. Generate PRD (if missing) and refine
-3. Scaffold with generate_files, preferring regenerate_file for targeted edits
-4. When a runtime exists: deploy_preview, then verify with run_analysis
-5. Iterate and polish; commit meaningful checkpoints
-
-**Remember:**
-- Write clean, type-safe, maintainable code
-- Test thoroughly with deploy_preview and run_analysis
-- Fix all issues before claiming completion
-- Commit regularly with descriptive messages
-
-## Execution Reminder
-- If no blueprint or plan is present: generate_blueprint FIRST (optionally with prompt parameter for additional context), then alter_blueprint if needed. Do not implement until a plan exists.
-- Deploy only when a runtime exists; do not deploy for documents-only work.
-
 Begin building.`;
 };
 
@@ -702,6 +684,7 @@ function summarizeFiles(filesIndex: FileState[]): string {
 export class AgenticProjectBuilder extends Assistant<Env> {
     logger = createObjectLogger(this, 'AgenticProjectBuilder');
     modelConfigOverride?: ModelConfig;
+    private loopDetector = new LoopDetector();
 
     constructor(
         env: Env,
@@ -778,7 +761,20 @@ export class AgenticProjectBuilder extends Assistant<Env> {
         const messages: Message[] = this.save([system, user, ...historyMessages]);
 
         // Build tools with renderer and conversation sync callback
-        const tools = buildAgenticBuilderTools(session, this.logger, toolRenderer, onToolComplete);
+        const rawTools = buildAgenticBuilderTools(session, this.logger, toolRenderer, onToolComplete);
+        rawTools.push(createMarkGenerationCompleteTool(this.logger));
+
+        // Wrap tools with loop detection
+        const tools = wrapToolsWithLoopDetection(rawTools, this.loopDetector);
+
+        // Configure completion detection
+        const completionConfig = {
+            detector: new CompletionDetector(['mark_generation_complete']),
+            operationalMode: (!hasFiles && !hasPlan) ? 'initial' as const : 'followup' as const,
+            allowWarningInjection: !hasFiles && !hasPlan,
+        };
+
+        this.logger.info('Agentic builder mode', { mode: completionConfig.operationalMode, hasFiles, hasPlan });
 
         let output = '';
 
@@ -790,10 +786,9 @@ export class AgenticProjectBuilder extends Assistant<Env> {
                 modelConfig: this.modelConfigOverride || AGENT_CONFIG.agenticProjectBuilder,
                 messages,
                 tools,
-                stream: streamCb
-                    ? { chunk_size: 64, onChunk: (c) => streamCb(c) }
-                    : undefined,
+                stream: streamCb ? { chunk_size: 64, onChunk: (c) => streamCb(c) } : undefined,
                 onAssistantMessage,
+                completionConfig,
             });
 
             output = result?.string || '';
