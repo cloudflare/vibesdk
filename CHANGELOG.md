@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.1.1](https://github.com/cloudflare/vibesdk/compare/v1.1.0...v1.1.1) (2025-11-18)
+
+
+### Bug Fixes
+
+* added instructions for token creation ([f7cc7ea](https://github.com/cloudflare/vibesdk/commit/f7cc7ea2bd243eefa176900e820b30b8a61e4c65))
+* added instructions for token creation ([ea3f110](https://github.com/cloudflare/vibesdk/commit/ea3f110fd9526da2978dd1064d377bf70f0c7c81))
+
 ## [1.1.0](https://github.com/cloudflare/vibesdk/compare/v1.0.0...v1.1.0) (2025-11-04)
 
 
