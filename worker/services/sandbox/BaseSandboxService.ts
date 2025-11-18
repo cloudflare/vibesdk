@@ -186,6 +186,7 @@ export abstract class BaseSandboxService {
                 importantFiles: importantFiles,
                 dontTouchFiles: dontTouchFiles,
                 redactedFiles: redactedFiles,
+                projectType: catalogInfo?.projectType || 'app',
                 frameworks: catalogInfo?.frameworks || [],
                 renderMode: catalogInfo?.renderMode,
                 slideDirectory: catalogInfo?.slideDirectory,

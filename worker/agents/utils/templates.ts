@@ -12,6 +12,7 @@ export function createScratchTemplateDetails(): TemplateDetails {
         allFiles: {},
         language: 'typescript',
         deps: {},
+        projectType: 'general',
         frameworks: [],
         importantFiles: [],
         dontTouchFiles: [],

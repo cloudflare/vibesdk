@@ -93,7 +93,7 @@ export const TemplateInfoSchema = z.object({
     name: z.string(),
     language: z.string().optional(),
     frameworks: z.array(z.string()).optional(),
-    projectType: z.enum(['app', 'workflow', 'presentation']).default('app'),
+    projectType: z.enum(['app', 'workflow', 'presentation', 'general']).default('app'),
     description: z.object({
         selection: z.string(),
         usage: z.string(),
