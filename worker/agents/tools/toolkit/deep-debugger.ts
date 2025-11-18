@@ -1,10 +1,10 @@
 import { ToolDefinition } from '../types';
 import { StructuredLogger } from '../../../logger';
-import { ICodingAgent } from 'worker/agents/services/interfaces/ICodingAgent';
+import { CodingAgentInterface } from 'worker/agents/services/implementations/CodingAgent';
 import { RenderToolCall } from 'worker/agents/operations/UserConversationProcessor';
 
 export function createDeepDebuggerTool(
-	agent: ICodingAgent,
+	agent: CodingAgentInterface,
 	logger: StructuredLogger,
     toolRenderer: RenderToolCall,
     streamCb: (chunk: string) => void,

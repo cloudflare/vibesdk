@@ -1,7 +1,7 @@
 import { TemplateDetails, TemplateFileSchema } from '../../services/sandbox/sandboxTypes'; // Import the type
 import { STRATEGIES, PROMPT_UTILS, generalSystemPromptBuilder } from '../prompts';
 import { executeInference } from '../inferutils/infer';
-import { PhasicBlueprint, AgenticBlueprint, PhasicBlueprintSchema, AgenticBlueprintSchema, TemplateSelection, Blueprint } from '../schemas';
+import { Blueprint, BlueprintSchema, TemplateSelection } from '../schemas';
 import { createLogger } from '../../logger';
 import { createSystemMessage, createUserMessage, createMultiModalUserMessage } from '../inferutils/common';
 import { InferenceContext } from '../inferutils/config.types';
@@ -13,74 +13,7 @@ import { getTemplateImportantFiles } from 'worker/services/sandbox/utils';
 
 const logger = createLogger('Blueprint');
 
-const SIMPLE_SYSTEM_PROMPT = `<ROLE>
-    You are a Senior Software Architect at Cloudflare with expertise in rapid prototyping and modern web development.
-    Your expertise lies in creating concise, actionable blueprints for building web applications quickly and efficiently.
-</ROLE>
-
-<TASK>
-    Create a high-level blueprint for a web application based on the client's request.
-    The project will be built on Cloudflare Workers and will start from a provided template.
-    Focus on a clear, concise design that captures the core requirements without over-engineering.
-    Enhance the user's request thoughtfully - be creative but practical.
-</TASK>
-
-<GOAL>
-    Design the product described by the client and provide:
-    - A professional, memorable project name
-    - A brief but clear description of what the application does
-    - A simple color palette (2-3 base colors) for visual identity
-    - Essential frameworks and libraries needed (beyond the template)
-    - A high-level step-by-step implementation plan
-    
-    Keep it concise - this is a simplified blueprint focused on rapid development.
-    Build upon the provided template's existing structure and components.
-</GOAL>
-
-<INSTRUCTIONS>
-    ## Core Principles
-    • **Simplicity First:** Keep the design straightforward and achievable
-    • **Template-Aware:** Leverage existing components and patterns from the template
-    • **Essential Only:** Include only the frameworks/libraries that are truly needed
-    • **Clear Plan:** Provide a logical step-by-step implementation sequence
-    
-    ## Color Palette
-    • Choose 2-3 base RGB colors that work well together
-    • Consider the application's purpose and mood
-    • Ensure good contrast for accessibility
-    • Only specify base colors, not shades
-    
-    ## Frameworks & Dependencies
-    • Build on the template's existing dependencies
-    • Only add libraries that are essential for the requested features
-    • Prefer batteries-included libraries that work out-of-the-box
-    • No libraries requiring API keys or complex configuration
-    
-    ## Implementation Plan
-    • Break down the work into 5-8 logical steps
-    • Each step should be a clear, achievable milestone
-    • Order steps by dependency and priority
-    • Keep descriptions brief but actionable
-</INSTRUCTIONS>
-
-<STARTING TEMPLATE>
-{{template}}
-
-<TEMPLATE_CORE_FILES>
-**SHADCN COMPONENTS, Error boundary components and use-toast hook ARE PRESENT AND INSTALLED BUT EXCLUDED FROM THESE FILES DUE TO CONTEXT SPAM**
-{{filesText}}
-</TEMPLATE_CORE_FILES>
-
-<TEMPLATE_FILE_TREE>
-**Use these files as a reference for the file structure, components and hooks that are present**
-{{fileTreeText}}
-</TEMPLATE_FILE_TREE>
-
-Preinstalled dependencies:
-{{dependencies}}
-</STARTING TEMPLATE>`;
-
-const PHASIC_SYSTEM_PROMPT = `<ROLE>
+const SYSTEM_PROMPT = `<ROLE>
     You are a meticulous and forward-thinking Senior Software Architect and Product Manager at Cloudflare with extensive expertise in modern UI/UX design and visual excellence. 
     Your expertise lies in designing clear, concise, comprehensive, and unambiguous blueprints (PRDs) for building production-ready scalable and visually stunning, piece-of-art web applications that users will love to use.
 </ROLE>
@@ -225,12 +158,15 @@ Preinstalled dependencies:
 {{dependencies}}
 </STARTING TEMPLATE>`;
 
-interface BaseBlueprintGenerationArgs {
+export interface BlueprintGenerationArgs {
     env: Env;
     inferenceContext: InferenceContext;
     query: string;
     language: string;
     frameworks: string[];
+    // Add optional template info
+    templateDetails: TemplateDetails;
+    templateMetaInfo: TemplateSelection;
     images?: ProcessedImageAttachment[];
     stream?: {
         chunk_size: number;
@@ -238,46 +174,26 @@ interface BaseBlueprintGenerationArgs {
     };
 }
 
-export interface PhasicBlueprintGenerationArgs extends BaseBlueprintGenerationArgs {
-    templateDetails: TemplateDetails;
-    templateMetaInfo: TemplateSelection;
-}
-
-export interface AgenticBlueprintGenerationArgs extends BaseBlueprintGenerationArgs {
-    templateDetails?: TemplateDetails;
-    templateMetaInfo?: TemplateSelection;
-}
-
 /**
  * Generate a blueprint for the application based on user prompt
  */
-export async function generateBlueprint(args: PhasicBlueprintGenerationArgs): Promise<PhasicBlueprint>;
-export async function generateBlueprint(args: AgenticBlueprintGenerationArgs): Promise<AgenticBlueprint>;
-export async function generateBlueprint(
-    args: PhasicBlueprintGenerationArgs | AgenticBlueprintGenerationArgs
-): Promise<Blueprint> {
-    const { env, inferenceContext, query, language, frameworks, templateDetails, templateMetaInfo, images, stream } = args;
-    const isAgentic = !templateDetails || !templateMetaInfo;
-    
+// Update function signature and system prompt
+export async function generateBlueprint({ env, inferenceContext, query, language, frameworks, templateDetails, templateMetaInfo, images, stream }: BlueprintGenerationArgs): Promise<Blueprint> {
     try {
-        logger.info(`Generating ${isAgentic ? 'agentic' : 'phasic'} blueprint`, { query, queryLength: query.length, imagesCount: images?.length || 0 });
-        if (templateDetails) logger.info(`Using template: ${templateDetails.name}`);
+        logger.info("Generating application blueprint", { query, queryLength: query.length, imagesCount: images?.length || 0 });
+        logger.info(templateDetails ? `Using template: ${templateDetails.name}` : "Not using a template.");
 
-        // Select prompt and schema based on behavior type
-        const systemPromptTemplate = isAgentic ? SIMPLE_SYSTEM_PROMPT : PHASIC_SYSTEM_PROMPT;
-        const schema = isAgentic ? AgenticBlueprintSchema : PhasicBlueprintSchema;
-        
-        // Build system prompt with template context (if provided)
-        let systemPrompt = systemPromptTemplate;
-        if (templateDetails) {
-            const filesText = TemplateRegistry.markdown.serialize(
-                { files: getTemplateImportantFiles(templateDetails).filter(f => !f.filePath.includes('package.json')) },
-                z.object({ files: z.array(TemplateFileSchema) })
-            );
-            const fileTreeText = PROMPT_UTILS.serializeTreeNodes(templateDetails.fileTree);
-            systemPrompt = systemPrompt.replace('{{filesText}}', filesText).replace('{{fileTreeText}}', fileTreeText);
-        }
-        
+        // ---------------------------------------------------------------------------
+        // Build the SYSTEM prompt for blueprint generation
+        // ---------------------------------------------------------------------------
+
+        const filesText = TemplateRegistry.markdown.serialize(
+            { files: getTemplateImportantFiles(templateDetails).filter(f => !f.filePath.includes('package.json')) },
+            z.object({ files: z.array(TemplateFileSchema) })
+        );
+
+        const fileTreeText = PROMPT_UTILS.serializeTreeNodes(templateDetails.fileTree);
+        const systemPrompt = SYSTEM_PROMPT.replace('{{filesText}}', filesText).replace('{{fileTreeText}}', fileTreeText);
         const systemPromptMessage = createSystemMessage(generalSystemPromptBuilder(systemPrompt, {
             query,
             templateDetails,
@@ -285,7 +201,7 @@ export async function generateBlueprint(
             templateMetaInfo,
             blueprint: undefined,
             language,
-            dependencies: templateDetails?.deps,
+            dependencies: templateDetails.deps,
         }));
 
         const userMessage = images && images.length > 0
@@ -315,18 +231,21 @@ export async function generateBlueprint(
             env,
             messages,
             agentActionName: "blueprint",
-            schema,
+            schema: BlueprintSchema,
             context: inferenceContext,
-            stream,
+            stream: stream,
         });
 
-        // Filter out PDF files from phasic blueprints
-        if (results && !isAgentic) {
-            const phasicResults = results as PhasicBlueprint;
-            phasicResults.initialPhase.files = phasicResults.initialPhase.files.filter(f => !f.path.endsWith('.pdf'));
+        if (results) {
+            // Filter and remove any pdf files
+            results.initialPhase.files = results.initialPhase.files.filter(f => !f.path.endsWith('.pdf'));
         }
 
-        return results as PhasicBlueprint | AgenticBlueprint;
+        // // A hack
+        // if (results?.initialPhase) {
+        //     results.initialPhase.lastPhase = false;
+        // }
+        return results as Blueprint;
     } catch (error) {
         logger.error("Error generating blueprint:", error);
         throw error;

@@ -1000,7 +1000,7 @@ export default function AppView() {
 																		'on',
 																	scrollBeyondLastLine: false,
 																	fontSize: 13,
-																	theme: 'vibesdk',
+																	theme: 'v1-dev',
 																	automaticLayout: true,
 																}}
 															/>

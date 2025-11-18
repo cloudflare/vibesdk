@@ -1,69 +1,65 @@
-import { FileOutputType, FileConceptType, Blueprint } from "worker/agents/schemas";
+import { FileOutputType, Blueprint, FileConceptType } from "worker/agents/schemas";
 import { BaseSandboxService } from "worker/services/sandbox/BaseSandboxService";
 import { ExecuteCommandsResponse, PreviewType, StaticAnalysisResponse, RuntimeError } from "worker/services/sandbox/sandboxTypes";
 import { ProcessedImageAttachment } from "worker/types/image-attachment";
-import { BehaviorType, DeepDebugResult } from "worker/agents/core/types";
+import { OperationOptions } from "worker/agents/operations/common";
+import { DeepDebugResult } from "worker/agents/core/types";
 import { RenderToolCall } from "worker/agents/operations/UserConversationProcessor";
 import { WebSocketMessageType, WebSocketMessageData } from "worker/api/websocketTypes";
 import { GitVersionControl } from "worker/agents/git/git";
-import { OperationOptions } from "worker/agents/operations/common";
 
-export interface ICodingAgent {
-    getBehavior(): BehaviorType;
-    
-    getLogs(reset?: boolean, durationSeconds?: number): Promise<string>;
-    
-    fetchRuntimeErrors(clear?: boolean): Promise<RuntimeError[]>;
-    
-    deployToSandbox(files?: FileOutputType[], redeploy?: boolean, commitMessage?: string, clearLogs?: boolean): Promise<PreviewType | null>;
-    
-    broadcast<T extends WebSocketMessageType>(msg: T, data?: WebSocketMessageData<T>): void;
-    
-    deployToCloudflare(): Promise<{ deploymentUrl?: string; workersUrl?: string } | null>;
-    
-    queueUserRequest(request: string, images?: ProcessedImageAttachment[]): void;
-    
-    deployPreview(clearLogs?: boolean, forceRedeploy?: boolean): Promise<string>;
-    
-    clearConversation(): void;
-    
-    updateProjectName(newName: string): Promise<boolean>;
-    
-    getOperationOptions(): OperationOptions;
-    
-    readFiles(paths: string[]): Promise<{ files: { path: string; content: string }[] }>;
-    
-    runStaticAnalysisCode(files?: string[]): Promise<StaticAnalysisResponse>;
-    
-    execCommands(commands: string[], shouldSave: boolean, timeout?: number): Promise<ExecuteCommandsResponse>;
+export abstract class ICodingAgent {
+    abstract getSandboxServiceClient(): BaseSandboxService;
 
-    updateBlueprint(patch: Partial<Blueprint>): Promise<Blueprint>;
+    abstract getGit(): GitVersionControl;
+
+    abstract deployToSandbox(files: FileOutputType[], redeploy: boolean, commitMessage?: string, clearLogs?: boolean): Promise<PreviewType | null>;
+
+    abstract deployToCloudflare(): Promise<{ deploymentUrl?: string; workersUrl?: string } | null>;
+
+    abstract getLogs(reset?: boolean, durationSeconds?: number): Promise<string>;
+
+    abstract queueUserRequest(request: string, images?: ProcessedImageAttachment[]): void;
+
+    abstract clearConversation(): void;
+
+    abstract updateProjectName(newName: string): Promise<boolean>;
+
+    abstract updateBlueprint(patch: Partial<Blueprint>): Promise<Blueprint>;
+
+    abstract getOperationOptions(): OperationOptions;
+
+    abstract readFiles(paths: string[]): Promise<{ files: { path: string; content: string }[] }>;
+
+    abstract runStaticAnalysisCode(files?: string[]): Promise<StaticAnalysisResponse>;
+
+    abstract execCommands(commands: string[], shouldSave: boolean, timeout?: number): Promise<ExecuteCommandsResponse>;
     
-    generateFiles(
+    abstract regenerateFileByPath(path: string, issues: string[]): Promise<{ path: string; diff: string }>;
+
+    abstract generateFiles(
         phaseName: string,
         phaseDescription: string,
         requirements: string[],
         files: FileConceptType[]
     ): Promise<{ files: Array<{ path: string; purpose: string; diff: string }> }>;
 
-    regenerateFileByPath(path: string, issues: string[]): Promise<{ path: string; diff: string }>;
-    
-    isCodeGenerating(): boolean;
-    
-    waitForGeneration(): Promise<void>;
-    
-    isDeepDebugging(): boolean;
-    
-    waitForDeepDebug(): Promise<void>;
-    
-    executeDeepDebug(
+    abstract fetchRuntimeErrors(clear?: boolean): Promise<RuntimeError[]>;
+
+    abstract isCodeGenerating(): boolean;
+
+    abstract waitForGeneration(): Promise<void>;
+
+    abstract isDeepDebugging(): boolean;
+
+    abstract waitForDeepDebug(): Promise<void>;
+
+    abstract broadcast<T extends WebSocketMessageType>(message: T, data?: WebSocketMessageData<T>): void;
+
+    abstract executeDeepDebug(
         issue: string,
         toolRenderer: RenderToolCall,
         streamCb: (chunk: string) => void,
         focusPaths?: string[],
     ): Promise<DeepDebugResult>;
-    
-    getGit(): GitVersionControl;
-    
-    getSandboxServiceClient(): BaseSandboxService;
 }

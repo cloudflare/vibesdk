@@ -1,9 +1,9 @@
 import { ToolDefinition } from '../types';
 import { StructuredLogger } from '../../../logger';
-import { ICodingAgent } from 'worker/agents/services/interfaces/ICodingAgent';
+import { CodingAgentInterface } from 'worker/agents/services/implementations/CodingAgent';
 
 export function createWaitForDebugTool(
-	agent: ICodingAgent,
+	agent: CodingAgentInterface,
 	logger: StructuredLogger
 ): ToolDefinition<Record<string, never>, { status: string } | { error: string }> {
 	return {

@@ -44,7 +44,7 @@ export class CodingAgentInterface {
         }
     }
 
-    queueUserRequest(request: string, images?: ProcessedImageAttachment[]): void {
+    queueRequest(request: string, images?: ProcessedImageAttachment[]): void {
         this.agentStub.queueUserRequest(request, images);
     }
 

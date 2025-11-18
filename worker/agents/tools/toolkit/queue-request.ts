@@ -1,13 +1,13 @@
 import { ToolDefinition } from '../types';
 import { StructuredLogger } from '../../../logger';
-import { ICodingAgent } from 'worker/agents/services/interfaces/ICodingAgent';
+import { CodingAgentInterface } from 'worker/agents/services/implementations/CodingAgent';
 
 type QueueRequestArgs = {
 	modificationRequest: string;
 };
 
 export function createQueueRequestTool(
-	agent: ICodingAgent,
+	agent: CodingAgentInterface,
 	logger: StructuredLogger
 ): ToolDefinition<QueueRequestArgs, null> {
 	return {
@@ -34,7 +34,7 @@ export function createQueueRequestTool(
 			logger.info('Received app edit request', {
 				modificationRequest: args.modificationRequest,
 			});
-			agent.queueUserRequest(args.modificationRequest);
+			agent.queueRequest(args.modificationRequest);
             return null;
 		},
 	};

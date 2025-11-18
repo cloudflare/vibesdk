@@ -1,6 +1,6 @@
 import { ToolDefinition } from '../types';
 import { StructuredLogger } from '../../../logger';
-import { ICodingAgent } from 'worker/agents/services/interfaces/ICodingAgent';
+import { CodingAgentInterface } from 'worker/agents/services/implementations/CodingAgent';
 import { StaticAnalysisResponse } from 'worker/services/sandbox/sandboxTypes';
 
 export type RunAnalysisArgs = {
@@ -10,7 +10,7 @@ export type RunAnalysisArgs = {
 export type RunAnalysisResult = StaticAnalysisResponse;
 
 export function createRunAnalysisTool(
-	agent: ICodingAgent,
+	agent: CodingAgentInterface,
 	logger: StructuredLogger,
 ): ToolDefinition<RunAnalysisArgs, RunAnalysisResult> {
 	return {

@@ -1,6 +1,6 @@
 import { ErrorResult, ToolDefinition } from '../types';
 import { StructuredLogger } from '../../../logger';
-import { ICodingAgent } from 'worker/agents/services/interfaces/ICodingAgent';
+import { CodingAgentInterface } from 'worker/agents/services/implementations/CodingAgent';
 
 type GetLogsArgs = {
 	reset?: boolean;
@@ -11,7 +11,7 @@ type GetLogsArgs = {
 type GetLogsResult = { logs: string } | ErrorResult;
 
 export function createGetLogsTool(
-	agent: ICodingAgent,
+	agent: CodingAgentInterface,
 	logger: StructuredLogger
 ): ToolDefinition<GetLogsArgs, GetLogsResult> {
 	return {

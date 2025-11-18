@@ -1,6 +1,6 @@
 import { ToolDefinition, ErrorResult } from '../types';
 import { StructuredLogger } from '../../../logger';
-import { ICodingAgent } from 'worker/agents/services/interfaces/ICodingAgent';
+import { CodingAgentInterface } from 'worker/agents/services/implementations/CodingAgent';
 import { ExecuteCommandsResponse } from 'worker/services/sandbox/sandboxTypes';
 
 export type ExecCommandsArgs = {
@@ -12,7 +12,7 @@ export type ExecCommandsArgs = {
 export type ExecCommandsResult = ExecuteCommandsResponse | ErrorResult;
 
 export function createExecCommandsTool(
-	agent: ICodingAgent,
+	agent: CodingAgentInterface,
 	logger: StructuredLogger,
 ): ToolDefinition<ExecCommandsArgs, ExecCommandsResult> {
 	return {

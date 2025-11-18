@@ -5,7 +5,7 @@ import { InferenceContext } from "../inferutils/config.types";
 import { createUserMessage, createSystemMessage, createAssistantMessage } from "../inferutils/common";
 import { generalSystemPromptBuilder, USER_PROMPT_FORMATTER } from "../prompts";
 import { CodeSerializerType } from "../utils/codeSerializers";
-import { ICodingAgent } from "../services/interfaces/ICodingAgent";
+import { CodingAgentInterface } from "../services/implementations/CodingAgent";
 
 export function getSystemPromptWithProjectContext(
     systemPrompt: string,
@@ -23,9 +23,9 @@ export function getSystemPromptWithProjectContext(
         })), 
         createUserMessage(
             USER_PROMPT_FORMATTER.PROJECT_CONTEXT(
-                GenerationContext.getCompletedPhases(context),
+                context.getCompletedPhases(),
                 allFiles, 
-                GenerationContext.getFileTree(context),
+                context.getFileTree(),
                 commandsHistory,
                 serializerType  
             )
@@ -35,32 +35,18 @@ export function getSystemPromptWithProjectContext(
     return messages;
 }
 
-/**
- * Operation options with context type constraint
- * @template TContext - Context type (defaults to GenerationContext for universal operations)
- */
-export interface OperationOptions<TContext extends GenerationContext = GenerationContext> {
+export interface OperationOptions {
     env: Env;
     agentId: string;
-    context: TContext;
+    context: GenerationContext;
     logger: StructuredLogger;
     inferenceContext: InferenceContext;
-    agent: ICodingAgent;
+    agent: CodingAgentInterface;
 }
 
-/**
- * Base class for agent operations with type-safe context enforcement
- * @template TContext - Required context type (defaults to GenerationContext)
- * @template TInput - Operation input type
- * @template TOutput - Operation output type
- */
-export abstract class AgentOperation<
-    TContext extends GenerationContext = GenerationContext,
-    TInput = unknown,
-    TOutput = unknown
-> {
+export abstract class AgentOperation<InputType, OutputType> {
     abstract execute(
-        inputs: TInput,
-        options: OperationOptions<TContext>
-    ): Promise<TOutput>;
+        inputs: InputType,
+        options: OperationOptions
+    ): Promise<OutputType>;
 }

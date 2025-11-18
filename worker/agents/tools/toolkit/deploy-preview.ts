@@ -1,13 +1,13 @@
 import { ErrorResult, ToolDefinition } from '../types';
 import { StructuredLogger } from '../../../logger';
-import { ICodingAgent } from 'worker/agents/services/interfaces/ICodingAgent';
+import { CodingAgentInterface } from 'worker/agents/services/implementations/CodingAgent';
 
 type DeployPreviewArgs = Record<string, never>;
 
 type DeployPreviewResult = { message: string } | ErrorResult;
 
 export function createDeployPreviewTool(
-	agent: ICodingAgent,
+	agent: CodingAgentInterface,
 	logger: StructuredLogger
 ): ToolDefinition<DeployPreviewArgs, DeployPreviewResult> {
 	return {

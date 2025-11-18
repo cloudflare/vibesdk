@@ -1,7 +1,7 @@
 import { FileTreeNode, RuntimeError, StaticAnalysisResponse, TemplateDetails } from "../services/sandbox/sandboxTypes";
 import { TemplateRegistry } from "./inferutils/schemaFormatters";
 import z from 'zod';
-import { PhasicBlueprint, AgenticBlueprint, BlueprintSchemaLite, AgenticBlueprintSchema, FileOutputType, PhaseConceptLiteSchema, PhaseConceptSchema, PhaseConceptType, TemplateSelection, Blueprint } from "./schemas";
+import { Blueprint, BlueprintSchemaLite, FileOutputType, PhaseConceptLiteSchema, PhaseConceptSchema, PhaseConceptType, TemplateSelection } from "./schemas";
 import { IssueReport } from "./domain/values/IssueReport";
 import { FileState, MAX_PHASES } from "./core/state";
 import { CODE_SERIALIZERS, CodeSerializerType } from "./utils/codeSerializers";
@@ -1312,8 +1312,8 @@ FRONTEND_FIRST_CODING: `<PHASES GENERATION STRATEGY>
 
 export interface GeneralSystemPromptBuilderParams {
     query: string,
-    templateDetails?: TemplateDetails,
-    dependencies?: Record<string, string>,
+    templateDetails: TemplateDetails,
+    dependencies: Record<string, string>,
     blueprint?: Blueprint,
     language?: string,
     frameworks?: string[],
@@ -1327,29 +1327,19 @@ export function generalSystemPromptBuilder(
     // Base variables always present
     const variables: Record<string, string> = {
         query: params.query,
+        template: PROMPT_UTILS.serializeTemplate(params.templateDetails),
+        dependencies: JSON.stringify(params.dependencies ?? {})
     };
-    
-    // Template context (optional)
-    if (params.templateDetails) {
-        variables.template = PROMPT_UTILS.serializeTemplate(params.templateDetails);
-        variables.dependencies = JSON.stringify(params.dependencies ?? {});
-    }
 
-    // Blueprint variables - discriminate by type
+    // Optional blueprint variables
     if (params.blueprint) {
-        if ('implementationRoadmap' in params.blueprint) {
-            // Phasic blueprint
-            const phasicBlueprint = params.blueprint as PhasicBlueprint;
-            const blueprintForPrompt = { ...phasicBlueprint, initialPhase: undefined };
-            variables.blueprint = TemplateRegistry.markdown.serialize(blueprintForPrompt, BlueprintSchemaLite);
-            variables.blueprintDependencies = phasicBlueprint.frameworks?.join(', ') ?? '';
-        } else {
-            // Agentic blueprint
-            const agenticBlueprint = params.blueprint as AgenticBlueprint;
-            variables.blueprint = TemplateRegistry.markdown.serialize(agenticBlueprint, AgenticBlueprintSchema);
-            variables.blueprintDependencies = agenticBlueprint.frameworks?.join(', ') ?? '';
-            variables.agenticPlan = agenticBlueprint.plan.map((step, i) => `${i + 1}. ${step}`).join('\n');
+        // Redact the initial phase information from blueprint
+        const blueprint = {
+            ...params.blueprint,
+            initialPhase: undefined,
         }
+        variables.blueprint = TemplateRegistry.markdown.serialize(blueprint, BlueprintSchemaLite);
+        variables.blueprintDependencies = params.blueprint.frameworks?.join(', ') ?? '';
     }
 
     // Optional language and frameworks
