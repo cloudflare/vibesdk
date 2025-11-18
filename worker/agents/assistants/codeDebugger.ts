@@ -10,7 +10,6 @@ import { executeInference } from '../inferutils/infer';
 import { InferenceContext, ModelConfig } from '../inferutils/config.types';
 import { createObjectLogger } from '../../logger';
 import type { ToolDefinition } from '../tools/types';
-import { CodingAgentInterface } from '../services/implementations/CodingAgent';
 import { AGENT_CONFIG } from '../inferutils/config';
 import { buildDebugTools } from '../tools/customTools';
 import { RenderToolCall } from '../operations/UserConversationProcessor';
@@ -19,6 +18,7 @@ import { PROMPT_UTILS } from '../prompts';
 import { RuntimeError } from 'worker/services/sandbox/sandboxTypes';
 import { FileState } from '../core/state';
 import { InferError } from '../inferutils/core';
+import { ICodingAgent } from '../services/interfaces/ICodingAgent';
 
 const SYSTEM_PROMPT = `You are an elite autonomous code debugging specialist with deep expertise in root-cause analysis, modern web frameworks (React, Vite, Cloudflare Workers), TypeScript/JavaScript, build tools, and runtime environments.
 
@@ -544,7 +544,7 @@ type LoopDetectionState = {
 
 export type DebugSession = {
     filesIndex: FileState[];
-    agent: CodingAgentInterface;
+    agent: ICodingAgent;
     runtimeErrors?: RuntimeError[];
 };
 

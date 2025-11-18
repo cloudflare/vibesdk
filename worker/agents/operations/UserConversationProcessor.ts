@@ -18,6 +18,7 @@ import { ConversationState } from "../inferutils/common";
 import { downloadR2Image, imagesToBase64, imageToBase64 } from "worker/utils/images";
 import { ProcessedImageAttachment } from "worker/types/image-attachment";
 import { AbortError, InferResponseString } from "../inferutils/core";
+import { GenerationContext } from "../domain/values/GenerationContext";
 
 // Constants
 const CHUNK_SIZE = 64;
@@ -325,7 +326,7 @@ async function prepareMessagesForInference(env: Env, messages: ConversationMessa
     return processedMessages;
 }
 
-export class UserConversationProcessor extends AgentOperation<UserConversationInputs, UserConversationOutputs> {
+export class UserConversationProcessor extends AgentOperation<GenerationContext, UserConversationInputs, UserConversationOutputs> {
     /**
      * Remove system context tags from message content
      */
@@ -333,7 +334,7 @@ export class UserConversationProcessor extends AgentOperation<UserConversationIn
         return text.replace(/<system_context>[\s\S]*?<\/system_context>\n?/gi, '').trim();
     }
 
-    async execute(inputs: UserConversationInputs, options: OperationOptions): Promise<UserConversationOutputs> {
+    async execute(inputs: UserConversationInputs, options: OperationOptions<GenerationContext>): Promise<UserConversationOutputs> {
         const { env, logger, context, agent } = options;
         const { userMessage, conversationState, errors, images, projectUpdates } = inputs;
         logger.info("Processing user message", { 

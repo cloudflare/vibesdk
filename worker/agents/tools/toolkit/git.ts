@@ -1,6 +1,6 @@
 import { ToolDefinition } from '../types';
 import { StructuredLogger } from '../../../logger';
-import { CodingAgentInterface } from 'worker/agents/services/implementations/CodingAgent';
+import { ICodingAgent } from 'worker/agents/services/interfaces/ICodingAgent';
 
 type GitCommand = 'commit' | 'log' | 'show' | 'reset';
 
@@ -13,7 +13,7 @@ interface GitToolArgs {
 }
 
 export function createGitTool(
-	agent: CodingAgentInterface,
+	agent: ICodingAgent,
 	logger: StructuredLogger,
 	options?: { excludeCommands?: GitCommand[] }
 ): ToolDefinition<GitToolArgs, { success: boolean; data?: any; message?: string }> {
@@ -76,8 +76,10 @@ export function createGitTool(
 							};
 						}
 						
-						logger.info('Git commit', { message });
-						const commitOid = await gitInstance.commit([], message);
+						const unescapedMessage = message.replace(/\\n/g, '\n').replace(/\\t/g, '\t');
+						
+						logger.info('Git commit', { message: unescapedMessage });
+						const commitOid = await gitInstance.commit([], unescapedMessage);
 						
 						return {
 							success: true,

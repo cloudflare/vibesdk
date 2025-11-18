@@ -165,7 +165,7 @@ jobs:
             
             ### STAGE 3: Solution Proposal (CONDITIONAL)${{ steps.analyze.outputs.severity == 'high' && '\n\n**⚠️ REQUIRED** - Critical issue, must propose fix' || '\n\n**OPTIONAL** - Propose fix if solution is clear and straightforward' }}
             
-            ${{ steps.analyze.outputs.severity == 'high' && '**You MUST propose a fix for this critical issue:**' || '**Propose a fix only if:**\n- Root cause is clear\n- Fix is straightforward (< 50 lines changed)\n- You\'re confident it won\'t introduce regressions' }}
+            ${{ steps.analyze.outputs.severity == 'high' && '**You MUST propose a fix for this critical issue:**' || '**Propose a fix only if:**\n- Root cause is clear\n- Fix is straightforward (< 50 lines changed)\n- You''re confident it won''t introduce regressions' }}
             
             #### 3.1 Design the Fix
             
@@ -249,7 +249,7 @@ jobs:
             
             **Comment Structure** (adapt based on investigation depth):
             
-            ${{ steps.analyze.outputs.should_investigate == 'true' && '**For investigated issues:**\n\n```markdown\n## Investigation Results\n\nThanks for reporting this, @${{ github.event.issue.user.login }}! I\'ve performed a thorough analysis.\n\n### Classification\n- **Type:** [bug/feature/etc]\n- **Severity:** [P0-critical/P1-high/etc]\n- **Component:** [worker/ui/etc]\n\n### Root Cause Analysis\n[Detailed explanation of what\'s causing the issue]\n\n**Location:** `path/to/file.ts:123`\n\n**Introduced in:** PR #XXX (if found) or Commit ABC123\n\n### Proposed Solution\n[Explain the fix approach]\n\n### Status\n- ✅ PR #XXX created with proposed fix (if applicable)\n- ⏳ Requires manual review and testing\n- 📋 Added to backlog for team review (if no PR)\n\n### Next Steps\n[What happens next - PR review, team discussion, etc.]\n```' || '**For standard triage:**\n\n```markdown\nThanks for reporting this, @${{ github.event.issue.user.login }}!\n\n### Classification\n- **Labels:** [list applied labels]\n- **Priority:** [explanation of priority]\n\n[Context-specific response based on issue type]\n\n### Next Steps\nThe team will review this and provide updates.\n```' }}
+            ${{ steps.analyze.outputs.should_investigate == 'true' && '**For investigated issues:**\n\n```markdown\n## Investigation Results\n\nThanks for reporting this, @${{ github.event.issue.user.login }}! I''ve performed a thorough analysis.\n\n### Classification\n- **Type:** [bug/feature/etc]\n- **Severity:** [P0-critical/P1-high/etc]\n- **Component:** [worker/ui/etc]\n\n### Root Cause Analysis\n[Detailed explanation of what''s causing the issue]\n\n**Location:** `path/to/file.ts:123`\n\n**Introduced in:** PR #XXX (if found) or Commit ABC123\n\n### Proposed Solution\n[Explain the fix approach]\n\n### Status\n- ✅ PR #XXX created with proposed fix (if applicable)\n- ⏳ Requires manual review and testing\n- 📋 Added to backlog for team review (if no PR)\n\n### Next Steps\n[What happens next - PR review, team discussion, etc.]\n```' || '**For standard triage:**\n\n```markdown\nThanks for reporting this, @${{ github.event.issue.user.login }}!\n\n### Classification\n- **Labels:** [list applied labels]\n- **Priority:** [explanation of priority]\n\n[Context-specific response based on issue type]\n\n### Next Steps\nThe team will review this and provide updates.\n```' }}
             
             ---
             

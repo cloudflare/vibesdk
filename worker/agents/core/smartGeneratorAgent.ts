@@ -1,40 +1,89 @@
-import { SimpleCodeGeneratorAgent } from "./simpleGeneratorAgent";
-import { CodeGenState } from "./state";
-import { AgentInitArgs } from "./types";
+import { Agent, AgentContext } from "agents";
+import { AgentInitArgs, BehaviorType } from "./types";
+import { AgentState, CurrentDevState, MAX_PHASES } from "./state";
+import { AgentInfrastructure, BaseAgentBehavior } from "./baseAgent";
+import { createObjectLogger, StructuredLogger } from '../../logger';
+import { Blueprint } from "../schemas";
+import { InferenceContext } from "../inferutils/config.types";
 
-/**
- * SmartCodeGeneratorAgent - Smartly orchestrated AI-powered code generation
- * using an LLM orchestrator instead of state machine based orchestrator.
- * TODO: NOT YET IMPLEMENTED, CURRENTLY Just uses SimpleCodeGeneratorAgent
- */
-export class SmartCodeGeneratorAgent extends SimpleCodeGeneratorAgent {
+export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentInfrastructure<AgentState> {
+    public _logger: StructuredLogger | undefined;
+    private behavior: BaseAgentBehavior<AgentState>;
+    private onStartDeferred?: { props?: Record<string, unknown>; resolve: () => void };
     
-    /**
-     * Initialize the smart code generator with project blueprint and template
-     * Sets up services and begins deployment process
-     */
-    async initialize(
-        initArgs: AgentInitArgs,
-        agentMode: 'deterministic' | 'smart'
-    ): Promise<CodeGenState> {
-        this.logger().info('🧠 Initializing SmartCodeGeneratorAgent with enhanced AI orchestration', {
-            queryLength: initArgs.query.length,
-            agentType: agentMode
-        });
+        
+    initialState: AgentState = {
+        blueprint: {} as Blueprint, 
+        projectName: "",
+        query: "",
+        generatedPhases: [],
+        generatedFilesMap: {},
+        behaviorType: 'phasic',
+        sandboxInstanceId: undefined,
+        templateName: '',
+        commandsHistory: [],
+        lastPackageJson: '',
+        pendingUserInputs: [],
+        inferenceContext: {} as InferenceContext,
+        sessionId: '',
+        hostname: '',
+        conversationMessages: [],
+        currentDevState: CurrentDevState.IDLE,
+        phasesCounter: MAX_PHASES,
+        mvpGenerated: false,
+        shouldBeGenerating: false,
+        reviewingInitiated: false,
+        projectUpdatesAccumulator: [],
+        lastDeepDebugTranscript: null,
+    };
 
-        // Call the parent initialization
-        return await super.initialize(initArgs);
-    }
+    constructor(ctx: AgentContext, env: Env) {
+        super(ctx, env);
+                
+        this.sql`CREATE TABLE IF NOT EXISTS full_conversations (id TEXT PRIMARY KEY, messages TEXT)`;
+        this.sql`CREATE TABLE IF NOT EXISTS compact_conversations (id TEXT PRIMARY KEY, messages TEXT)`;
 
-    async generateAllFiles(reviewCycles: number = 10): Promise<void> {
-        if (this.state.agentMode === 'deterministic') {
-            return super.generateAllFiles(reviewCycles);
+        const behaviorTypeProp = (ctx.props as Record<string, unknown>)?.behaviorType as BehaviorType | undefined;
+        const behaviorType = this.state.behaviorType || behaviorTypeProp || 'phasic';
+        if (behaviorType === 'phasic') {
+            this.behavior = new PhasicAgentBehavior(this);
         } else {
-            return this.builderLoop();
+            this.behavior = new AgenticAgentBehavior(this);
         }
     }
 
-    async builderLoop() {
-        // TODO
+    async initialize(
+        initArgs: AgentInitArgs<AgentState>,
+        ..._args: unknown[]
+    ): Promise<AgentState> {
+        const { inferenceContext } = initArgs;
+        this.initLogger(inferenceContext.agentId, inferenceContext.userId);
+        
+        await this.behavior.initialize(initArgs);
+        return this.behavior.state;
+    }
+
+    private initLogger(agentId: string, userId: string, sessionId?: string) {
+        this._logger = createObjectLogger(this, 'CodeGeneratorAgent');
+        this._logger.setObjectId(agentId);
+        this._logger.setFields({
+            agentId,
+            userId,
+        });
+        if (sessionId) {
+            this._logger.setField('sessionId', sessionId);
+        }
+        return this._logger;
+    }
+
+    logger(): StructuredLogger {
+        if (!this._logger) {
+            this._logger = this.initLogger(this.getAgentId(), this.state.inferenceContext.userId, this.state.sessionId);
+        }
+        return this._logger;
+    }
+
+    getAgentId() {
+        return this.state.inferenceContext.agentId;
     }
 }

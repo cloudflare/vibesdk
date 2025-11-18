@@ -1,6 +1,6 @@
 import { ToolDefinition, ErrorResult } from '../types';
 import { StructuredLogger } from '../../../logger';
-import { CodingAgentInterface } from 'worker/agents/services/implementations/CodingAgent';
+import { ICodingAgent } from 'worker/agents/services/interfaces/ICodingAgent';
 import { FileConceptType } from 'worker/agents/schemas';
 
 export type GenerateFilesArgs = {
@@ -18,7 +18,7 @@ export type GenerateFilesResult =
 	| ErrorResult;
 
 export function createGenerateFilesTool(
-	agent: CodingAgentInterface,
+	agent: ICodingAgent,
 	logger: StructuredLogger,
 ): ToolDefinition<GenerateFilesArgs, GenerateFilesResult> {
 	return {

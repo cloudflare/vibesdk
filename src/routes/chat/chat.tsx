@@ -413,28 +413,7 @@ export default function Chat() {
 			setView('editor');
 		}
 	}, [isGeneratingBlueprint, view]);
-
-	useEffect(() => {
-		// Only show bootstrap completion message for NEW chats, not when reloading existing ones
-		if (doneStreaming && !isGeneratingBlueprint && !blueprint && urlChatId === 'new') {
-			onCompleteBootstrap();
-			sendAiMessage(
-				createAIMessage(
-					'creating-blueprint',
-					'Bootstrapping complete, now creating a blueprint for you...',
-					true,
-				),
-			);
-		}
-	}, [
-		doneStreaming,
-		isGeneratingBlueprint,
-		sendAiMessage,
-		blueprint,
-		onCompleteBootstrap,
-		urlChatId,
-	]);
-
+    
 	const isRunning = useMemo(() => {
 		return (
 			isBootstrapping || isGeneratingBlueprint // || codeGenState === 'active'
@@ -1183,7 +1162,7 @@ export default function Chat() {
 														lineNumbers: 'on',
 														scrollBeyondLastLine: false,
 														fontSize: 13,
-														theme: 'v1-dev',
+														theme: 'vibesdk',
 														automaticLayout: true,
 													}}
 													find={
