@@ -7,7 +7,7 @@ import { AgentConnectionData, AgentPreviewResponse, CodeGenArgs } from './types'
 import { ApiResponse, ControllerResponse } from '../types';
 import { RouteContext } from '../../types/route-context';
 import { ModelConfigService } from '../../../database';
-import { ModelConfig } from '../../../agents/inferutils/config.types';
+import { AIModels, ModelConfig } from '../../../agents/inferutils/config.types';
 import { RateLimitService } from '../../../services/rate-limit/rateLimits';
 import { validateWebSocketOrigin } from '../../../middleware/security/websocket';
 import { createLogger } from '../../../logger';
@@ -87,7 +87,7 @@ export class CodingAgentController extends BaseController {
             // Convert Record to Map and extract only ModelConfig properties
             const userModelConfigs = new Map();
             for (const [actionKey, mergedConfig] of Object.entries(userConfigsRecord)) {
-                if (mergedConfig.isUserOverride) {
+                if (mergedConfig.isUserOverride && (mergedConfig.name in AIModels) ) {
                     const modelConfig: ModelConfig = {
                         name: mergedConfig.name,
                         max_tokens: mergedConfig.max_tokens,

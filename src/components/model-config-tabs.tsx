@@ -117,11 +117,15 @@ const categorizeAgent = (agentKey: string): string => {
   return 'advanced';
 };
 
-// Frontend-specific agent display interface 
+// Frontend-specific agent display interface
 export interface AgentDisplayConfig {
   key: string;
   name: string;
   description: string;
+  constraint?: {
+    enabled: boolean;
+    allowedModels: string[];
+  };
 }
 
 interface ModelConfigTabsProps {

@@ -9,6 +9,7 @@ import { AGENT_CONFIG } from './config';
 import { createLogger } from '../../logger';
 import { RateLimitExceededError, SecurityError } from 'shared/types/errors';
 import { ToolDefinition } from '../tools/types';
+import { validateAgentConstraints } from 'worker/api/controllers/modelConfig/constraintHelper';
 
 const logger = createLogger('InferenceUtils');
 
@@ -86,6 +87,37 @@ export async function executeInference<T extends z.AnyZodObject>(   {
             logger.info(`Using user configuration for ${agentActionName}: ${JSON.stringify(conf)}`);
         } else {
             logger.info(`No user configuration for ${agentActionName}, using AGENT_CONFIG defaults`);
+        }
+
+        // If conf.name is not in defined AIModels, fall back to defaults
+        if (conf && !(conf.name in AIModels)) {
+            logger.warn(`User config model ${conf.name} not in defined AIModels, falling back to defaults`);
+            conf = undefined;
+        }
+
+        // If conf.name violates agent constraints, fall back to defaults
+        if (conf && conf.name) {
+            const constraintCheck = validateAgentConstraints(agentActionName, conf.name);
+
+            if (constraintCheck.constraintEnabled && !constraintCheck.valid) {
+                logger.warn(
+                    `User config model ${conf.name} violates constraints for ${agentActionName}, falling back to defaults. ` +
+                    `Allowed models: ${constraintCheck.allowedModels?.join(', ')}`
+                );
+                conf = undefined; // Trigger fallback to AGENT_CONFIG[agentActionName]
+            }
+        }
+
+        // Validate fallback model too (if exists in conf)
+        if (conf && conf.fallbackModel) {
+            const fallbackCheck = validateAgentConstraints(agentActionName, conf.fallbackModel);
+
+            if (fallbackCheck.constraintEnabled && !fallbackCheck.valid) {
+                logger.warn(
+                    `User config fallback model ${conf.fallbackModel} violates constraints for ${agentActionName}, removing fallback`
+                );
+                conf.fallbackModel = undefined; // Remove invalid fallback
+            }
         }
     }
 

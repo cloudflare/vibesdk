@@ -1,4 +1,10 @@
-import { AgentConfig, AIModels } from "./config.types";
+import { 
+    AgentActionKey, 
+    AgentConfig, 
+    AgentConstraintConfig, 
+    AIModels,
+    LiteModels,
+} from "./config.types";
 
 /*
 Use these configs instead for better performance, less bugs and costs:
@@ -66,7 +72,6 @@ OR
     },
 */
 
-
 export const AGENT_CONFIG: AgentConfig = {
     templateSelection: {
         name: AIModels.GEMINI_2_5_FLASH_LITE,
@@ -75,7 +80,7 @@ export const AGENT_CONFIG: AgentConfig = {
         temperature: 0.6,
     },
     blueprint: {
-        name: AIModels.GEMINI_2_5_PRO,
+        name: AIModels.GEMINI_3_PRO_PREVIEW,
         reasoning_effort: 'medium',
         max_tokens: 64000,
         fallbackModel: AIModels.GEMINI_2_5_FLASH,
@@ -96,14 +101,14 @@ export const AGENT_CONFIG: AgentConfig = {
         fallbackModel: AIModels.GEMINI_2_5_FLASH,
     },
     firstPhaseImplementation: {
-        name: AIModels.GEMINI_2_5_PRO,
+        name: AIModels.GEMINI_3_PRO_PREVIEW,
         reasoning_effort: 'low',
         max_tokens: 64000,
         temperature: 0.2,
         fallbackModel: AIModels.GEMINI_2_5_PRO,
     },
     phaseImplementation: {
-        name: AIModels.GEMINI_2_5_PRO,
+        name: AIModels.GEMINI_3_PRO_PREVIEW,
         reasoning_effort: 'low',
         max_tokens: 64000,
         temperature: 0.2,
@@ -138,13 +143,6 @@ export const AGENT_CONFIG: AgentConfig = {
         temperature: 0.5,
         fallbackModel: AIModels.GEMINI_2_5_FLASH,
     },
-    codeReview: {
-        name: AIModels.GEMINI_2_5_PRO,
-        reasoning_effort: 'medium',
-        max_tokens: 32000,
-        temperature: 0.1,
-        fallbackModel: AIModels.GEMINI_2_5_FLASH,
-    },
     fileRegeneration: {
         name: AIModels.GEMINI_2_5_PRO,
         reasoning_effort: 'low',
@@ -162,18 +160,34 @@ export const AGENT_CONFIG: AgentConfig = {
     },
 };
 
-
-// Model validation utilities
-export const ALL_AI_MODELS: readonly AIModels[] = Object.values(AIModels);
-export type AIModelType = AIModels;
-
-// Create tuple type for Zod enum validation
-export const AI_MODELS_TUPLE = Object.values(AIModels) as [AIModels, ...AIModels[]];
-
-export function isValidAIModel(model: string): model is AIModels {
-    return Object.values(AIModels).includes(model as AIModels);
-}
-
-export function getValidAIModelsArray(): readonly AIModels[] {
-    return ALL_AI_MODELS;
-}
+export const AGENT_CONSTRAINTS: Map<AgentActionKey, AgentConstraintConfig> = new Map([
+	// Fast code fixers should use lightweight, fast models
+	['fastCodeFixer', {
+		allowedModels: new Set(LiteModels),
+		enabled: true,
+	}],
+	['realtimeCodeFixer', {
+		allowedModels: new Set(LiteModels),
+		enabled: true,
+	}],
+	['fileRegeneration', {
+		allowedModels: new Set([...LiteModels, AIModels.GEMINI_2_5_PRO]),
+		enabled: true,
+	}],
+	['phaseGeneration', {
+		allowedModels: new Set([...LiteModels, AIModels.GEMINI_2_5_PRO]),
+		enabled: true,
+	}],
+	['projectSetup', {
+		allowedModels: new Set([...LiteModels, AIModels.GEMINI_2_5_PRO]),
+		enabled: true,
+	}],
+	['conversationalResponse', {
+		allowedModels: new Set(LiteModels),
+		enabled: true,
+	}],
+	['templateSelection', {
+		allowedModels: new Set([AIModels.GEMINI_2_5_FLASH_LITE, AIModels.GEMINI_2_5_FLASH_LITE_LATEST]),
+		enabled: true,
+	}],
+]);
