@@ -6,12 +6,13 @@
 import { BaseService } from './BaseService';
 import { UserModelConfig, NewUserModelConfig, userModelConfigs } from '../schema';
 import { eq, and } from 'drizzle-orm';
-import { AgentActionKey, ModelConfig, AIModels } from '../../agents/inferutils/config.types';
+import { AgentActionKey, ModelConfig } from '../../agents/inferutils/config.types';
 import { AGENT_CONFIG } from '../../agents/inferutils/config';
 import type { ReasoningEffort } from 'openai/resources.mjs';
 import { generateId } from '../../utils/idGenerator';
 import type { UserModelConfigWithMetadata } from '../types';
 import { validateAgentConstraints } from 'worker/api/controllers/modelConfig/constraintHelper';
+import { toAIModel } from '../../agents/inferutils/config.types';
 
 type ConstraintStrategy = 'throw' | 'fallback';
 
@@ -64,12 +65,13 @@ export class ModelConfigService extends BaseService {
 		}
 
 		// Merge user config with defaults (user takes precedence, null values use defaults)
+		// Validate database values before using them
 		return {
-			name: (userConfig.modelName as AIModels) ?? defaultConfig.name,
+			name: toAIModel(userConfig.modelName) ?? defaultConfig.name,
 			max_tokens: userConfig.maxTokens ?? defaultConfig.max_tokens,
 			temperature: userConfig.temperature !== null ? userConfig.temperature : defaultConfig.temperature,
 			reasoning_effort: this.castToReasoningEffort(userConfig.reasoningEffort) ?? defaultConfig.reasoning_effort,
-			fallbackModel: (userConfig.fallbackModel as AIModels) ?? defaultConfig.fallbackModel,
+			fallbackModel: toAIModel(userConfig.fallbackModel) ?? defaultConfig.fallbackModel,
 			isUserOverride: true,
 			userConfigId: userConfig.id
 		};

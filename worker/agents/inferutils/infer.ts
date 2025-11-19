@@ -10,6 +10,7 @@ import { createLogger } from '../../logger';
 import { RateLimitExceededError, SecurityError } from 'shared/types/errors';
 import { ToolDefinition } from '../tools/types';
 import { validateAgentConstraints } from 'worker/api/controllers/modelConfig/constraintHelper';
+import { isValidAIModel } from './config.types';
 
 const logger = createLogger('InferenceUtils');
 
@@ -89,8 +90,8 @@ export async function executeInference<T extends z.AnyZodObject>(   {
             logger.info(`No user configuration for ${agentActionName}, using AGENT_CONFIG defaults`);
         }
 
-        // If conf.name is not in defined AIModels, fall back to defaults
-        if (conf && !(conf.name in AIModels)) {
+        // If conf.name is not a valid AIModels enum value, fall back to defaults
+        if (conf && !isValidAIModel(conf.name)) {
             logger.warn(`User config model ${conf.name} not in defined AIModels, falling back to defaults`);
             conf = undefined;
         }

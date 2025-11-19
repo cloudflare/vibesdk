@@ -1,5 +1,6 @@
 import { AGENT_CONSTRAINTS } from '../../../agents/inferutils/config';
 import { AgentActionKey, AIModels } from '../../../agents/inferutils/config.types';
+import { isValidAIModel } from '../../../agents/inferutils/config.types';
 
 export interface ConstraintValidationResult {
 	valid: boolean;
@@ -26,8 +27,16 @@ export function validateAgentConstraints(
 		return { valid: true, constraintEnabled: false };
 	}
 
-	const model = modelName as AIModels;
-	const isAllowed = constraint.allowedModels.has(model);
+	// Validate model name is a valid AIModels enum value
+	if (!isValidAIModel(modelName)) {
+		return {
+			valid: false,
+			constraintEnabled: true,
+			allowedModels: Array.from(constraint.allowedModels),
+		};
+	}
+
+	const isAllowed = constraint.allowedModels.has(modelName);
 
 	return {
 		valid: isAllowed,

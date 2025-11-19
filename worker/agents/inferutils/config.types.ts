@@ -97,3 +97,12 @@ export interface InferenceContext extends InferenceMetadata {
     enableFastSmartCodeFix: boolean;
     abortSignal?: AbortSignal;
 }
+
+export function isValidAIModel(value: string): value is AIModels {
+  return Object.values(AIModels).includes(value as AIModels);
+}
+
+export function toAIModel(value: string | null | undefined): AIModels | undefined {
+  if (!value) return undefined;
+  return isValidAIModel(value) ? value : undefined;
+}
