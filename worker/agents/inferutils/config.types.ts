@@ -9,20 +9,14 @@ import { ReasoningEffort } from "openai/resources.mjs";
 export enum AIModels {
     DISABLED = 'disabled',
 
-	GEMINI_2_0_FLASH = 'google-ai-studio/gemini-2.0-flash',
 	GEMINI_2_5_PRO = 'google-ai-studio/gemini-2.5-pro',
 	GEMINI_2_5_FLASH = 'google-ai-studio/gemini-2.5-flash',
 	GEMINI_2_5_FLASH_LITE = 'google-ai-studio/gemini-2.5-flash-lite',
 
-	GEMINI_1_5_FLASH_8B = 'google-ai-studio/gemini-1.5-flash-8b-latest',
     GEMINI_2_5_FLASH_LATEST = 'google-ai-studio/gemini-2.5-flash-latest',
     GEMINI_2_5_FLASH_LITE_LATEST = 'google-ai-studio/gemini-2.5-flash-lite-latest',
     GEMINI_2_5_PRO_LATEST = 'google-ai-studio/gemini-2.5-pro-latest',
-
-	GEMINI_2_5_PRO_PREVIEW_05_06 = 'google-ai-studio/gemini-2.5-pro-preview-05-06',
-	GEMINI_2_5_FLASH_PREVIEW_04_17 = 'google-ai-studio/gemini-2.5-flash-preview-04-17',
-	GEMINI_2_5_FLASH_PREVIEW_05_20 = 'google-ai-studio/gemini-2.5-flash-preview-05-20',
-	GEMINI_2_5_PRO_PREVIEW_06_05 = 'google-ai-studio/gemini-2.5-pro-preview-06-05',
+    GEMINI_3_PRO_PREVIEW = 'google-ai-studio/gemini-3-pro-preview',
 
 	CLAUDE_3_5_SONNET_LATEST = 'anthropic/claude-3-5-sonnet-latest',
 	CLAUDE_3_7_SONNET_20250219 = 'anthropic/claude-3-7-sonnet-20250219',
@@ -45,6 +39,23 @@ export enum AIModels {
     CEREBRAS_QWEN_3_CODER = 'cerebras/qwen-3-coder-480b',
 }
 
+export const LiteModels = [
+    AIModels.GEMINI_2_5_FLASH,
+    AIModels.GEMINI_2_5_FLASH_LATEST,
+    AIModels.GEMINI_2_5_FLASH_LITE,
+    AIModels.GEMINI_2_5_FLASH_LITE_LATEST,
+    AIModels.OPENAI_5_MINI,
+    AIModels.OPENAI_O4_MINI,
+    AIModels.OPENAI_CHATGPT_4O_LATEST,
+    AIModels.OPENAI_OSS,
+    AIModels.CEREBRAS_GPT_OSS,
+];
+
+export interface AgentConstraintConfig {
+    allowedModels: Set<AIModels>;
+    enabled: boolean;
+}
+
 export interface ModelConfig {
     name: AIModels | string;
     reasoning_effort?: ReasoningEffort;
@@ -60,7 +71,6 @@ export interface AgentConfig {
     phaseGeneration: ModelConfig;
     phaseImplementation: ModelConfig;
     firstPhaseImplementation: ModelConfig;
-    codeReview: ModelConfig;
     fileRegeneration: ModelConfig;
     screenshotAnalysis: ModelConfig;
     realtimeCodeFixer: ModelConfig;

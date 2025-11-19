@@ -82,26 +82,21 @@ export const DEFAULT_RATE_LIMIT_SETTINGS: RateLimitSettings = {
 		enabled: true,
 		store: RateLimitStore.DURABLE_OBJECT,
 		limit: 500,
-		period: 60 * 60, // 1 hour
+		period: 2 * 60 * 60, // 2 hour
         dailyLimit: 1700,
 		excludeBYOKUsers: true,
 	},
 };
 
-// Simple, pro models -> 4, Flash -> 1, Flash Lite -> 0
+// Rate increments based on model tier: Lite -> 0, Fast -> 1, Premium -> 4
 export const DEFAULT_RATE_INCREMENTS_FOR_MODELS: Record<AIModels | string, number> = {
-	[AIModels.GEMINI_1_5_FLASH_8B] : 0,
-	[AIModels.GEMINI_2_0_FLASH] : 0,
 	[AIModels.GEMINI_2_5_FLASH_LITE] : 0,
 	[AIModels.GEMINI_2_5_FLASH_LITE_LATEST] : 0,
 
 	[AIModels.GEMINI_2_5_FLASH] : 1,
 	[AIModels.GEMINI_2_5_FLASH_LATEST] : 1,
-	[AIModels.GEMINI_2_5_FLASH_PREVIEW_04_17] : 1,
-	[AIModels.GEMINI_2_5_FLASH_PREVIEW_05_20] : 1,
 
 	[AIModels.GEMINI_2_5_PRO_LATEST] : 4,
 	[AIModels.GEMINI_2_5_PRO] : 4,
-	[AIModels.GEMINI_2_5_PRO_PREVIEW_05_06] : 4,
-	[AIModels.GEMINI_2_5_PRO_PREVIEW_06_05] : 4,
+	[AIModels.GEMINI_3_PRO_PREVIEW] : 4,
 };

@@ -115,11 +115,12 @@ export function ConfigModal({
   const [byokData, setByokData] = useState<ByokProvidersData | null>(null);
   const [loadingByok, setLoadingByok] = useState(false);
 
-  // Load BYOK data
+  // Load BYOK data (filtered by agent constraints)
   const loadByokData = async () => {
     try {
       setLoadingByok(true);
-      const response = await apiClient.getByokProviders();
+      // Pass agent key to get constraint-filtered models
+      const response = await apiClient.getByokProviders(agentConfig.key);
       if (response.success && response.data) {
         setByokData(response.data);
       }
@@ -289,18 +290,30 @@ export function ConfigModal({
             <Settings className="h-5 w-5" />
             Configure {agentConfig.name}
           </DialogTitle>
-          <DialogDescription className="space-y-2">
-            <p>{agentConfig.description}</p>
-            {getModelRecommendation(agentConfig.key) && (
-              <Alert>
-                <Info className="h-4 w-4" />
-                <AlertDescription className="text-sm">
-                  {getModelRecommendation(agentConfig.key)}
-                </AlertDescription>
-              </Alert>
-            )}
+          <DialogDescription>
+            {agentConfig.description}
           </DialogDescription>
         </DialogHeader>
+
+        {/* Alerts outside DialogDescription to avoid nested p/div issues */}
+        <div className="space-y-2 -mt-2">
+          {agentConfig.constraint?.enabled && (
+            <Alert>
+              <Info className="h-4 w-4" />
+              <AlertDescription className="text-sm">
+                Model selection limited to {agentConfig.constraint.allowedModels.length} allowed model{agentConfig.constraint.allowedModels.length !== 1 ? 's' : ''} for this operation.
+              </AlertDescription>
+            </Alert>
+          )}
+          {getModelRecommendation(agentConfig.key) && (
+            <Alert>
+              <Info className="h-4 w-4" />
+              <AlertDescription className="text-sm">
+                {getModelRecommendation(agentConfig.key)}
+              </AlertDescription>
+            </Alert>
+          )}
+        </div>
 
         <div className="space-y-6">
           {/* Current Status */}
