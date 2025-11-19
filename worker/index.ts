@@ -9,9 +9,10 @@ import { proxyToAiGateway } from './services/aigateway-proxy/controller';
 import { isOriginAllowed } from './config/security';
 import { proxyToSandbox } from './services/sandbox/request-handler';
 import { handleGitProtocolRequest, isGitProtocolRequest } from './api/handlers/git-protocol';
+import { getAgentStub } from './agents';
 
 // Durable Object and Service exports
-export { UserAppSandboxService, DeployerService } from './services/sandbox/sandboxSdkClient';
+export { UserAppSandboxService } from './services/sandbox/sandboxSdkClient';
 export { CodeGeneratorAgent } from './agents/core/codingAgent';
 
 // export const CodeGeneratorAgent = Sentry.instrumentDurableObjectWithSentry(sentryOptions, CodeGeneratorAgent);
@@ -44,6 +45,28 @@ async function handleUserAppRequest(request: Request, env: Env): Promise<Respons
 	const url = new URL(request.url);
 	const { hostname } = url;
 	logger.info(`Handling user app request for: ${hostname}`);
+
+	// Check if this is an agent browser file serving request
+	// Pattern: b-{agentid}-{token}.{previewDomain}
+	const subdomain = hostname.split('.')[0];
+	if (subdomain.startsWith('b-')) {
+		// Extract agentId and token from subdomain
+		const withoutPrefix = subdomain.substring(2); // Remove 'b-'
+		const lastHyphenIndex = withoutPrefix.lastIndexOf('-');
+
+		if (lastHyphenIndex !== -1) {
+			const agentId = withoutPrefix.substring(0, lastHyphenIndex);
+			logger.info(`Agent browser file serving request for agent: ${agentId}`);
+
+			try {
+				const agentStub = await getAgentStub(env, agentId);
+				return await agentStub.handleBrowserFileServing(request);
+			} catch (error: any) {
+				logger.error(`Error forwarding to agent: ${error.message}`);
+				return new Response('Agent not found', { status: 404 });
+			}
+		}
+	}
 
 	// 1. Attempt to proxy to a live development sandbox.
 	// proxyToSandbox doesn't consume the request body on a miss, so no clone is needed here.
@@ -83,21 +106,21 @@ async function handleUserAppRequest(request: Request, env: Env): Promise<Respons
 	}
 
 	// Extract the app name (e.g., "xyz" from "xyz.build.cloudflare.dev").
-	const appName = hostname.split('.')[0];
+	const appName = subdomain;
 	const dispatcher = env['DISPATCHER'];
 
 	try {
 		const worker = dispatcher.get(appName);
 		const dispatcherResponse = await worker.fetch(request);
-		
+
 		// Add headers to identify this as a dispatcher response
 		let headers = new Headers(dispatcherResponse.headers);
-		
+
 		headers.set('X-Preview-Type', 'dispatcher');
         headers = setOriginControl(env, request, headers);
         headers.append('Vary', 'Origin');
 		headers.set('Access-Control-Expose-Headers', 'X-Preview-Type');
-		
+
 		return new Response(dispatcherResponse.body, {
 			status: dispatcherResponse.status,
 			statusText: dispatcherResponse.statusText,
@@ -106,6 +129,7 @@ async function handleUserAppRequest(request: Request, env: Env): Promise<Respons
 	} catch (error: any) {
 		// This block catches errors if the binding doesn't exist or if worker.fetch() fails.
 		logger.warn(`Error dispatching to worker '${appName}': ${error.message}`);
+
 		return new Response('An error occurred while loading this application.', { status: 500 });
 	}
 }
@@ -162,7 +186,7 @@ const worker = {
                 const previewDomain = getPreviewDomain(env);
 
                 logger.info(`Origin: ${origin}, Preview Domain: ${previewDomain}`);
-                
+
                 return proxyToAiGateway(request, env, ctx);
 				// if (origin && origin.endsWith(`.${previewDomain}`)) {
                 //     return proxyToAiGateway(request, env, ctx);
@@ -170,6 +194,7 @@ const worker = {
                 // logger.warn(`Access denied. Invalid origin: ${origin}, preview domain: ${previewDomain}`);
                 // return new Response('Access denied. Invalid origin.', { status: 403 });
 			}
+
 			// Handle all API requests with the main Hono application.
 			logger.info(`Handling API request for: ${url}`);
 			const app = createApp(env);

@@ -1,6 +1,7 @@
 import type { RefObject } from 'react';
-import { GitBranch, Github, Expand } from 'lucide-react';
+import { GitBranch, Github, Expand, User, Monitor, FileDown } from 'lucide-react';
 import { ModelConfigInfo } from './model-config-info';
+import { HeaderButton, HeaderToggleButton, HeaderDivider } from './header-actions';
 import type { ModelConfigsInfo } from '@/api-types';
 
 interface PreviewHeaderActionsProps {
@@ -14,6 +15,12 @@ interface PreviewHeaderActionsProps {
 	urlChatId?: string;
 	isPhase1Complete: boolean;
 	previewRef: RefObject<HTMLIFrameElement | null>;
+	projectType?: string;
+	speakerMode?: boolean;
+	previewMode?: boolean;
+	onToggleSpeakerMode?: () => void;
+	onTogglePreviewMode?: () => void;
+	onExportPdf?: () => void;
 }
 
 export function PreviewHeaderActions({
@@ -24,47 +31,87 @@ export function PreviewHeaderActions({
 	isGitHubExportReady,
 	onGitHubExportClick,
 	previewRef,
+	projectType,
+	speakerMode,
+	previewMode,
+	onToggleSpeakerMode,
+	onTogglePreviewMode,
+	onExportPdf,
 }: PreviewHeaderActionsProps) {
+	const isPresentation = projectType === 'presentation';
+
 	return (
 		<>
-			<ModelConfigInfo
-				configs={modelConfigs}
-				onRequestConfigs={onRequestConfigs}
-				loading={loadingConfigs}
-			/>
-			<button
-				className="group relative flex items-center gap-1.5 p-1.5 group-hover:pl-2 group-hover:pr-2.5 rounded-full group-hover:rounded-md transition-all duration-300 ease-in-out hover:bg-bg-4 border border-transparent hover:border-border-primary hover:shadow-sm overflow-hidden"
-				onClick={onGitCloneClick}
-				title="Clone to local machine"
-			>
-				<GitBranch className="size-3.5 text-text-primary/60 group-hover:text-brand-primary transition-colors duration-300" />
-				<span className="max-w-0 group-hover:max-w-xs overflow-hidden whitespace-nowrap transition-all duration-300 ease-in-out text-xs text-text-primary/80 group-hover:text-text-primary">
-					Clone
-				</span>
-			</button>
+			{isPresentation ? (
+				<>
+					{onToggleSpeakerMode && (
+						<HeaderToggleButton
+							icon={User}
+							label="Speaker"
+							onClick={onToggleSpeakerMode}
+							title="Speaker Mode (with notes and preview)"
+							active={speakerMode}
+						/>
+					)}
 
-			{isGitHubExportReady && (
-				<button
-					className="group relative flex items-center gap-1.5 p-1.5 group-hover:pl-2 group-hover:pr-2.5 rounded-full group-hover:rounded-md transition-all duration-300 ease-in-out hover:bg-bg-4 border border-transparent hover:border-border-primary hover:shadow-sm overflow-hidden"
-					onClick={onGitHubExportClick}
-					title="Export to GitHub"
-				>
-					<Github className="size-3.5 text-text-primary/60 group-hover:text-brand-primary transition-colors duration-300" />
-					<span className="max-w-0 group-hover:max-w-xs overflow-hidden whitespace-nowrap transition-all duration-300 ease-in-out text-xs text-text-primary/80 group-hover:text-text-primary">
-						GitHub
-					</span>
-				</button>
+					{onTogglePreviewMode && (
+						<HeaderToggleButton
+							icon={Monitor}
+							label="Preview"
+							onClick={onTogglePreviewMode}
+							title="Preview Mode (current and next slide)"
+							active={previewMode}
+						/>
+					)}
+
+					<HeaderButton
+						icon={Expand}
+						onClick={() => previewRef.current?.requestFullscreen()}
+						title="Fullscreen"
+						iconOnly
+					/>
+
+					{onExportPdf && (
+						<>
+							<HeaderDivider />
+							<HeaderButton
+								icon={FileDown}
+								label="Export PDF"
+								onClick={onExportPdf}
+								title="Export presentation as PDF"
+							/>
+						</>
+					)}
+				</>
+			) : (
+				<>
+					<ModelConfigInfo
+						configs={modelConfigs}
+						onRequestConfigs={onRequestConfigs}
+						loading={loadingConfigs}
+					/>
+					<HeaderButton
+						icon={GitBranch}
+						label="Clone"
+						onClick={onGitCloneClick}
+						title="Clone to local machine"
+					/>
+					{isGitHubExportReady && (
+						<HeaderButton
+							icon={Github}
+							label="GitHub"
+							onClick={onGitHubExportClick}
+							title="Export to GitHub"
+						/>
+					)}
+					<HeaderButton
+						icon={Expand}
+						onClick={() => previewRef.current?.requestFullscreen()}
+						title="Fullscreen"
+						iconOnly
+					/>
+				</>
 			)}
-
-			<button
-				className="p-1.5 rounded-full transition-all duration-300 ease-in-out hover:bg-bg-4 border border-transparent hover:border-border-primary hover:shadow-sm"
-				onClick={() => {
-					previewRef.current?.requestFullscreen();
-				}}
-				title="Fullscreen"
-			>
-				<Expand className="size-3.5 text-text-primary/60 hover:text-brand-primary transition-colors duration-300" />
-			</button>
 		</>
 	);
 }

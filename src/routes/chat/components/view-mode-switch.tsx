@@ -38,35 +38,23 @@ export function ViewModeSwitch({
 				)}
 			</AnimatePresence>
 
-			{/* Presentation button - show when project type is presentation */}
-			{projectType === 'presentation' && (
-				<button
-					onClick={() => onChange('presentation')}
-					className={clsx(
-						'p-1 flex items-center justify-between h-full rounded-md transition-colors',
-						view === 'presentation'
-							? 'bg-bg-4 text-text-primary'
-							: 'text-text-50/70 hover:text-text-primary hover:bg-accent',
-					)}
-					title="Presentation"
-				>
-					<Presentation className="size-4" />
-				</button>
-			)}
-
-			{/* Preview button - show when app has preview URL */}
-			{previewUrl && projectType !== 'presentation' && (
+			{/* Preview button - show when app has preview URL (includes presentations) */}
+			{previewUrl && (
 				<button
 					onClick={() => onChange('preview')}
 					className={clsx(
 						'p-1 flex items-center justify-between h-full rounded-md transition-colors',
-						view === 'preview'
+						view === 'preview' || view === 'presentation'
 							? 'bg-bg-4 text-text-primary'
 							: 'text-text-50/70 hover:text-text-primary hover:bg-accent',
 					)}
-					title="Preview"
+					title={projectType === 'presentation' ? 'Presentation' : 'Preview'}
 				>
-					<Eye className="size-4" />
+					{projectType === 'presentation' ? (
+						<Presentation className="size-4" />
+					) : (
+						<Eye className="size-4" />
+					)}
 				</button>
 			)}
 

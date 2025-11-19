@@ -1,4 +1,4 @@
-import { type RefObject, type ReactNode, useState, useCallback } from 'react';
+import { type RefObject, type ReactNode } from 'react';
 import { WebSocket } from 'partysocket';
 import { MonacoEditor } from '../../../components/monaco-editor/monaco-editor';
 import { motion } from 'framer-motion';
@@ -12,8 +12,7 @@ import { ViewHeader } from './view-header';
 import { PreviewHeaderActions } from './preview-header-actions';
 import { EditorHeaderActions } from './editor-header-actions';
 import { Copy } from './copy';
-import { PresentationRenderer } from './presentation/PresentationRenderer';
-import { PresentationHeaderActions } from './presentation/PresentationHeaderActions';
+import { PresentationPreview } from './presentation-preview';
 import type { FileType, BlueprintType, BehaviorType, ModelConfigsInfo } from '@/api-types';
 import type { ContentDetectionResult } from '../utils/content-detector';
 import type { GitHubExportHook } from '@/hooks/use-github-export';
@@ -60,12 +59,18 @@ interface MainContentPanelProps {
 	isGitHubExportReady: boolean;
 	githubExport: GitHubExportHook;
 
+	// Presentation controls
+	presentationSpeakerMode?: boolean;
+	presentationPreviewMode?: boolean;
+	onToggleSpeakerMode?: () => void;
+	onTogglePreviewMode?: () => void;
+	onExportPdf?: () => void;
+
 	// Other
 	behaviorType?: BehaviorType;
 	urlChatId?: string;
 	isPhase1Complete: boolean;
 	websocket?: WebSocket;
-	slideDirectory?: string;
 
 	// Refs
 	previewRef: RefObject<HTMLIFrameElement | null>;
@@ -98,11 +103,15 @@ export function MainContentPanel(props: MainContentPanelProps) {
 		onGitCloneClick,
 		isGitHubExportReady,
 		githubExport,
+		presentationSpeakerMode,
+		presentationPreviewMode,
+		onToggleSpeakerMode,
+		onTogglePreviewMode,
+		onExportPdf,
 		behaviorType,
 		urlChatId,
 		isPhase1Complete,
 		websocket,
-		slideDirectory,
 		previewRef,
 		editorRef,
 	} = props;
@@ -158,29 +167,47 @@ export function MainContentPanel(props: MainContentPanelProps) {
             return null;
         }
 
+		// Use PresentationPreview for presentations, regular PreviewIframe for apps
+		const isPresentation = projectType === 'presentation';
+
 		return renderViewWithHeader(
 			<div className="flex items-center gap-2">
 				<span className="text-sm font-mono text-text-50/70">
-					{blueprint?.title ?? 'Preview'}
+					{blueprint?.title ?? (isPresentation ? 'Presentation' : 'Preview')}
 				</span>
 				<Copy text={previewUrl} />
-				<button
-					className="p-1 hover:bg-bg-2 rounded transition-colors"
-					onClick={onManualRefresh}
-					title="Refresh preview"
-				>
-					<RefreshCw className="size-4 text-text-primary/50" />
-				</button>
+				{!isPresentation && (
+					<button
+						className="p-1 hover:bg-bg-2 rounded transition-colors"
+						onClick={onManualRefresh}
+						title="Refresh preview"
+					>
+						<RefreshCw className="size-4 text-text-primary/50" />
+					</button>
+				)}
 			</div>,
-			<PreviewIframe
-				src={previewUrl}
-				ref={previewRef}
-				className="flex-1 w-full h-full border-0"
-				title="Preview"
-				shouldRefreshPreview={shouldRefreshPreview}
-				manualRefreshTrigger={manualRefreshTrigger}
-				webSocket={websocket}
-			/>,
+			isPresentation ? (
+				<PresentationPreview
+					previewUrl={previewUrl}
+					className="flex-1 w-full h-full"
+					shouldRefreshPreview={shouldRefreshPreview}
+					manualRefreshTrigger={manualRefreshTrigger}
+					webSocket={websocket}
+					speakerMode={presentationSpeakerMode}
+					previewMode={presentationPreviewMode}
+					allFiles={allFiles}
+				/>
+			) : (
+				<PreviewIframe
+					src={previewUrl}
+					ref={previewRef}
+					className="flex-1 w-full h-full border-0"
+					title="Preview"
+					shouldRefreshPreview={shouldRefreshPreview}
+					manualRefreshTrigger={manualRefreshTrigger}
+					webSocket={websocket}
+				/>
+			),
 			<PreviewHeaderActions
 				modelConfigs={modelConfigs}
 				onRequestConfigs={onRequestConfigs}
@@ -192,6 +219,12 @@ export function MainContentPanel(props: MainContentPanelProps) {
 				urlChatId={urlChatId}
 				isPhase1Complete={isPhase1Complete}
 				previewRef={previewRef}
+				projectType={projectType}
+				speakerMode={presentationSpeakerMode}
+				previewMode={presentationPreviewMode}
+				onToggleSpeakerMode={onToggleSpeakerMode}
+				onTogglePreviewMode={onTogglePreviewMode}
+				onExportPdf={onExportPdf}
 			/>
 		);
 	};
@@ -251,64 +284,11 @@ export function MainContentPanel(props: MainContentPanelProps) {
 				modelConfigs={modelConfigs}
 				onRequestConfigs={onRequestConfigs}
 				loadingConfigs={loadingConfigs}
+				onGitCloneClick={onGitCloneClick}
+				isGitHubExportReady={isGitHubExportReady}
+				onGitHubExportClick={githubExport.openModal}
 				editorRef={editorRef}
 			/>
-		);
-	};
-
-	const [presentationSpeakerMode, setPresentationSpeakerMode] = useState(false);
-	const [presentationPreviewMode, setPresentationPreviewMode] = useState(false);
-	const [presentationFullscreen, setPresentationFullscreen] = useState(false);
-
-	const handleToggleSpeakerMode = useCallback(() => {
-		setPresentationSpeakerMode((prev) => !prev);
-		if (presentationPreviewMode) setPresentationPreviewMode(false);
-	}, [presentationPreviewMode]);
-
-	const handleTogglePreviewMode = useCallback(() => {
-		setPresentationPreviewMode((prev) => !prev);
-		if (presentationSpeakerMode) setPresentationSpeakerMode(false);
-	}, [presentationSpeakerMode]);
-
-	const handleToggleFullscreen = useCallback(() => {
-		if (!document.fullscreenElement) {
-			document.documentElement.requestFullscreen();
-			setPresentationFullscreen(true);
-		} else {
-			document.exitFullscreen();
-			setPresentationFullscreen(false);
-		}
-	}, []);
-
-	const renderPresentationView = () => {
-		if (projectType !== 'presentation') return null;
-
-		return renderViewWithHeader(
-			<span className="text-sm font-mono text-text-50/70">Presentation</span>,
-			<div className="flex-1 overflow-hidden">
-				<PresentationRenderer
-					files={allFiles}
-					activeFile={activeFile ?? null}
-					onFileChange={(filePath) => {
-						console.log('[MainContentPanel] File changed:', filePath);
-					}}
-					slideDirectory={slideDirectory}
-					speakerMode={presentationSpeakerMode}
-					previewMode={presentationPreviewMode}
-					fullscreenMode={presentationFullscreen}
-					onFullscreenChange={setPresentationFullscreen}
-				/>
-			</div>,
-			<PresentationHeaderActions
-				onExportPdf={() => window.print()}
-				onToggleSpeakerMode={handleToggleSpeakerMode}
-				onTogglePreviewMode={handleTogglePreviewMode}
-				onToggleFullscreen={handleToggleFullscreen}
-				speakerMode={presentationSpeakerMode}
-				previewMode={presentationPreviewMode}
-				fullscreen={presentationFullscreen}
-			/>,
-			{ previewAvailable: true, showTooltip: false }
 		);
 	};
 
@@ -317,13 +297,12 @@ export function MainContentPanel(props: MainContentPanelProps) {
 			case 'docs':
 				return renderDocsView();
 			case 'preview':
+			case 'presentation': // Presentations now use preview view
 				return renderPreviewView();
 			case 'blueprint':
 				return renderBlueprintView();
 			case 'editor':
 				return renderEditorView();
-			case 'presentation':
-				return renderPresentationView();
 			default:
 				return null;
 		}

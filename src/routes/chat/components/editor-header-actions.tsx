@@ -1,12 +1,16 @@
 import type { RefObject } from 'react';
-import { Expand } from 'lucide-react';
+import { GitBranch, Github, Expand } from 'lucide-react';
 import { ModelConfigInfo } from './model-config-info';
+import { HeaderButton } from './header-actions';
 import type { ModelConfigsInfo } from '@/api-types';
 
 interface EditorHeaderActionsProps {
 	modelConfigs?: ModelConfigsInfo;
 	onRequestConfigs: () => void;
 	loadingConfigs: boolean;
+	onGitCloneClick: () => void;
+	isGitHubExportReady: boolean;
+	onGitHubExportClick: () => void;
 	editorRef: RefObject<HTMLDivElement | null>;
 }
 
@@ -14,6 +18,9 @@ export function EditorHeaderActions({
 	modelConfigs,
 	onRequestConfigs,
 	loadingConfigs,
+	onGitCloneClick,
+	isGitHubExportReady,
+	onGitHubExportClick,
 	editorRef,
 }: EditorHeaderActionsProps) {
 	return (
@@ -23,15 +30,26 @@ export function EditorHeaderActions({
 				onRequestConfigs={onRequestConfigs}
 				loading={loadingConfigs}
 			/>
-			<button
-				className="p-1.5 rounded-full transition-all duration-300 ease-in-out hover:bg-bg-4 border border-transparent hover:border-border-primary hover:shadow-sm"
-				onClick={() => {
-					editorRef.current?.requestFullscreen();
-				}}
+			<HeaderButton
+				icon={GitBranch}
+				label="Clone"
+				onClick={onGitCloneClick}
+				title="Clone to local machine"
+			/>
+			{isGitHubExportReady && (
+				<HeaderButton
+					icon={Github}
+					label="GitHub"
+					onClick={onGitHubExportClick}
+					title="Export to GitHub"
+				/>
+			)}
+			<HeaderButton
+				icon={Expand}
+				onClick={() => editorRef.current?.requestFullscreen()}
 				title="Fullscreen"
-			>
-				<Expand className="size-3.5 text-text-primary/60 hover:text-brand-primary transition-colors duration-300" />
-			</button>
+				iconOnly
+			/>
 		</>
 	);
 }

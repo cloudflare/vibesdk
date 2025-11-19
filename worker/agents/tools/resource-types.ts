@@ -77,9 +77,8 @@ export const t = {
 		type(
 			z.array(
 				z.object({
-					path: z.string(),
-					description: z.string(),
-					requirements: z.array(z.string()).optional(),
+					path: z.string().describe('Relative file path from project root'),
+					description: z.string().describe('Brief description of what this file should do and its purpose in the project'),
 				})
 			),
 			(specs) => ({ files: { mode: 'write', paths: specs.map((s) => s.path) } })

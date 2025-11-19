@@ -486,15 +486,10 @@ export class PhasicCodingBehavior extends BaseCodingBehavior<PhasicState> implem
     async executeFinalizing(): Promise<CurrentDevState> {
         this.logger.info("Executing FINALIZING state - final review and cleanup");
 
-        // Only do finalizing stage if it wasn't done before
-        if (this.state.mvpGenerated) {
+        if (this.setMVPGenerated()) {
             this.logger.info("Finalizing stage already done");
             return CurrentDevState.REVIEWING;
         }
-        this.setState({
-            ...this.state,
-            mvpGenerated: true
-        });
 
         const phaseConcept: PhaseConceptType = {
             name: "Finalization and Review",
@@ -543,7 +538,7 @@ export class PhasicCodingBehavior extends BaseCodingBehavior<PhasicState> implem
             {
                 issues,
                 userContext,
-                isUserSuggestedPhase: userContext?.suggestions && userContext.suggestions.length > 0 && this.state.mvpGenerated,
+                isUserSuggestedPhase: userContext?.suggestions && userContext.suggestions.length > 0 && this.isMVPGenerated(),
             },
             this.getOperationOptions()
         )
@@ -838,7 +833,7 @@ export class PhasicCodingBehavior extends BaseCodingBehavior<PhasicState> implem
         );
 
         const savedFiles = result.files.map(f => {
-            const fileState = this.state.generatedFilesMap[f.filePath];
+            const fileState = this.fileManager.getGeneratedFile(f.filePath);
             return {
                 path: f.filePath,
                 purpose: f.filePurpose || '',

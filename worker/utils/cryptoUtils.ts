@@ -9,22 +9,29 @@ export function base64url(buffer: Uint8Array): string {
     if (buffer.length === 0) {
         return '';
     }
-    
+
     // For large buffers, process in chunks to prevent stack overflow
     const CHUNK_SIZE = 8192; // 8KB chunks - safe for all JS engines
     let result = '';
-    
+
     for (let i = 0; i < buffer.length; i += CHUNK_SIZE) {
         const chunk = buffer.slice(i, i + CHUNK_SIZE);
         const chars = Array.from(chunk, byte => String.fromCharCode(byte));
         result += btoa(chars.join(''));
     }
-    
+
     // Convert to base64url format (URL-safe)
     return result
         .replace(/\+/g, '-')
         .replace(/\//g, '_')
         .replace(/=/g, '');
+}
+
+export function generatePortToken(): string {
+    const array = new Uint8Array(12); // 12 bytes = 16 base64url chars
+    crypto.getRandomValues(array);
+    // Lowercase since hostnames are case-insensitive (RFC 1035)
+    return base64url(array).toLowerCase();
 }
 
 export async function sha256Hash(text: string): Promise<string> {

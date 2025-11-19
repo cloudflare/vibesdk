@@ -13,9 +13,9 @@ export function createScratchTemplateDetails(): TemplateDetails {
         language: 'typescript',
         deps: {},
         frameworks: [],
-        importantFiles: [],
-        dontTouchFiles: [],
-        redactedFiles: [],
+        importantFiles: new Set<string>(),
+        dontTouchFiles: new Set<string>(),
+        redactedFiles: new Set<string>(),
     };
 }
 

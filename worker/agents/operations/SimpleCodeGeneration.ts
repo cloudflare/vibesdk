@@ -31,15 +31,6 @@ Your task is to generate production-ready code based on the provided specificati
 ## Original User Request
 {{userQuery}}
 
-## Project Context
-{{projectContext}}
-
-## Template Information
-{{template}}
-
-## Previously Generated Files
-{{existingFiles}}
-
 ## Critical Guidelines
 - Write clean, type-safe TypeScript code
 - Follow best practices for the specific project type
@@ -51,7 +42,23 @@ Your task is to generate production-ready code based on the provided specificati
 - Consider the context of existing files when generating new code
 - Ensure new code integrates well with previously generated files`;
 
-const USER_PROMPT = `Generate code for the following phase:
+const USER_PROMPT = `
+<PROJECT_CONTEXT>
+Project Context:
+
+{{projectContext}}
+
+## Template Information
+{{template}}
+
+<PREVIOUSLY_GENERATED_FILES>
+## Previously Generated Files
+{{existingFiles}}
+</PREVIOUSLY_GENERATED_FILES>
+</PROJECT_CONTEXT>
+
+<TASK>
+Generate code for the following phase:
 
 **Phase Name:** {{phaseName}}
 **Description:** {{phaseDescription}}
@@ -62,7 +69,9 @@ const USER_PROMPT = `Generate code for the following phase:
 **Files to Generate:**
 {{files}}
 
-Generate complete, production-ready code for all specified files.`;
+Generate complete, production-ready code for all specified files.
+</TASK>
+`;
 
 const README_GENERATION_PROMPT = `<TASK>
 Generate a comprehensive README.md file for this project based on the provided blueprint and template information.
@@ -112,7 +121,6 @@ const formatExistingFiles = (allFiles: FileState[]): string => {
         filePurpose: file.filePurpose || 'Previously generated file'
     }));
     
-    // Use existing serializer from PROMPT_UTILS
     return PROMPT_UTILS.serializeFiles(filesForSerializer, CodeSerializerType.SIMPLE);
 };
 
@@ -149,9 +157,6 @@ export class SimpleCodeGenerationOperation extends AgentOperation<
         // Build system message with full context
         const systemPrompt = PROMPT_UTILS.replaceTemplateVariables(SYSTEM_PROMPT, {
             userQuery: context.query || 'No specific user query available',
-            projectContext,
-            template: context.templateDetails ? PROMPT_UTILS.serializeTemplate(context.templateDetails) : 'No template information',
-            existingFiles: existingFilesContext
         });
 
         // Build user message with requirements
@@ -159,7 +164,10 @@ export class SimpleCodeGenerationOperation extends AgentOperation<
             phaseName,
             phaseDescription,
             requirements: formatRequirements(requirements),
-            files: formatFiles(files)
+            files: formatFiles(files),
+            projectContext,
+            template: context.templateDetails ? PROMPT_UTILS.serializeTemplate(context.templateDetails) : 'No template information',
+            existingFiles: existingFilesContext
         });
 
         const codeGenerationFormat = new SCOFFormat();

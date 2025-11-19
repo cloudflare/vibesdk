@@ -24,7 +24,6 @@ import { useGitHubExport } from '@/hooks/use-github-export';
 import { useAutoScroll } from '@/hooks/use-auto-scroll';
 import { useImageUpload } from '@/hooks/use-image-upload';
 import { useDragDrop } from '@/hooks/use-drag-drop';
-import { createAIMessage } from './utils/message-helpers';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { sendWebSocketMessage } from './utils/websocket-helpers';
@@ -108,14 +107,12 @@ export default function Chat() {
 		totalFiles,
 		websocket,
 		sendUserMessage,
-		sendAiMessage,
 		blueprint,
 		previewUrl,
 		clearEdit,
 		projectStages,
 		phaseTimeline,
 		isThinking,
-		onCompleteBootstrap,
 		// Deployment and generation control
 		isDeploying,
 		cloudflareDeploymentUrl,
@@ -147,8 +144,6 @@ export default function Chat() {
 		onDebugMessage: addDebugMessage,
 	});
 
-	const slideDirectory = templateDetails?.slideDirectory;
-
 	// GitHub export functionality - use urlChatId directly from URL params
 	const githubExport = useGitHubExport(websocket, urlChatId, refetchApp);
 	const { user } = useAuth();
@@ -160,11 +155,9 @@ export default function Chat() {
 		'editor',
 	);
 
-	useEffect(() => {
-		if (projectType === 'presentation') {
-			setView('presentation');
-		}
-	}, [projectType]);
+	// Presentation state
+	const [presentationSpeakerMode, setPresentationSpeakerMode] = useState(false);
+	const [presentationPreviewMode, setPresentationPreviewMode] = useState(false);
 
 	// Terminal state
 	// const [terminalLogs, setTerminalLogs] = useState<TerminalLog[]>([]);
@@ -234,16 +227,26 @@ export default function Chat() {
 	const imageInputRef = useRef<HTMLInputElement>(null);
 
 	// Fake stream bootstrap files
-	const { streamedFiles: streamedBootstrapFiles, doneStreaming } =
+	const { streamedFiles: streamedBootstrapFiles } =
 		useFileContentStream(bootstrapFiles, {
 			tps: 600,
 			enabled: isBootstrapping,
 		});
 
 	// Merge streamed bootstrap files with generated files
-	const allStreamedFiles = useMemo(() => {
-		return mergeFiles(streamedBootstrapFiles, files);
-	}, [streamedBootstrapFiles, files, projectType]);
+	const allFiles = useMemo(() => {
+		if (templateDetails?.allFiles) {
+			const templateFiles = Object.entries(templateDetails.allFiles).map(
+				([filePath, fileContents]) => ({
+					filePath,
+					fileContents,
+				})
+			);
+			return mergeFiles(templateFiles, files);
+		}
+
+		return files;
+	}, [files, templateDetails]);
 
 	const handleFileClick = useCallback((file: FileType) => {
 		logger.debug('handleFileClick()', file);
@@ -258,6 +261,26 @@ export default function Chat() {
 
 	const handleViewModeChange = useCallback((mode: 'preview' | 'editor' | 'docs' | 'blueprint' | 'presentation') => {
 		setView(mode);
+	}, []);
+
+	const handleToggleSpeakerMode = useCallback(() => {
+		setPresentationSpeakerMode(prev => !prev);
+		if (!presentationSpeakerMode) {
+			setPresentationPreviewMode(false);
+		}
+	}, [presentationSpeakerMode]);
+
+	const handleTogglePreviewMode = useCallback(() => {
+		setPresentationPreviewMode(prev => !prev);
+		if (!presentationPreviewMode) {
+			setPresentationSpeakerMode(false);
+		}
+	}, [presentationPreviewMode]);
+
+	const handleExportPdf = useCallback(() => {
+		if (previewRef.current?.contentWindow) {
+			previewRef.current.contentWindow.postMessage({ type: 'EXPORT_PDF' }, '*');
+		}
 	}, []);
 
 	const handleResetConversation = useCallback(() => {
@@ -370,26 +393,22 @@ export default function Chat() {
 
 	// Preview available based on projectType and content
 	const previewAvailable = useMemo(() => {
-		if (hasDocumentation) return true;
-		if (projectType === 'app') return !!previewUrl;
-		if (projectType === 'presentation') return true;
-		if (projectType === 'general') return hasDocumentation;
+		if (hasDocumentation || !!previewUrl) return true;
 		return false;
-	}, [hasDocumentation, projectType, previewUrl]);
+	}, [hasDocumentation, previewUrl]);
 
 	const showMainView = useMemo(() => {
-		// For agentic mode: show preview panel when files exist, preview URL exists, OR it's a presentation project
+		// For agentic mode: show preview panel when files exist or preview URL exists
 		if (behaviorType === 'agentic') {
 			const hasFiles = files.length > 0;
 			const hasPreview = !!previewUrl;
-			const isPresentation = projectType === 'presentation';
-			const result = hasFiles || hasPreview || isPresentation;
+			const result = hasFiles || hasPreview;
 			return result;
 		}
 		// For phasic mode: keep existing logic
 		const result = streamedBootstrapFiles.length > 0 || !!blueprint || files.length > 0;
 		return result;
-	}, [behaviorType, blueprint, files.length, previewUrl, streamedBootstrapFiles.length, projectType]);
+	}, [behaviorType, blueprint, files.length, previewUrl, streamedBootstrapFiles.length]);
 
 	const [mainMessage, ...otherMessages] = useMemo(() => messages, [messages]);
 
@@ -433,7 +452,7 @@ export default function Chat() {
 				setActiveFilePath(files[0].filePath);
 			}
 			hasSeenPreview.current = true;
-		} else if (previewUrl && projectType === 'app') {
+		} else if (previewUrl) {
 			// For apps, wait for preview URL
 			// Agentic: auto-switch immediately when preview URL available
 			// Phasic: require phase 1 complete
@@ -824,7 +843,7 @@ export default function Chat() {
 								onManualRefresh={() => setManualRefreshTrigger(Date.now())}
 								blueprint={blueprint}
 								activeFile={activeFile}
-								allFiles={allStreamedFiles}
+								allFiles={allFiles}
 								edit={edit}
 								onFileClick={handleFileClick}
 								isGenerating={isGenerating}
@@ -839,9 +858,13 @@ export default function Chat() {
 								urlChatId={urlChatId}
 								isPhase1Complete={isPhase1Complete}
 								websocket={websocket}
-								slideDirectory={slideDirectory}
 								previewRef={previewRef}
 								editorRef={editorRef}
+								presentationSpeakerMode={presentationSpeakerMode}
+								presentationPreviewMode={presentationPreviewMode}
+								onToggleSpeakerMode={handleToggleSpeakerMode}
+								onTogglePreviewMode={handleTogglePreviewMode}
+								onExportPdf={handleExportPdf}
 							/>
 						</motion.div>
 					)}

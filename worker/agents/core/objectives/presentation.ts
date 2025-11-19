@@ -2,7 +2,7 @@ import { ProjectObjective } from './base';
 import { BaseProjectState } from '../state';
 import { ProjectType, ExportResult, ExportOptions, DeployResult, DeployOptions } from '../types';
 import type { AgentInfrastructure } from '../AgentCore';
-import { WebSocketMessageResponses, PREVIEW_EXPIRED_ERROR } from '../../constants';
+import { WebSocketMessageResponses } from '../../constants';
 import { AppService } from '../../../database/services/AppService';
 
 /**
@@ -59,13 +59,6 @@ export class PresentationObjective<TState extends BaseProjectState = BaseProject
           onStarted: (data) => this.broadcast(WebSocketMessageResponses.CLOUDFLARE_DEPLOYMENT_STARTED, data),
           onCompleted: (data) => this.broadcast(WebSocketMessageResponses.CLOUDFLARE_DEPLOYMENT_COMPLETED, data),
           onError: (data) => this.broadcast(WebSocketMessageResponses.CLOUDFLARE_DEPLOYMENT_ERROR, data),
-          onPreviewExpired: () => {
-            this.deploymentManager.deployToSandbox();
-            this.broadcast(WebSocketMessageResponses.CLOUDFLARE_DEPLOYMENT_ERROR, {
-              message: PREVIEW_EXPIRED_ERROR,
-              error: PREVIEW_EXPIRED_ERROR
-            });
-          }
         }
       });
 

@@ -5,6 +5,8 @@ import { Blueprint } from "../schemas";
 import { BaseCodingBehavior } from "./behaviors/base";
 import { createObjectLogger, StructuredLogger } from '../../logger';
 import { InferenceContext } from "../inferutils/config.types";
+import { getMimeType } from 'hono/utils/mime';
+import { normalizePath, isPathSafe } from '../../utils/pathUtils';
 import { FileManager } from '../services/implementations/FileManager';
 import { DeploymentManager } from '../services/implementations/DeploymentManager';
 import { GitVersionControl } from '../git';
@@ -106,7 +108,7 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
                 getLogger: () => this.logger(),
                 env: this.env
             },
-            10 // MAX_COMMANDS_HISTORY
+            10, // MAX_COMMANDS_HISTORY
         );
     }
     /**
@@ -590,6 +592,134 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
             this.logger().error('exportGitObjects failed', error);
             throw error;
         }
+    }
+
+    /**
+     * Handle browser file serving requests
+     */
+    async handleBrowserFileServing(request: Request): Promise<Response> {
+        const url = new URL(request.url);
+
+        this.logger().info('[BROWSER SERVING] Request received', {
+            hostname: url.hostname,
+            pathname: url.pathname,
+            method: request.method
+        });
+
+        // Handle CORS preflight
+        if (request.method === 'OPTIONS') {
+            return new Response(null, {
+                status: 204,
+                headers: {
+                    'Access-Control-Allow-Origin': '*',
+                    'Access-Control-Allow-Methods': 'GET, OPTIONS',
+                    'Access-Control-Allow-Headers': '*',
+                    'Access-Control-Max-Age': '86400'
+                }
+            });
+        }
+
+        // Extract token from hostname
+        // Pattern: b-{agentid}-{token}.{previewDomain}/{filepath}
+        // Token is always 16 characters after the LAST hyphen (after removing 'b-' prefix)
+        const subdomain = url.hostname.split('.')[0];
+
+        if (!subdomain.startsWith('b-')) {
+            this.logger().warn('[BROWSER SERVING] Invalid hostname pattern - missing b- prefix', { hostname: url.hostname });
+            return new Response('Invalid request', {
+                status: 400,
+                headers: { 'Content-Type': 'text/plain' }
+            });
+        }
+
+        const withoutPrefix = subdomain.substring(2); // Remove 'b-'
+        const lastHyphenIndex = withoutPrefix.lastIndexOf('-');
+
+        if (lastHyphenIndex === -1) {
+            this.logger().warn('[BROWSER SERVING] Invalid hostname pattern - no hyphen after prefix', { hostname: url.hostname });
+            return new Response('Invalid request', {
+                status: 400,
+                headers: { 'Content-Type': 'text/plain' }
+            });
+        }
+
+        const providedToken = withoutPrefix.substring(lastHyphenIndex + 1);
+
+        // Extract file path from pathname
+        let filePath = url.pathname === '/' || url.pathname === ''
+            ? 'public/index.html'
+            : url.pathname.replace(/^\//, ''); // Remove leading slash
+
+        this.logger().info('[BROWSER SERVING] Extracted', { providedToken, filePath });
+
+        // Validate token
+        const storedToken = this.state.fileServingToken?.token;
+        if (!storedToken || providedToken !== storedToken.toLowerCase()) {
+            this.logger().warn('[BROWSER SERVING] Token mismatch', { providedToken, storedToken });
+            return new Response('Unauthorized', {
+                status: 403,
+                headers: { 'Content-Type': 'text/plain' }
+            });
+        }
+
+        if (!isPathSafe(filePath)) {
+            return new Response('Invalid path', {
+                status: 400,
+                headers: { 'Content-Type': 'text/plain' }
+            });
+        }
+        const normalized = normalizePath(filePath);
+        let file = this.fileManager.getFile(normalized);
+
+        // Try with public/ prefix if not found
+        if (!file && !normalized.startsWith('public/')) {
+            file = this.fileManager.getFile(`public/${normalized}`);
+        }
+
+        if (!file) {
+            this.logger().warn('[BROWSER SERVING] File not found', { normalized });
+            return new Response('File not found', {
+                status: 404,
+                headers: { 'Content-Type': 'text/plain' }
+            });
+        }
+
+        // Serve file with correct Content-Type
+        const contentType = getMimeType(normalized) || 'application/octet-stream';
+
+        this.logger().info('[BROWSER SERVING] Serving file', {
+            path: normalized,
+            contentType
+        });
+
+        let content = file.fileContents;
+
+        // For HTML files, inject base tag
+        if (normalized.endsWith('.html') || contentType.includes('text/html')) {
+            const baseTag = `<base href="/">`;
+
+            // Inject base tag after <head> tag if present
+            if (content.includes('<head>')) {
+                content = content.replace(/<head>/i, `<head>\n  ${baseTag}`);
+            } else {
+                // Fallback: inject at the beginning
+                content = baseTag + '\n' + content;
+            }
+
+            this.logger().info('[BROWSER SERVING] Injected base tag');
+        }
+
+        return new Response(content, {
+            status: 200,
+            headers: {
+                'Content-Type': contentType,
+                'Cache-Control': 'no-cache, no-store, must-revalidate',
+                'Access-Control-Allow-Origin': '*',
+                'Access-Control-Allow-Methods': 'GET, OPTIONS',
+                'Access-Control-Allow-Headers': '*',
+                'X-Sandbox-Type': 'browser-native'
+            }
+        });
     }
 
     /**

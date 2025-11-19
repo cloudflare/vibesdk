@@ -11,6 +11,10 @@ import { TemplateFile } from "worker/services/sandbox/sandboxTypes";
 
 export interface ICodingAgent {
     getBehavior(): BehaviorType;
+
+    isMVPGenerated(): boolean;
+    
+    setMVPGenerated(): boolean;
     
     getLogs(reset?: boolean, durationSeconds?: number): Promise<string>;
     

@@ -21,7 +21,6 @@ export interface CloudflareDeploymentCallbacks {
     onStarted?: (data: Omit<CloudflareDeploymentStartedMessage, 'type'>) => void;
     onCompleted?: (data: Omit<CloudflareDeploymentCompletedMessage, 'type'>) => void;
     onError?: (data: Omit<CloudflareDeploymentErrorMessage, 'type'>) => void;
-    onPreviewExpired?: () => void;
 }
 
 /**

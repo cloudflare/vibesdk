@@ -1,5 +1,6 @@
 import { tool, t, ToolDefinition } from '../types';
 import { StructuredLogger } from '../../../logger';
+import { ICodingAgent } from 'worker/agents/services/interfaces/ICodingAgent';
 
 type CompletionResult = {
 	acknowledged: true;
@@ -7,6 +8,7 @@ type CompletionResult = {
 };
 
 export function createMarkGenerationCompleteTool(
+    agent: ICodingAgent,
 	logger: StructuredLogger
 ): ToolDefinition<{ summary: string; filesGenerated: number }, CompletionResult> {
 	return tool({
@@ -33,6 +35,8 @@ Once you call this tool, make NO further tool calls. The system will stop immedi
 				filesGenerated,
 				timestamp: new Date().toISOString()
 			});
+            
+            agent.setMVPGenerated();
 
 			return {
 				acknowledged: true as const,

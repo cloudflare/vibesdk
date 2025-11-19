@@ -94,7 +94,9 @@ export abstract class BaseSandboxService {
                     language: t.language,
                     frameworks: t.frameworks || [],
                     description: t.description,
-                    projectType: t.projectType || 'app'
+                    projectType: t.projectType || 'app',
+                    renderMode: t.renderMode,
+                    slideDirectory: t.slideDirectory,
                 })),
                 count: filteredTemplates.length
             };
@@ -158,7 +160,7 @@ export abstract class BaseSandboxService {
             const catalogInfo = catalogResponse.success 
                 ? catalogResponse.templates.find(t => t.name === templateName)
                 : null;
-            
+            console.log('Catalog info:', catalogInfo);
             // Remove metadata files and convert to map for efficient lookups
             const filteredFiles = allFiles.filter(f => 
                 !f.filePath.startsWith('.') || 
@@ -181,13 +183,15 @@ export abstract class BaseSandboxService {
                 allFiles: filesMap,
                 language: catalogInfo?.language,
                 deps: dependencies,
-                importantFiles,
-                dontTouchFiles,
-                redactedFiles,
+                importantFiles: new Set(importantFiles),
+                dontTouchFiles: new Set(dontTouchFiles),
+                redactedFiles: new Set(redactedFiles),
                 frameworks: catalogInfo?.frameworks || [],
                 renderMode: catalogInfo?.renderMode,
                 slideDirectory: catalogInfo?.slideDirectory,
             };
+
+            console.log('Template details:', templateDetails, dontTouchFiles, redactedFiles, importantFiles);
 
             templateDetailsCache[templateName] = templateDetails;
 
