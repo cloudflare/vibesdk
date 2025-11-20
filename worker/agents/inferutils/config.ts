@@ -3,7 +3,9 @@ import {
     AgentConfig, 
     AgentConstraintConfig, 
     AIModels,
+    AllModels,
     LiteModels,
+    RegularModels,
 } from "./config.types";
 
 /*
@@ -161,33 +163,32 @@ export const AGENT_CONFIG: AgentConfig = {
 };
 
 export const AGENT_CONSTRAINTS: Map<AgentActionKey, AgentConstraintConfig> = new Map([
-	// Fast code fixers should use lightweight, fast models
 	['fastCodeFixer', {
-		allowedModels: new Set(LiteModels),
+		allowedModels: new Set([AIModels.DISABLED]),
 		enabled: true,
 	}],
 	['realtimeCodeFixer', {
-		allowedModels: new Set(LiteModels),
+		allowedModels: new Set([AIModels.DISABLED]),
 		enabled: true,
 	}],
 	['fileRegeneration', {
-		allowedModels: new Set([...LiteModels, AIModels.GEMINI_2_5_PRO]),
+		allowedModels: new Set(AllModels),
 		enabled: true,
 	}],
 	['phaseGeneration', {
-		allowedModels: new Set([...LiteModels, AIModels.GEMINI_2_5_PRO]),
+		allowedModels: new Set([...RegularModels, AIModels.GEMINI_2_5_PRO]),
 		enabled: true,
 	}],
 	['projectSetup', {
-		allowedModels: new Set([...LiteModels, AIModels.GEMINI_2_5_PRO]),
+		allowedModels: new Set([...RegularModels, AIModels.GEMINI_2_5_PRO]),
 		enabled: true,
 	}],
 	['conversationalResponse', {
-		allowedModels: new Set(LiteModels),
+		allowedModels: new Set(RegularModels),
 		enabled: true,
 	}],
 	['templateSelection', {
-		allowedModels: new Set([AIModels.GEMINI_2_5_FLASH_LITE, AIModels.GEMINI_2_5_FLASH_LITE_LATEST]),
+		allowedModels: new Set(LiteModels),
 		enabled: true,
 	}],
 ]);
