@@ -7,7 +7,7 @@ import { AgentConnectionData, AgentPreviewResponse, CodeGenArgs } from './types'
 import { ApiResponse, ControllerResponse } from '../types';
 import { RouteContext } from '../../types/route-context';
 import { ModelConfigService } from '../../../database';
-import { AIModels, ModelConfig } from '../../../agents/inferutils/config.types';
+import { ModelConfig } from '../../../agents/inferutils/config.types';
 import { RateLimitService } from '../../../services/rate-limit/rateLimits';
 import { validateWebSocketOrigin } from '../../../middleware/security/websocket';
 import { createLogger } from '../../../logger';
@@ -84,23 +84,17 @@ export class CodingAgentController extends BaseController {
                 getAgentStub(env, agentId)
             ]);
                                 
-            // Convert Record to Map and extract only ModelConfig properties
-            const userModelConfigs = new Map();
+            // Extract only user-overridden configs, stripping metadata fields
+            const userModelConfigs: Record<string, ModelConfig> = {};
             for (const [actionKey, mergedConfig] of Object.entries(userConfigsRecord)) {
-                if (mergedConfig.isUserOverride && (mergedConfig.name in AIModels) ) {
-                    const modelConfig: ModelConfig = {
-                        name: mergedConfig.name,
-                        max_tokens: mergedConfig.max_tokens,
-                        temperature: mergedConfig.temperature,
-                        reasoning_effort: mergedConfig.reasoning_effort,
-                        fallbackModel: mergedConfig.fallbackModel
-                    };
-                    userModelConfigs.set(actionKey, modelConfig);
+                if (mergedConfig.isUserOverride) {
+                    const { isUserOverride, userConfigId, ...modelConfig } = mergedConfig;
+                    userModelConfigs[actionKey] = modelConfig;
                 }
             }
 
             const inferenceContext = {
-                userModelConfigs: Object.fromEntries(userModelConfigs),
+                userModelConfigs,
                 agentId: agentId,
                 userId: user.id,
                 enableRealtimeCodeFix: false, // This costs us too much, so disabled it for now

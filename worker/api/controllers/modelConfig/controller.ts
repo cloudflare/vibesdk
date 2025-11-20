@@ -382,9 +382,20 @@ export class ModelConfigController extends BaseController {
         try {
             const user = context.user!;
 
-            // Parse optional agentAction query parameter
+            // Parse and validate optional agentAction query parameter
             const url = new URL(request.url);
-            const agentAction = url.searchParams.get('agentAction') as AgentActionKey | null;
+            const agentActionParam = url.searchParams.get('agentAction');
+
+            let agentAction: AgentActionKey | null = null;
+            const validAgentActions = Object.keys(AGENT_CONFIG) as AgentActionKey[];
+            if (agentActionParam && validAgentActions.includes(agentActionParam as AgentActionKey)) {
+                agentAction = agentActionParam as AgentActionKey;
+            } else if (agentActionParam) {
+                return ModelConfigController.createErrorResponse<ByokProvidersData>(
+                    `Invalid agentAction: '${agentActionParam}'. Must be one of: ${validAgentActions.join(', ')}`,
+                    400
+                );
+            }
 
             // Get user's provider status
             const providers = await getUserProviderStatus(user.id, env);
