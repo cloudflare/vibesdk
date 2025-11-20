@@ -263,6 +263,17 @@ const MODELS_MASTER = {
     //         nonReasoning: true,
     //     }
     // },
+    // GROQ_GPT_120_OSS: {
+    //     id: 'groq/gpt-oss-120b',
+    //     config: {
+    //         name: 'GROQ GPT 120B OSS',
+    //         size: ModelSize.LITE,
+    //         provider: 'groq',
+    //         creditCost: 0.4, // $0.25
+    //         contextSize: 131072, // 128K Context
+    //         nonReasoning: true,
+    //     }
+    // },
 } as const;
 
 /**

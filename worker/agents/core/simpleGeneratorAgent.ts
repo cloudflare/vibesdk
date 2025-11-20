@@ -52,6 +52,7 @@ import { StateMigration } from './stateMigration';
 import { generateNanoId } from 'worker/utils/idGenerator';
 import { updatePackageJson } from '../utils/packageSyncer';
 import { IdGenerator } from '../utils/idGenerator';
+import { SimpleCodeGenerationOperation } from '../operations/SimpleCodeGeneration';
 
 interface Operations {
     regenerateFile: FileRegenerationOperation;
@@ -1791,40 +1792,61 @@ export class SimpleCodeGeneratorAgent extends Agent<Env, CodeGenState> {
             requirementsCount: requirements.length,
             filesCount: files.length
         });
+        
+        // Broadcast file generation started
+        this.broadcast(WebSocketMessageResponses.PHASE_IMPLEMENTING, {
+            message: `Generating files: ${phaseName}`,
+            phaseName
+        });
 
-        // Create phase structure with explicit files
-        const phase: PhaseConceptType = {
-            name: phaseName,
-            description: phaseDescription,
-            files: files,
-            lastPhase: true
-        };
-
-        // Call existing implementPhase with postPhaseFixing=false
-        // This skips deterministic fixes and fast smart fixes
-        const result = await this.implementPhase(
-            phase,
+        const operation = new SimpleCodeGenerationOperation();
+        const result = await operation.execute(
             {
-                runtimeErrors: [],
-                staticAnalysis: { 
-                    success: true, 
-                    lint: { issues: [] }, 
-                    typecheck: { issues: [] } 
+                phaseName,
+                phaseDescription,
+                requirements,
+                files,
+                fileGeneratingCallback: (filePath: string, filePurpose: string) => {
+                    this.broadcast(WebSocketMessageResponses.FILE_GENERATING, {
+                        message: `Generating file: ${filePath}`,
+                        filePath,
+                        filePurpose
+                    });
                 },
+                fileChunkGeneratedCallback: (filePath: string, chunk: string, format: 'full_content' | 'unified_diff') => {
+                    this.broadcast(WebSocketMessageResponses.FILE_CHUNK_GENERATED, {
+                        message: `Generating file: ${filePath}`,
+                        filePath,
+                        chunk,
+                        format
+                    });
+                },
+                fileClosedCallback: (file, message) => {
+                    this.broadcast(WebSocketMessageResponses.FILE_GENERATED, {
+                        message,
+                        file
+                    });
+                }
             },
-            { suggestions: requirements },
-            true, // streamChunks
-            false // postPhaseFixing = false (skip auto-fixes)
+            this.getOperationOptions()
         );
 
-        // Return files with diffs from FileState
-        return {
-            files: result.files.map(f => ({
+        const savedFiles = await this.fileManager.saveGeneratedFiles(
+            result.files,
+            `feat: ${phaseName}\n\n${phaseDescription}`
+        );
+
+        this.logger().info('Files generated and saved', {
+            fileCount: result.files.length
+        });
+
+        return { files: savedFiles.map(f => {
+            return {
                 path: f.filePath,
                 purpose: f.filePurpose || '',
-                diff: (f as any).lastDiff || '' // FileState has lastDiff
-            }))
-        };
+                diff: f.lastDiff || ''
+            };
+        }) };
     }
 
     async deployToSandbox(files: FileOutputType[] = [], redeploy: boolean = false, commitMessage?: string, clearLogs: boolean = false): Promise<PreviewType | null> {

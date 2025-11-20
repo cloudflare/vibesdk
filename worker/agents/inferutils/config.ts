@@ -58,25 +58,25 @@ export const AGENT_CONFIG: AgentConfig = {
         fallbackModel: AIModels.GEMINI_2_5_FLASH,
     },
     deepDebugger: {
-        name: AIModels.OPENAI_5_1,
+        name: AIModels.OPENAI_5_MINI,
         reasoning_effort: 'high',
         max_tokens: 8000,
         temperature: 1,
         fallbackModel: AIModels.GEMINI_2_5_FLASH,
     },
     fileRegeneration: {
-        name: AIModels.GROK_CODE_FAST_1,
-        reasoning_effort: 'high',
+        name: AIModels.OPENAI_5_MINI,
+        reasoning_effort: 'medium',
         max_tokens: 16000,
-        temperature: 0,
-        fallbackModel: AIModels.CLAUDE_4_5_HAIKU,
+        temperature: 1,
+        fallbackModel: AIModels.GROK_CODE_FAST_1,
     },
     // Not used right now
     screenshotAnalysis: {
         name: AIModels.GEMINI_2_5_PRO,
         reasoning_effort: 'medium',
         max_tokens: 8000,
-        temperature: 0.1,
+        temperature: 1,
         fallbackModel: AIModels.GEMINI_2_5_FLASH,
     },
     realtimeCodeFixer: {
