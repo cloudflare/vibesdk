@@ -31,7 +31,7 @@ export function generatePortToken(): string {
     const array = new Uint8Array(12); // 12 bytes = 16 base64url chars
     crypto.getRandomValues(array);
     // Lowercase since hostnames are case-insensitive (RFC 1035)
-    return base64url(array).toLowerCase();
+    return base64url(array).toLowerCase().replace(/-/g, 'x');
 }
 
 export async function sha256Hash(text: string): Promise<string> {
