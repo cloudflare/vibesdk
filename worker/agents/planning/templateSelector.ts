@@ -35,6 +35,7 @@ export async function selectTemplate({ env, query, availableTemplates, inference
             templateCount: availableTemplates.length 
         });
 
+        availableTemplates = availableTemplates.filter(t => t.projectType !== 'presentation');
         const validTemplateNames = availableTemplates.map(t => t.name);
 
         const templateDescriptions = availableTemplates.map((t, index) =>

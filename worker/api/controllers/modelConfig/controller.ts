@@ -395,7 +395,7 @@ export class ModelConfigController extends BaseController {
                     `Invalid agentAction: '${agentActionParam}'. Must be one of: ${validAgentActions.join(', ')}`,
                     400
                 );
-}
+            }
 
             // Get user's provider status
             const providers = await getUserProviderStatus(user.id, env);
