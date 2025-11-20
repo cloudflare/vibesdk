@@ -40,7 +40,7 @@ export const AGENT_CONFIG: AgentConfig = {
         name: AIModels.GEMINI_3_PRO_PREVIEW,
         reasoning_effort: 'low',
         max_tokens: 48000,
-        temperature: 0.2,
+        temperature: 1,
         fallbackModel: AIModels.GEMINI_2_5_PRO,
     },
     phaseImplementation: {
@@ -58,10 +58,10 @@ export const AGENT_CONFIG: AgentConfig = {
         fallbackModel: AIModels.GEMINI_2_5_FLASH,
     },
     deepDebugger: {
-        name: AIModels.GEMINI_2_5_PRO,
+        name: AIModels.OPENAI_5_1,
         reasoning_effort: 'high',
         max_tokens: 8000,
-        temperature: 0.5,
+        temperature: 1,
         fallbackModel: AIModels.GEMINI_2_5_FLASH,
     },
     fileRegeneration: {
