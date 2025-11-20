@@ -30,8 +30,8 @@ import { ScreenshotAnalysisOperation } from '../operations/ScreenshotAnalysis';
 // Database schema imports removed - using zero-storage OAuth flow
 import { BaseSandboxService } from '../../services/sandbox/BaseSandboxService';
 import { WebSocketMessageData, WebSocketMessageType } from '../../api/websocketTypes';
-import { InferenceContext, AgentActionKey } from '../inferutils/config.types';
-import { AGENT_CONFIG } from '../inferutils/config';
+import { InferenceContext, AgentActionKey, ModelConfig } from '../inferutils/config.types';
+import { AGENT_CONFIG, AGENT_CONSTRAINTS } from '../inferutils/config';
 import { ModelConfigService } from '../../database/services/ModelConfigService';
 import { fixProjectIssues } from '../../services/code-fixer';
 import { GitVersionControl } from '../git';
@@ -52,6 +52,7 @@ import { StateMigration } from './stateMigration';
 import { generateNanoId } from 'worker/utils/idGenerator';
 import { updatePackageJson } from '../utils/packageSyncer';
 import { IdGenerator } from '../utils/idGenerator';
+import { SimpleCodeGenerationOperation } from '../operations/SimpleCodeGeneration';
 
 interface Operations {
     regenerateFile: FileRegenerationOperation;
@@ -349,6 +350,26 @@ export class SimpleCodeGeneratorAgent extends Agent<Env, CodeGenState> {
         // Fill the template cache
         await this.ensureTemplateDetails();
         this.logger().info(`Agent ${this.getAgentId()} session: ${this.state.sessionId} onStart processed successfully`);
+
+        // Load the latest user configs
+        const modelConfigService = new ModelConfigService(this.env);
+        const userConfigsRecord = await modelConfigService.getUserModelConfigs(this.state.inferenceContext.userId);
+        
+        const userModelConfigs: Record<string, ModelConfig> = {};
+        for (const [actionKey, mergedConfig] of Object.entries(userConfigsRecord)) {
+            if (mergedConfig.isUserOverride) {
+                const { isUserOverride, userConfigId, ...modelConfig } = mergedConfig;
+                userModelConfigs[actionKey] = modelConfig;
+            }
+        }
+        this.setState({
+            ...this.state,
+            inferenceContext: {
+                ...this.state.inferenceContext,
+                userModelConfigs,
+            },
+        });
+        this.logger().info(`Agent ${this.getAgentId()} session: ${this.state.sessionId} onStart: User configs loaded successfully`, {userModelConfigs});
     }
 
     private async gitInit() {
@@ -1357,12 +1378,19 @@ export class SimpleCodeGeneratorAgent extends Agent<Env, CodeGenState> {
             // Get all user configs
             const userConfigsRecord = await modelConfigService.getUserModelConfigs(userId);
             
-            // Transform to match frontend interface
-            const agents = Object.entries(AGENT_CONFIG).map(([key, config]) => ({
-                key,
-                name: config.name,
-                description: config.description
-            }));
+            // Transform to match frontend interface with constraint info
+            const agents = Object.entries(AGENT_CONFIG).map(([key, config]) => {
+                const constraint = AGENT_CONSTRAINTS.get(key as AgentActionKey);
+                return {
+                    key,
+                    name: config.name,
+                    description: config.description,
+                    constraint: constraint ? {
+                        enabled: constraint.enabled,
+                        allowedModels: Array.from(constraint.allowedModels)
+                    } : undefined
+                };
+            });
 
             const userConfigs: Record<string, any> = {};
             const defaultConfigs: Record<string, any> = {};
@@ -1764,40 +1792,61 @@ export class SimpleCodeGeneratorAgent extends Agent<Env, CodeGenState> {
             requirementsCount: requirements.length,
             filesCount: files.length
         });
+        
+        // Broadcast file generation started
+        this.broadcast(WebSocketMessageResponses.PHASE_IMPLEMENTING, {
+            message: `Generating files: ${phaseName}`,
+            phaseName
+        });
 
-        // Create phase structure with explicit files
-        const phase: PhaseConceptType = {
-            name: phaseName,
-            description: phaseDescription,
-            files: files,
-            lastPhase: true
-        };
-
-        // Call existing implementPhase with postPhaseFixing=false
-        // This skips deterministic fixes and fast smart fixes
-        const result = await this.implementPhase(
-            phase,
+        const operation = new SimpleCodeGenerationOperation();
+        const result = await operation.execute(
             {
-                runtimeErrors: [],
-                staticAnalysis: { 
-                    success: true, 
-                    lint: { issues: [] }, 
-                    typecheck: { issues: [] } 
+                phaseName,
+                phaseDescription,
+                requirements,
+                files,
+                fileGeneratingCallback: (filePath: string, filePurpose: string) => {
+                    this.broadcast(WebSocketMessageResponses.FILE_GENERATING, {
+                        message: `Generating file: ${filePath}`,
+                        filePath,
+                        filePurpose
+                    });
                 },
+                fileChunkGeneratedCallback: (filePath: string, chunk: string, format: 'full_content' | 'unified_diff') => {
+                    this.broadcast(WebSocketMessageResponses.FILE_CHUNK_GENERATED, {
+                        message: `Generating file: ${filePath}`,
+                        filePath,
+                        chunk,
+                        format
+                    });
+                },
+                fileClosedCallback: (file, message) => {
+                    this.broadcast(WebSocketMessageResponses.FILE_GENERATED, {
+                        message,
+                        file
+                    });
+                }
             },
-            { suggestions: requirements },
-            true, // streamChunks
-            false // postPhaseFixing = false (skip auto-fixes)
+            this.getOperationOptions()
         );
 
-        // Return files with diffs from FileState
-        return {
-            files: result.files.map(f => ({
+        const savedFiles = await this.fileManager.saveGeneratedFiles(
+            result.files,
+            `feat: ${phaseName}\n\n${phaseDescription}`
+        );
+
+        this.logger().info('Files generated and saved', {
+            fileCount: result.files.length
+        });
+
+        return { files: savedFiles.map(f => {
+            return {
                 path: f.filePath,
                 purpose: f.filePurpose || '',
-                diff: (f as any).lastDiff || '' // FileState has lastDiff
-            }))
-        };
+                diff: f.lastDiff || ''
+            };
+        }) };
     }
 
     async deployToSandbox(files: FileOutputType[] = [], redeploy: boolean = false, commitMessage?: string, clearLogs: boolean = false): Promise<PreviewType | null> {

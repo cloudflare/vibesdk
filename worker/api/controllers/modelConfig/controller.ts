@@ -9,9 +9,10 @@ import { ApiResponse, ControllerResponse } from '../types';
 import { ModelConfigService } from '../../../database/services/ModelConfigService';
 import { SecretsService } from '../../../database/services/SecretsService';
 import { ModelTestService } from '../../../database/services/ModelTestService';
-import { 
-    AgentActionKey, 
-    ModelConfig
+import {
+    AgentActionKey,
+    ModelConfig,
+    AIModels
 } from '../../../agents/inferutils/config.types';
 import { AGENT_CONFIG } from '../../../agents/inferutils/config';
 import {
@@ -32,6 +33,7 @@ import {
 } from './byokHelper';
 import { z } from 'zod';
 import { createLogger } from '../../../logger';
+import { getFilteredModelsForAgent } from './constraintHelper';
 
 // Validation schemas
 const modelConfigUpdateSchema = z.object({
@@ -189,6 +191,13 @@ export class ModelConfigController extends BaseController {
                 }
             }
 
+            if (!modelConfig.name) {
+                return ModelConfigController.createErrorResponse<ModelConfigUpdateData>(
+                    'Model name is required',
+                    400
+                );
+            }
+
             const modelConfigService = new ModelConfigService(env);
             const updatedConfig = await modelConfigService.upsertUserModelConfig(
                 user.id,
@@ -206,6 +215,12 @@ export class ModelConfigController extends BaseController {
             if (error instanceof z.ZodError) {
                 return ModelConfigController.createErrorResponse<ModelConfigUpdateData>('Validation failed: ' + JSON.stringify(error.errors), 400);
             }
+
+            // Handle constraint violations (thrown by service)
+            if (error instanceof Error && error.message.includes('not allowed')) {
+                return ModelConfigController.createErrorResponse<ModelConfigUpdateData>(error.message, 400);
+            }
+
             this.logger.error('Error updating model configuration:', error);
             return ModelConfigController.createErrorResponse<ModelConfigUpdateData>('Failed to update model configuration', 500);
         }
@@ -359,25 +374,72 @@ export class ModelConfigController extends BaseController {
 
     /**
      * Get BYOK providers and available models
-     * GET /api/model-configs/byok-providers
+     * GET /api/model-configs/byok-providers?agentAction=<optional>
+     *
+     * If agentAction is provided, returns only models allowed by that agent's constraints
      */
-    static async getByokProviders(_request: Request, env: Env, _ctx: ExecutionContext, context: RouteContext): Promise<ControllerResponse<ApiResponse<ByokProvidersData>>> {
+    static async getByokProviders(request: Request, env: Env, _ctx: ExecutionContext, context: RouteContext): Promise<ControllerResponse<ApiResponse<ByokProvidersData>>> {
         try {
             const user = context.user!;
 
+            // Parse and validate optional agentAction query parameter
+            const url = new URL(request.url);
+            const agentActionParam = url.searchParams.get('agentAction');
+
+            let agentAction: AgentActionKey | null = null;
+            const validAgentActions = Object.keys(AGENT_CONFIG) as AgentActionKey[];
+            if (agentActionParam && validAgentActions.includes(agentActionParam as AgentActionKey)) {
+                agentAction = agentActionParam as AgentActionKey;
+            } else if (agentActionParam) {
+                return ModelConfigController.createErrorResponse<ByokProvidersData>(
+                    `Invalid agentAction: '${agentActionParam}'. Must be one of: ${validAgentActions.join(', ')}`,
+                    400
+                );
+            }
+
             // Get user's provider status
             const providers = await getUserProviderStatus(user.id, env);
-            
-            // Get models available for providers with valid keys
-            const modelsByProvider = getByokModels(providers);
-            
-            // Get platform models based on environment configuration
-            const platformModels = getPlatformAvailableModels(env);
-            
+
+            // Get all accessible models (BYOK + platform)
+            const allModelsByProvider = getByokModels(providers);
+            const allPlatformModels = getPlatformAvailableModels(env);
+
+            // If agentAction provided, filter models by constraints
+            if (agentAction) {
+                // Get all accessible models
+                const allAccessibleModels = Object.values(allModelsByProvider).flat();
+                const combinedModels = [...new Set([...allAccessibleModels, ...allPlatformModels])];
+
+                // Filter based on agent constraints
+                const filteredModels = getFilteredModelsForAgent(agentAction, combinedModels);
+                const filteredSet = new Set(filteredModels);
+
+                // Filter modelsByProvider
+                const filteredModelsByProvider: Record<string, AIModels[]> = {};
+                for (const [provider, models] of Object.entries(allModelsByProvider)) {
+                    const filtered = models.filter(m => filteredSet.has(m));
+                    if (filtered.length > 0) {
+                        filteredModelsByProvider[provider] = filtered;
+                    }
+                }
+
+                // Filter platformModels
+                const filteredPlatformModels = allPlatformModels.filter(m => filteredSet.has(m));
+
+                const responseData: ByokProvidersData = {
+                    providers,
+                    modelsByProvider: filteredModelsByProvider,
+                    platformModels: filteredPlatformModels
+                };
+
+                return ModelConfigController.createSuccessResponse(responseData);
+            }
+
+            // No filtering - return all models
             const responseData: ByokProvidersData = {
                 providers,
-                modelsByProvider,
-                platformModels
+                modelsByProvider: allModelsByProvider,
+                platformModels: allPlatformModels
             };
 
             return ModelConfigController.createSuccessResponse(responseData);

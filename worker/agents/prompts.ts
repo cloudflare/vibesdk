@@ -1134,13 +1134,6 @@ The following phases have been completed and implemented:
 
 </COMPLETED_PHASES>
 
-<LAST_DIFFS>
-These are the changes that have been made to the codebase since the last phase:
-
-{{lastDiffs}}
-
-</LAST_DIFFS>
-
 <CODEBASE>
 
 Here are all the latest relevant files in the current codebase:
@@ -1163,6 +1156,16 @@ Here are all the latest relevant files in the current codebase:
 </PROJECT_CONTEXT>
 `,
 }
+
+/*
+
+<LAST_DIFFS>
+These are the changes that have been made to the codebase since the last phase:
+
+{{lastDiffs}}
+
+</LAST_DIFFS>
+*/
 
 export const STRATEGIES_UTILS = {
     INITIAL_PHASE_GUIDELINES: `**First Phase: Stunning Frontend Foundation & Visual Excellence**
