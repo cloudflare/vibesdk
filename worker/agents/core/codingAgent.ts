@@ -217,9 +217,10 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
     
     onConnect(connection: Connection, ctx: ConnectionContext) {
         this.logger().info(`Agent connected for agent ${this.getAgentId()}`, { connection, ctx });
-        sendToConnection(connection, 'agent_connected', {
+        sendToConnection(connection, WebSocketMessageResponses.AGENT_CONNECTED, {
             state: this.state,
-            templateDetails: this.behavior.getTemplateDetails()
+            templateDetails: this.behavior.getTemplateDetails(),
+            previewUrl: this.behavior.getPreviewUrlCache()
         });
     }
 

@@ -2,6 +2,8 @@ import { WebSocketMessageType } from "../api/websocketTypes";
 import { AgentActionKey } from "./inferutils/config.types";
 
 export const WebSocketMessageResponses: Record<string, WebSocketMessageType> = {
+    AGENT_CONNECTED: 'agent_connected',
+
     GENERATION_STARTED: 'generation_started',
     GENERATION_COMPLETE: 'generation_complete',
 

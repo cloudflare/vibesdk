@@ -46,8 +46,6 @@ const USER_PROMPT = `
 <PROJECT_CONTEXT>
 Project Context:
 
-{{projectContext}}
-
 ## Template Information
 {{template}}
 
@@ -146,11 +144,6 @@ export class SimpleCodeGenerationOperation extends AgentOperation<
             hasTemplateDetails: !!context.templateDetails
         });
 
-        // Build project context
-        const projectContext = context.templateDetails 
-            ? PROMPT_UTILS.serializeTemplate(context.templateDetails)
-            : 'No template context available';
-        
         // Format existing files for context
         const existingFilesContext = formatExistingFiles(context.allFiles);
 
@@ -165,7 +158,6 @@ export class SimpleCodeGenerationOperation extends AgentOperation<
             phaseDescription,
             requirements: formatRequirements(requirements),
             files: formatFiles(files),
-            projectContext,
             template: context.templateDetails ? PROMPT_UTILS.serializeTemplate(context.templateDetails) : 'No template information',
             existingFiles: existingFilesContext
         });
