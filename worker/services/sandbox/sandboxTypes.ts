@@ -34,9 +34,9 @@ export const TemplateDetailsSchema = z.object({
     language: z.string().optional(),
     deps: z.record(z.string(), z.string()),
     frameworks: z.array(z.string()).optional(),
-    importantFiles: z.array(z.string()).transform(arr => new Set(arr)),
-    dontTouchFiles: z.array(z.string()).transform(arr => new Set(arr)),
-    redactedFiles: z.array(z.string()).transform(arr => new Set(arr)),
+    importantFiles: z.array(z.string()),
+    dontTouchFiles: z.array(z.string()),
+    redactedFiles: z.array(z.string()),
     renderMode: z.enum(['sandbox', 'browser']).optional(),
     slideDirectory: z.string().optional(),
 })

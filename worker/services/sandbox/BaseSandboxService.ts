@@ -183,15 +183,13 @@ export abstract class BaseSandboxService {
                 allFiles: filesMap,
                 language: catalogInfo?.language,
                 deps: dependencies,
-                importantFiles: new Set(importantFiles),
-                dontTouchFiles: new Set(dontTouchFiles),
-                redactedFiles: new Set(redactedFiles),
+                importantFiles: importantFiles,
+                dontTouchFiles: dontTouchFiles,
+                redactedFiles: redactedFiles,
                 frameworks: catalogInfo?.frameworks || [],
                 renderMode: catalogInfo?.renderMode,
                 slideDirectory: catalogInfo?.slideDirectory,
             };
-
-            console.log('Template details:', templateDetails, dontTouchFiles, redactedFiles, importantFiles);
 
             templateDetailsCache[templateName] = templateDetails;
 

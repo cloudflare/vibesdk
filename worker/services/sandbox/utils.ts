@@ -3,19 +3,21 @@ import { TemplateDetails, TemplateFile } from "./sandboxTypes";
 export function getTemplateImportantFiles(templateDetails: TemplateDetails, filterRedacted: boolean = true): TemplateFile[] {
     const { importantFiles, allFiles, redactedFiles } = templateDetails;
 
-    const result: TemplateFile[] = [];
-    for (const [filePath, fileContents] of Object.entries(allFiles)) {
-        let isImportant = false;
-        for (const pattern of importantFiles) {
-            if (filePath === pattern || filePath.startsWith(pattern)) {
-                isImportant = true;
-                break;
-            }
-        }
+    const redactedSet = new Set(redactedFiles);
+    const importantSet = new Set(importantFiles);
 
-        if (isImportant) {
-            const contents = filterRedacted && redactedFiles.has(filePath) ? 'REDACTED' : fileContents;
-            if (contents) result.push({ filePath, fileContents: contents });
+    const result: TemplateFile[] = [];
+
+    for (const [filePath, fileContents] of Object.entries(allFiles)) {
+        const isExactMatch = importantSet.has(filePath);
+        const isMatch = isExactMatch || importantFiles.some(pattern => filePath.startsWith(pattern));
+
+        if (isMatch) {
+            const isRedacted = filterRedacted && redactedSet.has(filePath);
+            const contents = isRedacted ? 'REDACTED' : fileContents;
+            if (contents) {
+                result.push({ filePath, fileContents: contents });
+            }
         }
     }
 
@@ -29,7 +31,7 @@ export function getTemplateFiles(templateDetails: TemplateDetails): TemplateFile
     }));
 }
 
-export function isFileModifiable(filePath: string, dontTouchFiles: Set<string>): { allowed: boolean; reason?: string } {
+export function isFileModifiable(filePath: string, dontTouchFiles: string[]): { allowed: boolean; reason?: string } {
     const normalized = filePath.replace(/^\/+/, '');
 
     for (const pattern of dontTouchFiles) {

@@ -20,6 +20,7 @@ type AgentConnectedMessage = {
     type: 'agent_connected';
     state: AgentState;
     templateDetails: TemplateDetails;
+    previewUrl?: string;
 };
 
 type TemplateUpdatedMessage = {

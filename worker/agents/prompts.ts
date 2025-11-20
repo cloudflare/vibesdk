@@ -65,9 +65,6 @@ The following are the details (structures and files) of the starting boilerplate
 Name: ${template.name}
 Frameworks: ${template.frameworks?.join(', ')}
 
-Apart from these files, All SHADCN Components are present in ./src/components/ui/* and can be imported from there, example: import { Button } from "@/components/ui/button";
-**Please do not rewrite these components, just import them and use them**
-
 Template Usage Instructions: 
 ${template.description.usage}
 
