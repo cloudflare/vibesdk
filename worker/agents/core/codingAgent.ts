@@ -217,10 +217,18 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
     
     onConnect(connection: Connection, ctx: ConnectionContext) {
         this.logger().info(`Agent connected for agent ${this.getAgentId()}`, { connection, ctx });
+        let previewUrl = '';
+        try {
+            if (this.behavior.getTemplateDetails().renderMode === 'browser') {
+                previewUrl = this.behavior.getBrowserPreviewURL();
+            }
+        } catch (error) {
+            this.logger().error('Error getting preview URL:', error);
+        }
         sendToConnection(connection, WebSocketMessageResponses.AGENT_CONNECTED, {
             state: this.state,
             templateDetails: this.behavior.getTemplateDetails(),
-            previewUrl: this.behavior.getPreviewUrlCache()
+            previewUrl: previewUrl
         });
     }
 
@@ -281,7 +289,7 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
     }
 
     getPreviewUrlCache(): string {
-        return this.behavior.getPreviewUrlCache();
+        return ''; // Unimplemented
     }
 
     deployToSandbox(

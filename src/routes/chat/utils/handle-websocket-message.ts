@@ -171,7 +171,7 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
                 break;
             }
             case 'agent_connected': {
-                const { state, templateDetails } = message;
+                const { state, templateDetails, previewUrl } = message;
                 console.log('Agent connected', state, templateDetails);
                 
                 if (!isInitialStateRestored) {
@@ -196,6 +196,9 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
                         setQuery(state.query);
                     }
 
+                    if (previewUrl) {
+                        setPreviewUrl(previewUrl);
+                    }
 
                     if (templateDetails) {
                         // Store template details for manifest parsing and validation

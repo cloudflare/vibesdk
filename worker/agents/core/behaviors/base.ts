@@ -60,7 +60,6 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
 
     protected projectSetupAssistant: ProjectSetupAssistant | undefined;
 
-    protected previewUrlCache: string = '';
     protected templateDetailsCache: TemplateDetails | null = null;
     
     // In-memory storage for user-uploaded images (not persisted in DO state)
@@ -163,6 +162,11 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
                 allFiles: customizedAllFiles
             };
             this.logger.info('Template details loaded and customized');
+
+            // If renderMode == 'browser', we can deploy right away
+            if (templateDetails.renderMode === 'browser') {
+                await this.deployToSandbox();
+            }
         }
         return this.templateDetailsCache;
     }
@@ -213,10 +217,6 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
             commandCount: commandsHistory.length,
             commands: commandsHistory
         });
-    }
-
-    getPreviewUrlCache() {
-        return this.previewUrlCache;
     }
 
     getProjectSetupAssistant(): ProjectSetupAssistant {
