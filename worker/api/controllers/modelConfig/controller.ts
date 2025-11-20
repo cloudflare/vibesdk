@@ -386,18 +386,16 @@ export class ModelConfigController extends BaseController {
             const url = new URL(request.url);
             const agentActionParam = url.searchParams.get('agentAction');
 
-            // Validate agentAction against AGENT_CONFIG keys to prevent injection
             let agentAction: AgentActionKey | null = null;
-            if (agentActionParam) {
-                if (agentActionParam in AGENT_CONFIG) {
-                    agentAction = agentActionParam as AgentActionKey;
-                } else {
-                    return ModelConfigController.createErrorResponse<ByokProvidersData>(
-                        `Invalid agentAction: '${agentActionParam}'. Must be one of: ${Object.keys(AGENT_CONFIG).join(', ')}`,
-                        400
-                    );
-                }
-            }
+            const validAgentActions = Object.keys(AGENT_CONFIG) as AgentActionKey[];
+            if (agentActionParam && validAgentActions.includes(agentActionParam as AgentActionKey)) {
+                agentAction = agentActionParam as AgentActionKey;
+            } else if (agentActionParam) {
+                return ModelConfigController.createErrorResponse<ByokProvidersData>(
+                    `Invalid agentAction: '${agentActionParam}'. Must be one of: ${validAgentActions.join(', ')}`,
+                    400
+                );
+}
 
             // Get user's provider status
             const providers = await getUserProviderStatus(user.id, env);
