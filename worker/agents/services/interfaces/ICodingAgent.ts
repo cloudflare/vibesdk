@@ -45,6 +45,8 @@ export interface ICodingAgent {
     listFiles(): FileOutputType[];
 
     readFiles(paths: string[]): Promise<{ files: { path: string; content: string }[] }>;
+
+    deleteFiles(paths: string[]): Promise<{ success: boolean, error?: string }>;
     
     runStaticAnalysisCode(files?: string[]): Promise<StaticAnalysisResponse>;
     

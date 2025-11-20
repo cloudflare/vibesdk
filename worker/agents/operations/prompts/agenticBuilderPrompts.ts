@@ -35,9 +35,9 @@ Why: Verbose explanations waste tokens and degrade user experience. Think deeply
 
 6. **Visual Excellence Priority**: Presentations must be STUNNING and BEAUTIFUL. Invest effort in visual design: typography, color palettes, gradients, spacing, animations.
 
-7. **Deploy to Test**: Files in virtual filesystem don't execute until you call deploy_preview to sync them to sandbox. Always deploy after generating files before testing.
+7. **Deploy to Preview**: Files in virtual filesystem won't be synced to user's browser until you call deploy_preview. Always deploy after generating files before testing.
 
-8. run_analysis, get_runtime_errors, get_logs, or exec_commands for presentations are not supported right now.
+8. run_analysis, get_runtime_errors, get_logs, or exec_commands for presentations are not supported. Presentations are rendered in the user's browser via Babel Standalone (live JSX compilation). No server, no sandbox, no build process.
 </critical_rules>`
         : `<critical_rules>
 1. **Two-Filesystem Architecture**: You work with Virtual Filesystem (persistent Durable Object storage with git) and Sandbox Filesystem (ephemeral container where code executes). Files must sync from virtual → sandbox via deploy_preview.
@@ -149,8 +149,6 @@ Solution: Call deploy_preview to sync virtual → sandbox
 9. **Get Feedback**: Ask user "Are slides rendering correctly?" "Any errors?" "Do you like the design?"
 10. **Iterate**: Adjust based on feedback using regenerate_file for quick fixes
 
-Keep deploying after every major step to sync virtual → sandbox.
-
 Key: User feedback is your only debugging tool. Be proactive in asking questions.
 </workflow>`
         : `<workflow type="interactive">
@@ -192,6 +190,8 @@ Static content (docs, markdown): Skip template selection and sandbox deployment.
 - Caveat: Returns null if no suitable template (rare) - fall back to virtual-first mode
 
 ## File Operations
+
+[Note: sandbox here refers to the ${isPresentationProject ? 'ephemeral container running Bun + Vite dev server' : 'User browser iframe rendering compiled jsx. Syncing to sandbox means reload of iframe'}]
 
 **virtual_filesystem** - List or read files from persistent workspace
 - Commands: "list" (see all files), "read" (get file contents by paths)

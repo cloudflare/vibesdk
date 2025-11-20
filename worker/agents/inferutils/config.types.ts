@@ -50,6 +50,7 @@ export interface ModelConfig {
     reasoning_effort?: ReasoningEffort;
     max_tokens?: number;
     temperature?: number;
+    frequency_penalty?: number;
     fallbackModel?: AIModels | string;
 }
 

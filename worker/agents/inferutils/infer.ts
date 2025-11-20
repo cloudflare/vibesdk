@@ -171,6 +171,16 @@ export async function executeInference<T extends z.AnyZodObject>(   {
                     messages.push(createAssistantMessage(error.response));
                     messages.push(createUserMessage(responseRegenerationPrompts));
                     useCheaperModel = true;
+                    
+                    // If this was a repetition error, apply a frequency penalty to the retry
+                    if (error.message.toLowerCase().includes('repetition')) {
+                        logger.info('Applying frequency penalty to retry due to repetition');
+                        // Create a temporary config override for this retry
+                        conf = {
+                            ...finalConf,
+                            frequency_penalty: 0.5 // Apply moderate penalty
+                        };
+                    }
                 }
             } else {
                 // Try using fallback model if available

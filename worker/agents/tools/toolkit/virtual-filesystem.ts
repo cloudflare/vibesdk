@@ -16,8 +16,8 @@ export function createVirtualFilesystemTool(
 		description: `Interact with the virtual persistent workspace.
 IMPORTANT: This reads from the VIRTUAL filesystem, NOT the sandbox. Files appear here immediately after generation and may not be deployed to sandbox yet.`,
 		args: {
-			command: t.enum(['list', 'read']).describe('Action to perform: "list" shows all files, "read" returns file contents'),
-			paths: t.files.read().optional().describe('File paths to read (required when command="read"). Use relative paths from project root.'),
+			command: t.enum(['list', 'read', 'delete']).describe('Action to perform: "list" shows all files, "read" returns file contents, "delete" deletes files'),
+			paths: t.files.read().optional().describe('File paths to read/delete (required when command="read" or "delete"). Use relative paths from project root.'),
 		},
 		run: async ({ command, paths }) => {
 			try {
@@ -45,9 +45,19 @@ IMPORTANT: This reads from the VIRTUAL filesystem, NOT the sandbox. Files appear
 					logger.info('Reading files from virtual filesystem', { count: paths.length });
 
 					return await agent.readFiles(paths);
+				} else if (command === 'delete') {
+					if (!paths || paths.length === 0) {
+						return {
+							error: 'paths array is required when command is "delete"'
+						};
+					}
+
+					logger.info('Deleting files from virtual filesystem', { count: paths.length });
+
+					return await agent.deleteFiles(paths);
 				} else {
 					return {
-						error: `Invalid command: ${command}. Must be "list" or "read"`
+						error: `Invalid command: ${command}. Must be "list", "read", or "delete"`
 					};
 				}
 			} catch (error) {

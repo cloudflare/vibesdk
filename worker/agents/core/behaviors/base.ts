@@ -1478,7 +1478,7 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
     /**
      * Delete files from the file manager
      */
-    async deleteFiles(filePaths: string[]) {
+    async deleteFiles(filePaths: string[]) : Promise<{ success: boolean, error?: string }> {
         const deleteCommands: string[] = [];
         for (const filePath of filePaths) {
             deleteCommands.push(`rm -rf ${filePath}`);
@@ -1488,8 +1488,10 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
         try {
             await this.executeCommands(deleteCommands, false);
             this.logger.info(`Deleted ${filePaths.length} files: ${filePaths.join(", ")}`);
+            return { success: true };
         } catch (error) {
             this.logger.error('Error deleting files:', error);
+            return { success: false, error: error as string };
         }
     }
 

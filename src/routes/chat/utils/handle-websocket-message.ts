@@ -208,10 +208,11 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
 
                         if (templateDetails.allFiles && bootstrapFiles.length === 0) {
                             console.log('Template details, important files:', templateDetails.importantFiles, templateDetails)
+                            const importantFilesSet = new Set(templateDetails.importantFiles);
                             const files = Object.entries(templateDetails.allFiles).map(([filePath, fileContents]) => ({
                                 filePath,
                                 fileContents,
-                            })).filter((file) => templateDetails.importantFiles?.has(file.filePath));
+                            })).filter((file) => importantFilesSet.has(file.filePath));
                             logger.debug('📥 Restoring bootstrap files:', files);
                             loadBootstrapFiles(files);
                         }
@@ -325,10 +326,11 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
                 });
 
                 if (templateDetails.allFiles && bootstrapFiles.length === 0) {
+                    const importantFilesSet = new Set(templateDetails.importantFiles);
                     const files = Object.entries(templateDetails.allFiles).map(([filePath, fileContents]) => ({
                         filePath,
                         fileContents,
-                    })).filter((file) => templateDetails.importantFiles?.has(file.filePath));
+                    })).filter((file) => importantFilesSet.has(file.filePath));
                     logger.debug('📥 Restoring bootstrap files:', files);
                     loadBootstrapFiles(files);
                 }
