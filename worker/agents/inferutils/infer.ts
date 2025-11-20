@@ -87,7 +87,7 @@ export async function executeInference<T extends z.AnyZodObject>(   {
         if (conf) {
             logger.info(`Using user configuration for ${agentActionName}: ${JSON.stringify(conf)}`);
         } else {
-            logger.info(`No user configuration for ${agentActionName}, using AGENT_CONFIG defaults`);
+            logger.info(`No user configuration for ${agentActionName}, using AGENT_CONFIG defaults`, context.userModelConfigs, context);
         }
 
         // If conf.name is not a valid AIModels enum value, fall back to defaults

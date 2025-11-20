@@ -30,7 +30,7 @@ import { ScreenshotAnalysisOperation } from '../operations/ScreenshotAnalysis';
 // Database schema imports removed - using zero-storage OAuth flow
 import { BaseSandboxService } from '../../services/sandbox/BaseSandboxService';
 import { WebSocketMessageData, WebSocketMessageType } from '../../api/websocketTypes';
-import { InferenceContext, AgentActionKey } from '../inferutils/config.types';
+import { InferenceContext, AgentActionKey, ModelConfig } from '../inferutils/config.types';
 import { AGENT_CONFIG, AGENT_CONSTRAINTS } from '../inferutils/config';
 import { ModelConfigService } from '../../database/services/ModelConfigService';
 import { fixProjectIssues } from '../../services/code-fixer';
@@ -349,6 +349,26 @@ export class SimpleCodeGeneratorAgent extends Agent<Env, CodeGenState> {
         // Fill the template cache
         await this.ensureTemplateDetails();
         this.logger().info(`Agent ${this.getAgentId()} session: ${this.state.sessionId} onStart processed successfully`);
+
+        // Load the latest user configs
+        const modelConfigService = new ModelConfigService(this.env);
+        const userConfigsRecord = await modelConfigService.getUserModelConfigs(this.state.inferenceContext.userId);
+        
+        const userModelConfigs: Record<string, ModelConfig> = {};
+        for (const [actionKey, mergedConfig] of Object.entries(userConfigsRecord)) {
+            if (mergedConfig.isUserOverride) {
+                const { isUserOverride, userConfigId, ...modelConfig } = mergedConfig;
+                userModelConfigs[actionKey] = modelConfig;
+            }
+        }
+        this.setState({
+            ...this.state,
+            inferenceContext: {
+                ...this.state.inferenceContext,
+                userModelConfigs,
+            },
+        });
+        this.logger().info(`Agent ${this.getAgentId()} session: ${this.state.sessionId} onStart: User configs loaded successfully`, {userModelConfigs});
     }
 
     private async gitInit() {

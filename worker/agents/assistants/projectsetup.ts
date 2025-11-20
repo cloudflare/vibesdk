@@ -58,6 +58,7 @@ Output:
 - Skip dependencies already in starting template
 - Include common companion packages when needed
 - Focus on blueprint requirements only
+- cloudflare:workers is not needed, it's already installed
 
 ${PROMPT_UTILS.COMMANDS}
 

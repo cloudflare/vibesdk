@@ -275,9 +275,6 @@ export class DeploymentManager extends BaseAgentService implements IDeploymentMa
         }
 
         let errors = resp.errors || [];
-
-        // Filter out 'failed to connect to websocket' errors
-        errors = errors.filter(e => e.message.includes('[vite] failed to connect to websocket'));
             
         if (errors.length > 0) {
             logger.info(`Found ${errors.length} runtime errors: ${errors.map(e => e.message).join(', ')}`);

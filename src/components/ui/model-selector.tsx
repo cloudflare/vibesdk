@@ -111,7 +111,7 @@ export function ModelSelector({
             className="w-full justify-between"
             disabled={disabled}
           >
-            {getSelectedDisplay() || placeholder}
+            <span className="truncate">{getSelectedDisplay() || placeholder}</span>
             <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
           </Button>
         </PopoverTrigger>
@@ -203,7 +203,7 @@ export function ModelSelector({
       
       {/* System default display */}
       {systemDefault && (
-        <p className="text-xs text-text-tertiary">
+        <p className="text-xs text-text-tertiary truncate">
           🔧 System default: {getModelDisplayName(systemDefault)}
         </p>
       )}
