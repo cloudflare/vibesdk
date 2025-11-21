@@ -315,18 +315,6 @@ export interface AgentConstraintConfig {
     enabled: boolean;
 }
 
-export const LiteModels = [
-    AIModels.GEMINI_2_5_FLASH,
-    AIModels.GEMINI_2_5_FLASH_LATEST,
-    AIModels.GEMINI_2_5_FLASH_LITE,
-    AIModels.GEMINI_2_5_FLASH_LITE_LATEST,
-    AIModels.OPENAI_5_MINI,
-    AIModels.OPENAI_O4_MINI,
-    AIModels.OPENAI_CHATGPT_4O_LATEST,
-    AIModels.OPENAI_OSS,
-    AIModels.CEREBRAS_GPT_OSS,
-];
-
 export interface AgentConstraintConfig {
     allowedModels: Set<AIModels>;
     enabled: boolean;
