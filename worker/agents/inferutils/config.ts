@@ -9,23 +9,54 @@ import {
 } from "./config.types";
 import { env } from 'cloudflare:workers';
 
-export const AGENT_CONFIG: AgentConfig = env.PLATFORM_MODEL_PROVIDERS ? 
-//======================================================================================
-// ATTENTION! This config is will most likely NOT work right away!
-// It requires specific API keys and Cloudflare AI Gateway setup.
-//======================================================================================
-/* 
-These are the configs we use at build.cloudflare.dev 
-You may need to provide API keys for these models in your environment or use Cloudflare AI Gateway unified billing
-for seamless model access without managing multiple keys.
-*/
-{
+// Common configs - these are good defaults
+const COMMON_AGENT_CONFIGS = {
     templateSelection: {
         name: AIModels.GEMINI_2_5_FLASH_LITE,
         max_tokens: 2000,
         fallbackModel: AIModels.GEMINI_2_5_FLASH,
         temperature: 0.6,
     },
+    screenshotAnalysis: {
+        name: AIModels.DISABLED,
+        reasoning_effort: 'medium' as const,
+        max_tokens: 8000,
+        temperature: 1,
+        fallbackModel: AIModels.GEMINI_2_5_FLASH,
+    },
+    realtimeCodeFixer: {
+        name: AIModels.DISABLED,
+        reasoning_effort: 'low' as const,
+        max_tokens: 32000,
+        temperature: 1,
+        fallbackModel: AIModels.GEMINI_2_5_FLASH,
+    },
+    fastCodeFixer: {
+        name: AIModels.DISABLED,
+        reasoning_effort: undefined,
+        max_tokens: 64000,
+        temperature: 0.0,
+        fallbackModel: AIModels.GEMINI_2_5_PRO,
+    },
+} as const;
+
+const SHARED_IMPLEMENTATION_CONFIG = {
+    reasoning_effort: 'low' as const,
+    max_tokens: 48000,
+    temperature: 0.2,
+    fallbackModel: AIModels.GEMINI_2_5_PRO,
+};
+
+//======================================================================================
+// ATTENTION! Platform config requires specific API keys and Cloudflare AI Gateway setup.
+//======================================================================================
+/* 
+These are the configs used at build.cloudflare.dev 
+You may need to provide API keys for these models in your environment or use 
+Cloudflare AI Gateway unified billing for seamless model access without managing multiple keys.
+*/
+const PLATFORM_AGENT_CONFIG: AgentConfig = {
+    ...COMMON_AGENT_CONFIGS,
     blueprint: {
         name: AIModels.OPENAI_5_MINI,
         reasoning_effort: 'medium',
@@ -49,17 +80,11 @@ for seamless model access without managing multiple keys.
     },
     firstPhaseImplementation: {
         name: AIModels.GEMINI_2_5_PRO,
-        reasoning_effort: 'low',
-        max_tokens: 48000,
-        temperature: 0.2,
-        fallbackModel: AIModels.GEMINI_2_5_PRO,
+        ...SHARED_IMPLEMENTATION_CONFIG,
     },
     phaseImplementation: {
         name: AIModels.GEMINI_2_5_PRO,
-        reasoning_effort: 'low',
-        max_tokens: 48000,
-        temperature: 0.2,
-        fallbackModel: AIModels.GEMINI_2_5_PRO,
+        ...SHARED_IMPLEMENTATION_CONFIG,
     },
     conversationalResponse: {
         name: AIModels.GROK_4_FAST,
@@ -82,41 +107,14 @@ for seamless model access without managing multiple keys.
         temperature: 1,
         fallbackModel: AIModels.GROK_CODE_FAST_1,
     },
-    // Not used right now
-    screenshotAnalysis: {
-        name: AIModels.DISABLED,
-        reasoning_effort: 'medium',
-        max_tokens: 8000,
-        temperature: 1,
-        fallbackModel: AIModels.GEMINI_2_5_FLASH,
-    },
-    realtimeCodeFixer: {
-        name: AIModels.DISABLED,
-        reasoning_effort: 'low',
-        max_tokens: 32000,
-        temperature: 1,
-        fallbackModel: AIModels.GEMINI_2_5_FLASH,
-    },
-    // Not used right now
-    fastCodeFixer: {
-        name: AIModels.DISABLED,
-        reasoning_effort: undefined,
-        max_tokens: 64000,
-        temperature: 0.0,
-        fallbackModel: AIModels.GEMINI_2_5_PRO,
-    },
-} : 
+};
+
 //======================================================================================
-// ATTENTION! This is the most likely config being used in your deployment
+// Default Gemini-only config (most likely used in your deployment)
 //======================================================================================
 /* These are the default out-of-the box gemini-only models used when PLATFORM_MODEL_PROVIDERS is not set */
-{
-    templateSelection: {
-        name: AIModels.GEMINI_2_5_FLASH_LITE,
-        max_tokens: 2000,
-        fallbackModel: AIModels.GEMINI_2_5_FLASH,
-        temperature: 0.6,
-    },
+const DEFAULT_AGENT_CONFIG: AgentConfig = {
+    ...COMMON_AGENT_CONFIGS,
     blueprint: {
         name: AIModels.GEMINI_2_5_PRO,
         reasoning_effort: 'medium',
@@ -126,31 +124,19 @@ for seamless model access without managing multiple keys.
     },
     projectSetup: {
         name: AIModels.GEMINI_2_5_PRO,
-        reasoning_effort: 'low',
-        max_tokens: 10000,
-        temperature: 0.2,
-        fallbackModel: AIModels.GEMINI_2_5_PRO,
+        ...SHARED_IMPLEMENTATION_CONFIG,
     },
     phaseGeneration: {
         name: AIModels.GEMINI_2_5_PRO,
-        reasoning_effort: 'low',
-        max_tokens: 32000,
-        temperature: 0.2,
-        fallbackModel: AIModels.GEMINI_2_5_FLASH,
+        ...SHARED_IMPLEMENTATION_CONFIG,
     },
     firstPhaseImplementation: {
         name: AIModels.GEMINI_2_5_PRO,
-        reasoning_effort: 'low',
-        max_tokens: 64000,
-        temperature: 0.2,
-        fallbackModel: AIModels.GEMINI_2_5_PRO,
+        ...SHARED_IMPLEMENTATION_CONFIG,
     },
     phaseImplementation: {
         name: AIModels.GEMINI_2_5_PRO,
-        reasoning_effort: 'low',
-        max_tokens: 64000,
-        temperature: 0.2,
-        fallbackModel: AIModels.GEMINI_2_5_PRO,
+        ...SHARED_IMPLEMENTATION_CONFIG,
     },
     conversationalResponse: {
         name: AIModels.GEMINI_2_5_FLASH,
@@ -173,30 +159,11 @@ for seamless model access without managing multiple keys.
         temperature: 0,
         fallbackModel: AIModels.GEMINI_2_5_FLASH,
     },
-    // Not used right now
-    screenshotAnalysis: {
-        name: AIModels.DISABLED,
-        reasoning_effort: 'medium',
-        max_tokens: 8000,
-        temperature: 1,
-        fallbackModel: AIModels.GEMINI_2_5_FLASH,
-    },
-    realtimeCodeFixer: {
-        name: AIModels.DISABLED,
-        reasoning_effort: 'low',
-        max_tokens: 32000,
-        temperature: 1,
-        fallbackModel: AIModels.GEMINI_2_5_FLASH,
-    },
-    // Not used right now
-    fastCodeFixer: {
-        name: AIModels.DISABLED,
-        reasoning_effort: undefined,
-        max_tokens: 64000,
-        temperature: 0.0,
-        fallbackModel: AIModels.GEMINI_2_5_PRO,
-    },
 };
+
+export const AGENT_CONFIG: AgentConfig = env.PLATFORM_MODEL_PROVIDERS 
+    ? PLATFORM_AGENT_CONFIG 
+    : DEFAULT_AGENT_CONFIG;
 
 
 export const AGENT_CONSTRAINTS: Map<AgentActionKey, AgentConstraintConfig> = new Map([
