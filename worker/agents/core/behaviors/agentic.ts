@@ -6,7 +6,7 @@ import { UserConversationProcessor } from '../../operations/UserConversationProc
 import { GenerationContext, AgenticGenerationContext } from '../../domain/values/GenerationContext';
 import { PhaseImplementationOperation } from '../../operations/PhaseImplementation';
 import { FileRegenerationOperation } from '../../operations/FileRegeneration';
-import { AgenticProjectBuilder, BuildSession } from '../../assistants/agenticProjectBuilder';
+import { AgenticProjectBuilderOperation, AgenticProjectBuilderInputs } from '../../operations/AgenticProjectBuilder';
 import { buildToolCallRenderer } from '../../operations/UserConversationProcessor';
 import { PhaseGenerationOperation } from '../../operations/PhaseGeneration';
 import { FastCodeFixerOperation } from '../../operations/PostPhaseCodeFixer';
@@ -120,6 +120,7 @@ export class AgenticCodingBehavior extends BaseCodingBehavior<AgenticState> impl
             );
             
             this.logger.info('Committed customized template files to git');
+            this.deployToSandbox();
         }
         this.logger.info(`Agent ${this.getAgentId()} session: ${this.state.sessionId} initialized successfully`);
         return this.state;
@@ -237,7 +238,7 @@ export class AgenticCodingBehavior extends BaseCodingBehavior<AgenticState> impl
     }
     
     async build(): Promise<void> {
-        while (!this.state.mvpGenerated || this.state.pendingUserInputs.length > 0) {
+        while (!this.isMVPGenerated() || this.state.pendingUserInputs.length > 0) {
             await this.executeGeneration();
         }
     }
@@ -262,7 +263,7 @@ export class AgenticCodingBehavior extends BaseCodingBehavior<AgenticState> impl
 
         const aiConversationId = IdGenerator.generateConversationId();
 
-        if (!this.state.mvpGenerated) {
+        if (!this.isMVPGenerated()) {
             this.broadcast(WebSocketMessageResponses.CONVERSATION_RESPONSE, {
                 message: 'Initializing project builder...',
                 conversationId: aiConversationId,
@@ -271,11 +272,6 @@ export class AgenticCodingBehavior extends BaseCodingBehavior<AgenticState> impl
         }
 
         try {
-            const generator = new AgenticProjectBuilder(
-                this.env,
-                this.state.inferenceContext
-            );
-
             const pendingUserInputs = this.fetchPendingUserRequests();
             if (pendingUserInputs.length > 0) {
                 this.logger.info('Processing user requests', {
@@ -298,13 +294,6 @@ export class AgenticCodingBehavior extends BaseCodingBehavior<AgenticState> impl
                     conversationId: IdGenerator.generateConversationId(),
                 });
             }
-            
-            // Create build session for tools
-            const session: BuildSession = {
-                agent: this,
-                filesIndex: Object.values(this.state.generatedFilesMap),
-                projectType: this.state.projectType || 'app',
-            };
 
             // Create tool renderer for UI feedback
             const toolCallRenderer = buildToolCallRenderer(
@@ -343,32 +332,30 @@ export class AgenticCodingBehavior extends BaseCodingBehavior<AgenticState> impl
 
             const conversationState = this.infrastructure.getConversationState();
 
-            await generator.run(
-                {
-                    query: this.state.query,
-                    projectName: this.state.projectName,
-                    blueprint: this.state.blueprint
-                },
-                session,
-                (chunk: string) => {
+            // Prepare inputs for operation
+            const builderInputs: AgenticProjectBuilderInputs = {
+                query: this.state.query,
+                projectName: this.state.projectName,
+                blueprint: this.state.blueprint,
+                filesIndex: Object.values(this.state.generatedFilesMap),
+                projectType: this.state.projectType || 'app',
+                operationalMode: this.isMVPGenerated() ? 'followup' : 'initial',
+                conversationHistory: conversationState.runningHistory,
+                streamCb: (chunk: string) => {
                     this.broadcast(WebSocketMessageResponses.CONVERSATION_RESPONSE, {
                         message: chunk,
                         conversationId: aiConversationId,
                         isStreaming: true
                     });
                 },
-                toolCallRenderer,
+                toolRenderer: toolCallRenderer,
                 onToolComplete,
                 onAssistantMessage,
-                conversationState.runningHistory
-            );
-            // TODO: If user messages pending, start another execution run
+            };
 
-            if (!this.state.mvpGenerated) {
-                // TODO: Should this be moved to a tool that the agent can call?
-                this.state.mvpGenerated = true;
-                this.logger.info('MVP generated');
-            }
+            // Execute operation
+            const operation = new AgenticProjectBuilderOperation();
+            await operation.execute(builderInputs, this.getOperationOptions());
 
             // Final checks after generation completes
             await this.compactifyIfNeeded();

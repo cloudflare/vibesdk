@@ -1,7 +1,7 @@
 import { ProjectObjective } from './base';
 import { BaseProjectState } from '../state';
 import { ProjectType, RuntimeType, ExportResult, ExportOptions, DeployResult, DeployOptions } from '../types';
-import { WebSocketMessageResponses, PREVIEW_EXPIRED_ERROR } from '../../constants';
+import { WebSocketMessageResponses } from '../../constants';
 import { AppService } from '../../../database/services/AppService';
 import type { AgentInfrastructure } from '../AgentCore';
 import { GitHubService } from '../../../services/github';
@@ -38,33 +38,6 @@ export class AppObjective<TState extends BaseProjectState = BaseProjectState>
   
   getRuntime(): RuntimeType {
     return 'sandbox';
-  }
-  
-  needsTemplate(): boolean {
-    return true;
-  }
-  
-  getTemplateType(): string | null {
-    return this.state.templateName;
-  }
-
-  // ==========================================
-  // LIFECYCLE HOOKS
-  // ==========================================
-  
-  /**
-   * After code generation, auto-deploy to sandbox for preview
-   */
-  async onCodeGenerated(): Promise<void> {
-    this.logger.info('AppObjective: Code generation complete, auto-deploying to sandbox');
-    
-    try {
-      await this.deploymentManager.deployToSandbox();
-      this.logger.info('AppObjective: Auto-deployment to sandbox successful');
-    } catch (error) {
-      this.logger.error('AppObjective: Auto-deployment to sandbox failed', error);
-      // Don't throw - generation succeeded even if deployment failed
-    }
   }
 
   // ==========================================
@@ -114,13 +87,6 @@ export class AppObjective<TState extends BaseProjectState = BaseProjectState>
           onError: (data) => {
             this.broadcast(WebSocketMessageResponses.CLOUDFLARE_DEPLOYMENT_ERROR, data);
           },
-          onPreviewExpired: () => {
-            this.deploymentManager.deployToSandbox();
-            this.broadcast(WebSocketMessageResponses.CLOUDFLARE_DEPLOYMENT_ERROR, {
-              message: PREVIEW_EXPIRED_ERROR,
-              error: PREVIEW_EXPIRED_ERROR
-            });
-          }
         }
       });
 

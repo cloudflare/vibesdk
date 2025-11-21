@@ -55,7 +55,9 @@ export const PROMPT_UTILS = {
 
     serializeTemplate(template?: TemplateDetails): string {
         if (template) {
-            // const indentedFilesText = filesText.replace(/^(?=.)/gm, '\t\t\t\t'); // Indent each line with 4 spaces
+            const dontTouchFiles = template.dontTouchFiles ? Array.from(template.dontTouchFiles) : [];
+            const redactedFiles = template.redactedFiles ? Array.from(template.redactedFiles) : [];
+
             return `
 <TEMPLATE DETAILS>
 The following are the details (structures and files) of the starting boilerplate template, on which the project is based.
@@ -63,20 +65,17 @@ The following are the details (structures and files) of the starting boilerplate
 Name: ${template.name}
 Frameworks: ${template.frameworks?.join(', ')}
 
-Apart from these files, All SHADCN Components are present in ./src/components/ui/* and can be imported from there, example: import { Button } from "@/components/ui/button";
-**Please do not rewrite these components, just import them and use them**
-
 Template Usage Instructions: 
 ${template.description.usage}
 
 <DO NOT TOUCH FILES>
 These files are forbidden to be modified. Do not touch them under any circumstances.
-${(template.dontTouchFiles ?? []).join('\n')}
+${dontTouchFiles.join('\n')}
 </DO NOT TOUCH FILES>
 
 <REDACTED FILES>
 These files are redacted. They exist but their contents are hidden for security reasons. Do not touch them under any circumstances.
-${(template.redactedFiles ?? []).join('\n')}
+${redactedFiles.join('\n')}
 </REDACTED FILES>
 
 **Websockets and dynamic imports are not supported, so please avoid using them.**
@@ -143,6 +142,19 @@ ${typecheckOutput}`;
     serializeFiles(files: FileOutputType[], serializerType: CodeSerializerType): string {
         // Use scof format
         return CODE_SERIALIZERS[serializerType](files);
+    },
+
+    summarizeFiles(files: FileState[], max = 120): string {
+        const compact = files
+            .slice(0, max)
+            .map((file) => {
+                const purpose = file.filePurpose ? ` — ${file.filePurpose}` : '';
+                return `- ${file.filePath}${purpose}`;
+            })
+            .join('\n');
+
+        const extra = files.length > max ? `\n...and ${files.length - max} more` : '';
+        return compact + extra;
     },
 
     REACT_RENDER_LOOP_PREVENTION: `<REACT_RENDER_LOOP_PREVENTION>

@@ -11,6 +11,11 @@ export interface FileState extends FileOutputType {
     lastDiff: string;
 }
 
+export interface FileServingToken {
+    token: string;
+    createdAt: number;
+}
+
 export interface PhaseState extends PhaseConceptType {
     // deploymentNeeded: boolean;
     completed: boolean;
@@ -56,6 +61,7 @@ export interface BaseProjectState {
     
     // Common infrastructure
     sandboxInstanceId?: string;
+    fileServingToken?: FileServingToken;
     commandsHistory?: string[];
     lastPackageJson?: string;
     pendingUserInputs: string[];

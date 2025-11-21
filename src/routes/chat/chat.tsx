@@ -6,40 +6,32 @@ import {
 	useState,
 	type FormEvent,
 } from 'react';
-import { ArrowRight, Image as ImageIcon } from 'react-feather';
 import { useParams, useSearchParams, useNavigate } from 'react-router';
-import { MonacoEditor } from '../../components/monaco-editor/monaco-editor';
 import { AnimatePresence, motion } from 'framer-motion';
-import { Expand, Github, GitBranch, LoaderCircle, RefreshCw, MoreHorizontal, RotateCcw, X } from 'lucide-react';
+import { LoaderCircle, MoreHorizontal, RotateCcw } from 'lucide-react';
 import clsx from 'clsx';
-import { Blueprint } from './components/blueprint';
-import { FileExplorer } from './components/file-explorer';
 import { UserMessage, AIMessage } from './components/messages';
 import { PhaseTimeline } from './components/phase-timeline';
-import { PreviewIframe } from './components/preview-iframe';
-import { ViewModeSwitch } from './components/view-mode-switch';
-import { DebugPanel, type DebugMessage } from './components/debug-panel';
+import { type DebugMessage } from './components/debug-panel';
 import { DeploymentControls } from './components/deployment-controls';
-import { useChat, type FileType } from './hooks/use-chat';
-import { type ModelConfigsData, type BlueprintType, type PhasicBlueprint, SUPPORTED_IMAGE_MIME_TYPES, ProjectType } from '@/api-types';
-import { Copy } from './components/copy';
+import { useChat } from './hooks/use-chat';
+import { type ModelConfigsInfo, type BlueprintType, type PhasicBlueprint, SUPPORTED_IMAGE_MIME_TYPES, ProjectType, type FileType } from '@/api-types';
 import { useFileContentStream } from './hooks/use-file-content-stream';
 import { logger } from '@/utils/logger';
 import { useApp } from '@/hooks/use-app';
 import { useAuth } from '@/contexts/auth-context';
 import { useGitHubExport } from '@/hooks/use-github-export';
-import { GitHubExportModal } from '@/components/github-export-modal';
-import { GitCloneModal } from '@/components/shared/GitCloneModal';
-import { ModelConfigInfo } from './components/model-config-info';
 import { useAutoScroll } from '@/hooks/use-auto-scroll';
 import { useImageUpload } from '@/hooks/use-image-upload';
 import { useDragDrop } from '@/hooks/use-drag-drop';
-import { ImageAttachmentPreview } from '@/components/image-attachment-preview';
-import { createAIMessage } from './utils/message-helpers';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { sendWebSocketMessage } from './utils/websocket-helpers';
+import { detectContentType } from './utils/content-detector';
+import { mergeFiles } from '@/utils/file-helpers';
+import { ChatModals } from './components/chat-modals';
+import { MainContentPanel } from './components/main-content-panel';
+import { ChatInput } from './components/chat-input';
 
 const isPhasicBlueprint = (blueprint?: BlueprintType | null): blueprint is PhasicBlueprint =>
 	!!blueprint && 'implementationRoadmap' in blueprint;
@@ -49,7 +41,7 @@ export default function Chat() {
 
 	const [searchParams] = useSearchParams();
 	const userQuery = searchParams.get('query');
-	const projectType = searchParams.get('projectType') || 'app';
+	const urlProjectType = searchParams.get('projectType') || 'app';
 
 	// Extract images from URL params if present
 	const userImages = useMemo(() => {
@@ -115,14 +107,12 @@ export default function Chat() {
 		totalFiles,
 		websocket,
 		sendUserMessage,
-		sendAiMessage,
 		blueprint,
 		previewUrl,
 		clearEdit,
 		projectStages,
 		phaseTimeline,
 		isThinking,
-		onCompleteBootstrap,
 		// Deployment and generation control
 		isDeploying,
 		cloudflareDeploymentUrl,
@@ -143,11 +133,14 @@ export default function Chat() {
 		isDebugging,
 		// Behavior type from backend
 		behaviorType,
+		projectType,
+		// Template metadata
+		templateDetails,
 	} = useChat({
 		chatId: urlChatId,
 		query: userQuery,
 		images: userImages,
-		projectType: projectType as ProjectType,
+		projectType: urlProjectType as ProjectType,
 		onDebugMessage: addDebugMessage,
 	});
 
@@ -158,9 +151,13 @@ export default function Chat() {
 	const navigate = useNavigate();
 
 	const [activeFilePath, setActiveFilePath] = useState<string>();
-	const [view, setView] = useState<'editor' | 'preview' | 'blueprint' | 'terminal'>(
+	const [view, setView] = useState<'editor' | 'preview' | 'docs' | 'blueprint' | 'terminal' | 'presentation'>(
 		'editor',
 	);
+
+	// Presentation state
+	const [presentationSpeakerMode, setPresentationSpeakerMode] = useState(false);
+	const [presentationPreviewMode, setPresentationPreviewMode] = useState(false);
 
 	// Terminal state
 	// const [terminalLogs, setTerminalLogs] = useState<TerminalLog[]>([]);
@@ -173,11 +170,7 @@ export default function Chat() {
 	const [isGitCloneModalOpen, setIsGitCloneModalOpen] = useState(false);
 
 	// Model config info state
-	const [modelConfigs, setModelConfigs] = useState<{
-		agents: Array<{ key: string; name: string; description: string; }>;
-		userConfigs: ModelConfigsData['configs'];
-		defaultConfigs: ModelConfigsData['defaults'];
-	} | undefined>();
+	const [modelConfigs, setModelConfigs] = useState<ModelConfigsInfo | undefined>();
 	const [loadingConfigs, setLoadingConfigs] = useState(false);
 
 	// Handler for model config info requests
@@ -214,6 +207,7 @@ export default function Chat() {
 	}, [websocket]);
 
 	const hasSeenPreview = useRef(false);
+	const prevMarkdownCountRef = useRef(0);
 	const hasSwitchedFile = useRef(false);
 	// const wasChatDisabled = useRef(true);
 	// const hasShownWelcome = useRef(false);
@@ -224,12 +218,6 @@ export default function Chat() {
 
 	const [newMessage, setNewMessage] = useState('');
 	const [showTooltip, setShowTooltip] = useState(false);
-	
-	// Word count utilities
-	const MAX_WORDS = 4000;
-	const countWords = (text: string): number => {
-		return text.trim().split(/\s+/).filter(word => word.length > 0).length;
-	};
 
 	const { images, addImages, removeImage, clearImages, isProcessing } = useImageUpload({
 		onError: (error) => {
@@ -239,11 +227,26 @@ export default function Chat() {
 	const imageInputRef = useRef<HTMLInputElement>(null);
 
 	// Fake stream bootstrap files
-	const { streamedFiles: streamedBootstrapFiles, doneStreaming } =
+	const { streamedFiles: streamedBootstrapFiles } =
 		useFileContentStream(bootstrapFiles, {
 			tps: 600,
 			enabled: isBootstrapping,
 		});
+
+	// Merge streamed bootstrap files with generated files
+	const allFiles = useMemo(() => {
+		if (templateDetails?.allFiles) {
+			const templateFiles = Object.entries(templateDetails.allFiles).map(
+				([filePath, fileContents]) => ({
+					filePath,
+					fileContents,
+				})
+			);
+			return mergeFiles(templateFiles, files);
+		}
+
+		return files;
+	}, [files, templateDetails]);
 
 	const handleFileClick = useCallback((file: FileType) => {
 		logger.debug('handleFileClick()', file);
@@ -256,8 +259,28 @@ export default function Chat() {
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, []);
 
-	const handleViewModeChange = useCallback((mode: 'preview' | 'editor' | 'blueprint') => {
+	const handleViewModeChange = useCallback((mode: 'preview' | 'editor' | 'docs' | 'blueprint' | 'presentation') => {
 		setView(mode);
+	}, []);
+
+	const handleToggleSpeakerMode = useCallback(() => {
+		setPresentationSpeakerMode(prev => !prev);
+		if (!presentationSpeakerMode) {
+			setPresentationPreviewMode(false);
+		}
+	}, [presentationSpeakerMode]);
+
+	const handleTogglePreviewMode = useCallback(() => {
+		setPresentationPreviewMode(prev => !prev);
+		if (!presentationPreviewMode) {
+			setPresentationSpeakerMode(false);
+		}
+	}, [presentationPreviewMode]);
+
+	const handleExportPdf = useCallback(() => {
+		if (previewRef.current?.contentWindow) {
+			previewRef.current.contentWindow.postMessage({ type: 'EXPORT_PDF' }, '*');
+		}
 	}, []);
 
 	const handleResetConversation = useCallback(() => {
@@ -338,8 +361,11 @@ export default function Chat() {
 	}, [phaseTimeline]);
 
 	const isGitHubExportReady = useMemo(() => {
+		if (behaviorType === 'agentic') {
+			return files.length > 0 && !!urlChatId;
+		}
 		return isPhase1Complete && !!urlChatId;
-	}, [isPhase1Complete, urlChatId]);
+	}, [behaviorType, files.length, isPhase1Complete, urlChatId]);
 
 	// Detect if agentic mode is showing static content (docs, markdown)
 	const isStaticContent = useMemo(() => {
@@ -356,14 +382,33 @@ export default function Chat() {
 		});
 	}, [behaviorType, files]);
 
+	// Detect content type (documentation detection - works in any projectType)
+	const contentDetection = useMemo(() => {
+		return detectContentType(files);
+	}, [files]);
+
+    const hasDocumentation = useMemo(() => {
+        return Object.values(contentDetection.Contents).some(bundle => bundle.type === 'markdown');
+    }, [contentDetection]);
+
+	// Preview available based on projectType and content
+	const previewAvailable = useMemo(() => {
+		if (hasDocumentation || !!previewUrl) return true;
+		return false;
+	}, [hasDocumentation, previewUrl]);
+
 	const showMainView = useMemo(() => {
-		// For agentic mode: only show preview panel when files or preview URL exist
+		// For agentic mode: show preview panel when files exist or preview URL exists
 		if (behaviorType === 'agentic') {
-			return files.length > 0 || !!previewUrl;
+			const hasFiles = files.length > 0;
+			const hasPreview = !!previewUrl;
+			const result = hasFiles || hasPreview;
+			return result;
 		}
 		// For phasic mode: keep existing logic
-		return streamedBootstrapFiles.length > 0 || !!blueprint || files.length > 0;
-	}, [behaviorType, isGeneratingBlueprint, blueprint, files.length, previewUrl, streamedBootstrapFiles.length]);
+		const result = streamedBootstrapFiles.length > 0 || !!blueprint || files.length > 0;
+		return result;
+	}, [behaviorType, blueprint, files.length, previewUrl, streamedBootstrapFiles.length]);
 
 	const [mainMessage, ...otherMessages] = useMemo(() => messages, [messages]);
 
@@ -380,15 +425,35 @@ export default function Chat() {
 	}, [messages.length, scrollToBottom]);
 
 	useEffect(() => {
-		// For static content in agentic mode, show editor view instead of preview
-		if (isStaticContent && files.length > 0 && !hasSeenPreview.current) {
+		if (hasSeenPreview.current) return;
+
+		// Get current markdown files
+		const markdownFiles = files.filter(f =>
+			f.filePath.endsWith('.md') ||
+			f.filePath.endsWith('.mdx') ||
+			f.filePath.endsWith('.markdown')
+		);
+
+		// Check if any markdown is actively generating
+		const isGeneratingMarkdown = markdownFiles.some(f => f.isGenerating);
+		const newMarkdownAdded = markdownFiles.length > prevMarkdownCountRef.current;
+
+		// Auto-switch to docs ONLY when NEW markdown is being generated
+		if (hasDocumentation && newMarkdownAdded && isGeneratingMarkdown) {
+			setView('docs');
+			setShowTooltip(true);
+			setTimeout(() => setShowTooltip(false), 3000);
+			hasSeenPreview.current = true;
+		} else if (isStaticContent && files.length > 0 && !hasDocumentation) {
+			// For other static content (non-documentation), show editor view
 			setView('editor');
 			// Auto-select first file if none selected
 			if (!activeFilePath) {
 				setActiveFilePath(files[0].filePath);
 			}
 			hasSeenPreview.current = true;
-		} else if (previewUrl && !hasSeenPreview.current) {
+		} else if (previewUrl) {
+			// For apps, wait for preview URL
 			// Agentic: auto-switch immediately when preview URL available
 			// Phasic: require phase 1 complete
 			const shouldSwitch = behaviorType === 'agentic' || isPhase1Complete;
@@ -399,9 +464,13 @@ export default function Chat() {
 				setTimeout(() => {
 					setShowTooltip(false);
 				}, 3000);
+				hasSeenPreview.current = true;
 			}
 		}
-	}, [previewUrl, isPhase1Complete, isStaticContent, files, activeFilePath, behaviorType]);
+
+		// Update ref for next comparison
+		prevMarkdownCountRef.current = markdownFiles.length;
+	}, [previewUrl, isPhase1Complete, isStaticContent, files, activeFilePath, behaviorType, hasDocumentation, projectType]);
 
 	useEffect(() => {
 		if (chatId) {
@@ -435,6 +504,14 @@ export default function Chat() {
 			setActiveFilePath(files.at(-1)!.filePath);
 		}
 	}, [view, activeFile, files, isBootstrapping, streamedBootstrapFiles]);
+
+	// Preserve active file when generation completes
+	useEffect(() => {
+		if (!generatingFile && activeFile && !hasSwitchedFile.current) {
+			// Generation just ended, preserve the current active file
+			setActiveFilePath(activeFile.filePath);
+		}
+	}, [generatingFile, activeFile]);
 
 	useEffect(() => {
 		if (view !== 'blueprint' && isGeneratingBlueprint) {
@@ -721,551 +798,93 @@ export default function Chat() {
 						</div>
 					</div>
 
-					<form
-                        ref={chatFormRef}
-                        onSubmit={onNewMessage}
-                        className="shrink-0 p-4 pb-5 bg-transparent"
-                        {...chatDragHandlers}
-                    >
-					<input
-						ref={imageInputRef}
-						type="file"
-						accept={SUPPORTED_IMAGE_MIME_TYPES.join(',')}
-						multiple
-						onChange={(e) => {
-							const files = Array.from(e.target.files || []);
-							if (files.length > 0) {
-								addImages(files);
-							}
-							e.target.value = '';
-						}}
-						className="hidden"
-						disabled={isChatDisabled}
-					/>
-					<div className="relative">
-						{isChatDragging && (
-							<div className="absolute inset-0 flex items-center justify-center bg-accent/10 backdrop-blur-sm rounded-xl z-50 pointer-events-none">
-								<p className="text-accent font-medium">Drop images here</p>
-							</div>
-						)}
-						{images.length > 0 && (
-							<div className="mb-2">
-								<ImageAttachmentPreview
-									images={images}
-									onRemove={removeImage}
-									compact
-								/>
-							</div>
-						)}
-						<textarea
-							value={newMessage}
-							onChange={(e) => {
-								const newValue = e.target.value;
-								const newWordCount = countWords(newValue);
-								
-								// Only update if within word limit
-								if (newWordCount <= MAX_WORDS) {
-									setNewMessage(newValue);
-									const ta = e.currentTarget;
-									ta.style.height = 'auto';
-									ta.style.height = Math.min(ta.scrollHeight, 120) + 'px';
-								}
-							}}
-								onKeyDown={(e) => {
-									if (e.key === 'Enter') {
-										if (!e.shiftKey) {
-											// Submit on Enter without Shift
-											e.preventDefault();
-											onNewMessage(e);
-										}
-										// Shift+Enter will create a new line (default textarea behavior)
-									}
-								}}
-								disabled={isChatDisabled}
-								placeholder={
-									isDebugging
-										? 'Deep debugging in progress... Please abort to continue'
-										: isChatDisabled
-											? 'Please wait for blueprint completion...'
-											: isRunning
-												? 'Chat with AI while generating...'
-												: 'Chat with AI...'
-								}
-								rows={1}
-								className="w-full bg-bg-2 border border-text-primary/10 rounded-xl px-3 pr-20 py-2 text-sm outline-none focus:border-white/20 drop-shadow-2xl text-text-primary placeholder:!text-text-primary/50 disabled:opacity-50 disabled:cursor-not-allowed resize-none overflow-y-auto no-scrollbar min-h-[36px] max-h-[120px]"
-								style={{
-									// Auto-resize based on content
-									height: 'auto',
-									minHeight: '36px'
-								}}
-								ref={(textarea) => {
-									if (textarea) {
-										// Auto-resize textarea based on content
-										textarea.style.height = 'auto';
-										textarea.style.height = Math.min(textarea.scrollHeight, 120) + 'px';
-									}
-								}}
-							/>
-							<div className="absolute right-1.5 bottom-2.5 flex items-center gap-1">
-								{(isGenerating || isGeneratingBlueprint || isDebugging) && (
-									<button
-										type="button"
-										onClick={() => {
-											if (websocket) {
-												sendWebSocketMessage(websocket, 'stop_generation');
-											}
-										}}
-										className="p-1.5 rounded-md hover:bg-red-500/10 text-text-tertiary hover:text-red-500 transition-all duration-200 group relative"
-										aria-label="Stop generation"
-										title="Stop generation"
-									>
-										<X className="size-4" strokeWidth={2} />
-										<span className="absolute -top-8 right-0 px-2 py-1 bg-bg-1 border border-border-primary rounded text-xs text-text-secondary whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-											Stop
-										</span>
-									</button>
-								)}
-								<button
-									type="button"
-									onClick={() => imageInputRef.current?.click()}
-									disabled={isChatDisabled || isProcessing}
-									className="p-1.5 rounded-md hover:bg-bg-3 text-text-secondary hover:text-text-primary transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-									aria-label="Upload image"
-									title="Upload image"
-								>
-									<ImageIcon className="size-4" strokeWidth={1.5} />
-								</button>
-								<button
-									type="submit"
-									disabled={!newMessage.trim() || isChatDisabled}
-									className="p-1.5 rounded-md bg-accent/90 hover:bg-accent/80 disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-transparent text-white disabled:text-text-primary transition-colors"
-								>
-									<ArrowRight className="size-4" />
-								</button>
-							</div>
-						</div>
-					</form>
+
+				<ChatInput
+					newMessage={newMessage}
+					onMessageChange={setNewMessage}
+					onSubmit={onNewMessage}
+					images={images}
+					onAddImages={addImages}
+					onRemoveImage={removeImage}
+					isProcessing={isProcessing}
+					isChatDragging={isChatDragging}
+					chatDragHandlers={chatDragHandlers}
+					isChatDisabled={isChatDisabled}
+					isRunning={isRunning}
+					isGenerating={isGenerating}
+					isGeneratingBlueprint={isGeneratingBlueprint}
+					isDebugging={isDebugging}
+					websocket={websocket}
+					chatFormRef={chatFormRef}
+					imageInputRef={imageInputRef}
+				/>
 				</motion.div>
 
-				<AnimatePresence>
+				<AnimatePresence mode="wait">
 					{showMainView && (
-					<motion.div
-						layout="position"
-						className="flex-1 flex shrink-0 basis-0 p-4 pl-0 ml-2 z-30 min-h-0"
-						initial={{ opacity: 0, scale: 0.84 }}
-						animate={{ opacity: 1, scale: 1 }}
-						transition={{ duration: 0.3, ease: 'easeInOut' }}
-					>
-							{view === 'preview' && previewUrl && (
-								<div className="flex-1 flex flex-col bg-bg-3 rounded-xl shadow-md shadow-bg-2 overflow-hidden border border-border-primary">
-									<div className="grid grid-cols-3 px-2 h-10 border-b bg-bg-2">
-										<div className="flex items-center">
-											<ViewModeSwitch
-												view={view}
-												onChange={handleViewModeChange}
-												previewAvailable={!!previewUrl}
-												showTooltip={showTooltip}
-											/>
-										</div>
-
-										<div className="flex items-center justify-center">
-											<div className="flex items-center gap-2">
-												<span className="text-sm font-mono text-text-50/70">
-													{blueprint?.title ??
-														'Preview'}
-												</span>
-												<Copy text={previewUrl} />
-												<button
-													className="p-1 hover:bg-bg-2 rounded transition-colors"
-													onClick={() => {
-														setManualRefreshTrigger(
-															Date.now(),
-														);
-													}}
-													title="Refresh preview"
-												>
-													<RefreshCw className="size-4 text-text-primary/50" />
-												</button>
-											</div>
-										</div>
-
-										<div className="flex items-center justify-end gap-1.5">
-											{/* <button
-												className="flex items-center gap-1.5 px-2 py-1 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white rounded-md transition-all duration-200 text-xs font-medium shadow-sm"
-												onClick={() => handleDeployToCloudflare(chatId!)}
-												disabled={isDeploying}
-												title="Save & Deploy"
-											>
-												{isDeploying ? (
-													<LoaderCircle className="size-3 animate-spin" />
-												) : (
-													<Save className="size-3" />
-												)}
-												{isDeploying ? 'Deploying...' : 'Save'}
-											</button> */}
-											<ModelConfigInfo
-												configs={modelConfigs}
-												onRequestConfigs={handleRequestConfigs}
-												loading={loadingConfigs}
-											/>
-											<button
-												className="group relative flex items-center gap-1.5 p-1.5 group-hover:pl-2 group-hover:pr-2.5 rounded-full group-hover:rounded-md transition-all duration-300 ease-in-out hover:bg-bg-4 border border-transparent hover:border-border-primary hover:shadow-sm overflow-hidden"
-												onClick={() => setIsGitCloneModalOpen(true)}
-												title="Clone Repository"
-											>
-												<GitBranch className="size-3.5 text-brand-primary transition-colors duration-300 flex-shrink-0" />
-												<span className="max-w-0 group-hover:max-w-[70px] opacity-0 group-hover:opacity-100 overflow-hidden transition-all duration-300 ease-in-out whitespace-nowrap text-xs font-medium text-text-primary">
-													Git Clone
-												</span>
-											</button>
-											<button
-												className={`flex items-center gap-1.5 px-2 py-1 rounded-md transition-all duration-200 text-xs font-medium shadow-sm ${
-													isGitHubExportReady
-														? 'bg-gray-800 hover:bg-gray-900 text-white'
-														: 'bg-gray-600 text-gray-400 cursor-not-allowed'
-												}`}
-												onClick={isGitHubExportReady ? githubExport.openModal : undefined}
-												disabled={!isGitHubExportReady}
-												title={
-													isGitHubExportReady
-														? "Export to GitHub"
-														: !isPhase1Complete
-															? "Complete Phase 1 to enable GitHub export"
-															: "Waiting for chat session to initialize..."
-												}
-												aria-label={
-													isGitHubExportReady
-														? "Export to GitHub"
-														: !isPhase1Complete
-															? "GitHub export disabled - complete Phase 1 first"
-															: "GitHub export disabled - waiting for chat session"
-												}
-											>
-												<Github className="size-3.5" />
-												GitHub
-											</button>
-											<button
-												className="p-1.5 rounded-full transition-all duration-300 ease-in-out hover:bg-bg-4 border border-transparent hover:border-border-primary hover:shadow-sm"
-												onClick={() => {
-													previewRef.current?.requestFullscreen();
-												}}
-												title="Fullscreen"
-											>
-												<Expand className="size-3.5 text-text-primary/60 hover:text-brand-primary transition-colors duration-300" />
-											</button>
-										</div>
-									</div>
-									<PreviewIframe
-										src={previewUrl}
-										ref={previewRef}
-										className="flex-1 w-full h-full border-0"
-										title="Preview"
-										shouldRefreshPreview={
-											shouldRefreshPreview
-										}
-										manualRefreshTrigger={
-											manualRefreshTrigger
-										}
-										webSocket={websocket}
-									/>
-								</div>
-							)}
-
-							{view === 'blueprint' && (
-								<div className="flex-1 flex flex-col bg-bg-3 rounded-xl shadow-md shadow-bg-2 overflow-hidden border border-border-primary">
-									{/* Toolbar */}
-									<div className="grid grid-cols-3 px-2 h-10 bg-bg-2 border-b">
-										<div className="flex items-center">
-											<ViewModeSwitch
-												view={view}
-												onChange={handleViewModeChange}
-												previewAvailable={!!previewUrl}
-												showTooltip={showTooltip}
-											/>
-										</div>
-
-										<div className="flex items-center justify-center">
-											<div className="flex items-center gap-2">
-												<span className="text-sm text-text-50/70 font-mono">
-													Blueprint.md
-												</span>
-												{previewUrl && (
-													<Copy text={previewUrl} />
-												)}
-											</div>
-										</div>
-
-										<div className="flex items-center justify-end">
-											{/* Right side - can add actions here if needed */}
-										</div>
-									</div>
-									<div className="flex-1 overflow-y-auto bg-bg-3">
-										<div className="py-12 mx-auto">
-											<Blueprint
-												blueprint={
-													blueprint ??
-													({} as BlueprintType)
-												}
-												className="w-full max-w-2xl mx-auto"
-											/>
-										</div>
-									</div>
-								</div>
-							)}
-
-
-                            {/* Disabled terminal for now */}
-							{/* {view === 'terminal' && (
-								<div className="flex-1 flex flex-col bg-bg-3 rounded-xl shadow-md shadow-bg-2 overflow-hidden border border-border-primary">
-									<div className="grid grid-cols-3 px-2 h-10 bg-bg-2 border-b">
-										<div className="flex items-center">
-											<ViewModeSwitch
-												view={view}
-												onChange={handleViewModeChange}
-												previewAvailable={!!previewUrl}
-												showTooltip={showTooltip}
-												terminalAvailable={true}
-											/>
-										</div>
-
-										<div className="flex items-center justify-center">
-											<div className="flex items-center gap-3">
-												<span className="text-sm font-mono text-text-50/70">
-													Terminal
-												</span>
-												<div className={clsx(
-													'flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium',
-													websocket && websocket.readyState === WebSocket.OPEN
-														? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300'
-														: 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300'
-												)}>
-													<div className={clsx(
-														'size-1.5 rounded-full',
-														websocket && websocket.readyState === WebSocket.OPEN ? 'bg-green-500' : 'bg-red-500'
-													)} />
-													{websocket && websocket.readyState === WebSocket.OPEN ? 'Connected' : 'Disconnected'}
-												</div>
-											</div>
-										</div>
-
-										<div className="flex items-center justify-end gap-1.5">
-											<button
-												onClick={() => {
-													const logText = terminalLogs
-														.map(log => `[${new Date(log.timestamp).toLocaleTimeString()}] ${log.content}`)
-														.join('\n');
-													navigator.clipboard.writeText(logText);
-												}}
-												className={clsx(
-													"h-7 w-7 p-0 rounded-md transition-all duration-200",
-													"text-gray-500 hover:text-gray-700",
-													"dark:text-gray-400 dark:hover:text-gray-200",
-													"hover:bg-gray-100 dark:hover:bg-gray-700"
-												)}
-												title="Copy all logs"
-											>
-												<Copy text="" />
-											</button>
-											<ModelConfigInfo
-												configs={modelConfigs}
-												onRequestConfigs={handleRequestConfigs}
-												loading={loadingConfigs}
-											/>
-										</div>
-									</div>
-									<div className="flex-1">
-										<Terminal
-											logs={terminalLogs}
-											onCommand={handleTerminalCommand}
-											isConnected={!!websocket && websocket.readyState === WebSocket.OPEN}
-											className="h-full"
-										/>
-									</div>
-								</div>
-							)} */}
-
-							{view === 'editor' && (
-								<div className="flex-1 flex flex-col bg-bg-3 rounded-xl shadow-md shadow-bg-2 overflow-hidden border border-border-primary">
-									{activeFile && (
-										<div className="grid grid-cols-3 px-2 h-10 bg-bg-2 border-b">
-											<div className="flex items-center">
-												<ViewModeSwitch
-													view={view}
-													onChange={
-														handleViewModeChange
-													}
-													previewAvailable={
-														!!previewUrl
-													}
-													showTooltip={showTooltip}
-												/>
-											</div>
-
-											<div className="flex items-center justify-center">
-												<div className="flex items-center gap-2">
-													<span className="text-sm font-mono text-text-50/70">
-														{activeFile.filePath}
-													</span>
-													{previewUrl && (
-														<Copy
-															text={previewUrl}
-														/>
-													)}
-												</div>
-											</div>
-
-											<div className="flex items-center justify-end gap-1.5">
-												{/* <button
-													className="flex items-center gap-1.5 px-2 py-1 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white rounded-md transition-all duration-200 text-xs font-medium shadow-sm"
-													onClick={() => handleDeployToCloudflare(chatId!)}
-													disabled={isDeploying}
-													title="Save & Deploy"
-												>
-													{isDeploying ? (
-														<LoaderCircle className="size-3 animate-spin" />
-													) : (
-														<Save className="size-3" />
-													)}
-													{isDeploying ? 'Deploying...' : 'Save'}
-												</button>
-												<button
-													className={`flex items-center gap-1.5 px-2 py-1 rounded-md transition-all duration-200 text-xs font-medium shadow-sm ${
-														isPhase1Complete
-															? 'bg-gray-800 hover:bg-gray-900 text-white'
-															: 'bg-gray-600 text-gray-400 cursor-not-allowed'
-													}`}
-													onClick={isPhase1Complete ? githubExport.openModal : undefined}
-													disabled={!isPhase1Complete}
-													title={isPhase1Complete ? "Export to GitHub" : "Complete Phase 1 to enable GitHub export"}
-													aria-label={isPhase1Complete ? "Export to GitHub" : "GitHub export disabled - complete Phase 1 first"}
-												>
-													<Github className="size-3.5" />
-													GitHub
-												</button> */}
-												<ModelConfigInfo
-													configs={modelConfigs}
-													onRequestConfigs={handleRequestConfigs}
-													loading={loadingConfigs}
-												/>
-												<button
-													className="p-1.5 rounded-full transition-all duration-300 ease-in-out hover:bg-bg-4 border border-transparent hover:border-border-primary hover:shadow-sm"
-													onClick={() => {
-														editorRef.current?.requestFullscreen();
-													}}
-													title="Fullscreen"
-												>
-													<Expand className="size-3.5 text-text-primary/60 hover:text-brand-primary transition-colors duration-300" />
-												</button>
-											</div>
-										</div>
-									)}
-									<div className="flex-1 relative">
-										<div
-											className="absolute inset-0 flex"
-											ref={editorRef}
-										>
-											<FileExplorer
-												files={files}
-												bootstrapFiles={
-													streamedBootstrapFiles
-												}
-												currentFile={activeFile}
-												onFileClick={handleFileClick}
-											/>
-											<div className="flex-1">
-												<MonacoEditor
-													className="h-full"
-													createOptions={{
-														value:
-															activeFile?.fileContents ||
-															'',
-														language:
-															activeFile?.language ||
-															'plaintext',
-														readOnly: true,
-														minimap: {
-															enabled: false,
-														},
-														lineNumbers: 'on',
-														scrollBeyondLastLine: false,
-														fontSize: 13,
-														theme: 'vibesdk',
-														automaticLayout: true,
-													}}
-													find={
-														edit &&
-														edit.filePath ===
-															activeFile?.filePath
-															? edit.search
-															: undefined
-													}
-													replace={
-														edit &&
-														edit.filePath ===
-															activeFile?.filePath
-															? edit.replacement
-															: undefined
-													}
-												/>
-											</div>
-										</div>
-									</div>
-								</div>
-							)}
+						<motion.div
+							key="main-content-panel"
+							initial={{ opacity: 0 }}
+							animate={{ opacity: 1 }}
+							exit={{ opacity: 0 }}
+							className="flex-1 flex shrink-0 basis-0 p-4 pl-0 ml-2 z-30 min-h-0"
+						>
+							<MainContentPanel
+								view={view}
+								onViewChange={handleViewModeChange}
+								hasDocumentation={hasDocumentation}
+								contentDetection={contentDetection}
+								projectType={projectType}
+								previewUrl={previewUrl}
+								previewAvailable={previewAvailable}
+								showTooltip={showTooltip}
+								shouldRefreshPreview={shouldRefreshPreview}
+								manualRefreshTrigger={manualRefreshTrigger}
+								onManualRefresh={() => setManualRefreshTrigger(Date.now())}
+								blueprint={blueprint}
+								activeFile={activeFile}
+								allFiles={allFiles}
+								edit={edit}
+								onFileClick={handleFileClick}
+								isGenerating={isGenerating}
+								isGeneratingBlueprint={isGeneratingBlueprint}
+								modelConfigs={modelConfigs}
+								loadingConfigs={loadingConfigs}
+								onRequestConfigs={handleRequestConfigs}
+								onGitCloneClick={() => setIsGitCloneModalOpen(true)}
+								isGitHubExportReady={isGitHubExportReady}
+								githubExport={githubExport}
+								behaviorType={behaviorType}
+								urlChatId={urlChatId}
+								isPhase1Complete={isPhase1Complete}
+								websocket={websocket}
+								previewRef={previewRef}
+								editorRef={editorRef}
+								presentationSpeakerMode={presentationSpeakerMode}
+								presentationPreviewMode={presentationPreviewMode}
+								onToggleSpeakerMode={handleToggleSpeakerMode}
+								onTogglePreviewMode={handleTogglePreviewMode}
+								onExportPdf={handleExportPdf}
+							/>
 						</motion.div>
 					)}
 				</AnimatePresence>
 			</div>
 
-			{/* Debug Panel */}
-			<DebugPanel
-				messages={debugMessages}
-				onClear={clearDebugMessages}
-				chatSessionId={chatId}
+			<ChatModals
+				debugMessages={debugMessages}
+				chatId={chatId}
+				onClearDebugMessages={clearDebugMessages}
+				isResetDialogOpen={isResetDialogOpen}
+				onResetDialogChange={setIsResetDialogOpen}
+				onResetConversation={handleResetConversation}
+				githubExport={githubExport}
+				app={app}
+				urlChatId={urlChatId}
+				isGitCloneModalOpen={isGitCloneModalOpen}
+				onGitCloneModalChange={setIsGitCloneModalOpen}
+				user={user}
 			/>
-
-			<AlertDialog open={isResetDialogOpen} onOpenChange={setIsResetDialogOpen}>
-				<AlertDialogContent className="sm:max-w-[425px]">
-					<AlertDialogHeader>
-						<AlertDialogTitle>Reset conversation?</AlertDialogTitle>
-						<AlertDialogDescription>
-							This will clear the chat history for this app. Generated files and preview are not affected.
-						</AlertDialogDescription>
-					</AlertDialogHeader>
-					<AlertDialogFooter>
-						<AlertDialogCancel>Cancel</AlertDialogCancel>
-						<AlertDialogAction onClick={handleResetConversation} className="bg-bg-2 hover:bg-bg-2/80 text-text-primary">
-							Reset
-						</AlertDialogAction>
-					</AlertDialogFooter>
-				</AlertDialogContent>
-			</AlertDialog>
-
-			{/* GitHub Export Modal */}
-			<GitHubExportModal
-				isOpen={githubExport.isModalOpen}
-				onClose={githubExport.closeModal}
-				onExport={githubExport.startExport}
-				isExporting={githubExport.isExporting}
-				exportProgress={githubExport.progress}
-				exportResult={githubExport.result}
-				onRetry={githubExport.retry}
-				existingGithubUrl={app?.githubRepositoryUrl || null}
-				agentId={urlChatId || undefined}
-				appTitle={app?.title}
-			/>
-
-			{/* Git Clone Modal */}
-			{urlChatId && app && (
-				<GitCloneModal
-					open={isGitCloneModalOpen}
-					onOpenChange={setIsGitCloneModalOpen}
-					appId={urlChatId}
-					appTitle={app.title || 'app'}
-					isPublic={app.visibility === 'public'}
-					isOwner={app.user?.id === user?.id}
-				/>
-			)}
 		</div>
 	);
 }

@@ -106,16 +106,24 @@ export type {
   SecretTemplatesData
 } from 'worker/api/controllers/secrets/types';
 
-// Agent/CodeGen API Types  
+// Agent/CodeGen API Types
 export type {
   AgentConnectionData,
 } from 'worker/api/controllers/agent/types';
 
+// Template Types
+export type {
+  TemplateDetails,
+} from 'worker/services/sandbox/sandboxTypes';
+
 // WebSocket Types
-export type { 
-  WebSocketMessage, 
+export type {
+  WebSocketMessage,
   WebSocketMessageData,
-  CodeFixEdits 
+  CodeFixEdits,
+  ModelConfigsInfoMessage,
+  AgentDisplayConfig,
+  ModelConfigsInfo
 } from 'worker/api/websocketTypes';
 
 // Database/Schema Types commonly used in frontend
@@ -248,6 +256,14 @@ export interface CsrfTokenResponseData {
   token: string;
   headerName: string;
   expiresIn?: number;
+}
+
+// CLI Token Response - for CLI authentication
+export interface CliTokenData {
+  token: string;
+  expiresIn: number;
+  expiresAt: string;
+  instructions: string;
 }
 
 // Active Sessions Response - matches getUserSessions + isCurrent from controller

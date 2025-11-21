@@ -10,7 +10,7 @@ import { ExecuteCommandsResponse, PreviewType, RuntimeError, StaticAnalysisRespo
 import { BaseProjectState, AgenticState } from '../state';
 import { AllIssues, AgentSummary, AgentInitArgs, BehaviorType, DeploymentTarget, ProjectType } from '../types';
 import { ModelConfig } from '../../inferutils/config.types';
-import { PREVIEW_EXPIRED_ERROR, WebSocketMessageResponses } from '../../constants';
+import { WebSocketMessageResponses } from '../../constants';
 import { ProjectSetupAssistant } from '../../assistants/projectsetup';
 import { UserConversationProcessor, RenderToolCall } from '../../operations/UserConversationProcessor';
 import { FileRegenerationOperation } from '../../operations/FileRegeneration';
@@ -31,7 +31,6 @@ import { RateLimitExceededError } from 'shared/types/errors';
 import { ImageAttachment, type ProcessedImageAttachment } from '../../../types/image-attachment';
 import { OperationOptions } from '../../operations/common';
 import { ImageType, uploadImage } from 'worker/utils/images';
-import { DeepCodeDebugger } from '../../assistants/codeDebugger';
 import { DeepDebugResult } from '../types';
 import { updatePackageJson } from '../../utils/packageSyncer';
 import { ICodingAgent } from '../../services/interfaces/ICodingAgent';
@@ -39,6 +38,11 @@ import { SimpleCodeGenerationOperation } from '../../operations/SimpleCodeGenera
 import { AgentComponent } from '../AgentComponent';
 import type { AgentInfrastructure } from '../AgentCore';
 import { GitVersionControl } from '../../git';
+import { DeepDebuggerOperation } from '../../operations/DeepDebugger';
+import type { DeepDebuggerInputs } from '../../operations/DeepDebugger';
+import { generatePortToken } from 'worker/utils/cryptoUtils';
+import { getPreviewDomain, getProtocolForHost } from 'worker/utils/urls';
+import { isDev } from 'worker/utils/envs';
 
 export interface BaseCodingOperations {
     regenerateFile: FileRegenerationOperation;
@@ -56,7 +60,6 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
 
     protected projectSetupAssistant: ProjectSetupAssistant | undefined;
 
-    protected previewUrlCache: string = '';
     protected templateDetailsCache: TemplateDetails | null = null;
     
     // In-memory storage for user-uploaded images (not persisted in DO state)
@@ -159,6 +162,11 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
                 allFiles: customizedAllFiles
             };
             this.logger.info('Template details loaded and customized');
+
+            // If renderMode == 'browser', we can deploy right away
+            if (templateDetails.renderMode === 'browser') {
+                await this.deployToSandbox();
+            }
         }
         return this.templateDetailsCache;
     }
@@ -174,6 +182,11 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
             throw new Error('Template details not loaded. Call ensureTemplateDetails() first.');
         }
         return this.templateDetailsCache;
+    }
+
+    protected isPreviewable(): boolean {
+        // If there are 'package.json', and 'wrangler.jsonc' files, then it is previewable
+        return this.fileManager.fileExists('package.json') && this.fileManager.fileExists('wrangler.jsonc');
     }
 
     /**
@@ -204,10 +217,6 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
             commandCount: commandsHistory.length,
             commands: commandsHistory
         });
-    }
-
-    getPreviewUrlCache() {
-        return this.previewUrlCache;
     }
 
     getProjectSetupAssistant(): ProjectSetupAssistant {
@@ -289,12 +298,6 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
 
     async generateReadme() {
         this.logger.info('Generating README.md');
-        // Only generate if it doesn't exist
-        if (this.fileManager.fileExists('README.md')) {
-            this.logger.info('README.md already exists');
-            return;
-        }
-
         this.broadcast(WebSocketMessageResponses.FILE_GENERATING, {
             message: 'Generating README.md',
             filePath: 'README.md',
@@ -377,6 +380,19 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
         await this.generationPromise;
     }
 
+    setMVPGenerated(): boolean {
+        if (!this.state.mvpGenerated) {
+            this.setState({ ...this.state, mvpGenerated: true });
+            this.logger.info('MVP generated');
+            return true;
+        }
+        return false;
+    }
+
+    isMVPGenerated(): boolean {
+        return this.state.mvpGenerated;
+    }
+
     private async buildWrapper() {
         this.broadcast(WebSocketMessageResponses.GENERATION_STARTED, {
             message: 'Starting code generation',
@@ -438,29 +454,32 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
 
                 const runtimeErrors = await this.fetchRuntimeErrors(false);
 
-                const dbg = new DeepCodeDebugger(
-                    operationOptions.env,
-                    operationOptions.inferenceContext,
-                );
-
-                const out = await dbg.run(
-                    { issue, previousTranscript },
-                    { filesIndex, agent: this, runtimeErrors },
+                const inputs: DeepDebuggerInputs = {
+                    issue,
+                    previousTranscript,
+                    filesIndex,
+                    runtimeErrors,
                     streamCb,
                     toolRenderer,
-                );
+                };
+
+                const operation = new DeepDebuggerOperation();
+
+                const result = await operation.execute(inputs, operationOptions);
+
+                const transcript = result.transcript;
 
                 // Save transcript for next session
                 this.setState({
                     ...this.state,
-                    lastDeepDebugTranscript: out,
+                    lastDeepDebugTranscript: transcript,
                 });
 
-                return { success: true as const, transcript: out };
+                return { success: true as const, transcript };
             } catch (e) {
                 this.logger.error('Deep debugger failed', e);
                 return { success: false as const, error: `Deep debugger failed: ${String(e)}` };
-            } finally{
+            } finally {
                 this.deepDebugPromise = null;
                 this.deepDebugConversationId = null;
             }
@@ -862,10 +881,6 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
     }
 
     async regenerateFileByPath(path: string, issues: string[]): Promise<{ path: string; diff: string }> {
-        const { sandboxInstanceId } = this.state;
-        if (!sandboxInstanceId) {
-            throw new Error('No sandbox instance available');
-        }
         // Prefer local file manager; fallback to sandbox
         let fileContents = '';
         let filePurpose = '';
@@ -875,6 +890,10 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
                 fileContents = fmFile.fileContents;
                 filePurpose = fmFile.filePurpose || '';
             } else {
+                const { sandboxInstanceId } = this.state;
+                if (!sandboxInstanceId) {
+                    throw new Error('No sandbox instance available');
+                }
                 const resp = await this.getSandboxServiceClient().getFiles(sandboxInstanceId, [path]);
                 const f = resp.success ? resp.files.find(f => f.filePath === path) : undefined;
                 if (!f) throw new Error(resp.error || `File not found: ${path}`);
@@ -886,7 +905,8 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
 
         const regenerated = await this.regenerateFile({ filePath: path, fileContents, filePurpose }, issues, 0);
         // Persist to sandbox instance
-        await this.getSandboxServiceClient().writeFiles(sandboxInstanceId, [{ filePath: regenerated.filePath, fileContents: regenerated.fileContents }], `Deep debugger fix: ${path}`);
+        // await this.getSandboxServiceClient().writeFiles(sandboxInstanceId, [{ filePath: regenerated.filePath, fileContents: regenerated.fileContents }], `Deep debugger fix: ${path}`);
+        await this.deploymentManager.deployToSandbox([regenerated])
         return { path, diff: regenerated.lastDiff };
     }
 
@@ -940,7 +960,7 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
             this.getOperationOptions()
         );
 
-        await this.fileManager.saveGeneratedFiles(
+        const savedFiles = await this.fileManager.saveGeneratedFiles(
             result.files,
             `feat: ${phaseName}\n\n${phaseDescription}`
         );
@@ -949,16 +969,42 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
             fileCount: result.files.length
         });
 
-        const savedFiles = result.files.map(f => {
-            const fileState = this.state.generatedFilesMap[f.filePath];
+        return { files: savedFiles.map(f => {
             return {
                 path: f.filePath,
                 purpose: f.filePurpose || '',
-                diff: fileState?.lastDiff || ''
+                diff: f.lastDiff || ''
             };
-        });
+        }) };
+    }
 
-        return { files: savedFiles };
+    /**
+     * Get or create file serving token (lazy generation)
+     */
+    private getOrCreateFileServingToken(): string {
+        if (!this.state.fileServingToken) {
+            const token = generatePortToken();
+            this.setState({
+                ...this.state,
+                fileServingToken: {
+                    token,
+                    createdAt: Date.now()
+                }
+            });
+        }
+        return this.state.fileServingToken!.token;
+    }
+
+    /**
+     * Get browser preview URL for file serving
+     */
+    public getBrowserPreviewURL(): string {
+        const token = this.getOrCreateFileServingToken();
+        const agentId = this.getAgentId();
+        const previewDomain = isDev(this.env) ? 'localhost:5173' : getPreviewDomain(this.env);
+
+        // Format: b-{agentid}-{token}.{previewDomain}
+        return `${getProtocolForHost(previewDomain)}://b-${agentId}-${token}.${previewDomain}`;
     }
 
     // A wrapper for LLM tool to deploy to sandbox
@@ -972,6 +1018,24 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
     }
 
     async deployToSandbox(files: FileOutputType[] = [], redeploy: boolean = false, commitMessage?: string, clearLogs: boolean = false): Promise<PreviewType | null> {
+        // Only deploy if project is previewable
+        if (!this.isPreviewable()) {
+            throw new Error('Project is not previewable');
+        }
+        this.logger.info('[AGENT] Deploying to sandbox', { files: files.length, redeploy, commitMessage, renderMode: this.getTemplateDetails()?.renderMode, templateDetails: this.getTemplateDetails() });
+
+        if (this.getTemplateDetails()?.renderMode === 'browser') {
+            this.logger.info('Deploying to browser native sandbox');
+            this.broadcast(WebSocketMessageResponses.DEPLOYMENT_STARTED, {});
+            const result: PreviewType = {
+                previewURL: this.getBrowserPreviewURL()
+            }
+            this.logger.info('Deployed to browser native sandbox');
+            this.broadcast(WebSocketMessageResponses.DEPLOYMENT_COMPLETED, result);
+            return result;
+        }
+            
+        
         // Call deployment manager with callbacks for broadcasting at the right times
         const result = await this.deploymentManager.deployToSandbox(
             files,
@@ -1031,14 +1095,6 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
                     onError: (data) => {
                         this.broadcast(WebSocketMessageResponses.CLOUDFLARE_DEPLOYMENT_ERROR, data);
                     },
-                    onPreviewExpired: () => {
-                        // Re-deploy sandbox and broadcast error
-                        this.deployToSandbox();
-                        this.broadcast(WebSocketMessageResponses.CLOUDFLARE_DEPLOYMENT_ERROR, {
-                            message: PREVIEW_EXPIRED_ERROR,
-                            error: PREVIEW_EXPIRED_ERROR
-                        });
-                    }
                 }
             });
 
@@ -1065,14 +1121,23 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
 
     async importTemplate(templateName: string): Promise<{ templateName: string; filesImported: number; files: TemplateFile[] }> {
         this.logger.info(`Importing template into project: ${templateName}`);
-        
-        // Update state
-        this.setState({
-            ...this.state,
-            templateName: templateName,
-        });
 
-        this.templateDetailsCache = null;   // Clear template details cache
+        if (this.state.templateName !== templateName) {
+            // Get template catalog info to sync projectType
+            const catalogResponse = await BaseSandboxService.listTemplates();
+            const catalogInfo = catalogResponse.success 
+                ? catalogResponse.templates.find(t => t.name === templateName)
+                : null;
+            
+            // Update state with template name and projectType if available
+            this.setState({
+                ...this.state,
+                templateName: templateName,
+                ...(catalogInfo?.projectType ? { projectType: catalogInfo.projectType } : {}),
+            });
+
+            this.templateDetailsCache = null;   // Clear template details cache
+        }
         const templateDetails = await this.ensureTemplateDetails();
         if (!templateDetails) {
             throw new Error(`Failed to get template details for: ${templateName}`);
@@ -1085,6 +1150,11 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
 
         // Get important files for return value
         const importantFiles = getTemplateImportantFiles(templateDetails);
+
+        // Notify frontend about template metadata update
+        this.broadcast(WebSocketMessageResponses.TEMPLATE_UPDATED, {
+            templateDetails
+        });
 
         return {
             templateName: templateDetails.name,
@@ -1408,7 +1478,7 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
     /**
      * Delete files from the file manager
      */
-    async deleteFiles(filePaths: string[]) {
+    async deleteFiles(filePaths: string[]) : Promise<{ success: boolean, error?: string }> {
         const deleteCommands: string[] = [];
         for (const filePath of filePaths) {
             deleteCommands.push(`rm -rf ${filePath}`);
@@ -1418,8 +1488,10 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
         try {
             await this.executeCommands(deleteCommands, false);
             this.logger.info(`Deleted ${filePaths.length} files: ${filePaths.join(", ")}`);
+            return { success: true };
         } catch (error) {
             this.logger.error('Error deleting files:', error);
+            return { success: false, error: error as string };
         }
     }
 

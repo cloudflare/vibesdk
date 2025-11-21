@@ -33,7 +33,7 @@ export class DeploymentManager extends BaseAgentService<BaseProjectState> implem
 
     constructor(
         options: ServiceOptions<BaseProjectState>,
-        private maxCommandsHistory: number
+        private maxCommandsHistory: number,
     ) {
         super(options);
         
@@ -689,7 +689,7 @@ export class DeploymentManager extends BaseAgentService<BaseProjectState> implem
             if (deploymentResult?.error?.includes('Failed to read instance metadata') || 
                 deploymentResult?.error?.includes(`/bin/sh: 1: cd: can't cd to i-`)) {
                 logger.error('Deployment sandbox died - preview expired');
-                callbacks?.onPreviewExpired?.();
+                this.deployToSandbox();
             } else {
                 callbacks?.onError?.({
                     message: `Deployment failed: ${deploymentResult?.message || 'Unknown error'}`,

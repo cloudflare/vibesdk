@@ -6,6 +6,7 @@ import { FileProcessing } from '../../domain/pure/FileProcessing';
 import { BaseProjectState, FileState } from 'worker/agents/core/state';
 import { TemplateDetails } from '../../../services/sandbox/sandboxTypes';
 import { GitVersionControl } from 'worker/agents/git';
+import { isFileModifiable } from '../../../services/sandbox/utils';
 
 /**
  * Manages file operations for code generation
@@ -67,7 +68,7 @@ export class FileManager implements IFileManager {
         }
     }
 
-    getGeneratedFile(path: string): FileOutputType | null {
+    getGeneratedFile(path: string): FileState | null {
         const state = this.stateManager.getState();
         return state.generatedFilesMap[path] || null;
     }
@@ -77,12 +78,12 @@ export class FileManager implements IFileManager {
      * Template files are overridden by generated files with same path
      * @returns Array of all files. Only returns important template files, not all!
      */
-    getAllRelevantFiles(): FileOutputType[] {
+    getAllRelevantFiles(): FileState[] {
         const state = this.stateManager.getState();
         return FileProcessing.getAllRelevantFiles(this.getTemplateDetailsFunc(), state.generatedFilesMap);
     }
 
-    getAllFiles(): FileOutputType[] {
+    getAllFiles(): FileState[] {
         const state = this.stateManager.getState();
         return FileProcessing.getAllFiles(this.getTemplateDetailsFunc(), state.generatedFilesMap);
     }
@@ -93,10 +94,17 @@ export class FileManager implements IFileManager {
     }
 
     async saveGeneratedFiles(files: FileOutputType[], commitMessage?: string): Promise<FileState[]> {
+        const templateDetails = this.getTemplateDetailsFunc();
+        const dontTouchFiles = templateDetails?.dontTouchFiles || new Set<string>();
+
         const filesMap = { ...this.stateManager.getState().generatedFilesMap };
         const fileStates: FileState[] = [];
-        
+
         for (const file of files) {
+            if (!isFileModifiable(file.filePath, dontTouchFiles).allowed) {
+                console.warn(`[FileManager] Skipping protected file ${file.filePath}`);
+                continue;
+            }
             let lastDiff = '';
             const oldFile = filesMap[file.filePath];
             
@@ -163,7 +171,7 @@ export class FileManager implements IFileManager {
     }
 
     fileExists(path: string): boolean {
-        return !!this.getGeneratedFile(path)
+        return !!this.getFile(path)
     }
 
     getGeneratedFilePaths(): string[] {
@@ -171,12 +179,12 @@ export class FileManager implements IFileManager {
         return Object.keys(state.generatedFilesMap);
     }
 
-    getGeneratedFilesMap(): Record<string, FileOutputType> {
+    getGeneratedFilesMap(): Record<string, FileState> {
         const state = this.stateManager.getState();
         return state.generatedFilesMap;
     }
 
-    getGeneratedFiles(): FileOutputType[] {
+    getGeneratedFiles(): FileState[] {
         const state = this.stateManager.getState();
         return Object.values(state.generatedFilesMap);
     }

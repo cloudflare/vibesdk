@@ -2,6 +2,8 @@ import { WebSocketMessageType } from "../api/websocketTypes";
 import { AgentActionKey } from "./inferutils/config.types";
 
 export const WebSocketMessageResponses: Record<string, WebSocketMessageType> = {
+    AGENT_CONNECTED: 'agent_connected',
+
     GENERATION_STARTED: 'generation_started',
     GENERATION_COMPLETE: 'generation_complete',
 
@@ -69,7 +71,8 @@ export const WebSocketMessageResponses: Record<string, WebSocketMessageType> = {
     PROJECT_NAME_UPDATED: 'project_name_updated',
     BLUEPRINT_UPDATED: 'blueprint_updated',
     BLUEPRINT_CHUNK: 'blueprint_chunk',
-    
+    TEMPLATE_UPDATED: 'template_updated',
+
     // Model configuration info
     MODEL_CONFIGS_INFO: 'model_configs_info',
     

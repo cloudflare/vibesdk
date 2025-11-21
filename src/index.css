@@ -307,6 +307,15 @@
 	background: rgba(255, 255, 255, 0.3);
 }
 
+.presentation-thumbnail-bg {
+	background:
+		radial-gradient(circle at 20% 80%, rgba(99, 102, 241, 0.15) 0%, transparent 50%),
+		radial-gradient(circle at 80% 20%, rgba(139, 92, 246, 0.15) 0%, transparent 50%),
+		radial-gradient(circle at 40% 40%, rgba(59, 130, 246, 0.1) 0%, transparent 40%),
+		linear-gradient(135deg, #0a0e1a 0%, #0f172a 25%, #1e293b 50%, #0f172a 75%, #0a0e1a 100%);
+	background-size: 100% 100%, 100% 100%, 100% 100%, 400% 400%;
+}
+
 .a-tag a {
 	@apply text-brand;
 }

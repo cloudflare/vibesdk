@@ -1,6 +1,6 @@
 import { ProjectObjective } from './base';
 import { BaseProjectState } from '../state';
-import { ProjectType, RuntimeType, ExportResult, ExportOptions, DeployResult, DeployOptions } from '../types';
+import { ProjectType, ExportResult, ExportOptions, DeployResult, DeployOptions } from '../types';
 import type { AgentInfrastructure } from '../AgentCore';
 
 export class GeneralObjective<TState extends BaseProjectState = BaseProjectState>
@@ -12,19 +12,6 @@ export class GeneralObjective<TState extends BaseProjectState = BaseProjectState
 
     getType(): ProjectType {
         return 'general';
-    }
-
-    getRuntime(): RuntimeType {
-        // No runtime assumed; agentic behavior will initialize slides/app runtime if needed
-        return 'none';
-    }
-
-    needsTemplate(): boolean {
-        return false;
-    }
-
-    getTemplateType(): string | null {
-        return null; // scratch
     }
 
     async deploy(_options?: DeployOptions): Promise<DeployResult> {

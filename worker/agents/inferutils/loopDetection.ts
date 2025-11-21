@@ -57,7 +57,145 @@ export class LoopDetector {
 	}
 
 	/**
-	 * Stringify arguments with deterministic key ordering and circular reference handling
+	 * Detects significant repetition in generated text using a rolling hash,
+	 * catching both short token loops and repeated paragraphs.
+	 */
+	detectTextRepetition(text: string): boolean {
+		if (!text || text.length < 40) {
+			return false;
+		}
+
+		const CHECK_WINDOW = 4000;
+		const recentText = text.slice(-CHECK_WINDOW);
+		const textLength = recentText.length;
+
+		// Rolling hash base and modulus
+		const BASE = 257;
+		const MOD = 1e9 + 7;
+
+		// Helper: Compute hash of a substring
+		const computeHash = (str: string, start: number, len: number): number => {
+			let hash = 0;
+			let pow = 1;
+			for (let i = 0; i < len; i++) {
+				hash = (hash + (str.charCodeAt(start + i) * pow) % MOD) % MOD;
+				pow = (pow * BASE) % MOD;
+			}
+			return hash;
+		};
+
+		// Helper: Verify equality of two substrings (guards against hash collisions)
+		const areEqual = (str: string, pos1: number, pos2: number, len: number): boolean => {
+			for (let i = 0; i < len; i++) {
+				if (str.charCodeAt(pos1 + i) !== str.charCodeAt(pos2 + i)) {
+					return false;
+				}
+			}
+			return true;
+		};
+
+		// Probe lengths for character-, word-, and sentence-level loops
+		const probeLengths = [1, 4, 20];
+
+		for (const probeLen of probeLengths) {
+			if (textLength < probeLen * 2) continue;
+
+			const hashMap = new Map<number, number>();
+			
+			// Precompute BASE^(probeLen-1) mod MOD
+			let basePow = 1;
+			for (let i = 0; i < probeLen - 1; i++) {
+				basePow = (basePow * BASE) % MOD;
+			}
+
+			const invBase = this.modInverse(BASE, MOD);
+
+			let currentHash = computeHash(recentText, 0, probeLen);
+			hashMap.set(currentHash, 0);
+
+			for (let i = 1; i <= textLength - probeLen; i++) {
+				// Rolling hash update
+				const oldChar = recentText.charCodeAt(i - 1);
+				currentHash = (currentHash - oldChar + MOD) % MOD;
+				currentHash = (currentHash * invBase) % MOD;
+				const newChar = recentText.charCodeAt(i + probeLen - 1);
+				currentHash = (currentHash + (newChar * basePow) % MOD) % MOD;
+
+				if (hashMap.has(currentHash)) {
+					const prevPos = hashMap.get(currentHash)!;
+					
+					// Found a matching probe; the distance gives a candidate loop period.
+					if (areEqual(recentText, prevPos, i, probeLen)) {
+						const period = i - prevPos;
+						if (period < probeLen) continue;
+
+						// Verify that the suffix consists of repeated blocks of length `period`.
+						if (recentText.length >= period * 2) {
+							const suffixBlock1 = recentText.slice(-2 * period, -period);
+							const suffixBlock2 = recentText.slice(-period);
+							
+							if (suffixBlock1 === suffixBlock2) {
+								let requiredReps = 2;
+								if (period < 5) requiredReps = 10;
+								else if (period < 20) requiredReps = 5;
+								else if (period < 50) requiredReps = 3;
+								
+								let repCount = 2;
+								let checkEnd = recentText.length - 2 * period;
+								while (checkEnd >= period) {
+									const prevBlock = recentText.slice(checkEnd - period, checkEnd);
+									if (prevBlock === suffixBlock2) {
+										repCount++;
+										checkEnd -= period;
+									} else {
+										break;
+									}
+								}
+								
+								if (repCount >= requiredReps) {
+									return true;
+								}
+							}
+						}
+					}
+				}
+				
+				// Track latest position for this hash to prefer recent, shorter periods.
+				hashMap.set(currentHash, i);
+			}
+		}
+
+		return false;
+	}
+
+	/**
+	 * Modular multiplicative inverse via extended Euclidean algorithm.
+	 */
+	private modInverse(a: number, m: number): number {
+		// Extended Euclidean algorithm
+		let m0 = m;
+		let x0 = 0;
+		let x1 = 1;
+
+		if (m === 1) return 0;
+
+		while (a > 1) {
+			const q = Math.floor(a / m);
+			let t = m;
+			m = a % m;
+			a = t;
+			t = x0;
+			x0 = x1 - q * x0;
+			x1 = t;
+		}
+
+		if (x1 < 0) x1 += m0;
+
+		return x1;
+	}
+
+	/**
+	 * Stringify args with deterministic key ordering and basic circular handling.
 	 */
 	private safeStringify(args: Record<string, unknown>): string {
 		try {
@@ -116,6 +254,17 @@ DO NOT repeat the same action. Doing the same thing repeatedly will not produce 
 Once you call the completion tool, make NO further tool calls - the system will stop automatically.`.trim();
 
 		return createUserMessage(warningMessage);
+	}
+
+	generateTextWarning(): string {
+		return `
+[!ALERT] CRITICAL: TEXT REPETITION DETECTED
+
+You are repeating the same text content. This indicates a loop.
+Please STOP repeating the same sentences.
+If you have completed the task, call the completion tool.
+If you are waiting for user input, ask a specific question and stop.
+`.trim();
 	}
 
 	/**

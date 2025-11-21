@@ -1,5 +1,7 @@
 import { WebSocket } from 'partysocket';
-import { useCallback, useEffect, useRef, useState } from 'react';
+
+export type Edit = Omit<CodeFixEdits, 'type'>;
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import {
     RateLimitExceededError,
@@ -8,7 +10,9 @@ import {
 	type CodeFixEdits,
 	type ImageAttachment,
 	type ProjectType,
-	type BehaviorType
+	type BehaviorType,
+	type FileType,
+	type TemplateDetails,
 } from '@/api-types';
 import {
 	createRepairingJSONParser,
@@ -16,6 +20,7 @@ import {
 } from '@/utils/ndjson-parser/ndjson-parser';
 import { getFileType } from '@/utils/string';
 import { logger } from '@/utils/logger';
+import { mergeFiles } from '@/utils/file-helpers';
 import { apiClient } from '@/lib/api-client';
 import { appEvents } from '@/lib/app-events';
 import { createWebSocketMessageHandler, type HandleMessageDeps } from '../utils/handle-websocket-message';
@@ -24,16 +29,6 @@ import { sendWebSocketMessage } from '../utils/websocket-helpers';
 import { initialStages as defaultStages, updateStage as updateStageHelper } from '../utils/project-stage-helpers';
 import type { ProjectStage } from '../utils/project-stage-helpers';
 
-
-export interface FileType {
-	filePath: string;
-	fileContents: string;
-	explanation?: string;
-	isGenerating?: boolean;
-	needsFixing?: boolean;
-	hasErrors?: boolean;
-	language?: string;
-}
 
 // New interface for phase timeline tracking
 export interface PhaseTimelineItem {
@@ -91,6 +86,8 @@ export function useChat({
 	const [previewUrl, setPreviewUrl] = useState<string>();
 	const [query, setQuery] = useState<string>();
 	const [behaviorType, setBehaviorType] = useState<BehaviorType>(getInitialBehaviorType());
+	const [internalProjectType, setInternalProjectType] = useState<ProjectType>(projectType);
+	const [templateDetails, setTemplateDetails] = useState<TemplateDetails | null>(null);
 
 	const [websocket, setWebsocket] = useState<WebSocket>();
 
@@ -202,6 +199,8 @@ export function useChat({
 			setStaticIssueCount,
 			setIsDebugging,
 			setBehaviorType,
+			setInternalProjectType,
+			setTemplateDetails,
 			// Current state
 			isInitialStateRestored,
 			blueprint,
@@ -645,6 +644,8 @@ export function useChat({
 		}
 	}, [websocket, sendMessage, isDeploying, onDebugMessage]);
 
+	const allFiles = useMemo(() => mergeFiles(bootstrapFiles, files), [bootstrapFiles, files]);
+
 	return {
 		messages,
 		edit,
@@ -687,5 +688,8 @@ export function useChat({
 		isDebugging,
 		// Behavior type from backend
 		behaviorType,
+		projectType: internalProjectType,
+		templateDetails,
+		allFiles,
 	};
 }

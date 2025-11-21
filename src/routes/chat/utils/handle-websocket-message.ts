@@ -1,5 +1,5 @@
 import type { WebSocket } from 'partysocket';
-import type { WebSocketMessage, BlueprintType, ConversationMessage, AgentState, PhasicState, BehaviorType } from '@/api-types';
+import type { WebSocketMessage, BlueprintType, ConversationMessage, AgentState, PhasicState, BehaviorType, ProjectType, TemplateDetails } from '@/api-types';
 import { deduplicateMessages, isAssistantMessageDuplicate } from './deduplicate-messages';
 import { logger } from '@/utils/logger';
 import { getFileType } from '@/utils/string';
@@ -20,7 +20,8 @@ import {
 } from './message-helpers';
 import { completeStages } from './project-stage-helpers';
 import { sendWebSocketMessage } from './websocket-helpers';
-import type { FileType, PhaseTimelineItem } from '../hooks/use-chat';
+import type { PhaseTimelineItem } from '../hooks/use-chat';
+import type { FileType } from '@/api-types';
 import { toast } from 'sonner';
 import { createRepairingJSONParser } from '@/utils/ndjson-parser/ndjson-parser';
 
@@ -52,6 +53,8 @@ export interface HandleMessageDeps {
     setStaticIssueCount: React.Dispatch<React.SetStateAction<number>>;
     setIsDebugging: React.Dispatch<React.SetStateAction<boolean>>;
     setBehaviorType: React.Dispatch<React.SetStateAction<BehaviorType>>;
+    setInternalProjectType: React.Dispatch<React.SetStateAction<ProjectType>>;
+    setTemplateDetails: React.Dispatch<React.SetStateAction<TemplateDetails | null>>;
 
     // Current state
     isInitialStateRestored: boolean;
@@ -126,6 +129,8 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
             setIsPhaseProgressActive,
             setIsDebugging,
             setBehaviorType,
+            setInternalProjectType,
+            setTemplateDetails,
             isInitialStateRestored,
             blueprint,
             query,
@@ -166,7 +171,7 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
                 break;
             }
             case 'agent_connected': {
-                const { state, templateDetails } = message;
+                const { state, templateDetails, previewUrl } = message;
                 console.log('Agent connected', state, templateDetails);
                 
                 if (!isInitialStateRestored) {
@@ -175,6 +180,11 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
                     if (state.behaviorType && state.behaviorType !== behaviorType) {
                         setBehaviorType(state.behaviorType);
                         logger.debug('🔄 Restored behaviorType from backend:', state.behaviorType);
+                    }
+
+                    if (state.projectType) {
+                        setInternalProjectType(state.projectType);
+                        logger.debug('🔄 Restored projectType from backend:', state.projectType);
                     }
 
                     if (state.blueprint && !blueprint) {
@@ -186,13 +196,29 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
                         setQuery(state.query);
                     }
 
-                    if (templateDetails?.allFiles && bootstrapFiles.length === 0) {
-                        const files = Object.entries(templateDetails.allFiles).map(([filePath, fileContents]) => ({
-                            filePath,
-                            fileContents,
-                        })).filter((file) => templateDetails.importantFiles.includes(file.filePath));
-                        logger.debug('📥 Restoring bootstrap files:', files);
-                        loadBootstrapFiles(files);
+                    if (previewUrl) {
+                        setPreviewUrl(previewUrl);
+                    }
+
+                    if (templateDetails) {
+                        // Store template details for manifest parsing and validation
+                        setTemplateDetails(templateDetails);
+                        logger.debug('📥 Stored template details:', {
+                            renderMode: templateDetails.renderMode,
+                            slideDirectory: templateDetails.slideDirectory,
+                            fileCount: Object.keys(templateDetails.allFiles || {}).length,
+                        });
+
+                        if (templateDetails.allFiles && bootstrapFiles.length === 0) {
+                            console.log('Template details, important files:', templateDetails.importantFiles, templateDetails)
+                            const importantFilesSet = new Set(templateDetails.importantFiles);
+                            const files = Object.entries(templateDetails.allFiles).map(([filePath, fileContents]) => ({
+                                filePath,
+                                fileContents,
+                            })).filter((file) => importantFilesSet.has(file.filePath));
+                            logger.debug('📥 Restoring bootstrap files:', files);
+                            loadBootstrapFiles(files);
+                        }
                     }
 
                     if (state.generatedFilesMap && files.length === 0) {
@@ -292,9 +318,36 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
                 }
                 break;
             }
+            case 'template_updated': {
+                const { templateDetails } = message;
+                // Update stored template details
+                setTemplateDetails(templateDetails);
+                logger.debug('📥 Template details updated:', {
+                    renderMode: templateDetails.renderMode,
+                    slideDirectory: templateDetails.slideDirectory,
+                    fileCount: Object.keys(templateDetails.allFiles || {}).length,
+                });
+
+                if (templateDetails.allFiles && bootstrapFiles.length === 0) {
+                    const importantFilesSet = new Set(templateDetails.importantFiles);
+                    const files = Object.entries(templateDetails.allFiles).map(([filePath, fileContents]) => ({
+                        filePath,
+                        fileContents,
+                    })).filter((file) => importantFilesSet.has(file.filePath));
+                    logger.debug('📥 Restoring bootstrap files:', files);
+                    loadBootstrapFiles(files);
+                }
+                break;
+            }
             case 'cf_agent_state': {
                 const { state } = message;
                 logger.debug('🔄 Agent state update received:', state);
+                
+                // Sync projectType from backend if it changed
+                if (state.projectType) {
+                    console.log('🎯 [WS] Backend projectType in cf_agent_state:', state.projectType);
+                    setInternalProjectType(state.projectType);
+                }
 
                 if (state.shouldBeGenerating && !isGenerating) {
                     logger.debug('🔄 shouldBeGenerating=true, updating UI to active state');

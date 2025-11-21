@@ -11,6 +11,10 @@ import { TemplateFile } from "worker/services/sandbox/sandboxTypes";
 
 export interface ICodingAgent {
     getBehavior(): BehaviorType;
+
+    isMVPGenerated(): boolean;
+    
+    setMVPGenerated(): boolean;
     
     getLogs(reset?: boolean, durationSeconds?: number): Promise<string>;
     
@@ -41,6 +45,8 @@ export interface ICodingAgent {
     listFiles(): FileOutputType[];
 
     readFiles(paths: string[]): Promise<{ files: { path: string; content: string }[] }>;
+
+    deleteFiles(paths: string[]): Promise<{ success: boolean, error?: string }>;
     
     runStaticAnalysisCode(files?: string[]): Promise<StaticAnalysisResponse>;
     

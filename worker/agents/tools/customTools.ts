@@ -10,7 +10,6 @@ import { createDeepDebuggerTool } from "./toolkit/deep-debugger";
 import { createRenameProjectTool } from './toolkit/rename-project';
 import { createAlterBlueprintTool } from './toolkit/alter-blueprint';
 import { createGenerateBlueprintTool } from './toolkit/generate-blueprint';
-import { DebugSession } from '../assistants/codeDebugger';
 import { createReadFilesTool } from './toolkit/read-files';
 import { createExecCommandsTool } from './toolkit/exec-commands';
 import { createRunAnalysisTool } from './toolkit/run-analysis';
@@ -27,6 +26,8 @@ import { createVirtualFilesystemTool } from './toolkit/virtual-filesystem';
 import { createGenerateImagesTool } from './toolkit/generate-images';
 import { Message } from '../inferutils/common';
 import { ChatCompletionMessageFunctionToolCall } from 'openai/resources';
+import { AgenticBuilderSession } from '../operations/AgenticProjectBuilder';
+import { DeepDebuggerSession } from '../operations/DeepDebugger';
 
 export async function executeToolWithDefinition<TArgs, TResult>(
     toolCall: ChatCompletionMessageFunctionToolCall,
@@ -66,7 +67,7 @@ export function buildTools(
     ];
 }
 
-export function buildDebugTools(session: DebugSession, logger: StructuredLogger, toolRenderer?: RenderToolCall): ToolDefinition<any, any>[] {
+export function buildDebugTools(session: DeepDebuggerSession, logger: StructuredLogger, toolRenderer?: RenderToolCall): ToolDefinition<any, any>[] {
     const tools = [
         createGetLogsTool(session.agent, logger),
         createGetRuntimeErrorsTool(session.agent, logger),
@@ -86,7 +87,7 @@ export function buildDebugTools(session: DebugSession, logger: StructuredLogger,
  * Toolset for the Agentic Project Builder (autonomous build assistant)
  */
 export function buildAgenticBuilderTools(
-    session: DebugSession,
+    session: AgenticBuilderSession,
     logger: StructuredLogger,
     toolRenderer?: RenderToolCall,
     onToolComplete?: (message: Message) => Promise<void>

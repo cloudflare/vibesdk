@@ -313,6 +313,7 @@ type InferArgsBase = {
     modelName: AIModels | string;
     reasoning_effort?: ReasoningEffort;
     temperature?: number;
+    frequency_penalty?: number;
     stream?: {
         chunk_size: number;
         onChunk: (chunk: string) => void;
@@ -488,12 +489,13 @@ export async function infer<OutputSchema extends z.AnyZodObject>({
     actionKey,
     format,
     formatOptions,
-    maxTokens,
     modelName,
-    stream,
-    tools,
     reasoning_effort,
     temperature,
+    frequency_penalty,
+    maxTokens,
+    stream,
+    tools,
     abortSignal,
     onAssistantMessage,
     completionConfig,
@@ -623,7 +625,7 @@ export async function infer<OutputSchema extends z.AnyZodObject>({
             }
         }
 
-        console.log(`Running inference with ${modelName} using structured output with ${format} format, reasoning effort: ${reasoning_effort}, max tokens: ${maxTokens}, temperature: ${temperature}, baseURL: ${baseURL}`);
+        console.log(`Running inference with ${modelName} using structured output with ${format} format, reasoning effort: ${reasoning_effort}, max tokens: ${maxTokens}, temperature: ${temperature}, frequency_penalty: ${frequency_penalty}, baseURL: ${baseURL}`);
 
         const toolsOpts = tools ? {
             tools: tools.map(t => {
@@ -644,6 +646,7 @@ export async function infer<OutputSchema extends z.AnyZodObject>({
                 stream: stream ? true : false,
                 reasoning_effort,
                 temperature,
+                frequency_penalty,
             }, {
                 signal: abortSignal,
                 headers: {
@@ -852,6 +855,7 @@ export async function infer<OutputSchema extends z.AnyZodObject>({
                         tools,
                         reasoning_effort,
                         temperature,
+                        frequency_penalty,
                         abortSignal,
                         onAssistantMessage,
                         completionConfig,
@@ -869,6 +873,7 @@ export async function infer<OutputSchema extends z.AnyZodObject>({
                         tools,
                         reasoning_effort,
                         temperature,
+                        frequency_penalty,
                         abortSignal,
                         onAssistantMessage,
                         completionConfig,
