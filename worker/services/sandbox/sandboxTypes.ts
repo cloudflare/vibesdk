@@ -21,27 +21,6 @@ export const TemplateFileSchema = z.object({
 })
 export type TemplateFile = z.infer<typeof TemplateFileSchema>
 
-// --- Template Details ---
-
-export const TemplateDetailsSchema = z.object({
-    name: z.string(),
-    description: z.object({
-        selection: z.string(),
-        usage: z.string(),
-    }),
-    fileTree: FileTreeNodeSchema,
-    allFiles: z.record(z.string(), z.string()),
-    language: z.string().optional(),
-    deps: z.record(z.string(), z.string()),
-    frameworks: z.array(z.string()).optional(),
-    importantFiles: z.array(z.string()),
-    dontTouchFiles: z.array(z.string()),
-    redactedFiles: z.array(z.string()),
-    renderMode: z.enum(['sandbox', 'browser']).optional(),
-    slideDirectory: z.string().optional(),
-})
-export type TemplateDetails = z.infer<typeof TemplateDetailsSchema>
-
 // ==========================================
 // RUNTIME ERROR SCHEMAS
 // ==========================================
@@ -123,6 +102,18 @@ export const TemplateInfoSchema = z.object({
     slideDirectory: z.string().optional(),
 })
 export type TemplateInfo = z.infer<typeof TemplateInfoSchema>
+
+// --- Template Details ---
+
+export const TemplateDetailsSchema = TemplateInfoSchema.extend({
+    fileTree: FileTreeNodeSchema,
+    allFiles: z.record(z.string(), z.string()),
+    deps: z.record(z.string(), z.string()),
+    importantFiles: z.array(z.string()),
+    dontTouchFiles: z.array(z.string()),
+    redactedFiles: z.array(z.string()),
+})
+export type TemplateDetails = z.infer<typeof TemplateDetailsSchema>
 
 export const TemplateListResponseSchema = z.object({
     success: z.boolean(),
