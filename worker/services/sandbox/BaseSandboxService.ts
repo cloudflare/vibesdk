@@ -28,6 +28,7 @@ import {
     GetLogsResponse,
     ListInstancesResponse,
     TemplateDetails,
+    TemplateInfo,
 } from './sandboxTypes';
   
 import { createObjectLogger, StructuredLogger } from '../../logger';
@@ -44,16 +45,6 @@ export interface StreamEvent {
     code?: number;
     error?: string;
     timestamp: Date;
-}
-  
-export interface TemplateInfo {
-    name: string;
-    language?: string;
-    frameworks?: string[];
-    description: {
-        selection: string;
-        usage: string;
-    };
 }
 
 const templateDetailsCache: Record<string, TemplateDetails> = {};
@@ -100,7 +91,10 @@ export abstract class BaseSandboxService {
                     name: t.name,
                     language: t.language,
                     frameworks: t.frameworks || [],
-                    description: t.description
+                    description: t.description,
+                    projectType: t.projectType || 'app',
+                    renderMode: t.renderMode,
+                    slideDirectory: t.slideDirectory,
                 })),
                 count: filteredTemplates.length
             };
@@ -164,7 +158,7 @@ export abstract class BaseSandboxService {
             const catalogInfo = catalogResponse.success 
                 ? catalogResponse.templates.find(t => t.name === templateName)
                 : null;
-            
+            console.log('Catalog info:', catalogInfo);
             // Remove metadata files and convert to map for efficient lookups
             const filteredFiles = allFiles.filter(f => 
                 !f.filePath.startsWith('.') || 
@@ -187,10 +181,12 @@ export abstract class BaseSandboxService {
                 allFiles: filesMap,
                 language: catalogInfo?.language,
                 deps: dependencies,
-                importantFiles,
-                dontTouchFiles,
-                redactedFiles,
-                frameworks: catalogInfo?.frameworks || []
+                importantFiles: importantFiles,
+                dontTouchFiles: dontTouchFiles,
+                redactedFiles: redactedFiles,
+                frameworks: catalogInfo?.frameworks || [],
+                renderMode: catalogInfo?.renderMode,
+                slideDirectory: catalogInfo?.slideDirectory,
             };
 
             templateDetailsCache[templateName] = templateDetails;

@@ -155,7 +155,6 @@ export function createSecureCookie(options: CookieOptions): string {
 		name,
 		value,
 		maxAge = 7 * 24 * 60 * 60, // 7 days default
-		httpOnly = true,
 		secure = true,
 		sameSite = 'Lax',
 		path = '/',
@@ -167,9 +166,10 @@ export function createSecureCookie(options: CookieOptions): string {
 	if (maxAge > 0) parts.push(`Max-Age=${maxAge}`);
 	if (path) parts.push(`Path=${path}`);
 	if (domain) parts.push(`Domain=${domain}`);
-	if (httpOnly) parts.push('HttpOnly');
 	if (secure) parts.push('Secure');
 	if (sameSite) parts.push(`SameSite=${sameSite}`);
+
+    parts.push('HttpOnly');
 
 	return parts.join('; ');
 }
@@ -196,7 +196,6 @@ export function setSecureAuthCookies(
 			name: 'accessToken',
 			value: accessToken,
 			maxAge: accessTokenExpiry,
-			httpOnly: true,
 			sameSite: 'Lax',
 		}),
 	);

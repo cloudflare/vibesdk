@@ -262,12 +262,11 @@ export class DeploymentManager extends BaseAgentService implements IDeploymentMa
      */
     async fetchRuntimeErrors(clear: boolean = true): Promise<RuntimeError[]> {
         const { sandboxInstanceId } = this.getState();
-        const logger = this.getLog();
-        const client = this.getClient();
-
         if (!sandboxInstanceId) {
             throw new Error('No sandbox instance available for runtime error fetching');
         }
+        const logger = this.getLog();
+        const client = this.getClient();
 
         const resp = await client.getInstanceErrors(sandboxInstanceId, clear);
             
@@ -276,9 +275,6 @@ export class DeploymentManager extends BaseAgentService implements IDeploymentMa
         }
 
         let errors = resp.errors || [];
-
-        // Filter out 'failed to connect to websocket' errors
-        errors = errors.filter(e => e.message.includes('[vite] failed to connect to websocket'));
             
         if (errors.length > 0) {
             logger.info(`Found ${errors.length} runtime errors: ${errors.map(e => e.message).join(', ')}`);
@@ -508,13 +504,16 @@ export class DeploymentManager extends BaseAgentService implements IDeploymentMa
      * Ensure sandbox instance exists and is healthy
      */
     async ensureInstance(redeploy: boolean): Promise<DeploymentResult> {
+        if (redeploy) {
+            this.resetSessionId();
+        }
         const state = this.getState();
         const { sandboxInstanceId } = state;
         const logger = this.getLog();
         const client = this.getClient();
 
-        // Check existing instance if not forcing redeploy
-        if (sandboxInstanceId && !redeploy) {
+        // Check existing instance
+        if (sandboxInstanceId) {
             const status = await client.getInstanceStatus(sandboxInstanceId);
             if (status.success && status.isHealthy) {
                 logger.info(`DEPLOYMENT CHECK PASSED: Instance ${sandboxInstanceId} is running`);

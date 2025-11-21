@@ -38,9 +38,13 @@ export class AnalyticsController extends BaseController {
 				);
 			}
 
-			// TODO: Add ownership verification - users should only see their own analytics
-			// For now, allow authenticated users to query any user analytics
-			// Later: if (authUser.id !== userId && !authUser.isAdmin) { return 403; }
+			// Verify user can only access their own analytics
+			if (authUser.id !== userId) {
+				return AnalyticsController.createErrorResponse<UserAnalyticsResponseData>(
+					'You can only access your own analytics',
+					403,
+				);
+			}
 
 			// Parse query parameters
 			const url = new URL(request.url);
@@ -114,9 +118,7 @@ export class AnalyticsController extends BaseController {
 				);
 			}
 
-			// TODO: Add ownership verification - users should only see analytics for their own agents
-			// This would require checking if the agent/chat belongs to the authenticated user
-			// For now, allow authenticated users to query any agent analytics
+			// Ownership verification is handled by AuthConfig.ownerOnly middleware
 
 			// Parse query parameters
 			const url = new URL(request.url);

@@ -251,6 +251,13 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
                     }
 
                     setIsInitialStateRestored(true);
+                    
+                    if (state.shouldBeGenerating && !isGenerating) {
+                        logger.debug('🔄 Reconnected with shouldBeGenerating=true, auto-resuming generation');
+                        setIsGenerating(true); 
+                        updateStage('code', { status: 'active' });
+                        sendWebSocketMessage(websocket, 'generate_all');
+                    }
                 }
                 break;
             }
@@ -258,13 +265,10 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
                 const { state } = message;
                 logger.debug('🔄 Agent state update received:', state);
 
-                if (state.shouldBeGenerating) {
-                    logger.debug('🔄 shouldBeGenerating=true detected, auto-resuming generation');
+                if (state.shouldBeGenerating && !isGenerating) {
+                    logger.debug('🔄 shouldBeGenerating=true, updating UI to active state');
                     updateStage('code', { status: 'active' });
-                    
-                    logger.debug('📡 Sending auto-resume generate_all message');
-                    sendWebSocketMessage(websocket, 'generate_all');
-                } else {
+                } else if (!state.shouldBeGenerating) {
                     const codeStage = projectStages.find((stage: any) => stage.id === 'code');
                     if (codeStage?.status === 'active' && !isGenerating) {
                         if (state.generatedFilesMap && Object.keys(state.generatedFilesMap).length > 0) {
@@ -683,6 +687,23 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
                 // Reset phase indicators
                 setIsPhaseProgressActive(false);
                 setIsThinking(false);
+                
+                // Mark any active phases as cancelled (not completed, since they were interrupted)
+                setPhaseTimeline((prev) => 
+                    prev.map(phase => 
+                        (phase.status === 'generating' || phase.status === 'validating')
+                            ? { 
+                                ...phase, 
+                                status: 'cancelled' as const,
+                                files: phase.files.map(file => 
+                                    file.status === 'generating' || file.status === 'validating'
+                                        ? { ...file, status: 'cancelled' as const }
+                                        : file
+                                )
+                            }
+                            : phase
+                    )
+                );
                 
                 // Show toast notification for user-initiated stop
                 toast.info('Generation stopped', {
