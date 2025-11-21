@@ -8,6 +8,7 @@ import { AgentOperation, getSystemPromptWithProjectContext, OperationOptions } f
 import { AGENT_CONFIG } from '../inferutils/config';
 import type { UserContext } from '../core/types';
 import { imagesToBase64 } from 'worker/utils/images';
+import { PhasicGenerationContext } from '../domain/values/GenerationContext';
 
 export interface PhaseGenerationInputs {
     issues: IssueReport;
@@ -186,10 +187,10 @@ const userPromptFormatter = (issues: IssueReport, userSuggestions?: string[], is
     
     return PROMPT_UTILS.verifyPrompt(prompt);
 }
-export class PhaseGenerationOperation extends AgentOperation<PhaseGenerationInputs, PhaseConceptGenerationSchemaType> {
+export class PhaseGenerationOperation extends AgentOperation<PhasicGenerationContext, PhaseGenerationInputs, PhaseConceptGenerationSchemaType> {
     async execute(
         inputs: PhaseGenerationInputs,
-        options: OperationOptions
+        options: OperationOptions<PhasicGenerationContext>
     ): Promise<PhaseConceptGenerationSchemaType> {
         const { issues, userContext, isUserSuggestedPhase } = inputs;
         const { env, logger, context } = options;

@@ -13,6 +13,7 @@ import { IsRealtimeCodeFixerEnabled, RealtimeCodeFixer } from '../assistants/rea
 import { CodeSerializerType } from '../utils/codeSerializers';
 import type { UserContext } from '../core/types';
 import { imagesToBase64 } from 'worker/utils/images';
+import { PhasicGenerationContext } from '../domain/values/GenerationContext';
 
 export interface PhaseImplementationInputs {
     phase: PhaseConceptType
@@ -396,30 +397,6 @@ Goal: Thoroughly review the entire codebase generated in previous phases. Identi
 
 This phase prepares the code for final deployment.`;
 
-const README_GENERATION_PROMPT = `<TASK>
-Generate a comprehensive README.md file for this project based on the provided blueprint and template information.
-The README should be professional, well-structured, and provide clear instructions for users and developers.
-</TASK>
-
-<INSTRUCTIONS>
-- Create a professional README with proper markdown formatting
-- Do not add any images or screenshots
-- Include project title, description, and key features from the blueprint
-- Add technology stack section based on the template dependencies
-- Include setup/installation instructions using bun (not npm/yarn)
-- Add usage examples and development instructions
-- Include a deployment section with Cloudflare-specific instructions
-- **IMPORTANT**: Add a \`[cloudflarebutton]\` placeholder near the top and another in the deployment section for the Cloudflare deploy button. Write the **EXACT** string except the backticks and DON'T enclose it in any other button or anything. We will replace it with https://deploy.workers.cloudflare.com/?url=\${repositoryUrl\} when the repository is created.
-- Structure the content clearly with appropriate headers and sections
-- Be concise but comprehensive - focus on essential information
-- Use professional tone suitable for open source projects
-</INSTRUCTIONS>
-
-Generate the complete README.md content in markdown format. 
-Do not provide any additional text or explanation. 
-All your output will be directly saved in the README.md file. 
-Do not provide and markdown fence \`\`\` \`\`\` around the content either! Just pure raw markdown content!`;
-
 const formatUserSuggestions = (suggestions?: string[] | null): string => {
     if (!suggestions || suggestions.length === 0) {
         return '';
@@ -456,10 +433,10 @@ const userPromptFormatter = (phaseConcept: PhaseConceptType, issues: IssueReport
     return PROMPT_UTILS.verifyPrompt(prompt);
 }
 
-export class PhaseImplementationOperation extends AgentOperation<PhaseImplementationInputs, PhaseImplementationOutputs> {
+export class PhaseImplementationOperation extends AgentOperation<PhasicGenerationContext, PhaseImplementationInputs, PhaseImplementationOutputs> {
     async execute(
         inputs: PhaseImplementationInputs,
-        options: OperationOptions
+        options: OperationOptions<PhasicGenerationContext>
     ): Promise<PhaseImplementationOutputs> {
         const { phase, issues, userContext } = inputs;
         const { env, logger, context } = options;
@@ -579,38 +556,5 @@ export class PhaseImplementationOperation extends AgentOperation<PhaseImplementa
             deploymentNeeded: fixedFilePromises.length > 0,
             commands,
         };
-    }
-
-    async generateReadme(options: OperationOptions): Promise<FileOutputType> {
-        const { env, logger, context } = options;
-        logger.info("Generating README.md for the project");
-
-        try {
-            let readmePrompt = README_GENERATION_PROMPT;
-            const messages = [...getSystemPromptWithProjectContext(SYSTEM_PROMPT, context, CodeSerializerType.SCOF), createUserMessage(readmePrompt)];
-
-            const results = await executeInference({
-                env: env,
-                messages,
-                agentActionName: "projectSetup",
-                context: options.inferenceContext,
-            });
-
-            if (!results || !results.string) {
-                logger.error('Failed to generate README.md content');
-                throw new Error('Failed to generate README.md content');
-            }
-
-            logger.info('Generated README.md content successfully');
-
-            return {
-                filePath: 'README.md',
-                fileContents: results.string,
-                filePurpose: 'Project documentation and setup instructions'
-            };
-        } catch (error) {
-            logger.error("Error generating README:", error);
-            throw error;
-        }
     }
 }

@@ -1,6 +1,6 @@
 import { ToolDefinition } from '../types';
 import { StructuredLogger } from '../../../logger';
-import { CodingAgentInterface } from 'worker/agents/services/implementations/CodingAgent';
+import { ICodingAgent } from 'worker/agents/services/interfaces/ICodingAgent';
 
 type GitCommand = 'commit' | 'log' | 'show' | 'reset';
 
@@ -13,7 +13,7 @@ interface GitToolArgs {
 }
 
 export function createGitTool(
-	agent: CodingAgentInterface,
+	agent: ICodingAgent,
 	logger: StructuredLogger,
 	options?: { excludeCommands?: GitCommand[] }
 ): ToolDefinition<GitToolArgs, { success: boolean; data?: any; message?: string }> {
