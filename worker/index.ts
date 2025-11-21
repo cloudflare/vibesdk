@@ -1,6 +1,5 @@
 import { createLogger } from './logger';
 import { SmartCodeGeneratorAgent } from './agents/core/smartGeneratorAgent';
-import { isDispatcherAvailable } from './utils/dispatcherUtils';
 import { createApp } from './app';
 // import * as Sentry from '@sentry/cloudflare';
 // import { sentryOptions } from './observability/sentry';
@@ -8,8 +7,8 @@ import { DORateLimitStore as BaseDORateLimitStore } from './services/rate-limit/
 import { getPreviewDomain } from './utils/urls';
 import { proxyToAiGateway } from './services/aigateway-proxy/controller';
 import { isOriginAllowed } from './config/security';
-import { proxyToSandbox } from './services/sandbox/request-handler';
 import { handleGitProtocolRequest, isGitProtocolRequest } from './api/handlers/git-protocol';
+import { resolvePreview } from './utils/previewResolver';
 
 // Durable Object and Service exports
 export { UserAppSandboxService, DeployerService } from './services/sandbox/sandboxSdkClient';
@@ -44,71 +43,40 @@ function setOriginControl(env: Env, request: Request, currentHeaders: Headers): 
 async function handleUserAppRequest(request: Request, env: Env): Promise<Response> {
 	const url = new URL(request.url);
 	const { hostname } = url;
+	const appId = hostname.split('.')[0];
+	
 	logger.info(`Handling user app request for: ${hostname}`);
 
-	// 1. Attempt to proxy to a live development sandbox.
-	// proxyToSandbox doesn't consume the request body on a miss, so no clone is needed here.
-	const sandboxResponse = await proxyToSandbox(request, env);
-	if (sandboxResponse) {
-		logger.info(`Serving response from sandbox for: ${hostname}`);
-        // If it was a websocket upgrade, we need to return the response as is
-        if (sandboxResponse.headers.get('Upgrade')?.toLowerCase() === 'websocket') {
-            logger.info(`Serving websocket response from sandbox for: ${hostname}`);
-            return sandboxResponse;
-        }
-		
-		// Add headers to identify this as a sandbox response
-		let headers = new Headers(sandboxResponse.headers);
-		
-        if (sandboxResponse.status === 500) {
-            headers.set('X-Preview-Type', 'sandbox-error');
-        } else {
-            headers.set('X-Preview-Type', 'sandbox');
-        }
-        headers = setOriginControl(env, request, headers);
-        headers.append('Vary', 'Origin');
-		headers.set('Access-Control-Expose-Headers', 'X-Preview-Type');
-		
-		return new Response(sandboxResponse.body, {
-			status: sandboxResponse.status,
-			statusText: sandboxResponse.statusText,
-			headers,
-		});
+	// Use shared preview resolver to get the response
+	const result = await resolvePreview(appId, request, env);
+	
+	if (!result.available || !result.response) {
+		logger.warn(`Preview not available for: ${appId}`);
+		const errorMessage = result.error || 'This application is not currently available.';
+		return new Response(errorMessage, { status: 404 });
 	}
 
-	// 2. If sandbox misses, attempt to dispatch to a deployed worker.
-	logger.info(`Sandbox miss for ${hostname}, attempting dispatch to permanent worker.`);
-	if (!isDispatcherAvailable(env)) {
-		logger.warn(`Dispatcher not available, cannot serve: ${hostname}`);
-		return new Response('This application is not currently available.', { status: 404 });
+	// Handle websocket upgrades specially (return response as-is)
+	if (result.response.headers.get('Upgrade')?.toLowerCase() === 'websocket') {
+		logger.info(`Serving websocket response for: ${appId}`);
+		return result.response;
 	}
 
-	// Extract the app name (e.g., "xyz" from "xyz.build.cloudflare.dev").
-	const appName = hostname.split('.')[0];
-	const dispatcher = env['DISPATCHER'];
-
-	try {
-		const worker = dispatcher.get(appName);
-		const dispatcherResponse = await worker.fetch(request);
-		
-		// Add headers to identify this as a dispatcher response
-		let headers = new Headers(dispatcherResponse.headers);
-		
-		headers.set('X-Preview-Type', 'dispatcher');
-        headers = setOriginControl(env, request, headers);
-        headers.append('Vary', 'Origin');
-		headers.set('Access-Control-Expose-Headers', 'X-Preview-Type');
-		
-		return new Response(dispatcherResponse.body, {
-			status: dispatcherResponse.status,
-			statusText: dispatcherResponse.statusText,
-			headers,
-		});
-	} catch (error: any) {
-		// This block catches errors if the binding doesn't exist or if worker.fetch() fails.
-		logger.warn(`Error dispatching to worker '${appName}': ${error.message}`);
-		return new Response('An error occurred while loading this application.', { status: 500 });
+	// Add CORS and preview type headers to the response
+	let headers = new Headers(result.response.headers);
+	
+	if (result.type) {
+		headers.set('X-Preview-Type', result.type);
 	}
+	headers = setOriginControl(env, request, headers);
+	headers.append('Vary', 'Origin');
+	headers.set('Access-Control-Expose-Headers', 'X-Preview-Type');
+	
+	return new Response(result.response.body, {
+		status: result.response.status,
+		statusText: result.response.statusText,
+		headers,
+	});
 }
 
 /**
