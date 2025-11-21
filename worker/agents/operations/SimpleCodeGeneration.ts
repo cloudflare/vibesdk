@@ -7,6 +7,7 @@ import { SCOFFormat, SCOFParsingState } from '../output-formats/streaming-format
 import { CodeGenerationStreamingState } from '../output-formats/streaming-formats/base';
 import { FileProcessing } from '../domain/pure/FileProcessing';
 import { CodeSerializerType } from '../utils/codeSerializers';
+import { GenerationContext } from '../domain/values/GenerationContext';
 import { FileState } from '../core/state';
 
 export interface SimpleCodeGenerationInputs {
@@ -120,12 +121,13 @@ const formatExistingFiles = (allFiles: FileState[]): string => {
 };
 
 export class SimpleCodeGenerationOperation extends AgentOperation<
+    GenerationContext,
     SimpleCodeGenerationInputs,
     SimpleCodeGenerationOutputs
 > {
     async execute(
         inputs: SimpleCodeGenerationInputs,
-        options: OperationOptions
+        options: OperationOptions<GenerationContext>
     ): Promise<SimpleCodeGenerationOutputs> {
         const { phaseName, phaseDescription, requirements, files } = inputs;
         const { env, logger, context, inferenceContext } = options;

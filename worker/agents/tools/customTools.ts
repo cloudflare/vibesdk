@@ -6,7 +6,6 @@ import { toolFeedbackDefinition } from './toolkit/feedback';
 import { createQueueRequestTool } from './toolkit/queue-request';
 import { createGetLogsTool } from './toolkit/get-logs';
 import { createDeployPreviewTool } from './toolkit/deploy-preview';
-import { CodingAgentInterface } from 'worker/agents/services/implementations/CodingAgent';
 import { createDeepDebuggerTool } from "./toolkit/deep-debugger";
 import { createRenameProjectTool } from './toolkit/rename-project';
 import { createAlterBlueprintTool } from './toolkit/alter-blueprint';
@@ -21,6 +20,7 @@ import { createGetRuntimeErrorsTool } from './toolkit/get-runtime-errors';
 import { createWaitForGenerationTool } from './toolkit/wait-for-generation';
 import { createWaitForDebugTool } from './toolkit/wait-for-debug';
 import { createGitTool } from './toolkit/git';
+import { ICodingAgent } from '../services/interfaces/ICodingAgent';
 
 export async function executeToolWithDefinition<TArgs, TResult>(
     toolDef: ToolDefinition<TArgs, TResult>,
@@ -37,7 +37,7 @@ export async function executeToolWithDefinition<TArgs, TResult>(
  * Add new tools here - they're automatically included in the conversation
  */
 export function buildTools(
-    agent: CodingAgentInterface,
+    agent: ICodingAgent,
     logger: StructuredLogger,
     toolRenderer: RenderToolCall,
     streamCb: (chunk: string) => void,

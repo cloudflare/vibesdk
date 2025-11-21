@@ -5,22 +5,45 @@ import type { ConversationMessage } from '../inferutils/common';
 import type { InferenceContext } from '../inferutils/config.types';
 import type { TemplateDetails } from '../../services/sandbox/sandboxTypes';
 import { TemplateSelection } from '../schemas';
-import { CurrentDevState } from './state';
+import { CurrentDevState, PhasicState, AgenticState } from './state';
 import { ProcessedImageAttachment } from 'worker/types/image-attachment';
 
-export interface AgentInitArgs {
+export type BehaviorType = 'phasic' | 'agentic';
+
+/** Base initialization arguments shared by all agents */
+interface BaseAgentInitArgs {
     query: string;
-    language?: string;
-    frameworks?: string[];
     hostname: string;
     inferenceContext: InferenceContext;
-    templateInfo: {
-        templateDetails: TemplateDetails;
-        selection: TemplateSelection;
-    }
+    language?: string;
+    frameworks?: string[];
     images?: ProcessedImageAttachment[];
     onBlueprintChunk: (chunk: string) => void;
 }
+
+/** Phasic agent initialization arguments */
+interface PhasicAgentInitArgs extends BaseAgentInitArgs {
+    templateInfo: {
+        templateDetails: TemplateDetails;
+        selection: TemplateSelection;
+    };
+}
+
+/** Agentic agent initialization arguments */
+interface AgenticAgentInitArgs extends BaseAgentInitArgs {
+    templateInfo?: {
+        templateDetails: TemplateDetails;
+        selection: TemplateSelection;
+    };
+}
+
+/** Generic initialization arguments based on state type */
+export type AgentInitArgs<TState extends PhasicState | AgenticState = PhasicState | AgenticState> = 
+    TState extends PhasicState ? PhasicAgentInitArgs : 
+    TState extends AgenticState ? AgenticAgentInitArgs : 
+    PhasicAgentInitArgs | AgenticAgentInitArgs;
+
+export type Plan = string;
 
 export interface AllIssues {
     runtimeErrors: RuntimeError[];

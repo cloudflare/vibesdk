@@ -1,13 +1,18 @@
 import { Connection } from 'agents';
 import { createLogger } from '../../logger';
 import { WebSocketMessageRequests, WebSocketMessageResponses } from '../constants';
-import { SimpleCodeGeneratorAgent } from './simpleGeneratorAgent';
 import { WebSocketMessage, WebSocketMessageData, WebSocketMessageType } from '../../api/websocketTypes';
 import { MAX_IMAGES_PER_MESSAGE, MAX_IMAGE_SIZE_BYTES } from '../../types/image-attachment';
+import { BaseProjectState } from './state';
+import { BaseAgentBehavior } from './baseAgent';
 
 const logger = createLogger('CodeGeneratorWebSocket');
 
-export function handleWebSocketMessage(agent: SimpleCodeGeneratorAgent, connection: Connection, message: string): void {
+export function handleWebSocketMessage<TState extends BaseProjectState>(
+    agent: BaseAgentBehavior<TState>, 
+    connection: Connection, 
+    message: string
+): void {
     try {
         logger.info(`Received WebSocket message from ${connection.id}: ${message}`);
         const parsedMessage = JSON.parse(message);

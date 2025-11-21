@@ -75,12 +75,16 @@ export const CodeReviewOutput = z.object({
     commands: z.array(z.string()).describe('Commands that might be needed to run for fixing an issue. Empty array if no commands are needed'),
 });
 
-export const BlueprintSchema = z.object({
-    title: z.string().describe('Title of the application'),
-    projectName: z.string().describe('Name of the project, in small case, no special characters, no spaces, no dots. Only letters, numbers, hyphens, underscores are allowed.'),
+export const SimpleBlueprintSchema = z.object({
+    title: z.string().describe('Title for the project'),
+    projectName: z.string().describe('Name for the project, in small case, no special characters, no spaces, no dots. Only letters, numbers, hyphens, underscores are allowed.'),
+    description: z.string().describe('Short, brief, concise description of the project in a single sentence'),
+    colorPalette: z.array(z.string()).describe('Color palette RGB codes to be used in the project, only base colors and not their shades, max 3 colors'),
+    frameworks: z.array(z.string()).describe('Essential Frameworks, libraries and dependencies to be used in the project, with only major versions optionally specified'),
+});
+
+export const PhasicBlueprintSchema = SimpleBlueprintSchema.extend({
     detailedDescription: z.string().describe('Enhanced and detailed description of what the application does and how its supposed to work. Break down the project into smaller components and describe each component in detail.'),
-    description: z.string().describe('Short, brief, concise description of the application in a single sentence'),
-    colorPalette: z.array(z.string()).describe('Color palette RGB codes to be used in the application, only base colors and not their shades, max 3 colors'),
     views: z.array(z.object({
         name: z.string().describe('Name of the view'),
         description: z.string().describe('Description of the view'),
@@ -101,10 +105,13 @@ export const BlueprintSchema = z.object({
         description: z.string().describe('Description of the phase'),
     })).describe('Phases of the implementation roadmap'),
     initialPhase: PhaseConceptSchema.describe('The first phase to be implemented, in **STRICT** accordance with <PHASE GENERATION STRATEGY>'),
-    // commands: z.array(z.string()).describe('Commands to set up the development environment and install all dependencies not already in the template. These will run before code generation starts.'),
 });
 
-export const BlueprintSchemaLite = BlueprintSchema.omit({
+export const AgenticBlueprintSchema = SimpleBlueprintSchema.extend({
+    plan: z.array(z.string()).describe('Step by step plan for implementing the project'),
+});
+
+export const BlueprintSchemaLite = PhasicBlueprintSchema.omit({
     initialPhase: true,
 });
 
@@ -124,7 +131,8 @@ export const ScreenshotAnalysisSchema = z.object({
 });
 
 export type TemplateSelection = z.infer<typeof TemplateSelectionSchema>;
-export type Blueprint = z.infer<typeof BlueprintSchema>;
+export type PhasicBlueprint = z.infer<typeof PhasicBlueprintSchema>;
+export type AgenticBlueprint = z.infer<typeof AgenticBlueprintSchema>;
 export type FileConceptType = z.infer<typeof FileConceptSchema>;
 export type PhaseConceptType = z.infer<typeof PhaseConceptSchema>;
 export type PhaseConceptLiteType = z.infer<typeof PhaseConceptLiteSchema>;
@@ -145,4 +153,4 @@ export const ConversationalResponseSchema = z.object({
 
 export type ConversationalResponseType = z.infer<typeof ConversationalResponseSchema>;
 
-
+export type Blueprint = z.infer<typeof PhasicBlueprintSchema> | z.infer<typeof AgenticBlueprintSchema>;

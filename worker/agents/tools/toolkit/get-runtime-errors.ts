@@ -1,6 +1,6 @@
 import { ErrorResult, ToolDefinition } from '../types';
 import { StructuredLogger } from '../../../logger';
-import { CodingAgentInterface } from 'worker/agents/services/implementations/CodingAgent';
+import { ICodingAgent } from 'worker/agents/services/interfaces/ICodingAgent';
 import { RuntimeError } from 'worker/services/sandbox/sandboxTypes';
 
 type GetRuntimeErrorsArgs = Record<string, never>;
@@ -8,7 +8,7 @@ type GetRuntimeErrorsArgs = Record<string, never>;
 type GetRuntimeErrorsResult = { errors: RuntimeError[] } | ErrorResult;
 
 export function createGetRuntimeErrorsTool(
-	agent: CodingAgentInterface,
+	agent: ICodingAgent,
 	logger: StructuredLogger
 ): ToolDefinition<GetRuntimeErrorsArgs, GetRuntimeErrorsResult> {
 	return {

@@ -1,6 +1,6 @@
 import { ToolDefinition } from '../types';
 import { StructuredLogger } from '../../../logger';
-import { CodingAgentInterface } from 'worker/agents/services/implementations/CodingAgent';
+import { ICodingAgent } from 'worker/agents/services/interfaces/ICodingAgent';
 
 type RenameArgs = {
     newName: string;
@@ -9,7 +9,7 @@ type RenameArgs = {
 type RenameResult = { projectName: string };
 
 export function createRenameProjectTool(
-    agent: CodingAgentInterface,
+    agent: ICodingAgent,
     logger: StructuredLogger
 ): ToolDefinition<RenameArgs, RenameResult> {
     return {

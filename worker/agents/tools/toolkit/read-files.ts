@@ -1,6 +1,6 @@
 import { ToolDefinition, ErrorResult } from '../types';
 import { StructuredLogger } from '../../../logger';
-import { CodingAgentInterface } from 'worker/agents/services/implementations/CodingAgent';
+import { ICodingAgent } from 'worker/agents/services/interfaces/ICodingAgent';
 
 export type ReadFilesArgs = {
 	paths: string[];
@@ -12,7 +12,7 @@ export type ReadFilesResult =
 	| ErrorResult;
 
 export function createReadFilesTool(
-	agent: CodingAgentInterface,
+	agent: ICodingAgent,
 	logger: StructuredLogger,
 ): ToolDefinition<ReadFilesArgs, ReadFilesResult> {
 	return {
