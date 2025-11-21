@@ -684,11 +684,14 @@ class ApiClient {
 
 	/**
 	 * Get BYOK providers and available models
+	 * @param agentAction - Optional agent action to filter models by constraints
 	 */
-	async getByokProviders(): Promise<ApiResponse<ByokProvidersData>> {
-		return this.request<ByokProvidersData>(
-			'/api/model-configs/byok-providers',
-		);
+	async getByokProviders(agentAction?: string): Promise<ApiResponse<ByokProvidersData>> {
+		const endpoint = agentAction
+			? `/api/model-configs/byok-providers?agentAction=${encodeURIComponent(agentAction)}`
+			: '/api/model-configs/byok-providers';
+
+		return this.request<ByokProvidersData>(endpoint);
 	}
 
 	/**

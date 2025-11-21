@@ -36,7 +36,7 @@ self.MonacoEnvironment = {
 };
 
 // From GitHub Dark theme
-monaco.editor.defineTheme('v1-dev-dark', {
+monaco.editor.defineTheme('vibesdk-dark', {
 	base: 'vs-dark',
 	inherit: true,
 	rules: [
@@ -77,7 +77,7 @@ monaco.editor.defineTheme('v1-dev-dark', {
 	},
 });
 
-monaco.editor.defineTheme('v1-dev', {
+monaco.editor.defineTheme('vibesdk', {
 	base: 'vs',
 	inherit: true,
 	rules: [
@@ -116,43 +116,13 @@ monaco.editor.defineTheme('v1-dev', {
 	},
 });
 
-monaco.editor.setTheme('v1-dev');
-
-monaco.languages.typescript.typescriptDefaults.setDiagnosticsOptions({
-	noSemanticValidation: true,
-	noSyntaxValidation: true,
-});
-
-// Configure TypeScript defaults for JSX support
-monaco.languages.typescript.typescriptDefaults.setCompilerOptions({
-	jsx: monaco.languages.typescript.JsxEmit.React,
-	allowJs: true,
-	allowSyntheticDefaultImports: true,
-	esModuleInterop: true,
-	moduleResolution: monaco.languages.typescript.ModuleResolutionKind.NodeJs,
-	module: monaco.languages.typescript.ModuleKind.ESNext,
-	target: monaco.languages.typescript.ScriptTarget.ESNext,
-	jsxFactory: 'React.createElement',
-	jsxFragmentFactory: 'React.Fragment',
-});
-
-// Configure JavaScript defaults for JSX support
-monaco.languages.typescript.javascriptDefaults.setCompilerOptions({
-	allowJs: true,
-	allowSyntheticDefaultImports: true,
-	esModuleInterop: true,
-	jsx: monaco.languages.typescript.JsxEmit.React,
-	moduleResolution: monaco.languages.typescript.ModuleResolutionKind.NodeJs,
-	module: monaco.languages.typescript.ModuleKind.ESNext,
-	target: monaco.languages.typescript.ScriptTarget.ESNext,
-	jsxFactory: 'React.createElement',
-	jsxFragmentFactory: 'React.Fragment',
-});
+monaco.editor.setTheme('vibesdk');
 
 export type MonacoEditorProps = React.ComponentProps<'div'> & {
 	createOptions?: monaco.editor.IStandaloneEditorConstructionOptions;
 	find?: string;
 	replace?: string;
+	enableTypeScriptFeatures?: 'auto' | boolean;
 };
 
 /**
@@ -163,6 +133,7 @@ export const MonacoEditor = memo<MonacoEditorProps>(function MonacoEditor({
 	createOptions = {},
 	find,
 	replace,
+	enableTypeScriptFeatures = 'auto',
 	...props
 }) {
 	const containerRef = useRef<HTMLDivElement>(null);
@@ -170,6 +141,63 @@ export const MonacoEditor = memo<MonacoEditorProps>(function MonacoEditor({
 	const prevValue = useRef<string>(createOptions.value || '');
 	const stickyScroll = useRef(true);
 	const { theme } = useTheme();
+
+	const shouldEnableTypeScript = React.useMemo(() => {
+		if (enableTypeScriptFeatures === 'auto') {
+			return !createOptions.readOnly;
+		}
+		return enableTypeScriptFeatures;
+	}, [enableTypeScriptFeatures, createOptions.readOnly]);
+
+	// Configure TypeScript diagnostics based on mode
+	useEffect(() => {
+		const tsDefaults = monaco.languages.typescript.typescriptDefaults;
+		const jsDefaults = monaco.languages.typescript.javascriptDefaults;
+
+		if (shouldEnableTypeScript) {
+			// Enable full IntelliSense for editing
+			tsDefaults.setDiagnosticsOptions({
+				noSemanticValidation: false,
+				noSyntaxValidation: false,
+			});
+			tsDefaults.setCompilerOptions({
+				jsx: monaco.languages.typescript.JsxEmit.React,
+				allowJs: true,
+				allowSyntheticDefaultImports: true,
+				esModuleInterop: true,
+				moduleResolution: monaco.languages.typescript.ModuleResolutionKind.NodeJs,
+				module: monaco.languages.typescript.ModuleKind.ESNext,
+				target: monaco.languages.typescript.ScriptTarget.ESNext,
+				jsxFactory: 'React.createElement',
+				jsxFragmentFactory: 'React.Fragment',
+			});
+			jsDefaults.setCompilerOptions({
+				allowJs: true,
+				allowSyntheticDefaultImports: true,
+				esModuleInterop: true,
+				jsx: monaco.languages.typescript.JsxEmit.React,
+				moduleResolution: monaco.languages.typescript.ModuleResolutionKind.NodeJs,
+				module: monaco.languages.typescript.ModuleKind.ESNext,
+				target: monaco.languages.typescript.ScriptTarget.ESNext,
+				jsxFactory: 'React.createElement',
+				jsxFragmentFactory: 'React.Fragment',
+			});
+		} else {
+			// Disable expensive features for viewing
+			tsDefaults.setDiagnosticsOptions({
+				noSemanticValidation: true,
+				noSyntaxValidation: true,
+			});
+			tsDefaults.setCompilerOptions({
+				jsx: monaco.languages.typescript.JsxEmit.React,
+				target: monaco.languages.typescript.ScriptTarget.ESNext,
+			});
+			jsDefaults.setCompilerOptions({
+				jsx: monaco.languages.typescript.JsxEmit.React,
+				target: monaco.languages.typescript.ScriptTarget.ESNext,
+			});
+		}
+	}, [shouldEnableTypeScript]);
 
 
 	useEffect(() => {
@@ -180,7 +208,7 @@ export const MonacoEditor = memo<MonacoEditorProps>(function MonacoEditor({
 		editor.current = monaco.editor.create(containerRef.current!, {
 			language: createOptions.language || 'typescript',
 			minimap: { enabled: false },
-			theme: configuredTheme === 'dark' ? 'v1-dev-dark' : 'v1-dev',
+			theme: configuredTheme === 'dark' ? 'vibesdk-dark' : 'vibesdk',
 			automaticLayout: true,
 			value: defaultCode,
 			fontSize: 13,
@@ -207,6 +235,10 @@ export const MonacoEditor = memo<MonacoEditorProps>(function MonacoEditor({
 		}
 
 		return () => {
+			const model = editor.current?.getModel();
+			if (model) {
+				model.dispose();
+			}
 			editor.current?.dispose();
 		};
 		// eslint-disable-next-line react-hooks/exhaustive-deps
@@ -217,10 +249,16 @@ export const MonacoEditor = memo<MonacoEditorProps>(function MonacoEditor({
 			const model = editor.current.getModel();
 			if (!model) return;
 
-			editor.current.setValue(createOptions.value || '');
+			model.pushEditOperations(
+				[],
+				[{
+					range: model.getFullModelRange(),
+					text: createOptions.value || ''
+				}],
+				() => null
+			);
 
 			if (stickyScroll.current) {
-				// Scroll to bottom
 				const lineCount = model.getLineCount();
 				editor.current.revealLine(lineCount);
 			}
@@ -293,7 +331,7 @@ export const MonacoEditor = memo<MonacoEditorProps>(function MonacoEditor({
 	// Update theme when app theme changes
 	useEffect(() => {
 		if (editor.current) {
-			monaco.editor.setTheme(theme === 'dark' ? 'v1-dev-dark' : 'v1-dev');
+			monaco.editor.setTheme(theme === 'dark' ? 'vibesdk-dark' : 'vibesdk');
 		}
 	}, [theme]);
 

@@ -76,8 +76,10 @@ export function createGitTool(
 							};
 						}
 						
-						logger.info('Git commit', { message });
-						const commitOid = await gitInstance.commit([], message);
+						const unescapedMessage = message.replace(/\\n/g, '\n').replace(/\\t/g, '\t');
+						
+						logger.info('Git commit', { message: unescapedMessage });
+						const commitOid = await gitInstance.commit([], unescapedMessage);
 						
 						return {
 							success: true,

@@ -133,8 +133,9 @@ export class FileManager implements IFileManager {
             if (shouldCommit) {
                 // If commit message is available, commit, else stage
                 if (commitMessage) {
-                    console.log(`[FileManager] Committing ${fileStates.length} files:`, commitMessage);
-                    await this.git.commit(fileStates, commitMessage);
+                    const unescapedMessage = commitMessage.replace(/\\n/g, '\n').replace(/\\t/g, '\t');
+                    console.log(`[FileManager] Committing ${fileStates.length} files:`, unescapedMessage);
+                    await this.git.commit(fileStates, unescapedMessage);
                     console.log(`[FileManager] Commit successful`);
                 } else {
                     console.log(`[FileManager] Staging ${fileStates.length} files`);

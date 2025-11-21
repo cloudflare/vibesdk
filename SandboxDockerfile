@@ -52,7 +52,6 @@ RUN chmod 755 /workspace/data
 # Set environment variable to indicate Docker container environment
 ENV CONTAINER_ENV=docker
 ENV VITE_LOGGER_TYPE=json 
-
 # # Set environment variable to indicate Docker container environment
 # ENV CONTAINER_ENV=docker
 
