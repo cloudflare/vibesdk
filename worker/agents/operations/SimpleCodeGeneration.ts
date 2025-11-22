@@ -49,11 +49,9 @@ Project Context:
 ## Template Information
 {{template}}
 
-<PREVIOUSLY_GENERATED_FILES>
-## Previously Generated Files
-{{existingFiles}}
-</PREVIOUSLY_GENERATED_FILES>
-</PROJECT_CONTEXT>
+<RELEVANT_FILES>
+{{relevantFiles}}
+</RELEVANT_FILES>
 
 <TASK>
 Generate code for the following phase:
@@ -64,7 +62,7 @@ Generate code for the following phase:
 **Requirements:**
 {{requirements}}
 
-**Files to Generate:**
+**Files to Write/Modify:**
 {{files}}
 
 Generate complete, production-ready code for all specified files.
@@ -181,7 +179,7 @@ export class SimpleCodeGenerationOperation extends AgentOperation<
         await executeInference({
             env,
             context: inferenceContext,
-            agentActionName: 'phaseImplementation', // Use existing phase implementation config
+            agentActionName: 'fileRegeneration',
             messages,
             stream: {
                 chunk_size: 256,

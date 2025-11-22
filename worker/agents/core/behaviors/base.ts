@@ -20,7 +20,7 @@ import { getTemplateImportantFiles } from '../../../services/sandbox/utils';
 import { createScratchTemplateDetails } from '../../utils/templates';
 import { WebSocketMessageData, WebSocketMessageType } from '../../../api/websocketTypes';
 import { InferenceContext, AgentActionKey } from '../../inferutils/config.types';
-import { AGENT_CONFIG } from '../../inferutils/config';
+import { AGENT_CONFIG, AGENT_CONSTRAINTS } from '../../inferutils/config';
 import { ModelConfigService } from '../../../database/services/ModelConfigService';
 import { fixProjectIssues } from '../../../services/code-fixer';
 import { FastCodeFixerOperation } from '../../operations/PostPhaseCodeFixer';
@@ -507,12 +507,19 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
             // Get all user configs
             const userConfigsRecord = await modelConfigService.getUserModelConfigs(userId);
             
-            // Transform to match frontend interface
-            const agents = Object.entries(AGENT_CONFIG).map(([key, config]) => ({
-                key,
-                name: config.name,
-                description: config.description
-            }));
+            // Transform to match frontend interface with constraint info
+            const agents = Object.entries(AGENT_CONFIG).map(([key, config]) => {
+                const constraint = AGENT_CONSTRAINTS.get(key as AgentActionKey);
+                return {
+                    key,
+                    name: config.name,
+                    description: config.description,
+                    constraint: constraint ? {
+                        enabled: constraint.enabled,
+                        allowedModels: Array.from(constraint.allowedModels)
+                    } : undefined
+                };
+            });
 
             type ModelConfigInfo = ModelConfig & { isUserOverride?: boolean };
             const userConfigs: Record<string, ModelConfigInfo> = {};

@@ -6,6 +6,7 @@ import { jwtVerify, SignJWT } from 'jose';
 import { isDev } from 'worker/utils/envs';
 import { RateLimitService } from '../rate-limit/rateLimits';
 import { getUserConfigurableSettings } from 'worker/config';
+import { AI_MODEL_CONFIG, AIModels } from 'worker/agents/inferutils/config.types';
 
 export async function proxyToAiGateway(request: Request, env: Env, _ctx: ExecutionContext): Promise<Response> {
     console.log(`[AI Proxy] Received request: ${request.method} ${request.url}`);
@@ -149,7 +150,7 @@ export async function proxyToAiGateway(request: Request, env: Env, _ctx: Executi
         await RateLimitService.enforceLLMCallsRateLimit(env, userConfig.security.rateLimit, app.userId, modelName, "apps")
 
         const { baseURL, apiKey, defaultHeaders } = await getConfigurationForModel(
-            modelName,
+            AI_MODEL_CONFIG[modelName as AIModels],
             env,
             app.userId
         );
