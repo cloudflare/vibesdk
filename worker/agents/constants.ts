@@ -2,6 +2,8 @@ import { WebSocketMessageType } from "../api/websocketTypes";
 import { AgentActionKey } from "./inferutils/config.types";
 
 export const WebSocketMessageResponses: Record<string, WebSocketMessageType> = {
+    AGENT_CONNECTED: 'agent_connected',
+
     GENERATION_STARTED: 'generation_started',
     GENERATION_COMPLETE: 'generation_complete',
 
@@ -68,7 +70,9 @@ export const WebSocketMessageResponses: Record<string, WebSocketMessageType> = {
     CONVERSATION_STATE: 'conversation_state',
     PROJECT_NAME_UPDATED: 'project_name_updated',
     BLUEPRINT_UPDATED: 'blueprint_updated',
-    
+    BLUEPRINT_CHUNK: 'blueprint_chunk',
+    TEMPLATE_UPDATED: 'template_updated',
+
     // Model configuration info
     MODEL_CONFIGS_INFO: 'model_configs_info',
     
@@ -113,6 +117,8 @@ export const MAX_TOOL_CALLING_DEPTH_DEFAULT = 7;
 export const getMaxToolCallingDepth = (agentActionKey: AgentActionKey | 'testModelConfig') => {
     switch (agentActionKey) {
         case 'deepDebugger':
+            return 100;
+        case 'agenticProjectBuilder':
             return 100;
         default:
             return MAX_TOOL_CALLING_DEPTH_DEFAULT;

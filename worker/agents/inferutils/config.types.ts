@@ -325,6 +325,7 @@ export interface ModelConfig {
     reasoning_effort?: ReasoningEffort;
     max_tokens?: number;
     temperature?: number;
+    frequency_penalty?: number;
     fallbackModel?: AIModels | string;
 }
 
@@ -341,6 +342,7 @@ export interface AgentConfig {
     fastCodeFixer: ModelConfig;
     conversationalResponse: ModelConfig;
     deepDebugger: ModelConfig;
+    agenticProjectBuilder: ModelConfig;
 }
 
 // Provider and reasoning effort types for validation

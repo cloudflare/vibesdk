@@ -1,45 +1,35 @@
-import { ToolDefinition, ErrorResult } from '../types';
+import { tool, t } from '../types';
 import { StructuredLogger } from '../../../logger';
 import { ICodingAgent } from 'worker/agents/services/interfaces/ICodingAgent';
 import { ExecuteCommandsResponse } from 'worker/services/sandbox/sandboxTypes';
 
-export type ExecCommandsArgs = {
-	commands: string[];
-	shouldSave: boolean;
-	timeout?: number;
-};
-
-export type ExecCommandsResult = ExecuteCommandsResponse | ErrorResult;
+export type ExecCommandsResult = ExecuteCommandsResponse | { error: string };
 
 export function createExecCommandsTool(
 	agent: ICodingAgent,
-	logger: StructuredLogger,
-): ToolDefinition<ExecCommandsArgs, ExecCommandsResult> {
-	return {
-		type: 'function' as const,
-		function: {
-			name: 'exec_commands',
-			description:
-				'Execute shell commands in the sandbox. CRITICAL shouldSave rules: (1) Set shouldSave=true ONLY for package management with specific packages (e.g., "bun add react", "npm install lodash"). (2) Set shouldSave=false for: file operations (rm, mv, cp), plain installs ("bun install"), run commands ("bun run dev"), and temporary operations. Invalid commands in shouldSave=true will be automatically filtered out. Always use bun for package management.',
-			parameters: {
-				type: 'object',
-				properties: {
-					commands: { type: 'array', items: { type: 'string' } },
-					shouldSave: { type: 'boolean', default: true },
-					timeout: { type: 'number', default: 30000 },
-				},
-				required: ['commands'],
-			},
+	logger: StructuredLogger
+) {
+	return tool({
+		name: 'exec_commands',
+		description:
+			'Execute shell commands in the sandbox. CRITICAL shouldSave rules: (1) Set shouldSave=true ONLY for package management with specific packages (e.g., "bun add react", "npm install lodash"). (2) Set shouldSave=false for: file operations (rm, mv, cp), plain installs ("bun install"), run commands ("bun run dev"), and temporary operations. Invalid commands in shouldSave=true will be automatically filtered out. Always use bun for package management.',
+		args: {
+			commands: t.commands().describe('Array of shell commands to execute'),
+			shouldSave: t.boolean().default(true).describe('Whether to save package management commands to blueprint'),
+			timeout: t.number().default(30000).describe('Timeout in milliseconds'),
 		},
-		implementation: async ({ commands, shouldSave = true, timeout = 30000 }) => {
+		run: async ({ commands, shouldSave, timeout }) => {
 			try {
+				const shouldSaveValue = shouldSave ?? true;
+				const timeoutValue = timeout ?? 30000;
+
 				logger.info('Executing commands', {
 					count: commands.length,
-                    commands,
-					shouldSave,
-					timeout,
+					commands,
+					shouldSave: shouldSaveValue,
+					timeout: timeoutValue,
 				});
-				return await agent.execCommands(commands, shouldSave, timeout);
+				return await agent.execCommands(commands, shouldSaveValue, timeoutValue);
 			} catch (error) {
 				return {
 					error:
@@ -49,5 +39,5 @@ export function createExecCommandsTool(
 				};
 			}
 		},
-	};
+	});
 }

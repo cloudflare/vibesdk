@@ -22,10 +22,10 @@ export default {
     'type-empty': [2, 'never'],
     'subject-empty': [2, 'never'],
     'subject-full-stop': [2, 'never', '.'],
-    'header-max-length': [2, 'always', 100],
+    'header-max-length': [2, 'always', 150],
     'body-leading-blank': [1, 'always'],
-    'body-max-line-length': [2, 'always', 100],
+    'body-max-line-length': [2, 'always', 200],
     'footer-leading-blank': [1, 'always'],
-    'footer-max-line-length': [2, 'always', 100],
+    'footer-max-line-length': [2, 'always', 200],
   },
 };

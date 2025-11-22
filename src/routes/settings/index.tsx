@@ -4,11 +4,14 @@ import {
 	Eye,
 	EyeOff,
 	Github,
-    Smartphone,
+	Smartphone,
 	Trash2,
 	Key,
 	Lock,
-    Settings,
+	Settings,
+	Terminal,
+	Copy,
+	Check,
 } from 'lucide-react';
 import { ModelConfigTabs } from '@/components/model-config-tabs';
 import type {
@@ -17,6 +20,7 @@ import type {
 	EncryptedSecret,
 	ActiveSessionsData,
 	SecretTemplate,
+	CliTokenData,
 } from '@/api-types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -100,6 +104,12 @@ export default function SettingsPage() {
 	});
 	const [showSecretValue, setShowSecretValue] = useState(false);
 	const [isSavingSecret, setIsSavingSecret] = useState(false);
+
+	// CLI Token state
+	const [cliToken, setCliToken] = useState<CliTokenData | null>(null);
+	const [showCliToken, setShowCliToken] = useState(false);
+	const [loadingCliToken, setLoadingCliToken] = useState(false);
+	const [copiedCliToken, setCopiedCliToken] = useState(false);
 
 	// Model configurations state
 	const [agentConfigs, setAgentConfigs] = useState<
@@ -1667,6 +1677,137 @@ export default function SettingsPage() {
 									</DialogFooter>
 								</DialogContent>
 							</Dialog>
+						</CardContent>
+					</Card>
+
+					{/* CLI Authentication Section */}
+					<Card id="cli-auth">
+						<CardHeader variant="minimal">
+							<div className="flex items-center gap-3 border-b w-full py-3 text-text-primary">
+								<Terminal className="h-5 w-5" />
+								<div>
+									<CardTitle>CLI Authentication</CardTitle>
+								</div>
+							</div>
+						</CardHeader>
+						<CardContent className="space-y-4 mt-4 px-6">
+							<div className="space-y-3">
+								<div>
+									<h4 className="font-medium text-sm mb-2">
+										Authenticate CLI with your session token
+									</h4>
+									<p className="text-sm text-text-secondary">
+										Use this token to authenticate the vibesdk CLI with your account.
+										This token has the same permissions as your current session.
+									</p>
+								</div>
+
+								{!cliToken ? (
+									<Button
+										size="sm"
+										onClick={async () => {
+											setLoadingCliToken(true);
+											try {
+												const response = await apiClient.getCliToken();
+												if (response.success && response.data) {
+													setCliToken(response.data);
+													setShowCliToken(true);
+												}
+											} catch (error) {
+												console.error('Failed to get CLI token:', error);
+											} finally {
+												setLoadingCliToken(false);
+											}
+										}}
+										disabled={loadingCliToken}
+										className="gap-2"
+									>
+										{loadingCliToken ? (
+											<>
+												<Settings className="h-4 w-4 animate-spin" />
+												Loading...
+											</>
+										) : (
+											<>
+												<Key className="h-4 w-4" />
+												Show CLI Token
+											</>
+										)}
+									</Button>
+								) : (
+									<div className="space-y-3">
+										<div className="flex items-center gap-2">
+											<div className="flex-1 relative">
+												<Input
+													type={showCliToken ? 'text' : 'password'}
+													value={cliToken.token}
+													readOnly
+													className="font-mono text-sm pr-20"
+												/>
+												<div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
+													<Button
+														size="icon"
+														variant="ghost"
+														className="h-7 w-7"
+														onClick={() => setShowCliToken(!showCliToken)}
+													>
+														{showCliToken ? (
+															<EyeOff className="h-4 w-4" />
+														) : (
+															<Eye className="h-4 w-4" />
+														)}
+													</Button>
+													<Button
+														size="icon"
+														variant="ghost"
+														className="h-7 w-7"
+														onClick={() => {
+															navigator.clipboard.writeText(cliToken.token);
+															setCopiedCliToken(true);
+															setTimeout(() => setCopiedCliToken(false), 2000);
+														}}
+													>
+														{copiedCliToken ? (
+															<Check className="h-4 w-4 text-green-500" />
+														) : (
+															<Copy className="h-4 w-4" />
+														)}
+													</Button>
+												</div>
+											</div>
+										</div>
+
+										<div className="rounded-lg bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 p-3">
+											<p className="text-sm text-amber-800 dark:text-amber-200">
+												<strong>Important:</strong> This token expires in{' '}
+												{Math.floor(cliToken.expiresIn / 3600)} hours. Keep it secure and don't share it.
+											</p>
+										</div>
+
+										<div className="rounded-lg bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 p-3">
+											<p className="text-xs font-medium text-slate-700 dark:text-slate-300 mb-2">
+												Usage Instructions:
+											</p>
+											<code className="text-xs text-slate-600 dark:text-slate-400 block">
+												{cliToken.instructions}
+											</code>
+										</div>
+
+										<Button
+											size="sm"
+											variant="outline"
+											onClick={() => {
+												setCliToken(null);
+												setShowCliToken(false);
+												setCopiedCliToken(false);
+											}}
+											className="gap-2"
+										>
+											Hide Token
+										</Button>
+									</div>
+								)}
+							</div>
 						</CardContent>
 					</Card>
 

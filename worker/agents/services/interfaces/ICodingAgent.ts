@@ -2,14 +2,19 @@ import { FileOutputType, FileConceptType, Blueprint } from "worker/agents/schema
 import { BaseSandboxService } from "worker/services/sandbox/BaseSandboxService";
 import { ExecuteCommandsResponse, PreviewType, StaticAnalysisResponse, RuntimeError } from "worker/services/sandbox/sandboxTypes";
 import { ProcessedImageAttachment } from "worker/types/image-attachment";
-import { BehaviorType, DeepDebugResult } from "worker/agents/core/types";
+import { BehaviorType, DeepDebugResult, DeploymentTarget, ProjectType } from "worker/agents/core/types";
 import { RenderToolCall } from "worker/agents/operations/UserConversationProcessor";
 import { WebSocketMessageType, WebSocketMessageData } from "worker/api/websocketTypes";
 import { GitVersionControl } from "worker/agents/git/git";
 import { OperationOptions } from "worker/agents/operations/common";
+import { TemplateFile } from "worker/services/sandbox/sandboxTypes";
 
 export interface ICodingAgent {
     getBehavior(): BehaviorType;
+
+    isMVPGenerated(): boolean;
+    
+    setMVPGenerated(): boolean;
     
     getLogs(reset?: boolean, durationSeconds?: number): Promise<string>;
     
@@ -19,19 +24,29 @@ export interface ICodingAgent {
     
     broadcast<T extends WebSocketMessageType>(msg: T, data?: WebSocketMessageData<T>): void;
     
-    deployToCloudflare(): Promise<{ deploymentUrl?: string; workersUrl?: string } | null>;
+    deployToCloudflare(target?: DeploymentTarget): Promise<{ deploymentUrl?: string; workersUrl?: string } | null>;
     
     queueUserRequest(request: string, images?: ProcessedImageAttachment[]): void;
     
-    deployPreview(clearLogs?: boolean, forceRedeploy?: boolean): Promise<string>;
-    
     clearConversation(): void;
     
+    deployPreview(clearLogs?: boolean, forceRedeploy?: boolean): Promise<string>;
+    
     updateProjectName(newName: string): Promise<boolean>;
-    
+
+    setBlueprint(blueprint: Blueprint): Promise<void>;
+
+    getProjectType(): ProjectType;
+
+    importTemplate(templateName: string): Promise<{ templateName: string; filesImported: number; files: TemplateFile[] }>;
+
     getOperationOptions(): OperationOptions;
-    
+
+    listFiles(): FileOutputType[];
+
     readFiles(paths: string[]): Promise<{ files: { path: string; content: string }[] }>;
+
+    deleteFiles(paths: string[]): Promise<{ success: boolean, error?: string }>;
     
     runStaticAnalysisCode(files?: string[]): Promise<StaticAnalysisResponse>;
     
@@ -63,7 +78,7 @@ export interface ICodingAgent {
         focusPaths?: string[],
     ): Promise<DeepDebugResult>;
     
-    getGit(): GitVersionControl;
+    get git(): GitVersionControl;
     
     getSandboxServiceClient(): BaseSandboxService;
 }

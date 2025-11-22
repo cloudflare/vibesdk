@@ -2,6 +2,7 @@ import { FileOutputType } from '../../schemas';
 import { StaticAnalysisResponse, RuntimeError, PreviewType } from '../../../services/sandbox/sandboxTypes';
 import { DeploymentStartedMessage, DeploymentCompletedMessage, DeploymentFailedMessage } from '../../../api/websocketTypes';
 import { CloudflareDeploymentStartedMessage, CloudflareDeploymentCompletedMessage, CloudflareDeploymentErrorMessage } from '../../../api/websocketTypes';
+import { DeploymentTarget } from '../../core/types';
 
 /**
  * Callbacks for sandbox deployment events
@@ -20,7 +21,6 @@ export interface CloudflareDeploymentCallbacks {
     onStarted?: (data: Omit<CloudflareDeploymentStartedMessage, 'type'>) => void;
     onCompleted?: (data: Omit<CloudflareDeploymentCompletedMessage, 'type'>) => void;
     onError?: (data: Omit<CloudflareDeploymentErrorMessage, 'type'>) => void;
-    onPreviewExpired?: () => void;
 }
 
 /**
@@ -97,6 +97,9 @@ export interface IDeploymentManager {
      * Deploy to Cloudflare Workers
      * Returns deployment URL and deployment ID for database updates
      */
-    deployToCloudflare(callbacks?: CloudflareDeploymentCallbacks): Promise<{ deploymentUrl: string | null; deploymentId?: string }>;
+    deployToCloudflare(request?: {
+        target?: DeploymentTarget;
+        callbacks?: CloudflareDeploymentCallbacks;
+    }): Promise<{ deploymentUrl: string | null; deploymentId?: string }>;
 
 }
