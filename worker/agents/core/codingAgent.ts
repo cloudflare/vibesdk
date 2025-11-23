@@ -21,7 +21,7 @@ import { handleWebSocketMessage, handleWebSocketClose, broadcastToConnections, s
 import { WebSocketMessageData, WebSocketMessageType } from "worker/api/websocketTypes";
 import { PreviewType, TemplateDetails } from "worker/services/sandbox/sandboxTypes";
 import { WebSocketMessageResponses } from "../constants";
-import { AppService } from "worker/database";
+import { AppService, ModelConfigService } from "worker/database";
 import { ConversationMessage, ConversationState } from "../inferutils/common";
 import { ImageAttachment } from "worker/types/image-attachment";
 import { RateLimitExceededError } from "shared/types/errors";
@@ -213,6 +213,18 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
         
         await this.behavior.ensureTemplateDetails();
         this.logger().info(`Agent ${this.getAgentId()} session: ${this.state.sessionId} onStart processed successfully`);
+
+        // Load the latest user configs
+        const modelConfigService = new ModelConfigService(this.env);
+        const userConfigsRecord = await modelConfigService.getUserModelConfigs(this.state.inferenceContext.userId);
+        this.setState({
+            ...this.state,
+            inferenceContext: {
+                ...this.state.inferenceContext,
+                userModelConfigs: userConfigsRecord,
+            },
+        });
+        this.logger().info(`Agent ${this.getAgentId()} session: ${this.state.sessionId} onStart: User configs loaded successfully`, {userConfigsRecord});
     }
     
     onConnect(connection: Connection, ctx: ConnectionContext) {

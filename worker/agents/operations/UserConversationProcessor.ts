@@ -24,7 +24,6 @@ import { prepareMessagesForInference } from "../utils/common";
 
 // Constants
 const CHUNK_SIZE = 64;
-
 export interface ToolCallStatusArgs {
     name: string;
     status: 'start' | 'success' | 'error';

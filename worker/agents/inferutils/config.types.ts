@@ -252,28 +252,28 @@ const MODELS_MASTER = {
             nonReasoning: true,
         }
     },
-    // GROK_4_1_FAST: {
-    //     id: 'grok/grok-4.1-fast',
-    //     config: {
-    //         name: 'Grok 4.1 Fast',
-    //         size: ModelSize.LITE,
-    //         provider: 'grok',
-    //         creditCost: 0.8, // $0.20
-    //         contextSize: 2_000_000, // 2M Context
-    //         nonReasoning: true,
-    //     }
-    // },
-    // GROQ_GPT_120_OSS: {
-    //     id: 'groq/gpt-oss-120b',
-    //     config: {
-    //         name: 'GROQ GPT 120B OSS',
-    //         size: ModelSize.LITE,
-    //         provider: 'groq',
-    //         creditCost: 0.4, // $0.25
-    //         contextSize: 131072, // 128K Context
-    //         nonReasoning: true,
-    //     }
-    // },
+
+    // --- Vertex Models ---
+    VERTEX_GPT_OSS_120: {
+        id: 'google-vertex-ai/openai/gpt-oss-120b',
+        config: {
+            name: 'Google Vertex GPT OSS 120B',
+            size: ModelSize.LITE,
+            provider: 'google-vertex-ai',
+            creditCost: 0.36, // $0.09
+            contextSize: 131072, // 128K Context
+        }
+    },
+    VERTEX_KIMI_THINKING: {
+        id: 'google-vertex-ai/moonshotai/kimi-k2-thinking',
+        config: {
+            name: 'Google Vertex Kimi K2 Thinking',
+            size: ModelSize.LITE,
+            provider: 'google-vertex-ai',
+            creditCost: 2, // $0.50
+            contextSize: 262144, // 256K Context
+        }
+    },
 } as const;
 
 /**

@@ -9,7 +9,6 @@ import {
 import { ExecuteCommandsResponse, PreviewType, RuntimeError, StaticAnalysisResponse, TemplateDetails, TemplateFile } from '../../../services/sandbox/sandboxTypes';
 import { BaseProjectState, AgenticState } from '../state';
 import { AllIssues, AgentSummary, AgentInitArgs, BehaviorType, DeploymentTarget, ProjectType } from '../types';
-import { ModelConfig } from '../../inferutils/config.types';
 import { WebSocketMessageResponses } from '../../constants';
 import { ProjectSetupAssistant } from '../../assistants/projectsetup';
 import { UserConversationProcessor, RenderToolCall } from '../../operations/UserConversationProcessor';
@@ -19,8 +18,7 @@ import { BaseSandboxService } from '../../../services/sandbox/BaseSandboxService
 import { getTemplateImportantFiles } from '../../../services/sandbox/utils';
 import { createScratchTemplateDetails } from '../../utils/templates';
 import { WebSocketMessageData, WebSocketMessageType } from '../../../api/websocketTypes';
-import { InferenceContext, AgentActionKey } from '../../inferutils/config.types';
-import { AGENT_CONFIG, AGENT_CONSTRAINTS } from '../../inferutils/config';
+import { InferenceContext } from '../../inferutils/config.types';
 import { ModelConfigService } from '../../../database/services/ModelConfigService';
 import { fixProjectIssues } from '../../../services/code-fixer';
 import { FastCodeFixerOperation } from '../../operations/PostPhaseCodeFixer';
@@ -68,6 +66,16 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
     protected currentAbortController?: AbortController;
     protected deepDebugPromise: Promise<{ transcript: string } | { error: string }> | null = null;
     protected deepDebugConversationId: string | null = null;
+
+    protected staticAnalysisCache: StaticAnalysisResponse | null = null;
+    
+    // GitHub token cache (ephemeral, lost on DO eviction)
+    protected githubTokenCache: {
+        token: string;
+        username: string;
+        expiresAt: number;
+    } | null = null;
+    
     protected operations: BaseCodingOperations = {
         regenerateFile: new FileRegenerationOperation(),
         fastCodeFixer: new FastCodeFixerOperation(),
@@ -429,7 +437,7 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
             });
         }
     }
-
+    
     /**
      * Abstract method to be implemented by subclasses
      * Contains the main logic for code generation and review process
@@ -491,73 +499,10 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
         return await debugPromise;
     }
 
-    /**
-     * Get current model configurations (defaults + user overrides)
-     * Used by WebSocket to provide configuration info to frontend
-     */
-    async getModelConfigsInfo() {
-        const userId = this.state.inferenceContext.userId;
-        if (!userId) {
-            throw new Error('No user session available for model configurations');
-        }
 
-        try {
-            const modelConfigService = new ModelConfigService(this.env);
-            
-            // Get all user configs
-            const userConfigsRecord = await modelConfigService.getUserModelConfigs(userId);
-            
-            // Transform to match frontend interface with constraint info
-            const agents = Object.entries(AGENT_CONFIG).map(([key, config]) => {
-                const constraint = AGENT_CONSTRAINTS.get(key as AgentActionKey);
-                return {
-                    key,
-                    name: config.name,
-                    description: config.description,
-                    constraint: constraint ? {
-                        enabled: constraint.enabled,
-                        allowedModels: Array.from(constraint.allowedModels)
-                    } : undefined
-                };
-            });
-
-            type ModelConfigInfo = ModelConfig & { isUserOverride?: boolean };
-            const userConfigs: Record<string, ModelConfigInfo> = {};
-            const defaultConfigs: Record<string, ModelConfig> = {};
-
-            for (const [actionKey, mergedConfig] of Object.entries(userConfigsRecord)) {
-                if (mergedConfig.isUserOverride) {
-                    userConfigs[actionKey] = {
-                        name: mergedConfig.name,
-                        max_tokens: mergedConfig.max_tokens,
-                        temperature: mergedConfig.temperature,
-                        reasoning_effort: mergedConfig.reasoning_effort,
-                        fallbackModel: mergedConfig.fallbackModel,
-                        isUserOverride: true
-                    };
-                }
-
-                const defaultConfig = AGENT_CONFIG[actionKey as AgentActionKey];
-                if (defaultConfig) {
-                    defaultConfigs[actionKey] = {
-                        name: defaultConfig.name,
-                        max_tokens: defaultConfig.max_tokens,
-                        temperature: defaultConfig.temperature,
-                        reasoning_effort: defaultConfig.reasoning_effort,
-                        fallbackModel: defaultConfig.fallbackModel
-                    };
-                }
-            }
-
-            return {
-                agents,
-                userConfigs,
-                defaultConfigs
-            };
-        } catch (error) {
-            this.logger.error('Error fetching model configs info:', error);
-            throw error;
-        }
+    getModelConfigsInfo() {
+        const modelService = new ModelConfigService(this.env);
+        return modelService.getModelConfigsInfo(this.state.inferenceContext.userId);
     }
 
     getTotalFiles(): number {
@@ -604,10 +549,8 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
             return errors;
         } catch (error) {
             this.logger.error("Exception fetching runtime errors:", error);
-            // If fetch fails, optionally redeploy in phasic mode only
-            if (this.state.behaviorType === 'phasic') {
-                this.deployToSandbox();
-            }
+            // If fetch fails, initiate redeploy
+            this.deployToSandbox();
             const message = "<runtime errors not available at the moment as preview is not deployed>";
             return [{ message, timestamp: new Date().toISOString(), level: 0, rawOutput: message }];
         }
@@ -619,7 +562,13 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
      */
     async runStaticAnalysisCode(files?: string[]): Promise<StaticAnalysisResponse> {
         try {
+            // Check if we have cached static analysis
+            if (this.staticAnalysisCache) {
+                return this.staticAnalysisCache;
+            }
+            
             const analysisResponse = await this.deploymentManager.runStaticAnalysis(files);
+            this.staticAnalysisCache = analysisResponse;
 
             const { lint, typecheck } = analysisResponse;
             this.broadcast(WebSocketMessageResponses.STATIC_ANALYSIS_RESULTS, {
@@ -709,6 +658,9 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
     }
 
     async fetchAllIssues(resetIssues: boolean = false): Promise<AllIssues> {
+        if (!this.state.sandboxInstanceId) {
+            return { runtimeErrors: [], staticAnalysis: { success: false, lint: { issues: [], }, typecheck: { issues: [], } } };
+        }
         const [runtimeErrors, staticAnalysis] = await Promise.all([
             this.fetchRuntimeErrors(resetIssues),
             this.runStaticAnalysisCode()
@@ -1042,6 +994,8 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
             return result;
         }
             
+        // Invalidate static analysis cache
+        this.staticAnalysisCache = null;
         
         // Call deployment manager with callbacks for broadcasting at the right times
         const result = await this.deploymentManager.deployToSandbox(

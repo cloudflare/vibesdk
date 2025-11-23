@@ -1,26 +1,19 @@
 import { 
     PhaseConceptGenerationSchemaType, 
     PhaseConceptType,
-    FileConceptType,
     FileOutputType,
     PhaseImplementationSchemaType,
 } from '../../schemas';
 import { StaticAnalysisResponse } from '../../../services/sandbox/sandboxTypes';
 import { CurrentDevState, MAX_PHASES, PhasicState } from '../state';
 import { AllIssues, AgentInitArgs, PhaseExecutionResult, UserContext } from '../types';
-import { ModelConfig } from '../../inferutils/config.types';
 import { WebSocketMessageResponses } from '../../constants';
 import { UserConversationProcessor } from '../../operations/UserConversationProcessor';
-// import { WebSocketBroadcaster } from '../services/implementations/WebSocketBroadcaster';
 import { GenerationContext, PhasicGenerationContext } from '../../domain/values/GenerationContext';
 import { IssueReport } from '../../domain/values/IssueReport';
 import { PhaseImplementationOperation } from '../../operations/PhaseImplementation';
 import { FileRegenerationOperation } from '../../operations/FileRegeneration';
 import { PhaseGenerationOperation } from '../../operations/PhaseGeneration';
-// Database schema imports removed - using zero-storage OAuth flow
-import { AgentActionKey } from '../../inferutils/config.types';
-import { AGENT_CONFIG } from '../../inferutils/config';
-import { ModelConfigService } from '../../../database/services/ModelConfigService';
 import { FastCodeFixerOperation } from '../../operations/PostPhaseCodeFixer';
 import { customizePackageJson, customizeTemplateFiles, generateProjectName } from '../../utils/templateCustomizer';
 import { generateBlueprint } from '../../planning/blueprint';
@@ -279,7 +272,6 @@ export class PhasicCodingBehavior extends BaseCodingBehavior<PhasicState> implem
             this.createNewIncompletePhase(phaseConcept);
         }
 
-        let staticAnalysisCache: StaticAnalysisResponse | undefined;
         let userContext: UserContext | undefined;
 
         try {
@@ -292,13 +284,11 @@ export class PhasicCodingBehavior extends BaseCodingBehavior<PhasicState> implem
                         executionResults = await this.executePhaseGeneration();
                         currentDevState = executionResults.currentDevState;
                         phaseConcept = executionResults.result;
-                        staticAnalysisCache = executionResults.staticAnalysis;
                         userContext = executionResults.userContext;
                         break;
                     case CurrentDevState.PHASE_IMPLEMENTING:
-                        executionResults = await this.executePhaseImplementation(phaseConcept, staticAnalysisCache, userContext);
+                        executionResults = await this.executePhaseImplementation(phaseConcept, userContext);
                         currentDevState = executionResults.currentDevState;
-                        staticAnalysisCache = executionResults.staticAnalysis;
                         userContext = undefined;
                         break;
                     case CurrentDevState.REVIEWING:
@@ -321,7 +311,7 @@ export class PhasicCodingBehavior extends BaseCodingBehavior<PhasicState> implem
     /**
      * Execute phase generation state - generate next phase with user suggestions
      */
-    async executePhaseGeneration(): Promise<PhaseExecutionResult> {
+    async executePhaseGeneration(isFinal?: boolean): Promise<PhaseExecutionResult> {
         this.logger.info("Executing PHASE_GENERATING state");
         try {
             const currentIssues = await this.fetchAllIssues();
@@ -352,7 +342,7 @@ export class PhasicCodingBehavior extends BaseCodingBehavior<PhasicState> implem
                 }
             }
             
-            const nextPhase = await this.generateNextPhase(currentIssues, userContext);
+            const nextPhase = await this.generateNextPhase(currentIssues, userContext, isFinal);
                 
             if (!nextPhase) {
                 this.logger.info("No more phases to implement, transitioning to FINALIZING");
@@ -370,7 +360,6 @@ export class PhasicCodingBehavior extends BaseCodingBehavior<PhasicState> implem
             return {
                 currentDevState: CurrentDevState.PHASE_IMPLEMENTING,
                 result: nextPhase,
-                staticAnalysis: currentIssues.staticAnalysis,
                 userContext: userContext,
             };
         } catch (error) {
@@ -387,7 +376,7 @@ export class PhasicCodingBehavior extends BaseCodingBehavior<PhasicState> implem
     /**
      * Execute phase implementation state - implement current phase
      */
-    async executePhaseImplementation(phaseConcept?: PhaseConceptType, staticAnalysis?: StaticAnalysisResponse, userContext?: UserContext): Promise<{currentDevState: CurrentDevState, staticAnalysis?: StaticAnalysisResponse}> {
+    async executePhaseImplementation(phaseConcept?: PhaseConceptType, userContext?: UserContext): Promise<{currentDevState: CurrentDevState, staticAnalysis?: StaticAnalysisResponse}> {
         try {
             this.logger.info("Executing PHASE_IMPLEMENTING state");
     
@@ -408,24 +397,10 @@ export class PhasicCodingBehavior extends BaseCodingBehavior<PhasicState> implem
                 ...this.state,
                 currentPhase: undefined // reset current phase
             });
-    
-            let currentIssues : AllIssues;
-            if (this.state.sandboxInstanceId) {
-                if (staticAnalysis) {
-                    // If have cached static analysis, fetch everything else fresh
-                    currentIssues = {
-                        runtimeErrors: await this.fetchRuntimeErrors(true),
-                        staticAnalysis: staticAnalysis,
-                    };
-                } else {
-                    currentIssues = await this.fetchAllIssues(true)
-                }
-            } else {
-                currentIssues = {
-                    runtimeErrors: [],
-                    staticAnalysis: { success: true, lint: { issues: [] }, typecheck: { issues: [] } },
-                }
-            }
+            
+            // Prepare issues for implementation
+            const currentIssues = await this.fetchAllIssues(true);
+            
             // Implement the phase with user context (suggestions and images)
             await this.implementPhase(phaseConcept, currentIssues, userContext);
     
@@ -433,8 +408,8 @@ export class PhasicCodingBehavior extends BaseCodingBehavior<PhasicState> implem
 
             const phasesCounter = this.decrementPhasesCounter();
 
-            if ((phaseConcept.lastPhase || phasesCounter <= 0) && this.state.pendingUserInputs.length === 0) return {currentDevState: CurrentDevState.FINALIZING, staticAnalysis: staticAnalysis};
-            return {currentDevState: CurrentDevState.PHASE_GENERATING, staticAnalysis: staticAnalysis};
+            if ((phaseConcept.lastPhase || phasesCounter <= 0) && this.state.pendingUserInputs.length === 0) return {currentDevState: CurrentDevState.FINALIZING};
+            return {currentDevState: CurrentDevState.PHASE_GENERATING};
         } catch (error) {
             this.logger.error("Error implementing phase", error);
             if (error instanceof RateLimitExceededError) {
@@ -491,19 +466,13 @@ export class PhasicCodingBehavior extends BaseCodingBehavior<PhasicState> implem
             return CurrentDevState.REVIEWING;
         }
 
-        const phaseConcept: PhaseConceptType = {
-            name: "Finalization and Review",
-            description: "Full polishing and final review of the application",
-            files: [],
-            lastPhase: true
+        const { result: phaseConcept, userContext } = await this.executePhaseGeneration(true);
+        if (!phaseConcept) {
+            this.logger.warn("Phase concept not generated, skipping final review");
+            return CurrentDevState.REVIEWING;
         }
         
-        this.createNewIncompletePhase(phaseConcept);
-
-        const currentIssues = await this.fetchAllIssues(true);
-        
-        // Run final review and cleanup phase
-        await this.implementPhase(phaseConcept, currentIssues);
+        await this.executePhaseImplementation(phaseConcept, userContext);
 
         const numFilesGenerated = this.fileManager.getGeneratedFilePaths().length;
         this.logger.info(`Finalization complete. Generated ${numFilesGenerated}/${this.getTotalFiles()} files.`);
@@ -515,11 +484,14 @@ export class PhasicCodingBehavior extends BaseCodingBehavior<PhasicState> implem
     /**
      * Generate next phase with user context (suggestions and images)
      */
-    async generateNextPhase(currentIssues: AllIssues, userContext?: UserContext): Promise<PhaseConceptGenerationSchemaType | undefined> {
+    async generateNextPhase(currentIssues: AllIssues, userContext?: UserContext, isFinal?: boolean): Promise<PhaseConceptGenerationSchemaType | undefined> {
         const issues = IssueReport.from(currentIssues);
         
         // Build notification message
         let notificationMsg = "Generating next phase";
+        if (isFinal) {
+            notificationMsg = "Generating final phase";
+        }
         if (userContext?.suggestions && userContext.suggestions.length > 0) {
             notificationMsg = `Generating next phase incorporating ${userContext.suggestions.length} user suggestion(s)`;
         }
@@ -538,7 +510,8 @@ export class PhasicCodingBehavior extends BaseCodingBehavior<PhasicState> implem
             {
                 issues,
                 userContext,
-                isUserSuggestedPhase: userContext?.suggestions && userContext.suggestions.length > 0 && this.isMVPGenerated(),
+                isUserSuggestedPhase: userContext?.suggestions && userContext.suggestions.length > 0 && this.state.mvpGenerated,
+                isFinal: isFinal ?? false,
             },
             this.getOperationOptions()
         )
@@ -698,68 +671,6 @@ export class PhasicCodingBehavior extends BaseCodingBehavior<PhasicState> implem
         };
     }
 
-    /**
-     * Get current model configurations (defaults + user overrides)
-     * Used by WebSocket to provide configuration info to frontend
-     */
-    async getModelConfigsInfo() {
-        const userId = this.state.inferenceContext.userId;
-        if (!userId) {
-            throw new Error('No user session available for model configurations');
-        }
-
-        try {
-            const modelConfigService = new ModelConfigService(this.env);
-            
-            // Get all user configs
-            const userConfigsRecord = await modelConfigService.getUserModelConfigs(userId);
-            
-            // Transform to match frontend interface
-            const agents = Object.entries(AGENT_CONFIG).map(([key, config]) => ({
-                key,
-                name: config.name,
-                description: config.description
-            }));
-
-            type ModelConfigInfo = ModelConfig & { isUserOverride?: boolean };
-            const userConfigs: Record<string, ModelConfigInfo> = {};
-            const defaultConfigs: Record<string, ModelConfig> = {};
-
-            for (const [actionKey, mergedConfig] of Object.entries(userConfigsRecord)) {
-                if (mergedConfig.isUserOverride) {
-                    userConfigs[actionKey] = {
-                        name: mergedConfig.name,
-                        max_tokens: mergedConfig.max_tokens,
-                        temperature: mergedConfig.temperature,
-                        reasoning_effort: mergedConfig.reasoning_effort,
-                        fallbackModel: mergedConfig.fallbackModel,
-                        isUserOverride: true
-                    };
-                }
-
-                const defaultConfig = AGENT_CONFIG[actionKey as AgentActionKey];
-                if (defaultConfig) {
-                    defaultConfigs[actionKey] = {
-                        name: defaultConfig.name,
-                        max_tokens: defaultConfig.max_tokens,
-                        temperature: defaultConfig.temperature,
-                        reasoning_effort: defaultConfig.reasoning_effort,
-                        fallbackModel: defaultConfig.fallbackModel
-                    };
-                }
-            }
-
-            return {
-                agents,
-                userConfigs,
-                defaultConfigs
-            };
-        } catch (error) {
-            this.logger.error('Error fetching model configs info:', error);
-            throw error;
-        }
-    }
-
     getTotalFiles(): number {
         return this.fileManager.getGeneratedFilePaths().length + ((this.state.currentPhase || this.state.blueprint.initialPhase)?.files?.length || 0);
     }
@@ -793,55 +704,6 @@ export class PhasicCodingBehavior extends BaseCodingBehavior<PhasicState> implem
             this.broadcastError("Failed to apply fast smart code fixes", error);
             return;
         }
-    }
-
-    async generateFiles(
-        phaseName: string,
-        phaseDescription: string,
-        requirements: string[],
-        files: FileConceptType[]
-    ): Promise<{ files: Array<{ path: string; purpose: string; diff: string }> }> {
-        this.logger.info('Generating files for deep debugger', {
-            phaseName,
-            requirementsCount: requirements.length,
-            filesCount: files.length
-        });
-
-        // Create phase structure with explicit files
-        const phase: PhaseConceptType = {
-            name: phaseName,
-            description: phaseDescription,
-            files: files,
-            lastPhase: true
-        };
-
-        // Call existing implementPhase with postPhaseFixing=false
-        // This skips deterministic fixes and fast smart fixes
-        const result = await this.implementPhase(
-            phase,
-            {
-                runtimeErrors: [],
-                staticAnalysis: {
-                    success: true,
-                    lint: { issues: [] },
-                    typecheck: { issues: [] }
-                },
-            },
-            { suggestions: requirements },
-            true, // streamChunks
-            false // postPhaseFixing = false (skip auto-fixes)
-        );
-
-        const savedFiles = result.files.map(f => {
-            const fileState = this.fileManager.getGeneratedFile(f.filePath);
-            return {
-                path: f.filePath,
-                purpose: f.filePurpose || '',
-                diff: fileState?.lastDiff || ''
-            };
-        });
-
-        return { files: savedFiles };
     }
 
     async handleUserInput(userMessage: string, images?: ImageAttachment[]): Promise<void> {

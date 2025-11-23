@@ -384,6 +384,10 @@ export type ModelConfigsInfoMessage = {
 			key: string;
 			name: string;
 			description: string;
+            constraint?: {
+                enabled: boolean;
+                allowedModels: string[];
+            };
 		}>;
 		userConfigs: Record<string, {
 			name?: string;
