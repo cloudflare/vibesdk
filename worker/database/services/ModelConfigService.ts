@@ -7,7 +7,7 @@ import { BaseService } from './BaseService';
 import { UserModelConfig, NewUserModelConfig, userModelConfigs } from '../schema';
 import { eq, and } from 'drizzle-orm';
 import { AgentActionKey, ModelConfig } from '../../agents/inferutils/config.types';
-import { AGENT_CONFIG } from '../../agents/inferutils/config';
+import { AGENT_CONFIG, AGENT_CONSTRAINTS } from '../../agents/inferutils/config';
 import type { ReasoningEffort } from 'openai/resources.mjs';
 import { generateId } from '../../utils/idGenerator';
 import type { UserModelConfigWithMetadata } from '../types';
@@ -205,6 +205,57 @@ export class ModelConfigService extends BaseService {
 			fallbackModel: validFallback
 		};
 	}
+
+    /**
+     * Get current model configurations (defaults + user overrides)
+     * Used by WebSocket to provide configuration info to frontend
+     */
+    async getModelConfigsInfo(userId: string) {
+        if (!userId) {
+            throw new Error('No user session available for model configurations');
+        }
+
+        try {
+            // Get all user configs
+            const userConfigsRecord = await this.getUserModelConfigs(userId);
+            
+            // Transform to match frontend interface with constraint info
+            const agents = Object.entries(AGENT_CONFIG).map(([key, config]) => {
+                const constraint = AGENT_CONSTRAINTS.get(key as AgentActionKey);
+                return {
+                    key,
+                    name: config.name,
+                    description: config.description,
+                    constraint: constraint ? {
+                        enabled: constraint.enabled,
+                        allowedModels: Array.from(constraint.allowedModels)
+                    } : undefined
+                };
+            });
+
+            const userModelConfigs: Record<string, ModelConfig> = {}
+            const defaultConfigs: Record<string, ModelConfig> = {};
+            for (const [actionKey, mergedConfig] of Object.entries(userConfigsRecord)) {
+                if (mergedConfig.isUserOverride) {
+                    const { isUserOverride, userConfigId, ...modelConfig } = mergedConfig;
+                    userModelConfigs[actionKey] = modelConfig;
+                }
+                const defaultConfig = AGENT_CONFIG[actionKey as AgentActionKey];
+                if (defaultConfig) {
+                    defaultConfigs[actionKey] = defaultConfig;
+                }
+            }
+
+            return {
+                agents,
+                userConfigs: userModelConfigs,
+                defaultConfigs
+            };
+        } catch (error) {
+            console.error('Error fetching model configs info:', error);
+            throw error;
+        }
+    }
 
 	/**
 	 * Update or create a user model configuration.

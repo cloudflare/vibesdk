@@ -21,8 +21,7 @@ import { FileRegenerationOperation } from '../operations/FileRegeneration';
 // Database schema imports removed - using zero-storage OAuth flow
 import { BaseSandboxService } from '../../services/sandbox/BaseSandboxService';
 import { WebSocketMessageData, WebSocketMessageType } from '../../api/websocketTypes';
-import { InferenceContext, AgentActionKey, ModelConfig } from '../inferutils/config.types';
-import { AGENT_CONFIG, AGENT_CONSTRAINTS } from '../inferutils/config';
+import { InferenceContext, ModelConfig } from '../inferutils/config.types';
 import { ModelConfigService } from '../../database/services/ModelConfigService';
 import { fixProjectIssues } from '../../services/code-fixer';
 import { GitVersionControl, SqlExecutor } from '../git';
@@ -82,11 +81,13 @@ export abstract class BaseAgentBehavior<TState extends BaseProjectState> impleme
     protected templateDetailsCache: TemplateDetails | null = null;
     
     // In-memory storage for user-uploaded images (not persisted in DO state)
-    protected pendingUserImages: ProcessedImageAttachment[] = []
-    protected generationPromise: Promise<void> | null = null;
-    protected currentAbortController?: AbortController;
-    protected deepDebugPromise: Promise<{ transcript: string } | { error: string }> | null = null;
-    protected deepDebugConversationId: string | null = null;
+    private pendingUserImages: ProcessedImageAttachment[] = []
+    private generationPromise: Promise<void> | null = null;
+    private currentAbortController?: AbortController;
+    private deepDebugPromise: Promise<{ transcript: string } | { error: string }> | null = null;
+    private deepDebugConversationId: string | null = null;
+
+    private staticAnalysisCache: StaticAnalysisResponse | null = null;
     
     // GitHub token cache (ephemeral, lost on DO eviction)
     protected githubTokenCache: {
@@ -663,7 +664,7 @@ export abstract class BaseAgentBehavior<TState extends BaseProjectState> impleme
             });
         }
     }
-
+    
     /**
      * Abstract method to be implemented by subclasses
      * Contains the main logic for code generation and review process
@@ -723,73 +724,10 @@ export abstract class BaseAgentBehavior<TState extends BaseProjectState> impleme
         return await debugPromise;
     }
 
-    /**
-     * Get current model configurations (defaults + user overrides)
-     * Used by WebSocket to provide configuration info to frontend
-     */
-    async getModelConfigsInfo() {
-        const userId = this.state.inferenceContext.userId;
-        if (!userId) {
-            throw new Error('No user session available for model configurations');
-        }
 
-        try {
-            const modelConfigService = new ModelConfigService(this.env);
-            
-            // Get all user configs
-            const userConfigsRecord = await modelConfigService.getUserModelConfigs(userId);
-            
-            // Transform to match frontend interface with constraint info
-            const agents = Object.entries(AGENT_CONFIG).map(([key, config]) => {
-                const constraint = AGENT_CONSTRAINTS.get(key as AgentActionKey);
-                return {
-                    key,
-                    name: config.name,
-                    description: config.description,
-                    constraint: constraint ? {
-                        enabled: constraint.enabled,
-                        allowedModels: Array.from(constraint.allowedModels)
-                    } : undefined
-                };
-            });
-
-            const userConfigs: Record<string, any> = {};
-            const defaultConfigs: Record<string, any> = {};
-
-            for (const [actionKey, mergedConfig] of Object.entries(userConfigsRecord)) {
-                if (mergedConfig.isUserOverride) {
-                    userConfigs[actionKey] = {
-                        name: mergedConfig.name,
-                        max_tokens: mergedConfig.max_tokens,
-                        temperature: mergedConfig.temperature,
-                        reasoning_effort: mergedConfig.reasoning_effort,
-                        fallbackModel: mergedConfig.fallbackModel,
-                        isUserOverride: true
-                    };
-                }
-                
-                // Always include default config
-                const defaultConfig = AGENT_CONFIG[actionKey as AgentActionKey];
-                if (defaultConfig) {
-                    defaultConfigs[actionKey] = {
-                        name: defaultConfig.name,
-                        max_tokens: defaultConfig.max_tokens,
-                        temperature: defaultConfig.temperature,
-                        reasoning_effort: defaultConfig.reasoning_effort,
-                        fallbackModel: defaultConfig.fallbackModel
-                    };
-                }
-            }
-
-            return {
-                agents,
-                userConfigs,
-                defaultConfigs
-            };
-        } catch (error) {
-            this.logger().error('Error fetching model configs info:', error);
-            throw error;
-        }
+    getModelConfigsInfo() {
+        const modelService = new ModelConfigService(this.env);
+        return modelService.getModelConfigsInfo(this.state.inferenceContext.userId);
     }
 
     getTotalFiles(): number {
@@ -849,7 +787,13 @@ export abstract class BaseAgentBehavior<TState extends BaseProjectState> impleme
      */
     async runStaticAnalysisCode(files?: string[]): Promise<StaticAnalysisResponse> {
         try {
+            // Check if we have cached static analysis
+            if (this.staticAnalysisCache) {
+                return this.staticAnalysisCache;
+            }
+            
             const analysisResponse = await this.deploymentManager.runStaticAnalysis(files);
+            this.staticAnalysisCache = analysisResponse;
 
             const { lint, typecheck } = analysisResponse;
             this.broadcast(WebSocketMessageResponses.STATIC_ANALYSIS_RESULTS, {
@@ -939,6 +883,9 @@ export abstract class BaseAgentBehavior<TState extends BaseProjectState> impleme
     }
 
     async fetchAllIssues(resetIssues: boolean = false): Promise<AllIssues> {
+        if (!this.state.sandboxInstanceId) {
+            return { runtimeErrors: [], staticAnalysis: { success: false, lint: { issues: [], }, typecheck: { issues: [], } } };
+        }
         const [runtimeErrors, staticAnalysis] = await Promise.all([
             this.fetchRuntimeErrors(resetIssues),
             this.runStaticAnalysisCode()
@@ -1194,6 +1141,9 @@ export abstract class BaseAgentBehavior<TState extends BaseProjectState> impleme
     }
 
     async deployToSandbox(files: FileOutputType[] = [], redeploy: boolean = false, commitMessage?: string, clearLogs: boolean = false): Promise<PreviewType | null> {
+        // Invalidate static analysis cache
+        this.staticAnalysisCache = null;
+        
         // Call deployment manager with callbacks for broadcasting at the right times
         const result = await this.deploymentManager.deployToSandbox(
             files,

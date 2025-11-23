@@ -115,7 +115,10 @@ export type {
 export type { 
   WebSocketMessage, 
   WebSocketMessageData,
-  CodeFixEdits 
+  CodeFixEdits,
+  ModelConfigsInfoMessage,
+  AgentDisplayConfig,
+  ModelConfigsInfo
 } from 'worker/api/websocketTypes';
 
 // Database/Schema Types commonly used in frontend

@@ -29,9 +29,9 @@ import type {
   UserModelConfigWithMetadata, 
   ModelConfigUpdate, 
   AIModels,
-  ByokProvidersData
+  ByokProvidersData,
+  AgentDisplayConfig
 } from '@/api-types';
-import type { AgentDisplayConfig } from './model-config-tabs';
 
 interface ConfigModalProps {
   isOpen: boolean;
