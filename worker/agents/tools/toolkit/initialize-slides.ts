@@ -19,7 +19,7 @@ export function createInitializeSlidesTool(
 		},
 		run: async ({ theme, force_preview }) => {
 			logger.info('Initializing presentation template', { theme });
-			const { templateName, filesImported } = await agent.importTemplate('spectacle');
+			const { templateName, filesImported } = await agent.importTemplate('reveal-presentation-pro');
 			logger.info('Imported presentation template', { templateName, filesImported });
 
 			const deployMsg = await agent.deployPreview(true, !!force_preview);

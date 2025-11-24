@@ -90,8 +90,6 @@ export interface DeepDebuggerOutputs {
 }
 
 export interface DeepDebuggerSession extends ToolSession {
-    filesIndex: FileState[];
-    runtimeErrors?: RuntimeError[];
     templateInfo?: string;
     fileSummaries: string;
 }
@@ -134,8 +132,6 @@ export class DeepDebuggerOperation extends AgentOperationWithTools<
 
         return {
             agent,
-            filesIndex,
-            runtimeErrors,
             templateInfo,
             fileSummaries,
         };
@@ -148,8 +144,8 @@ export class DeepDebuggerOperation extends AgentOperationWithTools<
     ): Promise<Message[]> {
         const system = createSystemMessage(SYSTEM_PROMPT);
 
-        const runtimeErrorsText = session.runtimeErrors
-            ? PROMPT_UTILS.serializeErrors(session.runtimeErrors)
+        const runtimeErrorsText = inputs.runtimeErrors
+            ? PROMPT_UTILS.serializeErrors(inputs.runtimeErrors)
             : undefined;
 
         const userPrompt = USER_PROMPT(

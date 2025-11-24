@@ -865,6 +865,7 @@ export default function Chat() {
 								onToggleSpeakerMode={handleToggleSpeakerMode}
 								onTogglePreviewMode={handleTogglePreviewMode}
 								onExportPdf={handleExportPdf}
+								templateDetails={templateDetails}
 							/>
 						</motion.div>
 					)}

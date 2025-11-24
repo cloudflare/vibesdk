@@ -9,7 +9,6 @@ import { createDeployPreviewTool } from './toolkit/deploy-preview';
 import { createDeepDebuggerTool } from "./toolkit/deep-debugger";
 import { createRenameProjectTool } from './toolkit/rename-project';
 import { createAlterBlueprintTool } from './toolkit/alter-blueprint';
-import { createGenerateBlueprintTool } from './toolkit/generate-blueprint';
 import { createReadFilesTool } from './toolkit/read-files';
 import { createExecCommandsTool } from './toolkit/exec-commands';
 import { createRunAnalysisTool } from './toolkit/run-analysis';
@@ -21,12 +20,8 @@ import { createWaitForGenerationTool } from './toolkit/wait-for-generation';
 import { createWaitForDebugTool } from './toolkit/wait-for-debug';
 import { createGitTool } from './toolkit/git';
 import { ICodingAgent } from '../services/interfaces/ICodingAgent';
-import { createInitSuitableTemplateTool } from './toolkit/init-suitable-template';
-import { createVirtualFilesystemTool } from './toolkit/virtual-filesystem';
-import { createGenerateImagesTool } from './toolkit/generate-images';
 import { Message } from '../inferutils/common';
 import { ChatCompletionMessageFunctionToolCall } from 'openai/resources';
-import { AgenticBuilderSession } from '../operations/AgenticProjectBuilder';
 import { DeepDebuggerSession } from '../operations/DeepDebugger';
 
 export async function executeToolWithDefinition<TArgs, TResult>(
@@ -84,45 +79,9 @@ export function buildDebugTools(session: DeepDebuggerSession, logger: Structured
 }
 
 /**
- * Toolset for the Agentic Project Builder (autonomous build assistant)
- */
-export function buildAgenticBuilderTools(
-    session: AgenticBuilderSession,
-    logger: StructuredLogger,
-    toolRenderer?: RenderToolCall,
-    onToolComplete?: (message: Message) => Promise<void>
-): ToolDefinition<any, any>[] {
-    const tools = [
-        // PRD generation + refinement
-        createGenerateBlueprintTool(session.agent, logger),
-        createAlterBlueprintTool(session.agent, logger),
-        // Template selection
-        createInitSuitableTemplateTool(session.agent, logger),
-        // Virtual filesystem operations (list + read from Durable Object storage)
-        createVirtualFilesystemTool(session.agent, logger),
-        // Build + analysis toolchain
-        createGenerateFilesTool(session.agent, logger),
-        createRegenerateFileTool(session.agent, logger),
-        createRunAnalysisTool(session.agent, logger),
-        // Runtime + deploy
-        createDeployPreviewTool(session.agent, logger),
-        createGetRuntimeErrorsTool(session.agent, logger),
-        createGetLogsTool(session.agent, logger),
-        // Utilities
-        createExecCommandsTool(session.agent, logger),
-        createWaitTool(logger),
-        createGitTool(session.agent, logger),
-        // WIP: images
-        createGenerateImagesTool(session.agent, logger),
-    ];
-
-    return withRenderer(tools, toolRenderer, onToolComplete);
-}
-
-/**
  * Decorate tools with renderer for UI visualization and conversation sync
  */
-function withRenderer(
+export function withRenderer(
     tools: ToolDefinition<any, any>[],
     toolRenderer?: RenderToolCall,
     onComplete?: (message: Message) => Promise<void>

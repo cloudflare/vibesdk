@@ -55,6 +55,7 @@ export interface HandleMessageDeps {
     setBehaviorType: React.Dispatch<React.SetStateAction<BehaviorType>>;
     setInternalProjectType: React.Dispatch<React.SetStateAction<ProjectType>>;
     setTemplateDetails: React.Dispatch<React.SetStateAction<TemplateDetails | null>>;
+    onPresentationFileEvent?: (event: { type: 'file_generating' | 'file_chunk' | 'file_generated'; path: string; chunk?: string; contents?: string }) => void;
 
     // Current state
     isInitialStateRestored: boolean;
@@ -513,26 +514,29 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
                 break;
             }
 
-            case 'file_generating': {
-                setFiles((prev) => setFileGenerating(prev, message.filePath));
-                break;
-            }
+			case 'file_generating': {
+				setFiles((prev) => setFileGenerating(prev, message.filePath));
+				deps.onPresentationFileEvent?.({ type: 'file_generating', path: message.filePath });
+				break;
+			}
 
-            case 'file_chunk_generated': {
-                setFiles((prev) => appendFileChunk(prev, message.filePath, message.chunk));
-                break;
-            }
+			case 'file_chunk_generated': {
+				setFiles((prev) => appendFileChunk(prev, message.filePath, message.chunk));
+				deps.onPresentationFileEvent?.({ type: 'file_chunk', path: message.filePath, chunk: message.chunk });
+				break;
+			}
 
-            case 'file_generated': {
-                setFiles((prev) => setFileCompleted(prev, message.file.filePath, message.file.fileContents));
-                setPhaseTimeline((prev) => updatePhaseFileStatus(
-                    prev,
-                    message.file.filePath,
-                    'completed',
-                    message.file.fileContents
-                ));
-                break;
-            }
+			case 'file_generated': {
+				setFiles((prev) => setFileCompleted(prev, message.file.filePath, message.file.fileContents));
+				setPhaseTimeline((prev) => updatePhaseFileStatus(
+					prev,
+					message.file.filePath,
+					'completed',
+					message.file.fileContents
+				));
+				deps.onPresentationFileEvent?.({ type: 'file_generated', path: message.file.filePath, contents: message.file.fileContents });
+				break;
+			}
 
             case 'file_regenerated': {
                 setIsRedeployReady(true);

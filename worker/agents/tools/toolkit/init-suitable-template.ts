@@ -88,14 +88,15 @@ export function createInitSuitableTemplateTool(
 ${selection.reasoning}
 
 **Template Files Imported**: ${importResult.files.length} important files
-**Ready for**: Blueprint generation with template context
 
-**Next Step**: Use generate_blueprint() to create project plan that leverages this template's features.
+**Next Step**: Use filesystem tools to read and understand relevant files
 `.trim();
 
 				return {
 					selection,
-					importedFiles: importResult.files,
+					importedFiles: importResult.files.map(f => ({
+						filePath: f.filePath,
+					})),
 					reasoning: reasoningMessage,
 					message: `Template "${selection.selectedTemplateName}" selected and imported successfully.`
 				};

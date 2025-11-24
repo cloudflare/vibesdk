@@ -6,7 +6,7 @@ import {
 } from '../inferutils/common';
 import { AgentActionKey, ModelConfig } from '../inferutils/config.types';
 import { AGENT_CONFIG } from '../inferutils/config';
-import { buildAgenticBuilderTools } from '../tools/customTools';
+import { withRenderer } from '../tools/customTools';
 import { RenderToolCall } from './UserConversationProcessor';
 import { PROMPT_UTILS } from '../prompts';
 import { FileState } from '../core/state';
@@ -19,6 +19,20 @@ import { GenerationContext } from '../domain/values/GenerationContext';
 import getSystemPrompt from './prompts/agenticBuilderPrompts';
 import { ToolDefinition } from '../tools/types';
 import { InferResponseString } from '../inferutils/core';
+import { createGenerateBlueprintTool } from '../tools/toolkit/generate-blueprint';
+import { createAlterBlueprintTool } from '../tools/toolkit/alter-blueprint';
+import { createInitSuitableTemplateTool } from '../tools/toolkit/init-suitable-template';
+import { createVirtualFilesystemTool } from '../tools/toolkit/virtual-filesystem';
+import { createGenerateFilesTool } from '../tools/toolkit/generate-files';
+import { createRegenerateFileTool } from '../tools/toolkit/regenerate-file';
+import { createRunAnalysisTool } from '../tools/toolkit/run-analysis';
+import { createDeployPreviewTool } from '../tools/toolkit/deploy-preview';
+import { createGetRuntimeErrorsTool } from '../tools/toolkit/get-runtime-errors';
+import { createGetLogsTool } from '../tools/toolkit/get-logs';
+import { createExecCommandsTool } from '../tools/toolkit/exec-commands';
+import { createWaitTool } from '../tools/toolkit/wait';
+import { createGitTool } from '../tools/toolkit/git';
+import { createGenerateImagesTool } from '../tools/toolkit/generate-images';
 
 export interface AgenticProjectBuilderInputs {
     query: string;
@@ -41,13 +55,9 @@ export interface AgenticProjectBuilderOutputs {
 }
 
 export interface AgenticBuilderSession extends ToolSession {
-    filesIndex: FileState[];
-    projectType: ProjectType;
-    operationalMode: 'initial' | 'followup';
     templateInfo?: string;
     dynamicHints: string;
     fileSummaries: string;
-    conversationHistory: ConversationMessage[];
     hasFiles: boolean;
     hasPlan: boolean;
 }
@@ -126,8 +136,6 @@ export class AgenticProjectBuilderOperation extends AgentOperationWithTools<
             blueprint,
             filesIndex,
             selectedTemplate,
-            operationalMode,
-            conversationHistory,
         } = inputs;
 
         logger.info('Starting project build', {
@@ -167,7 +175,7 @@ export class AgenticProjectBuilderOperation extends AgentOperationWithTools<
                 ? '- UI detected: Use deploy_preview to verify runtime; then run_analysis for quick feedback.'
                 : '',
             isPresentationProject
-                ? '- Presentation mode: NO deploy_preview/run_analysis needed. Focus on beautiful JSX slides, ask user for feedback.'
+                ? '- Presentation mode: Use deploy_preview to sync slides. NO run_analysis needed. Focus on beautiful JSON slides, ask user for feedback.'
                 : '',
             hasMD && !hasTSX
                 ? '- Documents detected without UI: This is STATIC content - generate files in docs/, NO deploy_preview needed.'
@@ -181,13 +189,9 @@ export class AgenticProjectBuilderOperation extends AgentOperationWithTools<
 
         return {
             agent,
-            filesIndex,
-            projectType,
-            operationalMode,
             templateInfo,
             dynamicHints,
             fileSummaries,
-            conversationHistory: conversationHistory ?? [],
             hasFiles,
             hasPlan,
         };
@@ -201,8 +205,8 @@ export class AgenticProjectBuilderOperation extends AgentOperationWithTools<
         const { env, logger } = options;
 
         let historyMessages: Message[] = [];
-        if (session.conversationHistory.length > 0) {
-            const prepared = await prepareMessagesForInference(env, session.conversationHistory);
+        if (inputs.conversationHistory && inputs.conversationHistory.length > 0) {
+            const prepared = await prepareMessagesForInference(env, inputs.conversationHistory);
             historyMessages = prepared as Message[];
 
             logger.info('Loaded conversation history', {
@@ -210,7 +214,7 @@ export class AgenticProjectBuilderOperation extends AgentOperationWithTools<
             });
         }
 
-        let systemPrompt = getSystemPrompt(session.projectType, session.dynamicHints);
+        let systemPrompt = getSystemPrompt(inputs.projectType, session.dynamicHints);
 
         if (historyMessages.length > 0) {
             systemPrompt += `\n\n# Conversation History\nYou are being provided with the full conversation history from your previous interactions. Review it to understand context and avoid repeating work.`;
@@ -230,7 +234,7 @@ export class AgenticProjectBuilderOperation extends AgentOperationWithTools<
     }
 
     protected buildTools(
-        _inputs: AgenticProjectBuilderInputs,
+        inputs: AgenticProjectBuilderInputs,
         options: OperationOptions<GenerationContext>,
         session: AgenticBuilderSession,
         callbacks: ToolCallbacks
@@ -239,12 +243,36 @@ export class AgenticProjectBuilderOperation extends AgentOperationWithTools<
         const toolRenderer = callbacks.toolRenderer;
         const onToolComplete = callbacks.onToolComplete;
 
-        const rawTools = buildAgenticBuilderTools(
-            session,
-            logger,
-            toolRenderer,
-            onToolComplete,
-        );
+        let rawTools : ToolDefinition<any, any>[] = [
+            // PRD generation + refinement
+            createAlterBlueprintTool(session.agent, logger),
+            // Virtual filesystem operations (list + read from Durable Object storage)
+            createVirtualFilesystemTool(session.agent, logger),
+            // Build + analysis toolchain
+            createGenerateFilesTool(session.agent, logger),
+            createRegenerateFileTool(session.agent, logger),
+            createRunAnalysisTool(session.agent, logger),
+            // Runtime + deploy
+            createDeployPreviewTool(session.agent, logger),
+            createGetRuntimeErrorsTool(session.agent, logger),
+            createGetLogsTool(session.agent, logger),
+            // Utilities
+            createExecCommandsTool(session.agent, logger),
+            createWaitTool(logger),
+            createGitTool(session.agent, logger),
+            // WIP: images
+            createGenerateImagesTool(session.agent, logger),
+        ];
+        if (!inputs.blueprint) {
+            rawTools.push(createGenerateBlueprintTool(session.agent, logger));
+        }
+
+        if (!inputs.selectedTemplate) {
+            rawTools.push(createInitSuitableTemplateTool(session.agent, logger));
+        }
+
+        rawTools = withRenderer(rawTools, toolRenderer, onToolComplete);
+
         rawTools.push(createMarkGenerationCompleteTool(session.agent, logger));
 
         return rawTools;
@@ -256,10 +284,10 @@ export class AgenticProjectBuilderOperation extends AgentOperationWithTools<
         session: AgenticBuilderSession
     ) {
         const { logger } = options;
-        const { hasFiles, hasPlan, operationalMode } = session;
+        const { hasFiles, hasPlan } = session;
 
         logger.info('Agentic builder mode', {
-            mode: operationalMode,
+            mode: inputs.operationalMode,
             hasFiles,
             hasPlan,
         });

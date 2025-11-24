@@ -265,7 +265,7 @@ const MODELS_MASTER = {
         }
     },
     VERTEX_KIMI_THINKING: {
-        id: 'google-vertex-ai/moonshotai/kimi-k2-thinking',
+        id: 'google-vertex-ai/moonshotai/kimi-k2-thinking-maas',
         config: {
             name: 'Google Vertex Kimi K2 Thinking',
             size: ModelSize.LITE,

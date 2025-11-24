@@ -60,7 +60,7 @@ const PLATFORM_AGENT_CONFIG: AgentConfig = {
     blueprint: {
         name: AIModels.OPENAI_5_MINI,
         reasoning_effort: 'medium',
-        max_tokens: 32000,
+        max_tokens: 20000,
         fallbackModel: AIModels.GEMINI_2_5_FLASH,
         temperature: 1.0,
     },
@@ -108,8 +108,8 @@ const PLATFORM_AGENT_CONFIG: AgentConfig = {
         fallbackModel: AIModels.GROK_CODE_FAST_1,
     },
     agenticProjectBuilder: {
-        name: AIModels.OPENAI_5_MINI,
-        reasoning_effort: 'high',
+        name: AIModels.GEMINI_3_PRO_PREVIEW,
+        reasoning_effort: 'medium',
         max_tokens: 8000,
         temperature: 1,
         fallbackModel: AIModels.GEMINI_2_5_FLASH,

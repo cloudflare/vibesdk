@@ -13,7 +13,7 @@ import { PreviewHeaderActions } from './preview-header-actions';
 import { EditorHeaderActions } from './editor-header-actions';
 import { Copy } from './copy';
 import { PresentationPreview } from './presentation-preview';
-import type { FileType, BlueprintType, BehaviorType, ModelConfigsInfo } from '@/api-types';
+import type { FileType, BlueprintType, BehaviorType, ModelConfigsInfo, TemplateDetails } from '@/api-types';
 import type { ContentDetectionResult } from '../utils/content-detector';
 import type { GitHubExportHook } from '@/hooks/use-github-export';
 import type { Edit } from '../hooks/use-chat';
@@ -66,6 +66,9 @@ interface MainContentPanelProps {
 	onTogglePreviewMode?: () => void;
 	onExportPdf?: () => void;
 
+	// Template metadata
+	templateDetails?: TemplateDetails | null;
+
 	// Other
 	behaviorType?: BehaviorType;
 	urlChatId?: string;
@@ -114,6 +117,7 @@ export function MainContentPanel(props: MainContentPanelProps) {
 		websocket,
 		previewRef,
 		editorRef,
+		templateDetails,
 	} = props;
 
 	const commonHeaderProps = {
@@ -196,6 +200,7 @@ export function MainContentPanel(props: MainContentPanelProps) {
 					speakerMode={presentationSpeakerMode}
 					previewMode={presentationPreviewMode}
 					allFiles={allFiles}
+					templateDetails={templateDetails}
 				/>
 			) : (
 				<PreviewIframe

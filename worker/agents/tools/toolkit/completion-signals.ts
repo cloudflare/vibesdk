@@ -13,18 +13,7 @@ export function createMarkGenerationCompleteTool(
 ): ToolDefinition<{ summary: string; filesGenerated: number }, CompletionResult> {
 	return tool({
 		name: 'mark_generation_complete',
-		description: `Signal that initial project generation is complete. Use this when:
-- All planned features/files have been generated based on the blueprint
-- Project is functional and meets the specified requirements
-- All errors have been resolved (run_analysis passes, no runtime errors)
-- You have verified everything works via deploy_preview
-
-CRITICAL: This is for INITIAL PROJECT BUILDS only.
-
-For follow-up conversations where the user asks for tweaks, additions, or modifications
-to an existing project, just respond naturally - DO NOT call this tool.
-
-Once you call this tool, make NO further tool calls. The system will stop immediately.`,
+		description: `Signal that initial project generation is complete and ready for the user to review and get feedback. After calling this tool, control would be handed over to the user.`,
 		args: {
 			summary: t.string().describe('Brief summary of what was built (2-3 sentences max). Describe the key features and functionality implemented.'),
 			filesGenerated: t.number().describe('Total count of files generated during this build session'),

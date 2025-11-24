@@ -238,15 +238,17 @@ export class AgenticCodingBehavior extends BaseCodingBehavior<AgenticState> impl
     }
     
     async build(): Promise<void> {
+        let attempt = 0;
         while (!this.isMVPGenerated() || this.state.pendingUserInputs.length > 0) {
-            await this.executeGeneration();
+            await this.executeGeneration(attempt);
+            attempt++;
         }
     }
     
     /**
      * Execute the project generation
      */
-    private async executeGeneration(): Promise<void> {
+    private async executeGeneration(attempt: number): Promise<void> {
         // Reset tool call counter for this build session
         this.toolCallCounter = 0;
 
@@ -262,14 +264,6 @@ export class AgenticCodingBehavior extends BaseCodingBehavior<AgenticState> impl
         });
 
         const aiConversationId = IdGenerator.generateConversationId();
-
-        if (!this.isMVPGenerated()) {
-            this.broadcast(WebSocketMessageResponses.CONVERSATION_RESPONSE, {
-                message: 'Initializing project builder...',
-                conversationId: aiConversationId,
-                isStreaming: false
-            });
-        }
 
         try {
             const pendingUserInputs = this.fetchPendingUserRequests();
@@ -293,6 +287,26 @@ export class AgenticCodingBehavior extends BaseCodingBehavior<AgenticState> impl
                     ...compiledMessage,
                     conversationId: IdGenerator.generateConversationId(),
                 });
+            }
+
+            const conversationState = this.infrastructure.getConversationState();
+            let conversationHistory = conversationState.runningHistory;
+
+            if (!this.isMVPGenerated()) {
+                if (attempt === 0) {
+                    this.broadcast(WebSocketMessageResponses.CONVERSATION_RESPONSE, {
+                        message: 'Initializing project builder...',
+                        conversationId: aiConversationId,
+                        isStreaming: false
+                    });
+                } else if (!pendingUserInputs) {
+                    // MVP hasnt been generated but it's not the first attempt - indicates maybe the agent forgot to mark completion
+                    conversationHistory = [...conversationHistory, {
+                        role: 'user',
+                        content: `<SYSTEM>Was the MVP generated successfully? If so, please make sure to mark it as completed by calling the mark completion tool.</SYSTEM>`,
+                        conversationId: aiConversationId,
+                    }]
+                }
             }
 
             // Create tool renderer for UI feedback
@@ -330,8 +344,6 @@ export class AgenticCodingBehavior extends BaseCodingBehavior<AgenticState> impl
                 await this.handleMessageCompletion(conversationMessage);
             };
 
-            const conversationState = this.infrastructure.getConversationState();
-
             // Prepare inputs for operation
             const builderInputs: AgenticProjectBuilderInputs = {
                 query: this.state.query,
@@ -340,7 +352,7 @@ export class AgenticCodingBehavior extends BaseCodingBehavior<AgenticState> impl
                 filesIndex: Object.values(this.state.generatedFilesMap),
                 projectType: this.state.projectType || 'app',
                 operationalMode: this.isMVPGenerated() ? 'followup' : 'initial',
-                conversationHistory: conversationState.runningHistory,
+                conversationHistory,
                 streamCb: (chunk: string) => {
                     this.broadcast(WebSocketMessageResponses.CONVERSATION_RESPONSE, {
                         message: chunk,

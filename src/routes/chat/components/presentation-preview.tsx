@@ -3,7 +3,7 @@ import { PreviewIframe } from './preview-iframe';
 import { WebSocket } from 'partysocket';
 import clsx from 'clsx';
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import type { FileType } from '@/api-types';
+import type { FileType, TemplateDetails } from '@/api-types';
 
 interface PresentationPreviewProps {
 	previewUrl: string;
@@ -14,6 +14,7 @@ interface PresentationPreviewProps {
 	speakerMode?: boolean;
 	previewMode?: boolean;
 	allFiles?: FileType[];
+	templateDetails?: TemplateDetails | null;
 }
 
 interface SlideInfo {
@@ -31,6 +32,7 @@ export function PresentationPreview({
 	speakerMode = false,
 	previewMode = false,
 	allFiles = [],
+	templateDetails = null,
 }: PresentationPreviewProps) {
 	const iframeRef = useRef<HTMLIFrameElement>(null);
 	const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
@@ -49,26 +51,68 @@ export function PresentationPreview({
 	const scrollPosition = useRef<number>(0);
 	const wasGenerating = useRef(false);
 
-	const slideFiles: SlideInfo[] = allFiles
+	const slideDirectory = templateDetails?.slideDirectory || 'public/slides';
+
+	const manifestFile = allFiles.find((file) => file.filePath === `${slideDirectory}/manifest.json`);
+	let manifestSlides: SlideInfo[] = [];
+
+	if (manifestFile?.fileContents) {
+		try {
+			const parsed = JSON.parse(manifestFile.fileContents);
+			if (Array.isArray(parsed.slides)) {
+				manifestSlides = parsed.slides.map((name: string, idx: number) => ({
+					index: idx,
+					fileName: name.replace(/\.(json|jsx|tsx)$/i, ''),
+					filePath: `${slideDirectory}/${name}`,
+				}));
+			}
+		} catch (error) {
+			console.error('Failed to parse manifest.json for slides:', error);
+		}
+	}
+
+	const discoveredSlides: SlideInfo[] = allFiles
 		.filter(
 			(file) =>
-				file.filePath.startsWith('public/slides/') &&
-				/Slide\d+\.(jsx|tsx)$/.test(file.filePath),
+				file.filePath.startsWith(`${slideDirectory}/`) &&
+				/\.(jsx|tsx|json)$/i.test(file.filePath) &&
+				!file.filePath.endsWith('manifest.json'),
 		)
 		.map((file) => {
-			const match = file.filePath.match(/Slide(\d+)/);
+			const match = file.filePath.match(/(?:Slide)?(\d+)/i);
 			const slideNum = match ? parseInt(match[1], 10) : 0;
 			return {
-				index: slideNum - 1,
-				fileName:
-					file.filePath
-						.split('/')
-						.pop()
-						?.replace(/\.(jsx|tsx)$/, '') || '',
+				index: slideNum > 0 ? slideNum - 1 : 0,
+				fileName: file.filePath.split('/').pop()?.replace(/\.(jsx|tsx|json)$/i, '') || '',
 				filePath: file.filePath,
 			};
 		})
-		.sort((a, b) => a.index - b.index);
+		.sort((a, b) => a.index - b.index || a.fileName.localeCompare(b.fileName));
+
+	const slideFiles: SlideInfo[] = manifestSlides.length > 0 ? manifestSlides : discoveredSlides;
+
+	useEffect(() => {
+		const handler = (event: Event) => {
+			const detail = (event as CustomEvent).detail as { type: string; path?: string; chunk?: string };
+			if (!detail || !iframeRef.current?.contentWindow) return;
+			if (!detail.path || !detail.path.includes('/slides/')) return;
+			if (!['file_generating', 'file_chunk', 'file_generated'].includes(detail.type)) return;
+			const match = detail.path.match(/(\d+)/);
+			if (match) {
+				const idx = parseInt(match[1], 10) - 1;
+				if (!Number.isNaN(idx)) {
+					setSlideTimestamps((prev) => ({ ...prev, [idx]: Date.now() }));
+				}
+			}
+			try {
+				iframeRef.current.contentWindow.postMessage(detail, '*');
+			} catch (error) {
+				console.error('Failed to forward presentation file event to iframe', error);
+			}
+		};
+		window.addEventListener('presentation-file-event', handler);
+		return () => window.removeEventListener('presentation-file-event', handler);
+	}, []);
 
 	useEffect(() => {
 		const handleMessage = (event: MessageEvent) => {
@@ -147,19 +191,17 @@ export function PresentationPreview({
 	}, [displaySlides]);
 
 	useEffect(() => {
-		const generatingFiles = allFiles.filter(
-			(f) => f.filePath.startsWith('public/slides/') && f.isGenerating === true,
-		);
+		const generatingFiles = allFiles.filter((f) => f.filePath.startsWith(`${slideDirectory}/`) && f.isGenerating === true);
 
 		const indices = generatingFiles
 			.map((f) => {
-				const match = f.filePath.match(/Slide(\d+)/);
-				return match ? parseInt(match[1], 10) - 1 : -1;
+				const match = slideFiles.find((s) => s.filePath === f.filePath);
+				return match ? match.index : -1;
 			})
 			.filter((i) => i >= 0);
 
 		setGeneratingSlides(new Set(indices));
-	}, [allFiles]);
+	}, [allFiles, slideDirectory, slideFiles]);
 
 	useEffect(() => {
 		const completedFiles = allFiles.filter(
@@ -310,6 +352,7 @@ export function PresentationPreview({
 							>
 								{visibleThumbnails.has(slide.index) ? (
 									<iframe
+										key={`slide-${slide.index}-${slideTimestamps[slide.index] || globalRefreshTimestamp}`}
 										src={`${previewUrl}?showAllFragments=true&t=${slideTimestamps[slide.index] || globalRefreshTimestamp}#/${slide.index}`}
 										className="w-full h-full border-none pointer-events-none"
 										title={`Slide ${slide.index + 1} preview`}

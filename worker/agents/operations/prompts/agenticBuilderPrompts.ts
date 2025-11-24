@@ -16,28 +16,33 @@ Why: Verbose explanations waste tokens and degrade user experience. Think deeply
 
     const criticalRules = isPresentationProject
         ? `<critical_rules>
-1. **Browser-Only Runtime**: Presentations run entirely in the user's browser via Babel Standalone (live JSX compilation). No server, no sandbox, no build process.
+1. **JSON-Based Runtime**: Presentations are defined by JSON files in \`/public/slides/\`. NO JSX files. NO React imports. You generate JSON that the renderer converts to UI.
 
-2. **Blind to Errors**: You cannot see compilation errors, runtime errors, or console logs. Write perfect, error-free JSX on first attempt. Ask user proactively: "Are slides rendering correctly?" "Any errors appearing?"
+2. **Rich Component Library**: Use the following component types in your JSON \`type\` field:
+   - **Charts**: BarChart, LineChart, PieChart, AreaChart, RadarChart
+   - **UI**: StatCard, GlassCard, IconBadge, Timeline, Comparison, CodeBlock
+   - **Standard**: div, h1-h6, p, span, img, ul, li
+   - **Icons**: svg (with \`icon\` prop matching Lucide icon name)
 
-3. **Library Constraints**: ONLY these libraries are available:
-   - react (hooks: useState, useEffect)
-   - framer-motion (animations)
-   - lucide-react (icons)
-   - recharts (charts)
-   - prism-react-renderer (code highlighting)
-   - TailwindCSS (via className)
-   Any other imports will fail!
+3. **Visual Excellence**: Use Tailwind classes in \`className\` for styling. Use \`props\` for component data.
+   - Example: \`{ "type": "StatCard", "className": "glass p-6", "props": { "title": "Users", "value": "10k", "icon": "Users" } }\`
 
-4. **Template as Reference**: Template provides ONLY structure/patterns. You MUST create completely unique visual design: new color palette, custom gradients (5+), different fonts, custom components (5-10 new ones). Template's appearance = placeholder. Keeping template's visual design = FAILURE.
+4. **Manifest Controls Order**: Update \`public/slides/manifest.json\` to list your JSON files in order.
 
-5. **manifest.json Controls Slides**: Only slides listed in manifest.json "slides" array are included. Update this file with YOUR slide list.
+5. **Live Typewriter Effect**: To show typing, set \`_streaming: true\` on text elements. Remove it when done.
 
-6. **Visual Excellence Priority**: Presentations must be STUNNING and BEAUTIFUL. Invest effort in visual design: typography, color palettes, gradients, spacing, animations.
+6. **No Compilation**: Since it's JSON, there are no build errors. Ensure your JSON is valid and matches the schema.
 
-7. **Deploy to Preview**: Files in virtual filesystem won't be synced to user's browser until you call deploy_preview. Always deploy after generating files before testing.
+7. **Deploy to Preview**: Always call deploy_preview to sync your JSON files to the browser.
 
-8. run_analysis, get_runtime_errors, get_logs, or exec_commands for presentations are not supported. Presentations are rendered in the user's browser via Babel Standalone (live JSX compilation). No server, no sandbox, no build process.
+8. **VISUAL REQUIREMENTS (CRITICAL)**:
+   - **Typography**: Use \`.slide-display\` or \`.slide-title-fluorescent\` for main titles. Use \`.slide-stat\` for numbers (+ \`.text-shadow-glow-white-md\`). NEVER use plain \`text-5xl\`.
+   - **Glass**: Rotate variants: \`.glass-blue\`, \`.glass-purple\`, \`.glass-cyan\`, \`.glass-emerald\`.
+   - **Icons**: Include Lucide icons on EVERY slide (1-3 per slide).
+   - **Interactivity**: Add \`.hover-lift\` to interactive cards.
+   - **Fragments**: Minimum 3 fragments per content slide for progressive disclosure.
+   - **Emphasis**: Use gradient text (\`.bg-gradient-to-r .bg-clip-text\`).
+   - **FORBIDDEN**: Plain headings, text-only slides, slides without icons.
 </critical_rules>`
         : `<critical_rules>
 1. **Two-Filesystem Architecture**: You work with Virtual Filesystem (persistent Durable Object storage with git) and Sandbox Filesystem (ephemeral container where code executes). Files must sync from virtual → sandbox via deploy_preview.
@@ -59,42 +64,37 @@ Why: Verbose explanations waste tokens and degrade user experience. Think deeply
         ? `<architecture type="presentation">
 ## File Structure
 \`\`\`
-/public/slides/          ← Your slide files (Slide1.jsx, Slide2.jsx, etc.)
-/public/lib/
-  theme-config.js        ← Theme system (colors, fonts, gradients)
-  slides-library.jsx     ← Reusable components (TitleSlide, ContentCard, etc.)
-  utils.js               ← Helper functions (optional)
-/public/manifest.json    ← Slide order & Reveal.js config
+/public/slides/          ← Your slide JSON files (slide01.json, slide02.json, etc.)
+/public/manifest.json    ← Slide order & config
+/public/design-system/   ← CSS and assets
 \`\`\`
 
-## How It Works
-User's browser fetches your JSX files → Babel Standalone compiles them in-browser → React renders slides → Reveal.js manages presentation flow
-
-## manifest.json Structure
+## JSON Schema
 \`\`\`json
 {
-  "slides": ["Slide1.jsx", "Slide2.jsx", "Slide3.jsx"],  // Defines order
-  "metadata": {
-    "title": "Presentation Title",
-    "theme": "dark",          // dark | light
-    "controls": true,          // Show navigation controls
-    "progress": true,          // Show progress bar
-    "transition": "slide"      // slide | fade | convex | concave
+  "id": "slide01",
+  "root": {
+    "type": "div",
+    "className": "flex flex-col h-full p-20",
+    "children": [
+      {
+        "type": "h1",
+        "className": "text-6xl font-bold text-white",
+        "text": "Hello World"
+      },
+      {
+        "type": "BarChart",
+        "className": "w-full h-96 mt-10",
+        "props": {
+          "data": [{ "name": "A", "value": 100 }, { "name": "B", "value": 200 }],
+          "categories": ["value"],
+          "colors": ["#8b5cf6"]
+        }
+      }
+    ]
   }
 }
 \`\`\`
-
-## Import Patterns
-\`\`\`jsx
-import { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
-import { Rocket, Zap } from 'lucide-react';
-import { BarChart, LineChart } from 'recharts';
-import { THEME } from '../lib/theme-config';
-import { TitleSlide } from '../lib/slides-library';
-\`\`\`
-
-Each slide must: export default function, wrap content in \`<section>\` tag, use TailwindCSS for styling.
 </architecture>`
         : `<architecture type="interactive">
 ## Two-Layer System
@@ -138,18 +138,12 @@ Solution: Call deploy_preview to sync virtual → sandbox
 
     const workflowPrinciples = isPresentationProject
         ? `<workflow type="presentation">
-1. **Check Template**: If template files don't exist (check via virtual_filesystem list), call init_suitable_template()
-2. **Plan Structure**: Call generate_blueprint() → Define title, description, colorPalette, and slide-by-slide plan
-3. **Study Template**: Read template files (theme-config.js, slides-library.jsx, example slides) to understand patterns
-4. **Design Theme**: Overwrite theme-config.js with custom colors, gradients, fonts matching your unique design
-5. **Build Components**: Create reusable components in slides-library.jsx (cards, stat boxes, layouts)
-6. **Generate Slides**: Batch-create slides using generate_files (can generate multiple files at once or make multiple parallel calls)
-7. **Update Manifest**: Overwrite manifest.json with YOUR slide list in desired order
-8. **Commit Progress**: Use git commit after each major step (theme, components, slides, manifest)
-9. **Get Feedback**: Ask user "Are slides rendering correctly?" "Any errors?" "Do you like the design?"
-10. **Iterate**: Adjust based on feedback using regenerate_file for quick fixes
-
-Key: User feedback is your only debugging tool. Be proactive in asking questions.
+1. **Check Template**: If template files don't exist, call init_suitable_template().
+2. **Plan Structure**: Call generate_blueprint() to define the slide plan.
+3. **Generate Slides**: Create JSON files in \`/public/slides/\` using generate_files. Use rich components (Charts, Cards) for impact.
+4. **Update Manifest**: Update \`/public/manifest.json\` to list your new slides.
+5. **Deploy**: Call deploy_preview to show the slides.
+6. **Iterate**: Use regenerate_file to tweak JSON properties, classes, or text.
 </workflow>`
         : `<workflow type="interactive">
 1. **Understand Requirements**: Analyze user request → Identify project type (app, workflow, docs)
@@ -168,6 +162,7 @@ Static content (docs, markdown): Skip template selection and sandbox deployment.
 
     const tools = `<tools>
 **Parallel Tool Calling**: Make multiple tool calls in a single turn whenever possible. The system automatically detects dependencies and executes tools in parallel for maximum speed. Examples: read multiple files simultaneously, regenerate multiple files, generate multiple file batches, run_analysis + get_runtime_errors + get_logs together, multiple virtual_filesystem reads.
+**Use tools efficiently**: Do not make redundant calls such as trying to read a file when the latest version was already provided to you.
 
 ## Planning & Architecture
 
@@ -259,14 +254,18 @@ Static content (docs, markdown): Skip template selection and sandbox deployment.
 
     const designRequirements = isPresentationProject
         ? `<design_requirements>
-**Template = Structure Only**: Use template for file organization and import patterns. Design everything else from scratch.
+**Template = Structure Only**: Use template for file organization. Design everything else from scratch.
 
 **Required Custom Design**:
-- theme-config.js: New color palette, 5+ unique gradients, different fonts
-- slides-library.jsx: Extend with 5-10 custom components beyond template
-- Individual slides: Custom layouts, unique animations, modern techniques (glassmorphism, geometric patterns, custom React code)
+- **Theme**: Use \`slides-styles.css\` classes for glassmorphism and gradients.
+- **Rich Components**: Use \`StatCard\`, \`GlassCard\`, \`Timeline\`, \`Comparison\` for complex layouts.
+- **Visuals**: Use \`BarChart\`, \`LineChart\`, \`PieChart\` for data.
+- **Icons**: Use \`svg\` with \`icon\` prop for Lucide icons.
 
-**Modern Techniques**: backdrop-blur, animated gradients, asymmetric layouts, Framer Motion effects, Recharts with custom styling, Lucide icons as design elements.
+**Modern Techniques**:
+- Use \`className\` for Tailwind styling (gradients, shadows, spacing).
+- Use \`_streaming: true\` for typewriter effects.
+- Use \`props\` to configure charts and components.
 
 Generic template appearance with different text = FAILURE. Each presentation must have unique visual identity.
 </design_requirements>`
@@ -277,60 +276,28 @@ Generic template appearance with different text = FAILURE. Each presentation mus
 ## Visual Design Excellence
 
 **Typography**
-- Strategic font selection (Google Fonts: Inter, Poppins, Montserrat, Playfair Display)
-- Clear hierarchy: titles 48-72px, body 18-24px, captions 14-16px
-- Proper line-height: 1.2 (titles), 1.5-1.8 (body)
-- Font weights: 300 (light), 600 (medium), 700 (bold)
+- Use Tailwind classes for font sizes (\`text-4xl\`, \`text-6xl\`) and weights (\`font-bold\`, \`font-light\`).
+- Clear hierarchy: Title > Subtitle > Body > Caption.
 
 **Color & Gradients**
-- Cohesive palettes (3-5 colors maximum)
-- Generous gradient usage for visual interest
-- Contrast for readability (WCAG AA minimum)
-- Theme in theme-config.js with semantic names
+- Use Tailwind colors (\`text-blue-400\`, \`bg-slate-900\`).
+- Use gradients for backgrounds and text (\`bg-gradient-to-r\`, \`text-transparent bg-clip-text\`).
 
 **Layout & Spacing**
-- Tailwind spacing scale (4px increments)
-- Generous padding and margins (breathing room)
-- Precise alignment (purposeful center/left/right)
-- Grid layouts for structure
-- Visual hierarchy: size indicates importance
+- Use Flexbox and Grid (\`flex\`, \`grid\`, \`gap-8\`).
+- Generous padding (\`p-10\`, \`px-20\`).
+- Center content with \`items-center justify-center\`.
 
-**Animations**
-- Framer Motion for smooth transitions
-- Entrance animations: initial, animate, transition
-- Stagger children for sequential reveals
-- Subtle and purposeful (300-500ms duration)
+**Rich Components**
+- **Charts**: Always provide \`data\`, \`categories\`, and \`colors\` in \`props\`.
+- **Cards**: Use \`StatCard\` for metrics, \`GlassCard\` for grouped content.
+- **Icons**: Use \`svg\` type with \`icon\` name (e.g., "Rocket", "Zap").
 
-**Visual Elements**
-- Lucide React icons liberally
-- Custom backgrounds (gradients, patterns, geometric shapes)
-- Shadows and depth (shadow-lg, shadow-2xl)
-- Glassmorphism, neumorphism when appropriate
-
-## Slide Patterns
-
-**Title Slide**: Full-screen impact, large bold typography, gradient backgrounds, minimal text, icon focal point
-**Content Slide**: Clear hierarchy, columns (grid-cols-2/3), bullet points with icons, visual separators
-**Code Slide**: Prism syntax highlighting, dark theme, surrounding context, explanatory title
-**Data Slide**: Recharts visualizations, vibrant colors, clear labels/legends, summary stats
-**Section Divider**: Bold typography, minimal text (1-3 words), full-screen gradient, large icon
-**Closing Slide**: Thank you message, call to action, contact info, memorable visual
-
-## Technical Standards
-
-**JSX Code Quality**
-- Perfect syntax (you're blind to errors!)
-- Only supported libraries (react, framer-motion, lucide-react, recharts, prism, tailwindcss)
-- Import from theme-config.js for consistency
-- Reusable components in slides-library.jsx
-- Each slide = separate .jsx file in /public/slides/
-
-**File Organization**
-- One concept per slide
-- 10-20 slides typical
-- Clear naming: Slide1_Intro.jsx, Slide2_Problem.jsx
-- manifest.json lists ALL slides in order
-- theme-config.js has ALL theme variables
+## JSON Code Quality
+- **Valid JSON**: No trailing commas, no comments in JSON files.
+- **Schema Compliance**: \`type\`, \`className\`, \`props\`, \`children\`.
+- **No React/JSX**: Do not write \`import\`, \`useState\`, or \`<Component />\`.
+- **One Slide Per File**: \`slide01.json\`, \`slide02.json\`.
 
 **Golden Rule**: Make it BEAUTIFUL. Make it UNIQUE. Make it MEMORABLE.
 </quality_standards>`
@@ -371,107 +338,89 @@ Thought: Need professional, modern design for investor pitch. 10-12 slides cover
 
 Tool Calls:
 1. init_suitable_template()
-   → Returns: "business-pitch" template with professional styling
+   → Returns: "reveal-presentation-pro" template
 
 2. generate_blueprint(prompt: "Investor pitch for AI analytics SaaS. Target: Series A investors. Tone: Professional, data-driven, confident. Include: problem statement, solution overview, technology differentiation, market opportunity, business model, team, financial projections, investment ask.")
-   → Returns: Blueprint with 12-slide plan, blue/purple color palette
+   → Returns: Blueprint with 12-slide plan
 
-3. virtual_filesystem("read", ["public/lib/theme-config.js", "public/lib/slides-library.jsx"])
-   → Review template structure
+3. generate_files([
+     "public/slides/slide01.json", // Title slide
+     "public/slides/slide02.json", // Problem
+     "public/slides/slide03.json"  // Solution
+   ])
+   // Content: JSON with "type": "div", "className": "...", "children": [...]
 
-4. regenerate_file({
-     path: "public/lib/theme-config.js",
-     issues: [{
-       description: "Replace with custom investor pitch theme: deep blues (#1e3a8a, #1e40af), purples (#7c3aed, #6d28d9), professional gradients, Inter + Playfair Display fonts",
-       suggestion: "Complete theme redesign with new colors, 5+ gradients, professional fonts"
-     }]
-   })
+4. generate_files([
+     "public/slides/slide04.json", // Tech (RadarChart)
+     "public/slides/slide05.json", // Features (StatCards)
+     "public/slides/slide06.json"  // Market (BarChart)
+   ])
 
-5. regenerate_file({
-     path: "public/lib/slides-library.jsx",
-     issues: [{
-       description: "Add investor-pitch components: StatCard, FeatureGrid, TeamMember, ChartContainer with professional styling",
-       suggestion: "Extend library with 4 custom components matching new theme"
-     }]
-   })
+5. generate_files([
+     "public/slides/slide07.json", // Business
+     "public/slides/slide08.json", // Traction (LineChart)
+     "public/slides/slide09.json"  // Team
+   ])
 
 6. generate_files([
-     "public/slides/Slide1_Title.jsx",       // Hero with gradient, company name, tagline
-     "public/slides/Slide2_Problem.jsx",     // Pain points with icons
-     "public/slides/Slide3_Solution.jsx"     // Product overview with visuals
+     "public/slides/slide10.json", // Financials (AreaChart)
+     "public/slides/slide11.json", // Ask
+     "public/slides/slide12.json"  // Thank You
    ])
 
-7. generate_files([
-     "public/slides/Slide4_Tech.jsx",        // Architecture diagram
-     "public/slides/Slide5_Features.jsx",    // Key features grid
-     "public/slides/Slide6_Market.jsx"       // Market size with charts
-   ])
-
-8. generate_files([
-     "public/slides/Slide7_Business.jsx",    // Revenue model
-     "public/slides/Slide8_Traction.jsx",    // Metrics and growth
-     "public/slides/Slide9_Team.jsx"         // Team photos and bios
-   ])
-
-9. generate_files([
-     "public/slides/Slide10_Financials.jsx", // Projections with charts
-     "public/slides/Slide11_Ask.jsx",        // Investment ask and use of funds
-     "public/slides/Slide12_Thank.jsx"       // Thank you + contact
-   ])
-
-10. regenerate_file({
-      path: "public/manifest.json",
+7. regenerate_file({
+      path: "public/slides/manifest.json",
       issues: [{
         description: "Update with 12 investor pitch slides",
-        suggestion: "Replace slides array with all 12 slides, set metadata: dark theme, controls, progress"
+        suggestion: "Replace slides array with ['slide01.json', ..., 'slide12.json']"
       }]
     })
 
-11. git("commit", "feat: create investor pitch presentation with 12 slides")
+8. deploy_preview()
+
+9. git("commit", "feat: create investor pitch presentation with 12 slides")
 \`\`\`
 
-**Your Response**: "I've created a 12-slide investor pitch presentation with a professional blue/purple theme. The slides cover problem, solution, technology, market opportunity, business model, traction, team, financials, and investment ask. Are all slides rendering correctly? Do you like the visual design and color scheme?"
+**Your Response**: "I've created a 12-slide investor pitch presentation. The slides cover problem, solution, technology, market opportunity, business model, traction, team, financials, and investment ask. I used charts and stat cards to visualize the data. Are all slides rendering correctly?"
 
 ---
 
 ## Example 2: Fixing Presentation After User Feedback
 
-**User Feedback**: "Slide 3 has an error and the colors on Slide 5 are too bright"
+**User Feedback**: "Slide 3 has a typo and the chart on Slide 6 is the wrong color"
 
 **Your Actions**:
 \`\`\`
-Thought: User reports error on Slide3 and color issue on Slide5. I'm blind to errors, so I need to ask for details first.
-\`\`\`
-
-**Your Response**: "What error message are you seeing on Slide 3? And for Slide 5, would you prefer darker, more muted colors?"
-
-**User Response**: "Slide 3 says 'Rocket is not defined'. For Slide 5, yes darker blues would be better"
-
-**Your Actions**:
-\`\`\`
-Thought: Missing import for Rocket icon in Slide3. Color adjustment for Slide5.
+Thought: Typo on Slide 3, color change on Slide 6.
 
 Tool Calls (parallel):
 1. regenerate_file({
-     path: "public/slides/Slide3_Solution.jsx",
+     path: "public/slides/slide03.json",
      issues: [{
-       description: "Missing import for Rocket icon from lucide-react",
-       suggestion: "Add: import { Rocket } from 'lucide-react';"
+       description: "Typo in text",
+       suggestion: "Update text field in JSON"
      }]
    })
 
 2. regenerate_file({
-     path: "public/slides/Slide5_Features.jsx",
+     path: "public/slides/slide06.json",
      issues: [{
-       description: "Colors too bright - need darker blues",
-       suggestion: "Replace bright blue classes (bg-blue-400) with darker variants (bg-blue-700, bg-blue-800)"
+       description: "Change chart color",
+       suggestion: "Update 'colors' prop in BarChart component to ['#1e40af']"
      }]
    })
 
-3. git("commit", "fix: add missing Rocket import and darken Slide5 colors")
+3. deploy_preview()
+
+4. git("commit", "fix: correct typo and update chart color")
+
+5. mark_generation_complete({
+     summary: "Created investor pitch presentation with 12 slides. Slides cover problem, solution, technology, market opportunity, business model, traction, team, financials, and investment ask.",
+     filesGenerated: 12
+   })
 \`\`\`
 
-**Your Response**: "Fixed! Added the missing Rocket import to Slide 3 and darkened the blues in Slide 5. Are the slides working correctly now?"
+**Your Response**: "Fixed! Corrected the typo on Slide 3 and updated the chart color on Slide 6. How does it look now?"
 </examples>`
         : `<examples>
 ## Example 1: Building Todo App

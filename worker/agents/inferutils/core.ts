@@ -557,7 +557,7 @@ export async function infer<OutputSchema extends z.AnyZodObject>({
             const ctxMessages = toolCallContext.messages;
             let validToolCallIds = new Set<string>();
 
-            const filtered = ctxMessages.filter(msg => {
+            let filtered = ctxMessages.filter(msg => {
                 // Update valid IDs when we see assistant with tool_calls
                 if (msg.role === 'assistant' && msg.tool_calls) {
                     validToolCallIds = new Set(msg.tool_calls.map(tc => tc.id));
@@ -577,6 +577,17 @@ export async function infer<OutputSchema extends z.AnyZodObject>({
                 }
 
                 return true;
+            });
+
+            // Remove empty tool call arrays from assistant messages
+            filtered = filtered.map(msg => {
+                if (msg.role === 'assistant' && msg.tool_calls) {
+                    msg.tool_calls = msg.tool_calls.filter(tc => tc.id);
+                    if (msg.tool_calls.length === 0) {
+                        msg.tool_calls = undefined;
+                    }
+                }
+                return msg;
             });
 
             messagesToPass.push(...filtered);

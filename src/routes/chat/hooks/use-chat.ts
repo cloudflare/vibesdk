@@ -219,6 +219,10 @@ export function useChat({
 			loadBootstrapFiles,
 			onDebugMessage,
 			onTerminalMessage,
+			onPresentationFileEvent: (evt) => {
+				if (!evt.path.includes('/slides/')) return;
+				window.dispatchEvent(new CustomEvent('presentation-file-event', { detail: evt }));
+			},
 		} as HandleMessageDeps),
 		[
 			isInitialStateRestored,
