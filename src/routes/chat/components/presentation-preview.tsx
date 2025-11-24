@@ -4,6 +4,7 @@ import { WebSocket } from 'partysocket';
 import clsx from 'clsx';
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import type { FileType, TemplateDetails } from '@/api-types';
+import { HEADER_STYLES } from './view-header';
 
 interface PresentationPreviewProps {
 	previewUrl: string;
@@ -97,10 +98,13 @@ export function PresentationPreview({
 			if (!detail || !iframeRef.current?.contentWindow) return;
 			if (!detail.path || !detail.path.includes('/slides/')) return;
 			if (!['file_generating', 'file_chunk', 'file_generated'].includes(detail.type)) return;
-			const match = detail.path.match(/(\d+)/);
+			
+			// Extract slide number from path like "public/slides/Slide01.jsx"
+			const match = detail.path.match(/Slide(\d+)\./);
 			if (match) {
-				const idx = parseInt(match[1], 10) - 1;
-				if (!Number.isNaN(idx)) {
+				const idx = parseInt(match[1], 10) - 1; // Convert to 0-indexed
+				if (!Number.isNaN(idx) && idx >= 0) {
+					console.log(`[PresentationPreview] Updating timestamp for slide ${idx} (${detail.type})`);
 					setSlideTimestamps((prev) => ({ ...prev, [idx]: Date.now() }));
 				}
 			}
@@ -200,7 +204,14 @@ export function PresentationPreview({
 			})
 			.filter((i) => i >= 0);
 
-		setGeneratingSlides(new Set(indices));
+        // Only update if the set of generating slides has actually changed
+        setGeneratingSlides(prev => {
+            const newSet = new Set(indices);
+            if (prev.size === newSet.size && [...prev].every(x => newSet.has(x))) {
+                return prev;
+            }
+            return newSet;
+        });
 	}, [allFiles, slideDirectory, slideFiles]);
 
 	useEffect(() => {
@@ -310,7 +321,7 @@ export function PresentationPreview({
 				ref={sidebarScrollRef}
 				className="shrink-0 w-[260px] lg:w-[280px] xl:w-[300px] bg-bg-3 border-r border-border-primary h-full overflow-y-auto"
 			>
-				<div className="p-4 px-5 text-sm flex items-center gap-2 text-text-50/80 font-semibold border-b border-border-primary bg-bg-2">
+				<div className={`${HEADER_STYLES.padding} ${HEADER_STYLES.container} flex items-center gap-2 ${HEADER_STYLES.textBase} font-semibold`}>
 					<Presentation className="size-4 text-accent" />
 					<span>Slides</span>
 					<span className="ml-auto text-xs font-mono text-text-50/50">

@@ -99,6 +99,7 @@
 		"framer-motion": "^12.23.24",
 		"highlight.js": "^11.11.1",
 		"hono": "^4.10.4",
+		"html2canvas-pro": "^1.5.13",
 		"input-otp": "^1.4.2",
 		"inquirer": "^12.11.0",
 		"jose": "^5.10.0",
@@ -179,7 +180,7 @@
 		"vite-plugin-monaco-editor": "^1.1.0",
 		"vite-plugin-node-polyfills": "^0.24.0",
 		"vitest": "^3.2.4",
-		"wrangler": "4.45.0"
+		"wrangler": "4.50.0"
 	},
 	"prettier": {
 		"singleQuote": true,

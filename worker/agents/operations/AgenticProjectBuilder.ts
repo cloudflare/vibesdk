@@ -245,6 +245,7 @@ export class AgenticProjectBuilderOperation extends AgentOperationWithTools<
 
         let rawTools : ToolDefinition<any, any>[] = [
             // PRD generation + refinement
+            createGenerateBlueprintTool(session.agent, logger),
             createAlterBlueprintTool(session.agent, logger),
             // Virtual filesystem operations (list + read from Durable Object storage)
             createVirtualFilesystemTool(session.agent, logger),
@@ -263,9 +264,6 @@ export class AgenticProjectBuilderOperation extends AgentOperationWithTools<
             // WIP: images
             createGenerateImagesTool(session.agent, logger),
         ];
-        if (!inputs.blueprint) {
-            rawTools.push(createGenerateBlueprintTool(session.agent, logger));
-        }
 
         if (!inputs.selectedTemplate) {
             rawTools.push(createInitSuitableTemplateTool(session.agent, logger));

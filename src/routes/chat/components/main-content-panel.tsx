@@ -193,7 +193,7 @@ export function MainContentPanel(props: MainContentPanelProps) {
 			isPresentation ? (
 				<PresentationPreview
 					previewUrl={previewUrl}
-					className="flex-1 w-full h-full"
+					className="flex-1 w-full h-full border-0"
 					shouldRefreshPreview={shouldRefreshPreview}
 					manualRefreshTrigger={manualRefreshTrigger}
 					webSocket={websocket}
