@@ -812,6 +812,56 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
         return result;
     }
 
+    updateSlideManifest(file: FileOutputType) {
+        // If the project type is presentation and this is a slide file, update the manifest
+        if (this.projectType === 'presentation') {
+            const templateDetails = this.getTemplateDetails()
+            if (!templateDetails) {
+                return;
+            }
+            const slidesDirectory = templateDetails.slideDirectory ?? '/public/slides';
+            if (file.filePath.startsWith(slidesDirectory) && file.filePath.endsWith('.json')) {
+                const manifestPath = `${slidesDirectory}/manifest.json`
+                const existingManifest = this.fileManager.getFile(manifestPath)
+                
+                // Parse existing manifest or create new one
+                let manifestData: { slides: string[] } = { slides: [] };
+                if (existingManifest) {
+                    try {
+                        const parsed = JSON.parse(existingManifest.fileContents);
+                        manifestData = {
+                            slides: Array.isArray(parsed.slides) ? parsed.slides : []
+                        };
+                    } catch (error) {
+                        this.logger.error('Failed to parse existing manifest.json', error);
+                        manifestData = { slides: [] };
+                    }
+                } else {
+                    manifestData = { slides: [] };
+                }
+                
+                // Add slide path to slides array if not already present
+                const relativeSlidePath = file.filePath.replace(slidesDirectory + '/', '');
+                if (!manifestData.slides.includes(relativeSlidePath)) {
+                    manifestData.slides.push(relativeSlidePath);
+                    
+                    // Save updated manifest
+                    const updatedManifest: FileOutputType = {
+                        filePath: manifestPath,
+                        fileContents: JSON.stringify(manifestData, null, 2),
+                        filePurpose: 'Presentation slides manifest'
+                    };
+                    this.fileManager.saveGeneratedFilesStageOnly([updatedManifest]);
+                    
+                    this.logger.info('Updated manifest.json with new slide', {
+                        slidePath: relativeSlidePath,
+                        totalSlides: manifestData.slides.length
+                    });
+                }
+            }
+        }
+    }
+
     /**
      * Regenerate a file to fix identified issues
      * Retries up to 3 times before giving up
@@ -828,6 +878,7 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
             this.getOperationOptions()
         );
 
+        this.updateSlideManifest(result);
         const fileState = await this.fileManager.saveGeneratedFile(result);
 
         this.broadcast(WebSocketMessageResponses.FILE_REGENERATED, {
@@ -910,6 +961,9 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
                     });
                 },
                 fileClosedCallback: (file, message) => {
+                    // Save file
+                    this.fileManager.saveGeneratedFilesStageOnly([file])
+                    this.updateSlideManifest(file);
                     this.broadcast(WebSocketMessageResponses.FILE_GENERATED, {
                         message,
                         file
@@ -920,7 +974,7 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
         );
 
         const savedFiles = await this.fileManager.saveGeneratedFiles(
-            result.files,
+            [],
             `feat: ${phaseName}\n\n${phaseDescription}`
         );
 

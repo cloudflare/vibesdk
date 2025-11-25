@@ -93,7 +93,7 @@ export class FileManager implements IFileManager {
         return results[0];
     }
 
-    async saveGeneratedFiles(files: FileOutputType[], commitMessage?: string): Promise<FileState[]> {
+    saveGeneratedFilesStageOnly(files: FileOutputType[]) : FileState[] {
         const templateDetails = this.getTemplateDetailsFunc();
         const dontTouchFiles = templateDetails?.dontTouchFiles || new Set<string>();
 
@@ -136,7 +136,13 @@ export class FileManager implements IFileManager {
             generatedFilesMap: filesMap
         });
 
+        return fileStates;
+    }
+
+    async saveGeneratedFiles(files: FileOutputType[], commitMessage?: string): Promise<FileState[]> {
+        let fileStates: FileState[] = [];
         try {
+            fileStates = this.saveGeneratedFilesStageOnly(files);
             const shouldCommit = fileStates.length > 0 && fileStates.some(fileState => fileState.lastDiff !== '');
             if (shouldCommit) {
                 // If commit message is available, commit, else stage

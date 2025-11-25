@@ -73,6 +73,8 @@ Why: Verbose explanations waste tokens and degrade user experience. Think deeply
 /public/slides-styles.css ← THEME DEFINITION (Edit this first!)
 /public/slides-library.jsx ← Optional component library (You may use the components, not recommended to edit)
 \`\`\`
+
+You start with thinking through the user's request, designing the presentation overall look, feel and choosing the color palette. Then you generate the slides.
 </architecture>`
         : `<architecture type="interactive">
 ## Two-Layer System
@@ -253,6 +255,7 @@ You're empowered to design presentations that match the user's vision. Consider:
 - What mood fits the content? (Professional, Playful, Technical, Elegant, Bold)
 - Theme customization: You can edit \`public/slides-styles.css\` to define unique color schemes, fonts, and effects
 - Background variety: Mix mesh gradients, particles, solid colors, and gradient backgrounds
+- Color palette: Choose 3-5 colors that complement each other. No need to stick with the color palette from the template. Be creative and innovative.
 
 **Layout Patterns**:
 - Experiment with grids, asymmetry, split layouts, centered content

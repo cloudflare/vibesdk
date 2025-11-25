@@ -108,7 +108,7 @@ const PLATFORM_AGENT_CONFIG: AgentConfig = {
         fallbackModel: AIModels.GROK_CODE_FAST_1,
     },
     agenticProjectBuilder: {
-        name: AIModels.GEMINI_3_PRO_PREVIEW,
+        name: AIModels.GEMINI_2_5_PRO,
         reasoning_effort: 'medium',
         max_tokens: 8000,
         temperature: 1,

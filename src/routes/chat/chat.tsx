@@ -235,6 +235,8 @@ export default function Chat() {
 
 	// Merge streamed bootstrap files with generated files
 	const allFiles = useMemo(() => {
+		let result: FileType[];
+
 		if (templateDetails?.allFiles) {
 			const templateFiles = Object.entries(templateDetails.allFiles).map(
 				([filePath, fileContents]) => ({
@@ -242,11 +244,52 @@ export default function Chat() {
 					fileContents,
 				})
 			);
-			return mergeFiles(templateFiles, files);
+			result = mergeFiles(templateFiles, files);
+		} else {
+			result = files;
 		}
 
-		return files;
-	}, [files, templateDetails]);
+		// For presentations, filter out demo slides at the source
+		if (projectType === 'presentation') {
+			const slideDir = templateDetails?.slideDirectory || 'public/slides';
+			const slideDirPrefix = `${slideDir}/`;
+
+			result = result
+				.filter((file) => {
+					// Exclude demo-slide*.json files
+					if (file.filePath.startsWith(slideDirPrefix) &&
+						file.filePath.includes('/demo-slide') &&
+						file.filePath.endsWith('.json')) {
+						return false;
+					}
+					return true;
+				})
+				.map((file) => {
+					// Clean demo slides from manifest.json
+					if (file.filePath === `${slideDir}/manifest.json` && file.fileContents) {
+						try {
+							const manifest = JSON.parse(file.fileContents);
+							if (Array.isArray(manifest.slides)) {
+								const filtered = manifest.slides.filter(
+									(name: string) => !name.startsWith('demo-slide')
+								);
+								if (filtered.length !== manifest.slides.length) {
+									return {
+										...file,
+										fileContents: JSON.stringify({ ...manifest, slides: filtered }, null, 2),
+									};
+								}
+							}
+						} catch {
+							// Invalid JSON, return as-is
+						}
+					}
+					return file;
+				});
+		}
+
+		return result;
+	}, [files, templateDetails, projectType]);
 
 	const handleFileClick = useCallback((file: FileType) => {
 		logger.debug('handleFileClick()', file);
