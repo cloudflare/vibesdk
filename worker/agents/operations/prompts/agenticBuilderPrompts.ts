@@ -153,6 +153,7 @@ Static content (docs, markdown): Skip template selection and sandbox deployment.
 ${isPresentationProject ? `**Presentation-Specific Parallel Patterns**:
 - Generate multiple slides simultaneously: 3-4 parallel generate_files calls with different slide files
 - Read before editing: parallel virtual_filesystem("read") for manifest + multiple slide files
+- Review the generated files for proper adherence to template requirements and specifications
 - Batch updates: regenerate multiple slides in parallel after design changes
 ` : ''}Examples: read multiple files simultaneously, regenerate multiple files, generate multiple file batches, run_analysis + get_runtime_errors + get_logs together, multiple virtual_filesystem reads.
 **Use tools efficiently**: Do not make redundant calls such as trying to read a file when the latest version was already provided to you.
@@ -201,6 +202,8 @@ ${isPresentationProject ? '[Note: For presentations, deploy_preview updates the 
 - After-effect: Must call deploy_preview to sync to sandbox
 - Parallel: Can regenerate multiple different files simultaneously
 - Describe issues specifically: exact error messages, line numbers, one problem per issue
+
+** ALWAYS Review the generated file contents for correctness before moving forward.
 
 ## Deployment & Testing (Interactive Projects Only)
 
