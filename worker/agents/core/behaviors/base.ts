@@ -627,7 +627,7 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
                         const match = issue.reason.match(/External package ["'](.+?)["']/);
                         const name = match?.[1];
                         return (typeof name === 'string' && name.trim().length > 0 && !name.startsWith('@shared')) ? [name] : [];
-                    });
+                    }).filter((name) => !name.includes('cloudflare:'));
                     if (moduleNames.length > 0) {
                         const installCommands = moduleNames.map(moduleName => `bun install ${moduleName}`);
                         await this.executeCommands(installCommands, false);
@@ -914,6 +914,8 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
         }
 
         const regenerated = await this.regenerateFile({ filePath: path, fileContents, filePurpose }, issues, 0);
+        // Invalidate cache
+        this.staticAnalysisCache = null;
         // Persist to sandbox instance
         // await this.getSandboxServiceClient().writeFiles(sandboxInstanceId, [{ filePath: regenerated.filePath, fileContents: regenerated.fileContents }], `Deep debugger fix: ${path}`);
         await this.deploymentManager.deployToSandbox([regenerated])
@@ -981,6 +983,8 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
         this.logger.info('Files generated and saved', {
             fileCount: result.files.length
         });
+
+        await this.deployToSandbox(savedFiles, false);
 
         return { files: savedFiles.map(f => {
             return {

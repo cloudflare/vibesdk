@@ -17,6 +17,7 @@ export function createScratchTemplateDetails(): TemplateDetails {
         importantFiles: [],
         dontTouchFiles: [],
         redactedFiles: [],
+        disabled: false,
     };
 }
 
