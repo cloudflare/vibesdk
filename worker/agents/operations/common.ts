@@ -17,7 +17,8 @@ import { RenderToolCall } from "./UserConversationProcessor";
 export function getSystemPromptWithProjectContext(
     systemPrompt: string,
     context: GenerationContext,
-    serializerType: CodeSerializerType = CodeSerializerType.SIMPLE
+    serializerType: CodeSerializerType = CodeSerializerType.SIMPLE,
+    sharePhases: boolean = true
 ): Message[] {
     const { query, blueprint, templateDetails, dependencies, allFiles, commandsHistory } = context;
 
@@ -30,7 +31,7 @@ export function getSystemPromptWithProjectContext(
         })), 
         createUserMessage(
             USER_PROMPT_FORMATTER.PROJECT_CONTEXT(
-                GenerationContext.getCompletedPhases(context),
+                sharePhases ? GenerationContext.getCompletedPhases(context) : [],
                 allFiles, 
                 GenerationContext.getFileTree(context),
                 commandsHistory,

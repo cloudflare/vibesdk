@@ -501,8 +501,6 @@ export class UserConversationProcessor extends AgentOperation<GenerationContext,
         }
     }
 
-
-
     processProjectUpdates<T extends ProjectUpdateType>(updateType: T, _data: WebSocketMessageData<T>, logger: StructuredLogger) : ConversationMessage[] {
         try {
             logger.info("Processing project update", { updateType });

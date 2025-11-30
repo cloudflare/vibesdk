@@ -189,6 +189,7 @@ export async function selectTemplate({ env, query, projectType, availableTemplat
         ? await predictProjectType(env, query, inferenceContext, images)
         : (projectType || 'app') as ProjectType;
     
+    availableTemplates = availableTemplates.filter(t => !t.disabled && !t.name.includes('minimal'));
     logger.info(`Using project type: ${actualProjectType}${projectType === 'auto' ? ' (auto-detected)' : ''}`);
 
     // Step 2: Filter templates by project type
@@ -276,6 +277,11 @@ ENTROPY SEED: ${generateSecureToken(64)} - for unique results`;
             context: inferenceContext,
             maxTokens: 2000,
         });
+
+        if (!selection) {
+            logger.error('Template selection returned no result after all retries');
+            throw new Error('Failed to select template: inference returned null');
+        }
 
         logger.info(`AI template selection result: ${selection.selectedTemplateName || 'None'}, Reasoning: ${selection.reasoning}`);
         

@@ -60,6 +60,8 @@ Output:
 - Focus on blueprint requirements only
 - cloudflare:workers is not needed, it's already installed
 
+**Do not recommend installing \`cloudflare:workers\` or \`cloudflare:durable-objects\` as dependencies, these are already installed in the project always.**
+
 ${PROMPT_UTILS.COMMANDS}
 
 <INPUT DATA>
@@ -128,6 +130,12 @@ ${error}`);
                 context: this.inferenceContext,
                 modelName: error? AIModels.GEMINI_2_5_FLASH : undefined,
             });
+
+            if (!results || !results.string) {
+                this.logger.error('Project setup returned no result after all retries');
+                throw new Error('Failed to generate setup commands: inference returned null');
+            }
+
             this.logger.info(`Generated setup commands: ${results.string}`);
 
             this.save([createAssistantMessage(results.string)]);

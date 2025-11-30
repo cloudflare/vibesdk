@@ -8,7 +8,7 @@
         "@babel/parser": "^7.28.5",
         "@babel/traverse": "^7.28.5",
         "@cloudflare/containers": "^0.0.28",
-        "@cloudflare/sandbox": "0.4.14",
+        "@cloudflare/sandbox": "^0.5.6",
         "@noble/ciphers": "^1.3.0",
         "@octokit/rest": "^22.0.1",
         "@radix-ui/react-accordion": "^1.2.12",
@@ -253,7 +253,7 @@
 
     "@cloudflare/kv-asset-handler": ["@cloudflare/kv-asset-handler@0.4.0", "", { "dependencies": { "mime": "^3.0.0" } }, "sha512-+tv3z+SPp+gqTIcImN9o0hqE9xyfQjI1XD9pL6NuKjua9B1y7mNYv0S9cP+QEbA4ppVgGZEmKOvHX5G5Ei1CVA=="],
 
-    "@cloudflare/sandbox": ["@cloudflare/sandbox@0.4.14", "", { "dependencies": { "@cloudflare/containers": "^0.0.30" } }, "sha512-sI8yEqUd/vukhwSHGi93xau7xEtbP+OD/8xnjGbXr2iIGnAV+05VhLVIfJmwuU3VE8R96dnBJtEucEE5ZtXhcQ=="],
+    "@cloudflare/sandbox": ["@cloudflare/sandbox@0.5.6", "", { "dependencies": { "@cloudflare/containers": "^0.0.30" }, "peerDependencies": { "@openai/agents": "^0.3.3" }, "optionalPeers": ["@openai/agents"] }, "sha512-N4mdUY5lVWQHQcAZnTecJne95uSyf7KVPbJGMr3G6jS7oyphriw6Hxa5I/HlDUdMWjaTBgeOuDEb4m3wo2IyOg=="],
 
     "@cloudflare/unenv-preset": ["@cloudflare/unenv-preset@2.7.8", "", { "peerDependencies": { "unenv": "2.0.0-rc.21", "workerd": "^1.20250927.0" }, "optionalPeers": ["workerd"] }, "sha512-Ky929MfHh+qPhwCapYrRPwPVHtA2Ioex/DbGZyskGyNRDe9Ru3WThYZivyNVaPy5ergQSgMs9OKrM9Ajtz9F6w=="],
 
