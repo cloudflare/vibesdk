@@ -29,12 +29,14 @@ import {
     ListInstancesResponse,
     TemplateDetails,
     TemplateInfo,
+    InstanceCreationRequest,
 } from './sandboxTypes';
   
 import { createObjectLogger, StructuredLogger } from '../../logger';
 import { env } from 'cloudflare:workers'
 import { ZipExtractor } from './zipExtractor';
 import { FileTreeBuilder } from './fileTreeBuilder';
+import { DeploymentTarget } from 'worker/agents/core/types';
 
 /**
  * Streaming event for enhanced command execution
@@ -184,6 +186,7 @@ export abstract class BaseSandboxService {
                 importantFiles: importantFiles,
                 dontTouchFiles: dontTouchFiles,
                 redactedFiles: redactedFiles,
+                projectType: catalogInfo?.projectType || 'app',
                 frameworks: catalogInfo?.frameworks || [],
                 renderMode: catalogInfo?.renderMode,
                 slideDirectory: catalogInfo?.slideDirectory,
@@ -210,8 +213,11 @@ export abstract class BaseSandboxService {
     /**
      * Create a new instance from a template
      * Returns: { success: boolean, instanceId?: string, error?: string }
+     * @param options - Instance creation options
      */
-    abstract createInstance(templateName: string, projectName: string, webhookUrl?: string, localEnvVars?: Record<string, string>): Promise<BootstrapResponse>;
+    abstract createInstance(
+        options: InstanceCreationRequest
+    ): Promise<BootstrapResponse>;
 
     /**
      * List all instances across all sessions
@@ -301,7 +307,7 @@ export abstract class BaseSandboxService {
      * Deploy instance to Cloudflare Workers
      * Returns: { success: boolean, message: string, deployedUrl?: string, deploymentId?: string, error?: string }
      */
-    abstract deployToCloudflareWorkers(instanceId: string): Promise<DeploymentResult>;
+    abstract deployToCloudflareWorkers(instanceId: string, target?: DeploymentTarget): Promise<DeploymentResult>;
   
     // ==========================================
     // GITHUB INTEGRATION (Required)

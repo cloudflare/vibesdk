@@ -5,10 +5,15 @@ import type { PhasicBlueprint, AgenticBlueprint, PhaseConceptType ,
 // import type { ScreenshotData } from './types';
 import type { ConversationMessage } from '../inferutils/common';
 import type { InferenceContext } from '../inferutils/config.types';
-import { BehaviorType, Plan } from './types';
+import { BehaviorType, Plan, ProjectType } from './types';
 
 export interface FileState extends FileOutputType {
     lastDiff: string;
+}
+
+export interface FileServingToken {
+    token: string;
+    createdAt: number;
 }
 
 export interface PhaseState extends PhaseConceptType {
@@ -29,6 +34,8 @@ export const MAX_PHASES = 12;
 /** Common state fields for all agent behaviors */
 export interface BaseProjectState {
     behaviorType: BehaviorType;
+    projectType: ProjectType;
+    
     // Identity
     projectName: string;
     query: string;
@@ -54,6 +61,7 @@ export interface BaseProjectState {
     
     // Common infrastructure
     sandboxInstanceId?: string;
+    fileServingToken?: FileServingToken;
     commandsHistory?: string[];
     lastPackageJson?: string;
     pendingUserInputs: string[];

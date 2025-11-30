@@ -13,16 +13,17 @@ import {
     type ReasoningEffort,
     type ChatCompletionChunk,
 } from 'openai/resources.mjs';
-import { Message, MessageContent, MessageRole } from './common';
-import { ToolCallResult, ToolDefinition } from '../tools/types';
+import { CompletionSignal, Message, MessageContent, MessageRole } from './common';
+import { ToolCallResult, ToolDefinition, toOpenAITool } from '../tools/types';
 import { AgentActionKey, AI_MODEL_CONFIG, AIModelConfig, AIModels, InferenceMetadata } from './config.types';
 // import { SecretsService } from '../../database';
 import { RateLimitService } from '../../services/rate-limit/rateLimits';
 import { getUserConfigurableSettings } from '../../config';
 import { SecurityError, RateLimitExceededError } from 'shared/types/errors';
-import { executeToolWithDefinition } from '../tools/customTools';
 import { RateLimitType } from 'worker/services/rate-limit/config';
 import { getMaxToolCallingDepth, MAX_LLM_MESSAGES } from '../constants';
+import { executeToolCallsWithDependencies } from './toolExecution';
+import { CompletionDetector } from './completionDetection';
 
 function optimizeInputs(messages: Message[]): Message[] {
     return messages.map((message) => ({
@@ -99,7 +100,7 @@ function accumulateToolCallDelta(
         const before = entry.function.arguments;
         const chunk = deltaToolCall.function.arguments;
 
-        // Check if we already have complete JSON and this is extra data
+        // Check if we already have complete JSON and this is extra data. Question: Do we want this?
         let isComplete = false;
         if (before.length > 0) {
             try {
@@ -310,6 +311,7 @@ type InferArgsBase = {
     modelName: AIModels | string;
     reasoning_effort?: ReasoningEffort;
     temperature?: number;
+    frequency_penalty?: number;
     stream?: {
         chunk_size: number;
         onChunk: (chunk: string) => void;
@@ -318,6 +320,8 @@ type InferArgsBase = {
     providerOverride?: 'cloudflare' | 'direct';
     userApiKeys?: Record<string, string>;
     abortSignal?: AbortSignal;
+    onAssistantMessage?: (message: Message) => Promise<void>;
+    completionConfig?: CompletionConfig;
 };
 
 type InferArgsStructured = InferArgsBase & {
@@ -333,6 +337,17 @@ type InferWithCustomFormatArgs = InferArgsStructured & {
 export interface ToolCallContext {
     messages: Message[];
     depth: number;
+    completionSignal?: CompletionSignal;
+    warningInjected?: boolean;
+}
+
+/**
+ * Configuration for completion signal detection and auto-warning injection.
+ */
+export interface CompletionConfig {
+    detector?: CompletionDetector;
+    operationalMode?: 'initial' | 'followup';
+    allowWarningInjection?: boolean;
 }
 
 export function serializeCallChain(context: ToolCallContext, finalResponse: string): string {
@@ -406,34 +421,44 @@ export type InferResponseString = {
  * Execute all tool calls from OpenAI response
  */
 async function executeToolCalls(openAiToolCalls: ChatCompletionMessageFunctionToolCall[], originalDefinitions: ToolDefinition[]): Promise<ToolCallResult[]> {
-    const toolDefinitions = new Map(originalDefinitions.map(td => [td.function.name, td]));
-    return Promise.all(
-        openAiToolCalls.map(async (tc) => {
-            try {
-                const args = tc.function.arguments ? JSON.parse(tc.function.arguments) : {};
-                const td = toolDefinitions.get(tc.function.name);
-                if (!td) {
-                    throw new Error(`Tool ${tc.function.name} not found`);
-                }
-                const result = await executeToolWithDefinition(td, args);
-                console.log(`Tool execution result for ${tc.function.name}:`, result);
-                return {
-                    id: tc.id,
-                    name: tc.function.name,
-                    arguments: args,
-                    result
-                };
-            } catch (error) {
-                console.error(`Tool execution failed for ${tc.function.name}:`, error);
-                return {
-                    id: tc.id,
-                    name: tc.function.name,
-                    arguments: {},
-                    result: { error: `Failed to execute ${tc.function.name}: ${error instanceof Error ? error.message : 'Unknown error'}` }
-            };
-            }
-        })
-    );
+    // Use dependency-aware execution engine
+    return executeToolCallsWithDependencies(openAiToolCalls, originalDefinitions);
+}
+
+function updateToolCallContext(
+    toolCallContext: ToolCallContext | undefined,
+    assistantMessage: Message,
+    executedToolCalls: ToolCallResult[],
+    completionDetector?: CompletionDetector
+) {
+    const newMessages = [
+        ...(toolCallContext?.messages || []),
+        assistantMessage,
+        ...executedToolCalls
+            .filter(result => result.name && result.name.trim() !== '')
+            .map((result, _) => ({
+                role: "tool" as MessageRole,
+                content: result.result ? JSON.stringify(result.result) : 'done',
+                name: result.name,
+                tool_call_id: result.id,
+            })),
+        ];
+
+    const newDepth = (toolCallContext?.depth ?? 0) + 1;
+
+    // Detect completion signal from executed tool calls
+    let completionSignal = toolCallContext?.completionSignal;
+    if (completionDetector && !completionSignal) {
+        completionSignal = completionDetector.detectCompletion(executedToolCalls);
+    }
+
+    const newToolCallContext: ToolCallContext = {
+        messages: newMessages,
+        depth: newDepth,
+        completionSignal,
+        warningInjected: toolCallContext?.warningInjected || false
+    };
+    return newToolCallContext;
 }
 
 export function infer<OutputSchema extends z.AnyZodObject>(
@@ -462,13 +487,16 @@ export async function infer<OutputSchema extends z.AnyZodObject>({
     actionKey,
     format,
     formatOptions,
-    maxTokens,
     modelName,
-    stream,
-    tools,
     reasoning_effort,
     temperature,
+    frequency_penalty,
+    maxTokens,
+    stream,
+    tools,
     abortSignal,
+    onAssistantMessage,
+    completionConfig,
 }: InferArgsBase & {
     schema?: OutputSchema;
     schemaName?: string;
@@ -526,14 +554,43 @@ export async function infer<OutputSchema extends z.AnyZodObject>({
 
         let messagesToPass = [...optimizedMessages];
         if (toolCallContext && toolCallContext.messages) {
-            // Minimal core fix with logging: exclude prior tool messages that have empty name
             const ctxMessages = toolCallContext.messages;
-            const droppedToolMsgs = ctxMessages.filter(m => m.role === 'tool' && (!m.name || m.name.trim() === ''));
-            if (droppedToolMsgs.length) {
-                console.warn(`[TOOL_CALL_WARNING] Dropping ${droppedToolMsgs.length} prior tool message(s) with empty name to avoid provider error`, droppedToolMsgs);
-            }
-            const filteredCtx = ctxMessages.filter(m => m.role !== 'tool' || (m.name && m.name.trim() !== ''));
-            messagesToPass.push(...filteredCtx);
+            let validToolCallIds = new Set<string>();
+
+            let filtered = ctxMessages.filter(msg => {
+                // Update valid IDs when we see assistant with tool_calls
+                if (msg.role === 'assistant' && msg.tool_calls) {
+                    validToolCallIds = new Set(msg.tool_calls.map(tc => tc.id));
+                    return true;
+                }
+
+                // Filter tool messages
+                if (msg.role === 'tool') {
+                    if (!msg.name?.trim()) {
+                        console.warn('[TOOL_ORPHAN] Dropping tool message with empty name:', msg.tool_call_id);
+                        return false;
+                    }
+                    if (!msg.tool_call_id || !validToolCallIds.has(msg.tool_call_id)) {
+                        console.warn('[TOOL_ORPHAN] Dropping orphaned tool message:', msg.name, msg.tool_call_id);
+                        return false;
+                    }
+                }
+
+                return true;
+            });
+
+            // Remove empty tool call arrays from assistant messages
+            filtered = filtered.map(msg => {
+                if (msg.role === 'assistant' && msg.tool_calls) {
+                    msg.tool_calls = msg.tool_calls.filter(tc => tc.id);
+                    if (msg.tool_calls.length === 0) {
+                        msg.tool_calls = undefined;
+                    }
+                }
+                return msg;
+            });
+
+            messagesToPass.push(...filtered);
         }
 
         if (format) {
@@ -578,9 +635,14 @@ export async function infer<OutputSchema extends z.AnyZodObject>({
             }
         }
 
-        console.log(`Running inference with ${modelName} using structured output with ${format} format, reasoning effort: ${reasoning_effort}, max tokens: ${maxTokens}, temperature: ${temperature}, baseURL: ${baseURL}`);
+        console.log(`Running inference with ${modelName} using structured output with ${format} format, reasoning effort: ${reasoning_effort}, max tokens: ${maxTokens}, temperature: ${temperature}, frequency_penalty: ${frequency_penalty}, baseURL: ${baseURL}`);
 
-        const toolsOpts = tools ? { tools, tool_choice: 'auto' as const } : {};
+        const toolsOpts = tools ? {
+            tools: tools.map(t => {
+                return toOpenAITool(t);
+            }),
+            tool_choice: 'auto' as const
+        } : {};
         let response: OpenAI.ChatCompletion | OpenAI.ChatCompletionChunk | Stream<OpenAI.ChatCompletionChunk>;
         try {
             // Call OpenAI API with proper structured output format
@@ -594,6 +656,7 @@ export async function infer<OutputSchema extends z.AnyZodObject>({
                 stream: stream ? true : false,
                 reasoning_effort: modelConfig.nonReasoning ? undefined : reasoning_effort,
                 temperature,
+                frequency_penalty,
             }, {
                 signal: abortSignal,
                 headers: {
@@ -620,6 +683,10 @@ export async function infer<OutputSchema extends z.AnyZodObject>({
             throw error;
         }
         let toolCalls: ChatCompletionMessageFunctionToolCall[] = [];
+
+        /*
+        * Handle LLM response
+        */
 
         let content = '';
         if (stream) {
@@ -714,6 +781,16 @@ export async function infer<OutputSchema extends z.AnyZodObject>({
             console.log(`Total tokens used in prompt: ${totalTokens}`);
         }
 
+        const assistantMessage = { role: "assistant" as MessageRole, content, tool_calls: toolCalls };
+
+        if (onAssistantMessage) {
+            await onAssistantMessage(assistantMessage);
+        }
+
+        /*
+        * Handle tool calls
+        */
+
         if (!content && !stream && !toolCalls.length) {
             // // Only error if not streaming and no content
             // console.error('No content received from OpenAI', JSON.stringify(response, null, 2));
@@ -724,33 +801,52 @@ export async function infer<OutputSchema extends z.AnyZodObject>({
         let executedToolCalls: ToolCallResult[] = [];
         if (tools) {
             // console.log(`Tool calls:`, JSON.stringify(toolCalls, null, 2), 'definition:', JSON.stringify(tools, null, 2));
-            executedToolCalls = await executeToolCalls(toolCalls, tools);
+            try {
+                executedToolCalls = await executeToolCalls(toolCalls, tools);
+            } catch (error) {
+                console.error(`Tool execution failed${toolCalls.length > 0 ? ` for ${toolCalls[0].function.name}` : ''}:`, error);
+                // Check if error is an abort error
+                if (error instanceof AbortError) {
+                    console.warn(`Tool call was aborted, ending tool call chain with the latest tool call result`);
+
+                    const newToolCallContext = updateToolCallContext(toolCallContext, assistantMessage, executedToolCalls, completionConfig?.detector);
+                    return { string: content, toolCallContext: newToolCallContext };
+                }
+                // Otherwise, continue
+            }
         }
+
+        /*
+        * Handle tool call results
+        */
 
         if (executedToolCalls.length) {
             console.log(`Tool calls executed:`, JSON.stringify(executedToolCalls, null, 2));
-            // Generate a new response with the tool calls executed
-            const newMessages = [
-                ...(toolCallContext?.messages || []),
-                { role: "assistant" as MessageRole, content, tool_calls: toolCalls },
-                ...executedToolCalls
-                    .filter(result => result.name && result.name.trim() !== '')
-                    .map((result, _) => ({
-                        role: "tool" as MessageRole,
-                        content: result.result ? JSON.stringify(result.result) : 'done',
-                        name: result.name,
-                        tool_call_id: result.id,
-                    })),
-            ];
 
-            const newDepth = (toolCallContext?.depth ?? 0) + 1;
-            const newToolCallContext = {
-                messages: newMessages,
-                depth: newDepth
-            };
-            
-            const executedCallsWithResults = executedToolCalls.filter(result => result.result);
-            console.log(`${actionKey}: Tool calling depth: ${newDepth}/${getMaxToolCallingDepth(actionKey)}`);
+            const newToolCallContext = updateToolCallContext(toolCallContext, assistantMessage, executedToolCalls, completionConfig?.detector);
+
+            // Stop recursion if completion signal detected
+            if (newToolCallContext.completionSignal?.signaled) {
+                console.log(`[COMPLETION] ${newToolCallContext.completionSignal.toolName} called, stopping recursion`);
+
+                if (schema && schemaName) {
+                    throw new AbortError(
+                        `Completion signaled: ${newToolCallContext.completionSignal.summary || 'Task complete'}`,
+                        newToolCallContext
+                    );
+                }
+                return {
+                    string: content || newToolCallContext.completionSignal.summary || 'Task complete',
+                    toolCallContext: newToolCallContext
+                };
+            }
+
+            // Filter completion tools from recursion trigger
+            const executedCallsWithResults = executedToolCalls.filter(result =>
+                result.result !== undefined &&
+                !(completionConfig?.detector?.isCompletionTool(result.name))
+            );
+            console.log(`${actionKey}: Tool depth ${newToolCallContext.depth}/${getMaxToolCallingDepth(actionKey)}`);
             
             if (executedCallsWithResults.length) {
                 if (schema && schemaName) {
@@ -769,7 +865,10 @@ export async function infer<OutputSchema extends z.AnyZodObject>({
                         tools,
                         reasoning_effort,
                         temperature,
+                        frequency_penalty,
                         abortSignal,
+                        onAssistantMessage,
+                        completionConfig,
                     }, newToolCallContext);
                     return output;
                 } else {
@@ -784,7 +883,10 @@ export async function infer<OutputSchema extends z.AnyZodObject>({
                         tools,
                         reasoning_effort,
                         temperature,
+                        frequency_penalty,
                         abortSignal,
+                        onAssistantMessage,
+                        completionConfig,
                     }, newToolCallContext);
                     return output;
                 }

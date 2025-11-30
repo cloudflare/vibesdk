@@ -1,12 +1,18 @@
 import { WebSocket } from 'partysocket';
-import { useCallback, useEffect, useRef, useState } from 'react';
+
+export type Edit = Omit<CodeFixEdits, 'type'>;
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import {
     RateLimitExceededError,
 	type BlueprintType,
 	type WebSocketMessage,
 	type CodeFixEdits,
-	type ImageAttachment
+	type ImageAttachment,
+	type ProjectType,
+	type BehaviorType,
+	type FileType,
+	type TemplateDetails,
 } from '@/api-types';
 import {
 	createRepairingJSONParser,
@@ -14,6 +20,7 @@ import {
 } from '@/utils/ndjson-parser/ndjson-parser';
 import { getFileType } from '@/utils/string';
 import { logger } from '@/utils/logger';
+import { mergeFiles } from '@/utils/file-helpers';
 import { apiClient } from '@/lib/api-client';
 import { appEvents } from '@/lib/app-events';
 import { createWebSocketMessageHandler, type HandleMessageDeps } from '../utils/handle-websocket-message';
@@ -22,16 +29,6 @@ import { sendWebSocketMessage } from '../utils/websocket-helpers';
 import { initialStages as defaultStages, updateStage as updateStageHelper } from '../utils/project-stage-helpers';
 import type { ProjectStage } from '../utils/project-stage-helpers';
 
-
-export interface FileType {
-	filePath: string;
-	fileContents: string;
-	explanation?: string;
-	isGenerating?: boolean;
-	needsFixing?: boolean;
-	hasErrors?: boolean;
-	language?: string;
-}
 
 // New interface for phase timeline tracking
 export interface PhaseTimelineItem {
@@ -52,17 +49,25 @@ export function useChat({
 	chatId: urlChatId,
 	query: userQuery,
 	images: userImages,
-	agentMode = 'deterministic',
+	projectType = 'app',
 	onDebugMessage,
 	onTerminalMessage,
 }: {
 	chatId?: string;
 	query: string | null;
 	images?: ImageAttachment[];
-	agentMode?: 'deterministic' | 'smart';
+	projectType?: ProjectType;
 	onDebugMessage?: (type: 'error' | 'warning' | 'info' | 'websocket', message: string, details?: string, source?: string, messageType?: string, rawMessage?: unknown) => void;
 	onTerminalMessage?: (log: { id: string; content: string; type: 'command' | 'stdout' | 'stderr' | 'info' | 'error' | 'warn' | 'debug'; timestamp: number; source?: string }) => void;
 }) {
+	// Derive initial behavior type from project type
+	const getInitialBehaviorType = (): BehaviorType => {
+		if (projectType === 'presentation' || projectType === 'general') {
+			return 'agentic';
+		}
+		return 'phasic';
+	};
+
 	const connectionStatus = useRef<'idle' | 'connecting' | 'connected' | 'failed' | 'retrying'>('idle');
 	const retryCount = useRef(0);
 	const maxRetries = 5;
@@ -80,6 +85,9 @@ export function useChat({
 	const [blueprint, setBlueprint] = useState<BlueprintType>();
 	const [previewUrl, setPreviewUrl] = useState<string>();
 	const [query, setQuery] = useState<string>();
+	const [behaviorType, setBehaviorType] = useState<BehaviorType>(getInitialBehaviorType());
+	const [internalProjectType, setInternalProjectType] = useState<ProjectType>(projectType);
+	const [templateDetails, setTemplateDetails] = useState<TemplateDetails | null>(null);
 
 	const [websocket, setWebsocket] = useState<WebSocket>();
 
@@ -190,6 +198,9 @@ export function useChat({
 			setRuntimeErrorCount,
 			setStaticIssueCount,
 			setIsDebugging,
+			setBehaviorType,
+			setInternalProjectType,
+			setTemplateDetails,
 			// Current state
 			isInitialStateRestored,
 			blueprint,
@@ -201,12 +212,17 @@ export function useChat({
 			projectStages,
 			isGenerating,
 			urlChatId,
+			behaviorType,
 			// Functions
 			updateStage,
 			sendMessage,
 			loadBootstrapFiles,
 			onDebugMessage,
 			onTerminalMessage,
+			onPresentationFileEvent: (evt) => {
+				if (!evt.path.includes('/slides/')) return;
+				window.dispatchEvent(new CustomEvent('presentation-file-event', { detail: evt }));
+			},
 		} as HandleMessageDeps),
 		[
 			isInitialStateRestored,
@@ -219,6 +235,7 @@ export function useChat({
 			projectStages,
 			isGenerating,
 			urlChatId,
+			behaviorType,
 			updateStage,
 			sendMessage,
 			loadBootstrapFiles,
@@ -405,7 +422,7 @@ export function useChat({
 					// Start new code generation using API client
 					const response = await apiClient.createAgentSession({
 						query: userQuery,
-						agentMode,
+						projectType,
 						images: userImages, // Pass images from URL params for multi-modal blueprint
 					});
 
@@ -414,12 +431,16 @@ export function useChat({
 					const result: {
 						websocketUrl: string;
 						agentId: string;
+						behaviorType: BehaviorType;
+						projectType: ProjectType;
 						template: {
 							files: FileType[];
 						};
 					} = {
 						websocketUrl: '',
 						agentId: '',
+						behaviorType: 'phasic',
+						projectType: 'app',
 						template: {
 							files: [],
 						},
@@ -447,13 +468,22 @@ export function useChat({
 							} catch (e) {
 								logger.error('Error parsing JSON:', e, obj.chunk);
 							}
-						} 
+						}
 						if (obj.agentId) {
 							result.agentId = obj.agentId;
 						}
 						if (obj.websocketUrl) {
 							result.websocketUrl = obj.websocketUrl;
 							logger.debug('📡 Received WebSocket URL from server:', result.websocketUrl)
+						}
+						if (obj.behaviorType) {
+							result.behaviorType = obj.behaviorType;
+							setBehaviorType(obj.behaviorType);
+							logger.debug('Received behaviorType from server:', obj.behaviorType);
+						}
+						if (obj.projectType) {
+							result.projectType = obj.projectType;
+							logger.debug('Received projectType from server:', obj.projectType);
 						}
 						if (obj.template) {
                             logger.debug('Received template from server:', obj.template);
@@ -618,6 +648,8 @@ export function useChat({
 		}
 	}, [websocket, sendMessage, isDeploying, onDebugMessage]);
 
+	const allFiles = useMemo(() => mergeFiles(bootstrapFiles, files), [bootstrapFiles, files]);
+
 	return {
 		messages,
 		edit,
@@ -658,5 +690,10 @@ export function useChat({
 		runtimeErrorCount,
 		staticIssueCount,
 		isDebugging,
+		// Behavior type from backend
+		behaviorType,
+		projectType: internalProjectType,
+		templateDetails,
+		allFiles,
 	};
 }

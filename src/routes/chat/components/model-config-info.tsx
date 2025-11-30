@@ -10,7 +10,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import type { AgentDisplayConfig, ModelConfig, UserModelConfigWithMetadata } from '@/api-types';
+import type { AgentDisplayConfig, ModelConfigsInfo } from '@/api-types';
 
 // Reuse workflow tabs from settings (DRY principle)
 const WORKFLOW_TABS = {
@@ -116,14 +116,14 @@ const getProviderInfo = (modelValue?: string) => {
 };
 
 // Simplified config card for read-only display
-function ConfigInfoCard({ 
-  agent, 
-  userConfig, 
-  defaultConfig 
-}: { 
-  agent: AgentDisplayConfig; 
-  userConfig?: UserModelConfigWithMetadata; 
-  defaultConfig?: ModelConfig; 
+function ConfigInfoCard({
+  agent,
+  userConfig,
+  defaultConfig
+}: {
+  agent: AgentDisplayConfig;
+  userConfig?: ModelConfigsInfo['userConfigs'][string];
+  defaultConfig?: ModelConfigsInfo['defaultConfigs'][string];
 }) {
   const isCustomized = userConfig?.isUserOverride || false;
   const currentModel = userConfig?.name || defaultConfig?.name;
@@ -189,11 +189,7 @@ function ConfigInfoCard({
 }
 
 interface ModelConfigInfoProps {
-  configs?: {
-    agents: AgentDisplayConfig[];
-    userConfigs: Record<string, UserModelConfigWithMetadata>;
-    defaultConfigs: Record<string, ModelConfig>;
-  };
+  configs?: ModelConfigsInfo;
   onRequestConfigs: () => void;
   loading?: boolean;
 }

@@ -1,27 +1,56 @@
-import { CodeGenState, FileState } from './state';
+import { AgentState, FileState } from './state';
 import { StructuredLogger } from '../../logger';
 import { TemplateDetails } from 'worker/services/sandbox/sandboxTypes';
 import { generateNanoId } from '../../utils/idGenerator';
 import { generateProjectName } from '../utils/templateCustomizer';
 
+// Type guards for legacy state detection
+type LegacyFileFormat = {
+    file_path?: string;
+    file_contents?: string;
+    file_purpose?: string;
+};
+
+type StateWithDeprecatedFields = AgentState & {
+    latestScreenshot?: unknown;
+    templateDetails?: TemplateDetails;
+    agentMode?: string;
+};
+
+function hasLegacyFileFormat(file: unknown): file is LegacyFileFormat {
+    if (typeof file !== 'object' || file === null) return false;
+    return 'file_path' in file || 'file_contents' in file || 'file_purpose' in file;
+}
+
+function hasField<K extends string>(state: AgentState, key: K): state is AgentState & Record<K, unknown> {
+    return key in state;
+}
+
+function isStateWithTemplateDetails(state: AgentState): state is StateWithDeprecatedFields & { templateDetails: TemplateDetails } {
+    return 'templateDetails' in state;
+}
+
+function isStateWithAgentMode(state: AgentState): state is StateWithDeprecatedFields & { agentMode: string } {
+    return 'agentMode' in state;
+}
+
 export class StateMigration {
-    static migrateIfNeeded(state: CodeGenState, logger: StructuredLogger): CodeGenState | null {
+    static migrateIfNeeded(state: AgentState, logger: StructuredLogger): AgentState | null {
         let needsMigration = false;
         
         //------------------------------------------------------------------------------------
         // Migrate files from old schema
         //------------------------------------------------------------------------------------
-        const migrateFile = (file: any): any => {
-            const hasOldFormat = 'file_path' in file || 'file_contents' in file || 'file_purpose' in file;
-            
-            if (hasOldFormat) {
+        const migrateFile = (file: FileState | unknown): FileState => {
+            if (hasLegacyFileFormat(file)) {
                 return {
-                    filePath: file.filePath || file.file_path,
-                    fileContents: file.fileContents || file.file_contents,
-                    filePurpose: file.filePurpose || file.file_purpose,
+                    filePath: (file as FileState).filePath || file.file_path || '',
+                    fileContents: (file as FileState).fileContents || file.file_contents || '',
+                    filePurpose: (file as FileState).filePurpose || file.file_purpose || '',
+                    lastDiff: (file as FileState).lastDiff || '',
                 };
             }
-            return file;
+            return file as FileState;
         };
 
         const migratedFilesMap: Record<string, FileState> = {};
@@ -126,19 +155,21 @@ export class StateMigration {
                 ...migratedInferenceContext
             };
             
-            delete (migratedInferenceContext as any).userApiKeys;
+            // Remove the deprecated field using type assertion
+            const contextWithLegacyField = migratedInferenceContext as unknown as Record<string, unknown>;
+            delete contextWithLegacyField.userApiKeys;
             needsMigration = true;
         }
 
         //------------------------------------------------------------------------------------
         // Migrate deprecated props
         //------------------------------------------------------------------------------------  
-        const stateHasDeprecatedProps = 'latestScreenshot' in (state as any);
+        const stateHasDeprecatedProps = hasField(state, 'latestScreenshot');
         if (stateHasDeprecatedProps) {
             needsMigration = true;
         }
 
-        const stateHasProjectUpdatesAccumulator = 'projectUpdatesAccumulator' in (state as any);
+        const stateHasProjectUpdatesAccumulator = hasField(state, 'projectUpdatesAccumulator');
         if (!stateHasProjectUpdatesAccumulator) {
             needsMigration = true;
         }
@@ -147,10 +178,9 @@ export class StateMigration {
         // Migrate templateDetails -> templateName
         //------------------------------------------------------------------------------------
         let migratedTemplateName = state.templateName;
-        const hasTemplateDetails = 'templateDetails' in (state as any);
+        const hasTemplateDetails = isStateWithTemplateDetails(state);
         if (hasTemplateDetails) {
-            const templateDetails = (state as any).templateDetails;
-            migratedTemplateName = (templateDetails as TemplateDetails).name;
+            migratedTemplateName = state.templateDetails.name;
             needsMigration = true;
             logger.info('Migrating templateDetails to templateName', { templateName: migratedTemplateName });
         }
@@ -170,6 +200,13 @@ export class StateMigration {
             logger.info('Generating missing projectName', { projectName: migratedProjectName });
         }
 
+        let migratedProjectType = state.projectType;
+        const hasProjectType = hasField(state, 'projectType');
+        if (!hasProjectType || !migratedProjectType) {
+            migratedProjectType = 'app';
+            needsMigration = true;
+            logger.info('Adding default projectType for legacy state', { projectType: migratedProjectType });
+        }
         if (needsMigration) {
             logger.info('Migrating state: schema format, conversation cleanup, security fixes, and bootstrap setup', {
                 generatedFilesCount: Object.keys(migratedFilesMap).length,
@@ -177,22 +214,27 @@ export class StateMigration {
                 removedUserApiKeys: state.inferenceContext && 'userApiKeys' in state.inferenceContext,
             });
             
-            const newState = {
+            const newState: AgentState = {
                 ...state,
                 generatedFilesMap: migratedFilesMap,
                 conversationMessages: migratedConversationMessages,
                 inferenceContext: migratedInferenceContext,
                 projectUpdatesAccumulator: [],
                 templateName: migratedTemplateName,
-                projectName: migratedProjectName
-            };
+                projectName: migratedProjectName,
+                projectType: migratedProjectType,
+            } as AgentState;
             
             // Remove deprecated fields
+            const stateWithDeprecated = newState as StateWithDeprecatedFields;
             if (stateHasDeprecatedProps) {
-                delete (newState as any).latestScreenshot;
+                delete stateWithDeprecated.latestScreenshot;
             }
             if (hasTemplateDetails) {
-                delete (newState as any).templateDetails;
+                delete stateWithDeprecated.templateDetails;
+            }
+            if (isStateWithAgentMode(state)) {
+                delete stateWithDeprecated.agentMode;
             }
             
             return newState;

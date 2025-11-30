@@ -52,18 +52,19 @@ import type{
 	ProfileResponseData,
 	AuthProvidersResponseData,
 	CsrfTokenResponseData,
+	CliTokenData,
 	OAuthProvider,
-    CodeGenArgs,
+	CodeGenArgs,
     AgentPreviewResponse,
     PlatformStatusData,
     RateLimitError
-} from '@/api-types';
+} from '../api-types.js';
 import {
-    
+
     RateLimitExceededError,
     SecurityError,
     SecurityErrorType,
-} from '@/api-types';
+} from '../api-types.js';
 import { toast } from 'sonner';
 
 /**
@@ -1165,6 +1166,14 @@ class ApiClient {
 		return this.request<{ message: string }>('/api/auth/logout', {
 			method: 'POST',
 		});
+	}
+
+	/**
+	 * Get CLI authentication token
+	 * Returns the user's existing session token for CLI use
+	 */
+	async getCliToken(): Promise<ApiResponse<CliTokenData>> {
+		return this.request<CliTokenData>('/api/auth/cli-token');
 	}
 
 	/**

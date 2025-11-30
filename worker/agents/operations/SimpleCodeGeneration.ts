@@ -26,9 +26,8 @@ export interface SimpleCodeGenerationOutputs {
 
 const SYSTEM_PROMPT = `You are an expert Cloudflare developer specializing in Cloudflare Workers and Workflows.
 
-Your task is to generate production-ready code based on the provided specifications.
+Your task is to generate production-ready code files specifically based on the provided specifications.
 
-## Original User Request
 {{userQuery}}
 
 ## Critical Guidelines
@@ -147,7 +146,7 @@ export class SimpleCodeGenerationOperation extends AgentOperation<
 
         // Build system message with full context
         const systemPrompt = PROMPT_UTILS.replaceTemplateVariables(SYSTEM_PROMPT, {
-            userQuery: context.query || 'No specific user query available',
+            userQuery: `## Requirements:\n${context.query}` || '',
         });
 
         // Build user message with requirements

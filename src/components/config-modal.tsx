@@ -24,10 +24,10 @@ import {
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { apiClient } from '@/lib/api-client';
 import { ByokApiKeysModal } from './byok-api-keys-modal';
-import type { 
-  ModelConfig, 
-  UserModelConfigWithMetadata, 
-  ModelConfigUpdate, 
+import type {
+  ModelConfig,
+  UserModelConfigWithMetadata,
+  ModelConfigUpdate,
   AIModels,
   ByokProvidersData,
   AgentDisplayConfig

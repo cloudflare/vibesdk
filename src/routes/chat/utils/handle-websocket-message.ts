@@ -1,5 +1,5 @@
 import type { WebSocket } from 'partysocket';
-import type { WebSocketMessage, BlueprintType, ConversationMessage } from '@/api-types';
+import type { WebSocketMessage, BlueprintType, ConversationMessage, AgentState, PhasicState, BehaviorType, ProjectType, TemplateDetails } from '@/api-types';
 import { deduplicateMessages, isAssistantMessageDuplicate } from './deduplicate-messages';
 import { logger } from '@/utils/logger';
 import { getFileType } from '@/utils/string';
@@ -11,7 +11,7 @@ import {
     setAllFilesCompleted,
     updatePhaseFileStatus,
 } from './file-state-helpers';
-import { 
+import {
     createAIMessage,
     handleRateLimitError,
     handleStreamingMessage,
@@ -20,8 +20,13 @@ import {
 } from './message-helpers';
 import { completeStages } from './project-stage-helpers';
 import { sendWebSocketMessage } from './websocket-helpers';
-import type { FileType, PhaseTimelineItem } from '../hooks/use-chat';
+import type { PhaseTimelineItem } from '../hooks/use-chat';
+import type { FileType } from '@/api-types';
 import { toast } from 'sonner';
+import { createRepairingJSONParser } from '@/utils/ndjson-parser/ndjson-parser';
+
+const isPhasicState = (state: AgentState): state is PhasicState =>
+	state.behaviorType === 'phasic';
 
 export interface HandleMessageDeps {
     // State setters
@@ -47,7 +52,11 @@ export interface HandleMessageDeps {
     setRuntimeErrorCount: React.Dispatch<React.SetStateAction<number>>;
     setStaticIssueCount: React.Dispatch<React.SetStateAction<number>>;
     setIsDebugging: React.Dispatch<React.SetStateAction<boolean>>;
-    
+    setBehaviorType: React.Dispatch<React.SetStateAction<BehaviorType>>;
+    setInternalProjectType: React.Dispatch<React.SetStateAction<ProjectType>>;
+    setTemplateDetails: React.Dispatch<React.SetStateAction<TemplateDetails | null>>;
+    onPresentationFileEvent?: (event: { type: 'file_generating' | 'file_chunk' | 'file_generated'; path: string; chunk?: string; contents?: string }) => void;
+
     // Current state
     isInitialStateRestored: boolean;
     blueprint: BlueprintType | undefined;
@@ -59,6 +68,7 @@ export interface HandleMessageDeps {
     projectStages: any[];
     isGenerating: boolean;
     urlChatId: string | undefined;
+    behaviorType: BehaviorType;
     
     // Functions
     updateStage: (stageId: string, updates: any) => void;
@@ -93,6 +103,10 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
         }
         return '';
     };
+
+    // Blueprint chunk parser (maintained across chunks)
+    let blueprintParser: ReturnType<typeof createRepairingJSONParser> | null = null;
+
     return (websocket: WebSocket, message: WebSocketMessage) => {
         const {
             setFiles,
@@ -115,6 +129,9 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
             setIsGenerating,
             setIsPhaseProgressActive,
             setIsDebugging,
+            setBehaviorType,
+            setInternalProjectType,
+            setTemplateDetails,
             isInitialStateRestored,
             blueprint,
             query,
@@ -125,6 +142,7 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
             projectStages,
             isGenerating,
             urlChatId,
+            behaviorType,
             updateStage,
             sendMessage,
             loadBootstrapFiles,
@@ -154,12 +172,22 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
                 break;
             }
             case 'agent_connected': {
-                const { state, templateDetails } = message;
+                const { state, templateDetails, previewUrl } = message;
                 console.log('Agent connected', state, templateDetails);
                 
                 if (!isInitialStateRestored) {
                     logger.debug('📥 Performing initial state restoration');
-                    
+
+                    if (state.behaviorType && state.behaviorType !== behaviorType) {
+                        setBehaviorType(state.behaviorType);
+                        logger.debug('🔄 Restored behaviorType from backend:', state.behaviorType);
+                    }
+
+                    if (state.projectType) {
+                        setInternalProjectType(state.projectType);
+                        logger.debug('🔄 Restored projectType from backend:', state.projectType);
+                    }
+
                     if (state.blueprint && !blueprint) {
                         setBlueprint(state.blueprint);
                         updateStage('blueprint', { status: 'completed' });
@@ -169,13 +197,29 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
                         setQuery(state.query);
                     }
 
-                    if (templateDetails?.allFiles && bootstrapFiles.length === 0) {
-                        const files = Object.entries(templateDetails.allFiles).map(([filePath, fileContents]) => ({
-                            filePath,
-                            fileContents,
-                        })).filter((file) => templateDetails.importantFiles.includes(file.filePath));
-                        logger.debug('📥 Restoring bootstrap files:', files);
-                        loadBootstrapFiles(files);
+                    if (previewUrl) {
+                        setPreviewUrl(previewUrl);
+                    }
+
+                    if (templateDetails) {
+                        // Store template details for manifest parsing and validation
+                        setTemplateDetails(templateDetails);
+                        logger.debug('📥 Stored template details:', {
+                            renderMode: templateDetails.renderMode,
+                            slideDirectory: templateDetails.slideDirectory,
+                            fileCount: Object.keys(templateDetails.allFiles || {}).length,
+                        });
+
+                        if (templateDetails.allFiles && bootstrapFiles.length === 0) {
+                            console.log('Template details, important files:', templateDetails.importantFiles, templateDetails)
+                            const importantFilesSet = new Set(templateDetails.importantFiles);
+                            const files = Object.entries(templateDetails.allFiles).map(([filePath, fileContents]) => ({
+                                filePath,
+                                fileContents,
+                            })).filter((file) => importantFilesSet.has(file.filePath));
+                            logger.debug('📥 Restoring bootstrap files:', files);
+                            loadBootstrapFiles(files);
+                        }
                     }
 
                     if (state.generatedFilesMap && files.length === 0) {
@@ -191,12 +235,12 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
                         );
                     }
 
-                    if (state.generatedPhases && state.generatedPhases.length > 0 && phaseTimeline.length === 0) {
+                    if (isPhasicState(state) && state.generatedPhases.length > 0 && phaseTimeline.length === 0) {
                         logger.debug('📋 Restoring phase timeline:', state.generatedPhases);
                         // If not actively generating, mark incomplete phases as cancelled (they were interrupted)
                         const isActivelyGenerating = state.shouldBeGenerating === true;
                         
-                        const timeline = state.generatedPhases.map((phase: any, index: number) => {
+                        const timeline = state.generatedPhases.map((phase, index: number) => {
                             // Determine phase status:
                             // - completed if explicitly marked complete
                             // - cancelled if incomplete and not actively generating (interrupted)
@@ -212,7 +256,7 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
                                 name: phase.name,
                                 description: phase.description,
                                 status: phaseStatus,
-                                files: phase.files.map((filesConcept: any) => {
+                                files: phase.files.map(filesConcept => {
                                     const file = state.generatedFilesMap?.[filesConcept.path];
                                     // File status:
                                     // - completed if it exists in generated files
@@ -250,6 +294,20 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
                         }
                     }
 
+                    // Display queued user messages from state
+                    const queuedInputs = state.pendingUserInputs || [];
+                    if (queuedInputs.length > 0) {
+                        logger.debug('📋 Restoring queued user messages:', queuedInputs);
+                        const queuedMessages: ChatMessage[] = queuedInputs.map((msg, idx) => ({
+                            role: 'user',
+                            content: msg,
+                            conversationId: `queued-${idx}`,
+                            status: 'queued' as const,
+                            queuePosition: idx + 1
+                        }));
+                        setMessages(prev => [...prev, ...queuedMessages]);
+                    }
+
                     setIsInitialStateRestored(true);
                     
                     if (state.shouldBeGenerating && !isGenerating) {
@@ -261,9 +319,36 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
                 }
                 break;
             }
+            case 'template_updated': {
+                const { templateDetails } = message;
+                // Update stored template details
+                setTemplateDetails(templateDetails);
+                logger.debug('📥 Template details updated:', {
+                    renderMode: templateDetails.renderMode,
+                    slideDirectory: templateDetails.slideDirectory,
+                    fileCount: Object.keys(templateDetails.allFiles || {}).length,
+                });
+
+                if (templateDetails.allFiles && bootstrapFiles.length === 0) {
+                    const importantFilesSet = new Set(templateDetails.importantFiles);
+                    const files = Object.entries(templateDetails.allFiles).map(([filePath, fileContents]) => ({
+                        filePath,
+                        fileContents,
+                    })).filter((file) => importantFilesSet.has(file.filePath));
+                    logger.debug('📥 Restoring bootstrap files:', files);
+                    loadBootstrapFiles(files);
+                }
+                break;
+            }
             case 'cf_agent_state': {
                 const { state } = message;
                 logger.debug('🔄 Agent state update received:', state);
+                
+                // Sync projectType from backend if it changed
+                if (state.projectType) {
+                    console.log('🎯 [WS] Backend projectType in cf_agent_state:', state.projectType);
+                    setInternalProjectType(state.projectType);
+                }
 
                 if (state.shouldBeGenerating && !isGenerating) {
                     logger.debug('🔄 shouldBeGenerating=true, updating UI to active state');
@@ -429,26 +514,29 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
                 break;
             }
 
-            case 'file_generating': {
-                setFiles((prev) => setFileGenerating(prev, message.filePath));
-                break;
-            }
+			case 'file_generating': {
+				setFiles((prev) => setFileGenerating(prev, message.filePath));
+				deps.onPresentationFileEvent?.({ type: 'file_generating', path: message.filePath });
+				break;
+			}
 
-            case 'file_chunk_generated': {
-                setFiles((prev) => appendFileChunk(prev, message.filePath, message.chunk));
-                break;
-            }
+			case 'file_chunk_generated': {
+				setFiles((prev) => appendFileChunk(prev, message.filePath, message.chunk));
+				deps.onPresentationFileEvent?.({ type: 'file_chunk', path: message.filePath, chunk: message.chunk });
+				break;
+			}
 
-            case 'file_generated': {
-                setFiles((prev) => setFileCompleted(prev, message.file.filePath, message.file.fileContents));
-                setPhaseTimeline((prev) => updatePhaseFileStatus(
-                    prev,
-                    message.file.filePath,
-                    'completed',
-                    message.file.fileContents
-                ));
-                break;
-            }
+			case 'file_generated': {
+				setFiles((prev) => setFileCompleted(prev, message.file.filePath, message.file.fileContents));
+				setPhaseTimeline((prev) => updatePhaseFileStatus(
+					prev,
+					message.file.filePath,
+					'completed',
+					message.file.fileContents
+				));
+				deps.onPresentationFileEvent?.({ type: 'file_generated', path: message.file.filePath, contents: message.file.fileContents });
+				break;
+			}
 
             case 'file_regenerated': {
                 setIsRedeployReady(true);
@@ -832,6 +920,27 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
                     
                     return [...prev, createAIMessage(conversationId, newContent)];
                 });
+                break;
+            }
+
+            case 'blueprint_chunk': {
+                // Initialize parser on first chunk
+                if (!blueprintParser) {
+                    blueprintParser = createRepairingJSONParser();
+                    logger.debug('Blueprint streaming started');
+                }
+
+                // Feed chunk to parser
+                blueprintParser.feed(message.chunk);
+
+                // Try to parse partial blueprint
+                try {
+                    const partial = blueprintParser.finalize();
+                    setBlueprint(partial);
+                    logger.debug('Blueprint chunk processed, partial blueprint updated');
+                } catch (e) {
+                    logger.debug('Blueprint chunk accumulated, waiting for more data');
+                }
                 break;
             }
 

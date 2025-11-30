@@ -3,9 +3,9 @@ import { ArrowRight, Info } from 'react-feather';
 import { useNavigate } from 'react-router';
 import { useAuth } from '@/contexts/auth-context';
 import {
-	AgentModeToggle,
-	type AgentMode,
-} from '../components/agent-mode-toggle';
+	ProjectModeSelector,
+	type ProjectMode,
+} from '../components/project-mode-selector';
 import { useAuthGuard } from '../hooks/useAuthGuard';
 import { usePaginatedApps } from '@/hooks/use-paginated-apps';
 import { AnimatePresence, LayoutGroup, motion } from 'framer-motion';
@@ -21,7 +21,7 @@ export default function Home() {
 	const navigate = useNavigate();
 	const { requireAuth } = useAuthGuard();
 	const textareaRef = useRef<HTMLTextAreaElement>(null);
-	const [agentMode, setAgentMode] = useState<AgentMode>('deterministic');
+	const [projectMode, setProjectMode] = useState<ProjectMode>('app');
 	const [query, setQuery] = useState('');
 	const { user } = useAuth();
 
@@ -60,13 +60,13 @@ export default function Home() {
 	// Discover section should appear only when enough apps are available and loading is done
 	const discoverReady = useMemo(() => !loading && (apps?.length ?? 0) > 5, [loading, apps]);
 
-	const handleCreateApp = (query: string, mode: AgentMode) => {
+	const handleCreateApp = (query: string, mode: ProjectMode) => {
 		const encodedQuery = encodeURIComponent(query);
 		const encodedMode = encodeURIComponent(mode);
-		
+
 		// Encode images as JSON if present
 		const imageParam = images.length > 0 ? `&images=${encodeURIComponent(JSON.stringify(images))}` : '';
-		const intendedUrl = `/chat/new?query=${encodedQuery}&agentMode=${encodedMode}${imageParam}`;
+		const intendedUrl = `/chat/new?query=${encodedQuery}&projectType=${encodedMode}${imageParam}`;
 
 		if (
 			!requireAuth({
@@ -179,7 +179,7 @@ export default function Home() {
 							onSubmit={(e) => {
 								e.preventDefault();
 								const query = textareaRef.current!.value;
-								handleCreateApp(query, agentMode);
+								handleCreateApp(query, projectMode);
 							}}
 							className="flex z-10 flex-col w-full min-h-[150px] bg-bg-4 border border-accent/30 dark:border-accent/50 dark:bg-bg-2 rounded-[18px] shadow-textarea p-5 transition-all duration-200"
 						>
@@ -210,7 +210,7 @@ export default function Home() {
 										if (e.key === 'Enter' && !e.shiftKey) {
 											e.preventDefault();
 											const query = textareaRef.current!.value;
-											handleCreateApp(query, agentMode);
+											handleCreateApp(query, projectMode);
 										}
 									}}
 								/>
@@ -224,15 +224,11 @@ export default function Home() {
 								)}
 							</div>
 							<div className="flex items-center justify-between mt-4 pt-1">
-								{import.meta.env.VITE_AGENT_MODE_ENABLED ? (
-									<AgentModeToggle
-										value={agentMode}
-										onChange={setAgentMode}
-										className="flex-1"
-									/>
-								) : (
-									<div></div>
-								)}
+								<ProjectModeSelector
+									value={projectMode}
+									onChange={setProjectMode}
+									className="flex-1"
+								/>
 
 								<div className="flex items-center justify-end ml-4 gap-2">
 								<ImageUploadButton

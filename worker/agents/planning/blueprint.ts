@@ -10,6 +10,7 @@ import z from 'zod';
 import { imagesToBase64 } from 'worker/utils/images';
 import { ProcessedImageAttachment } from 'worker/types/image-attachment';
 import { getTemplateImportantFiles } from 'worker/services/sandbox/utils';
+import { ProjectType } from '../core/types';
 
 const logger = createLogger('Blueprint');
 
@@ -228,12 +229,36 @@ Preinstalled dependencies:
 {{dependencies}}
 </STARTING TEMPLATE>`;
 
+const PROJECT_TYPE_BLUEPRINT_GUIDANCE: Record<ProjectType, string> = {
+    app: '',
+    workflow: `## Workflow Project Context
+- Focus entirely on backend flows running on Cloudflare Workers (no UI/screens)
+- Describe REST endpoints, scheduled jobs, queue consumers, Durable Objects, and data storage bindings in detail
+- User flow should outline request/response shapes and operational safeguards
+- Implementation roadmap must mention testing strategies (unit tests, integration tests) and deployment validation steps.`,
+    presentation: `## Presentation Project Context
+- Design a beautiful slide deck with a cohesive narrative arc (intro, problem, solution, showcase, CTA)
+- Produce visually rich slides with precise layout, typography, imagery, and animation guidance
+- User flow should actually be a \"story flow\" describing slide order, transitions, interactions, and speaker cues
+- Implementation roadmap must reference presentation scaffold / template features (themes, deck index, slide components, animations, print/external export mode)
+- Prioritize static data and storytelling polish; avoid backend complexity entirely.`,
+    general: `## Objective Context
+- Start from scratch; choose the most suitable representation for the request.
+- If the outcome is documentation/specs/notes, prefer Markdown/MDX and do not assume any runtime.
+- If a slide deck is helpful, outline the deck structure and content. Avoid assuming a specific file layout; keep the plan flexible.
+- Keep dependencies minimal; introduce runtime only when clearly needed.`,
+};
+
+const getProjectTypeGuidance = (projectType: ProjectType): string =>
+    PROJECT_TYPE_BLUEPRINT_GUIDANCE[projectType] || '';
+
 interface BaseBlueprintGenerationArgs {
     env: Env;
     inferenceContext: InferenceContext;
     query: string;
     language: string;
     frameworks: string[];
+    projectType: ProjectType;
     images?: ProcessedImageAttachment[];
     stream?: {
         chunk_size: number;
@@ -259,7 +284,7 @@ export async function generateBlueprint(args: AgenticBlueprintGenerationArgs): P
 export async function generateBlueprint(
     args: PhasicBlueprintGenerationArgs | AgenticBlueprintGenerationArgs
 ): Promise<Blueprint> {
-    const { env, inferenceContext, query, language, frameworks, templateDetails, templateMetaInfo, images, stream } = args;
+    const { env, inferenceContext, query, language, frameworks, templateDetails, templateMetaInfo, images, stream, projectType } = args;
     const isAgentic = !templateDetails || !templateMetaInfo;
     
     try {
@@ -279,6 +304,10 @@ export async function generateBlueprint(
             );
             const fileTreeText = PROMPT_UTILS.serializeTreeNodes(templateDetails.fileTree);
             systemPrompt = systemPrompt.replace('{{filesText}}', filesText).replace('{{fileTreeText}}', fileTreeText);
+        }
+        const projectGuidance = getProjectTypeGuidance(projectType);
+        if (projectGuidance) {
+            systemPrompt = `${systemPrompt}\n\n${projectGuidance}`;
         }
         
         const systemPromptMessage = createSystemMessage(generalSystemPromptBuilder(systemPrompt, {
@@ -303,16 +332,6 @@ export async function generateBlueprint(
             systemPromptMessage,
             userMessage
         ];
-
-        // Log messages to console for debugging
-        // logger.info('Blueprint messages:', JSON.stringify(messages, null, 2));
-        
-        // let reasoningEffort: "high" | "medium" | "low" | undefined = "medium" as const;
-        // if (templateMetaInfo?.complexity === 'simple' || templateMetaInfo?.complexity === 'moderate') {
-        //     console.log(`Using medium reasoning for simple/moderate queries`);
-        //     modelName = AIModels.OPENAI_O4_MINI;
-        //     reasoningEffort = undefined;
-        // }
 
         const { object: results } = await executeInference({
             env,
