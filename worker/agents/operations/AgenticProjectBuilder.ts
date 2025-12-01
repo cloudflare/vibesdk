@@ -152,7 +152,8 @@ export class AgenticProjectBuilderOperation extends AgentOperationWithTools<
 
         const hasFiles = (filesIndex || []).length > 0;
         const isAgenticBlueprint = (bp?: Blueprint): bp is AgenticBlueprint => {
-            return !!bp && Array.isArray((bp as any).plan);
+            if (!bp) return false;
+            return 'plan' in bp && Array.isArray(bp.plan);
         };
         const hasTSX = filesIndex?.some(f => /\.(t|j)sx$/i.test(f.filePath)) || false;
         const hasMD = filesIndex?.some(f => /\.(md|mdx)$/i.test(f.filePath)) || false;

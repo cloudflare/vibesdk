@@ -233,8 +233,14 @@ export class StateMigration {
             if (hasTemplateDetails) {
                 delete stateWithDeprecated.templateDetails;
             }
+            let migratedBehaviorType = state.behaviorType;
             if (isStateWithAgentMode(state)) {
-                delete stateWithDeprecated.agentMode;
+                migratedBehaviorType = state.agentMode === 'smart' ? 'agentic' : 'phasic';
+                needsMigration = true;
+                logger.info('Migrating agentMode to behaviorType', { 
+                    oldMode: state.agentMode, 
+                    newType: migratedBehaviorType 
+                });
             }
             
             return newState;

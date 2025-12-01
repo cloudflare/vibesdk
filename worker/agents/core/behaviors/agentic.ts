@@ -227,10 +227,14 @@ export class AgenticCodingBehavior extends BaseCodingBehavior<AgenticState> impl
     }
 
     getOperationOptions(): OperationOptions<AgenticGenerationContext> {
+        const context = GenerationContext.from(this.state, this.getTemplateDetails(), this.logger);
+        if (!GenerationContext.isAgentic(context)) {
+            throw new Error('Expected AgenticGenerationContext');
+        }
         return {
             env: this.env,
             agentId: this.getAgentId(),
-            context: GenerationContext.from(this.state, this.getTemplateDetails(), this.logger) as AgenticGenerationContext,
+            context,
             logger: this.logger,
             inferenceContext: this.getInferenceContext(),
             agent: this

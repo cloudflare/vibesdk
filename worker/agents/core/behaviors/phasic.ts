@@ -199,10 +199,14 @@ export class PhasicCodingBehavior extends BaseCodingBehavior<PhasicState> implem
     }
 
     getOperationOptions(): OperationOptions<PhasicGenerationContext> {
+        const context = GenerationContext.from(this.state, this.getTemplateDetails(), this.logger);
+        if (!GenerationContext.isPhasic(context)) {
+            throw new Error('Expected PhasicGenerationContext');
+        }
         return {
             env: this.env,
             agentId: this.getAgentId(),
-            context: GenerationContext.from(this.state, this.getTemplateDetails(), this.logger) as PhasicGenerationContext,
+            context,
             logger: this.logger,
             inferenceContext: this.getInferenceContext(),
             agent: this
