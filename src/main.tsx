@@ -1,27 +1,16 @@
-import { createRoot } from 'react-dom/client';
-import { createBrowserRouter } from 'react-router';
-import { RouterProvider } from 'react-router/dom';
-import { initSentry } from './utils/sentry';
+// src/main.tsx
+import React from 'react'
+import ReactDOM from 'react-dom/client'
 
-import { routes } from './routes.ts';
-import './index.css';
+// Theme & global styles (load YOUR styles last so they win)
+import './styles/tokens.css'
+import './styles/global.css'
 
-// Initialize Sentry before rendering
-initSentry();
+// App chrome (no router required)
+import AppShell from './ui/AppShell'
 
-// Type for React Router hydration data  
-import type { RouterState } from 'react-router';
-
-declare global {
-  interface Window {
-    __staticRouterHydrationData?: Partial<Pick<RouterState, 'loaderData' | 'actionData' | 'errors'>>;
-  }
-}
-
-const router = createBrowserRouter(routes, {
-	hydrationData: window.__staticRouterHydrationData,
-});
-
-createRoot(document.getElementById('root')!).render(
-  <RouterProvider router={router} />
-);
+ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
+  <React.StrictMode>
+    <AppShell />
+  </React.StrictMode>,
+)
