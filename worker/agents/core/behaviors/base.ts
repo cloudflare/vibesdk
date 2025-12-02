@@ -7,7 +7,7 @@ import {
     PhasicBlueprint,
 } from '../../schemas';
 import { ExecuteCommandsResponse, PreviewType, RuntimeError, StaticAnalysisResponse, TemplateDetails, TemplateFile } from '../../../services/sandbox/sandboxTypes';
-import { BaseProjectState, AgenticState } from '../state';
+import { BaseProjectState, AgenticState, FileState } from '../state';
 import { AllIssues, AgentSummary, AgentInitArgs, BehaviorType, DeploymentTarget, ProjectType } from '../types';
 import { WebSocketMessageResponses } from '../../constants';
 import { ProjectSetupAssistant } from '../../assistants/projectsetup';
@@ -940,6 +940,8 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
             phaseName
         });
 
+        const savedFiles: FileState[] = [];
+
         const operation = new SimpleCodeGenerationOperation();
         const result = await operation.execute(
             {
@@ -964,7 +966,8 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
                 },
                 fileClosedCallback: (file, message) => {
                     // Save file
-                    this.fileManager.saveGeneratedFilesStageOnly([file])
+                    const saved = this.fileManager.saveGeneratedFilesStageOnly([file]);
+                    savedFiles.push(...saved);
                     this.updateSlideManifest(file);
                     this.broadcast(WebSocketMessageResponses.FILE_GENERATED, {
                         message,
@@ -975,7 +978,8 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
             this.getOperationOptions()
         );
 
-        const savedFiles = await this.fileManager.saveGeneratedFiles(
+        // Just commit
+        await this.fileManager.saveGeneratedFiles(
             [],
             `feat: ${phaseName}\n\n${phaseDescription}`
         );
@@ -1169,6 +1173,9 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
 
         // Get important files for return value
         const importantFiles = getTemplateImportantFiles(templateDetails);
+
+        // Ensure deployment to sandbox 
+        await this.deployToSandbox();
 
         // Notify frontend about template metadata update
         this.broadcast(WebSocketMessageResponses.TEMPLATE_UPDATED, {
