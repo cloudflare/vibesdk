@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.2.1](https://github.com/cloudflare/vibesdk/compare/v1.2.0...v1.2.1) (2025-12-04)
+
+
+### Bug Fixes
+
+* variable name mismatch in simple code generation operation ([22b8f00](https://github.com/cloudflare/vibesdk/commit/22b8f0082ab0817be9fd9571c6d0806c49c1180a))
+
 ## [1.2.0](https://github.com/cloudflare/vibesdk/compare/v1.1.0...v1.2.0) (2025-11-30)
 
 
