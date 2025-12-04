@@ -155,7 +155,7 @@ export class SimpleCodeGenerationOperation extends AgentOperation<
             requirements: formatRequirements(requirements),
             files: formatFiles(files),
             template: context.templateDetails ? PROMPT_UTILS.serializeTemplate(context.templateDetails) : 'No template information',
-            existingFiles: existingFilesContext
+            relevantFiles: existingFilesContext
         });
 
         const codeGenerationFormat = new SCOFFormat();
