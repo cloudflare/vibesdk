@@ -851,7 +851,7 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
                         fileContents: JSON.stringify(manifestData, null, 2),
                         filePurpose: 'Presentation slides manifest'
                     };
-                    this.fileManager.saveGeneratedFilesStageOnly([updatedManifest]);
+                    this.fileManager.recordFileChanges([updatedManifest]);
                     
                     this.logger.info('Updated manifest.json with new slide', {
                         slidePath: relativeSlidePath,
@@ -965,8 +965,8 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
                     });
                 },
                 fileClosedCallback: (file, message) => {
-                    // Save file
-                    const saved = this.fileManager.saveGeneratedFilesStageOnly([file]);
+                    // Record file to state (sync)
+                    const saved = this.fileManager.recordFileChanges([file]);
                     savedFiles.push(...saved);
                     this.updateSlideManifest(file);
                     this.broadcast(WebSocketMessageResponses.FILE_GENERATED, {
@@ -978,7 +978,6 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
             this.getOperationOptions()
         );
 
-        // Just commit
         await this.fileManager.saveGeneratedFiles(
             [],
             `feat: ${phaseName}\n\n${phaseDescription}`

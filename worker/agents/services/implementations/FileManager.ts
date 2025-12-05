@@ -93,7 +93,12 @@ export class FileManager implements IFileManager {
         return results[0];
     }
 
-    saveGeneratedFilesStageOnly(files: FileOutputType[]) : FileState[] {
+    /**
+     * Record file changes to state (synchronous).
+     * Updates generatedFilesMap and computes diffs, but does NOT touch git.
+     * Use commitFiles() to persist recorded files to git.
+     */
+    recordFileChanges(files: FileOutputType[]): FileState[] {
         const templateDetails = this.getTemplateDetailsFunc();
         const dontTouchFiles = templateDetails?.dontTouchFiles || new Set<string>();
 
@@ -139,23 +144,27 @@ export class FileManager implements IFileManager {
         return fileStates;
     }
 
+    /**
+     * Save and optionally commit files to git.
+     * - With files: records them to state, then commits if commitMessage provided
+     * - With empty array + commitMessage: commits ALL pending changes from state
+     */
     async saveGeneratedFiles(files: FileOutputType[], commitMessage?: string): Promise<FileState[]> {
-        let fileStates: FileState[] = [];
+        // Empty array + commit message = commit all pending changes
+        const fileStates = files.length === 0
+            ? Object.values(this.stateManager.getState().generatedFilesMap)
+            : this.recordFileChanges(files);
+
         try {
-            fileStates = this.saveGeneratedFilesStageOnly(files);
-            const shouldCommit = fileStates.length > 0 && fileStates.some(fileState => fileState.lastDiff !== '');
-            if (shouldCommit) {
-                // If commit message is available, commit, else stage
-                if (commitMessage) {
-                    const unescapedMessage = commitMessage.replace(/\\n/g, '\n').replace(/\\t/g, '\t');
-                    console.log(`[FileManager] Committing ${fileStates.length} files:`, unescapedMessage);
-                    await this.git.commit(fileStates, unescapedMessage);
-                    console.log(`[FileManager] Commit successful`);
-                } else {
-                    console.log(`[FileManager] Staging ${fileStates.length} files`);
-                    await this.git.stage(fileStates);
-                    console.log(`[FileManager] Stage successful`);
-                }
+            if (commitMessage) {
+                const unescapedMessage = commitMessage.replace(/\\n/g, '\n').replace(/\\t/g, '\t');
+                console.log(`[FileManager] Committing ${fileStates.length} files:`, unescapedMessage);
+                await this.git.commit(fileStates, unescapedMessage);
+                console.log(`[FileManager] Commit successful`);
+            } else if (fileStates.length > 0 && fileStates.some(f => f.lastDiff !== '')) {
+                console.log(`[FileManager] Staging ${fileStates.length} files`);
+                await this.git.stage(fileStates);
+                console.log(`[FileManager] Stage successful`);
             }
         } catch (error) {
             console.error(`[FileManager] Failed to commit files:`, error, commitMessage);
