@@ -83,8 +83,7 @@ export const ProcessStateSchema = z.enum([
   'running',
   'stopping',
   'stopped',
-  'crashed',
-  'restarting'
+  'crashed'
 ]);
 export type ProcessState = z.infer<typeof ProcessStateSchema>;
 
@@ -110,9 +109,9 @@ export interface MonitoringOptions {
   readonly restartDelay?: number;
   readonly healthCheckInterval?: number;
   readonly errorBufferSize?: number;
-  readonly enableMetrics?: boolean;
   readonly env?: Record<string, string>;
   readonly killTimeout?: number;
+  readonly expectedPort?: number; // Port the child process should bind to (for health checks)
 }
 
 // ==========================================
@@ -294,13 +293,16 @@ export type Result<T, E = Error> =
 // CONSTANTS
 // ==========================================
 
-export const DEFAULT_MONITORING_OPTIONS: MonitoringOptions = {
+// Note: expectedPort is optional so we use Omit to exclude it from Required
+export const DEFAULT_MONITORING_OPTIONS: Omit<Required<MonitoringOptions>, 'expectedPort'> & { expectedPort?: number } = {
   autoRestart: true,
-  maxRestarts: 6,
+  maxRestarts: 3,
   restartDelay: 1000,
-  errorBufferSize: 300,
-  healthCheckInterval: 10000,
-  enableMetrics: false
+  errorBufferSize: 100,
+  healthCheckInterval: 30000,
+  env: {},
+  killTimeout: 10000,
+  expectedPort: undefined
 } as const;
 
 export const DEFAULT_STORAGE_OPTIONS: ErrorStoreOptions = {

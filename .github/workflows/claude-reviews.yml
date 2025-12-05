@@ -45,32 +45,6 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Minimize Old Review Comments
-        run: |
-          echo "Collapsing previous review comments from github-actions[bot]..."
-          
-          # Get all comments from github-actions[bot] on this PR
-          OLD_REVIEWS=$(gh api repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/comments \
-            --jq '[.[] | select(.user.login == "github-actions[bot]") | select(.body | contains("## Code Review") or contains("🔒 **CRITICAL PATH SECURITY REVIEW**") or contains("## 🔍 Code Quality & Security Review")) | .id]')
-          
-          if [ -n "$OLD_REVIEWS" ] && [ "$OLD_REVIEWS" != "[]" ]; then
-            echo "Found old review comments to collapse"
-            echo "$OLD_REVIEWS" | jq -r '.[]' | while read comment_id; do
-              echo "Collapsing comment $comment_id"
-              gh api repos/${{ github.repository }}/issues/comments/$comment_id -X PATCH \
-                -f body="<details><summary>🔒 Previous review (outdated)</summary>
-
-          This review has been superseded by a newer review.
-          </details>" || echo "Failed to collapse comment $comment_id"
-            done
-            echo "✓ Old comments collapsed"
-          else
-            echo "No old review comments found"
-          fi
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        continue-on-error: true
-
       - name: Run Comprehensive Review
         uses: anthropics/claude-code-action@v1
         with:
@@ -137,16 +111,8 @@ jobs:
                [Overall assessment with approval/disapproval reasoning]
                ```
             
-            5. Post review (MANDATORY FINAL STEP - use single efficient command)
+            5. Post review (MANDATORY FINAL STEP)
                ```bash
-               # Post new review (collapse old ones first if any exist)
-               OLD_IDS=$(gh api repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/comments --jq '[.[] | select(.user.login == "github-actions[bot]") | select(.body | startswith("## Code & Security Review")) | .id] | @csv' | tr -d '"')
-               if [ -n "$OLD_IDS" ]; then
-                 for id in ${OLD_IDS//,/ }; do
-                   gh api -X PATCH repos/${{ github.repository }}/issues/comments/$id -f body="<details><summary>Outdated</summary></details>" &
-                 done
-                 wait
-               fi
                gh pr comment ${{ github.event.pull_request.number }} --repo ${{ github.repository }} --body "YOUR_REVIEW_HERE"
                ```
             
@@ -180,3 +146,42 @@ jobs:
             --allowed-tools "mcp__github_inline_comment__create_inline_comment,Bash(gh issue view:*),Bash(gh issue list:*),Bash(gh search:*),Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh pr edit:*),Bash(gh api:*)"
             --max-turns ${{ steps.critical_paths.outputs.is_critical == 'true' && '90' || '65' }}
             --model claude-sonnet-4-5-20250929
+      
+      - name: Intelligent Comment Cleanup
+        uses: anthropics/claude-code-action@v1
+        if: always()
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          prompt: |
+            Clean up stale bot comments on PR #${{ github.event.pull_request.number }}.
+            
+            **Task:**
+            1. Fetch all comments on this PR
+            2. Identify bot comments (users ending in [bot]) that are stale/outdated:
+               - Old reviews superseded by newer ones
+               - Old PR description suggestions
+               - Previously collapsed/outdated markers
+               - Progress/status comments from previous workflow runs
+            3. Keep only the most recent comment per category per bot
+            4. DELETE all stale comments (do not collapse)
+            
+            **Get all comments:**
+            ```bash
+            gh api repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/comments --jq '.[] | {id, user: .user.login, body, created_at}'
+            ```
+            
+            **Delete a comment:**
+            ```bash
+            gh api repos/${{ github.repository }}/issues/comments/COMMENT_ID -X DELETE
+            ```
+            
+            Be intelligent:
+            - Preserve the newest useful comment in each category
+            - Delete everything else that's redundant or stale
+            - If unsure, keep the comment (conservative approach)
+          
+          claude_args: |
+            --allowed-tools "Bash(gh api repos/*/issues/*/comments:*),Bash(gh api repos/*/issues/comments/*:*)"
+            --max-turns 8
+            --model claude-haiku-4-5-20251001

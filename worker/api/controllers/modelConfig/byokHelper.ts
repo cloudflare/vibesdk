@@ -87,6 +87,13 @@ export function getByokModels(
  * Get providers that have platform API keys configured in environment
  */
 export function getPlatformEnabledProviders(env: Env): string[] {
+    // If environment variable is set, use it
+    const platformModelProviders = env.PLATFORM_MODEL_PROVIDERS;
+    if (platformModelProviders) {
+        const providers = platformModelProviders.split(',').map(p => p.trim());
+        console.log("Platform model providers: ", providers);
+        return providers;
+    }
 	const enabledProviders: string[] = [];
 
 	// Check for provider API keys in environment variables

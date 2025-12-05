@@ -3,9 +3,9 @@
  */
 
 import { describe, it, expect, beforeAll } from 'vitest';
-import { EncryptionService } from '../../../../worker/services/secrets/EncryptionService';
-import { KeyDerivation } from '../../../../worker/services/secrets/KeyDerivation';
-import { CRYPTO_CONSTANTS } from '../../../../worker/services/secrets/constants';
+import { EncryptionService } from './EncryptionService';
+import { KeyDerivation } from './KeyDerivation';
+import { CRYPTO_CONSTANTS } from './constants';
 
 describe('EncryptionService', () => {
     let encryptionService: EncryptionService;

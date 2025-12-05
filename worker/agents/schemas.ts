@@ -95,11 +95,11 @@ export const BlueprintSchema = z.object({
         dataFlow: z.string().describe('Conscise description of how data flows through the application'),
     }).describe('Description of the architecture of the application, only needed for a dynamic application'),
     pitfalls: z.array(z.string()).describe('Exhaustive yet concise list of all the various framework and domain specific pitfalls, issues, challenges, and bugs that can occur while developing this and to avoid during implementation'),
-    frameworks: z.array(z.string()).describe('Essential Frameworks, libraries and dependencies to be used in the application, with only major versions optionally specified'),
+    frameworks: z.array(z.string()).describe('Essential Frameworks, libraries and dependencies to be used in the application (apart from what is already in the template), with only major versions optionally specified'),
     implementationRoadmap: z.array(z.object({
         phase: z.string().describe('Phase name'),
-        description: z.string().describe('Description of the phase'),
-    })).describe('Phases of the implementation roadmap'),
+        description: z.string().describe('Concise and brief description of the phase'),
+    })).describe('Rough roadmap of the project'),
     initialPhase: PhaseConceptSchema.describe('The first phase to be implemented, in **STRICT** accordance with <PHASE GENERATION STRATEGY>'),
     // commands: z.array(z.string()).describe('Commands to set up the development environment and install all dependencies not already in the template. These will run before code generation starts.'),
 });

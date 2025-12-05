@@ -9,17 +9,17 @@ export default defineWorkersConfig({
         ssr: {
           enabled: true,
           include: [
-            'ajv',
             '@cloudflare/containers',
             '@cloudflare/sandbox',
             '@babel/traverse',
-            '@babel/types'
+            '@babel/types',
           ],
         },
       },
     },
     poolOptions: {
       workers: {
+        main: './test/worker-entry.ts',
         wrangler: { configPath: './wrangler.test.jsonc' },
         miniflare: {
           compatibilityDate: '2024-12-12',
@@ -31,6 +31,6 @@ export default defineWorkersConfig({
       },
     },
     include: ['**/*.{test,spec}.{js,ts,jsx,tsx}'],
-    exclude: ['**/node_modules/**', '**/dist/**', '**/.git/**', '**/worker/api/routes/**'],
+    exclude: ['**/node_modules/**', '**/dist/**', '**/.git/**', '**/worker/api/routes/**', '**/test/worker-entry.ts'],
   },
 });

@@ -10,8 +10,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import type { ModelConfig, UserModelConfigWithMetadata } from '@/api-types';
-import type { AgentDisplayConfig } from '@/components/model-config-tabs';
+import type { AgentDisplayConfig, ModelConfig, UserModelConfigWithMetadata } from '@/api-types';
 
 // Reuse workflow tabs from settings (DRY principle)
 const WORKFLOW_TABS = {

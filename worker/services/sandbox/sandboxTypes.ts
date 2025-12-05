@@ -21,25 +21,6 @@ export const TemplateFileSchema = z.object({
 })
 export type TemplateFile = z.infer<typeof TemplateFileSchema>
 
-// --- Template Details ---
-
-export const TemplateDetailsSchema = z.object({
-    name: z.string(),
-    description: z.object({
-        selection: z.string(),
-        usage: z.string(),
-    }),
-    fileTree: FileTreeNodeSchema,
-    allFiles: z.record(z.string(), z.string()), // Map of filePath -> fileContents
-    language: z.string().optional(),
-    deps: z.record(z.string(), z.string()),
-    frameworks: z.array(z.string()).optional(),
-    importantFiles: z.array(z.string()),
-    dontTouchFiles: z.array(z.string()),
-    redactedFiles: z.array(z.string()),
-})
-export type TemplateDetails = z.infer<typeof TemplateDetailsSchema>
-
 // ==========================================
 // RUNTIME ERROR SCHEMAS
 // ==========================================
@@ -96,16 +77,43 @@ export type CommandExecutionResult = z.infer<typeof CommandExecutionResultSchema
 
 // --- API Request/Response Schemas ---
 
+
+// --- Template Details ---
+
+export const TemplateDetailsSchema = z.object({
+    name: z.string(),
+    description: z.object({
+        selection: z.string(),
+        usage: z.string(),
+    }),
+    fileTree: FileTreeNodeSchema,
+    allFiles: z.record(z.string(), z.string()),
+    language: z.string().optional(),
+    deps: z.record(z.string(), z.string()),
+    frameworks: z.array(z.string()).optional(),
+    importantFiles: z.array(z.string()),
+    dontTouchFiles: z.array(z.string()),
+    redactedFiles: z.array(z.string()),
+    renderMode: z.enum(['sandbox', 'browser']).optional(),
+    slideDirectory: z.string().optional(),
+    disabled: z.boolean(),
+})
+export type TemplateDetails = z.infer<typeof TemplateDetailsSchema>
+
 // /templates (GET)
 
 export const TemplateInfoSchema = z.object({
     name: z.string(),
     language: z.string().optional(),
     frameworks: z.array(z.string()).optional(),
+    projectType: z.enum(['app', 'workflow', 'presentation']).default('app'),
     description: z.object({
         selection: z.string(),
         usage: z.string(),
-    })
+    }),
+    renderMode: z.enum(['sandbox', 'browser']).optional(),
+    slideDirectory: z.string().optional(),
+    disabled: z.boolean(),
 })
 export type TemplateInfo = z.infer<typeof TemplateInfoSchema>
 

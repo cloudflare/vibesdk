@@ -1,4 +1,4 @@
-import { RateLimitType, RateLimitStore, RateLimitSettings, DORateLimitConfig, KVRateLimitConfig, DEFAULT_RATE_INCREMENTS_FOR_MODELS } from './config';
+import { RateLimitType, RateLimitStore, RateLimitSettings, DORateLimitConfig, KVRateLimitConfig } from './config';
 import { createObjectLogger } from '../../logger';
 import { AuthUser } from '../../types/auth-types';
 import { extractTokenWithMetadata, extractRequestMetadata } from '../../utils/authUtils';
@@ -6,7 +6,7 @@ import { captureSecurityEvent } from '../../observability/sentry';
 import { KVRateLimitStore } from './KVRateLimitStore';
 import { RateLimitExceededError, SecurityError } from 'shared/types/errors';
 import { isDev } from 'worker/utils/envs';
-import { AIModels } from 'worker/agents/inferutils/config.types';
+import { AI_MODEL_CONFIG, AIModels } from 'worker/agents/inferutils/config.types';
 
 export class RateLimitService {
     static logger = createObjectLogger(this, 'RateLimitService');
@@ -251,10 +251,10 @@ export class RateLimitService {
 		const key = this.buildRateLimitKey(RateLimitType.LLM_CALLS, `${identifier}${suffix}`);
 		
 		try {
-            let incrementBy = 1;
-            if (DEFAULT_RATE_INCREMENTS_FOR_MODELS[model]) {
-                incrementBy = DEFAULT_RATE_INCREMENTS_FOR_MODELS[model];
-            }
+            // Increment by model's credit cost
+            const modelConfig = AI_MODEL_CONFIG[model as AIModels];
+            const incrementBy = modelConfig.creditCost;
+            
 			const success = await this.enforce(env, key, config, RateLimitType.LLM_CALLS, incrementBy);
 			if (!success) {
 				this.logger.warn('LLM calls rate limit exceeded', {
@@ -272,11 +272,11 @@ export class RateLimitService {
                     incrementBy
 				});
 				throw new RateLimitExceededError(
-					`AI inference rate limit exceeded. Consider using lighter models. Maximum ${config.llmCalls.limit} credits per ${config.llmCalls.period / 3600} hour${config.llmCalls.period >= 7200 ? 's' : ''} or ${config.llmCalls.dailyLimit} credits per day. Gemini pro models cost ${DEFAULT_RATE_INCREMENTS_FOR_MODELS[AIModels.GEMINI_2_5_PRO]} credits per call, flash models cost ${DEFAULT_RATE_INCREMENTS_FOR_MODELS[AIModels.GEMINI_2_5_FLASH]} credits per call, and flash lite models cost ${DEFAULT_RATE_INCREMENTS_FOR_MODELS[AIModels.GEMINI_2_5_FLASH_LITE]} credit per call.`,
+					`AI inference rate limit exceeded. Consider using lighter models. Maximum ${config.llmCalls.limit} credits per ${config.llmCalls.period / 3600} hour${config.llmCalls.period >= 7200 ? 's' : ''} or ${config.llmCalls.dailyLimit} credits per day.`,
 					RateLimitType.LLM_CALLS,
 					config.llmCalls.limit,
 					config.llmCalls.period,
-                    [`Please try again in due time when the limit resets for you. Consider using lighter models. Gemini pro models cost ${DEFAULT_RATE_INCREMENTS_FOR_MODELS[AIModels.GEMINI_2_5_PRO]} credits per call, flash models cost ${DEFAULT_RATE_INCREMENTS_FOR_MODELS[AIModels.GEMINI_2_5_FLASH]} credits per call, and flash lite models cost ${DEFAULT_RATE_INCREMENTS_FOR_MODELS[AIModels.GEMINI_2_5_FLASH_LITE]} credit per call.`]
+                    [`Please try again in due time when the limit resets for you. The current model costs ${incrementBy} credits per call. Please go to settings to change your default model.`]
 				);
 			}
 		} catch (error) {

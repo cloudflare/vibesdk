@@ -1,16 +1,5 @@
+/// <reference types="@cloudflare/vitest-pool-workers" />
 /**
- * Comprehensive Tests for UserSecretsStore Durable Object
- * 
- * Tests complete lifecycle with unique DO instances per test to avoid
- * SQLite WAL cleanup issues (each test uses fresh DO with unique ID)
- * 
- * Coverage:
- * - Initialization & readiness
- * - CRUD operations (Create, Read, Update, Delete)
- * - Encryption & decryption
- * - Validation & error handling
- * - Secret expiration support
- * 
  * @vitest-environment @cloudflare/vitest-pool-workers
  */
 
@@ -21,7 +10,7 @@ import type {
     SecretMetadata,
     SecretWithValue,
     KeyRotationInfo
-} from '../../../../worker/services/secrets/types';
+} from './types';
 import type { DurableObjectNamespace } from '@cloudflare/workers-types';
 
 // Type for UserSecretsStore stub
@@ -40,10 +29,10 @@ describe('UserSecretsStore - Comprehensive Tests', () => {
 
     // Helper to get unique DO instance for each test (prevents SQLite WAL conflicts)
     function getUniqueStore(testName: string): UserSecretsStoreStub {
-        const id = (env.UserSecretsStore as DurableObjectNamespace).idFromName(
+        const id = (env.UserSecretsStore as unknown as DurableObjectNamespace).idFromName(
             `test-${testName}-${Date.now()}-${Math.random()}`
         );
-        const store = (env.UserSecretsStore as DurableObjectNamespace).get(id) as unknown as UserSecretsStoreStub;
+        const store = (env.UserSecretsStore as unknown as DurableObjectNamespace).get(id) as unknown as UserSecretsStoreStub;
         currentStore = store;
         return store;
     }

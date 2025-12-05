@@ -1,9 +1,10 @@
 import { Database } from 'bun:sqlite';
 import { createHash } from 'crypto';
-import { 
+import * as fs from 'fs';
+import * as path from 'path';
+import {
   SimpleError,
   StoredError,
-  ProcessInfo,
   StoredLog,
   LogLevel,
   ErrorSummary,
@@ -68,17 +69,14 @@ export class StorageManager {
   }
 
   private ensureDataDirectory(dbPath: string): void {
-    const fs = require('fs');
-    const path = require('path');
     const dir = path.dirname(dbPath);
-    
+
     if (!fs.existsSync(dir)) {
       fs.mkdirSync(dir, { recursive: true });
     }
   }
 
   private initializeDatabase(dbPath: string): Database {
-    const fs = require('fs');
     
     try {
       const dbExists = fs.existsSync(dbPath);
@@ -103,10 +101,17 @@ export class StorageManager {
     }
   }
 
+  private maintenanceInterval?: ReturnType<typeof setInterval>;
+
   private setupMaintenanceTasks(): void {
-    setInterval(() => {
-      if (this.errorStorage) {
-        // Maintenance tasks if needed
+    // Run maintenance every hour - cleanup old data based on retention settings
+    this.maintenanceInterval = setInterval(() => {
+      try {
+        if (this.logStorage) {
+          this.logStorage.cleanupOldLogs();
+        }
+      } catch (error) {
+        console.warn('Maintenance task failed:', error);
       }
     }, 60 * 60 * 1000);
   }
@@ -133,14 +138,6 @@ export class StorageManager {
   private wrapRetryOperation<T>(operation: () => Result<T>): Result<T> {
     try {
       return this.retryOperation(operation);
-    } catch (error) {
-      return { success: false, error: this.toError(error) };
-    }
-  }
-
-  public storeProcessInfo(processInfo: ProcessInfo): Result<boolean> {
-    try {
-      return { success: true, data: true };
     } catch (error) {
       return { success: false, error: this.toError(error) };
     }
@@ -195,9 +192,15 @@ export class StorageManager {
    */
   public close(): void {
     try {
+      // Clear maintenance interval to prevent memory leaks
+      if (this.maintenanceInterval) {
+        clearInterval(this.maintenanceInterval);
+        this.maintenanceInterval = undefined;
+      }
+
       this.errorStorage.close();
       this.logStorage.close();
-      
+
       if (this.errorDb !== this.logDb) {
         this.logDb.close();
       }
@@ -211,10 +214,9 @@ export class StorageManager {
 class ErrorStorage {
   private db: Database;
   private options: Required<ErrorStoreOptions>;
-  
+
   // Prepared statements
   private insertErrorStmt: ReturnType<Database['query']>;
-  private updateErrorStmt: ReturnType<Database['query']>;
   private selectErrorsStmt: ReturnType<Database['query']>;
   private countErrorsStmt: ReturnType<Database['query']>;
   private deleteErrorsStmt: ReturnType<Database['query']>;
@@ -269,13 +271,7 @@ class ErrorStorage {
         instance_id, process_id, error_hash, timestamp, level, message, raw_output
       ) VALUES (?, ?, ?, ?, ?, ?, ?)
     `);
-    
-    this.updateErrorStmt = this.db.query(`
-      UPDATE simple_errors 
-      SET occurrence_count = occurrence_count + 1, timestamp = ?
-      WHERE error_hash = ? AND instance_id = ?
-    `);
-    
+
     this.selectErrorsStmt = this.db.query(`
       WITH deduplicated AS (
         SELECT 
@@ -455,11 +451,10 @@ class ErrorStorage {
 class LogStorage {
   private db: Database;
   private options: Required<LogStoreOptions>;
-  
+
   // Prepared statements
   private insertLogStmt: ReturnType<Database['query']>;
   private selectLogsStmt: ReturnType<Database['query']>;
-  private selectLogsSinceStmt: ReturnType<Database['query']>;
   private countLogsStmt: ReturnType<Database['query']>;
   private deleteOldLogsStmt: ReturnType<Database['query']>;
   private getLastSequenceStmt: ReturnType<Database['query']>;
@@ -508,17 +503,10 @@ class LogStorage {
     `);
 
     this.selectLogsStmt = this.db.query(`
-      SELECT * FROM process_logs 
+      SELECT * FROM process_logs
       WHERE instance_id = ?
       ORDER BY sequence DESC
       LIMIT ? OFFSET ?
-    `);
-
-    this.selectLogsSinceStmt = this.db.query(`
-      SELECT * FROM process_logs 
-      WHERE instance_id = ? AND sequence > ?
-      ORDER BY sequence ASC
-      LIMIT ?
     `);
 
     this.countLogsStmt = this.db.query(`

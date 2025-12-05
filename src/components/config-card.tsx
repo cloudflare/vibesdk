@@ -3,8 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import type { ModelConfig, UserModelConfigWithMetadata } from '@/api-types';
-import type { AgentDisplayConfig } from './model-config-tabs';
+import type { AgentDisplayConfig, ModelConfig, UserModelConfigWithMetadata } from '@/api-types';
 
 interface ConfigCardProps {
   agent: AgentDisplayConfig;

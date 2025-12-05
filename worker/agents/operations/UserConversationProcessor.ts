@@ -25,7 +25,7 @@ const CHUNK_SIZE = 64;
 // Compactification thresholds
 const COMPACTIFICATION_CONFIG = {
     MAX_TURNS: 40,            // Trigger after 50 conversation turns
-    MAX_ESTIMATED_TOKENS: 100000,
+    MAX_ESTIMATED_TOKENS: 50000,
     PRESERVE_RECENT_MESSAGES: 10, // Always keep last 10 messages uncompacted
     CHARS_PER_TOKEN: 4,         // Rough estimation: 1 token ≈ 4 characters
 } as const;
@@ -662,6 +662,11 @@ Provide the summary now:`
                 agentActionName: 'conversationalResponse',
                 context: options.inferenceContext,
             });
+
+            if (!summaryResult || !summaryResult.string) {
+                logger.error('Conversation summarization returned no result');
+                throw new Error('Failed to generate conversation summary: inference returned null');
+            }
 
             const summary = summaryResult.string.trim();
             

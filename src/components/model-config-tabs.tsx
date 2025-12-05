@@ -2,7 +2,6 @@ import { useState, useCallback } from 'react';
 import { 
   Settings, 
   Rocket, 
-  Wrench, 
   Code, 
   Bug,
   Brain,
@@ -17,7 +16,7 @@ import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { ConfigCard } from './config-card';
 import { ConfigModal } from './config-modal';
-import type { ModelConfig, UserModelConfigWithMetadata, ModelConfigUpdate } from '@/api-types';
+import type { ModelConfig, UserModelConfigWithMetadata, ModelConfigUpdate, AgentDisplayConfig } from '@/api-types';
 
 // Define workflow-based tab structure with dynamic agent categorization
 export const WORKFLOW_TABS = {
@@ -49,13 +48,6 @@ export const WORKFLOW_TABS = {
     description: 'Code fixing and review',
     patterns: ['fixer', 'fix', 'review', 'debug']
   },
-  advanced: {
-    id: 'advanced',
-    label: 'Advanced',
-    icon: Wrench,
-    description: 'Specialized operations',
-    patterns: ['screenshot', 'analysis', 'image', 'vision']
-  }
 } as const;
 
 // Helper function to categorize agents dynamically with specific mappings
@@ -64,11 +56,11 @@ const categorizeAgent = (agentKey: string): string => {
   const specificMappings: Record<string, string> = {
     // Quick Start - Most commonly used
     'templateSelection': 'quickstart',
-    'blueprint': 'quickstart', 
     'conversationalResponse': 'quickstart',
     
     // Planning - Project planning and setup
     'phaseGeneration': 'planning',
+    'blueprint': 'quickstart', 
     'projectSetup': 'planning',
     
     // Coding - Development and implementation 
@@ -77,12 +69,7 @@ const categorizeAgent = (agentKey: string): string => {
     'fileRegeneration': 'coding',           // Fix: was going to planning due to "generation"
     
     // Debugging - Code fixing and review
-    'realtimeCodeFixer': 'debugging',
-    'fastCodeFixer': 'debugging',
-    'codeReview': 'debugging',
-    
-    // Advanced - Specialized operations
-    'screenshotAnalysis': 'advanced'
+    'deepDebugger': 'debugging',
   };
   
   // Check specific mappings first
@@ -116,13 +103,6 @@ const categorizeAgent = (agentKey: string): string => {
   // Default to advanced for completely unknown agents
   return 'advanced';
 };
-
-// Frontend-specific agent display interface 
-export interface AgentDisplayConfig {
-  key: string;
-  name: string;
-  description: string;
-}
 
 interface ModelConfigTabsProps {
   agentConfigs: AgentDisplayConfig[];

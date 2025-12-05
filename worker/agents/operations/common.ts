@@ -10,7 +10,8 @@ import { CodingAgentInterface } from "../services/implementations/CodingAgent";
 export function getSystemPromptWithProjectContext(
     systemPrompt: string,
     context: GenerationContext,
-    serializerType: CodeSerializerType = CodeSerializerType.SIMPLE
+    serializerType: CodeSerializerType = CodeSerializerType.SIMPLE,
+    sharePhases: boolean = true
 ): Message[] {
     const { query, blueprint, templateDetails, dependencies, allFiles, commandsHistory } = context;
 
@@ -23,7 +24,7 @@ export function getSystemPromptWithProjectContext(
         })), 
         createUserMessage(
             USER_PROMPT_FORMATTER.PROJECT_CONTEXT(
-                context.getCompletedPhases(),
+                sharePhases ? context.getCompletedPhases() : [],
                 allFiles, 
                 context.getFileTree(),
                 commandsHistory,

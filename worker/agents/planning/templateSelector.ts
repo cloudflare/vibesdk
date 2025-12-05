@@ -20,14 +20,14 @@ interface SelectTemplateArgs {
 /**
  * Uses AI to select the most suitable template for a given query.
  */
-export async function selectTemplate({ env, query, availableTemplates, inferenceContext, images }: SelectTemplateArgs): Promise<TemplateSelection> {
+export async function selectTemplate({ env, query, availableTemplates, inferenceContext, images }: SelectTemplateArgs, retryCount: number = 3): Promise<TemplateSelection> {
     if (availableTemplates.length === 0) {
         logger.info("No templates available for selection.");
         return { selectedTemplateName: null, reasoning: "No templates were available to choose from.", useCase: null, complexity: null, styleSelection: null, projectName: '' };
     }
 
     try {
-        logger.info("Asking AI to select a template", { 
+        logger.info(`Asking AI to select a template for the ${retryCount} time`, { 
             query, 
             queryLength: query.length,
             imagesCount: images?.length || 0,
@@ -35,8 +35,11 @@ export async function selectTemplate({ env, query, availableTemplates, inference
             templateCount: availableTemplates.length 
         });
 
+        availableTemplates = availableTemplates.filter(t => t.projectType !== 'presentation' && !t.disabled && !t.name.includes('minimal'));
+        const validTemplateNames = availableTemplates.map(t => t.name);
+
         const templateDescriptions = availableTemplates.map((t, index) =>
-            `- Template #${index + 1} \n Name - ${t.name} \n Language: ${t.language}, Frameworks: ${t.frameworks?.join(', ') || 'None'}\n ${t.description.selection}`
+            `### Template #${index + 1} \n Name - ${t.name} \n Language: ${t.language}, Frameworks: ${t.frameworks?.join(', ') || 'None'}\n Description: \`\`\`${t.description.selection}\`\`\``
         ).join('\n\n');
 
         const systemPrompt = `You are an Expert Software Architect at Cloudflare specializing in template selection for rapid development. Your task is to select the most suitable starting template based on user requirements.
@@ -81,13 +84,16 @@ Reasoning: "Social template provides user interactions, content sharing, and com
 ## RULES:
 - ALWAYS select a template (never return null)
 - Ignore misleading template names - analyze actual features
+- **ONLY** Choose from the list of available templates
 - Focus on functionality over naming conventions
 - Provide clear, specific reasoning for selection`
 
         const userPrompt = `**User Request:** "${query}"
 
-**Available Templates:**
-${templateDescriptions}
+## **Available Templates:**
+**ONLY** These template names are available for selection: ${validTemplateNames.join(', ')}
+
+Template detail: ${templateDescriptions}
 
 **Task:** Select the most suitable template and provide:
 1. Template name (exact match from list)
@@ -122,6 +128,10 @@ ENTROPY SEED: ${generateSecureToken(64)} - for unique results`;
             maxTokens: 2000,
         });
 
+        if (!selection) {
+            logger.error('Template selection returned no result after all retries');
+            throw new Error('Failed to select template: inference returned null');
+        }
 
         logger.info(`AI template selection result: ${selection.selectedTemplateName || 'None'}, Reasoning: ${selection.reasoning}`);
         return selection;
@@ -130,6 +140,10 @@ ENTROPY SEED: ${generateSecureToken(64)} - for unique results`;
         logger.error("Error during AI template selection:", error);
         if (error instanceof RateLimitExceededError || error instanceof SecurityError) {
             throw error;
+        }
+
+        if (retryCount > 0) {
+            return selectTemplate({ env, query, availableTemplates, inferenceContext, images }, retryCount - 1);
         }
         // Fallback to no template selection in case of error
         return { selectedTemplateName: null, reasoning: "An error occurred during the template selection process.", useCase: null, complexity: null, styleSelection: null, projectName: '' };

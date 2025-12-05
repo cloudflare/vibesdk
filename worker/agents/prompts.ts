@@ -70,8 +70,9 @@ Template Usage Instructions:
 ${template.description.usage}
 
 <DO NOT TOUCH FILES>
-These files are forbidden to be modified. Do not touch them under any circumstances.
+These files are forbidden to be modified. Do not touch them under any circumstances. Doing so will break the application.
 ${(template.dontTouchFiles ?? []).join('\n')}
+worker/core-utils.ts
 </DO NOT TOUCH FILES>
 
 <REDACTED FILES>
@@ -888,6 +889,7 @@ COMMON_PITFALLS: `<AVOID COMMON PITFALLS>
         Applying this rule to your situation will fix both the type-check errors and the browser's runtime error.
 
     # Never write image files! Never write jpeg, png, svg, etc files yourself! Always use some image url from the web.
+    **Do not recommend installing \`cloudflare:workers\` or \`cloudflare:durable-objects\` as dependencies, these are already installed in the project always.**
 
 </AVOID COMMON PITFALLS>`,
     COMMON_DEP_DOCUMENTATION: `<COMMON DEPENDENCY DOCUMENTATION>
@@ -1124,22 +1126,7 @@ PROJECT_CONTEXT: `Here is everything you will need about the project:
 
 <PROJECT_CONTEXT>
 
-<COMPLETED_PHASES>
-
-The following phases have been completed and implemented:
-
-{{redactionNotice}}
-
-{{phases}}
-
-</COMPLETED_PHASES>
-
-<LAST_DIFFS>
-These are the changes that have been made to the codebase since the last phase:
-
-{{lastDiffs}}
-
-</LAST_DIFFS>
+{{phasesText}}
 
 <CODEBASE>
 
@@ -1163,6 +1150,16 @@ Here are all the latest relevant files in the current codebase:
 </PROJECT_CONTEXT>
 `,
 }
+
+/*
+
+<LAST_DIFFS>
+These are the changes that have been made to the codebase since the last phase:
+
+{{lastDiffs}}
+
+</LAST_DIFFS>
+*/
 
 export const STRATEGIES_UTILS = {
     INITIAL_PHASE_GUIDELINES: `**First Phase: Stunning Frontend Foundation & Visual Excellence**
@@ -1365,7 +1362,7 @@ export function issuesPromptFormatter(issues: IssueReport): string {
 
 ### 1. CRITICAL RUNTIME ERRORS (Fix First - Deployment Blockers)
 **Error Count:** ${issues.runtimeErrors?.length || 0} runtime errors detected
-**Contains Render Loops:** ${runtimeErrorsText.includes('Maximum update depth') || runtimeErrorsText.includes('Too many re-renders') ? 'YES - HIGHEST PRIORITY' : 'No'}
+**Contains Render Loops:** ${runtimeErrorsText.includes('Maximum update depth') || runtimeErrorsText.includes('Too many re-renders') || runtimeErrorsText.includes('infinite loop') ? 'YES - HIGHEST PRIORITY' : 'No'}
 
 ${runtimeErrorsText || 'No runtime errors detected'}
 
@@ -1382,10 +1379,21 @@ ${staticAnalysisText}
 - **FOCUS** on deployment-blocking runtime errors over linting issues`
 }
 
+const COMPLETED_PHASES_CONTEXT = `
+<COMPLETED_PHASES>
+
+The following phases have been completed and implemented:
+
+{{redactionNotice}}
+
+{{phases}}
+
+</COMPLETED_PHASES>`
 
 export const USER_PROMPT_FORMATTER = {
     PROJECT_CONTEXT: (phases: PhaseConceptType[], files: FileState[], fileTree: FileTreeNode, commandsHistory: string[], serializerType: CodeSerializerType = CodeSerializerType.SIMPLE, recentPhasesCount: number = 1) => {
         let lastPhaseFilesDiff = '';
+        let phasesText = '';
         try {
             if (phases.length > 1) {
                 const lastPhase = phases[phases.length - 1];
@@ -1403,37 +1411,35 @@ export const USER_PROMPT_FORMATTER = {
                         }
                     });
                 }
+
+                // Split phases into older (redacted) and recent (full) groups
+                const olderPhases = phases.slice(0, -recentPhasesCount);
+                const recentPhases = phases.slice(-recentPhasesCount);
+                
+                // Serialize older phases without files, recent phases with files
+                if (olderPhases.length > 0) {
+                    const olderPhasesLite = olderPhases.map(({ name, description }) => ({ name, description }));
+                    phasesText += TemplateRegistry.markdown.serialize({ phases: olderPhasesLite }, z.object({ phases: z.array(PhaseConceptLiteSchema) }));
+                    if (recentPhases.length > 0) {
+                        phasesText += '\n\n';
+                    }
+                }
+                if (recentPhases.length > 0) {
+                    phasesText += TemplateRegistry.markdown.serialize({ phases: recentPhases }, z.object({ phases: z.array(PhaseConceptSchema) }));
+                }
+                
+                const redactionNotice = olderPhases.length > 0 
+                    ? `**Note:** File details for the first ${olderPhases.length} phase(s) have been redacted to optimize context. Only the last ${recentPhasesCount} phase(s) include complete file information.\n` 
+                    : '';
+
+                phasesText = COMPLETED_PHASES_CONTEXT.replaceAll('{{phases}}', phasesText).replaceAll('{{redactionNotice}}', redactionNotice);
             }
         } catch (error) {
             console.error('Error processing project context:', error);
         }
 
-        // TODO: Instead of just including diff for last phase, include last diff for each file along with information of which phase it was modified in
-
-        // Split phases into older (redacted) and recent (full) groups
-        const olderPhases = phases.slice(0, -recentPhasesCount);
-        const recentPhases = phases.slice(-recentPhasesCount);
-        
-        // Serialize older phases without files, recent phases with files
-        let phasesText = '';
-        if (olderPhases.length > 0) {
-            const olderPhasesLite = olderPhases.map(({ name, description }) => ({ name, description }));
-            phasesText += TemplateRegistry.markdown.serialize({ phases: olderPhasesLite }, z.object({ phases: z.array(PhaseConceptLiteSchema) }));
-            if (recentPhases.length > 0) {
-                phasesText += '\n\n';
-            }
-        }
-        if (recentPhases.length > 0) {
-            phasesText += TemplateRegistry.markdown.serialize({ phases: recentPhases }, z.object({ phases: z.array(PhaseConceptSchema) }));
-        }
-        
-        const redactionNotice = olderPhases.length > 0 
-            ? `**Note:** File details for the first ${olderPhases.length} phase(s) have been redacted to optimize context. Only the last ${recentPhasesCount} phase(s) include complete file information.\n` 
-            : '';
-
         const variables: Record<string, string> = {
-            phases: phasesText,
-            redactionNotice: redactionNotice,
+            phasesText: phasesText,
             files: PROMPT_UTILS.serializeFiles(files, serializerType),
             fileTree: PROMPT_UTILS.serializeTreeNodes(fileTree),
             lastDiffs: lastPhaseFilesDiff,

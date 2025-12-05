@@ -352,6 +352,11 @@ type BlueprintUpdatedMessage = {
 	updatedKeys: string[];
 };
 
+type BlueprintChunkMessage = {
+	type: 'blueprint_chunk';
+	chunk: string;
+};
+
 type DeterministicCodeFixStartedMessage = {
 	type: 'deterministic_code_fix_started';
 	message: string;
@@ -365,7 +370,7 @@ type DeterministicCodeFixCompletedMessage = {
     issues: CodeIssue[];
 };
 
-type ModelConfigsInfoMessage = {
+export type ModelConfigsInfoMessage = {
 	type: 'model_configs_info';
 	message: string;
 	configs: {
@@ -373,6 +378,10 @@ type ModelConfigsInfoMessage = {
 			key: string;
 			name: string;
 			description: string;
+            constraint?: {
+                enabled: boolean;
+                allowedModels: string[];
+            };
 		}>;
 		userConfigs: Record<string, {
 			name?: string;
@@ -391,6 +400,9 @@ type ModelConfigsInfoMessage = {
 		}>;
 	};
 };
+
+export type AgentDisplayConfig = ModelConfigsInfoMessage['configs']['agents'][number];
+export type ModelConfigsInfo = ModelConfigsInfoMessage['configs'];
 
 type TerminalCommandMessage = {
 	type: 'terminal_command';
@@ -462,6 +474,7 @@ export type WebSocketMessage =
 	| ConversationClearedMessage
     | ProjectNameUpdatedMessage
     | BlueprintUpdatedMessage
+    | BlueprintChunkMessage
     | DeterministicCodeFixStartedMessage
     | DeterministicCodeFixCompletedMessage
 	| ModelConfigsInfoMessage

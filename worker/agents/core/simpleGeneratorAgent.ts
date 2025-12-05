@@ -7,7 +7,7 @@ import {
     FileOutputType,
     PhaseImplementationSchemaType,
 } from '../schemas';
-import { ExecuteCommandsResponse, GitHubPushRequest, PreviewType, StaticAnalysisResponse, TemplateDetails } from '../../services/sandbox/sandboxTypes';
+import { ExecuteCommandsResponse, GitHubPushRequest, PreviewType, RuntimeError, StaticAnalysisResponse, TemplateDetails } from '../../services/sandbox/sandboxTypes';
 import {  GitHubExportResult } from '../../services/github/types';
 import { GitHubService } from '../../services/github/GitHubService';
 import { CodeGenState, CurrentDevState, MAX_PHASES } from './state';
@@ -30,8 +30,7 @@ import { ScreenshotAnalysisOperation } from '../operations/ScreenshotAnalysis';
 // Database schema imports removed - using zero-storage OAuth flow
 import { BaseSandboxService } from '../../services/sandbox/BaseSandboxService';
 import { WebSocketMessageData, WebSocketMessageType } from '../../api/websocketTypes';
-import { InferenceContext, AgentActionKey } from '../inferutils/config.types';
-import { AGENT_CONFIG } from '../inferutils/config';
+import { InferenceContext, ModelConfig } from '../inferutils/config.types';
 import { ModelConfigService } from '../../database/services/ModelConfigService';
 import { fixProjectIssues } from '../../services/code-fixer';
 import { GitVersionControl } from '../git';
@@ -52,6 +51,7 @@ import { StateMigration } from './stateMigration';
 import { generateNanoId } from 'worker/utils/idGenerator';
 import { updatePackageJson } from '../utils/packageSyncer';
 import { IdGenerator } from '../utils/idGenerator';
+import { SimpleCodeGenerationOperation } from '../operations/SimpleCodeGeneration';
 
 interface Operations {
     regenerateFile: FileRegenerationOperation;
@@ -94,6 +94,8 @@ export class SimpleCodeGeneratorAgent extends Agent<Env, CodeGenState> {
     private currentAbortController?: AbortController;
     private deepDebugPromise: Promise<{ transcript: string } | { error: string }> | null = null;
     private deepDebugConversationId: string | null = null;
+
+    private staticAnalysisCache: StaticAnalysisResponse | null = null;
     
     // GitHub token cache (ephemeral, lost on DO eviction)
     private githubTokenCache: {
@@ -349,6 +351,25 @@ export class SimpleCodeGeneratorAgent extends Agent<Env, CodeGenState> {
         // Fill the template cache
         await this.ensureTemplateDetails();
         this.logger().info(`Agent ${this.getAgentId()} session: ${this.state.sessionId} onStart processed successfully`);
+
+        // Load the latest user configs
+        const modelConfigService = new ModelConfigService(this.env);
+        const userConfigsRecord = await modelConfigService.getUserModelConfigs(this.state.inferenceContext.userId);
+        const userModelConfigs: Record<string, ModelConfig> = {};
+        for (const [actionKey, mergedConfig] of Object.entries(userConfigsRecord)) {
+            if (mergedConfig.isUserOverride) {
+                const { isUserOverride, userConfigId, ...modelConfig } = mergedConfig;
+                userModelConfigs[actionKey] = modelConfig;
+            }
+        }
+        this.setState({
+            ...this.state,
+            inferenceContext: {
+                ...this.state.inferenceContext,
+                userModelConfigs,
+            },
+        });
+        this.logger().info(`Agent ${this.getAgentId()} session: ${this.state.sessionId} onStart: User configs loaded successfully`, {userConfigsRecord});
     }
 
     private async gitInit() {
@@ -717,8 +738,8 @@ export class SimpleCodeGeneratorAgent extends Agent<Env, CodeGenState> {
         // First find the phase
         const phases = this.state.generatedPhases;
         if (!phases.some(p => p.name === phaseName)) {
-            this.logger().error(`Phase ${phaseName} not found in generatedPhases array`);
-            throw new Error(`Phase ${phaseName} not found in generatedPhases array`);
+            this.logger().warn(`Phase ${phaseName} not found in generatedPhases array, skipping save`);
+            return;
         }
         
         // Update the phase
@@ -837,7 +858,6 @@ export class SimpleCodeGeneratorAgent extends Agent<Env, CodeGenState> {
             this.createNewIncompletePhase(phaseConcept);
         }
 
-        let staticAnalysisCache: StaticAnalysisResponse | undefined;
         let userContext: UserContext | undefined;
 
         // Store review cycles for later use
@@ -856,13 +876,11 @@ export class SimpleCodeGeneratorAgent extends Agent<Env, CodeGenState> {
                         executionResults = await this.executePhaseGeneration();
                         currentDevState = executionResults.currentDevState;
                         phaseConcept = executionResults.result;
-                        staticAnalysisCache = executionResults.staticAnalysis;
                         userContext = executionResults.userContext;
                         break;
                     case CurrentDevState.PHASE_IMPLEMENTING:
-                        executionResults = await this.executePhaseImplementation(phaseConcept, staticAnalysisCache, userContext);
+                        executionResults = await this.executePhaseImplementation(phaseConcept, userContext);
                         currentDevState = executionResults.currentDevState;
-                        staticAnalysisCache = executionResults.staticAnalysis;
                         userContext = undefined;
                         break;
                     case CurrentDevState.REVIEWING:
@@ -902,11 +920,11 @@ export class SimpleCodeGeneratorAgent extends Agent<Env, CodeGenState> {
             });
         }
     }
-
+    
     /**
      * Execute phase generation state - generate next phase with user suggestions
      */
-    async executePhaseGeneration(): Promise<PhaseExecutionResult> {
+    async executePhaseGeneration(isFinal?: boolean): Promise<PhaseExecutionResult> {
         this.logger().info("Executing PHASE_GENERATING state");
         try {
             const currentIssues = await this.fetchAllIssues();
@@ -937,7 +955,7 @@ export class SimpleCodeGeneratorAgent extends Agent<Env, CodeGenState> {
                 }
             }
             
-            const nextPhase = await this.generateNextPhase(currentIssues, userContext);
+            const nextPhase = await this.generateNextPhase(currentIssues, userContext, isFinal);
                 
             if (!nextPhase) {
                 this.logger().info("No more phases to implement, transitioning to FINALIZING");
@@ -955,7 +973,6 @@ export class SimpleCodeGeneratorAgent extends Agent<Env, CodeGenState> {
             return {
                 currentDevState: CurrentDevState.PHASE_IMPLEMENTING,
                 result: nextPhase,
-                staticAnalysis: currentIssues.staticAnalysis,
                 userContext: userContext,
             };
         } catch (error) {
@@ -972,7 +989,7 @@ export class SimpleCodeGeneratorAgent extends Agent<Env, CodeGenState> {
     /**
      * Execute phase implementation state - implement current phase
      */
-    async executePhaseImplementation(phaseConcept?: PhaseConceptType, staticAnalysis?: StaticAnalysisResponse, userContext?: UserContext): Promise<{currentDevState: CurrentDevState, staticAnalysis?: StaticAnalysisResponse}> {
+    async executePhaseImplementation(phaseConcept?: PhaseConceptType, userContext?: UserContext): Promise<{currentDevState: CurrentDevState, staticAnalysis?: StaticAnalysisResponse}> {
         try {
             this.logger().info("Executing PHASE_IMPLEMENTING state");
     
@@ -993,24 +1010,10 @@ export class SimpleCodeGeneratorAgent extends Agent<Env, CodeGenState> {
                 ...this.state,
                 currentPhase: undefined // reset current phase
             });
-    
-            let currentIssues : AllIssues;
-            if (this.state.sandboxInstanceId) {
-                if (staticAnalysis) {
-                    // If have cached static analysis, fetch everything else fresh
-                    currentIssues = {
-                        runtimeErrors: await this.fetchRuntimeErrors(true),
-                        staticAnalysis: staticAnalysis,
-                    };
-                } else {
-                    currentIssues = await this.fetchAllIssues(true)
-                }
-            } else {
-                currentIssues = {
-                    runtimeErrors: [],
-                    staticAnalysis: { success: true, lint: { issues: [] }, typecheck: { issues: [] } },
-                }
-            }
+            
+            // Prepare issues for implementation
+            const currentIssues = await this.fetchAllIssues(true);
+            
             // Implement the phase with user context (suggestions and images)
             await this.implementPhase(phaseConcept, currentIssues, userContext);
     
@@ -1018,8 +1021,8 @@ export class SimpleCodeGeneratorAgent extends Agent<Env, CodeGenState> {
 
             const phasesCounter = this.decrementPhasesCounter();
 
-            if ((phaseConcept.lastPhase || phasesCounter <= 0) && this.state.pendingUserInputs.length === 0) return {currentDevState: CurrentDevState.FINALIZING, staticAnalysis: staticAnalysis};
-            return {currentDevState: CurrentDevState.PHASE_GENERATING, staticAnalysis: staticAnalysis};
+            if ((phaseConcept.lastPhase || phasesCounter <= 0) && this.state.pendingUserInputs.length === 0) return {currentDevState: CurrentDevState.FINALIZING};
+            return {currentDevState: CurrentDevState.PHASE_GENERATING};
         } catch (error) {
             this.logger().error("Error implementing phase", error);
             if (error instanceof RateLimitExceededError) {
@@ -1081,19 +1084,13 @@ export class SimpleCodeGeneratorAgent extends Agent<Env, CodeGenState> {
             mvpGenerated: true
         });
 
-        const phaseConcept: PhaseConceptType = {
-            name: "Finalization and Review",
-            description: "Full polishing and final review of the application",
-            files: [],
-            lastPhase: true
+        const { result: phaseConcept, userContext } = await this.executePhaseGeneration(true);
+        if (!phaseConcept) {
+            this.logger().warn("Phase concept not generated, skipping final review");
+            return CurrentDevState.REVIEWING;
         }
         
-        this.createNewIncompletePhase(phaseConcept);
-
-        const currentIssues = await this.fetchAllIssues(true);
-        
-        // Run final review and cleanup phase
-        await this.implementPhase(phaseConcept, currentIssues);
+        await this.executePhaseImplementation(phaseConcept, userContext);
 
         const numFilesGenerated = this.fileManager.getGeneratedFilePaths().length;
         this.logger().info(`Finalization complete. Generated ${numFilesGenerated}/${this.getTotalFiles()} files.`);
@@ -1119,7 +1116,7 @@ export class SimpleCodeGeneratorAgent extends Agent<Env, CodeGenState> {
                         focusPaths.some((p) => f.filePath.includes(p)),
                     );
 
-                const runtimeErrors = await this.fetchRuntimeErrors(true);
+                const runtimeErrors = await this.fetchRuntimeErrors(false);
 
                 const dbg = new DeepCodeDebugger(
                     operationOptions.env,
@@ -1158,11 +1155,14 @@ export class SimpleCodeGeneratorAgent extends Agent<Env, CodeGenState> {
     /**
      * Generate next phase with user context (suggestions and images)
      */
-    async generateNextPhase(currentIssues: AllIssues, userContext?: UserContext): Promise<PhaseConceptGenerationSchemaType | undefined> {
+    async generateNextPhase(currentIssues: AllIssues, userContext?: UserContext, isFinal?: boolean): Promise<PhaseConceptGenerationSchemaType | undefined> {
         const issues = IssueReport.from(currentIssues);
         
         // Build notification message
         let notificationMsg = "Generating next phase";
+        if (isFinal) {
+            notificationMsg = "Generating final phase";
+        }
         if (userContext?.suggestions && userContext.suggestions.length > 0) {
             notificationMsg = `Generating next phase incorporating ${userContext.suggestions.length} user suggestion(s)`;
         }
@@ -1182,6 +1182,7 @@ export class SimpleCodeGeneratorAgent extends Agent<Env, CodeGenState> {
                 issues,
                 userContext,
                 isUserSuggestedPhase: userContext?.suggestions && userContext.suggestions.length > 0 && this.state.mvpGenerated,
+                isFinal: isFinal ?? false,
             },
             this.getOperationOptions()
         )
@@ -1341,66 +1342,9 @@ export class SimpleCodeGeneratorAgent extends Agent<Env, CodeGenState> {
         };
     }
 
-    /**
-     * Get current model configurations (defaults + user overrides)
-     * Used by WebSocket to provide configuration info to frontend
-     */
-    async getModelConfigsInfo() {
-        const userId = this.state.inferenceContext.userId;
-        if (!userId) {
-            throw new Error('No user session available for model configurations');
-        }
-
-        try {
-            const modelConfigService = new ModelConfigService(this.env);
-            
-            // Get all user configs
-            const userConfigsRecord = await modelConfigService.getUserModelConfigs(userId);
-            
-            // Transform to match frontend interface
-            const agents = Object.entries(AGENT_CONFIG).map(([key, config]) => ({
-                key,
-                name: config.name,
-                description: config.description
-            }));
-
-            const userConfigs: Record<string, any> = {};
-            const defaultConfigs: Record<string, any> = {};
-
-            for (const [actionKey, mergedConfig] of Object.entries(userConfigsRecord)) {
-                if (mergedConfig.isUserOverride) {
-                    userConfigs[actionKey] = {
-                        name: mergedConfig.name,
-                        max_tokens: mergedConfig.max_tokens,
-                        temperature: mergedConfig.temperature,
-                        reasoning_effort: mergedConfig.reasoning_effort,
-                        fallbackModel: mergedConfig.fallbackModel,
-                        isUserOverride: true
-                    };
-                }
-                
-                // Always include default config
-                const defaultConfig = AGENT_CONFIG[actionKey as AgentActionKey];
-                if (defaultConfig) {
-                    defaultConfigs[actionKey] = {
-                        name: defaultConfig.name,
-                        max_tokens: defaultConfig.max_tokens,
-                        temperature: defaultConfig.temperature,
-                        reasoning_effort: defaultConfig.reasoning_effort,
-                        fallbackModel: defaultConfig.fallbackModel
-                    };
-                }
-            }
-
-            return {
-                agents,
-                userConfigs,
-                defaultConfigs
-            };
-        } catch (error) {
-            this.logger().error('Error fetching model configs info:', error);
-            throw error;
-        }
+    getModelConfigsInfo() {
+        const modelService = new ModelConfigService(this.env);
+        return modelService.getModelConfigsInfo(this.state.inferenceContext.userId);
     }
 
     getTotalFiles(): number {
@@ -1435,8 +1379,10 @@ export class SimpleCodeGeneratorAgent extends Agent<Env, CodeGenState> {
         return this.ctx.getWebSockets();
     }
 
-    async fetchRuntimeErrors(clear: boolean = true) {
-        await this.deploymentManager.waitForPreview();
+    async fetchRuntimeErrors(clear: boolean = true, shouldWait: boolean = true): Promise<RuntimeError[]> {
+        if (shouldWait) {
+            await this.deploymentManager.waitForPreview();
+        }
 
         try {
             const errors = await this.deploymentManager.fetchRuntimeErrors(clear);
@@ -1454,7 +1400,8 @@ export class SimpleCodeGeneratorAgent extends Agent<Env, CodeGenState> {
             this.logger().error("Exception fetching runtime errors:", error);
             // If fetch fails, initiate redeploy
             this.deployToSandbox();
-            return [];
+            const message = "<runtime errors not available at the moment as preview is not deployed>";
+            return [{ message, timestamp: new Date().toISOString(), level: 0, rawOutput: message }];
         }
     }
 
@@ -1464,7 +1411,13 @@ export class SimpleCodeGeneratorAgent extends Agent<Env, CodeGenState> {
      */
     async runStaticAnalysisCode(files?: string[]): Promise<StaticAnalysisResponse> {
         try {
+            // Check if we have cached static analysis
+            if (this.staticAnalysisCache) {
+                return this.staticAnalysisCache;
+            }
+            
             const analysisResponse = await this.deploymentManager.runStaticAnalysis(files);
+            this.staticAnalysisCache = analysisResponse;
 
             const { lint, typecheck } = analysisResponse;
             this.broadcast(WebSocketMessageResponses.STATIC_ANALYSIS_RESULTS, {
@@ -1554,7 +1507,7 @@ export class SimpleCodeGeneratorAgent extends Agent<Env, CodeGenState> {
                         const match = issue.reason.match(/External package ["'](.+?)["']/);
                         const name = match?.[1];
                         return (typeof name === 'string' && name.trim().length > 0 && !name.startsWith('@shared')) ? [name] : [];
-                    });
+                    }).filter((name) => !name.includes('cloudflare:'));
                     if (moduleNames.length > 0) {
                         const installCommands = moduleNames.map(moduleName => `bun install ${moduleName}`);
                         await this.executeCommands(installCommands, false);
@@ -1585,6 +1538,9 @@ export class SimpleCodeGeneratorAgent extends Agent<Env, CodeGenState> {
     }
 
     async fetchAllIssues(resetIssues: boolean = false): Promise<AllIssues> {
+        if (!this.state.sandboxInstanceId) {
+            return { runtimeErrors: [], staticAnalysis: { success: false, lint: { issues: [], }, typecheck: { issues: [], } } };
+        }
         const [runtimeErrors, staticAnalysis] = await Promise.all([
             this.fetchRuntimeErrors(resetIssues),
             this.runStaticAnalysisCode()
@@ -1745,6 +1701,8 @@ export class SimpleCodeGeneratorAgent extends Agent<Env, CodeGenState> {
         }
 
         const regenerated = await this.regenerateFile({ filePath: path, fileContents, filePurpose }, issues, 0);
+        // Invalidate cache
+        this.staticAnalysisCache = null;
         // Persist to sandbox instance
         await this.getSandboxServiceClient().writeFiles(sandboxInstanceId, [{ filePath: regenerated.filePath, fileContents: regenerated.fileContents }], `Deep debugger fix: ${path}`);
         return { path, diff: regenerated.lastDiff };
@@ -1761,43 +1719,69 @@ export class SimpleCodeGeneratorAgent extends Agent<Env, CodeGenState> {
             requirementsCount: requirements.length,
             filesCount: files.length
         });
+        
+        // Broadcast file generation started
+        this.broadcast(WebSocketMessageResponses.PHASE_IMPLEMENTING, {
+            message: `Generating files: ${phaseName}`,
+            phaseName
+        });
 
-        // Create phase structure with explicit files
-        const phase: PhaseConceptType = {
-            name: phaseName,
-            description: phaseDescription,
-            files: files,
-            lastPhase: true
-        };
-
-        // Call existing implementPhase with postPhaseFixing=false
-        // This skips deterministic fixes and fast smart fixes
-        const result = await this.implementPhase(
-            phase,
+        const operation = new SimpleCodeGenerationOperation();
+        const result = await operation.execute(
             {
-                runtimeErrors: [],
-                staticAnalysis: { 
-                    success: true, 
-                    lint: { issues: [] }, 
-                    typecheck: { issues: [] } 
+                phaseName,
+                phaseDescription,
+                requirements,
+                files,
+                fileGeneratingCallback: (filePath: string, filePurpose: string) => {
+                    this.broadcast(WebSocketMessageResponses.FILE_GENERATING, {
+                        message: `Generating file: ${filePath}`,
+                        filePath,
+                        filePurpose
+                    });
                 },
+                fileChunkGeneratedCallback: (filePath: string, chunk: string, format: 'full_content' | 'unified_diff') => {
+                    this.broadcast(WebSocketMessageResponses.FILE_CHUNK_GENERATED, {
+                        message: `Generating file: ${filePath}`,
+                        filePath,
+                        chunk,
+                        format
+                    });
+                },
+                fileClosedCallback: (file, message) => {
+                    this.broadcast(WebSocketMessageResponses.FILE_GENERATED, {
+                        message,
+                        file
+                    });
+                }
             },
-            { suggestions: requirements },
-            true, // streamChunks
-            false // postPhaseFixing = false (skip auto-fixes)
+            this.getOperationOptions()
         );
 
-        // Return files with diffs from FileState
-        return {
-            files: result.files.map(f => ({
+        const savedFiles = await this.fileManager.saveGeneratedFiles(
+            result.files,
+            `feat: ${phaseName}\n\n${phaseDescription}`
+        );
+
+        this.logger().info('Files generated and saved', {
+            fileCount: result.files.length
+        });
+
+        await this.deployToSandbox(savedFiles, false);
+
+        return { files: savedFiles.map(f => {
+            return {
                 path: f.filePath,
                 purpose: f.filePurpose || '',
-                diff: (f as any).lastDiff || '' // FileState has lastDiff
-            }))
-        };
+                diff: f.lastDiff || ''
+            };
+        }) };
     }
 
     async deployToSandbox(files: FileOutputType[] = [], redeploy: boolean = false, commitMessage?: string, clearLogs: boolean = false): Promise<PreviewType | null> {
+        // Invalidate static analysis cache
+        this.staticAnalysisCache = null;
+        
         // Call deployment manager with callbacks for broadcasting at the right times
         const result = await this.deploymentManager.deployToSandbox(
             files,
@@ -2429,7 +2413,7 @@ export class SimpleCodeGeneratorAgent extends Agent<Env, CodeGenState> {
             await this.ensureTemplateDetails();
 
             // Just fetch runtime errors
-            const errors = await this.fetchRuntimeErrors(false);
+            const errors = await this.fetchRuntimeErrors(false, false);
             const projectUpdates = await this.getAndResetProjectUpdates();
             this.logger().info('Passing context to user conversation processor', { errors, projectUpdates });
 

@@ -3,8 +3,8 @@
  */
 
 import { describe, it, expect, beforeAll } from 'vitest';
-import { KeyDerivation } from '../../../../worker/services/secrets/KeyDerivation';
-import { CRYPTO_CONSTANTS } from '../../../../worker/services/secrets/constants';
+import { KeyDerivation } from './KeyDerivation';
+import { CRYPTO_CONSTANTS } from './constants';
 
 describe('KeyDerivation', () => {
     let keyDerivation: KeyDerivation;

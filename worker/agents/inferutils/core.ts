@@ -15,7 +15,7 @@ import {
 } from 'openai/resources.mjs';
 import { Message, MessageContent, MessageRole } from './common';
 import { ToolCallResult, ToolDefinition } from '../tools/types';
-import { AgentActionKey, AIModels, InferenceMetadata } from './config.types';
+import { AgentActionKey, AI_MODEL_CONFIG, AIModelConfig, AIModels, InferenceMetadata } from './config.types';
 // import { SecretsService } from '../../database';
 import { RateLimitService } from '../../services/rate-limit/rateLimits';
 import { getUserConfigurableSettings } from '../../config';
@@ -253,7 +253,7 @@ async function getApiKey(provider: string, env: Env, _userId: string): Promise<s
 }
 
 export async function getConfigurationForModel(
-    model: AIModels | string, 
+    modelConfig: AIModelConfig,
     env: Env, 
     userId: string,
 ): Promise<{
@@ -262,36 +262,34 @@ export async function getConfigurationForModel(
     defaultHeaders?: Record<string, string>,
 }> {
     let providerForcedOverride: AIGatewayProviders | undefined;
-    // Check if provider forceful-override is set
-    const match = model.match(/\[(.*?)\]/);
-    if (match) {
-        const provider = match[1];
-        if (provider === 'openrouter') {
-            return {
-                baseURL: 'https://openrouter.ai/api/v1',
-                apiKey: env.OPENROUTER_API_KEY,
-            };
-        } else if (provider === 'gemini') {
-            return {
-                baseURL: 'https://generativelanguage.googleapis.com/v1beta/openai/',
-                apiKey: env.GOOGLE_AI_STUDIO_API_KEY,
-            };
-        } else if (provider === 'claude') {
-            return {
-                baseURL: 'https://api.anthropic.com/v1/',
-                apiKey: env.ANTHROPIC_API_KEY,
-            };
+    if (modelConfig.directOverride) {
+        switch(modelConfig.provider) {
+            case 'openrouter':
+                return {
+                    baseURL: 'https://openrouter.ai/api/v1',
+                    apiKey: env.OPENROUTER_API_KEY,
+                };
+            case 'google-ai-studio':
+                return {
+                    baseURL: 'https://generativelanguage.googleapis.com/v1beta/openai/',
+                    apiKey: env.GOOGLE_AI_STUDIO_API_KEY,
+                };
+            case 'anthropic':
+                return {
+                    baseURL: 'https://api.anthropic.com/v1/',
+                    apiKey: env.ANTHROPIC_API_KEY,
+                };
+            default:
+                providerForcedOverride = modelConfig.provider as AIGatewayProviders;
+                break;
         }
-        providerForcedOverride = provider as AIGatewayProviders;
     }
 
     const baseURL = await buildGatewayUrl(env, providerForcedOverride);
 
-    // Extract the provider name from model name. Model name is of type `provider/model_name`
-    const provider = providerForcedOverride || model.split('/')[0];
     // Try to find API key of type <PROVIDER>_API_KEY else default to CLOUDFLARE_AI_GATEWAY_TOKEN
     // `env` is an interface of type `Env`
-    const apiKey = await getApiKey(provider, env, userId);
+    const apiKey = await getApiKey(modelConfig.provider, env, userId);
     // AI Gateway Wholesaling checks
     const defaultHeaders = env.CLOUDFLARE_AI_GATEWAY_TOKEN && apiKey !== env.CLOUDFLARE_AI_GATEWAY_TOKEN ? {
         'cf-aig-authorization': `Bearer ${env.CLOUDFLARE_AI_GATEWAY_TOKEN}`,
@@ -499,8 +497,9 @@ export async function infer<OutputSchema extends z.AnyZodObject>({
         const userConfig = await getUserConfigurableSettings(env, metadata.userId)
         // Maybe in the future can expand using config object for other stuff like global model configs?
         await RateLimitService.enforceLLMCallsRateLimit(env, userConfig.security.rateLimit, metadata.userId, modelName)
+        const modelConfig = AI_MODEL_CONFIG[modelName as AIModels];
 
-        const { apiKey, baseURL, defaultHeaders } = await getConfigurationForModel(modelName, env, metadata.userId);
+        const { apiKey, baseURL, defaultHeaders } = await getConfigurationForModel(modelConfig, env, metadata.userId);
         console.log(`baseUrl: ${baseURL}, modelName: ${modelName}`);
 
         // Remove [*.] from model name
@@ -593,7 +592,7 @@ export async function infer<OutputSchema extends z.AnyZodObject>({
                 messages: messagesToPass as OpenAI.ChatCompletionMessageParam[],
                 max_completion_tokens: maxTokens || 150000,
                 stream: stream ? true : false,
-                reasoning_effort,
+                reasoning_effort: modelConfig.nonReasoning ? undefined : reasoning_effort,
                 temperature,
             }, {
                 signal: abortSignal,
@@ -615,9 +614,10 @@ export async function infer<OutputSchema extends z.AnyZodObject>({
             }
             
             console.error(`Failed to get inference response from OpenAI: ${error}`);
-            if ((error instanceof Error && error.message.includes('429')) || (typeof error === 'string' && error.includes('429'))) {
-                throw new RateLimitExceededError('Rate limit exceeded in LLM calls, Please try again later', RateLimitType.LLM_CALLS);
-            }
+            // if ((error instanceof Error && error.message.includes('429')) || (typeof error === 'string' && error.includes('429'))) {
+
+            //     throw new RateLimitExceededError('Rate limit exceeded in LLM calls, Please try again later', RateLimitType.LLM_CALLS);
+            // }
             throw error;
         }
         let toolCalls: ChatCompletionMessageFunctionToolCall[] = [];

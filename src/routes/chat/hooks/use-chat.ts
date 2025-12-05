@@ -294,6 +294,7 @@ export function useChat({
 					// Request file generation for new chats only
 					if (!disableGenerate && urlChatId === 'new') {
 						logger.debug('🔄 Starting code generation for new chat');
+						setIsGenerating(true);
 						sendWebSocketMessage(ws, 'generate_all');
 					}
 				});
