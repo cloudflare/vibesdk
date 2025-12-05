@@ -1,5 +1,5 @@
 import type { CodeReviewOutputType, FileConceptType, FileOutputType } from "../agents/schemas";
-import type { CodeGenState } from "../agents/core/state";
+import type { AgentState } from "../agents/core/state";
 import type { ConversationState } from "../agents/inferutils/common";
 import type { CodeIssue, RuntimeError, StaticAnalysisResponse, TemplateDetails } from "../services/sandbox/sandboxTypes";
 import type { CodeFixResult } from "../services/code-fixer";
@@ -13,12 +13,18 @@ type ErrorMessage = {
 
 type StateMessage = {
 	type: 'cf_agent_state';
-	state: CodeGenState;
+	state: AgentState;
 };
 
 type AgentConnectedMessage = {
     type: 'agent_connected';
-    state: CodeGenState;
+    state: AgentState;
+    templateDetails: TemplateDetails;
+    previewUrl?: string;
+};
+
+type TemplateUpdatedMessage = {
+	type: 'template_updated';
     templateDetails: TemplateDetails;
 };
 
@@ -428,6 +434,7 @@ type ServerLogMessage = {
 export type WebSocketMessage =
 	| StateMessage
 	| AgentConnectedMessage
+	| TemplateUpdatedMessage
 	| ConversationStateMessage
 	| GenerationStartedMessage
 	| FileGeneratingMessage

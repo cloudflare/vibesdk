@@ -25,6 +25,7 @@ export type Message = {
 	content: MessageContent;
 	name?: string; // Optional name field required for function messages
 	tool_calls?: ChatCompletionMessageToolCall[];
+    tool_call_id?: string;  // For role = tool
 };
 
 export interface ConversationMessage extends Message {
@@ -114,4 +115,14 @@ export async function mapImagesInMultiModalMessage(message: ConversationMessage,
     }
 
     return message;
+}
+
+/**
+ * Represents a completion signal detected from tool execution
+ */
+export interface CompletionSignal {
+	signaled: boolean;
+	toolName: string;
+	summary?: string;
+	timestamp: number;
 }

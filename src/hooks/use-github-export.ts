@@ -25,6 +25,8 @@ export interface GitHubInstallationData {
     repositories?: string[];
 }
 
+export type GitHubExportHook = ReturnType<typeof useGitHubExport>;
+
 export function useGitHubExport(
     _websocket?: WebSocket | null, 
     agentId?: string,

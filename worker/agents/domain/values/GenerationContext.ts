@@ -1,36 +1,47 @@
-import { Blueprint } from '../../schemas';
+import { PhasicBlueprint, AgenticBlueprint } from '../../schemas';
 import { FileTreeNode, TemplateDetails } from '../../../services/sandbox/sandboxTypes';
-import { CodeGenState, FileState, PhaseState } from '../../core/state';
+import { FileState, PhaseState, PhasicState, AgenticState } from '../../core/state';
 import { DependencyManagement } from '../pure/DependencyManagement';
 import type { StructuredLogger } from '../../../logger';
 import { FileProcessing } from '../pure/FileProcessing';
+import { Plan } from '../../core/types';
+
+/** Common fields shared by all generation contexts */
+interface BaseGenerationContext {
+    readonly query: string;
+    readonly allFiles: FileState[];
+    readonly templateDetails: TemplateDetails;
+    readonly dependencies: Record<string, string>;
+    readonly commandsHistory: string[];
+}
+
+/** Phase-based generation context with detailed blueprint */
+export interface PhasicGenerationContext extends BaseGenerationContext {
+    readonly blueprint: PhasicBlueprint;
+    readonly generatedPhases: PhaseState[];
+}
+
+/** Plan-based generation context with simple blueprint */
+export interface AgenticGenerationContext extends BaseGenerationContext {
+    readonly blueprint: AgenticBlueprint;
+    readonly currentPlan: Plan;
+}
 
 /**
- * Immutable context for code generation operations
- * Contains all necessary data for generating code
+ * Discriminated union of generation contexts
+ * 
+ * Discriminate using: `'generatedPhases' in context` or `GenerationContext.isPhasic(context)`
  */
-export class GenerationContext {
-    constructor(
-        public readonly query: string,
-        public readonly blueprint: Blueprint,
-        public readonly templateDetails: TemplateDetails,
-        public readonly dependencies: Record<string, string>,
-        public readonly allFiles: FileState[],
-        public readonly generatedPhases: PhaseState[],
-        public readonly commandsHistory: string[]
-    ) {
-        // Freeze to ensure immutability
-        Object.freeze(this);
-        Object.freeze(this.dependencies);
-        Object.freeze(this.allFiles);
-        Object.freeze(this.generatedPhases);
-        Object.freeze(this.commandsHistory);
-    }
+export type GenerationContext = PhasicGenerationContext | AgenticGenerationContext;
 
-    /**
-     * Create context from current state
-     */
-    static from(state: CodeGenState, templateDetails: TemplateDetails, logger?: Pick<StructuredLogger, 'info' | 'warn'>): GenerationContext {
+/** Generation context utility functions */
+export namespace GenerationContext {
+    /** Create immutable context from agent state */
+    export function from(
+        state: PhasicState | AgenticState,
+        templateDetails: TemplateDetails,
+        logger?: Pick<StructuredLogger, 'info' | 'warn'>
+    ): GenerationContext {
         const dependencies = DependencyManagement.mergeDependencies(
             templateDetails.deps || {},
             state.lastPackageJson,
@@ -42,35 +53,69 @@ export class GenerationContext {
             state.generatedFilesMap
         );
 
-        return new GenerationContext(
-            state.query,
-            state.blueprint,
+        const base = {
+            query: state.query,
+            allFiles,
             templateDetails,
             dependencies,
-            allFiles,
-            state.generatedPhases,
-            state.commandsHistory || []
-        );
+            commandsHistory: state.commandsHistory || [],
+        };
+
+        return state.behaviorType === 'phasic'
+            ? Object.freeze({ ...base, blueprint: (state as PhasicState).blueprint, generatedPhases: (state as PhasicState).generatedPhases })
+            : Object.freeze({ ...base, blueprint: (state as AgenticState).blueprint, currentPlan: (state as AgenticState).currentPlan });
     }
 
-    /**
-     * Get formatted phases for prompt generation
-     */
-    getCompletedPhases() {
-        return Object.values(this.generatedPhases.filter(phase => phase.completed));
+    /** Type guard for phasic context */
+    export function isPhasic(context: GenerationContext): context is PhasicGenerationContext {
+        return 'generatedPhases' in context;
     }
 
-    getFileTree(): FileTreeNode {
-        const builder = new FileTreeBuilder(this.templateDetails?.fileTree);
+    /** Type guard for agentic context */
+    export function isAgentic(context: GenerationContext): context is AgenticGenerationContext {
+        return 'currentPlan' in context;
+    }
 
-        for (const { filePath } of this.allFiles) {
+    /** Get completed phases (empty array for agentic contexts) */
+    export function getCompletedPhases(context: GenerationContext): PhaseState[] {
+        return isPhasic(context) 
+            ? context.generatedPhases.filter(phase => phase.completed) 
+            : [];
+    }
+
+    /** Build file tree from context files */
+    export function getFileTree(context: GenerationContext): FileTreeNode {
+        const builder = new FileTreeBuilder(context.templateDetails?.fileTree);
+        
+        for (const { filePath } of context.allFiles) {
             const normalized = FileTreeBuilder.normalizePath(filePath);
             if (normalized) {
                 builder.addFile(normalized);
             }
         }
-
+        
         return builder.build();
+    }
+
+    /** Get phasic blueprint if available */
+    export function getPhasicBlueprint(context: GenerationContext): PhasicBlueprint | undefined {
+        return isPhasic(context) ? context.blueprint : undefined;
+    }
+
+    /** Get agentic blueprint if available */
+    export function getAgenticBlueprint(context: GenerationContext): AgenticBlueprint | undefined {
+        return isAgentic(context) ? context.blueprint : undefined;
+    }
+
+    /** Get common blueprint data */
+    export function getCommonBlueprintData(context: GenerationContext) {
+        return {
+            title: context.blueprint.title,
+            projectName: context.blueprint.projectName,
+            description: context.blueprint.description,
+            frameworks: context.blueprint.frameworks,
+            colorPalette: context.blueprint.colorPalette,
+        };
     }
 }
 

@@ -1,0 +1,83 @@
+import { useState } from 'react';
+
+export type ProjectMode = 'app' | 'presentation' | 'general';
+
+interface ProjectModeSelectorProps {
+  value: ProjectMode;
+  onChange: (mode: ProjectMode) => void;
+  disabled?: boolean;
+  className?: string;
+}
+
+export function ProjectModeSelector({ value, onChange, disabled = false, className = '' }: ProjectModeSelectorProps) {
+  const [hoveredMode, setHoveredMode] = useState<ProjectMode | null>(null);
+
+  const modes = [
+    {
+      id: 'app' as const,
+      label: 'App',
+      description: 'Full-stack applications',
+    },
+    {
+      id: 'presentation' as const,
+      label: 'Slides',
+      description: 'Interactive presentations',
+    },
+    {
+      id: 'general' as const,
+      label: 'Chat',
+      description: 'Conversational assistant',
+    },
+  ];
+
+  return (
+    <div className={`flex items-center gap-1 ${className}`}>
+      {modes.map((mode, index) => {
+        const isSelected = value === mode.id;
+        const isHovered = hoveredMode === mode.id;
+
+        return (
+          <div key={mode.id} className="flex items-center">
+            <button
+              type="button"
+              disabled={disabled}
+              onClick={() => onChange(mode.id)}
+              onMouseEnter={() => setHoveredMode(mode.id)}
+              onMouseLeave={() => setHoveredMode(null)}
+              className={`
+                relative px-3 py-1.5 text-sm font-normal
+                transition-all duration-200 ease-out
+                ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
+                ${
+                  isSelected
+                    ? 'text-text-primary'
+                    : 'text-text-primary/40 hover:text-text-primary/70'
+                }
+              `}
+            >
+              {mode.label}
+
+              {/* Subtle underline indicator for selected state */}
+              {isSelected && (
+                <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-accent" />
+              )}
+
+              {/* Tooltip on hover */}
+              {isHovered && !disabled && (
+                <div className="absolute -bottom-8 left-1/2 -translate-x-1/2 whitespace-nowrap px-2 py-1 bg-bg-2/95 backdrop-blur-sm border border-text-primary/10 rounded-md text-xs text-text-secondary pointer-events-none z-50">
+                  {mode.description}
+                  <div className="absolute -top-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-bg-2 border-l border-t border-text-primary/10 rotate-45" />
+                </div>
+              )}
+            </button>
+
+            {/* Separator dot (except after last item) */}
+            {index < modes.length - 1 && (
+              <div className="w-1 h-1 rounded-full bg-text-primary/10" />
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}

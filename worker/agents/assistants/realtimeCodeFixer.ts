@@ -239,11 +239,11 @@ export class RealtimeCodeFixer extends Assistant<Env> {
         passes: number = DEFAULT_PASSES
     ): Promise<FileOutputType> {
         try {
-            // Ignore css or json files or *.config.js
-            if (generatedFile.filePath.endsWith('.css') || generatedFile.filePath.endsWith('.json') || generatedFile.filePath.endsWith('.config.js')) {
-                this.logger.info(`Skipping realtime code fixer for file: ${generatedFile.filePath}`);
-                return generatedFile;
-            }
+            // // Ignore css or json files or *.config.js
+            // if (generatedFile.filePath.endsWith('.css') || generatedFile.filePath.endsWith('.json') || generatedFile.filePath.endsWith('.config.js')) {
+            //     this.logger.info(`Skipping realtime code fixer for file: ${generatedFile.filePath}`);
+            //     return generatedFile;
+            // }
             
             let content = generatedFile.fileContents;
 

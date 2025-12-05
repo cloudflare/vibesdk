@@ -1,44 +1,32 @@
-import { ToolDefinition, ErrorResult } from '../types';
+import { tool, t, ErrorResult } from '../types';
 import { StructuredLogger } from '../../../logger';
-import { CodingAgentInterface } from 'worker/agents/services/implementations/CodingAgent';
-
-export type RegenerateFileArgs = {
-	path: string;
-	issues: string[];
-};
+import { ICodingAgent } from 'worker/agents/services/interfaces/ICodingAgent';
 
 export type RegenerateFileResult =
 	| { path: string; diff: string }
 	| ErrorResult;
 
 export function createRegenerateFileTool(
-	agent: CodingAgentInterface,
+	agent: ICodingAgent,
 	logger: StructuredLogger,
-): ToolDefinition<RegenerateFileArgs, RegenerateFileResult> {
-	return {
-		type: 'function' as const,
-		function: {
-			name: 'regenerate_file',
-			description:
-				`Autonomous AI agent that applies surgical fixes to code files. Takes file path and array of specific issues to fix. Returns diff showing changes made.
+) {
+	return tool({
+		name: 'regenerate_file',
+		description:
+			`Autonomous AI agent that applies surgical fixes to code files. Takes file path and array of specific issues to fix. Returns diff showing changes made.
 
 CRITICAL: Provide detailed, specific issues - not vague descriptions. See system prompt for full usage guide. These would be implemented by an independent LLM AI agent`,
-			parameters: {
-				type: 'object',
-				properties: {
-					path: { type: 'string' },
-					issues: { type: 'array', items: { type: 'string' } },
-				},
-				required: ['path', 'issues'],
-			},
+		args: {
+			path: t.file.write().describe('Relative path to file from project root'),
+			issues: t.array(t.string()).describe('Specific, detailed issues to fix in the file'),
 		},
-		implementation: async ({ path, issues }) => {
+		run: async ({ path, issues }) => {
 			try {
 				logger.info('Regenerating file', {
 					path,
 					issuesCount: issues.length,
 				});
-				return await agent.regenerateFile(path, issues);
+				return await agent.regenerateFileByPath(path, issues);
 			} catch (error) {
 				return {
 					error:
@@ -48,5 +36,5 @@ CRITICAL: Provide detailed, specific issues - not vague descriptions. See system
 				};
 			}
 		},
-	};
+	});
 }

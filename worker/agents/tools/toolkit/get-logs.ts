@@ -1,25 +1,15 @@
-import { ErrorResult, ToolDefinition } from '../types';
+import { tool, t } from '../types';
 import { StructuredLogger } from '../../../logger';
-import { CodingAgentInterface } from 'worker/agents/services/implementations/CodingAgent';
-
-type GetLogsArgs = {
-	reset?: boolean;
-	durationSeconds?: number;
-	maxLines?: number;
-};
-
-type GetLogsResult = { logs: string } | ErrorResult;
+import { ICodingAgent } from 'worker/agents/services/interfaces/ICodingAgent';
 
 export function createGetLogsTool(
-	agent: CodingAgentInterface,
+	agent: ICodingAgent,
 	logger: StructuredLogger
-): ToolDefinition<GetLogsArgs, GetLogsResult> {
-	return {
-		type: 'function' as const,
-		function: {
-			name: 'get_logs',
-			description:
-				`Get cumulative application/server logs from the sandbox environment.
+) {
+	return tool({
+		name: 'get_logs',
+		description:
+			`Get cumulative application/server logs from the sandbox environment.
 
 **USE SPARINGLY:** Only call when get_runtime_errors and run_analysis don't provide enough information. Logs are verbose and cumulative - prefer other diagnostic tools first.
 
@@ -29,55 +19,40 @@ export function createGetLogsTool(
 3. Check timestamps vs. your deploy times
 
 **WHEN TO USE:**
-- ✅ Need to see console output or detailed execution flow
-- ✅ Runtime errors lack detail and static analysis passes
-- ❌ DON'T use as first diagnostic - try get_runtime_errors and run_analysis first
+- Need to see console output or detailed execution flow
+- Runtime errors lack detail and static analysis passes
+- DON'T use as first diagnostic - try get_runtime_errors and run_analysis first
 
 **DEFAULTS:** 30s window, 100 lines, no reset. Logs are USER-DRIVEN (require user interaction).
 
 **RESET:** Set reset=true to clear accumulated logs before fetching. Use when starting fresh debugging or after major fixes.`,
-			parameters: {
-				type: 'object',
-				properties: {
-					reset: {
-						type: 'boolean',
-						description: 'Clear accumulated logs before fetching. Default: false. Set to true when starting fresh debugging or after major fixes to avoid stale errors.',
-					},
-					durationSeconds: {
-						type: 'number',
-						description: 'Time window in seconds. Default: 30 seconds (recent activity). Set to higher value if you need older logs.',
-					},
-					maxLines: {
-						type: 'number',
-						description: 'Maximum lines to return. Default: 100. Set to -1 for no truncation (warning: heavy token usage). Increase to 200-500 for more context.',
-					},
-				},
-				required: [],
-			},
+		args: {
+			reset: t.logs.reset().describe('Clear accumulated logs before fetching. Default: false. Set to true when starting fresh debugging or after major fixes to avoid stale errors.'),
+			durationSeconds: t.logs.durationSeconds().describe('Time window in seconds. Default: 30 seconds (recent activity). Set to higher value if you need older logs.'),
+			maxLines: t.logs.maxLines().describe('Maximum lines to return. Default: 100. Set to -1 for no truncation (warning: heavy token usage). Increase to 200-500 for more context.'),
 		},
-		implementation: async (args?) => {
+		run: async ({ reset, durationSeconds, maxLines }) => {
 			try {
-				const reset = args?.reset ?? false; // Default: don't reset
-				const durationSeconds = args?.durationSeconds ?? 30; // Default to last 30 seconds
-				const maxLines = args?.maxLines ?? 100; // Default to 100 lines
-				
-				logger.info('Fetching application logs', { reset, durationSeconds, maxLines });
-				const logs = await agent.getLogs(reset, durationSeconds);
-				
-				// Truncate logs if maxLines is not -1
-				if (maxLines !== -1 && logs) {
+				const resetValue = reset ?? false;
+				const duration = durationSeconds ?? 30;
+				const maxLinesValue = maxLines ?? 100;
+
+				logger.info('Fetching application logs', { reset: resetValue, durationSeconds: duration, maxLines: maxLinesValue });
+				const logs = await agent.getLogs(resetValue, duration);
+
+				if (maxLinesValue !== -1 && logs) {
 					const lines = logs.split('\n');
-					if (lines.length > maxLines) {
-						const truncatedLines = lines.slice(-maxLines); // Keep last N lines (most recent)
+					if (lines.length > maxLinesValue) {
+						const truncatedLines = lines.slice(-maxLinesValue);
 						const truncatedLog = [
-							`[TRUNCATED: Showing last ${maxLines} of ${lines.length} lines. Set maxLines higher or to -1 for full output]`,
+							`[TRUNCATED: Showing last ${maxLinesValue} of ${lines.length} lines. Set maxLines higher or to -1 for full output]`,
 							...truncatedLines
 						].join('\n');
-						logger.info('Logs truncated', { originalLines: lines.length, truncatedLines: maxLines });
+						logger.info('Logs truncated', { originalLines: lines.length, truncatedLines: maxLinesValue });
 						return { logs: truncatedLog };
 					}
 				}
-				
+
 				return { logs };
 			} catch (error) {
 				return {
@@ -88,5 +63,5 @@ export function createGetLogsTool(
 				};
 			}
 		},
-	};
+	});
 }
