@@ -93,6 +93,10 @@
             {
                 "class_name": "DORateLimitStore",
                 "name": "DORateLimitStore"
+            },
+            {
+                "class_name": "UserSecretsStore",
+                "name": "UserSecretsStore"
             }
 		]
 	},
@@ -126,6 +130,12 @@
                 "DORateLimitStore"
             ],
             "tag": "v2"
+        },
+        {
+            "new_sqlite_classes": [
+                "UserSecretsStore"
+            ],
+            "tag": "v3"
         }
 	],
 	"routes": [
