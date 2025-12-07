@@ -1,6 +1,12 @@
 import { ProjectObjective } from './base';
 import { BaseProjectState } from '../state';
-import { ProjectType, ExportResult, ExportOptions, DeployResult, DeployOptions } from '../types';
+import {
+	ProjectType,
+	ExportResult,
+	ExportOptions,
+	DeployResult,
+	DeployOptions,
+} from '../types';
 import type { AgentInfrastructure } from '../AgentCore';
 import { WebSocketMessageResponses } from '../../constants';
 import { AppService } from '../../../database/services/AppService';
@@ -14,94 +20,119 @@ import { AppService } from '../../../database/services/AppService';
  * Export: PDF, Google Slides, PowerPoint
  *
  */
-export class PresentationObjective<TState extends BaseProjectState = BaseProjectState> 
-  extends ProjectObjective<TState> {
-  
-  constructor(infrastructure: AgentInfrastructure<TState>) {
-    super(infrastructure);
-  }
-  
-  // ==========================================
-  // IDENTITY
-  // ==========================================
-  
-  getType(): ProjectType {
-    return 'presentation';
-  }
-  // ==========================================
-  // DEPLOYMENT & EXPORT
-  // ==========================================
+export class PresentationObjective<
+	TState extends BaseProjectState = BaseProjectState,
+> extends ProjectObjective<TState> {
+	constructor(infrastructure: AgentInfrastructure<TState>) {
+		super(infrastructure);
+	}
 
-  async deploy(options?: DeployOptions): Promise<DeployResult> {
-    const target = options?.target ?? 'platform';
-    if (target !== 'platform') {
-      const error = `Unsupported deployment target "${target}" for presentations`;
-      this.logger.error(error);
-      return { success: false, target, error };
-    }
+	// ==========================================
+	// IDENTITY
+	// ==========================================
 
-    try {
-      this.logger.info('Deploying presentation to Workers for Platforms');
+	getType(): ProjectType {
+		return 'presentation';
+	}
+	// ==========================================
+	// DEPLOYMENT & EXPORT
+	// ==========================================
 
-      if (!this.state.sandboxInstanceId) {
-        await this.deploymentManager.deployToSandbox();
+	async deploy(options?: DeployOptions): Promise<DeployResult> {
+		const target = options?.target ?? 'platform';
+		if (target !== 'platform') {
+			const error = `Unsupported deployment target "${target}" for presentations`;
+			this.logger.error(error);
+			return { success: false, target, error };
+		}
 
-        if (!this.state.sandboxInstanceId) {
-          const error = 'Failed to deploy to sandbox service';
-          this.logger.error(error);
-          return { success: false, target, error };
-        }
-      }
+		try {
+			this.logger.info('Deploying presentation to Workers for Platforms');
 
-      const result = await this.deploymentManager.deployToCloudflare({
-        target,
-        callbacks: {
-          onStarted: (data) => this.broadcast(WebSocketMessageResponses.CLOUDFLARE_DEPLOYMENT_STARTED, data),
-          onCompleted: (data) => this.broadcast(WebSocketMessageResponses.CLOUDFLARE_DEPLOYMENT_COMPLETED, data),
-          onError: (data) => this.broadcast(WebSocketMessageResponses.CLOUDFLARE_DEPLOYMENT_ERROR, data),
-        }
-      });
+			if (!this.state.sandboxInstanceId) {
+				await this.deploymentManager.deployToSandbox();
 
-      if (result.deploymentUrl && result.deploymentId) {
-        const appService = new AppService(this.env);
-        await appService.updateDeploymentId(this.getAgentId(), result.deploymentId);
-      }
+				if (!this.state.sandboxInstanceId) {
+					const error = 'Failed to deploy to sandbox service';
+					this.logger.error(error);
+					return { success: false, target, error };
+				}
+			}
 
-      return {
-        success: !!result.deploymentUrl,
-        target,
-        url: result.deploymentUrl || undefined,
-        metadata: {
-          deploymentId: result.deploymentId,
-          workersUrl: result.deploymentUrl
-        }
-      };
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unknown presentation deployment error';
-      this.logger.error('Presentation deployment error:', error);
-      this.broadcast(WebSocketMessageResponses.CLOUDFLARE_DEPLOYMENT_ERROR, {
-        message: 'Deployment failed',
-        error: message
-      });
-      return { success: false, target, error: message };
-    }
-  }
+			const result = await this.deploymentManager.deployToCloudflare({
+				target,
+				callbacks: {
+					onStarted: (data) =>
+						this.broadcast(
+							WebSocketMessageResponses.CLOUDFLARE_DEPLOYMENT_STARTED,
+							data,
+						),
+					onCompleted: (data) =>
+						this.broadcast(
+							WebSocketMessageResponses.CLOUDFLARE_DEPLOYMENT_COMPLETED,
+							data,
+						),
+					onError: (data) =>
+						this.broadcast(
+							WebSocketMessageResponses.CLOUDFLARE_DEPLOYMENT_ERROR,
+							data,
+						),
+				},
+			});
 
-  async export(options: ExportOptions): Promise<ExportResult> {
-    const allowedKinds: Array<ExportOptions['kind']> = ['pdf', 'pptx', 'googleslides'];
-    if (!allowedKinds.includes(options.kind)) {
-      const error = `Unsupported presentation export kind "${options.kind}"`;
-      this.logger.warn(error);
-      return { success: false, error };
-    }
+			if (result.deploymentUrl && result.deploymentId) {
+				const appService = new AppService(this.env);
+				await appService.updateDeploymentId(
+					this.getAgentId(),
+					result.deploymentId,
+				);
+			}
 
-    const format = options.format || options.kind;
-    this.logger.info('Presentation export requested', { format });
+			return {
+				success: !!result.deploymentUrl,
+				target,
+				url: result.deploymentUrl || undefined,
+				metadata: {
+					deploymentId: result.deploymentId,
+					workersUrl: result.deploymentUrl,
+				},
+			};
+		} catch (error) {
+			const message =
+				error instanceof Error
+					? error.message
+					: 'Unknown presentation deployment error';
+			this.logger.error('Presentation deployment error:', error);
+			this.broadcast(
+				WebSocketMessageResponses.CLOUDFLARE_DEPLOYMENT_ERROR,
+				{
+					message: 'Deployment failed',
+					error: message,
+				},
+			);
+			return { success: false, target, error: message };
+		}
+	}
 
-    return {
-      success: false,
-      error: 'Presentation export not yet implemented - coming in Phase 3',
-      metadata: { format }
-    };
-  }
+	async export(options: ExportOptions): Promise<ExportResult> {
+		const allowedKinds: Array<ExportOptions['kind']> = [
+			'pdf',
+			'pptx',
+			'googleslides',
+		];
+		if (!allowedKinds.includes(options.kind)) {
+			const error = `Unsupported presentation export kind "${options.kind}"`;
+			this.logger.warn(error);
+			return { success: false, error };
+		}
+
+		const format = options.format || options.kind;
+		this.logger.info('Presentation export requested', { format });
+
+		return {
+			success: false,
+			error: 'Presentation export not yet implemented - coming in Phase 3',
+			metadata: { format },
+		};
+	}
 }

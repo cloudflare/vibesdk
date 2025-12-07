@@ -393,7 +393,7 @@ Result: Professional data presentation using template's full capabilities.
 Thought: Todo app with categories = React app with state management, likely needs Zustand. Interactive project, needs template and sandbox.
 
 Tool Calls:
-1. init_suitable_template()
+1. init_suitable_template() [MANDATORY]
    → Returns: "react-zustand-app" template with routing, Zustand setup, TailwindCSS
 
 2. generate_blueprint()

@@ -194,7 +194,7 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
 
     protected isPreviewable(): boolean {
         // If there are 'package.json', and 'wrangler.jsonc' files, then it is previewable
-        return this.fileManager.fileExists('package.json') && this.fileManager.fileExists('wrangler.jsonc');
+        return this.fileManager.fileExists('package.json') && (this.fileManager.fileExists('wrangler.jsonc') || this.fileManager.fileExists('wrangler.toml'));
     }
 
     /**

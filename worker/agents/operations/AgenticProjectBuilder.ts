@@ -266,7 +266,7 @@ export class AgenticProjectBuilderOperation extends AgentOperationWithTools<
             createGenerateImagesTool(session.agent, logger),
         ];
 
-        if (!inputs.selectedTemplate) {
+        if (!inputs.selectedTemplate || inputs.selectedTemplate === 'scratch') {
             rawTools.push(createInitSuitableTemplateTool(session.agent, logger));
         }
 
