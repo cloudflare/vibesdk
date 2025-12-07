@@ -146,335 +146,7 @@ ${typecheckOutput}`;
         return CODE_SERIALIZERS[serializerType](files);
     },
 
-    REACT_RENDER_LOOP_PREVENTION: `<REACT_RENDER_LOOP_PREVENTION>
-In React, "Maximum update depth exceeded" means something in your component tree is setting state in a way that immediately triggers another render, which sets state again… and you've created a render→setState→render loop. React aborts after ~50 nested updates and throws this error.
-
-## The 3 Root Causes of Infinite Loops
-
-### 1. **Direct State Updates During Render (MOST COMMON)**
-Never call a state setter directly within the rendering logic of your component. All state updates must happen in event handlers, useEffect hooks, or async callbacks.
-
-**Basic Pattern:**
-\`\`\`tsx
-// BAD CODE ❌ State update during render
-function Bad() {
-    const [n, setN] = useState(0);
-    setN(n + 1); // Runs on every render -> infinite loop
-    return <div>{n}</div>;
-}
-
-// GOOD CODE ✅ State update in event handler
-function Good() {
-    const [n, setN] = useState(0);
-    const handleClick = () => setN(n + 1); // Safe: only runs on user interaction
-    return <button onClick={handleClick}>{n}</button>;
-}
-\`\`\`
-
-**Conditional Updates During Render:**
-\`\`\`tsx
-// BAD CODE ❌ Conditional state update in render
-function Component({ showModal }) {
-    const [modalOpen, setModalOpen] = useState(false);
-    if (showModal && !modalOpen) {
-        setModalOpen(true); // setState during render
-    }
-    return modalOpen ? <Modal /> : null;
-}
-
-// GOOD CODE ✅ Use useEffect for state synchronization
-function Component({ showModal }) {
-    const [modalOpen, setModalOpen] = useState(false);
-    useEffect(() => {
-        setModalOpen(showModal);
-    }, [showModal]);
-    return modalOpen ? <Modal /> : null;
-}
-\`\`\`
-
-**Side Effects in Memoization:**
-\`\`\`tsx
-// BAD CODE ❌ State update inside useMemo/useCallback
-function Component({ data }) {
-    const [processed, setProcessed] = useState(null);
-    const memoizedValue = useMemo(() => {
-        setProcessed(data.map(transform)); // Side effect in memoization
-        return computedValue;
-    }, [data]);
-    return <div>{memoizedValue}</div>;
-}
-
-// GOOD CODE ✅ Separate side effects from memoization
-function Component({ data }) {
-    const [processed, setProcessed] = useState(null);
-    const memoizedValue = useMemo(() => computedValue, [data]);
-    
-    useEffect(() => {
-        setProcessed(data.map(transform));
-    }, [data]);
-    
-    return <div>{memoizedValue}</div>;
-}
-\`\`\`
-
-### 2. **Effects Triggering Themselves Unconditionally**
-An effect that sets state must have logic to prevent it from running again after that state is set.
-
-**Missing Dependency Array:**
-\`\`\`tsx
-// BAD CODE ❌ Effect runs after every render
-function BadCounter() {
-    const [count, setCount] = useState(0);
-    useEffect(() => {
-        setCount(prevCount => prevCount + 1);
-    }); // No dependency array -> infinite loop
-    return <div>{count}</div>;
-}
-
-// GOOD CODE ✅ Dependency array prevents infinite loop
-function GoodCounter() {
-    const [count, setCount] = useState(0);
-    useEffect(() => {
-        setCount(1); // Only run once on mount
-    }, []); // Empty array = run once on mount
-    return <div>{count}</div>;
-}
-\`\`\`
-
-**Conditional Effect Logic:**
-\`\`\`tsx
-// GOOD CODE ✅ Effect with conditional logic
-function UserData({ userId }) {
-    const [user, setUser] = useState(null);
-    useEffect(() => {
-        if (userId) { // Conditional logic prevents unnecessary runs
-            fetchUser(userId).then(data => setUser(data));
-        }
-    }, [userId]); // Only runs when userId changes
-    return <div>{user ? user.name : 'Loading...'}</div>;
-}
-\`\`\`
-
-### 3. **Unstable Dependencies (Referential Inequality)**
-When a dependency for useEffect, useMemo, or useCallback is a non-primitive (object, array, function) that is re-created on every render.
-
-**Objects in useEffect:**
-\`\`\`tsx
-// BAD CODE ❌ Object dependency is recreated every render
-function Component() {
-    const [v, setV] = useState(0);
-    const filters = { type: 'active', status: 'pending' }; // New object every render
-    useEffect(() => {
-        setV(prev => prev + 1);
-    }, [filters]); // Triggers every render due to new object reference
-    return <div>{v}</div>;
-}
-
-// GOOD CODE ✅ Stabilize object with useMemo
-function Component() {
-    const [v, setV] = useState(0);
-    const filters = useMemo(() => ({ type: 'active', status: 'pending' }), []);
-    useEffect(() => {
-        setV(prev => prev + 1);
-    }, [filters]); // Only triggers when filters actually change
-    return <div>{v}</div>;
-}
-\`\`\`
-
-**Context Value Recreation:**
-\`\`\`tsx
-// BAD CODE ❌ Context value recreated every render
-function App() {
-    const [user, setUser] = useState(null);
-    const value = { user, setUser }; // New object every render
-    return <UserContext.Provider value={value}>...</UserContext.Provider>;
-}
-
-// GOOD CODE ✅ Memoize context value
-function App() {
-    const [user, setUser] = useState(null);
-    const value = useMemo(() => ({ user, setUser }), [user]);
-    return <UserContext.Provider value={value}>...</UserContext.Provider>;
-}
-\`\`\`
-
-**State Management Library Selectors:**
-Never use object literals to select multiple values from a store. Always select individual values.
-\`\`\`tsx
-// BAD CODE ❌ Multiple values in selector: Selector returns new object every render
-const { score, bestScore } = useGameStore((state) => ({
-    score: state.score,
-    bestScore: state.bestScore,
-})); // Creates new object reference every time
-
-// GOOD CODE ✅ Select primitive values individually
-const score = useGameStore((state) => state.score);
-const bestScore = useGameStore((state) => state.bestScore);
-\`\`\`
-
-**STRICT POLICY:** Do NOT destructure multiple values from an object-literal selector. Always call useStore multiple times for primitives.
-\`\`\`tsx
-// BAD CODE ❌ Object-literal selector with destructuring (causes unstable references)
-const { servers, selectedServerId, selectedChannelId, selectChannel } = useAppStore((state) => ({
-  servers: state.servers,
-  selectedServerId: state.selectedServerId,
-  selectedChannelId: state.selectedChannelId,
-  selectChannel: state.selectChannel,
-}));
-
-// GOOD CODE ✅ Select slices individually to keep snapshots stable
-const servers = useAppStore((state) => state.servers);
-const selectedServerId = useAppStore((state) => state.selectedServerId);
-const selectedChannelId = useAppStore((state) => state.selectedChannelId);
-const selectChannel = useAppStore((state) => state.selectChannel);
-\`\`\`
-
-**Store Methods Returning Arrays/Objects (CRITICAL - VERY COMMON BUG):**
-\`\`\`tsx
-// BAD CODE ❌ Method returns new array every render → infinite loop
-const useStore = create((set, get) => ({
-    vfs: {},
-    currentId: '1',
-    getChildren: () => {
-        const { vfs, currentId } = get();
-        const dir = vfs[currentId];
-        return dir?.children.map(id => vfs[id]) || []; // NEW ARRAY EVERY CALL
-    }
-}));
-function Component() {
-    const children = useStore(state => state.getChildren()); // ❌ INFINITE LOOP
-    return <div>{children.map(...)}</div>;
-}
-
-// GOOD CODE ✅ Select primitives, compute in component with useMemo
-const useStore = create((set) => ({
-    vfs: {},
-    currentId: '1',
-}));
-function Component() {
-    const vfs = useStore(state => state.vfs);
-    const currentId = useStore(state => state.currentId);
-    const children = useMemo(() => {
-        const dir = vfs[currentId];
-        return dir?.children.map(id => vfs[id]) || [];
-    }, [vfs, currentId]); // ✅ STABLE with useMemo
-    return <div>{children.map(...)}</div>;
-}
-\`\`\`
-
-## Other Common Loop-Inducing Patterns
-
-**Parent/Child Feedback Loops:**
-- Child effect updates parent state → parent rerenders → child gets new props → child effect runs again
-- **Solution:** Lift state up or use callbacks that are idempotent/guarded
-
-**State within Recursive Components:**
-\`\`\`tsx
-// BAD CODE ❌ Each recursive call creates independent state
-function FolderTree({ folders }) {
-    const [expanded, setExpanded] = useState(new Set());
-    return (
-        <div>
-            {folders.map(f => (
-                <FolderTree key={f.id} folders={f.children} />
-            ))}
-        </div>
-    );
-}
-
-// GOOD CODE ✅ Lift state up to non-recursive parent
-function FolderTree({ folders, expanded, onToggle }) {
-    return (
-        <div>
-            {folders.map(f => (
-                <FolderTree key={f.id} folders={f.children} expanded={expanded} onToggle={onToggle} />
-            ))}
-        </div>
-    );
-}
-
-function Sidebar() {
-    const [expanded, setExpanded] = useState(new Set());
-    const handleToggle = (id) => { /* logic */ };
-    return <FolderTree folders={allFolders} expanded={expanded} onToggle={handleToggle} />;
-}
-\`\`\`
-
-**Stale Closures (Correctness Issue):**
-While not directly causing infinite loops, stale closures cause incorrect state transitions:
-\`\`\`tsx
-// BAD CODE ❌ Stale closure in event handler
-function Counter() {
-    const [count, setCount] = useState(0);
-    const handleClick = () => {
-        setCount(count + 1); // Uses stale count value
-        setCount(count + 1); // Won't increment by 2
-    };
-    return <button onClick={handleClick}>{count}</button>;
-}
-
-// GOOD CODE ✅ Functional updates avoid stale closures
-function Counter() {
-    const [count, setCount] = useState(0);
-    const handleClick = useCallback(() => {
-        setCount(prev => prev + 1);
-        setCount(prev => prev + 1); // Will correctly increment by 2
-    }, []);
-    return <button onClick={handleClick}>{count}</button>;
-}
-\`\`\`
-
-## Quick Prevention Checklist: The Golden Rules
-
-✅ **Move state updates out of render body** - Only update state in useEffect hooks or event handlers  
-✅ **Provide dependency arrays to every useEffect** - Missing dependencies cause infinite loops  
-✅ **Make effect logic conditional** - Add guards like \`if (data.length > 0)\` to prevent re-triggering  
-✅ **Stabilize non-primitive dependencies** - Use useMemo and useCallback for objects/arrays/functions  
-✅ **Select primitives from stores** - \`useStore(s => s.score)\` not \`useStore(s => ({ score: s.score }))\`
-✅ **NEVER call store methods in selectors** - \`useStore(s => s.getItems())\` ❌ causes infinite loops
-✅ **Lift state up from recursive components** - Never initialize state inside recursive calls  
-✅ **Store actions are stable** - In Zustand/Redux, action functions are stable references and should NOT be in dependency arrays of useEffect/useCallback/useMemo
-✅ **Use functional updates** - \`setState(prev => prev + 1)\` avoids stale closures  
-✅ **Prefer refs for non-UI data** - \`useRef\` doesn't trigger re-renders when updated  
-✅ **Avoid prop→state mirrors** - Derive values directly or use proper synchronization  
-✅ **Break parent↔child feedback loops** - Lift state or use idempotent callbacks
-
-\`\`\`tsx
-// GOLDEN RULE EXAMPLES ✅
-
-// 1. State updates in event handlers only
-const handleClick = () => setState(newValue);
-
-// 2. Effects with dependency arrays
-useEffect(() => { /* logic */ }, [dependency]);
-
-// 3. Conditional effect logic
-useEffect(() => {
-  if (userId) { fetchUser(userId).then(setUser); }
-}, [userId]);
-
-// 4. Stabilized objects/arrays
-const config = useMemo(() => ({ a, b }), [a, b]);
-const handleClick = useCallback(() => {}, [dep]);
-
-// 5. Primitive selectors
-const score = useStore(state => state.score);
-const name = useStore(state => state.user.name);
-
-// 6. Functional updates
-setCount(prev => prev + 1);
-setItems(prev => [...prev, newItem]);
-
-// 7. Refs for non-UI data
-const latestValue = useRef();
-latestValue.current = currentValue; // No re-render
-
-// 8. Derive instead of mirror
-const derivedValue = propValue.toUpperCase(); // No state needed
-\`\`\`
-</REACT_RENDER_LOOP_PREVENTION>`,
-
-    REACT_RENDER_LOOP_PREVENTION_LITE: `
+    REACT_RENDER_LOOP_PREVENTION: `
 ⚠️⚠️⚠️ ABSOLUTE ZERO-TOLERANCE RULES - VIOLATION CRASHES THE APP ⚠️⚠️⚠️
 
 ╔═══════════════════════════════════════════════════════════════════════════════╗
@@ -596,11 +268,21 @@ const state = useStore(); // ❌ CRASH
 const items = useStore(s => s.getItems()); // ❌ INFINITE LOOP
 const filtered = useStore(s => s.items.filter(...)); // ❌ INFINITE LOOP
 const mapped = useStore(s => s.data.map(...)); // ❌ INFINITE LOOP
+
+// 🔍 SCAN FOR: "useShallow((s) => Object." or "useShallow(s => Object."
+const items = useStore(useShallow(s => Object.values(s.itemsById))); // ❌ CRASH
+const keys = useStore(useShallow(s => Object.keys(s.data))); // ❌ CRASH
+const entries = useStore(useShallow(s => Object.entries(s.map))); // ❌ CRASH
+// Why? Object.values/keys/entries creates NEW ARRAY every render
+// useShallow compares array contents, but selector runs BEFORE comparison
+// React's useSyncExternalStore requires getSnapshot to return cached result
 \`\`\`
 
-⚠️ CRITICAL MISCONCEPTION - READ THIS:
+⚠️ CRITICAL: useShallow DOES NOT FIX ARRAY-CREATING SELECTORS
 Many developers think useShallow fixes object-literal selectors. It does not.
 Avoid using useShallow in selectors entirely.
+useShallow only does shallow comparison AFTER selector runs. If selector creates new array/object, it's already too late.
+The selector itself must return a STABLE reference from the store, not a computed value.
 
 ✅ CORRECT PATTERN - ONLY ONE OPTION:
 \`\`\`tsx
@@ -620,6 +302,10 @@ const filtered = useMemo(() =>
     items.filter(i => i.status === filter), 
     [items, filter]
 );
+
+// For Object.values/keys/entries: Select the RAW object, derive in useMemo
+const itemsById = useStore(s => s.itemsById); // ✅ Select raw object (stable ref)
+const itemsList = useMemo(() => Object.values(itemsById), [itemsById]); // ✅ Derive outside selector
 \`\`\`
 
 💡 IMPORTANT: Multiple Individual Selectors is MOST EFFICIENT (Debunking Common Myth)
@@ -666,8 +352,8 @@ const { user, isLoading } = useStore(); // ❌ CRASH - NOT THE SAME!
 - "The result of getSnapshot should be cached"
 - "Too many re-renders"
 
-→ SCAN FOR: \`useStore(s => ({\`, \`useStore(s => s.get\`, \`useStore()\`
-→ FIX: Select ONLY primitives, compute derived values with useMemo
+→ SCAN FOR: \`useStore(s => ({\`, \`useStore(s => s.get\`, \`useStore()\`, \`useShallow(s => Object.\`
+→ FIX: Select ONLY stable refs from store, derive arrays/objects with useMemo OUTSIDE selector
 
 ╔═══════════════════════════════════════════════════════════════════════════════╗
 ║  OTHER COMMON PATTERNS THAT CAUSE LOOPS                                       ║

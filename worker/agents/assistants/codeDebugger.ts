@@ -459,7 +459,7 @@ The goal is working code, verified through evidence. Think internally, act decis
 <appendix>
 The most important class of errors is the "Maximum update depth exceeded" error which you definitely need to identify and fix. 
 Here are some important guidelines for identifying such issues and preventing them:
-${PROMPT_UTILS.REACT_RENDER_LOOP_PREVENTION_LITE}
+${PROMPT_UTILS.REACT_RENDER_LOOP_PREVENTION}
 
 ${PROMPT_UTILS.COMMON_DEP_DOCUMENTATION}
 

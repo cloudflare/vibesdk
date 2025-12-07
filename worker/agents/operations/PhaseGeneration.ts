@@ -232,7 +232,7 @@ const issuesPromptFormatterWithGuidelines = (issues: IssueReport): string => {
         serialized = `
 ${PROMPT_UTILS.COMMON_PITFALLS}
 
-${issues.runtimeErrors.some((error) => error.message.includes('infinite loop') || error.message.includes('re-renders')) ? PROMPT_UTILS.REACT_RENDER_LOOP_PREVENTION_LITE: ''}
+${issues.runtimeErrors.some((error) => error.message.includes('infinite loop') || error.message.includes('re-renders')) ? PROMPT_UTILS.REACT_RENDER_LOOP_PREVENTION: ''}
 
 ${serialized}`;
     }

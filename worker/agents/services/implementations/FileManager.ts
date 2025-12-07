@@ -87,14 +87,30 @@ export class FileManager implements IFileManager {
         return FileProcessing.getAllFiles(this.getTemplateDetailsFunc(), state.generatedFilesMap);
     }
 
-    async saveGeneratedFile(file: FileOutputType, commitMessage?: string): Promise<FileState> {
-        const results = await this.saveGeneratedFiles([file], commitMessage);
+    async saveGeneratedFile(file: FileOutputType, commitMessage?: string, overwrite: boolean = false): Promise<FileState> {
+        const results = await this.saveGeneratedFiles([file], commitMessage, overwrite);
         return results[0];
     }
 
-    async saveGeneratedFiles(files: FileOutputType[], commitMessage?: string): Promise<FileState[]> {
+    async saveGeneratedFiles(files: FileOutputType[], commitMessage?: string, overwrite: boolean = false): Promise<FileState[]> {
         const filesMap = { ...this.stateManager.getState().generatedFilesMap };
         const fileStates: FileState[] = [];
+        
+        // Filter out protected files
+        if (!overwrite) {
+            const templateDetails = this.getTemplateDetailsFunc();
+            if (templateDetails && templateDetails.dontTouchFiles) {
+                const dontTouchSet = new Set(templateDetails.dontTouchFiles);
+                
+                files = files.filter(file => {
+                    if (dontTouchSet.has(file.filePath)) {
+                        console.warn(`[FileManager] Skipping protected file: ${file.filePath}`);
+                        return false;
+                    }
+                    return true;
+                });
+            }
+        }
         
         for (const file of files) {
             let lastDiff = '';

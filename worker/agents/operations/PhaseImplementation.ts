@@ -78,7 +78,7 @@ ${PROMPT_UTILS.UI_GUIDELINES}
 We follow the following strategy at our team for rapidly delivering projects:
 ${STRATEGIES.FRONTEND_FIRST_CODING}
 
-${PROMPT_UTILS.REACT_RENDER_LOOP_PREVENTION_LITE}
+${PROMPT_UTILS.REACT_RENDER_LOOP_PREVENTION}
 
 <CLIENT REQUEST>
 "{{query}}"

@@ -279,7 +279,8 @@ export class SimpleCodeGeneratorAgent extends Agent<Env, CodeGenState> {
         
         await this.fileManager.saveGeneratedFiles(
             filesToSave,
-            'Initialize project configuration files'
+            'Initialize project configuration files',
+            true
         );
         
         this.logger().info('Committed customized template files to git');
@@ -342,7 +343,7 @@ export class SimpleCodeGeneratorAgent extends Agent<Env, CodeGenState> {
                     fileContents: packageJson,
                     filePurpose: 'Project configuration file'
                 }
-            ], 'chore: fix overwritten package.json');
+            ], 'chore: fix overwritten package.json', true);
         }
         
         // Full initialization for read-write operations
@@ -477,7 +478,8 @@ export class SimpleCodeGeneratorAgent extends Agent<Env, CodeGenState> {
                 fileContents: bootstrapScript,
                 filePurpose: 'Updated bootstrap script for first-time clone setup'
             },
-            'chore: Update bootstrap script with latest commands'
+            'chore: Update bootstrap script with latest commands',
+            true
         );
         
         this.logger().info('Updated bootstrap script with commands', {
@@ -775,7 +777,7 @@ export class SimpleCodeGeneratorAgent extends Agent<Env, CodeGenState> {
 
         const readme = await this.operations.implementPhase.generateReadme(this.getOperationOptions());
 
-        await this.fileManager.saveGeneratedFile(readme, "feat: README.md");
+        await this.fileManager.saveGeneratedFile(readme, "feat: README.md", true);
 
         this.broadcast(WebSocketMessageResponses.FILE_GENERATED, {
             message: 'README.md generated successfully',
@@ -1682,6 +1684,13 @@ export class SimpleCodeGeneratorAgent extends Agent<Env, CodeGenState> {
         if (!sandboxInstanceId) {
             throw new Error('No sandbox instance available');
         }
+        const templateDetails = this.getTemplateDetails();
+        if (templateDetails && templateDetails.dontTouchFiles && templateDetails.dontTouchFiles.includes(path)) {
+            return {
+                path,
+                diff: '<WRITE PROTECTED - TEMPLATE FILE, CANNOT MODIFY - SKIPPED - NO CHANGES MADE>'
+            };
+        }
         // Prefer local file manager; fallback to sandbox
         let fileContents = '';
         let filePurpose = '';
@@ -1726,6 +1735,22 @@ export class SimpleCodeGeneratorAgent extends Agent<Env, CodeGenState> {
             phaseName
         });
 
+        let skippedFiles: { path: string; purpose: string; diff: string }[] = [];
+
+        // Enforce template donttouch constraints
+        const templateDetails = this.getTemplateDetails();
+        if (templateDetails && templateDetails.dontTouchFiles) {
+            const dontTouchFiles = new Set<string>(templateDetails.dontTouchFiles);
+            files = files.filter(file => {
+                if (dontTouchFiles.has(file.path)) {
+                    this.logger().info('Skipping dont-touch file', { filePath: file.path });
+                    skippedFiles.push({ path: file.path, purpose: `WRITE-PROTECTED FILE, CANNOT MODIFY`, diff: "<WRITE PROTECTED - TEMPLATE FILE, CANNOT MODIFY - SKIPPED - NO CHANGES MADE>" });
+                    return false;
+                }
+                return true;
+            });
+        }
+
         const operation = new SimpleCodeGenerationOperation();
         const result = await operation.execute(
             {
@@ -1769,13 +1794,18 @@ export class SimpleCodeGeneratorAgent extends Agent<Env, CodeGenState> {
 
         await this.deployToSandbox(savedFiles, false);
 
-        return { files: savedFiles.map(f => {
-            return {
-                path: f.filePath,
-                purpose: f.filePurpose || '',
-                diff: f.lastDiff || ''
-            };
-        }) };
+        return { 
+            files: [
+                ...skippedFiles,
+                ...savedFiles.map(f => {
+                    return {
+                        path: f.filePath,
+                        purpose: f.filePurpose || '',
+                        diff: f.lastDiff || ''
+                    };
+                }) 
+            ]
+        };
     }
 
     async deployToSandbox(files: FileOutputType[] = [], redeploy: boolean = false, commitMessage?: string, clearLogs: boolean = false): Promise<PreviewType | null> {
@@ -2202,7 +2232,8 @@ export class SimpleCodeGeneratorAgent extends Agent<Env, CodeGenState> {
                     fileContents: packageJson,
                     filePurpose: 'Project dependencies and configuration'
                 },
-                'chore: sync package.json dependencies from sandbox'
+                'chore: sync package.json dependencies from sandbox',
+                true
             );
             
             this.logger().info('Successfully synced package.json to git', { 
