@@ -116,7 +116,8 @@ export class AgenticCodingBehavior extends BaseCodingBehavior<AgenticState> impl
             
             await this.fileManager.saveGeneratedFiles(
                 filesToSave,
-                'Initialize project configuration files'
+                'Initialize project configuration files',
+                true
             );
             
             this.logger.info('Committed customized template files to git');

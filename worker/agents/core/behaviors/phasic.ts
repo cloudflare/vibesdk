@@ -140,7 +140,8 @@ export class PhasicCodingBehavior extends BaseCodingBehavior<PhasicState> implem
         
         await this.fileManager.saveGeneratedFiles(
             filesToSave,
-            'Initialize project configuration files'
+            'Initialize project configuration files',
+            true
         );
         
         this.logger.info('Committed customized template files to git');
@@ -172,7 +173,7 @@ export class PhasicCodingBehavior extends BaseCodingBehavior<PhasicState> implem
                     fileContents: packageJson,
                     filePurpose: 'Project configuration file'
                 }
-            ], 'chore: fix overwritten package.json');
+            ], 'chore: fix overwritten package.json', true);
         }
     }
 

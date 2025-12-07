@@ -218,7 +218,8 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
                 fileContents: bootstrapScript,
                 filePurpose: 'Updated bootstrap script for first-time clone setup'
             },
-            'chore: Update bootstrap script with latest commands'
+            'chore: Update bootstrap script with latest commands',
+            true
         );
         
         this.logger.info('Updated bootstrap script with commands', {
@@ -891,6 +892,13 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
     }
 
     async regenerateFileByPath(path: string, issues: string[]): Promise<{ path: string; diff: string }> {
+        const templateDetails = this.getTemplateDetails();
+        if (templateDetails && templateDetails.dontTouchFiles && templateDetails.dontTouchFiles.includes(path)) {
+            return {
+                path,
+                diff: '<WRITE PROTECTED - TEMPLATE FILE, CANNOT MODIFY - SKIPPED - NO CHANGES MADE>'
+            };
+        }
         // Prefer local file manager; fallback to sandbox
         let fileContents = '';
         let filePurpose = '';
@@ -939,6 +947,22 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
             message: `Generating files: ${phaseName}`,
             phaseName
         });
+
+        let skippedFiles: { path: string; purpose: string; diff: string }[] = [];
+
+        // Enforce template donttouch constraints
+        const templateDetails = this.getTemplateDetails();
+        if (templateDetails && templateDetails.dontTouchFiles) {
+            const dontTouchFiles = new Set<string>(templateDetails.dontTouchFiles);
+            files = files.filter(file => {
+                if (dontTouchFiles.has(file.path)) {
+                    this.logger.info('Skipping dont-touch file', { filePath: file.path });
+                    skippedFiles.push({ path: file.path, purpose: `WRITE-PROTECTED FILE, CANNOT MODIFY`, diff: "<WRITE PROTECTED - TEMPLATE FILE, CANNOT MODIFY - SKIPPED - NO CHANGES MADE>" });
+                    return false;
+                }
+                return true;
+            });
+        }
 
         const savedFiles: FileState[] = [];
 
@@ -989,13 +1013,18 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
 
         await this.deployToSandbox(savedFiles, false);
 
-        return { files: savedFiles.map(f => {
-            return {
-                path: f.filePath,
-                purpose: f.filePurpose || '',
-                diff: f.lastDiff || ''
-            };
-        }) };
+        return { 
+            files: [
+                ...skippedFiles,
+                ...savedFiles.map(f => {
+                    return {
+                        path: f.filePath,
+                        purpose: f.filePurpose || '',
+                        diff: f.lastDiff || ''
+                    };
+                }) 
+            ]
+        };
     }
 
     /**
@@ -1468,7 +1497,8 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
                     fileContents: packageJson,
                     filePurpose: 'Project dependencies and configuration'
                 },
-                'chore: sync package.json dependencies from sandbox'
+                'chore: sync package.json dependencies from sandbox',
+                true
             );
             
             this.logger.info('Successfully synced package.json to git', { 

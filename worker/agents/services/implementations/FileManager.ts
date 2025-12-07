@@ -88,8 +88,8 @@ export class FileManager implements IFileManager {
         return FileProcessing.getAllFiles(this.getTemplateDetailsFunc(), state.generatedFilesMap);
     }
 
-    async saveGeneratedFile(file: FileOutputType, commitMessage?: string): Promise<FileState> {
-        const results = await this.saveGeneratedFiles([file], commitMessage);
+    async saveGeneratedFile(file: FileOutputType, commitMessage?: string, overwrite: boolean = false): Promise<FileState> {
+        const results = await this.saveGeneratedFiles([file], commitMessage, overwrite);
         return results[0];
     }
 
@@ -98,7 +98,7 @@ export class FileManager implements IFileManager {
      * Updates generatedFilesMap and computes diffs, but does NOT touch git.
      * Use commitFiles() to persist recorded files to git.
      */
-    recordFileChanges(files: FileOutputType[]): FileState[] {
+    recordFileChanges(files: FileOutputType[], overwrite: boolean = false): FileState[] {
         const templateDetails = this.getTemplateDetailsFunc();
         const dontTouchFiles = templateDetails?.dontTouchFiles || new Set<string>();
 
@@ -106,7 +106,7 @@ export class FileManager implements IFileManager {
         const fileStates: FileState[] = [];
 
         for (const file of files) {
-            if (!isFileModifiable(file.filePath, dontTouchFiles).allowed) {
+            if (!isFileModifiable(file.filePath, dontTouchFiles).allowed && !overwrite) {
                 console.warn(`[FileManager] Skipping protected file ${file.filePath}`);
                 continue;
             }
@@ -149,11 +149,11 @@ export class FileManager implements IFileManager {
      * - With files: records them to state, then commits if commitMessage provided
      * - With empty array + commitMessage: commits ALL pending changes from state
      */
-    async saveGeneratedFiles(files: FileOutputType[], commitMessage?: string): Promise<FileState[]> {
+    async saveGeneratedFiles(files: FileOutputType[], commitMessage?: string, overwrite: boolean = false): Promise<FileState[]> {
         // Empty array + commit message = commit all pending changes
         const fileStates = files.length === 0
             ? Object.values(this.stateManager.getState().generatedFilesMap)
-            : this.recordFileChanges(files);
+            : this.recordFileChanges(files, overwrite);
 
         try {
             if (commitMessage) {
