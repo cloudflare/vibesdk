@@ -10,6 +10,7 @@ import { setupGitHubExporterRoutes } from './githubExporterRoutes';
 import { setupCodegenRoutes } from './codegenRoutes';
 import { setupScreenshotRoutes } from './imagesRoutes';
 import { setupSentryRoutes } from './sentryRoutes';
+import { setupCapabilitiesRoutes } from './capabilitiesRoutes';
 import { Hono } from "hono";
 import { AppEnv } from "../../types/appenv";
 import { setupStatusRoutes } from './statusRoutes';
@@ -25,6 +26,9 @@ export function setupRoutes(app: Hono<AppEnv>): void {
 
     // Platform status routes (public)
     setupStatusRoutes(app);
+
+    // Platform capabilities routes (public)
+    setupCapabilitiesRoutes(app);
 
     // Authentication and user management routes
     setupAuthRoutes(app);

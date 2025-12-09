@@ -1,7 +1,5 @@
 import type { RefObject } from 'react';
-import { GitBranch, Github, Expand } from 'lucide-react';
-import { ModelConfigInfo } from './model-config-info';
-import { HeaderButton } from './header-actions';
+import { BaseHeaderActions } from '@/components/shared/BaseHeaderActions';
 import type { ModelConfigsInfo } from '@/api-types';
 
 interface EditorHeaderActionsProps {
@@ -24,32 +22,14 @@ export function EditorHeaderActions({
 	editorRef,
 }: EditorHeaderActionsProps) {
 	return (
-		<>
-			<ModelConfigInfo
-				configs={modelConfigs}
-				onRequestConfigs={onRequestConfigs}
-				loading={loadingConfigs}
-			/>
-			<HeaderButton
-				icon={GitBranch}
-				label="Clone"
-				onClick={onGitCloneClick}
-				title="Clone to local machine"
-			/>
-			{isGitHubExportReady && (
-				<HeaderButton
-					icon={Github}
-					label="GitHub"
-					onClick={onGitHubExportClick}
-					title="Export to GitHub"
-				/>
-			)}
-			<HeaderButton
-				icon={Expand}
-				onClick={() => editorRef.current?.requestFullscreen()}
-				title="Fullscreen"
-				iconOnly
-			/>
-		</>
+		<BaseHeaderActions
+			containerRef={editorRef}
+			modelConfigs={modelConfigs}
+			onRequestConfigs={onRequestConfigs}
+			loadingConfigs={loadingConfigs}
+			onGitCloneClick={onGitCloneClick}
+			isGitHubExportReady={isGitHubExportReady}
+			onGitHubExportClick={onGitHubExportClick}
+		/>
 	);
 }

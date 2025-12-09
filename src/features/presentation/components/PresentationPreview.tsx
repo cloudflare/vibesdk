@@ -1,59 +1,53 @@
 import { Presentation } from 'lucide-react';
-import { PreviewIframe } from './preview-iframe';
-import { WebSocket } from 'partysocket';
+import { PreviewIframe } from '@/routes/chat/components/preview-iframe';
 import clsx from 'clsx';
 import { useState, useRef, useMemo } from 'react';
-import type { FileType, TemplateDetails } from '@/api-types';
-import { HEADER_STYLES } from './view-header';
+import { HEADER_STYLES } from '@/routes/chat/components/view-header';
 import {
 	usePresentationFiles,
 	usePresentationSync,
 	useIframeMessaging,
 	useThumbnailObserver,
-} from './presentation-hooks';
+} from '../hooks';
+import type { PreviewComponentProps } from '../../core/types';
 
-interface PresentationPreviewProps {
-	previewUrl: string;
-	className?: string;
-	shouldRefreshPreview?: boolean;
-	manualRefreshTrigger?: number;
-	webSocket?: WebSocket | null;
-	speakerMode?: boolean;
-	previewMode?: boolean;
-	allFiles?: FileType[];
-	templateDetails?: TemplateDetails | null;
-}
+// Feature state keys (shared with PresentationHeaderActions)
+const SPEAKER_MODE_KEY = 'speakerMode';
+const PREVIEW_MODE_KEY = 'previewMode';
 
 export function PresentationPreview({
 	previewUrl,
 	className = '',
 	shouldRefreshPreview,
 	manualRefreshTrigger,
-	webSocket,
-	speakerMode = false,
-	previewMode = false,
-	allFiles = [],
+	websocket,
+	files = [],
 	templateDetails = null,
-}: PresentationPreviewProps) {
+	featureState,
+}: PreviewComponentProps) {
 	const iframeRef = useRef<HTMLIFrameElement>(null);
 	const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
 	const [failedIframes, setFailedIframes] = useState<Set<number>>(new Set());
 	const sidebarScrollRef = useRef<HTMLDivElement>(null);
 
+	// Get speaker/preview mode from feature state
+	const speakerMode = (featureState[SPEAKER_MODE_KEY] as boolean) ?? false;
+	const previewMode = (featureState[PREVIEW_MODE_KEY] as boolean) ?? false;
+
 	const slideDirectory = templateDetails?.slideDirectory || 'public/slides';
 
 	// Custom hooks for modular functionality
-	const { slideFiles } = usePresentationFiles(allFiles, slideDirectory);
-	
+	const { slideFiles } = usePresentationFiles(files, slideDirectory);
+
 	const { visibleThumbnails, thumbnailRefs } = useThumbnailObserver(slideFiles);
-	
+
 	const { timestamps, generatingSlides, setGeneratingSlides } = usePresentationSync(
-		allFiles,
+		files,
 		slideFiles,
 		slideDirectory,
 		currentSlideIndex,
 	);
-	
+
 	const { navigateToSlide } = useIframeMessaging(
 		iframeRef,
 		thumbnailRefs,
@@ -63,8 +57,17 @@ export function PresentationPreview({
 	);
 
 	const mainPreviewUrl = useMemo(() => {
+		if (!previewUrl) return '';
 		return `${previewUrl}?t=${timestamps.main}`;
 	}, [previewUrl, timestamps.main]);
+
+	if (!previewUrl) {
+		return (
+			<div className={`${className} flex items-center justify-center bg-bg-3`}>
+				<p className="text-text-primary/50">No preview available</p>
+			</div>
+		);
+	}
 
 	return (
 		<div className={`${className} flex h-full`}>
@@ -194,7 +197,7 @@ export function PresentationPreview({
 									title="Current Slide"
 									shouldRefreshPreview={shouldRefreshPreview}
 									manualRefreshTrigger={manualRefreshTrigger}
-									webSocket={webSocket}
+									webSocket={websocket}
 								/>
 							</div>
 						</div>
@@ -256,7 +259,7 @@ export function PresentationPreview({
 									title="Current Slide"
 									shouldRefreshPreview={shouldRefreshPreview}
 									manualRefreshTrigger={manualRefreshTrigger}
-									webSocket={webSocket}
+									webSocket={websocket}
 								/>
 							</div>
 						</div>
@@ -293,7 +296,7 @@ export function PresentationPreview({
 									title="Presentation"
 									shouldRefreshPreview={shouldRefreshPreview}
 									manualRefreshTrigger={manualRefreshTrigger}
-									webSocket={webSocket}
+									webSocket={websocket}
 								/>
 							</div>
 						</div>

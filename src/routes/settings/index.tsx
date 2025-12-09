@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-// import { useNavigate } from 'react-router';
 import {
 	Eye,
 	EyeOff,
@@ -13,6 +12,7 @@ import {
 	Copy,
 	Check,
 } from 'lucide-react';
+import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard';
 import { ModelConfigTabs } from '@/components/model-config-tabs';
 import type {
 	ModelConfigsData,
@@ -29,7 +29,6 @@ import { Separator } from '@/components/ui/separator';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { useAuth } from '@/contexts/auth-context';
-// import { useTheme } from '@/contexts/theme-context';
 import { Badge } from '@/components/ui/badge';
 import {
 	AlertDialog,
@@ -109,7 +108,7 @@ export default function SettingsPage() {
 	const [cliToken, setCliToken] = useState<CliTokenData | null>(null);
 	const [showCliToken, setShowCliToken] = useState(false);
 	const [loadingCliToken, setLoadingCliToken] = useState(false);
-	const [copiedCliToken, setCopiedCliToken] = useState(false);
+	const { copied: copiedCliToken, copy: copyCliToken, reset: resetCliTokenCopy } = useCopyToClipboard();
 
 	// Model configurations state
 	const [agentConfigs, setAgentConfigs] = useState<
@@ -1761,11 +1760,7 @@ export default function SettingsPage() {
 														size="icon"
 														variant="ghost"
 														className="h-7 w-7"
-														onClick={() => {
-															navigator.clipboard.writeText(cliToken.token);
-															setCopiedCliToken(true);
-															setTimeout(() => setCopiedCliToken(false), 2000);
-														}}
+														onClick={() => copyCliToken(cliToken.token)}
 													>
 														{copiedCliToken ? (
 															<Check className="h-4 w-4 text-green-500" />
@@ -1799,7 +1794,7 @@ export default function SettingsPage() {
 											onClick={() => {
 												setCliToken(null);
 												setShowCliToken(false);
-												setCopiedCliToken(false);
+												resetCliTokenCopy();
 											}}
 											className="gap-2"
 										>

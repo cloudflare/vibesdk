@@ -125,10 +125,6 @@ export type MonacoEditorProps = React.ComponentProps<'div'> & {
 	enableTypeScriptFeatures?: 'auto' | boolean;
 };
 
-/**
- * TODO: Create a file map to properly manage multiple files in monaco
- */
-
 export const MonacoEditor = memo<MonacoEditorProps>(function MonacoEditor({
 	createOptions = {},
 	find,
@@ -217,24 +213,30 @@ export const MonacoEditor = memo<MonacoEditorProps>(function MonacoEditor({
 
 		// Add scroll listener to detect user interaction
 		const editorDomNode = editor.current.getDomNode();
-		if (editorDomNode) {
-			editorDomNode.addEventListener('wheel', () => {
+		const handleWheel = () => {
+			if (stickyScroll.current) {
+				stickyScroll.current = false;
+			}
+		};
+		const handleKeydown = (e: KeyboardEvent) => {
+			// Disable sticky scroll on arrow keys, Page Up/Down
+			if (e.key.includes('Arrow') || e.key.includes('Page')) {
 				if (stickyScroll.current) {
 					stickyScroll.current = false;
 				}
-			});
+			}
+		};
 
-			editorDomNode.addEventListener('keydown', (e) => {
-				// Disable sticky scroll on arrow keys, Page Up/Down
-				if (e.key.includes('Arrow') || e.key.includes('Page')) {
-					if (stickyScroll.current) {
-						stickyScroll.current = false;
-					}
-				}
-			});
+		if (editorDomNode) {
+			editorDomNode.addEventListener('wheel', handleWheel);
+			editorDomNode.addEventListener('keydown', handleKeydown);
 		}
 
 		return () => {
+			if (editorDomNode) {
+				editorDomNode.removeEventListener('wheel', handleWheel);
+				editorDomNode.removeEventListener('keydown', handleKeydown);
+			}
 			const model = editor.current?.getModel();
 			if (model) {
 				model.dispose();

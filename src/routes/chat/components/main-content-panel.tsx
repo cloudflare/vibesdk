@@ -1,4 +1,4 @@
-import { type RefObject, type ReactNode } from 'react';
+import { type RefObject, type ReactNode, Suspense, useState, useCallback } from 'react';
 import { WebSocket } from 'partysocket';
 import { MonacoEditor } from '../../../components/monaco-editor/monaco-editor';
 import { motion } from 'framer-motion';
@@ -12,8 +12,8 @@ import { ViewHeader } from './view-header';
 import { PreviewHeaderActions } from './preview-header-actions';
 import { EditorHeaderActions } from './editor-header-actions';
 import { Copy } from './copy';
-import { PresentationPreview } from './presentation-preview';
-import type { FileType, BlueprintType, BehaviorType, ModelConfigsInfo, TemplateDetails } from '@/api-types';
+import { featureRegistry } from '@/features';
+import type { FileType, BlueprintType, BehaviorType, ModelConfigsInfo, TemplateDetails, ProjectType } from '@/api-types';
 import type { ContentDetectionResult } from '../utils/content-detector';
 import type { GitHubExportHook } from '@/hooks/use-github-export';
 import type { Edit } from '../hooks/use-chat';
@@ -28,7 +28,7 @@ interface MainContentPanelProps {
 	contentDetection: ContentDetectionResult;
 
 	// Preview state
-	projectType: string;
+	projectType: ProjectType;
 	previewUrl?: string;
 	previewAvailable: boolean;
 	showTooltip: boolean;
@@ -59,20 +59,11 @@ interface MainContentPanelProps {
 	isGitHubExportReady: boolean;
 	githubExport: GitHubExportHook;
 
-	// Presentation controls
-	presentationSpeakerMode?: boolean;
-	presentationPreviewMode?: boolean;
-	onToggleSpeakerMode?: () => void;
-	onTogglePreviewMode?: () => void;
-	onExportPdf?: () => void;
-
 	// Template metadata
 	templateDetails?: TemplateDetails | null;
 
 	// Other
 	behaviorType?: BehaviorType;
-	urlChatId?: string;
-	isPhase1Complete: boolean;
 	websocket?: WebSocket;
 
 	// Refs
@@ -106,19 +97,18 @@ export function MainContentPanel(props: MainContentPanelProps) {
 		onGitCloneClick,
 		isGitHubExportReady,
 		githubExport,
-		presentationSpeakerMode,
-		presentationPreviewMode,
-		onToggleSpeakerMode,
-		onTogglePreviewMode,
-		onExportPdf,
 		behaviorType,
-		urlChatId,
-		isPhase1Complete,
 		websocket,
 		previewRef,
 		editorRef,
 		templateDetails,
 	} = props;
+
+	// Feature-specific state management
+	const [featureState, setFeatureStateInternal] = useState<Record<string, unknown>>({});
+	const setFeatureState = useCallback((key: string, value: unknown) => {
+		setFeatureStateInternal(prev => ({ ...prev, [key]: value }));
+	}, []);
 
 	const commonHeaderProps = {
 		view: view as 'preview' | 'editor' | 'docs' | 'blueprint' | 'presentation',
@@ -167,20 +157,114 @@ export function MainContentPanel(props: MainContentPanelProps) {
 
 	const renderPreviewView = () => {
 		if (!previewUrl) {
-            console.log('Preview not available');
-            return null;
-        }
+			return null;
+		}
 
-		// Use PresentationPreview for presentations, regular PreviewIframe for apps
-		const isPresentation = projectType === 'presentation';
+		// Get feature capabilities to determine preview behavior
+		const featureCapabilities = featureRegistry.getCapabilities(projectType);
+		const featureDefinition = featureRegistry.getDefinition(projectType);
+		const previewTitle = blueprint?.title ?? featureDefinition?.name ?? 'Preview';
+
+		// Check if we should show the refresh button (presentations handle refresh differently)
+		const showManualRefresh = featureCapabilities?.hasLiveReload ?? true;
+
+		// Get lazy-loaded preview component from feature registry
+		const FeaturePreviewComponent = featureRegistry.getLazyPreviewComponent(projectType);
+
+		// Fallback to default PreviewIframe if no feature-specific component
+		const previewContent = FeaturePreviewComponent ? (
+			<Suspense
+				fallback={
+					<div className="flex-1 w-full h-full flex items-center justify-center bg-bg-3">
+						<RefreshCw className="size-6 text-accent animate-spin" />
+					</div>
+				}
+			>
+				<FeaturePreviewComponent
+					projectType={projectType}
+					behaviorType={behaviorType ?? 'phasic'}
+					previewUrl={previewUrl}
+					websocket={websocket}
+					files={allFiles}
+					activeFile={activeFile}
+					currentView={view}
+					onViewChange={(v) => onViewChange(v as 'preview' | 'editor' | 'docs' | 'blueprint' | 'presentation')}
+					templateDetails={templateDetails}
+					modelConfigs={modelConfigs}
+					blueprint={blueprint}
+					previewRef={previewRef}
+					editorRef={editorRef}
+					shouldRefreshPreview={shouldRefreshPreview}
+					manualRefreshTrigger={manualRefreshTrigger}
+					onManualRefresh={onManualRefresh}
+					featureState={featureState}
+					setFeatureState={setFeatureState}
+					className="flex-1 w-full h-full border-0"
+				/>
+			</Suspense>
+		) : (
+			<PreviewIframe
+				src={previewUrl}
+				ref={previewRef}
+				className="flex-1 w-full h-full border-0"
+				title="Preview"
+				shouldRefreshPreview={shouldRefreshPreview}
+				manualRefreshTrigger={manualRefreshTrigger}
+				webSocket={websocket}
+			/>
+		);
+
+		// Get lazy-loaded header actions component from feature registry
+		const FeatureHeaderActionsComponent = featureRegistry.getLazyHeaderActionsComponent(projectType);
+
+		// Fallback to PreviewHeaderActions if no feature-specific component
+		const headerActions = FeatureHeaderActionsComponent ? (
+			<Suspense fallback={null}>
+				<FeatureHeaderActionsComponent
+					projectType={projectType}
+					behaviorType={behaviorType ?? 'phasic'}
+					previewUrl={previewUrl}
+					websocket={websocket}
+					files={allFiles}
+					activeFile={activeFile}
+					currentView={view}
+					onViewChange={(v) => onViewChange(v as 'preview' | 'editor' | 'docs' | 'blueprint' | 'presentation')}
+					templateDetails={templateDetails}
+					modelConfigs={modelConfigs}
+					blueprint={blueprint}
+					previewRef={previewRef}
+					editorRef={editorRef}
+					shouldRefreshPreview={shouldRefreshPreview}
+					manualRefreshTrigger={manualRefreshTrigger}
+					onManualRefresh={onManualRefresh}
+					featureState={featureState}
+					setFeatureState={setFeatureState}
+					onGitCloneClick={onGitCloneClick}
+					isGitHubExportReady={isGitHubExportReady}
+					onGitHubExportClick={githubExport.openModal}
+					loadingConfigs={loadingConfigs}
+					onRequestConfigs={onRequestConfigs}
+				/>
+			</Suspense>
+		) : (
+			<PreviewHeaderActions
+				modelConfigs={modelConfigs}
+				onRequestConfigs={onRequestConfigs}
+				loadingConfigs={loadingConfigs}
+				onGitCloneClick={onGitCloneClick}
+				isGitHubExportReady={isGitHubExportReady}
+				onGitHubExportClick={githubExport.openModal}
+				previewRef={previewRef}
+			/>
+		);
 
 		return renderViewWithHeader(
 			<div className="flex items-center gap-2">
 				<span className="text-sm font-mono text-text-50/70">
-					{blueprint?.title ?? (isPresentation ? 'Presentation' : 'Preview')}
+					{previewTitle}
 				</span>
 				<Copy text={previewUrl} />
-				{!isPresentation && (
+				{showManualRefresh && (
 					<button
 						className="p-1 hover:bg-bg-2 rounded transition-colors"
 						onClick={onManualRefresh}
@@ -190,47 +274,8 @@ export function MainContentPanel(props: MainContentPanelProps) {
 					</button>
 				)}
 			</div>,
-			isPresentation ? (
-				<PresentationPreview
-					previewUrl={previewUrl}
-					className="flex-1 w-full h-full border-0"
-					shouldRefreshPreview={shouldRefreshPreview}
-					manualRefreshTrigger={manualRefreshTrigger}
-					webSocket={websocket}
-					speakerMode={presentationSpeakerMode}
-					previewMode={presentationPreviewMode}
-					allFiles={allFiles}
-					templateDetails={templateDetails}
-				/>
-			) : (
-				<PreviewIframe
-					src={previewUrl}
-					ref={previewRef}
-					className="flex-1 w-full h-full border-0"
-					title="Preview"
-					shouldRefreshPreview={shouldRefreshPreview}
-					manualRefreshTrigger={manualRefreshTrigger}
-					webSocket={websocket}
-				/>
-			),
-			<PreviewHeaderActions
-				modelConfigs={modelConfigs}
-				onRequestConfigs={onRequestConfigs}
-				loadingConfigs={loadingConfigs}
-				onGitCloneClick={onGitCloneClick}
-				isGitHubExportReady={isGitHubExportReady}
-				onGitHubExportClick={githubExport.openModal}
-				behaviorType={behaviorType}
-				urlChatId={urlChatId}
-				isPhase1Complete={isPhase1Complete}
-				previewRef={previewRef}
-				projectType={projectType}
-				speakerMode={presentationSpeakerMode}
-				previewMode={presentationPreviewMode}
-				onToggleSpeakerMode={onToggleSpeakerMode}
-				onTogglePreviewMode={onTogglePreviewMode}
-				onExportPdf={onExportPdf}
-			/>
+			previewContent,
+			headerActions
 		);
 	};
 
@@ -251,7 +296,35 @@ export function MainContentPanel(props: MainContentPanelProps) {
 		);
 
 	const renderEditorView = () => {
-		if (!activeFile) return null;
+		// Defensive fallback: show file explorer with empty editor if no activeFile
+		if (!activeFile) {
+			return renderViewWithHeader(
+				<div className="flex items-center gap-2">
+					<span className="text-sm font-mono text-text-50/70">Select a file</span>
+				</div>,
+				<div className="flex-1 relative">
+					<div className="absolute inset-0 flex" ref={editorRef}>
+						<FileExplorer
+							files={allFiles}
+							currentFile={undefined}
+							onFileClick={onFileClick}
+						/>
+						<div className="flex-1 flex items-center justify-center bg-bg-3">
+							<span className="text-text-50/50 text-sm">No file selected</span>
+						</div>
+					</div>
+				</div>,
+				<EditorHeaderActions
+					modelConfigs={modelConfigs}
+					onRequestConfigs={onRequestConfigs}
+					loadingConfigs={loadingConfigs}
+					onGitCloneClick={onGitCloneClick}
+					isGitHubExportReady={isGitHubExportReady}
+					onGitHubExportClick={githubExport.openModal}
+					editorRef={editorRef}
+				/>
+			);
+		}
 
 		return renderViewWithHeader(
 			<div className="flex items-center gap-2">

@@ -25,8 +25,6 @@ export function usePresentationSync(
         // Helper: Categorize file types
         const isSlideFile = (path: string) => path.startsWith(`${slideDirectory}/`) && path.endsWith('.json');
         
-        // CRITICAL FIX: Manifest is NOT a global file if we are currently generating slides.
-        // This prevents the "refresh loop" where adding a slide to manifest triggers a full reload.
         const isGlobalFile = (path: string) =>
             path.includes('slides-styles') ||
             path === 'public/_dev/Presentation.jsx' ||

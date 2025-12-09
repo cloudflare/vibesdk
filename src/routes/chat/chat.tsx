@@ -15,7 +15,8 @@ import { PhaseTimeline } from './components/phase-timeline';
 import { type DebugMessage } from './components/debug-panel';
 import { DeploymentControls } from './components/deployment-controls';
 import { useChat } from './hooks/use-chat';
-import { type ModelConfigsInfo, type BlueprintType, type PhasicBlueprint, SUPPORTED_IMAGE_MIME_TYPES, ProjectType, type FileType } from '@/api-types';
+import { type ModelConfigsInfo, type BlueprintType, type PhasicBlueprint, SUPPORTED_IMAGE_MIME_TYPES, type ProjectType, type FileType } from '@/api-types';
+import { featureRegistry } from '@/features';
 import { useFileContentStream } from './hooks/use-file-content-stream';
 import { logger } from '@/utils/logger';
 import { useApp } from '@/hooks/use-app';
@@ -27,7 +28,7 @@ import { useDragDrop } from '@/hooks/use-drag-drop';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { sendWebSocketMessage } from './utils/websocket-helpers';
-import { detectContentType } from './utils/content-detector';
+import { detectContentType, isDocumentationPath, isMarkdownFile } from './utils/content-detector';
 import { mergeFiles } from '@/utils/file-helpers';
 import { ChatModals } from './components/chat-modals';
 import { MainContentPanel } from './components/main-content-panel';
@@ -155,10 +156,6 @@ export default function Chat() {
 		'editor',
 	);
 
-	// Presentation state
-	const [presentationSpeakerMode, setPresentationSpeakerMode] = useState(false);
-	const [presentationPreviewMode, setPresentationPreviewMode] = useState(false);
-
 	// Terminal state
 	// const [terminalLogs, setTerminalLogs] = useState<TerminalLog[]>([]);
 
@@ -249,43 +246,10 @@ export default function Chat() {
 			result = files;
 		}
 
-		// For presentations, filter out demo slides at the source
-		if (projectType === 'presentation') {
-			const slideDir = templateDetails?.slideDirectory || 'public/slides';
-			const slideDirPrefix = `${slideDir}/`;
-
-			result = result
-				.filter((file) => {
-					// Exclude demo-slide*.json files
-					if (file.filePath.startsWith(slideDirPrefix) &&
-						file.filePath.includes('/demo-slide') &&
-						file.filePath.endsWith('.json')) {
-						return false;
-					}
-					return true;
-				})
-				.map((file) => {
-					// Clean demo slides from manifest.json
-					if (file.filePath === `${slideDir}/manifest.json` && file.fileContents) {
-						try {
-							const manifest = JSON.parse(file.fileContents);
-							if (Array.isArray(manifest.slides)) {
-								const filtered = manifest.slides.filter(
-									(name: string) => !name.startsWith('demo-slide')
-								);
-								if (filtered.length !== manifest.slides.length) {
-									return {
-										...file,
-										fileContents: JSON.stringify({ ...manifest, slides: filtered }, null, 2),
-									};
-								}
-							}
-						} catch {
-							// Invalid JSON, return as-is
-						}
-					}
-					return file;
-				});
+		// Use feature module's processFiles if available (e.g., for presentations to filter demo slides)
+		const featureModule = featureRegistry.getModule(projectType);
+		if (featureModule?.processFiles) {
+			result = featureModule.processFiles(result, templateDetails);
 		}
 
 		return result;
@@ -304,26 +268,6 @@ export default function Chat() {
 
 	const handleViewModeChange = useCallback((mode: 'preview' | 'editor' | 'docs' | 'blueprint' | 'presentation') => {
 		setView(mode);
-	}, []);
-
-	const handleToggleSpeakerMode = useCallback(() => {
-		setPresentationSpeakerMode(prev => !prev);
-		if (!presentationSpeakerMode) {
-			setPresentationPreviewMode(false);
-		}
-	}, [presentationSpeakerMode]);
-
-	const handleTogglePreviewMode = useCallback(() => {
-		setPresentationPreviewMode(prev => !prev);
-		if (!presentationPreviewMode) {
-			setPresentationSpeakerMode(false);
-		}
-	}, [presentationPreviewMode]);
-
-	const handleExportPdf = useCallback(() => {
-		if (previewRef.current?.contentWindow) {
-			previewRef.current.contentWindow.postMessage({ type: 'EXPORT_PDF' }, '*');
-		}
 	}, []);
 
 	const handleResetConversation = useCallback(() => {
@@ -389,7 +333,9 @@ export default function Chat() {
 			files.find((file) => file.filePath === activeFilePath) ??
 			streamedBootstrapFiles.find(
 				(file) => file.filePath === activeFilePath,
-			)
+			) ??
+			// Fallback to allFiles for template files that were merged in
+			allFiles.find((file) => file.filePath === activeFilePath)
 		);
 	}, [
 		activeFilePath,
@@ -397,6 +343,7 @@ export default function Chat() {
 		files,
 		streamedBootstrapFiles,
 		isBootstrapping,
+		allFiles,
 	]);
 
 	const isPhase1Complete = useMemo(() => {
@@ -413,16 +360,7 @@ export default function Chat() {
 	// Detect if agentic mode is showing static content (docs, markdown)
 	const isStaticContent = useMemo(() => {
 		if (behaviorType !== 'agentic' || files.length === 0) return false;
-
-		// Check if all files are static (markdown, text, or in docs/ directory)
-		return files.every(file => {
-			const path = file.filePath.toLowerCase();
-			return path.endsWith('.md') ||
-			       path.endsWith('.mdx') ||
-			       path.endsWith('.txt') ||
-			       path.startsWith('docs/') ||
-			       path.includes('/docs/');
-		});
+		return files.every(file => isDocumentationPath(file.filePath.toLowerCase()));
 	}, [behaviorType, files]);
 
 	// Detect content type (documentation detection - works in any projectType)
@@ -470,14 +408,7 @@ export default function Chat() {
 	useEffect(() => {
 		if (hasSeenPreview.current) return;
 
-		// Get current markdown files
-		const markdownFiles = files.filter(f =>
-			f.filePath.endsWith('.md') ||
-			f.filePath.endsWith('.mdx') ||
-			f.filePath.endsWith('.markdown')
-		);
-
-		// Check if any markdown is actively generating
+		const markdownFiles = files.filter(isMarkdownFile);
 		const isGeneratingMarkdown = markdownFiles.some(f => f.isGenerating);
 		const newMarkdownAdded = markdownFiles.length > prevMarkdownCountRef.current;
 
@@ -898,16 +829,9 @@ export default function Chat() {
 								isGitHubExportReady={isGitHubExportReady}
 								githubExport={githubExport}
 								behaviorType={behaviorType}
-								urlChatId={urlChatId}
-								isPhase1Complete={isPhase1Complete}
 								websocket={websocket}
 								previewRef={previewRef}
 								editorRef={editorRef}
-								presentationSpeakerMode={presentationSpeakerMode}
-								presentationPreviewMode={presentationPreviewMode}
-								onToggleSpeakerMode={handleToggleSpeakerMode}
-								onTogglePreviewMode={handleTogglePreviewMode}
-								onExportPdf={handleExportPdf}
 								templateDetails={templateDetails}
 							/>
 						</motion.div>

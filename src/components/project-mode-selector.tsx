@@ -1,16 +1,15 @@
 import { useState } from 'react';
-
-export type ProjectMode = 'app' | 'presentation' | 'general';
+import type { ProjectType } from '@/api-types';
 
 interface ProjectModeSelectorProps {
-  value: ProjectMode;
-  onChange: (mode: ProjectMode) => void;
+  value: ProjectType;
+  onChange: (mode: ProjectType) => void;
   disabled?: boolean;
   className?: string;
 }
 
 export function ProjectModeSelector({ value, onChange, disabled = false, className = '' }: ProjectModeSelectorProps) {
-  const [hoveredMode, setHoveredMode] = useState<ProjectMode | null>(null);
+  const [hoveredMode, setHoveredMode] = useState<ProjectType | null>(null);
 
   const modes = [
     {

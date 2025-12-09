@@ -73,6 +73,7 @@ export default ({ mode }: { mode: string }) => {
     },
     server: {
       allowedHosts: true,   // This is IMPORTANT for dev server to work
+      strictPort: true,     // Prevent auto-port-increment which breaks miniflare/preview mapping
     },
     resolve: {
       alias: {

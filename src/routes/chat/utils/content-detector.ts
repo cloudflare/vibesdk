@@ -32,14 +32,40 @@ export function detectContentType(files: FileType[]): ContentDetectionResult {
 }
 
 /**
+ * Check if a file path represents a markdown file
+ */
+export function isMarkdownPath(path: string): boolean {
+	return (
+		path.endsWith('.md') ||
+		path.endsWith('.mdx') ||
+		path.endsWith('.markdown')
+	);
+}
+
+/**
  * Check if a file is a markdown documentation file
  */
 export function isMarkdownFile(file: FileType): boolean {
+	return isMarkdownPath(file.filePath);
+}
+
+/**
+ * Check if a file path represents documentation (markdown, txt, or in docs/ directory)
+ */
+export function isDocumentationPath(path: string): boolean {
 	return (
-		file.filePath.endsWith('.md') ||
-		file.filePath.endsWith('.mdx') ||
-		file.filePath.endsWith('.markdown')
+		isMarkdownPath(path) ||
+		path.endsWith('.txt') ||
+		path.startsWith('docs/') ||
+		path.includes('/docs/')
 	);
+}
+
+/**
+ * Check if a file is documentation (markdown, txt, or in docs/ directory)
+ */
+export function isDocumentationFile(file: FileType): boolean {
+	return isDocumentationPath(file.filePath);
 }
 
 /**

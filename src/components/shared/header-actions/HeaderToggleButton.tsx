@@ -26,6 +26,7 @@ export function HeaderToggleButton({
 			)}
 			onClick={onClick}
 			title={title}
+			type="button"
 		>
 			<Icon
 				className={clsx(

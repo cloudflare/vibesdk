@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { ViewModeSwitch } from './view-mode-switch';
+import type { ProjectType } from '@/api-types';
 
 // Shared header styling constants for DRY compliance
 export const HEADER_STYLES = {
@@ -17,7 +18,7 @@ interface ViewHeaderProps {
 	previewUrl?: string;
 	centerContent?: ReactNode;
 	rightActions?: ReactNode;
-	projectType?: string;
+	projectType?: ProjectType;
 }
 
 export function ViewHeader({

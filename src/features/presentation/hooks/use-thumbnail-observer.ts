@@ -15,7 +15,6 @@ export function useThumbnailObserver(slideFiles: SlideInfo[]) {
         }
     }, [slideFiles, visibleThumbnails.size]);
 
-    // Stable IntersectionObserver - creates once, reuses for all thumbnails
     useEffect(() => {
         // Create observer instance once
         observerInstance.current = new IntersectionObserver(
@@ -45,7 +44,7 @@ export function useThumbnailObserver(slideFiles: SlideInfo[]) {
         };
     }, []);
 
-    // Observe new thumbnails as they're added (without recreating observer)
+    // Observe new thumbnails as they're added
     useEffect(() => {
         if (!observerInstance.current) return;
 

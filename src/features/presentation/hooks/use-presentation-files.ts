@@ -17,7 +17,7 @@ export function usePresentationFiles(allFiles: FileType[] = [], slideDirectory: 
             }
         };
 
-        // 1. Load slides from manifest (authoritative order)
+        // Load slides from manifest (authoritative order)
         // Note: Demo slides are already filtered out at the source (chat.tsx allFiles)
         const manifestSlideNames = loadManifestSlides(`${slideDirectory}/manifest.json`)
             .filter((name) => name.endsWith('.json'));
@@ -25,7 +25,7 @@ export function usePresentationFiles(allFiles: FileType[] = [], slideDirectory: 
             manifestSlideNames.map(name => `${slideDirectory}/${name}`)
         );
 
-        // 2. Discover streaming slides NOT in manifest yet
+        // Discover streaming slides NOT in manifest yet
         // These are slides that exist in allFiles but haven't been added to manifest
         const slideDirPrefix = slideDirectory.endsWith('/') ? slideDirectory : `${slideDirectory}/`;
         const streamingSlideNames = allFiles
@@ -37,13 +37,13 @@ export function usePresentationFiles(allFiles: FileType[] = [], slideDirectory: 
             )
             .map((file) => file.filePath.split('/').pop()!);
 
-        // 3. Combine manifest slides + streaming slides (manifest first, streaming appended)
+        // Combine manifest slides + streaming slides (manifest first, streaming appended)
         const allSlideNames = [
             ...manifestSlideNames,
             ...streamingSlideNames
         ].filter((name, idx, arr) => arr.indexOf(name) === idx); // Deduplicate
 
-        // 4. Transform to SlideInfo objects
+        // Transform to SlideInfo objects
         const slides = allSlideNames.map((name, idx) => ({
             index: idx,
             fileName: name.replace(/\.(json)$/i, ''),

@@ -1,6 +1,14 @@
 import clsx from 'clsx';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Eye, Code, FileText, Presentation } from 'lucide-react';
+import { featureRegistry } from '@/features';
+import type { ProjectType } from '@/api-types';
+
+// Map icon names to components
+const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
+	Eye,
+	Presentation,
+};
 
 export function ViewModeSwitch({
 	view,
@@ -17,8 +25,18 @@ export function ViewModeSwitch({
 	showTooltip: boolean;
 	hasDocumentation: boolean;
 	previewUrl?: string;
-	projectType?: string;
+	projectType?: ProjectType;
 }) {
+	// Get feature definition to determine icon and label
+	const featureDefinition = projectType ? featureRegistry.getDefinition(projectType) : null;
+
+	// Get the preview view definition to find the icon
+	const featureModule = projectType ? featureRegistry.getModule(projectType) : null;
+	const views = featureModule?.getViews() ?? [];
+	const previewView = views.find(v => v.id === 'preview');
+	const iconName = previewView?.iconName;
+	const PreviewIcon = (iconName && ICON_MAP[iconName]) || Eye;
+
 	if (!previewAvailable) {
 		return null;
 	}
@@ -38,7 +56,7 @@ export function ViewModeSwitch({
 				)}
 			</AnimatePresence>
 
-			{/* Preview button - show when app has preview URL (includes presentations) */}
+			{/* Preview button - show when app has preview URL */}
 			{previewUrl && (
 				<button
 					onClick={() => onChange('preview')}
@@ -48,13 +66,9 @@ export function ViewModeSwitch({
 							? 'bg-bg-4 text-text-primary'
 							: 'text-text-50/70 hover:text-text-primary hover:bg-accent',
 					)}
-					title={projectType === 'presentation' ? 'Presentation' : 'Preview'}
+					title={featureDefinition?.name ?? 'Preview'}
 				>
-					{projectType === 'presentation' ? (
-						<Presentation className="size-4" />
-					) : (
-						<Eye className="size-4" />
-					)}
+					<PreviewIcon className="size-4" />
 				</button>
 			)}
 

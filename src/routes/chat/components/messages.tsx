@@ -121,7 +121,7 @@ function DeepDebugTranscript({ transcript }: { transcript: ConversationMessage[]
 	const toolResultsMap = new Map<string, ToolEvent>();
 	transcript.forEach((msg, idx) => {
 		if (msg.role === 'tool' && 'tool_call_id' in msg) {
-			const toolCallId = (msg as any).tool_call_id;
+			const toolCallId = (msg as { tool_call_id?: string }).tool_call_id;
 			if (toolCallId && typeof toolCallId === 'string') {
 				const toolEvent = convertToToolEvent(msg, idx);
 				if (toolEvent) toolResultsMap.set(toolCallId, toolEvent);

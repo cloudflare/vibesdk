@@ -28,7 +28,6 @@ import type {
   ModelConfig,
   UserModelConfigWithMetadata,
   ModelConfigUpdate,
-  AIModels,
   ByokProvidersData,
   AgentDisplayConfig
 } from '@/api-types';
@@ -60,10 +59,6 @@ const hasUserKeyForModel = (modelName: string, byokProviders: Array<{ provider: 
   return byokProviders.some(p => p.provider === provider && p.hasValidKey);
 };
 
-// Helper to get clean model display name
-const getModelDisplayName = (model: AIModels | string): string => {
-  return typeof model === 'string' ? model : model;
-};
 
 // Model recommendations by agent
 const getModelRecommendation = (agentAction: string) => {
@@ -186,7 +181,7 @@ export function ConfigModal({
           
           models.push({
             value: modelStr,
-            label: getModelDisplayName(modelStr),
+            label: modelStr,
             provider,
             hasUserKey,
             byokAvailable: true
@@ -202,7 +197,7 @@ export function ConfigModal({
       if (!processedModels.has(modelStr)) {
         models.push({
           value: modelStr,
-          label: getModelDisplayName(modelStr),
+          label: modelStr,
           provider: '',
           hasUserKey: false,
           byokAvailable: false

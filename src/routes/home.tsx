@@ -2,10 +2,8 @@ import { useRef, useState, useEffect, useMemo } from 'react';
 import { ArrowRight, Info } from 'react-feather';
 import { useNavigate } from 'react-router';
 import { useAuth } from '@/contexts/auth-context';
-import {
-	ProjectModeSelector,
-	type ProjectMode,
-} from '../components/project-mode-selector';
+import { ProjectModeSelector } from '../components/project-mode-selector';
+import type { ProjectType } from '@/api-types';
 import { useAuthGuard } from '../hooks/useAuthGuard';
 import { usePaginatedApps } from '@/hooks/use-paginated-apps';
 import { AnimatePresence, LayoutGroup, motion } from 'framer-motion';
@@ -16,19 +14,20 @@ import { useDragDrop } from '@/hooks/use-drag-drop';
 import { ImageUploadButton } from '@/components/image-upload-button';
 import { ImageAttachmentPreview } from '@/components/image-attachment-preview';
 import { SUPPORTED_IMAGE_MIME_TYPES } from '@/api-types';
+import { toast } from 'sonner';
 
 export default function Home() {
 	const navigate = useNavigate();
 	const { requireAuth } = useAuthGuard();
 	const textareaRef = useRef<HTMLTextAreaElement>(null);
-	const [projectMode, setProjectMode] = useState<ProjectMode>('app');
+	const [projectMode, setProjectMode] = useState<ProjectType>('app');
 	const [query, setQuery] = useState('');
 	const { user } = useAuth();
 
 	const { images, addImages, removeImage, clearImages, isProcessing } = useImageUpload({
 		onError: (error) => {
-			// TODO: Show error toast/notification
 			console.error('Image upload error:', error);
+			toast.error(error);
 		},
 	});
 
@@ -60,7 +59,7 @@ export default function Home() {
 	// Discover section should appear only when enough apps are available and loading is done
 	const discoverReady = useMemo(() => !loading && (apps?.length ?? 0) > 5, [loading, apps]);
 
-	const handleCreateApp = (query: string, mode: ProjectMode) => {
+	const handleCreateApp = (query: string, mode: ProjectType) => {
 		const encodedQuery = encodeURIComponent(query);
 		const encodedMode = encodeURIComponent(mode);
 

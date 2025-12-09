@@ -61,6 +61,22 @@ export type {
 
 export type { PlatformStatusData } from 'worker/api/controllers/status/types';
 
+export type { CapabilitiesData } from 'worker/api/controllers/capabilities/types';
+
+export type {
+  ViewMode,
+  FeatureCapabilities,
+  FeatureDefinition,
+  ViewDefinition,
+  PlatformCapabilities,
+  PlatformCapabilitiesConfig,
+} from 'worker/agents/core/features/types';
+
+export {
+  DEFAULT_FEATURE_DEFINITIONS,
+  getBehaviorTypeForProject,
+} from 'worker/agents/core/features';
+
 // Model Config API Types
 export type {
   ModelConfigsData,

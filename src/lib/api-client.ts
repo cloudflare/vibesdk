@@ -57,6 +57,7 @@ import type{
 	CodeGenArgs,
     AgentPreviewResponse,
     PlatformStatusData,
+    CapabilitiesData,
     RateLimitError
 } from '../api-types.js';
 import {
@@ -414,6 +415,17 @@ class ApiClient {
 
 	async getPlatformStatus(noToast: boolean = true): Promise<ApiResponse<PlatformStatusData>> {
 		return this.request<PlatformStatusData>('/api/status', undefined, noToast);
+	}
+
+	// ===============================
+	// Platform Capabilities API Methods
+	// ===============================
+
+	/**
+	 * Get platform capabilities including available features
+	 */
+	async getCapabilities(noToast: boolean = true): Promise<ApiResponse<CapabilitiesData>> {
+		return this.request<CapabilitiesData>('/api/capabilities', undefined, noToast);
 	}
 
 	// ===============================

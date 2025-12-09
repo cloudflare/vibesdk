@@ -18,7 +18,7 @@ import {
     appendToolEvent,
     type ChatMessage,
 } from './message-helpers';
-import { completeStages } from './project-stage-helpers';
+import { completeStages, type ProjectStage } from './project-stage-helpers';
 import { sendWebSocketMessage } from './websocket-helpers';
 import type { PhaseTimelineItem } from '../hooks/use-chat';
 import type { FileType } from '@/api-types';
@@ -56,6 +56,7 @@ export interface HandleMessageDeps {
     setInternalProjectType: React.Dispatch<React.SetStateAction<ProjectType>>;
     setTemplateDetails: React.Dispatch<React.SetStateAction<TemplateDetails | null>>;
     onPresentationFileEvent?: (event: { type: 'file_generating' | 'file_chunk' | 'file_generated'; path: string; chunk?: string; contents?: string }) => void;
+    clearDeploymentTimeout?: () => void;
 
     // Current state
     isInitialStateRestored: boolean;
@@ -65,13 +66,13 @@ export interface HandleMessageDeps {
     files: FileType[];
     phaseTimeline: PhaseTimelineItem[];
     previewUrl: string | undefined;
-    projectStages: any[];
+    projectStages: ProjectStage[];
     isGenerating: boolean;
     urlChatId: string | undefined;
     behaviorType: BehaviorType;
     
     // Functions
-    updateStage: (stageId: string, updates: any) => void;
+    updateStage: (stageId: ProjectStage['id'], updates: Partial<Omit<ProjectStage, 'id'>>) => void;
     sendMessage: (message: ConversationMessage) => void;
     loadBootstrapFiles: (files: FileType[]) => void;
     onDebugMessage?: (
@@ -148,6 +149,7 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
             loadBootstrapFiles,
             onDebugMessage,
             onTerminalMessage,
+            clearDeploymentTimeout,
         } = deps;
 
         // Log messages except for frequent ones
@@ -224,7 +226,7 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
 
                     if (state.generatedFilesMap && files.length === 0) {
                         setFiles(
-                            Object.values(state.generatedFilesMap).map((file: any) => ({
+                            Object.values(state.generatedFilesMap).map((file: { filePath: string; fileContents: string }) => ({
                                 filePath: file.filePath,
                                 fileContents: file.fileContents,
                                 isGenerating: false,
@@ -354,7 +356,7 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
                     logger.debug('🔄 shouldBeGenerating=true, updating UI to active state');
                     updateStage('code', { status: 'active' });
                 } else if (!state.shouldBeGenerating) {
-                    const codeStage = projectStages.find((stage: any) => stage.id === 'code');
+                    const codeStage = projectStages.find((stage) => stage.id === 'code');
                     if (codeStage?.status === 'active' && !isGenerating) {
                         if (state.generatedFilesMap && Object.keys(state.generatedFilesMap).length > 0) {
                             updateStage('code', { status: 'completed' });
@@ -596,7 +598,7 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
 
             case 'code_reviewed': {
                 const reviewData = message.review;
-                const totalIssues = reviewData?.filesToFix?.reduce((count: number, file: any) =>
+                const totalIssues = reviewData?.filesToFix?.reduce((count: number, file: { issues: unknown[] }) =>
                     count + file.issues.length, 0) || 0;
 
                 let reviewMessage = 'Code review complete';
@@ -618,7 +620,7 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
                 
                 onDebugMessage?.('error', 
                     `Runtime Error (${message.count} errors)`,
-                    message.errors.map((e: any) => `${e.message}\nStack: ${e.stack || 'N/A'}`).join('\n\n'),
+                    message.errors.map((e: { message: string; stack?: string }) => `${e.message}\nStack: ${e.stack || 'N/A'}`).join('\n\n'),
                     'Runtime Detection'
                 );
                 break;
@@ -683,7 +685,7 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
                             id: `${message.phase.name}-${Date.now()}`,
                             name: message.phase.name,
                             description: message.phase.description,
-                            files: message.phase.files?.map((f: any) => ({
+                            files: message.phase.files?.map((f: { path: string; purpose: string }) => ({
                                 path: f.path,
                                 purpose: f.purpose,
                                 status: 'generating' as const,
@@ -816,14 +818,15 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
             }
 
             case 'cloudflare_deployment_completed': {
+                clearDeploymentTimeout?.();
                 setIsDeploying(false);
                 setCloudflareDeploymentUrl(message.deploymentUrl);
                 setDeploymentError('');
                 setIsRedeployReady(false);
-                
+
                 sendMessage(createAIMessage('cloudflare_deployment_completed', `Your project has been permanently deployed to Cloudflare Workers: ${message.deploymentUrl}`));
-                
-                onDebugMessage?.('info', 
+
+                onDebugMessage?.('info',
                     'Deployment Completed - Redeploy Reset',
                     `Deployment URL: ${message.deploymentUrl}\nPhase count at deployment: ${phaseTimeline.length}\nRedeploy button disabled until next phase`,
                     'Redeployment Management'
@@ -832,12 +835,13 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
             }
 
             case 'cloudflare_deployment_error': {
+                clearDeploymentTimeout?.();
                 setIsDeploying(false);
                 setDeploymentError(message.error || 'Unknown deployment error');
                 setCloudflareDeploymentUrl('');
                 setIsRedeployReady(true);
-                
-                sendMessage(createAIMessage('cloudflare_deployment_error', `❌ Deployment failed: ${message.error}\n\n🔄 You can try deploying again.`));
+
+                sendMessage(createAIMessage('cloudflare_deployment_error', `Deployment failed: ${message.error}\n\nYou can try deploying again.`));
 
                 toast.error(`Error: ${message.error}`);
                 

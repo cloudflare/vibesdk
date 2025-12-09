@@ -26,10 +26,6 @@ import { ConversationMessage, ConversationState } from "../inferutils/common";
 import { ImageAttachment } from "worker/types/image-attachment";
 import { RateLimitExceededError } from "shared/types/errors";
 import { ProjectObjective } from "./objectives/base";
-import { AppObjective } from "./objectives/app";
-import { WorkflowObjective } from "./objectives/workflow";
-import { PresentationObjective } from "./objectives/presentation";
-import { GeneralObjective } from "./objectives/general";
 import { FileOutputType } from "../schemas";
 
 const DEFAULT_CONVERSATION_SESSION_ID = 'default';
@@ -111,25 +107,8 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
             10, // MAX_COMMANDS_HISTORY
         );
     }
-    /**
-     * Factory method to create the appropriate objective based on project type
-     */
     private createObjective(projectType: ProjectType): ProjectObjective<BaseProjectState> {
-        const infrastructure = this as AgentInfrastructure<BaseProjectState>;
-        
-        switch (projectType) {
-            case 'app':
-                return new AppObjective(infrastructure);
-            case 'workflow':
-                return new WorkflowObjective(infrastructure);
-            case 'presentation':
-                return new PresentationObjective(infrastructure);
-            case 'general':
-                return new GeneralObjective(infrastructure);
-            default:
-                // Default to app for backward compatibility
-                return new AppObjective(infrastructure);
-        }
+        return new ProjectObjective(this as AgentInfrastructure<BaseProjectState>, projectType);
     }
 
     /**
@@ -153,12 +132,6 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
             sandboxSessionId // Pass generated session ID to behavior
         });
         
-        try {
-            await this.objective.onProjectCreated();
-        } catch (error) {
-            this.logger().error('Lifecycle hook onProjectCreated failed:', error);
-            // Don't fail initialization if hook fails
-        }
         await this.saveToDatabase();
         
         return this.state;
@@ -365,7 +338,6 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
     * in the agent's core state and store the full conversation in a separate DO table.
     */
     getConversationState(id: string = DEFAULT_CONVERSATION_SESSION_ID): ConversationState {
-        const currentConversation = this.state.conversationMessages;
         const rows = this.sql<{ messages: string, id: string }>`SELECT * FROM full_conversations WHERE id = ${id}`;
         let fullHistory: ConversationMessage[] = [];
         if (rows.length > 0 && rows[0].messages) {
@@ -378,9 +350,7 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
                 this.logger().warn('Failed to parse full conversation history', _e);
             }
         }
-        if (fullHistory.length === 0) {
-            fullHistory = currentConversation;
-        }
+        
         // Load compact (running) history from sqlite with fallback to in-memory state for migration
         const compactRows = this.sql<{ messages: string, id: string }>`SELECT * FROM compact_conversations WHERE id = ${id}`;
         let runningHistory: ConversationMessage[] = [];
@@ -395,7 +365,7 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
             }
         }
         if (runningHistory.length === 0) {
-            runningHistory = currentConversation;
+            runningHistory = fullHistory;
         }
 
         // Remove duplicates
@@ -470,19 +440,22 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
      * Clear conversation history
      */
     public clearConversation(): void {
-        const messageCount = this.state.conversationMessages.length;
-                        
-        // Clear conversation messages only from agent's running history
-        this.setState({
-            ...this.state,
-            conversationMessages: []
-        });
-                        
-        // Send confirmation response
-        this.broadcast(WebSocketMessageResponses.CONVERSATION_CLEARED, {
-            message: 'Conversation history cleared',
-            clearedMessageCount: messageCount
-        });
+        try {
+            this.logger().info('Clearing conversation history');
+            
+            // Clear SQL tables for default conversation session
+            this.sql`DELETE FROM full_conversations WHERE id = ${DEFAULT_CONVERSATION_SESSION_ID}`;
+            this.sql`DELETE FROM compact_conversations WHERE id = ${DEFAULT_CONVERSATION_SESSION_ID}`;
+            
+            this.logger().info('Conversation history cleared successfully');
+            
+            this.broadcast(WebSocketMessageResponses.CONVERSATION_CLEARED, {
+                message: 'Conversation history cleared',
+            });
+        } catch (error) {
+            this.logger().error('Error clearing conversation history:', error);
+            this.broadcastError('Failed to clear conversation history', error);
+        }
     }
 
     /**
