@@ -75,7 +75,7 @@ export interface ScreenshotData {
 export interface AgentSummary {
     query: string;
     generatedCode: FileOutputType[];
-    conversation: ConversationMessage[];
+    conversation?: ConversationMessage[];
 }
 
 export interface UserContext {

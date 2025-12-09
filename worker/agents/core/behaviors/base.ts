@@ -69,13 +69,6 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
 
     protected staticAnalysisCache: StaticAnalysisResponse | null = null;
     
-    // GitHub token cache (ephemeral, lost on DO eviction)
-    protected githubTokenCache: {
-        token: string;
-        username: string;
-        expiresAt: number;
-    } | null = null;
-    
     protected operations: BaseCodingOperations = {
         regenerateFile: new FileRegenerationOperation(),
         fastCodeFixer: new FastCodeFixerOperation(),
@@ -514,7 +507,6 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
         const summaryData = {
             query: this.state.query,
             generatedCode: this.fileManager.getGeneratedFiles(),
-            conversation: this.state.conversationMessages,
         };
         return Promise.resolve(summaryData);
     }

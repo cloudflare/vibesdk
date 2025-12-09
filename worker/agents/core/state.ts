@@ -2,8 +2,6 @@ import type { PhasicBlueprint, AgenticBlueprint, PhaseConceptType ,
     FileOutputType,
     Blueprint,
 } from '../schemas';
-// import type { ScreenshotData } from './types';
-import type { ConversationMessage } from '../inferutils/common';
 import type { InferenceContext } from '../inferutils/config.types';
 import { BehaviorType, Plan, ProjectType } from './types';
 
@@ -46,15 +44,11 @@ export interface BaseProjectState {
 
     templateName: string | 'custom';
     
-    // Conversation
-    conversationMessages: ConversationMessage[];
-    
     // Inference context
     inferenceContext: InferenceContext;
     
     // Generation control
     shouldBeGenerating: boolean;
-    // agentMode: 'deterministic' | 'smart';    // Would be migrated and mapped to behaviorType
     
     // Common file storage
     generatedFilesMap: Record<string, FileState>;
