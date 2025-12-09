@@ -215,6 +215,27 @@ export class CodingAgentController extends BaseController {
                 // Get the agent instance to handle the WebSocket connection
                 const agentInstance = await getAgentStub(env, chatId);
                 
+                // Verify ownership: Check that the user requesting access is the agent's owner
+                const agentState = await agentInstance.getFullState() as CodeGenState;
+                if (agentState.inferenceContext.userId !== user.id) {
+                    this.logger.warn(`Unauthorized WebSocket access attempt to agent ${chatId} by user ${user.id}`);
+                    // Return an appropriate WebSocket error response
+                    const { 0: client, 1: server } = new WebSocketPair();
+
+                    server.accept();
+                    server.send(JSON.stringify({
+                        type: WebSocketMessageResponses.ERROR,
+                        error: 'Access denied: You do not own this agent'
+                    }));
+
+                    server.close(1008, 'Unauthorized');
+
+                    return new Response(null, {
+                        status: 101,
+                        webSocket: client
+                    });
+                }
+                
                 this.logger.info(`Successfully got agent instance for chat: ${chatId}`);
 
                 // Let the agent handle the WebSocket connection directly
@@ -260,6 +281,11 @@ export class CodingAgentController extends BaseController {
                 return CodingAgentController.createErrorResponse<AgentConnectionData>('Missing agent ID parameter', 400);
             }
 
+            const user = context.user;
+            if (!user) {
+                return CodingAgentController.createErrorResponse<AgentConnectionData>('Authentication required', 401);
+            }
+
             this.logger.info(`Connecting to existing agent: ${agentId}`);
 
             try {
@@ -268,6 +294,14 @@ export class CodingAgentController extends BaseController {
                 if (!agentInstance || !(await agentInstance.isInitialized())) {
                     return CodingAgentController.createErrorResponse<AgentConnectionData>('Agent instance not found or not initialized', 404);
                 }
+
+                // Verify ownership: Check that the user requesting access is the agent's owner
+                const agentState = await agentInstance.getFullState() as CodeGenState;
+                if (agentState.inferenceContext.userId !== user.id) {
+                    this.logger.warn(`Unauthorized access attempt to agent ${agentId} by user ${user.id}`);
+                    return CodingAgentController.createErrorResponse<AgentConnectionData>('Access denied: You do not own this agent', 403);
+                }
+
                 this.logger.info(`Successfully connected to existing agent: ${agentId}`);
 
                 // Construct WebSocket URL
@@ -302,11 +336,23 @@ export class CodingAgentController extends BaseController {
                 return CodingAgentController.createErrorResponse<AgentPreviewResponse>('Missing agent ID parameter', 400);
             }
 
+            const user = context.user;
+            if (!user) {
+                return CodingAgentController.createErrorResponse<AgentPreviewResponse>('Authentication required', 401);
+            }
+
             this.logger.info(`Deploying preview for agent: ${agentId}`);
 
             try {
                 // Get the agent instance
                 const agentInstance = await getAgentStub(env, agentId);
+                
+                // Verify ownership: Check that the user requesting access is the agent's owner
+                const agentState = await agentInstance.getFullState() as CodeGenState;
+                if (agentState.inferenceContext.userId !== user.id) {
+                    this.logger.warn(`Unauthorized access attempt to agent ${agentId} by user ${user.id}`);
+                    return CodingAgentController.createErrorResponse<AgentPreviewResponse>('Access denied: You do not own this agent', 403);
+                }
                 
                 // Deploy the preview
                 const preview = await agentInstance.deployToSandbox();
