@@ -427,10 +427,8 @@ export default function Chat() {
 			}
 			hasSeenPreview.current = true;
 		} else if (previewUrl) {
-			// For apps, wait for preview URL
-			// Agentic: auto-switch immediately when preview URL available
-			// Phasic: require phase 1 complete
-			const shouldSwitch = behaviorType === 'agentic' || isPhase1Complete;
+			const isExistingChat = urlChatId !== 'new';
+			const shouldSwitch = behaviorType === 'agentic' || isPhase1Complete || isExistingChat;
 
 			if (shouldSwitch) {
 				setView('preview');
@@ -444,7 +442,7 @@ export default function Chat() {
 
 		// Update ref for next comparison
 		prevMarkdownCountRef.current = markdownFiles.length;
-	}, [previewUrl, isPhase1Complete, isStaticContent, files, activeFilePath, behaviorType, hasDocumentation, projectType]);
+	}, [previewUrl, isPhase1Complete, isStaticContent, files, activeFilePath, behaviorType, hasDocumentation, projectType, urlChatId]);
 
 	useEffect(() => {
 		if (chatId) {

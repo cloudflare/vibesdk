@@ -25,8 +25,15 @@ import type { FileType } from '@/api-types';
 import { toast } from 'sonner';
 import { createRepairingJSONParser } from '@/utils/ndjson-parser/ndjson-parser';
 
-const isPhasicState = (state: AgentState): state is PhasicState =>
-	state.behaviorType === 'phasic';
+const isPhasicState = (state: AgentState): state is PhasicState => {
+	const record = state as unknown as Record<string, unknown>;
+	const behaviorType = record.behaviorType;
+	if (behaviorType === 'phasic') return true;
+	if (behaviorType === undefined || behaviorType === null) {
+		return Array.isArray(record.generatedPhases);
+	}
+	return false;
+};
 
 export interface HandleMessageDeps {
     // State setters
@@ -175,19 +182,19 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
             }
             case 'agent_connected': {
                 const { state, templateDetails, previewUrl } = message;
-                console.log('Agent connected', state, templateDetails);
-                
                 if (!isInitialStateRestored) {
                     logger.debug('📥 Performing initial state restoration');
 
-                    if (state.behaviorType && state.behaviorType !== behaviorType) {
-                        setBehaviorType(state.behaviorType);
-                        logger.debug('🔄 Restored behaviorType from backend:', state.behaviorType);
+                    const restoredBehaviorType = state.behaviorType ?? 'phasic';
+                    if (restoredBehaviorType !== behaviorType) {
+                        setBehaviorType(restoredBehaviorType);
+                        logger.debug('🔄 Restored behaviorType from backend:', restoredBehaviorType);
                     }
 
-                    if (state.projectType) {
-                        setInternalProjectType(state.projectType);
-                        logger.debug('🔄 Restored projectType from backend:', state.projectType);
+                    const restoredProjectType = state.projectType ?? 'app';
+                    if (restoredProjectType) {
+                        setInternalProjectType(restoredProjectType);
+                        logger.debug('🔄 Restored projectType from backend:', restoredProjectType);
                     }
 
                     if (state.blueprint && !blueprint) {
@@ -213,7 +220,6 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
                         });
 
                         if (templateDetails.allFiles && bootstrapFiles.length === 0) {
-                            console.log('Template details, important files:', templateDetails.importantFiles, templateDetails)
                             const importantFilesSet = new Set(templateDetails.importantFiles);
                             const files = Object.entries(templateDetails.allFiles).map(([filePath, fileContents]) => ({
                                 filePath,
@@ -348,7 +354,6 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
                 
                 // Sync projectType from backend if it changed
                 if (state.projectType) {
-                    console.log('🎯 [WS] Backend projectType in cf_agent_state:', state.projectType);
                     setInternalProjectType(state.projectType);
                 }
 

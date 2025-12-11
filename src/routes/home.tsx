@@ -2,8 +2,9 @@ import { useRef, useState, useEffect, useMemo } from 'react';
 import { ArrowRight, Info } from 'react-feather';
 import { useNavigate } from 'react-router';
 import { useAuth } from '@/contexts/auth-context';
-import { ProjectModeSelector } from '../components/project-mode-selector';
+import { ProjectModeSelector, type ProjectModeOption } from '../components/project-mode-selector';
 import type { ProjectType } from '@/api-types';
+import { useFeature } from '@/features';
 import { useAuthGuard } from '../hooks/useAuthGuard';
 import { usePaginatedApps } from '@/hooks/use-paginated-apps';
 import { AnimatePresence, LayoutGroup, motion } from 'framer-motion';
@@ -23,6 +24,34 @@ export default function Home() {
 	const [projectMode, setProjectMode] = useState<ProjectType>('app');
 	const [query, setQuery] = useState('');
 	const { user } = useAuth();
+	const { isLoadingCapabilities, capabilities, getEnabledFeatures } = useFeature();
+
+	const modeOptions = useMemo<ProjectModeOption[]>(() => {
+		if (isLoadingCapabilities || !capabilities) return [];
+		return getEnabledFeatures().map((def) => ({
+			id: def.id,
+			label:
+				def.id === 'presentation'
+					? 'Slides'
+					: def.id === 'general'
+						? 'General'
+						: 'App',
+			description: def.description,
+		}));
+	}, [capabilities, getEnabledFeatures, isLoadingCapabilities]);
+
+	const showModeSelector = modeOptions.length > 1;
+
+	useEffect(() => {
+		if (isLoadingCapabilities) return;
+		if (modeOptions.length === 0) {
+			if (projectMode !== 'app') setProjectMode('app');
+			return;
+		}
+		if (!modeOptions.some((m) => m.id === projectMode)) {
+			setProjectMode(modeOptions[0].id);
+		}
+	}, [isLoadingCapabilities, modeOptions, projectMode]);
 
 	const { images, addImages, removeImage, clearImages, isProcessing } = useImageUpload({
 		onError: (error) => {
@@ -222,26 +251,34 @@ export default function Home() {
 									</div>
 								)}
 							</div>
-							<div className="flex items-center justify-between mt-4 pt-1">
-								<ProjectModeSelector
-									value={projectMode}
-									onChange={setProjectMode}
-									className="flex-1"
-								/>
+							<div
+								className={clsx(
+									'flex items-center mt-4 pt-1',
+									showModeSelector ? 'justify-between' : 'justify-end',
+								)}
+							>
+								{showModeSelector && (
+									<ProjectModeSelector
+										value={projectMode}
+										onChange={setProjectMode}
+										modes={modeOptions}
+										className="flex-1"
+									/>
+								)}
 
-								<div className="flex items-center justify-end ml-4 gap-2">
-								<ImageUploadButton
-									onFilesSelected={addImages}
-									disabled={isProcessing}
-								/>
-								<button
-									type="submit"
-									disabled={!query.trim()}
-									className="bg-accent text-white p-1 rounded-md *:size-5 transition-all duration-200 hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
-								>
-									<ArrowRight />
-								</button>
-							</div>
+								<div className={clsx('flex items-center gap-2', showModeSelector && 'ml-4')}>
+									<ImageUploadButton
+										onFilesSelected={addImages}
+										disabled={isProcessing}
+									/>
+									<button
+										type="submit"
+										disabled={!query.trim()}
+										className="bg-accent text-white p-1 rounded-md *:size-5 transition-all duration-200 hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
+									>
+										<ArrowRight />
+									</button>
+								</div>
 							</div>
 						</form>
 					</motion.div>

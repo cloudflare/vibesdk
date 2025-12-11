@@ -122,28 +122,53 @@ export class StateMigration {
 
         let migratedProjectType = state.projectType;
         const hasProjectType = hasField(state, 'projectType');
-        if (!hasProjectType || !migratedProjectType) {
+        if (!hasProjectType || migratedProjectType !== 'app' && migratedProjectType !== 'presentation' && migratedProjectType !== 'general' && migratedProjectType !== 'workflow') {
             migratedProjectType = 'app';
             needsMigration = true;
             logger.info('Adding default projectType for legacy state', { projectType: migratedProjectType });
         }
+
+        let migratedBehaviorType = state.behaviorType;
+        const stateRecord = state as unknown as Record<string, unknown>;
+        const rawBehaviorType = stateRecord.behaviorType;
+        const hasValidBehaviorType = rawBehaviorType === 'phasic' || rawBehaviorType === 'agentic';
+
+        if (!hasField(state, 'behaviorType') || !hasValidBehaviorType) {
+            migratedBehaviorType = 'phasic';
+            needsMigration = true;
+            logger.info('Adding default behaviorType for legacy state', { behaviorType: migratedBehaviorType });
+        }
+
+        if (isStateWithAgentMode(state)) {
+            migratedBehaviorType = state.agentMode === 'smart' ? 'agentic' : 'phasic';
+            needsMigration = true;
+            logger.info('Migrating agentMode to behaviorType', {
+                oldMode: state.agentMode,
+                newType: migratedBehaviorType,
+            });
+        }
+
+        const migratedProjectUpdatesAccumulator = stateHasProjectUpdatesAccumulator && Array.isArray((stateRecord as Record<string, unknown>).projectUpdatesAccumulator)
+            ? (stateRecord.projectUpdatesAccumulator as string[])
+            : [];
+
         if (needsMigration) {
             logger.info('Migrating state: schema format, conversation cleanup, security fixes, and bootstrap setup', {
                 generatedFilesCount: Object.keys(migratedFilesMap).length,
                 removedUserApiKeys: state.inferenceContext && 'userApiKeys' in state.inferenceContext,
             });
-            
+
             const newState: AgentState = {
                 ...state,
+                behaviorType: migratedBehaviorType,
+                projectType: migratedProjectType,
                 generatedFilesMap: migratedFilesMap,
                 inferenceContext: migratedInferenceContext,
-                projectUpdatesAccumulator: [],
+                projectUpdatesAccumulator: migratedProjectUpdatesAccumulator,
                 templateName: migratedTemplateName,
                 projectName: migratedProjectName,
-                projectType: migratedProjectType,
             } as AgentState;
-            
-            // Remove deprecated fields
+
             const stateWithDeprecated = newState as StateWithDeprecatedFields;
             if (stateHasDeprecatedProps) {
                 delete stateWithDeprecated.latestScreenshot;
@@ -151,16 +176,10 @@ export class StateMigration {
             if (hasTemplateDetails) {
                 delete stateWithDeprecated.templateDetails;
             }
-            let migratedBehaviorType = state.behaviorType;
             if (isStateWithAgentMode(state)) {
-                migratedBehaviorType = state.agentMode === 'smart' ? 'agentic' : 'phasic';
-                needsMigration = true;
-                logger.info('Migrating agentMode to behaviorType', { 
-                    oldMode: state.agentMode, 
-                    newType: migratedBehaviorType 
-                });
+                delete stateWithDeprecated.agentMode;
             }
-            
+
             return newState;
         }
 

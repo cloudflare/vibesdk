@@ -23,6 +23,8 @@ interface RegisteredFeature {
 class FeatureRegistry {
 	private features = new Map<ProjectType, RegisteredFeature>();
 	private loadingPromises = new Map<ProjectType, Promise<FeatureModule>>();
+	private lazyPreviewComponents = new Map<ProjectType, ComponentType<PreviewComponentProps>>();
+	private lazyHeaderActionsComponents = new Map<ProjectType, ComponentType<HeaderActionsProps> | null>();
 
 	/**
 	 * Register a feature with its definition and lazy loader
@@ -41,8 +43,14 @@ class FeatureRegistry {
 	updateFromCapabilities(definitions: FeatureDefinition[]): void {
 		for (const def of definitions) {
 			const existing = this.features.get(def.id);
-			if (existing) {
-				existing.definition = def;
+			if (!existing) continue;
+
+			const hadCustomHeaderActions =
+				existing.definition.capabilities.hasCustomHeaderActions;
+			existing.definition = def;
+
+			if (hadCustomHeaderActions !== def.capabilities.hasCustomHeaderActions) {
+				this.lazyHeaderActionsComponents.delete(def.id);
 			}
 		}
 	}
@@ -132,13 +140,19 @@ class FeatureRegistry {
 		const feature = this.features.get(id);
 		if (!feature) return null;
 
-		return lazy(async () => {
+		const existing = this.lazyPreviewComponents.get(id);
+		if (existing) return existing;
+
+		const component = lazy(async () => {
 			const module = await this.load(id);
 			if (!module) {
 				throw new Error(`Failed to load feature: ${id}`);
 			}
 			return { default: module.PreviewComponent };
 		});
+
+		this.lazyPreviewComponents.set(id, component);
+		return component;
 	}
 
 	/**
@@ -146,17 +160,27 @@ class FeatureRegistry {
 	 */
 	getLazyHeaderActionsComponent(id: ProjectType): ComponentType<HeaderActionsProps> | null {
 		const feature = this.features.get(id);
-		if (!feature?.definition.capabilities.hasCustomHeaderActions) {
+		if (!feature) return null;
+
+		if (!feature.definition.capabilities.hasCustomHeaderActions) {
+			this.lazyHeaderActionsComponents.set(id, null);
 			return null;
 		}
 
-		return lazy(async () => {
+		if (this.lazyHeaderActionsComponents.has(id)) {
+			return this.lazyHeaderActionsComponents.get(id) ?? null;
+		}
+
+		const component = lazy(async () => {
 			const module = await this.load(id);
 			if (!module?.HeaderActionsComponent) {
 				throw new Error(`Feature "${id}" has no header actions component`);
 			}
 			return { default: module.HeaderActionsComponent };
 		});
+
+		this.lazyHeaderActionsComponents.set(id, component);
+		return component;
 	}
 
 	/**
@@ -175,6 +199,8 @@ class FeatureRegistry {
 			feature.isLoaded = false;
 		});
 		this.loadingPromises.clear();
+		this.lazyPreviewComponents.clear();
+		this.lazyHeaderActionsComponents.clear();
 	}
 }
 
