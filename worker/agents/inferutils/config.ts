@@ -94,11 +94,11 @@ const PLATFORM_AGENT_CONFIG: AgentConfig = {
         fallbackModel: AIModels.GEMINI_2_5_FLASH,
     },
     deepDebugger: {
-        name: AIModels.GEMINI_2_5_PRO,
+        name: AIModels.OPENAI_5_2,
         reasoning_effort: 'high',
         max_tokens: 8000,
         temperature: 1,
-        fallbackModel: AIModels.GEMINI_2_5_FLASH,
+        fallbackModel: AIModels.GEMINI_2_5_PRO,
     },
     fileRegeneration: {
         name: AIModels.GROK_CODE_FAST_1,
