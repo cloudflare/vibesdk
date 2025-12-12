@@ -425,6 +425,135 @@ type ServerLogMessage = {
 	source?: string;
 };
 
+// ========== VAULT MESSAGES ==========
+
+/** Sent by client when vault is unlocked via dedicated vault WebSocket */
+type VaultUnlockedMessage = {
+	type: 'vault_unlocked';
+};
+
+/** Sent by client when vault is locked */
+type VaultLockedMessage = {
+	type: 'vault_locked';
+};
+
+/** Sent by server when a secret is needed but vault is locked */
+type VaultRequiredMessage = {
+	type: 'vault_required';
+	reason: string;
+	provider?: string;
+	envVarName?: string;
+	secretId?: string;
+};
+
+// ========== VAULT WEBSOCKET MESSAGES (sent to vault DO) ==========
+
+/** Client request to store a new secret */
+export type VaultStoreSecretRequest = {
+	type: 'vault_store_secret';
+	requestId: string;
+	name: string;
+	encryptedValue: string; // Base64 encoded encrypted secret
+	secretType: 'secret';
+	encryptedNameForStorage: string; // Base64 encoded encrypted name
+	metadata?: Record<string, unknown>; // Plaintext metadata (e.g., { provider: "openai" })
+};
+
+/** Server response after storing a secret */
+export type VaultSecretStoredResponse = {
+	type: 'vault_secret_stored';
+	requestId: string;
+	success: boolean;
+	secretId?: string;
+	error?: string;
+};
+
+/** Client request to list all secrets (metadata only) */
+export type VaultListSecretsRequest = {
+	type: 'vault_list_secrets';
+	requestId: string;
+};
+
+/** Server response with list of secrets */
+export type VaultSecretsListResponse = {
+	type: 'vault_secrets_list';
+	requestId: string;
+	secrets: Array<{
+		id: string;
+		encryptedName: string; // Client decrypts with VMK
+		metadata?: Record<string, unknown>; // Plaintext metadata
+		secretType: 'secret';
+		createdAt: string;
+		updatedAt: string;
+	}>;
+};
+
+/** Client request to get a specific secret value (requires active session) */
+export type VaultGetSecretRequest = {
+	type: 'vault_get_secret';
+	requestId: string;
+	secretId: string;
+};
+
+/** Server response with secret value */
+export type VaultSecretValueResponse = {
+	type: 'vault_secret_value';
+	requestId: string;
+	success: boolean;
+	encryptedValue?: string; // Base64 encoded, client decrypts with VMK
+	metadata?: Record<string, unknown>; // Plaintext metadata
+	error?: string;
+};
+
+/** Client request to delete a secret */
+export type VaultDeleteSecretRequest = {
+	type: 'vault_delete_secret';
+	requestId: string;
+	secretId: string;
+};
+
+/** Server response after deleting a secret */
+export type VaultSecretDeletedResponse = {
+	type: 'vault_secret_deleted';
+	requestId: string;
+	success: boolean;
+	error?: string;
+};
+
+/** Client request to update a secret */
+export type VaultUpdateSecretRequest = {
+	type: 'vault_update_secret';
+	requestId: string;
+	secretId: string;
+	encryptedValue?: string; // New encrypted value (optional)
+	encryptedName?: string; // New encrypted name (optional)
+	metadata?: {
+		expiresAt?: string;
+		tags?: string[];
+	};
+};
+
+/** Server response after updating a secret */
+export type VaultSecretUpdatedResponse = {
+	type: 'vault_secret_updated';
+	requestId: string;
+	success: boolean;
+	error?: string;
+};
+
+/** Union type for all vault WebSocket messages */
+export type VaultWebSocketMessage =
+	| VaultStoreSecretRequest
+	| VaultSecretStoredResponse
+	| VaultListSecretsRequest
+	| VaultSecretsListResponse
+	| VaultGetSecretRequest
+	| VaultSecretValueResponse
+	| VaultDeleteSecretRequest
+	| VaultSecretDeletedResponse
+	| VaultUpdateSecretRequest
+	| VaultSecretUpdatedResponse;
+
 export type WebSocketMessage =
 	| StateMessage
 	| AgentConnectedMessage
@@ -480,7 +609,10 @@ export type WebSocketMessage =
 	| ModelConfigsInfoMessage
 	| TerminalCommandMessage
 	| TerminalOutputMessage
-	| ServerLogMessage;
+	| ServerLogMessage
+	| VaultUnlockedMessage
+	| VaultLockedMessage
+	| VaultRequiredMessage;
 
 // A type representing all possible message type strings (e.g., 'generation_started', 'file_generating', etc.)
 export type WebSocketMessageType = WebSocketMessage['type'];

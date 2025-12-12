@@ -1,647 +1,901 @@
 /**
- * UserSecretsStore - Durable Object for secure user API key storage
- * 
- * Architecture:
- * - One DO per user (userId as DO ID)
- * - Hierarchical key derivation: MEK → UMK → DEK
- * - XChaCha20-Poly1305 AEAD encryption
- * 
- * Key Rotation Locking:
- * - Promise-based lock prevents concurrent modifications during rotation
- * - All RPC methods call waitForRotation() first
- * - rotationInProgress promise cleared in finally block
- * - DO single-threading + promise await = complete mutual exclusion
+ * UserSecretsStore - Session-bound vault architecture
+ *
+ * Security Model:
+ * - VMK (Vault Master Key): Derived client-side, never stored on server
+ * - SK (Session Key): Random per-session, sent via WebSocket
+ * - encryptedVMK: AES-GCM(SK, VMK), stored in DO memory only
+ *
+ * Single session design - one active vault session per user at a time.
+ * DB dump = useless encrypted blobs. Server memory = needs client SK.
  */
 
 import { DurableObject } from 'cloudflare:workers';
-import type { DurableObjectState } from '@cloudflare/workers-types';
-import { KeyDerivation } from './KeyDerivation';
-import { EncryptionService } from './EncryptionService';
+import type { DurableObjectState, SqlStorageValue } from '@cloudflare/workers-types';
 import {
-    type SecretMetadata,
-    type StoreSecretRequest,
-    type UpdateSecretRequest,
-    type EncryptedSecretData,
-    type SecretWithValue,
-    type KeyRotationInfo
-} from './types';
-import { 
-    STORAGE_LIMITS, 
-    CLEANUP_INTERVALS
-} from './constants';
-import type { SqlStorageValue } from '@cloudflare/workers-types';
+	type VaultConfig,
+	type VaultStatusResponse,
+	type SetupVaultRequest,
+	type StoreSecretRequest,
+	type EncryptedSecret,
+	type SecretListItem,
+	type SecretMetadata,
+	SESSION_TIMEOUT_MS,
+	CLEANUP_INTERVAL_MS,
+	STORAGE_LIMITS,
+} from './vault-types';
 
-export class NotFoundError extends Error {
-    constructor(message: string = 'Not found') {
-        super(message);
-        this.name = 'NotFoundError';
-    }
-}
-
-export class ExpiredSecretError extends Error {
-    constructor(message: string = 'Secret has expired') {
-        super(message);
-        this.name = 'ExpiredSecretError';
-    }
+interface VaultSession {
+	encryptedVMK: ArrayBuffer;
+	nonce: ArrayBuffer;
+	sk: Uint8Array;
+	createdAt: number;
+	lastAccessedAt: number;
 }
 
 export class UserSecretsStore extends DurableObject<Env> {
-    private userId: string;
-    private keyDerivation!: KeyDerivation;
-    private encryption!: EncryptionService;
-    private rotationInProgress: Promise<void> | null = null;
-    
-    constructor(ctx: DurableObjectState, env: Env) {
-        super(ctx, env);
-        
-        this.userId = ctx.id.name ?? ctx.id.toString();
-        
-        // Use blockConcurrencyWhile for initialization
-        // Security Note: This guarantees no RPC methods execute until initialize() completes.
-        // Cloudflare Workers DO platform blocks ALL incoming requests during this call.
-        // No additional await checks needed in methods - this is the official pattern.
-        ctx.blockConcurrencyWhile(async () => {
-            await this.initialize();
-        });
-    }
-    
-    private async initialize(): Promise<void> {
-        // 1. Initialize SQLite schema
-        await this.initializeSchema();
-        
-        // 2. Initialize key derivation
-        if (!this.env.SECRETS_ENCRYPTION_KEY) {
-            throw new Error('SECRETS_ENCRYPTION_KEY environment variable not set');
-        }
-        this.keyDerivation = new KeyDerivation(this.env.SECRETS_ENCRYPTION_KEY);
-        
-        // 3. Derive User Master Key
-        const userMasterKey = await this.keyDerivation.deriveUserMasterKey(this.userId);
-        
-        // 4. Initialize encryption service
-        this.encryption = new EncryptionService(userMasterKey, this.keyDerivation);
-        
-        // 5. Check for key rotation and initialize metadata
-        await this.initializeKeyRotationMetadata();
-        
-        // 6. Detect and handle key rotation if needed
-        await this.detectAndHandleKeyRotation();
-        
-        // 7. Set alarm for cleanup
-        const currentAlarm = await this.ctx.storage.getAlarm();
-        if (currentAlarm === null) {
-            await this.ctx.storage.setAlarm(Date.now() + CLEANUP_INTERVALS.EXPIRED_SECRETS_CHECK);
-        }
-    }
-    
-    private async initializeSchema(): Promise<void> {
-        // Secrets table
-        this.ctx.storage.sql.exec(`
-            CREATE TABLE IF NOT EXISTS secrets (
-                id TEXT PRIMARY KEY,
-                name TEXT NOT NULL,
-                secret_type TEXT NOT NULL,
-                provider TEXT,
-                encrypted_value BLOB NOT NULL,
-                nonce BLOB NOT NULL,
-                salt BLOB NOT NULL,
-                key_preview TEXT NOT NULL,
-                metadata TEXT,
-                expires_at INTEGER,
-                created_at INTEGER NOT NULL,
-                updated_at INTEGER NOT NULL,
-                last_accessed INTEGER,
-                access_count INTEGER DEFAULT 0,
-                is_active INTEGER DEFAULT 1,
-                key_fingerprint TEXT NOT NULL
-            )
-        `);
-        
-        // Key rotation metadata table
-        this.ctx.storage.sql.exec(`
-            CREATE TABLE IF NOT EXISTS key_rotation_metadata (
-                id INTEGER PRIMARY KEY CHECK (id = 1),
-                current_key_fingerprint TEXT NOT NULL,
-                last_rotation_at INTEGER NOT NULL,
-                rotation_count INTEGER DEFAULT 0,
-                created_at INTEGER NOT NULL
-            )
-        `);
-        
-        // Create indexes for performance
-        this.ctx.storage.sql.exec(`
-            CREATE INDEX IF NOT EXISTS idx_secrets_active 
-            ON secrets(is_active, created_at DESC)
-        `);
-        
-        this.ctx.storage.sql.exec(`
-            CREATE INDEX IF NOT EXISTS idx_secrets_expires 
-            ON secrets(expires_at) 
-            WHERE expires_at IS NOT NULL AND is_active = 1
-        `);
-    }
-    
-    async alarm(): Promise<void> {
-        const now = Date.now();
-        
-        // Delete expired secrets
-        await this.deleteExpiredSecrets(now);
-        
-        // Cleanup old soft-deleted secrets (90 days)
-        await this.cleanupSoftDeleted(now);
-        
-        // Schedule next alarm
-        await this.ctx.storage.setAlarm(Date.now() + CLEANUP_INTERVALS.EXPIRED_SECRETS_CHECK);
-    }
-    
-    // ========== PUBLIC RPC METHODS ==========
-    
-    isReady(): boolean {
-        return !!(this.encryption && this.keyDerivation);
-    }
-    
-    /**
-     * Wait for any in-progress key rotation to complete
-     * All RPC methods should call this first to ensure data consistency
-     */
-    private async waitForRotation(): Promise<void> {
-        if (this.rotationInProgress) {
-            await this.rotationInProgress;
-        }
-    }
-    
-    async listSecrets(): Promise<SecretMetadata[]> {
-        await this.waitForRotation();
-        
-        const result = this.ctx.storage.sql.exec(`
-            SELECT 
-                id, name, secret_type, provider, key_preview, metadata,
-                expires_at, created_at, updated_at, last_accessed, 
-                access_count, is_active
-            FROM secrets 
-            WHERE is_active = 1
-            ORDER BY created_at DESC
-        `);
-        
-        const rows = result.toArray();
-        return rows.map(row => this.rowToMetadata(row as Record<string, SqlStorageValue>));
-    }
-    
-    async storeSecret(request: StoreSecretRequest): Promise<SecretMetadata | null> {
-        await this.waitForRotation();
-        
-        // Validate request - returns null on validation failure
-        const validationError = this.validateSecretRequest(request);
-        if (validationError) {
-            return null;
-        }
-        
-        // Encrypt
-        const encrypted = await this.encryption.encrypt(request.value);
-        const secretId = crypto.randomUUID();
-        const now = Date.now();
-        const keyFingerprint = await this.keyDerivation.getMasterKeyFingerprint();
-        
-        // Store
-        this.ctx.storage.sql.exec(`
-            INSERT INTO secrets (
-                id, name, secret_type, provider, encrypted_value, nonce, salt, 
-                key_preview, metadata, expires_at, created_at, updated_at, 
-                access_count, is_active, key_fingerprint
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        `,
-            secretId,
-            request.name,
-            request.secretType,
-            request.provider ?? null,
-            encrypted.encryptedValue,
-            encrypted.nonce,
-            encrypted.salt,
-            encrypted.keyPreview,
-            request.metadata ? JSON.stringify(request.metadata) : null,
-            request.expiresAt ?? null,
-            now,
-            now,
-            0,
-            1,
-            keyFingerprint
-        );
-        
-        return {
-            id: secretId,
-            name: request.name,
-            secretType: request.secretType,
-            provider: request.provider,
-            keyPreview: encrypted.keyPreview,
-            metadata: request.metadata,
-            expiresAt: request.expiresAt,
-            createdAt: now,
-            updatedAt: now,
-            accessCount: 0,
-            isActive: true
-        };
-    }
-    
-    async getSecretValue(secretId: string): Promise<SecretWithValue | null> {
-        await this.waitForRotation();
-        
-        const result = this.ctx.storage.sql.exec(`
-            SELECT * FROM secrets WHERE id = ? AND is_active = 1
-        `, secretId);
-        
-        const rows = result.toArray();
-        if (rows.length === 0) {
-            return null;
-        }
-        
-        const row = rows[0] as Record<string, SqlStorageValue>;
-        
-        // Check expiration BEFORE decryption
-        if (row.expires_at && Number(row.expires_at) < Date.now()) {
-            return null;
-        }
-        
-        // Get and decrypt data
-        const encrypted = await this.getEncryptedData(row);
-        const value = await this.encryption.decrypt(encrypted);
-        
-        // Update access tracking
-        const now = Date.now();
-        this.ctx.storage.sql.exec(`
-            UPDATE secrets 
-            SET last_accessed = ?, access_count = access_count + 1, updated_at = ?
-            WHERE id = ?
-        `, now, now, secretId);
-        
-        return {
-            value,
-            metadata: {
-                ...this.rowToMetadata(row),
-                accessCount: Number(row.access_count) + 1,
-                lastAccessed: now,
-                updatedAt: now
-            }
-        };
-    }
-    
-    async updateSecret(secretId: string, request: UpdateSecretRequest): Promise<SecretMetadata | null> {
-        await this.waitForRotation();
-        
-        // Check exists
-        const result = this.ctx.storage.sql.exec(`
-            SELECT * FROM secrets WHERE id = ? AND is_active = 1
-        `, secretId);
-        
-        const rows = result.toArray();
-        if (rows.length === 0) {
-            return null;
-        }
-        
-        const updateFields: string[] = [];
-        const updateValues: unknown[] = [];
-        
-        if (request.name !== undefined) {
-            if (!request.name?.trim() || request.name.length > STORAGE_LIMITS.MAX_SECRET_NAME_LENGTH) {
-                return null; // Validation failed
-            }
-            updateFields.push('name = ?');
-            updateValues.push(request.name);
-        }
-        
-        if (request.value !== undefined) {
-            if (!request.value || request.value.length > STORAGE_LIMITS.MAX_SECRET_VALUE_SIZE) {
-                return null; // Validation failed
-            }
-            const encrypted = await this.encryption.encrypt(request.value);
-            updateFields.push('encrypted_value = ?', 'nonce = ?', 'salt = ?', 'key_preview = ?');
-            updateValues.push(encrypted.encryptedValue, encrypted.nonce, encrypted.salt, encrypted.keyPreview);
-        }
-        
-        if (request.metadata !== undefined) {
-            const metadataSize = JSON.stringify(request.metadata).length;
-            if (metadataSize > STORAGE_LIMITS.MAX_METADATA_SIZE) {
-                return null; // Validation failed
-            }
-            updateFields.push('metadata = ?');
-            updateValues.push(JSON.stringify(request.metadata));
-        }
-        
-        if (request.expiresAt !== undefined) {
-            updateFields.push('expires_at = ?');
-            updateValues.push(request.expiresAt);
-        }
-        
-        if (updateFields.length === 0) {
-            throw new Error('No fields to update');
-        }
-        
-        const now = Date.now();
-        updateFields.push('updated_at = ?');
-        updateValues.push(now);
-        updateValues.push(secretId);
-        
-        // Security Note: SQL Injection Safety
-        // This dynamic query construction is SAFE because:
-        // 1. Field names ("name = ?", "metadata = ?") are hardcoded string literals
-        // 2. User input goes into parameterized ? placeholders (updateValues array)
-        // 3. Array.join() only combines our hardcoded field assignments
-        // 4. This is the standard parameterized query pattern for dynamic updates
-        this.ctx.storage.sql.exec(`
-            UPDATE secrets SET ${updateFields.join(', ')} WHERE id = ?
-        `, ...updateValues);
-        
-        // Get updated secret
-        const updated = this.ctx.storage.sql.exec(`
-            SELECT * FROM secrets WHERE id = ?
-        `, secretId);
-        const updatedRow = updated.toArray()[0] as Record<string, SqlStorageValue>;
-        
-        return this.rowToMetadata(updatedRow);
-    }
-    
-    async deleteSecret(secretId: string): Promise<boolean> {
-        await this.waitForRotation();
-        
-        // Soft delete
-        const result = this.ctx.storage.sql.exec(`
-            UPDATE secrets SET is_active = 0, updated_at = ? 
-            WHERE id = ? AND is_active = 1
-            RETURNING id
-        `, Date.now(), secretId);
-        
-        const rows = result.toArray();
-        return rows.length > 0;
-    }
-    
-    // ========== PRIVATE HELPERS ==========
-    
-    /**
-     * Convert SQLite row to SecretMetadata (DRY helper)
-     */
-    private rowToMetadata(row: Record<string, SqlStorageValue>): SecretMetadata {
-        return {
-            id: String(row.id),
-            name: String(row.name),
-            secretType: String(row.secret_type) as StoreSecretRequest['secretType'],
-            provider: row.provider ? String(row.provider) : undefined,
-            keyPreview: String(row.key_preview),
-            metadata: row.metadata ? JSON.parse(String(row.metadata)) : undefined,
-            expiresAt: row.expires_at ? Number(row.expires_at) : undefined,
-            createdAt: Number(row.created_at),
-            updatedAt: Number(row.updated_at),
-            lastAccessed: row.last_accessed ? Number(row.last_accessed) : undefined,
-            accessCount: Number(row.access_count),
-            isActive: Boolean(row.is_active)
-        };
-    }
-    
-    /**
-     * Validate secret request - returns error message or null if valid
-     */
-    private validateSecretRequest(request: StoreSecretRequest): string | null {
-        if (!request.name?.trim()) {
-            return 'Secret name is required';
-        }
-        
-        if (request.name.length > STORAGE_LIMITS.MAX_SECRET_NAME_LENGTH) {
-            return `Name exceeds ${STORAGE_LIMITS.MAX_SECRET_NAME_LENGTH} characters`;
-        }
-        
-        if (!request.value) {
-            return 'Secret value is required';
-        }
-        
-        if (request.value.length > STORAGE_LIMITS.MAX_SECRET_VALUE_SIZE) {
-            return `Value exceeds ${STORAGE_LIMITS.MAX_SECRET_VALUE_SIZE} bytes`;
-        }
-        
-        if (request.metadata) {
-            const metadataSize = JSON.stringify(request.metadata).length;
-            if (metadataSize > STORAGE_LIMITS.MAX_METADATA_SIZE) {
-                return `Metadata exceeds ${STORAGE_LIMITS.MAX_METADATA_SIZE} bytes`;
-            }
-        }
-        
-        return null; // Valid
-    }
-    
-    /**
-     * Extract and validate encrypted data from row
-     */
-    private async getEncryptedData(row: Record<string, SqlStorageValue>): Promise<EncryptedSecretData> {
-        const { encrypted_value, nonce, salt, key_preview } = row;
-        
-        if (!encrypted_value || !nonce || !salt || !key_preview) {
-            throw new Error('Corrupted secret data: missing fields');
-        }
-        
-        if (!(encrypted_value instanceof ArrayBuffer) || 
-            !(nonce instanceof ArrayBuffer) || 
-            !(salt instanceof ArrayBuffer)) {
-            throw new Error('Corrupted secret data: invalid types');
-        }
-        
-        return {
-            encryptedValue: new Uint8Array(encrypted_value),
-            nonce: new Uint8Array(nonce),
-            salt: new Uint8Array(salt),
-            keyPreview: String(key_preview)
-        };
-    }
-    
-    /**
-     * Delete expired secrets (called by alarm)
-     */
-    private async deleteExpiredSecrets(now: number): Promise<void> {
-        this.ctx.storage.transactionSync(() => {
-            // Soft delete all expired secrets atomically
-            this.ctx.storage.sql.exec(`
-                UPDATE secrets 
-                SET is_active = 0, updated_at = ? 
-                WHERE expires_at IS NOT NULL AND expires_at < ? AND is_active = 1
-            `, now, now);
-        });
-    }
-    
-    /**
-     * Hard delete soft-deleted secrets older than 90 days
-     */
-    private async cleanupSoftDeleted(now: number): Promise<void> {
-        const cutoff = now - (90 * 24 * 60 * 60 * 1000);
-        
-        this.ctx.storage.transactionSync(() => {
-            this.ctx.storage.sql.exec(`
-                DELETE FROM secrets 
-                WHERE is_active = 0 AND updated_at < ?
-            `, cutoff);
-        });
-    }
-    
-    /**
-     * Initialize key rotation metadata on first use
-     */
-    private async initializeKeyRotationMetadata(): Promise<void> {
-        const fingerprint = await this.keyDerivation.getMasterKeyFingerprint();
-        const now = Date.now();
-        
-        this.ctx.storage.sql.exec(`
-            INSERT OR IGNORE INTO key_rotation_metadata 
-                (id, current_key_fingerprint, last_rotation_at, rotation_count, created_at)
-            VALUES (1, ?, ?, 0, ?)
-        `, fingerprint, now, now);
-    }
-    
-    /**
-     * Detect if master key has changed and handle rotation
-     */
-    private async detectAndHandleKeyRotation(): Promise<void> {
-        const currentFingerprint = await this.keyDerivation.getMasterKeyFingerprint();
-        
-        const result = this.ctx.storage.sql.exec(`
-            SELECT current_key_fingerprint FROM key_rotation_metadata WHERE id = 1
-        `);
-        
-        const rows = result.toArray();
-        if (rows.length === 0) {
-            return; // Metadata not initialized yet
-        }
-        
-        const storedFingerprint = String((rows[0] as Record<string, SqlStorageValue>).current_key_fingerprint);
-        
-        if (currentFingerprint !== storedFingerprint) {
-            await this.performKeyRotation(currentFingerprint);
-        }
-    }
-    
-    /**
-     * Re-encrypt all active secrets with new master key
-     * 
-     * Locking Strategy:
-     * - Sets rotationInProgress promise at start
-     * - All RPC methods await this promise via waitForRotation()
-     * - Ensures no operations can modify secrets during rotation
-     * - Promise cleared in finally block (even on errors)
-     * - DO single-threading + promise-based locking = complete protection
-     */
-    private async performKeyRotation(newKeyFingerprint: string): Promise<number> {
-        // Create and store the rotation promise for locking
-        const rotationPromise = (async (): Promise<number> => {
-            try {
-                const result = this.ctx.storage.sql.exec(`
-                    SELECT * FROM secrets WHERE is_active = 1
-                `);
-                
-                const secrets = result.toArray();
-                const now = Date.now();
-                
-                // Phase 1: Pre-compute all encrypted values (async crypto operations)
-                const reencryptedSecrets: Array<{
-                    id: string;
-                    encryptedValue: Uint8Array;
-                    nonce: Uint8Array;
-                    salt: Uint8Array;
-                }> = [];
-                
-                for (const row of secrets) {
-                    const secretRow = row as Record<string, SqlStorageValue>;
-                    
-                    try {
-                        const encrypted = await this.getEncryptedData(secretRow);
-                        const plaintext = await this.encryption.decrypt(encrypted);
-                        const reencrypted = await this.encryption.encrypt(plaintext);
-                        
-                        reencryptedSecrets.push({
-                            id: String(secretRow.id),
-                            encryptedValue: reencrypted.encryptedValue,
-                            nonce: reencrypted.nonce,
-                            salt: reencrypted.salt
-                        });
-                    } catch (error) {
-                        console.error(`Failed to rotate secret ${String(secretRow.id)}:`, error);
-                    }
-                }
-                
-                // Phase 2: Apply all SQL updates atomically in transaction
-                const rotatedCount = this.ctx.storage.transactionSync(() => {
-                    let count = 0;
-                    
-                    for (const secret of reencryptedSecrets) {
-                        this.ctx.storage.sql.exec(`
-                            UPDATE secrets 
-                            SET encrypted_value = ?, nonce = ?, salt = ?, key_fingerprint = ?, updated_at = ?
-                            WHERE id = ?
-                        `,
-                            secret.encryptedValue,
-                            secret.nonce,
-                            secret.salt,
-                            newKeyFingerprint,
-                            now,
-                            secret.id
-                        );
-                        count++;
-                    }
-                    
-                    this.ctx.storage.sql.exec(`
-                        UPDATE key_rotation_metadata 
-                        SET current_key_fingerprint = ?, 
-                            last_rotation_at = ?, 
-                            rotation_count = rotation_count + 1
-                        WHERE id = 1
-                    `, newKeyFingerprint, now);
-                    
-                    return count;
-                });
-                
-                return rotatedCount;
-            } finally {
-                // Always clear the lock, even on errors
-                this.rotationInProgress = null;
-            }
-        })();
-        
-        // Store the promise to block other operations
-        this.rotationInProgress = rotationPromise.then(() => {});
-        
-        // Await and return the result
-        return await rotationPromise;
-    }
-    
-    /**
-     * Get key rotation statistics
-     */
-    async getKeyRotationInfo(): Promise<KeyRotationInfo> {
-        await this.waitForRotation();
-        
-        const metadataResult = this.ctx.storage.sql.exec(`
-            SELECT * FROM key_rotation_metadata WHERE id = 1
-        `);
-        
-        const metadataRows = metadataResult.toArray();
-        if (metadataRows.length === 0) {
-            throw new Error('Key rotation metadata not initialized');
-        }
-        
-        const metadata = metadataRows[0] as Record<string, SqlStorageValue>;
-        const currentFingerprint = await this.keyDerivation.getMasterKeyFingerprint();
-        
-        // Count total active secrets
-        const totalResult = this.ctx.storage.sql.exec(`
-            SELECT COUNT(*) as count FROM secrets WHERE is_active = 1
-        `);
-        const totalSecrets = Number((totalResult.toArray()[0] as Record<string, SqlStorageValue>).count);
-        
-        // Count secrets with current key fingerprint
-        const rotatedResult = this.ctx.storage.sql.exec(`
-            SELECT COUNT(*) as count FROM secrets WHERE is_active = 1 AND key_fingerprint = ?
-        `, currentFingerprint);
-        const secretsRotated = Number((rotatedResult.toArray()[0] as Record<string, SqlStorageValue>).count);
-        
-        return {
-            currentKeyFingerprint: String(metadata.current_key_fingerprint),
-            lastRotationAt: Number(metadata.last_rotation_at),
-            rotationCount: Number(metadata.rotation_count),
-            totalSecrets,
-            secretsRotated
-        };
-    }
+	private session: VaultSession | null = null;
+
+	constructor(ctx: DurableObjectState, env: Env) {
+		super(ctx, env);
+		ctx.blockConcurrencyWhile(async () => {
+			await this.initializeSchema();
+			await this.scheduleCleanup();
+		});
+	}
+
+	async fetch(request: Request): Promise<Response> {
+		if (request.headers.get('Upgrade') !== 'websocket') {
+			return new Response('Expected WebSocket', { status: 426 });
+		}
+
+		const pair = new WebSocketPair();
+		this.ctx.acceptWebSocket(pair[1]);
+		return new Response(null, { status: 101, webSocket: pair[0] });
+	}
+
+	async webSocketMessage(ws: WebSocket, message: string | ArrayBuffer): Promise<void> {
+		try {
+			const data = JSON.parse(message as string);
+			switch (data.type) {
+				case 'vault_session_init':
+					this.handleSessionInit(ws, data);
+					break;
+				case 'vault_session_close':
+					this.handleSessionClose(ws);
+					break;
+				case 'vault_store_secret':
+					this.handleStoreSecret(ws, data);
+					break;
+				case 'vault_list_secrets':
+					this.handleListSecrets(ws, data);
+					break;
+				case 'vault_get_secret':
+					this.handleGetSecret(ws, data);
+					break;
+				case 'vault_delete_secret':
+					this.handleDeleteSecret(ws, data);
+					break;
+				case 'vault_update_secret':
+					this.handleUpdateSecret(ws, data);
+					break;
+				default:
+					this.sendWs(ws, { type: 'vault_ws_error', error: 'Unknown message type' });
+			}
+		} catch {
+			this.sendWs(ws, { type: 'vault_ws_error', error: 'Invalid message' });
+		}
+	}
+
+	async webSocketClose(_ws: WebSocket): Promise<void> {
+		this.clearSession();
+	}
+
+	async webSocketError(ws: WebSocket): Promise<void> {
+		this.clearSession();
+		ws.close(1011, 'WebSocket error');
+	}
+
+	private handleSessionInit(
+		ws: WebSocket,
+		data: { encryptedVMK: string; nonce: string; sessionKey: string }
+	): void {
+		this.clearSession();
+
+		const now = Date.now();
+		this.session = {
+			encryptedVMK: this.base64ToArrayBuffer(data.encryptedVMK),
+			nonce: this.base64ToArrayBuffer(data.nonce),
+			sk: this.base64ToUint8Array(data.sessionKey),
+			createdAt: now,
+			lastAccessedAt: now,
+		};
+
+		this.sendWs(ws, { type: 'vault_session_ready' });
+	}
+
+	private handleSessionClose(ws: WebSocket): void {
+		this.clearSession();
+		this.sendWs(ws, { type: 'vault_session_closed' });
+	}
+
+	// ========== WEBSOCKET CRUD HANDLERS ==========
+
+	private handleStoreSecret(
+		ws: WebSocket,
+		data: {
+			requestId: string;
+			name: string;
+			encryptedValue: string;
+			secretType: 'secret';
+			encryptedNameForStorage: string;
+			metadata?: SecretMetadata; // Plaintext metadata
+		}
+	): void {
+		// Validate session
+		const sessionCheck = this.validateAndRefreshSession();
+		if (!sessionCheck.valid) {
+			this.sendWs(ws, {
+				type: 'vault_secret_stored',
+				requestId: data.requestId,
+				success: false,
+				error: sessionCheck.error,
+				errorType: sessionCheck.errorType,
+			});
+			return;
+		}
+
+		try {
+			// Parse encrypted data from base64
+			const encryptedValueParts = this.parseEncryptedData(data.encryptedValue);
+			const encryptedNameParts = this.parseEncryptedData(data.encryptedNameForStorage);
+
+			// Validate storage limits
+			const limitError = this.validateStorageLimits(
+				encryptedValueParts.ciphertext,
+				encryptedNameParts.ciphertext
+			);
+			if (limitError) {
+				this.sendWs(ws, {
+					type: 'vault_secret_stored',
+					requestId: data.requestId,
+					success: false,
+					error: limitError,
+					errorType: 'validation_error',
+				});
+				return;
+			}
+
+			const secretId = this.storeSecret({
+				encryptedValue: encryptedValueParts.ciphertext,
+				valueNonce: encryptedValueParts.nonce,
+				encryptedName: encryptedNameParts.ciphertext,
+				nameNonce: encryptedNameParts.nonce,
+				secretType: data.secretType,
+				metadata: data.metadata,
+			});
+
+			this.sendWs(ws, {
+				type: 'vault_secret_stored',
+				requestId: data.requestId,
+				success: true,
+				secretId,
+			});
+		} catch (error) {
+			console.error('Vault store secret failed', {
+				error: error instanceof Error ? error.message : String(error),
+			});
+			this.sendWs(ws, {
+				type: 'vault_secret_stored',
+				requestId: data.requestId,
+				success: false,
+				error: error instanceof Error ? error.message : 'Unknown error',
+			});
+		}
+	}
+
+	private handleListSecrets(ws: WebSocket, data: { requestId: string }): void {
+		// Validate session
+		const sessionCheck = this.validateAndRefreshSession();
+		if (!sessionCheck.valid) {
+			this.sendWs(ws, {
+				type: 'vault_secrets_list',
+				requestId: data.requestId,
+				secrets: [],
+				error: sessionCheck.error,
+				errorType: sessionCheck.errorType,
+			});
+			return;
+		}
+
+		try {
+			const secrets = this.listSecrets();
+
+			// Convert to response format with base64 encoded names and plaintext metadata
+			const responseSecrets = secrets.map((s) => ({
+				id: s.id,
+				encryptedName: this.uint8ArrayToBase64(s.encryptedName) + ':' + this.uint8ArrayToBase64(s.nameNonce),
+				metadata: s.metadata,
+				secretType: s.secretType,
+				createdAt: new Date(s.createdAt).toISOString(),
+				updatedAt: new Date(s.updatedAt).toISOString(),
+			}));
+
+			this.sendWs(ws, {
+				type: 'vault_secrets_list',
+				requestId: data.requestId,
+				secrets: responseSecrets,
+			});
+		} catch {
+			this.sendWs(ws, {
+				type: 'vault_secrets_list',
+				requestId: data.requestId,
+				secrets: [],
+			});
+		}
+	}
+
+	private handleGetSecret(ws: WebSocket, data: { requestId: string; secretId: string }): void {
+		// Validate session
+		const sessionCheck = this.validateAndRefreshSession();
+		if (!sessionCheck.valid) {
+			this.sendWs(ws, {
+				type: 'vault_secret_value',
+				requestId: data.requestId,
+				success: false,
+				error: sessionCheck.error,
+				errorType: sessionCheck.errorType,
+			});
+			return;
+		}
+
+		try {
+			const secret = this.getSecret(data.secretId);
+
+			if (!secret) {
+				this.sendWs(ws, {
+					type: 'vault_secret_value',
+					requestId: data.requestId,
+					success: false,
+					error: 'Secret not found',
+				});
+				return;
+			}
+
+			// Return encrypted value (client decrypts with VMK) and plaintext metadata
+			const encryptedValue =
+				this.uint8ArrayToBase64(secret.encryptedValue) +
+				':' +
+				this.uint8ArrayToBase64(secret.valueNonce);
+
+			this.sendWs(ws, {
+				type: 'vault_secret_value',
+				requestId: data.requestId,
+				success: true,
+				encryptedValue,
+				metadata: secret.metadata,
+			});
+		} catch (error) {
+			this.sendWs(ws, {
+				type: 'vault_secret_value',
+				requestId: data.requestId,
+				success: false,
+				error: error instanceof Error ? error.message : 'Unknown error',
+			});
+		}
+	}
+
+	private handleDeleteSecret(ws: WebSocket, data: { requestId: string; secretId: string }): void {
+		// Validate session
+		const sessionCheck = this.validateAndRefreshSession();
+		if (!sessionCheck.valid) {
+			this.sendWs(ws, {
+				type: 'vault_secret_deleted',
+				requestId: data.requestId,
+				success: false,
+				error: sessionCheck.error,
+				errorType: sessionCheck.errorType,
+			});
+			return;
+		}
+
+		try {
+			const success = this.deleteSecret(data.secretId);
+
+			this.sendWs(ws, {
+				type: 'vault_secret_deleted',
+				requestId: data.requestId,
+				success,
+				error: success ? undefined : 'Secret not found',
+			});
+		} catch (error) {
+			this.sendWs(ws, {
+				type: 'vault_secret_deleted',
+				requestId: data.requestId,
+				success: false,
+				error: error instanceof Error ? error.message : 'Unknown error',
+			});
+		}
+	}
+
+	private handleUpdateSecret(
+		ws: WebSocket,
+		data: {
+			requestId: string;
+			secretId: string;
+			encryptedValue?: string;
+			encryptedName?: string;
+			metadata?: SecretMetadata;
+		}
+	): void {
+		// Validate session
+		const sessionCheck = this.validateAndRefreshSession();
+		if (!sessionCheck.valid) {
+			this.sendWs(ws, {
+				type: 'vault_secret_updated',
+				requestId: data.requestId,
+				success: false,
+				error: sessionCheck.error,
+				errorType: sessionCheck.errorType,
+			});
+			return;
+		}
+
+		try {
+			const update: {
+				encryptedValue?: ArrayBuffer;
+				valueNonce?: ArrayBuffer;
+				encryptedName?: ArrayBuffer;
+				nameNonce?: ArrayBuffer;
+				metadata?: SecretMetadata;
+			} = {};
+
+			if (data.encryptedValue) {
+				const parts = this.parseEncryptedData(data.encryptedValue);
+				update.encryptedValue = parts.ciphertext;
+				update.valueNonce = parts.nonce;
+			}
+
+			if (data.encryptedName) {
+				const parts = this.parseEncryptedData(data.encryptedName);
+				update.encryptedName = parts.ciphertext;
+				update.nameNonce = parts.nonce;
+			}
+
+			if (data.metadata !== undefined) {
+				update.metadata = data.metadata;
+			}
+
+			// Validate storage limits
+			const limitError = this.validateStorageLimits(update.encryptedValue, update.encryptedName);
+			if (limitError) {
+				this.sendWs(ws, {
+					type: 'vault_secret_updated',
+					requestId: data.requestId,
+					success: false,
+					error: limitError,
+					errorType: 'validation_error',
+				});
+				return;
+			}
+
+			const success = this.updateSecret(data.secretId, update);
+
+			this.sendWs(ws, {
+				type: 'vault_secret_updated',
+				requestId: data.requestId,
+				success,
+				error: success ? undefined : 'Secret not found or update failed',
+			});
+		} catch (error) {
+			this.sendWs(ws, {
+				type: 'vault_secret_updated',
+				requestId: data.requestId,
+				success: false,
+				error: error instanceof Error ? error.message : 'Unknown error',
+			});
+		}
+	}
+
+	// ========== SESSION AND VALIDATION HELPERS ==========
+
+	/**
+	 * Validates session exists and is not expired.
+	 * Returns error response if invalid, or updates lastAccessedAt and returns valid.
+	 */
+	private validateAndRefreshSession():
+		| { valid: true }
+		| { valid: false; error: string; errorType: 'vault_locked' | 'session_expired' } {
+		if (!this.session) {
+			return { valid: false, error: 'Vault is locked', errorType: 'vault_locked' };
+		}
+		if (Date.now() - this.session.lastAccessedAt > SESSION_TIMEOUT_MS) {
+			this.clearSession();
+			return { valid: false, error: 'Session expired', errorType: 'session_expired' };
+		}
+		this.session.lastAccessedAt = Date.now();
+		return { valid: true };
+	}
+
+	/**
+	 * Validates storage limits for secret data.
+	 * Returns error message if validation fails, null if valid.
+	 */
+	private validateStorageLimits(encryptedValue?: ArrayBuffer, encryptedName?: ArrayBuffer): string | null {
+		if (encryptedValue && encryptedValue.byteLength > STORAGE_LIMITS.MAX_SECRET_VALUE_SIZE) {
+			return `Secret value exceeds maximum size of ${STORAGE_LIMITS.MAX_SECRET_VALUE_SIZE / 1024}KB`;
+		}
+		if (encryptedName && encryptedName.byteLength > STORAGE_LIMITS.MAX_SECRET_NAME_LENGTH) {
+			return `Secret name exceeds maximum length of ${STORAGE_LIMITS.MAX_SECRET_NAME_LENGTH} characters`;
+		}
+		return null;
+	}
+
+	// ========== WEBSOCKET HELPERS ==========
+
+	private parseEncryptedData(base64Data: string): { ciphertext: ArrayBuffer; nonce: ArrayBuffer } {
+		// Format: base64Ciphertext:base64Nonce
+		const parts = base64Data.split(':');
+		if (parts.length !== 2) {
+			throw new Error('Invalid encrypted data format');
+		}
+		return {
+			ciphertext: this.base64ToArrayBuffer(parts[0]),
+			nonce: this.base64ToArrayBuffer(parts[1]),
+		};
+	}
+
+	private uint8ArrayToBase64(arr: Uint8Array): string {
+		let binary = '';
+		for (let i = 0; i < arr.length; i++) {
+			binary += String.fromCharCode(arr[i]);
+		}
+		return btoa(binary);
+	}
+
+	private clearSession(): void {
+		if (this.session?.sk) {
+			this.session.sk.fill(0);
+		}
+		this.session = null;
+	}
+
+	private sendWs(ws: WebSocket, data: Record<string, unknown>): void {
+		ws.send(JSON.stringify(data));
+	}
+
+	private base64ToUint8Array(str: string): Uint8Array {
+		const binary = atob(str);
+		const bytes = new Uint8Array(binary.length);
+		for (let i = 0; i < binary.length; i++) {
+			bytes[i] = binary.charCodeAt(i);
+		}
+		return bytes;
+	}
+
+	private base64ToArrayBuffer(str: string): ArrayBuffer {
+		const uint8 = this.base64ToUint8Array(str);
+		const buffer = new ArrayBuffer(uint8.length);
+		new Uint8Array(buffer).set(uint8);
+		return buffer;
+	}
+
+	private async initializeSchema(): Promise<void> {
+		this.ctx.storage.sql.exec(`
+			CREATE TABLE IF NOT EXISTS vault_config (
+				id INTEGER PRIMARY KEY CHECK (id = 1),
+				kdf_algorithm TEXT NOT NULL,
+				kdf_salt BLOB NOT NULL,
+				kdf_params TEXT,
+				prf_credential_id TEXT,
+				prf_salt BLOB,
+				encrypted_recovery_codes BLOB,
+				recovery_codes_nonce BLOB,
+				verification_blob BLOB NOT NULL,
+				verification_nonce BLOB NOT NULL,
+				created_at INTEGER NOT NULL,
+				updated_at INTEGER NOT NULL
+			)
+		`);
+
+		this.ctx.storage.sql.exec(`
+			CREATE TABLE IF NOT EXISTS secrets (
+				id TEXT PRIMARY KEY,
+				encrypted_value BLOB NOT NULL,
+				value_nonce BLOB NOT NULL,
+				encrypted_name BLOB NOT NULL,
+				name_nonce BLOB NOT NULL,
+				metadata TEXT,
+				secret_type TEXT NOT NULL,
+				created_at INTEGER NOT NULL,
+				updated_at INTEGER NOT NULL,
+				is_deleted INTEGER DEFAULT 0
+			)
+		`);
+
+		this.ctx.storage.sql.exec(`
+			CREATE INDEX IF NOT EXISTS idx_secrets_type
+			ON secrets(secret_type) WHERE is_deleted = 0
+		`);
+	}
+
+	private async scheduleCleanup(): Promise<void> {
+		const alarm = await this.ctx.storage.getAlarm();
+		if (alarm === null) {
+			await this.ctx.storage.setAlarm(Date.now() + CLEANUP_INTERVAL_MS);
+		}
+	}
+
+	async alarm(): Promise<void> {
+		this.cleanupExpiredSession();
+		await this.ctx.storage.setAlarm(Date.now() + CLEANUP_INTERVAL_MS);
+	}
+
+	private cleanupExpiredSession(): void {
+		if (this.session && Date.now() - this.session.lastAccessedAt > SESSION_TIMEOUT_MS) {
+			this.clearSession();
+		}
+	}
+
+	// ========== VAULT LIFECYCLE ==========
+
+	getVaultStatus(): VaultStatusResponse {
+		const result = this.ctx.storage.sql.exec(`
+			SELECT kdf_algorithm, encrypted_recovery_codes FROM vault_config WHERE id = 1
+		`);
+		const rows = result.toArray();
+
+		if (rows.length === 0) {
+			return { exists: false };
+		}
+
+		const row = rows[0] as Record<string, SqlStorageValue>;
+		return {
+			exists: true,
+			kdfAlgorithm: String(row.kdf_algorithm) as VaultConfig['kdfAlgorithm'],
+			hasRecoveryCodes: row.encrypted_recovery_codes !== null,
+		};
+	}
+
+	getVaultConfig(): VaultConfig | null {
+		const result = this.ctx.storage.sql.exec(`SELECT * FROM vault_config WHERE id = 1`);
+		const rows = result.toArray();
+
+		if (rows.length === 0) return null;
+
+		const row = rows[0] as Record<string, SqlStorageValue>;
+		return {
+			kdfAlgorithm: String(row.kdf_algorithm) as VaultConfig['kdfAlgorithm'],
+			kdfSalt: new Uint8Array(row.kdf_salt as ArrayBuffer),
+			kdfParams: row.kdf_params ? JSON.parse(String(row.kdf_params)) : undefined,
+			prfCredentialId: row.prf_credential_id ? String(row.prf_credential_id) : undefined,
+			prfSalt: row.prf_salt ? new Uint8Array(row.prf_salt as ArrayBuffer) : undefined,
+			verificationBlob: new Uint8Array(row.verification_blob as ArrayBuffer),
+			verificationNonce: new Uint8Array(row.verification_nonce as ArrayBuffer),
+			hasRecoveryCodes: row.encrypted_recovery_codes !== null,
+		};
+	}
+
+	setupVault(request: SetupVaultRequest): boolean {
+		const existing = this.ctx.storage.sql.exec(`SELECT id FROM vault_config WHERE id = 1`);
+		if (existing.toArray().length > 0) {
+			return false; // Vault already exists
+		}
+
+		const now = Date.now();
+		this.ctx.storage.sql.exec(
+			`
+			INSERT INTO vault_config (
+				id, kdf_algorithm, kdf_salt, kdf_params, prf_credential_id, prf_salt,
+				encrypted_recovery_codes, recovery_codes_nonce,
+				verification_blob, verification_nonce, created_at, updated_at
+			) VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		`,
+			request.kdfAlgorithm,
+			new Uint8Array(request.kdfSalt),
+			request.kdfParams ? JSON.stringify(request.kdfParams) : null,
+			request.prfCredentialId ?? null,
+			request.prfSalt ? new Uint8Array(request.prfSalt) : null,
+			request.encryptedRecoveryCodes ? new Uint8Array(request.encryptedRecoveryCodes) : null,
+			request.recoveryCodesNonce ? new Uint8Array(request.recoveryCodesNonce) : null,
+			new Uint8Array(request.verificationBlob),
+			new Uint8Array(request.verificationNonce),
+			now,
+			now
+		);
+
+		return true;
+	}
+
+	// ========== SESSION MANAGEMENT ==========
+
+	lockVault(): void {
+		this.clearSession();
+	}
+
+	isVaultUnlocked(): boolean {
+		if (!this.session) return false;
+
+		if (Date.now() - this.session.lastAccessedAt > SESSION_TIMEOUT_MS) {
+			this.clearSession();
+			return false;
+		}
+
+		return true;
+	}
+
+	// ========== SECRET OPERATIONS ==========
+
+	storeSecret(request: StoreSecretRequest): string {
+		const id = crypto.randomUUID();
+		const now = Date.now();
+
+		this.ctx.storage.sql.exec(
+			`
+			INSERT INTO secrets (
+				id, encrypted_value, value_nonce, encrypted_name, name_nonce,
+				metadata, secret_type,
+				created_at, updated_at, is_deleted
+			) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0)
+		`,
+			id,
+			new Uint8Array(request.encryptedValue),
+			new Uint8Array(request.valueNonce),
+			new Uint8Array(request.encryptedName),
+			new Uint8Array(request.nameNonce),
+			request.metadata ? JSON.stringify(request.metadata) : null,
+			request.secretType,
+			now,
+			now
+		);
+		return id;
+	}
+
+	getSecret(secretId: string): EncryptedSecret | null {
+		const result = this.ctx.storage.sql.exec(
+			`SELECT * FROM secrets WHERE id = ? AND is_deleted = 0`,
+			secretId
+		);
+		const rows = result.toArray();
+
+		if (rows.length === 0) return null;
+
+		return this.rowToEncryptedSecret(rows[0] as Record<string, SqlStorageValue>);
+	}
+
+	listSecrets(): SecretListItem[] {
+		const result = this.ctx.storage.sql.exec(`
+			SELECT id, encrypted_name, name_nonce, metadata, secret_type, created_at, updated_at
+			FROM secrets WHERE is_deleted = 0 ORDER BY created_at DESC
+		`);
+
+		return result.toArray().map((row) => {
+			const r = row as Record<string, SqlStorageValue>;
+			return {
+				id: String(r.id),
+				encryptedName: new Uint8Array(r.encrypted_name as ArrayBuffer),
+				nameNonce: new Uint8Array(r.name_nonce as ArrayBuffer),
+				metadata: r.metadata ? (JSON.parse(String(r.metadata)) as SecretMetadata) : undefined,
+				secretType: String(r.secret_type) as SecretListItem['secretType'],
+				createdAt: Number(r.created_at),
+				updatedAt: Number(r.updated_at),
+			};
+		});
+	}
+
+	deleteSecret(secretId: string): boolean {
+		const result = this.ctx.storage.sql.exec(
+			`
+			UPDATE secrets SET is_deleted = 1, updated_at = ?
+			WHERE id = ? AND is_deleted = 0
+			RETURNING id
+		`,
+			Date.now(),
+			secretId
+		);
+		return result.toArray().length > 0;
+	}
+
+	/**
+	 * Gets secrets by provider from metadata.
+	 * Used by agents to fetch BYOK API keys.
+	 */
+	getSecretsByProvider(provider: string): SecretListItem[] {
+		const result = this.ctx.storage.sql.exec(
+			`SELECT id, encrypted_name, name_nonce, metadata, secret_type, created_at, updated_at
+			 FROM secrets
+			 WHERE is_deleted = 0
+			 ORDER BY created_at DESC`
+		);
+
+		return result
+			.toArray()
+			.map((row) => {
+				const r = row as Record<string, SqlStorageValue>;
+				const metadata = r.metadata ? (JSON.parse(String(r.metadata)) as SecretMetadata) : undefined;
+				return {
+					id: String(r.id),
+					encryptedName: new Uint8Array(r.encrypted_name as ArrayBuffer),
+					nameNonce: new Uint8Array(r.name_nonce as ArrayBuffer),
+					metadata,
+					secretType: String(r.secret_type) as SecretListItem['secretType'],
+					createdAt: Number(r.created_at),
+					updatedAt: Number(r.updated_at),
+				};
+			})
+			.filter((s) => s.metadata?.provider === provider);
+	}
+
+	updateSecret(
+		secretId: string,
+		update: {
+			encryptedValue?: ArrayBuffer;
+			valueNonce?: ArrayBuffer;
+			encryptedName?: ArrayBuffer;
+			nameNonce?: ArrayBuffer;
+			metadata?: SecretMetadata;
+		}
+	): boolean {
+		const fields: string[] = [];
+		const values: unknown[] = [];
+
+		if (update.encryptedValue && update.valueNonce) {
+			fields.push('encrypted_value = ?', 'value_nonce = ?');
+			values.push(new Uint8Array(update.encryptedValue), new Uint8Array(update.valueNonce));
+		}
+
+		if (update.encryptedName && update.nameNonce) {
+			fields.push('encrypted_name = ?', 'name_nonce = ?');
+			values.push(new Uint8Array(update.encryptedName), new Uint8Array(update.nameNonce));
+		}
+
+		if (update.metadata !== undefined) {
+			fields.push('metadata = ?');
+			values.push(update.metadata ? JSON.stringify(update.metadata) : null);
+		}
+
+		if (fields.length === 0) return false;
+
+		fields.push('updated_at = ?');
+		values.push(Date.now(), secretId);
+
+		const result = this.ctx.storage.sql.exec(
+			`UPDATE secrets SET ${fields.join(', ')} WHERE id = ? AND is_deleted = 0 RETURNING id`,
+			...values
+		);
+		return result.toArray().length > 0;
+	}
+
+	// ========== RECOVERY CODES ==========
+
+	getEncryptedRecoveryCodes(): { encrypted: Uint8Array; nonce: Uint8Array } | null {
+		const result = this.ctx.storage.sql.exec(`
+			SELECT encrypted_recovery_codes, recovery_codes_nonce
+			FROM vault_config WHERE id = 1
+		`);
+		const rows = result.toArray();
+
+		if (rows.length === 0) return null;
+
+		const row = rows[0] as Record<string, SqlStorageValue>;
+		if (!row.encrypted_recovery_codes || !row.recovery_codes_nonce) return null;
+
+		return {
+			encrypted: new Uint8Array(row.encrypted_recovery_codes as ArrayBuffer),
+			nonce: new Uint8Array(row.recovery_codes_nonce as ArrayBuffer),
+		};
+	}
+
+	updateRecoveryCodes(encrypted: ArrayBuffer, nonce: ArrayBuffer): boolean {
+		const result = this.ctx.storage.sql.exec(
+			`
+			UPDATE vault_config
+			SET encrypted_recovery_codes = ?, recovery_codes_nonce = ?, updated_at = ?
+			WHERE id = 1
+			RETURNING id
+		`,
+			new Uint8Array(encrypted),
+			new Uint8Array(nonce),
+			Date.now()
+		);
+		return result.toArray().length > 0;
+	}
+
+	// ========== HELPERS ==========
+
+	private rowToEncryptedSecret(row: Record<string, SqlStorageValue>): EncryptedSecret {
+		return {
+			id: String(row.id),
+			encryptedValue: new Uint8Array(row.encrypted_value as ArrayBuffer),
+			valueNonce: new Uint8Array(row.value_nonce as ArrayBuffer),
+			encryptedName: new Uint8Array(row.encrypted_name as ArrayBuffer),
+			nameNonce: new Uint8Array(row.name_nonce as ArrayBuffer),
+			metadata: row.metadata ? (JSON.parse(String(row.metadata)) as SecretMetadata) : undefined,
+			secretType: String(row.secret_type) as EncryptedSecret['secretType'],
+			createdAt: Number(row.created_at),
+			updatedAt: Number(row.updated_at),
+		};
+	}
+
+	async resetVault(): Promise<void> {
+		this.clearSession();
+		this.ctx.storage.sql.exec(`DROP TABLE IF EXISTS secrets`);
+		this.ctx.storage.sql.exec(`DROP TABLE IF EXISTS vault_config`);
+		await this.initializeSchema();
+	}
+
+	// ========== RPC FOR AGENT DO ==========
+
+	async requestSecret(query: {
+		provider?: string;
+		envVarName?: string;
+		secretId?: string;
+	}): Promise<{ success: boolean; value?: string; error?: string }> {
+		if (!query.provider && !query.envVarName && !query.secretId) {
+			return { success: false, error: 'invalid_request' };
+		}
+
+		if (!this.session) {
+			return { success: false, error: 'vault_locked' };
+		}
+
+		if (Date.now() - this.session.lastAccessedAt > SESSION_TIMEOUT_MS) {
+			this.clearSession();
+			return { success: false, error: 'session_expired' };
+		}
+
+		this.session.lastAccessedAt = Date.now();
+
+		let secretId = query.secretId;
+		if (!secretId) {
+			const matches = this.listSecrets().filter((s) => {
+				if (query.provider && s.metadata?.provider !== query.provider) return false;
+				if (query.envVarName && s.metadata?.envVarName !== query.envVarName) return false;
+				return true;
+			});
+
+			if (matches.length === 0) {
+				return { success: false, error: 'secret_not_found' };
+			}
+			secretId = matches[0].id;
+		}
+
+		const secret = this.getSecret(secretId);
+		if (!secret) {
+			return { success: false, error: 'secret_not_found' };
+		}
+
+		try {
+			const vmk = await this.decryptVMK(
+				new Uint8Array(this.session.encryptedVMK),
+				new Uint8Array(this.session.nonce),
+				this.session.sk
+			);
+			const value = await this.decryptSecretValue(secret.encryptedValue, secret.valueNonce, vmk);
+			return { success: true, value };
+		} catch {
+			return { success: false, error: 'decryption_failed' };
+		}
+	}
+
+	async requestSecretByProvider(provider: string): Promise<{ success: boolean; value?: string; error?: string }> {
+		return this.requestSecret({ provider });
+	}
+
+	private async decryptVMK(encryptedVMK: Uint8Array, nonce: Uint8Array, sessionKey: Uint8Array): Promise<CryptoKey> {
+		const sk = await crypto.subtle.importKey('raw', sessionKey, { name: 'AES-GCM' }, false, ['decrypt']);
+		const vmkRaw = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: nonce }, sk, encryptedVMK);
+		const vmkArray = new Uint8Array(vmkRaw);
+		const vmk = await crypto.subtle.importKey('raw', vmkArray, { name: 'AES-GCM' }, false, ['decrypt']);
+		vmkArray.fill(0);
+		return vmk;
+	}
+
+	private async decryptSecretValue(encryptedValue: Uint8Array, nonce: Uint8Array, vmk: CryptoKey): Promise<string> {
+		const plaintext = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: nonce }, vmk, encryptedValue);
+		const arr = new Uint8Array(plaintext);
+		const result = new TextDecoder().decode(arr);
+		arr.fill(0);
+		return result;
+	}
 }

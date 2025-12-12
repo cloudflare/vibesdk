@@ -1,232 +1,276 @@
 /**
- * User Secrets Controller - RPC wrapper for UserSecretsStore DO
+ * Vault Controller - API endpoints for the user secrets vault
  */
 
 import { BaseController } from '../baseController';
 import { ApiResponse, ControllerResponse } from '../types';
 import { RouteContext } from '../../types/route-context';
 import { createLogger } from '../../../logger';
-import type { SecretMetadata, StoreSecretRequest, UpdateSecretRequest } from '../../../services/secrets/types';
+import type {
+	VaultStatusResponse,
+	VaultConfigResponse,
+	SetupVaultRequest,
+} from '../../../services/secrets/vault-types';
 
-type UserSecretsListData = { secrets: SecretMetadata[] };
-type UserSecretStoreData = { secret: SecretMetadata; message: string };
-type UserSecretValueData = { value: string; metadata: SecretMetadata };
-type UserSecretUpdateData = { secret: SecretMetadata; message: string };
-type UserSecretDeleteData = { message: string };
+type VaultStatusData = VaultStatusResponse;
+type VaultConfigData = { config: VaultConfigResponse };
+type VaultSetupData = { success: boolean };
+
+/** Interface for the JSON body received from frontend (base64 strings) */
+interface SetupVaultBody {
+	kdfAlgorithm: 'argon2id' | 'webauthn-prf';
+	kdfSalt: string;
+	kdfParams?: { time: number; mem: number; parallelism: number };
+	prfCredentialId?: string;
+	prfSalt?: string;
+	encryptedRecoveryCodes?: string;
+	recoveryCodesNonce?: string;
+	verificationBlob: string;
+	verificationNonce: string;
+}
 
 export class UserSecretsController extends BaseController {
-    static logger = createLogger('UserSecretsController');
+	static logger = createLogger('UserSecretsController');
 
-    /**
-     * Get Durable Object stub for user
-     */
-    private static getUserSecretsStub(env: Env, userId: string) {
-        const id = env.UserSecretsStore.idFromName(userId);
-        return env.UserSecretsStore.get(id);
-    }
+	private static getVaultStub(env: Env, userId: string) {
+		const id = env.UserSecretsStore.idFromName(userId);
+		return env.UserSecretsStore.get(id);
+	}
 
-    /**
-     * List all secrets (metadata only)
-     * GET /api/user-secrets
-     */
-    static async listSecrets(
-        _request: Request,
-        env: Env,
-        _ctx: ExecutionContext,
-        context: RouteContext
-    ): Promise<ControllerResponse<ApiResponse<UserSecretsListData>>> {
-        try {
-            const user = context.user!;
-            const stub = this.getUserSecretsStub(env, user.id);
+	/** Convert Uint8Array to base64 string for JSON response */
+	private static uint8ArrayToBase64(arr: Uint8Array): string {
+		let binary = '';
+		for (let i = 0; i < arr.length; i++) {
+			binary += String.fromCharCode(arr[i]);
+		}
+		return btoa(binary);
+	}
 
-            const secrets = await stub.listSecrets();
+	private static base64ToUint8Array(str: string): Uint8Array {
+		const binary = atob(str);
+		const bytes = new Uint8Array(binary.length);
+		for (let i = 0; i < binary.length; i++) {
+			bytes[i] = binary.charCodeAt(i);
+		}
+		return bytes;
+	}
 
-            return UserSecretsController.createSuccessResponse({ secrets });
-        } catch (error) {
-            this.logger.error('Error listing secrets:', error);
-            return UserSecretsController.createErrorResponse<UserSecretsListData>(
-                'Failed to list secrets',
-                500
-            );
-        }
-    }
+	private static base64ToArrayBuffer(str: string): ArrayBuffer {
+		const bytes = this.base64ToUint8Array(str);
+		const buffer = new ArrayBuffer(bytes.length);
+		new Uint8Array(buffer).set(bytes);
+		return buffer;
+	}
 
-    /**
-     * Store a new secret
-     * POST /api/user-secrets
-     */
-    static async storeSecret(
-        request: Request,
-        env: Env,
-        _ctx: ExecutionContext,
-        context: RouteContext
-    ): Promise<ControllerResponse<ApiResponse<UserSecretStoreData>>> {
-        try {
-            const user = context.user!;
-            const stub = this.getUserSecretsStub(env, user.id);
+	// ========== WEBSOCKET CONNECTION ==========
 
-            const bodyResult = await UserSecretsController.parseJsonBody<StoreSecretRequest>(request);
+	/**
+	 * GET /api/vault/ws
+	 * WebSocket connection to the user's vault Durable Object
+	 */
+	static async handleWebSocketConnection(
+		request: Request,
+		env: Env,
+		_ctx: ExecutionContext,
+		context: RouteContext
+	): Promise<Response> {
+		const userId = context.user!.id;
+		this.logger.info('Vault WebSocket connection request', { userId });
 
-            if (!bodyResult.success) {
-                return bodyResult.response! as ControllerResponse<ApiResponse<UserSecretStoreData>>;
-            }
+		try {
+			const stub = this.getVaultStub(env, userId);
+			return stub.fetch(request);
+		} catch (error) {
+			this.logger.error('Failed to establish vault WebSocket connection:', error);
+			const { 0: client, 1: server } = new WebSocketPair();
+			server.accept();
+			server.send(JSON.stringify({ type: 'error', message: 'Failed to connect to vault' }));
+			server.close(1011, 'Internal error');
+			return new Response(null, { status: 101, webSocket: client });
+		}
+	}
 
-            const secret = await stub.storeSecret(bodyResult.data!);
+	// ========== VAULT LIFECYCLE ==========
 
-            if (!secret) {
-                return UserSecretsController.createErrorResponse<UserSecretStoreData>(
-                    'Validation failed: Invalid secret data',
-                    400
-                );
-            }
+	/**
+	 * GET /api/vault/status
+	 */
+	static async getVaultStatus(
+		_request: Request,
+		env: Env,
+		_ctx: ExecutionContext,
+		context: RouteContext
+	): Promise<ControllerResponse<ApiResponse<VaultStatusData>>> {
+		try {
+			const stub = this.getVaultStub(env, context.user!.id);
+			const status = await stub.getVaultStatus();
+			return this.createSuccessResponse(status);
+		} catch (error) {
+			this.logger.error('Error getting vault status:', error);
+			return this.createErrorResponse<VaultStatusData>('Failed to get vault status', 500);
+		}
+	}
 
-            return UserSecretsController.createSuccessResponse({
-                secret,
-                message: 'Secret stored successfully'
-            });
-        } catch (error) {
-            this.logger.error('Error storing secret:', error);
-            return UserSecretsController.createErrorResponse<UserSecretStoreData>(
-                error instanceof Error ? error.message : 'Failed to store secret',
-                500
-            );
-        }
-    }
+	/**
+	 * GET /api/vault/config
+	 */
+	static async getVaultConfig(
+		_request: Request,
+		env: Env,
+		_ctx: ExecutionContext,
+		context: RouteContext
+	): Promise<ControllerResponse<ApiResponse<VaultConfigData>>> {
+		try {
+			const stub = this.getVaultStub(env, context.user!.id);
+			const config = await stub.getVaultConfig();
 
-    /**
-     * Get decrypted secret value
-     * GET /api/user-secrets/:secretId/value
-     */
-    static async getSecretValue(
-        _request: Request,
-        env: Env,
-        _ctx: ExecutionContext,
-        context: RouteContext
-    ): Promise<ControllerResponse<ApiResponse<UserSecretValueData>>> {
-        try {
-            const user = context.user!;
-            const secretId = context.pathParams.secretId;
+			if (!config) {
+				return this.createErrorResponse<VaultConfigData>('Vault not set up', 404);
+			}
 
-            if (!secretId) {
-                return UserSecretsController.createErrorResponse<UserSecretValueData>(
-                    'Secret ID is required',
-                    400
-                );
-            }
+			const isInvalidConfig =
+				config.kdfSalt.length !== 32 ||
+				config.verificationBlob.length === 0 ||
+				config.verificationNonce.length === 0 ||
+				(config.kdfAlgorithm === 'webauthn-prf' && (!config.prfCredentialId || !config.prfSalt || config.prfSalt.length !== 32));
 
-            const stub = this.getUserSecretsStub(env, user.id);
+			if (isInvalidConfig) {
+				return this.createErrorResponse<VaultConfigData>(
+					'Vault configuration invalid. Reset your vault and set it up again.',
+					500
+				);
+			}
 
-            const result = await stub.getSecretValue(secretId);
+			// Convert Uint8Array fields to base64 strings for JSON response
+			const configResponse: VaultConfigResponse = {
+				kdfAlgorithm: config.kdfAlgorithm,
+				kdfSalt: this.uint8ArrayToBase64(config.kdfSalt),
+				kdfParams: config.kdfParams,
+				prfCredentialId: config.prfCredentialId,
+				prfSalt: config.prfSalt ? this.uint8ArrayToBase64(config.prfSalt) : undefined,
+				verificationBlob: this.uint8ArrayToBase64(config.verificationBlob),
+				verificationNonce: this.uint8ArrayToBase64(config.verificationNonce),
+				hasRecoveryCodes: config.hasRecoveryCodes,
+			};
 
-            if (!result) {
-                return UserSecretsController.createErrorResponse<UserSecretValueData>(
-                    'Secret not found or has expired',
-                    404
-                );
-            }
+			return this.createSuccessResponse({ config: configResponse });
+		} catch (error) {
+			this.logger.error('Error getting vault config:', error);
+			return this.createErrorResponse<VaultConfigData>('Failed to get vault config', 500);
+		}
+	}
 
-            return UserSecretsController.createSuccessResponse(result);
-        } catch (error) {
-            this.logger.error('Error getting secret value:', error);
-            return UserSecretsController.createErrorResponse<UserSecretValueData>(
-                'Failed to get secret value',
-                500
-            );
-        }
-    }
+	/**
+	 * POST /api/vault/setup
+	 */
+	static async setupVault(
+		request: Request,
+		env: Env,
+		_ctx: ExecutionContext,
+		context: RouteContext
+	): Promise<ControllerResponse<ApiResponse<VaultSetupData>>> {
+		try {
+			const bodyResult = await this.parseJsonBody<SetupVaultBody>(request);
+			if (!bodyResult.success) {
+				return bodyResult.response as ControllerResponse<ApiResponse<VaultSetupData>>;
+			}
 
-    /**
-     * Update secret
-     * PATCH /api/user-secrets/:secretId
-     */
-    static async updateSecret(
-        request: Request,
-        env: Env,
-        _ctx: ExecutionContext,
-        context: RouteContext
-    ): Promise<ControllerResponse<ApiResponse<UserSecretUpdateData>>> {
-        try {
-            const user = context.user!;
-            const secretId = context.pathParams.secretId;
+			const body = bodyResult.data!;
 
-            if (!secretId) {
-                return UserSecretsController.createErrorResponse<UserSecretUpdateData>(
-                    'Secret ID is required',
-                    400
-                );
-            }
+			const trimmedKdfSalt = body.kdfSalt?.trim();
+			const trimmedVerificationBlob = body.verificationBlob?.trim();
+			const trimmedVerificationNonce = body.verificationNonce?.trim();
 
-            const bodyResult = await UserSecretsController.parseJsonBody<UpdateSecretRequest>(request);
+			if (!trimmedKdfSalt || !trimmedVerificationBlob || !trimmedVerificationNonce) {
+				return this.createErrorResponse<VaultSetupData>('Invalid vault setup payload', 400);
+			}
 
-            if (!bodyResult.success) {
-                return bodyResult.response! as ControllerResponse<ApiResponse<UserSecretUpdateData>>;
-            }
+			let kdfSalt: ArrayBuffer;
+			let verificationBlob: ArrayBuffer;
+			let verificationNonce: ArrayBuffer;
+			let prfSalt: ArrayBuffer | undefined;
+			let encryptedRecoveryCodes: ArrayBuffer | undefined;
+			let recoveryCodesNonce: ArrayBuffer | undefined;
 
-            const stub = this.getUserSecretsStub(env, user.id);
+			try {
+				kdfSalt = this.base64ToArrayBuffer(trimmedKdfSalt);
+				verificationBlob = this.base64ToArrayBuffer(trimmedVerificationBlob);
+				verificationNonce = this.base64ToArrayBuffer(trimmedVerificationNonce);
 
-            const secret = await stub.updateSecret(secretId, bodyResult.data!);
+				if (kdfSalt.byteLength !== 32 || verificationBlob.byteLength === 0 || verificationNonce.byteLength === 0) {
+					return this.createErrorResponse<VaultSetupData>('Invalid vault setup payload', 400);
+				}
 
-            if (!secret) {
-                return UserSecretsController.createErrorResponse<UserSecretUpdateData>(
-                    'Secret not found or validation failed',
-                    404
-                );
-            }
+				if (body.kdfAlgorithm === 'webauthn-prf') {
+					const trimmedPrfSalt = body.prfSalt?.trim();
+					const trimmedCredentialId = body.prfCredentialId?.trim();
+					if (!trimmedCredentialId || !trimmedPrfSalt) {
+						return this.createErrorResponse<VaultSetupData>('Passkey vault requires PRF configuration', 400);
+					}
+					prfSalt = this.base64ToArrayBuffer(trimmedPrfSalt);
+					if (prfSalt.byteLength !== 32) {
+						return this.createErrorResponse<VaultSetupData>('Invalid PRF salt', 400);
+					}
+				}
 
-            return UserSecretsController.createSuccessResponse({
-                secret,
-                message: 'Secret updated successfully'
-            });
-        } catch (error) {
-            this.logger.error('Error updating secret:', error);
-            return UserSecretsController.createErrorResponse<UserSecretUpdateData>(
-                'Failed to update secret',
-                500
-            );
-        }
-    }
+				if (body.encryptedRecoveryCodes || body.recoveryCodesNonce) {
+					const trimmedEncryptedRecoveryCodes = body.encryptedRecoveryCodes?.trim();
+					const trimmedRecoveryCodesNonce = body.recoveryCodesNonce?.trim();
+					if (!trimmedEncryptedRecoveryCodes || !trimmedRecoveryCodesNonce) {
+						return this.createErrorResponse<VaultSetupData>('Invalid recovery codes payload', 400);
+					}
+					encryptedRecoveryCodes = this.base64ToArrayBuffer(trimmedEncryptedRecoveryCodes);
+					recoveryCodesNonce = this.base64ToArrayBuffer(trimmedRecoveryCodesNonce);
+					if (encryptedRecoveryCodes.byteLength === 0 || recoveryCodesNonce.byteLength === 0) {
+						return this.createErrorResponse<VaultSetupData>('Invalid recovery codes payload', 400);
+					}
+				}
+			} catch {
+				return this.createErrorResponse<VaultSetupData>('Invalid vault setup payload', 400);
+			}
 
-    /**
-     * Delete a secret (soft delete)
-     * DELETE /api/user-secrets/:secretId
-     */
-    static async deleteSecret(
-        _request: Request,
-        env: Env,
-        _ctx: ExecutionContext,
-        context: RouteContext
-    ): Promise<ControllerResponse<ApiResponse<UserSecretDeleteData>>> {
-        try {
-            const user = context.user!;
-            const secretId = context.pathParams.secretId;
+			const setupRequest: SetupVaultRequest = {
+				kdfAlgorithm: body.kdfAlgorithm,
+				kdfSalt,
+				kdfParams: body.kdfParams,
+				prfCredentialId: body.prfCredentialId?.trim() || undefined,
+				prfSalt,
+				encryptedRecoveryCodes,
+				recoveryCodesNonce,
+				verificationBlob,
+				verificationNonce,
+			};
 
-            if (!secretId) {
-                return UserSecretsController.createErrorResponse<UserSecretDeleteData>(
-                    'Secret ID is required',
-                    400
-                );
-            }
+			const stub = this.getVaultStub(env, context.user!.id);
+			const success = await stub.setupVault(setupRequest);
 
-            const stub = this.getUserSecretsStub(env, user.id);
+			if (!success) {
+				return this.createErrorResponse<VaultSetupData>('Vault already exists', 409);
+			}
 
-            const deleted = await stub.deleteSecret(secretId);
+			return this.createSuccessResponse({ success: true });
+		} catch (error) {
+			this.logger.error('Error setting up vault:', error);
+			return this.createErrorResponse<VaultSetupData>('Failed to setup vault', 500);
+		}
+	}
 
-            if (!deleted) {
-                return UserSecretsController.createErrorResponse<UserSecretDeleteData>(
-                    'Secret not found',
-                    404
-                );
-            }
-
-            return UserSecretsController.createSuccessResponse({
-                message: 'Secret deleted successfully'
-            });
-        } catch (error) {
-            this.logger.error('Error deleting secret:', error);
-            return UserSecretsController.createErrorResponse<UserSecretDeleteData>(
-                'Failed to delete secret',
-                500
-            );
-        }
-    }
+	/**
+	 * POST /api/vault/reset
+	 */
+	static async resetVault(
+		_request: Request,
+		env: Env,
+		_ctx: ExecutionContext,
+		context: RouteContext
+	): Promise<ControllerResponse<ApiResponse<{ success: boolean }>>> {
+		try {
+			const stub = this.getVaultStub(env, context.user!.id);
+			await stub.resetVault();
+			return this.createSuccessResponse({ success: true });
+		} catch (error) {
+			this.logger.error('Error resetting vault:', error);
+			return this.createErrorResponse<{ success: boolean }>('Failed to reset vault', 500);
+		}
+	}
 }

@@ -152,7 +152,7 @@ const worker = {
 			if (isGitProtocolRequest(pathname)) {
 				return handleGitProtocolRequest(request, env, ctx);
 			}
-			
+
 			// Serve static assets for all non-API routes from the ASSETS binding.
 			if (!pathname.startsWith('/api/')) {
 				return env.ASSETS.fetch(request);

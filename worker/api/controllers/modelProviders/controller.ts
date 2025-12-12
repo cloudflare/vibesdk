@@ -1,12 +1,10 @@
 /**
  * Model Providers Controller
- * Handles CRUD operations for user custom model providers
  */
 
 import { BaseController } from '../baseController';
 import { RouteContext } from '../../types/route-context';
 import { ApiResponse, ControllerResponse } from '../types';
-import { SecretsService } from '../../../database/services/SecretsService';
 import { ModelProvidersService } from '../../../database/services/ModelProvidersService';
 import { z } from 'zod';
 import {
@@ -96,13 +94,12 @@ export class ModelProvidersController extends BaseController {
         }
     }
 
-    /**
-     * Create a new custom provider
-     */
-    static async createProvider(request: Request, env: Env, _ctx: ExecutionContext, context: RouteContext): Promise<ControllerResponse<ApiResponse<ModelProviderCreateData>>> {
+	/**
+	 * Create a new custom provider
+	 */
+
+    static async createProvider(request: Request, _env: Env, _ctx: ExecutionContext, _context: RouteContext): Promise<ControllerResponse<ApiResponse<ModelProviderCreateData>>> {
         try {
-            const user = context.user!;
-    
             const bodyResult = await ModelProvidersController.parseJsonBody<CreateProviderRequest>(request);
             if (!bodyResult.success) {
                 return bodyResult.response as ControllerResponse<ApiResponse<ModelProviderCreateData>>;
@@ -116,32 +113,11 @@ export class ModelProvidersController extends BaseController {
                 );
             }
     
-            const { name, baseUrl, apiKey } = validation.data;
-            const modelProvidersService = new ModelProvidersService(env);
-            const exists = await modelProvidersService.providerExists(user.id, name);
-            if (exists) {
-                throw new Error('Provider name already exists');
-            }
-    
-            const secretsService = new SecretsService(env);
-            const secretResult = await secretsService.storeSecret(user.id, {
-                name: `${name} API Key`,
-                provider: 'custom',
-                secretType: 'api_key',
-                value: apiKey,
-                description: `API key for custom provider: ${name}`,
-                expiresAt: null
-            });
-    
-            const provider = await modelProvidersService.createProvider(user.id, {
-                name,
-                baseUrl,
-                secretId: secretResult.id
-            });
-    
-            return ModelProvidersController.createSuccessResponse<ModelProviderCreateData>({
-                provider
-            });
+
+            return ModelProvidersController.createErrorResponse<ModelProviderCreateData>(
+                'Custom model providers are temporarily disabled. Please use BYOK (Bring Your Own Key) in the vault settings.',
+                503
+            );
         } catch (error) {
             return ModelProvidersController.createErrorResponse<ModelProviderCreateData>(
                 'Failed to create provider',
@@ -150,13 +126,12 @@ export class ModelProvidersController extends BaseController {
         }
     }
 
-    /**
-     * Update an existing provider
-     */
-    static async updateProvider(request: Request, env: Env, _ctx: ExecutionContext, context: RouteContext): Promise<ControllerResponse<ApiResponse<ModelProviderUpdateData>>> {
+	/**
+	 * Update an existing provider
+	 */
+
+    static async updateProvider(request: Request, _env: Env, _ctx: ExecutionContext, _context: RouteContext): Promise<ControllerResponse<ApiResponse<ModelProviderUpdateData>>> {
         try {
-            const user = context.user!;
-    
             const url = new URL(request.url);
             const providerId = url.pathname.split('/').pop();
     
@@ -177,98 +152,46 @@ export class ModelProvidersController extends BaseController {
                 );
             }
     
-            const updates = validation.data;
-            const modelProvidersService = new ModelProvidersService(env);
-            const secretsService = new SecretsService(env);
-            const existingProvider = await modelProvidersService.getProvider(user.id, providerId);
-            if (!existingProvider) {
-                throw new Error('Provider not found');
-            }
-    
-            let secretId = existingProvider.secretId;
-    
-            if (updates.apiKey) {
-                if (existingProvider.secretId) {
-                    await secretsService.deleteSecret(user.id, existingProvider.secretId);
-                }
-                
-                const secretResult = await secretsService.storeSecret(user.id, {
-                    name: `${updates.name || existingProvider.name} API Key`,
-                    provider: 'custom',
-                    secretType: 'api_key',
-                    value: updates.apiKey,
-                    description: `API key for custom provider: ${updates.name || existingProvider.name}`,
-                    expiresAt: null
-                });
-                secretId = secretResult.id;
-            }
-    
-            const updatedProvider = await modelProvidersService.updateProvider(user.id, providerId, {
-                name: updates.name,
-                baseUrl: updates.baseUrl,
-                isActive: updates.isActive,
-                secretId
-            });
-    
-            if (!updatedProvider) {
-                throw new Error('Failed to update provider');
-            }
-    
-            return ModelProvidersController.createSuccessResponse<ModelProviderUpdateData>({
-                provider: updatedProvider
-            });
+
+            return ModelProvidersController.createErrorResponse<ModelProviderUpdateData>(
+                'Custom model providers are temporarily disabled. Please use BYOK (Bring Your Own Key) in the vault settings.',
+                503
+            );
         } catch (error) {
             this.logger.error('Error updating provider:', error);
             return ModelProvidersController.createErrorResponse<ModelProviderUpdateData>('Failed to update provider', 500);
         }
     }
 
-    /**
-     * Delete a provider
-     */
-    static async deleteProvider(request: Request, env: Env, _ctx: ExecutionContext, context: RouteContext): Promise<ControllerResponse<ApiResponse<ModelProviderDeleteData>>> {
+	/**
+	 * Delete a provider
+	 */
+
+    static async deleteProvider(request: Request, _env: Env, _ctx: ExecutionContext, _context: RouteContext): Promise<ControllerResponse<ApiResponse<ModelProviderDeleteData>>> {
         try {
-            const user = context.user!;
-    
             const url = new URL(request.url);
             const providerId = url.pathname.split('/').pop();
     
             if (!providerId) {
                 return ModelProvidersController.createErrorResponse<ModelProviderDeleteData>('Provider ID is required', 400);
             }
-            
-            const modelProvidersService = new ModelProvidersService(env);
-            const secretsService = new SecretsService(env);
-            const existingProvider = await modelProvidersService.getProvider(user.id, providerId);
-            if (!existingProvider) {
-                throw new Error('Provider not found');
-            }
-    
-            if (existingProvider.secretId) {
-                await secretsService.deleteSecret(user.id, existingProvider.secretId);
-            }
-    
-            const updated = await modelProvidersService.updateProvider(user.id, providerId, {
-                isActive: false
-            });
-    
-            return ModelProvidersController.createSuccessResponse<ModelProviderDeleteData>({
-                success: !!updated,
-                providerId
-            });
+
+            return ModelProvidersController.createErrorResponse<ModelProviderDeleteData>(
+                'Custom model providers are temporarily disabled.',
+                503
+            );
         } catch (error) {
             this.logger.error('Error deleting provider:', error);
             return ModelProvidersController.createErrorResponse<ModelProviderDeleteData>('Failed to delete provider', 500);
         }
     }
 
-    /**
-     * Test provider connection
-     */
-    static async testProvider(request: Request, env: Env, _ctx: ExecutionContext, context: RouteContext): Promise<ControllerResponse<ApiResponse<ModelProviderTestData>>> {
+	/**
+	 * Test provider connection
+	 */
+
+    static async testProvider(request: Request, _env: Env, _ctx: ExecutionContext, _context: RouteContext): Promise<ControllerResponse<ApiResponse<ModelProviderTestData>>> {
         try {
-            const user = context.user!;
-    
             const bodyResult = await ModelProvidersController.parseJsonBody<TestProviderRequest>(request);
             if (!bodyResult.success) {
                 return bodyResult.response as ControllerResponse<ApiResponse<ModelProviderTestData>>;
@@ -282,32 +205,16 @@ export class ModelProvidersController extends BaseController {
                 );
             }
             
-            let baseUrl: string;
-            let apiKey: string;
-    
+
             if (validation.data.providerId) {
-                const modelProvidersService = new ModelProvidersService(env);
-                const secretsService = new SecretsService(env);
-                const provider = await modelProvidersService.getProvider(user.id, validation.data.providerId);
-                if (!provider) {
-                    throw new Error('Provider not found');
-                }
-    
-                if (!provider.secretId) {
-                    throw new Error('Provider has no API key');
-                }
-    
-                const secretValue = await secretsService.getSecretValue(user.id, provider.secretId);
-                if (!secretValue) {
-                    throw new Error('API key not found');
-                }
-    
-                baseUrl = provider.baseUrl;
-                apiKey = secretValue;
-            } else {
-                baseUrl = validation.data.baseUrl!;
-                apiKey = validation.data.apiKey!;
+                return ModelProvidersController.createErrorResponse<ModelProviderTestData>(
+                    'Testing stored providers is temporarily disabled. Please provide baseUrl and apiKey directly.',
+                    503
+                );
             }
+    
+            const baseUrl = validation.data.baseUrl!;
+            const apiKey = validation.data.apiKey!;
     
             const startTime = Date.now();
             try {

@@ -58,7 +58,7 @@ Cloudflare AI Gateway unified billing for seamless model access without managing
 const PLATFORM_AGENT_CONFIG: AgentConfig = {
     ...COMMON_AGENT_CONFIGS,
     blueprint: {
-        name: AIModels.OPENAI_5_MINI,
+        name: AIModels.GEMINI_3_PRO_PREVIEW,
         reasoning_effort: 'medium',
         max_tokens: 32000,
         fallbackModel: AIModels.GEMINI_2_5_FLASH,
@@ -94,14 +94,14 @@ const PLATFORM_AGENT_CONFIG: AgentConfig = {
         fallbackModel: AIModels.GEMINI_2_5_FLASH,
     },
     deepDebugger: {
-        name: AIModels.OPENAI_5_MINI,
+        name: AIModels.GEMINI_2_5_PRO,
         reasoning_effort: 'high',
         max_tokens: 8000,
         temperature: 1,
         fallbackModel: AIModels.GEMINI_2_5_FLASH,
     },
     fileRegeneration: {
-        name: AIModels.OPENAI_5_MINI,
+        name: AIModels.GROK_CODE_FAST_1,
         reasoning_effort: 'medium',
         max_tokens: 16000,
         temperature: 1,

@@ -40,6 +40,8 @@ import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { sendWebSocketMessage } from './utils/websocket-helpers';
+import { useVault } from '@/hooks/use-vault';
+// import { VaultStatusIndicator, VaultUnlockModal } from '@/components/vault';
 
 export default function Chat() {
 	const { chatId: urlChatId } = useParams();
@@ -100,6 +102,19 @@ export default function Chat() {
 		setDebugMessages([]);
 	}, []);
 
+	// const [isVaultUnlockModalOpen, setIsVaultUnlockModalOpen] = useState(false);
+	// const [vaultUnlockReason, setVaultUnlockReason] = useState<string | null>(null);
+
+	// const handleVaultUnlockModalOpenChange = useCallback((open: boolean) => {
+	// 	setIsVaultUnlockModalOpen(open);
+	// 	if (!open) setVaultUnlockReason(null);
+	// }, []);
+
+	// const handleVaultUnlockRequired = useCallback((reason: string) => {
+	// 	setVaultUnlockReason(reason);
+	// 	setIsVaultUnlockModalOpen(true);
+	// }, []);
+
 	const {
 		messages,
 		edit,
@@ -142,11 +157,15 @@ export default function Chat() {
 		images: userImages,
 		agentMode: agentMode as 'deterministic' | 'smart',
 		onDebugMessage: addDebugMessage,
+		onVaultUnlockRequired: undefined// handleVaultUnlockRequired,
 	});
 
 	// GitHub export functionality - use urlChatId directly from URL params
 	const githubExport = useGitHubExport(websocket, urlChatId, refetchApp);
 	const { user } = useAuth();
+
+	// Vault state for agent secret access
+	const { state: vaultState } = useVault();
 
 	const navigate = useNavigate();
 
@@ -205,6 +224,49 @@ export default function Chat() {
 			websocket.removeEventListener('message', handleMessage);
 		};
 	}, [websocket]);
+
+	type AgentWebSocket = {
+		send: (data: string) => void;
+		readyState: number;
+		addEventListener: (type: 'open', listener: () => void) => void;
+		removeEventListener: (type: 'open', listener: () => void) => void;
+	};
+
+	const WS_OPEN = 1;
+
+	const sendVaultStatusToAgent = useCallback(
+		(ws: AgentWebSocket) => {
+			if (vaultState.status === 'unlocked') {
+				ws.send(JSON.stringify({ type: 'vault_unlocked' }));
+			} else if (vaultState.status === 'locked') {
+				ws.send(JSON.stringify({ type: 'vault_locked' }));
+			}
+		},
+		[vaultState.status]
+	);
+
+	useEffect(() => {
+		if (!websocket) return;
+
+		const ws = websocket as unknown as AgentWebSocket;
+		const handleOpen = () => sendVaultStatusToAgent(ws);
+		ws.addEventListener('open', handleOpen);
+
+		if (ws.readyState === WS_OPEN) {
+			sendVaultStatusToAgent(ws);
+		}
+
+		return () => {
+			ws.removeEventListener('open', handleOpen);
+		};
+	}, [sendVaultStatusToAgent, websocket]);
+
+	useEffect(() => {
+		if (!websocket) return;
+		const ws = websocket as unknown as AgentWebSocket;
+		if (ws.readyState !== WS_OPEN) return;
+		sendVaultStatusToAgent(ws);
+	}, [sendVaultStatusToAgent, vaultState.status, websocket]);
 
 	const hasSeenPreview = useRef(false);
 	const hasSwitchedFile = useRef(false);
@@ -878,6 +940,7 @@ export default function Chat() {
 												onRequestConfigs={handleRequestConfigs}
 												loading={loadingConfigs}
 											/>
+											{/* <VaultStatusIndicator /> */}
 											<button
 												className="group relative flex items-center gap-1.5 p-1.5 group-hover:pl-2 group-hover:pr-2.5 rounded-full group-hover:rounded-md transition-all duration-300 ease-in-out hover:bg-bg-4 border border-transparent hover:border-border-primary hover:shadow-sm overflow-hidden"
 												onClick={() => setIsGitCloneModalOpen(true)}
@@ -1236,6 +1299,12 @@ export default function Chat() {
 					isOwner={app.user?.id === user?.id}
 				/>
 			)}
+
+			{/* <VaultUnlockModal
+				open={isVaultUnlockModalOpen}
+				onOpenChange={handleVaultUnlockModalOpenChange}
+				reason={vaultUnlockReason ?? undefined}
+			/> */}
 		</div>
 	);
 }

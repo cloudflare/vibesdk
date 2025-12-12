@@ -99,12 +99,18 @@ export interface ModelConfigUpdate {
 }
 
 // Secrets API Types
+export type { SecretTemplatesData } from 'worker/api/controllers/secrets/types';
+
+// Vault API Types
 export type {
-  SecretsData,
-  SecretStoreData,
-  SecretDeleteData,
-  SecretTemplatesData
-} from 'worker/api/controllers/secrets/types';
+	VaultConfig,
+	VaultConfigResponse,
+	VaultStatusResponse,
+	SetupVaultRequest,
+	KdfAlgorithm,
+	Argon2Params,
+	SecretMetadata,
+} from 'worker/services/secrets/vault-types';
 
 // Agent/CodeGen API Types  
 export type {
@@ -133,7 +139,6 @@ export type {
   FavoriteToggleResult,
   UserStats,
   UserActivity,
-  EncryptedSecret,
   UserModelConfigWithMetadata,
   ModelTestResult
 } from 'worker/database/types';
