@@ -52,6 +52,7 @@ import { generateNanoId } from 'worker/utils/idGenerator';
 import { updatePackageJson } from '../utils/packageSyncer';
 import { IdGenerator } from '../utils/idGenerator';
 import { SimpleCodeGenerationOperation } from '../operations/SimpleCodeGeneration';
+import { SecretsClient, type UserSecretsStoreStub } from '../../services/secrets/SecretsClient';
 
 interface Operations {
     regenerateFile: FileRegenerationOperation;
@@ -103,6 +104,8 @@ export class SimpleCodeGeneratorAgent extends Agent<Env, CodeGenState> {
         username: string;
         expiresAt: number;
     } | null = null;
+
+    private secretsClient: SecretsClient | null = null;
     
     
     protected operations: Operations = {
@@ -703,7 +706,51 @@ export class SimpleCodeGeneratorAgent extends Agent<Env, CodeGenState> {
         }
         return false;
     }
-    
+
+    // ========== VAULT / SECRETS ==========
+
+    public handleVaultUnlocked(): void {
+        this.secretsClient?.notifyUnlocked();
+        this.logger().info('Vault unlocked notification received');
+    }
+
+    public handleVaultLocked(): void {
+        this.secretsClient?.notifyUnlockFailed('Vault locked');
+        this.secretsClient = null;
+        this.logger().info('Vault locked');
+    }
+
+    private getSecretsClient(): SecretsClient {
+        if (!this.secretsClient) {
+            const userId = this.state.inferenceContext.userId;
+            const stub = this.env.UserSecretsStore.get(
+                this.env.UserSecretsStore.idFromName(userId)
+            ) as unknown as UserSecretsStoreStub;
+
+            this.secretsClient = new SecretsClient(
+                stub,
+                (type, data) => {
+					if (type === 'vault_required') {
+						const vaultData = data as { reason: string; provider?: string; envVarName?: string; secretId?: string };
+						broadcastToConnections(this, 'vault_required', vaultData);
+					}
+
+                }
+            );
+        }
+        return this.secretsClient;
+    }
+
+	public async getDecryptedSecret(query: { provider?: string; envVarName?: string; secretId?: string }): Promise<string | null> {
+		try {
+			return await this.getSecretsClient().get(query);
+		} catch (error) {
+			this.logger().info('Secret request failed', { query, error: String(error) });
+			return null;
+		}
+	}
+
+
     /**
      * Clears abort controller after successful completion
      */
@@ -1987,7 +2034,7 @@ export class SimpleCodeGeneratorAgent extends Agent<Env, CodeGenState> {
     }
 
     async onClose(connection: Connection): Promise<void> {
-        handleWebSocketClose(connection);
+        handleWebSocketClose(this, connection);
     }
 
     private async onProjectUpdate(message: string): Promise<void> {

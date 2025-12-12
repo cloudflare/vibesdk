@@ -174,6 +174,12 @@ export function handleWebSocketMessage(agent: SimpleCodeGeneratorAgent, connecti
                 logger.info('Clearing conversation history');
                 agent.clearConversation();
                 break;
+            case WebSocketMessageRequests.VAULT_UNLOCKED:
+                agent.handleVaultUnlocked();
+                break;
+            case WebSocketMessageRequests.VAULT_LOCKED:
+                agent.handleVaultLocked();
+                break;
             case WebSocketMessageRequests.GET_CONVERSATION_STATE:
                 try {
                     const state = agent.getConversationState();
@@ -221,8 +227,10 @@ export function handleWebSocketMessage(agent: SimpleCodeGeneratorAgent, connecti
     }
 }
 
-export function handleWebSocketClose(connection: Connection): void {
+export function handleWebSocketClose(agent: SimpleCodeGeneratorAgent, connection: Connection): void {
     logger.info(`WebSocket connection closed: ${connection.id}`);
+    // Clear vault session on disconnect for security
+    agent.handleVaultLocked();
 }
 
 export function broadcastToConnections<T extends WebSocketMessageType>(
