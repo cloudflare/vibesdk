@@ -1,5 +1,5 @@
 import { EventEmitter } from 'events';
-import { spawn, ChildProcess, execSync } from 'child_process';
+import { spawn, ChildProcess } from 'child_process';
 import { StorageManager } from './storage.js';
 import { promises as fs } from 'fs';
 import { join } from 'path';
@@ -346,9 +346,14 @@ export class ProcessMonitor extends EventEmitter {
   private lastSuccessfulStart?: Date;
   private static readonly STABILITY_THRESHOLD_MS = 5 * 60 * 1000; // 5 minutes of stable run resets counter
   private static readonly INACTIVITY_THRESHOLD_MS = 30000; // 30 seconds of inactivity suggests process died
+  private static readonly PORT_PROBE_TIMEOUT_MS = 2000;
+  private static readonly PORT_FAILURE_THRESHOLD = 2;
+  private static readonly PORT_STARTUP_GRACE_MS = 60000;
 
   // Port health check tracking
   private portBindConfirmed = false;
+  private portFailureCount = 0;
+  private healthRestartInProgress = false;
   private lastPortCheckTime?: Date;
 
   constructor(
@@ -402,6 +407,8 @@ export class ProcessMonitor extends EventEmitter {
 
       // Reset port confirmation on new start
       this.portBindConfirmed = false;
+      this.portFailureCount = 0;
+      this.healthRestartInProgress = false;
       this.lastPortCheckTime = undefined;
 
       // Fix C7: Reset restart count if previous run was stable
@@ -420,7 +427,8 @@ export class ProcessMonitor extends EventEmitter {
         cwd: this.processInfo.cwd,
         env: { ...process.env, ...this.options.env },
         stdio: ['pipe', 'pipe', 'pipe'],
-        detached: false,
+        // Run in its own process group so stop/restart kills the full subtree.
+        detached: true,
         shell: false // Don't use shell to avoid escaping issues
       });
 
@@ -1023,11 +1031,15 @@ export class ProcessMonitor extends EventEmitter {
         // Check if process exited during timeout
         if (this.childProcess && this.childProcess.exitCode === null) {
           console.log('Process did not exit gracefully, force killing...');
-          try {
-            this.childProcess.kill('SIGKILL');
-          } catch (e) {
-            // Process may have exited between check and kill
-            console.log('SIGKILL failed - process likely already exited');
+          const pid = this.childProcess.pid;
+
+          if (pid) {
+            try {
+              process.kill(-pid, 'SIGKILL');
+            } catch {
+              // Process may have exited between check and kill
+              console.log('SIGKILL failed - process likely already exited');
+            }
           }
         }
 
@@ -1035,19 +1047,30 @@ export class ProcessMonitor extends EventEmitter {
         resolve();
       }, force ? 0 : killTimeout);
 
-      // Send the kill signal
-      const signal = force ? 'SIGKILL' : 'SIGTERM';
-      try {
-        const signalSent = this.childProcess!.kill(signal);
-        if (!signalSent) {
-          // kill() returns false if process already dead (no such process)
-          console.log(`${signal} signal not sent - process already dead`);
-          cleanup();
-          resolve();
+      const sendSignal = (signal: NodeJS.Signals): boolean => {
+        const pid = this.childProcess?.pid;
+        if (!pid) return false;
+
+        try {
+          process.kill(-pid, signal);
+          return true;
+        } catch (error) {
+          const code = (error as { code?: string }).code;
+          if (code === 'ESRCH') return false;
         }
-      } catch (e) {
-        // ESRCH = no such process
-        console.log(`Failed to send ${signal} - process likely already exited`);
+
+        try {
+          return this.childProcess!.kill(signal);
+        } catch {
+          return false;
+        }
+      };
+
+      // Send the kill signal
+      const signal: NodeJS.Signals = force ? 'SIGKILL' : 'SIGTERM';
+      const signalSent = sendSignal(signal);
+      if (!signalSent) {
+        console.log(`${signal} signal not sent - process already dead`);
         cleanup();
         resolve();
       }
@@ -1069,7 +1092,10 @@ export class ProcessMonitor extends EventEmitter {
 
     this.healthCheckTimer = setInterval(() => {
       if (this.state === 'running') {
-        this.performHealthCheck();
+        this.performHealthCheck().catch(async (error) => {
+          const message = error instanceof Error ? error.message : String(error);
+          await this.simpleLogManager.appendMonitorLog(`Health check error: ${message}`).catch(() => {});
+        });
       }
     }, this.options.healthCheckInterval);
   }
@@ -1093,21 +1119,57 @@ export class ProcessMonitor extends EventEmitter {
 
     // 2. Check port if configured
     if (this.options.expectedPort) {
-      const portResult = await this.checkPortBound(this.options.expectedPort);
-      if (portResult.bound) {
+      const port = this.options.expectedPort;
+      const timeSinceStartMs = this.processInfo.startTime ? now.getTime() - this.processInfo.startTime.getTime() : 0;
+
+      const portResult = await this.checkPortResponsive(port);
+
+      if (portResult.responsive) {
         if (!this.portBindConfirmed) {
           this.portBindConfirmed = true;
-          await this.simpleLogManager.appendMonitorLog(
-            `Port ${this.options.expectedPort} is now accepting connections`
-          ).catch(() => {});
+          await this.simpleLogManager.appendMonitorLog(`Port ${port} is now accepting connections`).catch(() => {});
         }
-      } else if (this.portBindConfirmed) {
-        // Port was bound but is no longer
-        healthIssues.push(`Port ${this.options.expectedPort} no longer accepting connections`);
-      } else if (timeSinceLastActivity > this.options.healthCheckInterval) {
-        // Port never bound and process has been running for a while
-        healthIssues.push(`Port ${this.options.expectedPort} not yet bound after ${Math.round(timeSinceLastActivity / 1000)}s`);
+
+        if (this.portFailureCount > 0) {
+          await this.simpleLogManager.appendMonitorLog(`Port ${port} is responsive again (failures cleared)`).catch(() => {});
+        }
+
+        this.portFailureCount = 0;
+        this.healthRestartInProgress = false;
+      } else {
+        const shouldCountFailure = this.portBindConfirmed || timeSinceStartMs >= ProcessMonitor.PORT_STARTUP_GRACE_MS;
+
+        if (shouldCountFailure) {
+          this.portFailureCount += 1;
+
+          const errorSuffix = portResult.error ? `, error="${portResult.error}"` : '';
+
+          if (this.portBindConfirmed) {
+            healthIssues.push(
+              `Port ${port} not responding (failure ${this.portFailureCount}/${ProcessMonitor.PORT_FAILURE_THRESHOLD}${errorSuffix})`
+            );
+          } else {
+            healthIssues.push(
+              `Port ${port} not responding after ${Math.round(timeSinceStartMs / 1000)}s (failure ${this.portFailureCount}/${ProcessMonitor.PORT_FAILURE_THRESHOLD}${errorSuffix})`
+            );
+          }
+
+          if (
+            this.portFailureCount >= ProcessMonitor.PORT_FAILURE_THRESHOLD &&
+            !this.healthRestartInProgress &&
+            this.state === 'running' &&
+            this.options.autoRestart
+          ) {
+            await this.simpleLogManager.appendMonitorLog(
+              `Health-triggered restart: port ${port} unresponsive`
+            ).catch(() => {});
+
+            this.healthRestartInProgress = true;
+            await this.killProcess(false);
+          }
+        }
       }
+
       this.lastPortCheckTime = now;
     }
 
@@ -1152,43 +1214,36 @@ export class ProcessMonitor extends EventEmitter {
   }
 
   /**
-   * Check if a port is bound using lsof.
-   * Returns the PID that owns the port if found.
+   * Check if an HTTP server is responsive on the expected port.
+   * This catches "hung but still listening" cases (unlike lsof).
    */
-  private checkPortBound(port: number): { bound: boolean; pid?: number; error?: string } {
-    try {
-      // Use lsof to check if the port is in use
-      // -i :port - filter by port
-      // -t - terse output (just PIDs)
-      // -sTCP:LISTEN - only show listening TCP sockets
-      const result = execSync(`lsof -i :${port} -t -sTCP:LISTEN 2>/dev/null`, {
-        encoding: 'utf8',
-        timeout: 2000
-      }).trim();
+  private async checkPortResponsive(port: number): Promise<{ responsive: boolean; error?: string }> {
+    const controller = new AbortController();
+    const timeoutMs = ProcessMonitor.PORT_PROBE_TIMEOUT_MS;
 
-      if (result) {
-        const pids = result.split('\n').map(p => parseInt(p, 10)).filter(p => !isNaN(p));
-        if (pids.length > 0) {
-          // Check if our process owns the port
-          const ourPid = this.processInfo.pid;
-          const ownerPid = pids[0];
-          return {
-            bound: true,
-            pid: ownerPid
-          };
+    const timeout = setTimeout(() => {
+      controller.abort();
+    }, timeoutMs);
+
+    try {
+      const response = await fetch(`http://127.0.0.1:${port}/`, {
+        method: 'GET',
+        signal: controller.signal,
+        headers: {
+          // Avoid content negotiation overhead; we only need any response.
+          accept: '*/*'
         }
-      }
-      return { bound: false };
+      });
+
+      // We don't need the body; cancel ASAP.
+      response.body?.cancel();
+
+      return { responsive: true };
     } catch (error) {
-      // lsof returns non-zero if no matching processes found
-      // This is expected when port is not bound
-      const exitError = error as { status?: number; message?: string };
-      if (exitError.status === 1) {
-        // No process found - port not bound
-        return { bound: false };
-      }
-      // Other error (timeout, lsof not found, etc.)
-      return { bound: false, error: exitError.message || 'lsof failed' };
+      const message = error instanceof Error ? error.message : String(error);
+      return { responsive: false, error: message };
+    } finally {
+      clearTimeout(timeout);
     }
   }
 

@@ -204,6 +204,7 @@ class ProcessCommands {
     args: string[];
     cwd?: string;
     port?: string;
+    healthCheckInterval?: number;
     maxRestarts?: number;
     restartDelay?: number;
     maxErrors?: number;
@@ -228,10 +229,22 @@ class ProcessCommands {
         envVars.PORT = options.port;
       }
 
+      const expectedPort = options.port ? Number.parseInt(options.port, 10) : undefined;
+      const hasExpectedPort = Number.isFinite(expectedPort);
+
+      // Default behavior for port-bound dev servers (e.g. Vite):
+      // - Probe every 10s
+      // - Retry for ~2 minutes (12 * 10s)
+      const defaultHealthCheckInterval = hasExpectedPort ? 10000 : DEFAULT_MONITORING_OPTIONS.healthCheckInterval;
+      const defaultRestartDelay = hasExpectedPort ? 1000 : DEFAULT_MONITORING_OPTIONS.restartDelay;
+      const defaultMaxRestarts = hasExpectedPort ? 120 : DEFAULT_MONITORING_OPTIONS.maxRestarts;
+
       const monitoring: MonitoringOptions = {
         ...DEFAULT_MONITORING_OPTIONS,
-        maxRestarts: options.maxRestarts ?? DEFAULT_MONITORING_OPTIONS.maxRestarts,
-        restartDelay: options.restartDelay ?? DEFAULT_MONITORING_OPTIONS.restartDelay,
+        expectedPort: hasExpectedPort ? expectedPort : undefined,
+        healthCheckInterval: options.healthCheckInterval ?? defaultHealthCheckInterval,
+        maxRestarts: options.maxRestarts ?? defaultMaxRestarts,
+        restartDelay: options.restartDelay ?? defaultRestartDelay,
         env: envVars
       };
 
@@ -264,6 +277,10 @@ class ProcessCommands {
       console.log(`  Working Directory: ${config.cwd}`);
       console.log(`  Max Restarts: ${monitoring.maxRestarts}`);
       console.log(`  Restart Delay: ${monitoring.restartDelay}ms`);
+      console.log(`  Health Check Interval: ${monitoring.healthCheckInterval ?? DEFAULT_MONITORING_OPTIONS.healthCheckInterval}ms`);
+      if (monitoring.expectedPort) {
+        console.log(`  Expected Port: ${monitoring.expectedPort}`);
+      }
 
       // Create and start ProcessRunner with storage options
       const runner = new ProcessRunner(config, { 
@@ -1093,6 +1110,7 @@ PROCESS START OPTIONS:
   --cwd, -c <path>           Working directory (default: current directory)
   --max-restarts <num>       Maximum restart attempts (default: 3)
   --restart-delay <ms>       Delay between restarts in ms (default: 1000)
+  --health-check-interval <ms> Health check interval in ms (default: 30000)
   --max-errors <num>         Maximum errors to store (default: 1000)
   --retention-days <days>    Error retention period (default: 7)
   --log-retention-hours <h>  Log retention period in hours (default: 168)
@@ -1172,6 +1190,7 @@ async function main() {
         'port': { type: 'string', short: 'p' },
         'max-restarts': { type: 'string' },
         'restart-delay': { type: 'string' },
+        'health-check-interval': { type: 'string' },
         'max-errors': { type: 'string' },
         'retention-days': { type: 'string' },
         'log-retention-hours': { type: 'string' },
@@ -1246,6 +1265,7 @@ async function handleProcessCommand(subcommand: string, args: Record<string, unk
         args: remainingArgs.slice(1),
         cwd: args.cwd ? String(args.cwd) : undefined,
         port: args.port ? String(args.port) : undefined,
+        healthCheckInterval: parseIntArg(args, 'health-check-interval'),
         maxRestarts: parseIntArg(args, 'max-restarts'),
         restartDelay: parseIntArg(args, 'restart-delay'),
         maxErrors: parseIntArg(args, 'max-errors'),
