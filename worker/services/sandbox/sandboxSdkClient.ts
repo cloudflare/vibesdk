@@ -1318,10 +1318,13 @@ export class SandboxSdkClient extends BaseSandboxService {
 
             const successCount = results.filter(r => r.success).length;
 
-            // If code files were modified, touch vite.config.ts to trigger a rebuild
+            // If code files were modified, touch .reload-trigger to trigger a page reload
+            // We use .reload-trigger instead of vite.config.ts because:
+            // - vite.config.ts triggers a FULL SERVER RESTART (disposes miniflare, causes race condition errors)
+            // - .reload-trigger triggers a PAGE RELOAD via WebSocket (server stays running)
             if (successCount > 0 && filteredFiles.some(file => file.filePath.endsWith('.ts') || file.filePath.endsWith('.tsx'))) {
-                this.logger.info('Touching vite.config.ts to trigger rebuild');
-                await session.exec(`touch vite.config.ts`);
+                this.logger.info('Touching .reload-trigger to trigger page reload');
+                await session.exec(`touch .reload-trigger`);
             }
 
             return {

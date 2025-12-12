@@ -55,6 +55,7 @@ export function useChat({
 	agentMode = 'deterministic',
 	onDebugMessage,
 	onTerminalMessage,
+	onVaultUnlockRequired,
 }: {
 	chatId?: string;
 	query: string | null;
@@ -62,6 +63,7 @@ export function useChat({
 	agentMode?: 'deterministic' | 'smart';
 	onDebugMessage?: (type: 'error' | 'warning' | 'info' | 'websocket', message: string, details?: string, source?: string, messageType?: string, rawMessage?: unknown) => void;
 	onTerminalMessage?: (log: { id: string; content: string; type: 'command' | 'stdout' | 'stderr' | 'info' | 'error' | 'warn' | 'debug'; timestamp: number; source?: string }) => void;
+	onVaultUnlockRequired?: (reason: string) => void;
 }) {
 	const connectionStatus = useRef<'idle' | 'connecting' | 'connected' | 'failed' | 'retrying'>('idle');
 	const retryCount = useRef(0);
@@ -207,6 +209,7 @@ export function useChat({
 			loadBootstrapFiles,
 			onDebugMessage,
 			onTerminalMessage,
+			onVaultUnlockRequired,
 		} as HandleMessageDeps),
 		[
 			isInitialStateRestored,
@@ -224,6 +227,7 @@ export function useChat({
 			loadBootstrapFiles,
 			onDebugMessage,
 			onTerminalMessage,
+			onVaultUnlockRequired,
 		]
 	);
 
