@@ -112,14 +112,15 @@ const USER_PROMPT = `**Phase Implementation**
 ⚠️⚠️⚠️ SCAN YOUR MENTAL CODE DRAFT FOR THESE PATTERNS BEFORE WRITING ⚠️⚠️⚠️
 
 🔍 FORBIDDEN ZUSTAND PATTERNS (auto-fail if found):
-   • useStore(s => ({ ... }))  ← Creating object in selector
+   NOTE: Every "useStore" example below applies to ANY subscription-based store hook (Zustand etc), regardless of hook name.
    • useStore()  ← No selector
-   • useStore(s => s.getItems())  ← Calling methods
+   • useStore(s => ({ ... })) / useStore(s => [ ... ])  ← allocations in selector
+   • useStore(s => ANY_CALL(...))  ← Object.keys/values/entries, map/filter/reduce/sort, s.getXxx(), Date.now(), Math.*
+   • useStore(useShallow(...))  ← shallow does NOT make unsafe selectors safe
    • const { a, b } = useStore(...)  ← Destructuring multiple values
-   • useStore(useShallow)
 
-✅ ONLY ALLOWED ZUSTAND PATTERN:
-   • useStore(s => s.singlePrimitive)  ← One primitive per call
+✅ ONLY ALLOWED PATTERN:
+   • useStore(s => s.some.deep.value)  ← stable ref or primitive, no calls
    • Call useStore multiple times for multiple values
 
 If you find forbidden patterns in your draft, STOP and rewrite before generating files.
@@ -135,10 +136,11 @@ These are the instructions and quality standards that must be followed to implem
         - Always use dependency arrays in useEffect with conditional guards
         - Stabilize object/array references with useMemo/useCallback
         - **🔥 ZUSTAND ABSOLUTE RULE - NO EXCEPTIONS 🔥**
-          • ONLY ALLOWED: useStore(s => s.primitive) - one primitive per call
-          • BANNED: useStore(s => ({ ... })) - object literals crash the app
-          • BANNED: useStore() - no selector crashes the app  
-          • BANNED: useStore(s => s.getXxx()) - method calls crash the app
+          • ONLY ALLOWED: useStore(s => s.some.deep.value) - stable refs/primitives, no calls
+          • BANNED: useStore() - no selector crashes the app
+          • BANNED: allocations in selector: ({ ... }) / [ ... ]
+          • BANNED: ANY_CALL in selector: Object.keys/values/entries, map/filter/reduce/sort, s.getXxx(), Date.now(), Math.*
+          • BANNED: useStore(useShallow(...)) - shallow does NOT make unsafe selectors safe
           • For multiple values: Call useStore multiple times (this is correct and efficient)
         - DOM listeners must be stable: attach once; read store values via refs; avoid reattaching per state change
     

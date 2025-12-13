@@ -36,6 +36,7 @@ import { fixProjectIssues } from '../../services/code-fixer';
 import { GitVersionControl } from '../git';
 import { FastCodeFixerOperation } from '../operations/PostPhaseCodeFixer';
 import { looksLikeCommand, validateAndCleanBootstrapCommands } from '../utils/common';
+import { runPreDeploySafetyGate } from '../utils/preDeploySafetyGate';
 import { customizePackageJson, customizeTemplateFiles, generateBootstrapScript, generateProjectName } from '../utils/templateCustomizer';
 import { generateBlueprint } from '../planning/blueprint';
 import { AppService } from '../../database';
@@ -1336,10 +1337,19 @@ export class SimpleCodeGeneratorAgent extends Agent<Env, CodeGenState> {
             }).filter((f): f is FileOutputType => f !== null);
         });
     
-        // Update state with completed phase
-        await this.fileManager.saveGeneratedFiles(finalFiles, `feat: ${phase.name}\n\n${phase.description}`);
+        const safeFiles = await runPreDeploySafetyGate({
+            files: finalFiles,
+            env: this.env,
+            inferenceContext: this.state.inferenceContext,
+            query: this.state.query,
+            template: this.getTemplateDetails(),
+            phase,
+        });
 
-        this.logger().info("Files generated for phase:", phase.name, finalFiles.map(f => f.filePath));
+        // Update state with completed phase
+        await this.fileManager.saveGeneratedFiles(safeFiles, `feat: ${phase.name}\n\n${phase.description}`);
+
+        this.logger().info("Files generated for phase:", phase.name, safeFiles.map(f => f.filePath));
 
         // Execute commands if provided
         if (result.commands && result.commands.length > 0) {
@@ -1348,8 +1358,8 @@ export class SimpleCodeGeneratorAgent extends Agent<Env, CodeGenState> {
         }
     
         // Deploy generated files
-        if (finalFiles.length > 0) {
-            await this.deployToSandbox(finalFiles, false, phase.name, true);
+        if (safeFiles.length > 0) {
+            await this.deployToSandbox(safeFiles, false, phase.name, true);
             if (postPhaseFixing) {
                 await this.applyDeterministicCodeFixes();
                 if (this.state.inferenceContext.enableFastSmartCodeFix) {
@@ -1385,7 +1395,7 @@ export class SimpleCodeGeneratorAgent extends Agent<Env, CodeGenState> {
         this.markPhaseComplete(phase.name);
         
         return {
-            files: finalFiles,
+            files: safeFiles,
             deploymentNeeded: result.deploymentNeeded,
             commands: result.commands
         };
@@ -1674,23 +1684,42 @@ export class SimpleCodeGeneratorAgent extends Agent<Env, CodeGenState> {
     }
 
     // ===== Debugging helpers for assistants =====
+    
     async readFiles(paths: string[]): Promise<{ files: { path: string; content: string }[] }> {
-        const { sandboxInstanceId } = this.state;
-        if (!sandboxInstanceId) {
-            return { files: [] };
+        const results: { path: string; content: string }[] = [];
+        const notFoundInFileManager: string[] = [];
+
+        // First, try to read from FileManager (template + generated files)
+        for (const path of paths) {
+            const file = this.fileManager.getFile(path);
+            if (file) {
+                results.push({ path, content: file.fileContents });
+            } else {
+                notFoundInFileManager.push(path);
+            }
         }
-        const resp = await this.getSandboxServiceClient().getFiles(sandboxInstanceId, paths);
-        if (!resp.success) {
-            this.logger().warn('readFiles failed', { error: resp.error });
-            return { files: [] };
+
+        // If some files not found in FileManager and sandbox exists, try sandbox
+        if (notFoundInFileManager.length > 0 && this.state.sandboxInstanceId) {
+            const resp = await this.getSandboxServiceClient().getFiles(
+                this.state.sandboxInstanceId,
+                notFoundInFileManager
+            );
+            if (resp.success) {
+                results.push(...resp.files.map(f => ({
+                    path: f.filePath,
+                    content: f.fileContents
+                })));
+            }
         }
-        return { files: resp.files.map(f => ({ path: f.filePath, content: f.fileContents })) };
+
+        return { files: results };
     }
 
     async execCommands(commands: string[], shouldSave: boolean, timeout?: number): Promise<ExecuteCommandsResponse> {
         const { sandboxInstanceId } = this.state;
         if (!sandboxInstanceId) {
-            return { success: false, results: [], error: 'No sandbox instance' } as any;
+            return { success: false, results: [], error: 'No sandbox instance' };
         }
         const result = await this.getSandboxServiceClient().executeCommands(sandboxInstanceId, commands, timeout);
         if (shouldSave) {
