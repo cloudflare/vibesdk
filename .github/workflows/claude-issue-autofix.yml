@@ -75,6 +75,9 @@ jobs:
       contents: write
       pull-requests: write
       issues: write
+    env:
+      ANTHROPIC_BASE_URL: ${{ secrets.ANTHROPIC_BASE_URL }}
+      ANTHROPIC_CUSTOM_HEADERS: ${{ secrets.ANTHROPIC_CUSTOM_HEADERS }}
 
     steps:
       - name: Checkout repository
@@ -108,10 +111,6 @@ jobs:
 
       - name: Run Claude to implement the fix
         uses: anthropics/claude-code-action@v1
-        env:
-          USE_AGENT_SDK: "true"
-          ANTHROPIC_BASE_URL: ${{ secrets.ANTHROPIC_BASE_URL }}
-          ANTHROPIC_CUSTOM_HEADERS: ${{ secrets.ANTHROPIC_CUSTOM_HEADERS }}
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}

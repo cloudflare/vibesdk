@@ -18,6 +18,9 @@ jobs:
       github.event.pull_request.head.repo.full_name == github.repository
 
     runs-on: ubuntu-latest
+    env:
+      ANTHROPIC_BASE_URL: ${{ secrets.ANTHROPIC_BASE_URL }}
+      ANTHROPIC_CUSTOM_HEADERS: ${{ secrets.ANTHROPIC_CUSTOM_HEADERS }}
 
     steps:
       - name: Checkout repository
@@ -39,12 +42,10 @@ jobs:
         uses: anthropics/claude-code-action@v1
         env:
           GH_TOKEN: ${{ github.token }}
-          USE_AGENT_SDK: "true"
-          ANTHROPIC_BASE_URL: ${{ secrets.ANTHROPIC_BASE_URL }}
-          ANTHROPIC_CUSTOM_HEADERS: ${{ secrets.ANTHROPIC_CUSTOM_HEADERS }}
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          show_full_output: ${{ github.actor == 'AshishKumar4' && 'true' || 'false' }}
           track_progress: true
           prompt: |
             ${{ steps.critical_paths.outputs.is_critical == 'true' && '🔒 **CRITICAL PATH SECURITY REVIEW**
