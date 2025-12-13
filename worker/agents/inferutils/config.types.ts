@@ -263,7 +263,7 @@ const MODELS_MASTER = {
         }
     },
     GROK_4_1_FAST: {
-        id: 'grok/grok-4.1-fast-reasoning',
+        id: 'grok/grok-4-1-fast-reasoning',
         config: {
             name: 'Grok 4.1 Fast',
             size: ModelSize.LITE,
@@ -276,7 +276,7 @@ const MODELS_MASTER = {
 
     // --- Vertex Models ---
     VERTEX_GPT_OSS_120: {
-        id: 'google-vertex-ai/openai/gpt-oss-120b',
+        id: 'google-vertex-ai/openai/gpt-oss-120b-maas',
         config: {
             name: 'Google Vertex GPT OSS 120B',
             size: ModelSize.LITE,
@@ -286,7 +286,7 @@ const MODELS_MASTER = {
         }
     },
     VERTEX_KIMI_THINKING: {
-        id: 'google-vertex-ai/moonshotai/kimi-k2-thinking',
+        id: 'google-vertex-ai/moonshotai/kimi-k2-thinking-maas',
         config: {
             name: 'Google Vertex Kimi K2 Thinking',
             size: ModelSize.LITE,
