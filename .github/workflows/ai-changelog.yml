@@ -1,0 +1,176 @@
+name: AI Changelog (Claude)
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag_name:
+        description: 'Release tag to enrich'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+  id-token: write
+
+concurrency:
+  group: ai-changelog-${{ inputs.tag_name }}
+  cancel-in-progress: true
+
+jobs:
+  ai-changelog:
+    runs-on: ubuntu-latest
+    env:
+      ANTHROPIC_BASE_URL: ${{ secrets.ANTHROPIC_BASE_URL }}
+      ANTHROPIC_CUSTOM_HEADERS: ${{ secrets.ANTHROPIC_CUSTOM_HEADERS }}
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get previous tag
+        id: prev_tag
+        run: |
+          CURRENT_TAG='${{ inputs.tag_name }}'
+          PREV_TAG=$(git describe --tags --abbrev=0 "${CURRENT_TAG}^" 2>/dev/null || echo '')
+          echo "current_tag=$CURRENT_TAG" >> "$GITHUB_OUTPUT"
+          echo "previous_tag=$PREV_TAG" >> "$GITHUB_OUTPUT"
+
+      - name: Generate enhanced changelog with Claude Code Action
+        uses: anthropics/claude-code-action@v1
+        env:
+          GH_TOKEN: ${{ github.token }}
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          prompt: |
+            Generate an enhanced changelog for release ${{ inputs.tag_name }}.
+
+            IMPORTANT:
+            - This workflow is triggered via workflow_dispatch because claude-code-action does not support push events.
+            - Use the existing release-please notes as a starting point, but rewrite for clarity and context.
+
+            **Step 1: Collect data**
+
+            Get release-please's generated changelog:
+            ```bash
+            gh release view "${{ inputs.tag_name }}" --json body -q .body > /tmp/release-please-changelog.txt
+            cat /tmp/release-please-changelog.txt
+            ```
+
+            Get all commits with full messages (not just titles):
+            ```bash
+            PREV_TAG='${{ steps.prev_tag.outputs.previous_tag }}'
+            if [ -n "$PREV_TAG" ]; then
+              git log "$PREV_TAG...${{ inputs.tag_name }}" --pretty=format:"### Commit: %s%n%b%n---" | head -c 50000 > /tmp/commits.txt
+            else
+              git log "${{ inputs.tag_name }}" --pretty=format:"### Commit: %s%n%b%n---" | head -c 50000 > /tmp/commits.txt
+            fi
+            cat /tmp/commits.txt
+            ```
+
+            Get merged PRs with descriptions:
+            ```bash
+            PREV_TAG='${{ steps.prev_tag.outputs.previous_tag }}'
+            if [ -n "$PREV_TAG" ]; then
+              PREV_DATE=$(git log -1 --format=%aI "$PREV_TAG" 2>/dev/null || echo "2024-01-01T00:00:00Z")
+            else
+              PREV_DATE="2024-01-01T00:00:00Z"
+            fi
+
+            gh pr list \
+              --repo ${{ github.repository }} \
+              --state merged \
+              --json number,title,body,mergedAt \
+              --limit 50 \
+              --search "merged:>=$PREV_DATE" \
+              --jq '.[] | "## PR #\(.number): \(.title)\n\(.body)\n---\n"' > /tmp/prs.txt 2>/dev/null || echo "No PRs found" > /tmp/prs.txt
+            cat /tmp/prs.txt
+            ```
+
+            Get diff statistics and file list:
+            ```bash
+            PREV_TAG='${{ steps.prev_tag.outputs.previous_tag }}'
+            if [ -n "$PREV_TAG" ]; then
+              git diff "$PREV_TAG...${{ inputs.tag_name }}" --shortstat > /tmp/stats.txt
+              git diff "$PREV_TAG...${{ inputs.tag_name }}" --name-only | head -c 50000 > /tmp/files.txt
+            else
+              git log --shortstat --oneline | head -1 > /tmp/stats.txt
+              git show --name-only --pretty='' "${{ inputs.tag_name }}" | head -c 50000 > /tmp/files.txt
+            fi
+            cat /tmp/stats.txt
+            echo "\n--- Files changed (truncated) ---"
+            cat /tmp/files.txt
+            ```
+
+            **Step 2: Generate enhanced changelog**
+
+            Using the data above (release-please changelog, commit messages, PR descriptions, stats):
+
+            1. Use release-please's changelog as the base structure, but rewrite entries with more context.
+            2. Prefer PR descriptions over commit titles when available (more accurate intent).
+            3. Add "What/Why/Impact" for each meaningful change.
+            4. Group by product area where possible (Frontend, Worker/API, Sandbox/Containers, Docs, Tooling).
+            5. Include PR numbers for traceability (e.g. "(#123)").
+            6. Keep it concise: 1-2 bullets per PR unless truly major.
+            7. No emojis in the changelog.
+
+            Format:
+            ```markdown
+            ## Release ${{ inputs.tag_name }}
+
+            ### Highlights
+            - 2-4 bullets: biggest user-visible improvements
+
+            ### Changes
+
+            #### Frontend
+            - ...
+
+            #### Worker / API
+            - ...
+
+            #### Sandbox / Containers
+            - ...
+
+            #### Tooling / CI
+            - ...
+
+            #### Documentation
+            - ...
+
+            ### Breaking Changes
+            - If any, include migration notes
+
+            ### Statistics
+            - Include git diff shortstat
+            - Mention top-level areas touched (from file list)
+            ```
+
+            **Step 3: Save the enhanced changelog**
+            ```bash
+            cat > /tmp/enhanced-changelog.md << 'CHANGELOG_EOF'
+            [PASTE YOUR GENERATED CHANGELOG HERE]
+            CHANGELOG_EOF
+            ```
+
+            **Step 4: Update the release**
+            ```bash
+            gh release edit "${{ inputs.tag_name }}" --notes-file /tmp/enhanced-changelog.md
+            echo "Release notes updated successfully"
+            ```
+
+          claude_args: |
+            --allowed-tools "Bash(gh release view:*),Bash(gh release edit:*),Bash(gh pr list:*),Bash(git log:*),Bash(git diff:*),Bash(git show:*),Bash(cat:*),Bash(echo:*),Bash(head:*)"
+            --max-turns 20
+            --model claude-opus-4-5-20251101
+
+      - name: Verify changelog updated
+        if: always()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG_NAME='${{ inputs.tag_name }}'
+          echo "Verifying release notes for $TAG_NAME..."
+          gh release view "$TAG_NAME" --json body -q .body | head -20
+          echo "Changelog verification complete"
