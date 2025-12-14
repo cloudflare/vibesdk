@@ -240,7 +240,7 @@ const PROJECT_TYPE_BLUEPRINT_GUIDANCE: Record<ProjectType, string> = {
     presentation: `## Presentation Project Context
 - Design a beautiful slide deck with a cohesive narrative arc (intro, problem, solution, showcase, CTA)
 - Produce visually rich slides with precise layout, typography, imagery, and animation guidance
-- User flow should actually be a \"story flow\" describing slide order, transitions, interactions, and speaker cues
+- User flow should actually be a "story flow" describing slide order, transitions, interactions, and speaker cues
 - Implementation roadmap must reference presentation scaffold / template features (themes, deck index, slide components, animations, print/external export mode)
 - Prioritize static data and storytelling polish; avoid backend complexity entirely.`,
     general: `## Objective Context

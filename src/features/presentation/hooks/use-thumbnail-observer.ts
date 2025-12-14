@@ -16,8 +16,7 @@ export function useThumbnailObserver(slideFiles: SlideInfo[]) {
     }, [slideFiles, visibleThumbnails.size]);
 
     useEffect(() => {
-        // Create observer instance once
-        observerInstance.current = new IntersectionObserver(
+        const observer = new IntersectionObserver(
             (entries) => {
                 entries.forEach((entry) => {
                     const index = parseInt(entry.target.getAttribute('data-slide-index') || '0', 10);
@@ -32,15 +31,19 @@ export function useThumbnailObserver(slideFiles: SlideInfo[]) {
             },
         );
 
+        observerInstance.current = observer;
+
+        const observed = observedRefs.current;
+
         // Observe all current thumbnail refs
         thumbnailRefs.current.forEach((ref) => {
-            observerInstance.current?.observe(ref);
-            observedRefs.current.add(ref);
+            observer.observe(ref);
+            observed.add(ref);
         });
 
         return () => {
-            observerInstance.current?.disconnect();
-            observedRefs.current.clear();
+            observer.disconnect();
+            observed.clear();
         };
     }, []);
 

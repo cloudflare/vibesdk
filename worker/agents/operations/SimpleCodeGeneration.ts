@@ -146,7 +146,7 @@ export class SimpleCodeGenerationOperation extends AgentOperation<
 
         // Build system message with full context
         const systemPrompt = PROMPT_UTILS.replaceTemplateVariables(SYSTEM_PROMPT, {
-            userQuery: `## Requirements:\n${context.query}` || '',
+            userQuery: context.query ? `## Requirements:\n${context.query}` : '',
         });
 
         // Build user message with requirements

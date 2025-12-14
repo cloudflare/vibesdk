@@ -173,7 +173,7 @@ export class LoopDetector {
 	 */
 	private modInverse(a: number, m: number): number {
 		// Extended Euclidean algorithm
-		let m0 = m;
+		const m0 = m;
 		let x0 = 0;
 		let x1 = 1;
 

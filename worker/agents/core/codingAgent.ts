@@ -438,8 +438,8 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
         const serializedCompact = JSON.stringify(conversations.runningHistory);
         try {
             this.logger().info(`Saving conversation state ${conversations.id}, full_length: ${serializedFull.length}, compact_length: ${serializedCompact.length}`, serializedFull);
-            this.sql`INSERT OR REPLACE INTO compact_conversations (id, messages) VALUES (${conversations.id}, ${serializedCompact})`;
-            this.sql`INSERT OR REPLACE INTO full_conversations (id, messages) VALUES (${conversations.id}, ${serializedFull})`;
+            void this.sql`INSERT OR REPLACE INTO compact_conversations (id, messages) VALUES (${conversations.id}, ${serializedCompact})`;
+            void this.sql`INSERT OR REPLACE INTO full_conversations (id, messages) VALUES (${conversations.id}, ${serializedFull})`;
         } catch (error) {
             this.logger().error(`Failed to save conversation state ${conversations.id}`, error);
         }
@@ -484,8 +484,8 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
             this.logger().info('Clearing conversation history');
             
             // Clear SQL tables for default conversation session
-            this.sql`DELETE FROM full_conversations WHERE id = ${DEFAULT_CONVERSATION_SESSION_ID}`;
-            this.sql`DELETE FROM compact_conversations WHERE id = ${DEFAULT_CONVERSATION_SESSION_ID}`;
+            void this.sql`DELETE FROM full_conversations WHERE id = ${DEFAULT_CONVERSATION_SESSION_ID}`;
+            void this.sql`DELETE FROM compact_conversations WHERE id = ${DEFAULT_CONVERSATION_SESSION_ID}`;
             
             this.logger().info('Conversation history cleared successfully');
             
@@ -680,7 +680,7 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
         const providedToken = withoutPrefix.substring(lastHyphenIndex + 1);
 
         // Extract file path from pathname
-        let filePath = url.pathname === '/' || url.pathname === ''
+        const filePath = url.pathname === '/' || url.pathname === ''
             ? 'public/index.html'
             : url.pathname.replace(/^\//, ''); // Remove leading slash
 

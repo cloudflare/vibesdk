@@ -54,3 +54,4 @@ debug-tools/extracted
 debug-tools/presentation-tester
 
 .test-data
+cli

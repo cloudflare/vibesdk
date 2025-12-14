@@ -475,9 +475,12 @@ export function useChat({
 					};
 
 					let startedBlueprintStream = false;
-                    if (behaviorType === 'phasic') {
-                        sendMessage(createAIMessage('main', "Sure, let's get started. Bootstrapping the project first...", true));
-                    }
+					const initialBehaviorType = getBehaviorTypeForProject(projectType);
+					if (initialBehaviorType === 'phasic') {
+						sendMessage(
+							createAIMessage('main', "Sure, let's get started. Bootstrapping the project first...", true),
+						);
+					}
 
 					for await (const obj of ndjsonStream(response.stream)) {
                         logger.debug('Received chunk from server:', obj);
@@ -526,9 +529,12 @@ export function useChat({
 
 					updateStage('blueprint', { status: 'completed' });
 					setIsGeneratingBlueprint(false);
-                    if (behaviorType === 'phasic') {
-                        sendMessage(createAIMessage('main', 'Blueprint generation complete. Now starting the code generation...', true));
-                    }
+					const finalBehaviorType = getBehaviorTypeForProject(projectType);
+					if (finalBehaviorType === 'phasic') {
+						sendMessage(
+							createAIMessage('main', 'Blueprint generation complete. Now starting the code generation...', true),
+						);
+					}
 
 					// Connect to WebSocket
 					logger.debug('connecting to ws with created id');

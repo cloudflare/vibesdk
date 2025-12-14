@@ -7,4 +7,4 @@ import type { PlatformCapabilities } from '../../../agents/core/features/types';
 /**
  * Response data for GET /api/capabilities
  */
-export interface CapabilitiesData extends PlatformCapabilities {}
+export type CapabilitiesData = PlatformCapabilities;

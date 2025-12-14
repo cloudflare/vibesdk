@@ -2,7 +2,7 @@ import { Presentation } from 'lucide-react';
 import { PreviewIframe } from '@/routes/chat/components/preview-iframe';
 import clsx from 'clsx';
 import { useState, useRef, useMemo } from 'react';
-import { HEADER_STYLES } from '@/routes/chat/components/view-header';
+import { HEADER_STYLES } from '@/routes/chat/components/view-header-styles';
 import {
 	usePresentationFiles,
 	usePresentationSync,

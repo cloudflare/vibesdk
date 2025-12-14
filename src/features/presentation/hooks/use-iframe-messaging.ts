@@ -53,7 +53,7 @@ export function useIframeMessaging(
         };
         window.addEventListener('presentation-file-event', handler);
         return () => window.removeEventListener('presentation-file-event', handler);
-    }, [slideFiles, setGeneratingSlides]);
+    }, [iframeRef, thumbnailRefs, slideFiles, setGeneratingSlides]);
 
     // iframe message handler for navigation and slide sync
     useEffect(() => {
@@ -82,7 +82,7 @@ export function useIframeMessaging(
                 iframeRef.current.contentWindow.postMessage(message, '*');
             }
         },
-        [],
+        [iframeRef],
     );
 
     const navigateToSlide = useCallback(

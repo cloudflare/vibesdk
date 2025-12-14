@@ -35,9 +35,9 @@ export interface AgenticGenerationContext extends BaseGenerationContext {
 export type GenerationContext = PhasicGenerationContext | AgenticGenerationContext;
 
 /** Generation context utility functions */
-export namespace GenerationContext {
+export const GenerationContext = {
     /** Create immutable context from agent state */
-    export function from(
+    from(
         state: PhasicState | AgenticState,
         templateDetails: TemplateDetails,
         logger?: Pick<StructuredLogger, 'info' | 'warn'>
@@ -62,53 +62,61 @@ export namespace GenerationContext {
         };
 
         return state.behaviorType === 'phasic'
-            ? Object.freeze({ ...base, blueprint: (state as PhasicState).blueprint, generatedPhases: (state as PhasicState).generatedPhases })
-            : Object.freeze({ ...base, blueprint: (state as AgenticState).blueprint, currentPlan: (state as AgenticState).currentPlan });
-    }
+            ? Object.freeze({
+                ...base,
+                blueprint: (state as PhasicState).blueprint,
+                generatedPhases: (state as PhasicState).generatedPhases,
+            })
+            : Object.freeze({
+                ...base,
+                blueprint: (state as AgenticState).blueprint,
+                currentPlan: (state as AgenticState).currentPlan,
+            });
+    },
 
     /** Type guard for phasic context */
-    export function isPhasic(context: GenerationContext): context is PhasicGenerationContext {
+    isPhasic(context: GenerationContext): context is PhasicGenerationContext {
         return 'generatedPhases' in context;
-    }
+    },
 
     /** Type guard for agentic context */
-    export function isAgentic(context: GenerationContext): context is AgenticGenerationContext {
+    isAgentic(context: GenerationContext): context is AgenticGenerationContext {
         return 'currentPlan' in context;
-    }
+    },
 
     /** Get completed phases (empty array for agentic contexts) */
-    export function getCompletedPhases(context: GenerationContext): PhaseState[] {
-        return isPhasic(context) 
-            ? context.generatedPhases.filter(phase => phase.completed) 
+    getCompletedPhases(context: GenerationContext): PhaseState[] {
+        return this.isPhasic(context)
+            ? context.generatedPhases.filter(phase => phase.completed)
             : [];
-    }
+    },
 
     /** Build file tree from context files */
-    export function getFileTree(context: GenerationContext): FileTreeNode {
+    getFileTree(context: GenerationContext): FileTreeNode {
         const builder = new FileTreeBuilder(context.templateDetails?.fileTree);
-        
+
         for (const { filePath } of context.allFiles) {
             const normalized = FileTreeBuilder.normalizePath(filePath);
             if (normalized) {
                 builder.addFile(normalized);
             }
         }
-        
+
         return builder.build();
-    }
+    },
 
     /** Get phasic blueprint if available */
-    export function getPhasicBlueprint(context: GenerationContext): PhasicBlueprint | undefined {
-        return isPhasic(context) ? context.blueprint : undefined;
-    }
+    getPhasicBlueprint(context: GenerationContext): PhasicBlueprint | undefined {
+        return this.isPhasic(context) ? context.blueprint : undefined;
+    },
 
     /** Get agentic blueprint if available */
-    export function getAgenticBlueprint(context: GenerationContext): AgenticBlueprint | undefined {
-        return isAgentic(context) ? context.blueprint : undefined;
-    }
+    getAgenticBlueprint(context: GenerationContext): AgenticBlueprint | undefined {
+        return this.isAgentic(context) ? context.blueprint : undefined;
+    },
 
     /** Get common blueprint data */
-    export function getCommonBlueprintData(context: GenerationContext) {
+    getCommonBlueprintData(context: GenerationContext) {
         return {
             title: context.blueprint.title,
             projectName: context.blueprint.projectName,
@@ -116,8 +124,8 @@ export namespace GenerationContext {
             frameworks: context.blueprint.frameworks,
             colorPalette: context.blueprint.colorPalette,
         };
-    }
-}
+    },
+} as const;
 
 class FileTreeBuilder {
     private readonly directoryIndex = new Map<string, FileTreeNode>();

@@ -18,7 +18,7 @@ const stripAnsi = (str: string) =>
     ""
   );
 
-const LOG_MESSAGE_BOUNDARY = /\n(?=\[[A-Z][^\]]*\])/g;
+const LOG_MESSAGE_BOUNDARY = /\\n(?=\\[[A-Z][^\\]]*\\])/g;
 
 const emitLog = (level: "info" | "warn" | "error", rawMessage: string) => {
   const cleaned = stripAnsi(rawMessage).replace(/\r\n/g, "\n");

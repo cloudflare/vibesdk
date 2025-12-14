@@ -1,13 +1,7 @@
 import type { ReactNode } from 'react';
 import { ViewModeSwitch } from './view-mode-switch';
+import { HEADER_STYLES } from './view-header-styles';
 import type { ProjectType } from '@/api-types';
-
-// Shared header styling constants for DRY compliance
-export const HEADER_STYLES = {
-	container: 'min-h-10 bg-bg-2 border-b flex items-center',
-	padding: 'px-2', // 8px horizontal padding
-	textBase: 'text-sm font-mono text-text-50/70',
-} as const;
 
 interface ViewHeaderProps {
 	view: 'preview' | 'editor' | 'docs' | 'blueprint' | 'presentation';

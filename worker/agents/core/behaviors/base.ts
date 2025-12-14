@@ -940,7 +940,7 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
             phaseName
         });
 
-        let skippedFiles: { path: string; purpose: string; diff: string }[] = [];
+        const skippedFiles: { path: string; purpose: string; diff: string }[] = [];
 
         // Enforce template donttouch constraints
         const templateDetails = this.getTemplateDetails();
