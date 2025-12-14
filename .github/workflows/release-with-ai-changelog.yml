@@ -28,10 +28,17 @@ jobs:
     needs: release-please
     if: needs.release-please.outputs.release_created
     runs-on: ubuntu-latest
+
+    concurrency:
+      group: release-ai-changelog-${{ github.ref }}
+      cancel-in-progress: true
     permissions:
       contents: write
       pull-requests: write
       id-token: write
+    env:
+      ANTHROPIC_BASE_URL: ${{ secrets.ANTHROPIC_BASE_URL }}
+      ANTHROPIC_CUSTOM_HEADERS: ${{ secrets.ANTHROPIC_CUSTOM_HEADERS }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -47,6 +54,8 @@ jobs:
       
       - name: Generate enhanced changelog with Claude Code Action
         uses: anthropics/claude-code-action@v1
+        env:
+          GH_TOKEN: ${{ github.token }}
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
