@@ -108,14 +108,13 @@ jobs:
             PROCEED="false"
           fi
 
-           if [ "$HEAD_REPO" != "${{ github.repository }}" ]; then
-             echo "Fork PR detected ($HEAD_REPO); skipping to protect secrets."
-             PROCEED="false"
-           fi
+          if [ "$HEAD_REPO" != "${{ github.repository }}" ]; then
+            echo "Fork PR detected ($HEAD_REPO); skipping to protect secrets."
+            PROCEED="false"
+          fi
 
-           # Debug: print gating context
-           echo "Gate context: author=$AUTHOR title=\"$TITLE\" head_ref=$HEAD_REF base_ref=$BASE_REF head_repo=$HEAD_REPO"
-
+          # Debug: print gating context
+          echo "Gate context: author=$AUTHOR head_ref=$HEAD_REF base_ref=$BASE_REF head_repo=$HEAD_REPO"
 
           echo "proceed=$PROCEED" >> "$GITHUB_OUTPUT"
 
