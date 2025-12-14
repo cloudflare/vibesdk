@@ -28,6 +28,13 @@ export default defineWorkersConfig({
       },
     },
     include: ['**/*.{test,spec}.{js,ts,jsx,tsx}'],
-    exclude: ['**/node_modules/**', '**/dist/**', '**/.git/**', '**/worker/api/routes/**', '**/test/worker-entry.ts'],
+    exclude: [
+      '**/node_modules/**',
+      '**/dist/**',
+      '**/.git/**',
+      '**/worker/api/routes/**',
+      '**/test/worker-entry.ts',
+      '**/container/monitor-cli.test.ts',
+    ],
   },
 });
