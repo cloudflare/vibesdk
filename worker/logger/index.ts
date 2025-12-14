@@ -94,7 +94,7 @@ export function LogMethod(component?: string) {
  * Class decorator for automatic logger injection
  */
 export function WithLogger(component?: string) {
-	return function <T extends new (...args: any[]) => {}>(constructor: T) {
+	return function <T extends new (...args: any[]) => object>(constructor: T) {
 		return class extends constructor {
 			logger = createObjectLogger(
 				this,

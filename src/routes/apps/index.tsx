@@ -113,7 +113,9 @@ export default function AppsPage() {
 								onValueChange={(v) => {
 									handleSortChange(v);
 									// Persist to URL and localStorage
-									try { localStorage.setItem('apps.sort', v); } catch {}
+									try { localStorage.setItem('apps.sort', v); } catch {
+                                        console.error('Failed to persist sort to localStorage');
+									}
 									const next = new URLSearchParams(searchParams);
 									next.set('sort', v);
 									setSearchParams(next, { replace: true });

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useVault } from '@/hooks/use-vault';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -33,7 +33,7 @@ export function VaultSetupWizard({ open, onComplete, onCancel }: Props) {
 	const [error, setError] = useState<string | null>(null);
 	const [isCreating, setIsCreating] = useState(false);
 
-	const resetState = () => {
+	const resetState = useCallback(() => {
 		setStep('setup');
 		setMethod(null);
 		setPassword('');
@@ -41,13 +41,12 @@ export function VaultSetupWizard({ open, onComplete, onCancel }: Props) {
 		setRecoveryCodes(null);
 		setError(null);
 		setIsCreating(false);
-	};
+	}, []);
 
 	useEffect(() => {
 		if (!open) return;
 		resetState();
-		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [open]);
+	}, [open, resetState]);
 
 	const passwordError = useMemo(() => {
 		if (method !== 'password') return null;

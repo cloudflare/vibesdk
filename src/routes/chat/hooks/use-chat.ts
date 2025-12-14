@@ -1,5 +1,5 @@
 import { WebSocket } from 'partysocket';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import {
     RateLimitExceededError,
@@ -73,6 +73,15 @@ export function useChat({
 	const shouldReconnectRef = useRef(true);
 	// Track the latest connection attempt to avoid handling stale socket events
 	const connectAttemptIdRef = useRef(0);
+	const connectWithRetryRef = useRef<
+		((
+			wsUrl: string,
+			options?: { disableGenerate?: boolean; isRetry?: boolean },
+		) => void) | null
+	>(null);
+	const handleConnectionFailureRef = useRef<
+		((wsUrl: string, disableGenerate: boolean, reason: string) => void) | null
+	>(null);
 	const [chatId, setChatId] = useState<string>();
 	const [messages, setMessages] = useState<ChatMessage[]>([
 		createAIMessage('main', 'Thinking...', true),
@@ -156,7 +165,7 @@ export function useChat({
 		setMessages(prev => [...prev, createUserMessage(message)]);
 	}, []);
 
-	const loadBootstrapFiles = (files: FileType[]) => {
+	const loadBootstrapFiles = useCallback((files: FileType[]) => {
 		setBootstrapFiles((prev) => [
 			...prev,
 			...files.map((file) => ({
@@ -164,11 +173,12 @@ export function useChat({
 				language: getFileType(file.filePath),
 			})),
 		]);
-	};
+	}, []);
 
 	// Create the WebSocket message handler
-	const handleWebSocketMessage = useCallback(
-		createWebSocketMessageHandler({
+	const handleWebSocketMessage = useMemo(
+		() =>
+			createWebSocketMessageHandler({
 			// State setters
 			setFiles,
 			setPhaseTimeline,
@@ -228,7 +238,7 @@ export function useChat({
 			onDebugMessage,
 			onTerminalMessage,
 			onVaultUnlockRequired,
-		]
+		],
 	);
 
 	// WebSocket connection with retry logic
@@ -261,7 +271,7 @@ export function useChat({
 					if (ws.readyState === WebSocket.CONNECTING) {
 						logger.warn('⏰ WebSocket connection timeout');
 						ws.close();
-						handleConnectionFailure(wsUrl, disableGenerate, 'Connection timeout');
+						handleConnectionFailureRef.current?.(wsUrl, disableGenerate, 'Connection timeout');
 					}
 				}, 30000);
 
@@ -318,7 +328,7 @@ export function useChat({
 					if (myAttemptId !== connectAttemptIdRef.current) return;
 					if (!shouldReconnectRef.current) return;
 					logger.error('❌ WebSocket error:', error);
-					handleConnectionFailure(wsUrl, disableGenerate, 'WebSocket error');
+					handleConnectionFailureRef.current?.(wsUrl, disableGenerate, 'WebSocket error');
 				});
 
 				ws.addEventListener('close', (event) => {
@@ -331,7 +341,7 @@ export function useChat({
 					if (myAttemptId !== connectAttemptIdRef.current) return;
 					if (!shouldReconnectRef.current) return;
 					// Retry on any close while mounted (including 1000) to improve resilience
-					handleConnectionFailure(wsUrl, disableGenerate, `Connection closed (code: ${event.code})`);
+					handleConnectionFailureRef.current?.(wsUrl, disableGenerate, `Connection closed (code: ${event.code})`);
 				});
 
 				return function disconnect() {
@@ -340,10 +350,10 @@ export function useChat({
 				};
 			} catch (error) {
 				logger.error('❌ Error establishing WebSocket connection:', error);
-				handleConnectionFailure(wsUrl, disableGenerate, 'Connection setup failed');
+				handleConnectionFailureRef.current?.(wsUrl, disableGenerate, 'Connection setup failed');
 			}
 		},
-		[retryCount, maxRetries, retryTimeouts],
+		[maxRetries, handleWebSocketMessage, urlChatId],
 	);
 
 	// Handle connection failures with exponential backoff retry
@@ -376,7 +386,7 @@ export function useChat({
 			sendMessage(createAIMessage('websocket_retrying', `🔄 Connection failed. Retrying in ${Math.ceil(actualDelay / 1000)} seconds... (attempt ${retryCount.current + 1}/${maxRetries + 1})\n\n❌ Reason: ${reason}`, true));
 
 			const timeoutId = setTimeout(() => {
-				connectWithRetry(wsUrl, { disableGenerate, isRetry: true });
+				connectWithRetryRef.current?.(wsUrl, { disableGenerate, isRetry: true });
 			}, actualDelay);
 			
 			retryTimeouts.current.push(timeoutId);
@@ -388,8 +398,13 @@ export function useChat({
 				'WebSocket Resilience'
 			);
 		},
-		[maxRetries, retryCount, retryTimeouts, onDebugMessage, sendMessage],
+		[maxRetries, onDebugMessage, sendMessage],
 	);
+
+	useEffect(() => {
+		connectWithRetryRef.current = connectWithRetry;
+		handleConnectionFailureRef.current = handleConnectionFailure;
+	}, [connectWithRetry, handleConnectionFailure]);
 
     // No legacy wrapper; call connectWithRetry directly
 
@@ -515,7 +530,17 @@ export function useChat({
 			}
 		}
 		init();
-	}, []);
+	}, [
+		agentMode,
+		connectWithRetry,
+		loadBootstrapFiles,
+		onDebugMessage,
+		sendMessage,
+		updateStage,
+		urlChatId,
+		userImages,
+		userQuery,
+	]);
 
     // Mount/unmount: enable/disable reconnection and clear pending retries
     useEffect(() => {
