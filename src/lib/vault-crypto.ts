@@ -207,13 +207,49 @@ export async function decryptWithKey(
  */
 export function generateRecoveryCodes(count = 8): string[] {
 	const codes: string[] = [];
+	const alphabetLength = RECOVERY_ALPHABET.length;
+
+	if (alphabetLength === 0 || count <= 0) return codes;
+
+	// Use rejection sampling to avoid modulo bias.
+	// Supports any alphabet length up to 2^16
+	const range = alphabetLength <= 256 ? 256 : 65536;
+	const maxUnbiased = range - (range % alphabetLength);
+
+	const bytePool = new Uint8Array(64);
+	let bytePoolIndex = bytePool.length;
+
+	const wordPool = new Uint16Array(64);
+	let wordPoolIndex = wordPool.length;
+
+	function nextInt(): number {
+		if (range === 256) {
+			if (bytePoolIndex >= bytePool.length) {
+				crypto.getRandomValues(bytePool);
+				bytePoolIndex = 0;
+			}
+			return bytePool[bytePoolIndex++];
+		}
+
+		if (wordPoolIndex >= wordPool.length) {
+			crypto.getRandomValues(wordPool);
+			wordPoolIndex = 0;
+		}
+		return wordPool[wordPoolIndex++];
+	}
+
+	function nextUnbiasedIndex(): number {
+		while (true) {
+			const n = nextInt();
+			if (n < maxUnbiased) return n % alphabetLength;
+		}
+	}
 
 	for (let i = 0; i < count; i++) {
-		const bytes = crypto.getRandomValues(new Uint8Array(10));
 		let code = '';
 
 		for (let j = 0; j < 10; j++) {
-			code += RECOVERY_ALPHABET[bytes[j] % RECOVERY_ALPHABET.length];
+			code += RECOVERY_ALPHABET[nextUnbiasedIndex()];
 			if (j === 4) code += '-';
 		}
 

@@ -146,30 +146,29 @@ function collectSafetyFindings(ast: t.File): SafetyFinding[] {
 								...getNodeLoc(node),
 							});
 						} else if (t.isCallExpression(ret) && t.isMemberExpression(ret.callee)) {
-							const prop = ret.callee.property;
-							if (
-								t.isIdentifier(prop) &&
-								['map', 'filter', 'reduce', 'sort', 'slice', 'concat'].includes(prop.name)
-							) {
+							const member = ret.callee;
+							const prop = member.property;
+
+							if (t.isIdentifier(prop) && ['map', 'filter', 'reduce', 'sort', 'slice', 'concat'].includes(prop.name)) {
 								findings.push({
 									message:
 										"Potential external-store selector instability: a 'use*' hook selector returns an allocated array via map/filter/reduce/sort/etc. Select the raw stable collection from the hook and derive with useMemo outside the selector.",
 									...getNodeLoc(node),
 								});
 							}
-						} else if (
-							t.isCallExpression(ret) &&
-							t.isMemberExpression(ret.callee) &&
-							t.isIdentifier(ret.callee.object) &&
-							ret.callee.object.name === 'Object' &&
-							t.isIdentifier(ret.callee.property) &&
-							['values', 'keys', 'entries'].includes(ret.callee.property.name)
-						) {
-							findings.push({
-								message:
-									"Potential external-store selector instability: a 'use*' hook selector returns Object.values/keys/entries (allocates a new array). Select the raw object from the hook and derive with useMemo outside the selector.",
-								...getNodeLoc(node),
-							});
+
+							if (
+								t.isIdentifier(member.object) &&
+								member.object.name === 'Object' &&
+								t.isIdentifier(prop) &&
+								['values', 'keys', 'entries'].includes(prop.name)
+							) {
+								findings.push({
+									message:
+										"Potential external-store selector instability: a 'use*' hook selector returns Object.values/keys/entries (allocates a new array). Select the raw object from the hook and derive with useMemo outside the selector.",
+									...getNodeLoc(node),
+								});
+							}
 						}
 					}
 				}
