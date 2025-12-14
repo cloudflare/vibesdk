@@ -1388,6 +1388,7 @@ export class SandboxSdkClient extends BaseSandboxService {
                         filePath
                     };
                 } catch (error) {
+                    this.logger.error(`Failed to read file ${filePath}`, { error });
                     return {
                         result: null,
                         filePath,
