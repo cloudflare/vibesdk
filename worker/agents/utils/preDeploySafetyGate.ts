@@ -1,3 +1,4 @@
+import traverse, { type NodePath } from '@babel/traverse';
 import * as t from '@babel/types';
 import type { FileOutputType, PhaseConceptType } from '../schemas';
 import type { TemplateDetails } from '../../services/sandbox/sandboxTypes';
@@ -83,184 +84,147 @@ function isUseEffectCallee(callee: t.Expression | t.V8IntrinsicIdentifier): bool
 type WalkState = {
 	inComponent: boolean;
 	nestedFunctionDepth: number;
-	parent?: t.Node;
 };
 
-function getChildNodes(node: t.Node): t.Node[] {
-	const keys = t.VISITOR_KEYS[node.type] || [];
-	const out: t.Node[] = [];
-	for (const key of keys) {
-		const value = (node as any)[key] as unknown;
-		if (!value) continue;
-		if (Array.isArray(value)) {
-			for (const item of value) {
-				if (item && typeof item.type === 'string') out.push(item as t.Node);
-			}
-		} else if (value && typeof (value as any).type === 'string') {
-			out.push(value as t.Node);
-		}
-	}
-	return out;
-}
-
-function isLikelyComponentFunctionNode(node: t.Node, parent?: t.Node): boolean {
+function isLikelyComponentFunctionPath(path: NodePath<t.Function>): boolean {
+	const node = path.node;
 	if (t.isFunctionDeclaration(node)) {
 		return Boolean(node.id && /^[A-Z]/.test(node.id.name));
 	}
 	if (t.isArrowFunctionExpression(node) || t.isFunctionExpression(node)) {
-		if (parent && t.isVariableDeclarator(parent) && t.isIdentifier(parent.id)) {
-			return /^[A-Z]/.test(parent.id.name);
+		const parent = path.parentPath;
+		if (parent && parent.isVariableDeclarator()) {
+			const id = parent.node.id;
+			return t.isIdentifier(id) && /^[A-Z]/.test(id.name);
 		}
 	}
 	return false;
 }
 
-function walk(node: t.Node, state: WalkState, onNode: (node: t.Node, state: WalkState) => void) {
-	let nextState = state;
+function collectSafetyFindings(ast: t.File): SafetyFinding[] {
+	const findings: SafetyFinding[] = [];
 
-	const isFunctionNode =
-		t.isFunctionDeclaration(node) || t.isFunctionExpression(node) || t.isArrowFunctionExpression(node);
+	let inComponent = false;
+	let nestedFunctionDepth = 0;
+	const stack: WalkState[] = [];
 
-	if (isFunctionNode) {
-		const enteringComponent = !state.inComponent && isLikelyComponentFunctionNode(node, state.parent);
-		if (enteringComponent) {
-			nextState = { ...state, inComponent: true, nestedFunctionDepth: 0, parent: node };
-		} else if (state.inComponent) {
-			nextState = { ...state, nestedFunctionDepth: state.nestedFunctionDepth + 1, parent: node };
-		} else {
-			nextState = { ...state, parent: node };
-		}
-	} else {
-		nextState = { ...state, parent: node };
-	}
+	traverse(ast, {
+		noScope: true,
+		Function: {
+			enter(path) {
+				stack.push({ inComponent, nestedFunctionDepth });
 
-	onNode(node, nextState);
+				if (!inComponent && isLikelyComponentFunctionPath(path)) {
+					inComponent = true;
+					nestedFunctionDepth = 0;
+					return;
+				}
 
-	for (const child of getChildNodes(node)) {
-		walk(child, nextState, onNode);
-	}
+				if (inComponent) nestedFunctionDepth += 1;
+			},
+			exit() {
+				const prev = stack.pop();
+				if (!prev) return;
+				inComponent = prev.inComponent;
+				nestedFunctionDepth = prev.nestedFunctionDepth;
+			},
+		},
+		CallExpression(path) {
+			const node = path.node;
+			const { callee, arguments: args } = node;
+
+			// Selector allocations in use* hooks
+			if (isUseLikeHookCallee(callee) && args.length > 0) {
+				const firstArg = args[0];
+				if (t.isArrowFunctionExpression(firstArg) || t.isFunctionExpression(firstArg)) {
+					const ret = getReturnExpression(firstArg);
+					if (ret) {
+						if (t.isObjectExpression(ret) || t.isArrayExpression(ret)) {
+							findings.push({
+								message:
+									"Potential external-store selector instability: a 'use*' hook selector returns a new object/array. This can cause getSnapshot/max-update-depth loops. Rewrite to select a single stable value per hook call and derive objects/arrays outside the selector (e.g. useMemo).",
+								...getNodeLoc(node),
+							});
+						} else if (t.isCallExpression(ret) && t.isMemberExpression(ret.callee)) {
+							const prop = ret.callee.property;
+							if (
+								t.isIdentifier(prop) &&
+								['map', 'filter', 'reduce', 'sort', 'slice', 'concat'].includes(prop.name)
+							) {
+								findings.push({
+									message:
+										"Potential external-store selector instability: a 'use*' hook selector returns an allocated array via map/filter/reduce/sort/etc. Select the raw stable collection from the hook and derive with useMemo outside the selector.",
+									...getNodeLoc(node),
+								});
+							}
+						} else if (
+							t.isCallExpression(ret) &&
+							t.isMemberExpression(ret.callee) &&
+							t.isIdentifier(ret.callee.object) &&
+							ret.callee.object.name === 'Object' &&
+							t.isIdentifier(ret.callee.property) &&
+							['values', 'keys', 'entries'].includes(ret.callee.property.name)
+						) {
+							findings.push({
+								message:
+									"Potential external-store selector instability: a 'use*' hook selector returns Object.values/keys/entries (allocates a new array). Select the raw object from the hook and derive with useMemo outside the selector.",
+								...getNodeLoc(node),
+							});
+						}
+					}
+				}
+			}
+
+			// setState during render (top-level in component)
+			if (inComponent && nestedFunctionDepth === 0 && t.isIdentifier(callee) && /^set[A-Z]/.test(callee.name)) {
+				findings.push({
+					message:
+						"State setter appears to be called during the component render phase (not inside an event handler or effect). This can cause an infinite render loop / 'Maximum update depth exceeded'. Move the state update into a handler or a guarded useEffect.",
+					...getNodeLoc(node),
+				});
+			}
+
+			// useEffect missing deps
+			if (isUseEffectCallee(callee)) {
+				if (args.length !== 1) return;
+				const fn = args[0];
+				if (!t.isArrowFunctionExpression(fn) && !t.isFunctionExpression(fn)) return;
+				if (!functionBodyContainsSetState(fn)) return;
+
+				findings.push({
+					message:
+						"useEffect that sets state is missing a dependency array. This is a common cause of 'Maximum update depth exceeded'. Add a deps array and guard the state update.",
+					...getNodeLoc(node),
+				});
+			}
+		},
+	});
+
+	return findings;
 }
+
 
 function functionBodyContainsSetState(fn: t.ArrowFunctionExpression | t.FunctionExpression): boolean {
 	try {
 		let found = false;
 		const bodyNode: t.Node = t.isBlockStatement(fn.body) ? fn.body : t.expressionStatement(fn.body);
-		walk(bodyNode, { inComponent: false, nestedFunctionDepth: 0 }, (node) => {
-			if (!t.isCallExpression(node)) return;
-			if (t.isIdentifier(node.callee) && /^set[A-Z]/.test(node.callee.name)) {
-				found = true;
-			}
+
+		traverse(bodyNode, {
+			noScope: true,
+			CallExpression(path) {
+				const callee = path.node.callee;
+				if (t.isIdentifier(callee) && /^set[A-Z]/.test(callee.name)) {
+					found = true;
+					path.stop();
+				}
+			},
 		});
+
 		return found;
 	} catch (error) {
 		logSafetyGateError('functionBodyContainsSetState failed', error);
 		return false;
 	}
-}
-
-function detectSelectorAllocations(ast: t.File): SafetyFinding[] {
-	const findings: SafetyFinding[] = [];
-	try {
-		walk(ast, { inComponent: false, nestedFunctionDepth: 0 }, (node) => {
-			if (!t.isCallExpression(node)) return;
-			const { callee, arguments: args } = node;
-			if (!isUseLikeHookCallee(callee)) return;
-			if (args.length === 0) return;
-			const firstArg = args[0];
-			if (!t.isArrowFunctionExpression(firstArg) && !t.isFunctionExpression(firstArg)) return;
-
-			const ret = getReturnExpression(firstArg);
-			if (!ret) return;
-
-			if (t.isObjectExpression(ret) || t.isArrayExpression(ret)) {
-				findings.push({
-					message:
-						"Potential external-store selector instability: a 'use*' hook selector returns a new object/array. This can cause getSnapshot/max-update-depth loops. Rewrite to select a single stable value per hook call and derive objects/arrays outside the selector (e.g. useMemo).",
-					...getNodeLoc(node),
-				});
-				return;
-			}
-
-			if (t.isCallExpression(ret) && t.isMemberExpression(ret.callee)) {
-				const prop = ret.callee.property;
-				if (t.isIdentifier(prop) && ['map', 'filter', 'reduce', 'sort', 'slice', 'concat'].includes(prop.name)) {
-					findings.push({
-						message:
-							"Potential external-store selector instability: a 'use*' hook selector returns an allocated array via map/filter/reduce/sort/etc. Select the raw stable collection from the hook and derive with useMemo outside the selector.",
-						...getNodeLoc(node),
-					});
-					return;
-				}
-			}
-
-			if (
-				t.isCallExpression(ret) &&
-				t.isMemberExpression(ret.callee) &&
-				t.isIdentifier(ret.callee.object) &&
-				ret.callee.object.name === 'Object' &&
-				t.isIdentifier(ret.callee.property) &&
-				['values', 'keys', 'entries'].includes(ret.callee.property.name)
-			) {
-				findings.push({
-					message:
-						"Potential external-store selector instability: a 'use*' hook selector returns Object.values/keys/entries (allocates a new array). Select the raw object from the hook and derive with useMemo outside the selector.",
-					...getNodeLoc(node),
-				});
-			}
-		});
-	} catch (error) {
-		logSafetyGateError('detectSelectorAllocations failed', error);
-		return [];
-	}
-	return findings;
-}
-
-function detectSetStateInRender(ast: t.File): SafetyFinding[] {
-	const findings: SafetyFinding[] = [];
-	try {
-		walk(ast, { inComponent: false, nestedFunctionDepth: 0 }, (node, state) => {
-			if (!state.inComponent) return;
-			if (state.nestedFunctionDepth !== 0) return;
-			if (!t.isCallExpression(node)) return;
-			if (!t.isIdentifier(node.callee)) return;
-			if (!/^set[A-Z]/.test(node.callee.name)) return;
-
-			findings.push({
-				message:
-					"State setter appears to be called during the component render phase (not inside an event handler or effect). This can cause an infinite render loop / 'Maximum update depth exceeded'. Move the state update into a handler or a guarded useEffect.",
-				...getNodeLoc(node),
-			});
-		});
-	} catch (error) {
-		logSafetyGateError('detectSetStateInRender failed', error);
-		return [];
-	}
-	return findings;
-}
-
-function detectUseEffectMissingDeps(ast: t.File): SafetyFinding[] {
-	const findings: SafetyFinding[] = [];
-	try {
-		walk(ast, { inComponent: false, nestedFunctionDepth: 0 }, (node) => {
-			if (!t.isCallExpression(node)) return;
-			if (!isUseEffectCallee(node.callee)) return;
-			const args = node.arguments;
-			if (args.length !== 1) return;
-			const fn = args[0];
-			if (!t.isArrowFunctionExpression(fn) && !t.isFunctionExpression(fn)) return;
-			if (!functionBodyContainsSetState(fn)) return;
-
-			findings.push({
-				message:
-					"useEffect that sets state is missing a dependency array. This is a common cause of 'Maximum update depth exceeded'. Add a deps array and guard the state update.",
-				...getNodeLoc(node),
-			});
-		});
-	} catch (error) {
-		logSafetyGateError('detectUseEffectMissingDeps failed', error);
-		return [];
-	}
-	return findings;
 }
 
 export function detectPreDeploySafetyFindings(code: string): SafetyFinding[] {
@@ -272,7 +236,12 @@ export function detectPreDeploySafetyFindings(code: string): SafetyFinding[] {
 		return [{ message: 'Failed to parse file for safety checks; skipping deterministic scan.' }];
 	}
 
-	return [...detectSelectorAllocations(ast), ...detectUseEffectMissingDeps(ast), ...detectSetStateInRender(ast)];
+	try {
+		return collectSafetyFindings(ast);
+	} catch (error) {
+		logSafetyGateError('collectSafetyFindings failed', error);
+		return [];
+	}
 }
 
 function tryDeterministicSplitObjectSelectorDestructuring(code: string): { code: string; changed: boolean } {
@@ -347,42 +316,24 @@ function tryDeterministicSplitObjectSelectorDestructuring(code: string): { code:
 		return replacements.length > 0 ? replacements : null;
 	}
 
-	function rewriteInStatements(statements: t.Statement[]) {
-		for (let i = 0; i < statements.length; i++) {
-			const stmt = statements[i];
-			if (t.isVariableDeclaration(stmt)) {
-				const replacements = tryRewriteVariableDeclaration(stmt);
-				if (replacements) {
-					statements.splice(i, 1, ...replacements);
-					changed = true;
-					i += replacements.length - 1;
-					continue;
-				}
-			}
-
-			// Recurse into any nested statement lists
-			const keys = t.VISITOR_KEYS[stmt.type] || [];
-			for (const key of keys) {
-				const value = (stmt as any)[key] as any;
-				if (!value) continue;
-				if (t.isBlockStatement(value)) {
-					rewriteInStatements(value.body);
-				} else if (t.isProgram(value)) {
-					rewriteInStatements(value.body);
-				} else if (Array.isArray(value)) {
-					for (const item of value) {
-						if (item && t.isBlockStatement(item)) rewriteInStatements(item.body);
-					}
-				} else if (value && t.isStatement(value)) {
-					// e.g. IfStatement consequent/alternate can be a single Statement
-					if (t.isBlockStatement(value)) rewriteInStatements(value.body);
-				}
-			}
-		}
-	}
-
 	try {
-		rewriteInStatements(ast.program.body);
+		traverse(ast, {
+			noScope: true,
+			VariableDeclaration(path) {
+				// Preserve previous behavior: only rewrite declarations that are direct statements
+				// in Program/BlockStatement bodies (avoid rewriting in for-loop init, etc.).
+				const parentPath = path.parentPath;
+				if (!parentPath) return;
+				if (!parentPath.isProgram() && !parentPath.isBlockStatement()) return;
+
+				const replacements = tryRewriteVariableDeclaration(path.node);
+				if (!replacements) return;
+
+				path.replaceWithMultiple(replacements);
+				changed = true;
+				path.skip();
+			},
+		});
 	} catch (error) {
 		logSafetyGateError('deterministic split rewrite failed', error);
 		return { code, changed: false };

@@ -25,6 +25,8 @@ vi.mock('../assistants/realtimeCodeFixer', () => {
 
 import { detectPreDeploySafetyFindings, runPreDeploySafetyGate } from './preDeploySafetyGate';
 
+type PreDeploySafetyGateArgs = Parameters<typeof runPreDeploySafetyGate>[0];
+
 function makeFile(partial: Partial<FileOutputType> & Pick<FileOutputType, 'filePath' | 'fileContents'>): FileOutputType {
 	return {
 		filePath: partial.filePath,
@@ -33,10 +35,10 @@ function makeFile(partial: Partial<FileOutputType> & Pick<FileOutputType, 'fileP
 	};
 }
 
-function makeArgs(files: FileOutputType[]) {
+function makeArgs(files: FileOutputType[]): PreDeploySafetyGateArgs {
 	return {
 		files,
-		env: {} as any,
+		env: {} as unknown as PreDeploySafetyGateArgs['env'],
 		inferenceContext: {} as InferenceContext,
 		query: 'test query',
 		template: { name: 'template', allFiles: {} } as unknown as TemplateDetails,

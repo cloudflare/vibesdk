@@ -24,9 +24,6 @@ export default defineWorkersConfig({
         miniflare: {
           compatibilityDate: '2024-12-12',
           compatibilityFlags: ['nodejs_compat'],
-          bindings: {
-            SECRETS_ENCRYPTION_KEY: '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef',
-          },
         },
       },
     },
