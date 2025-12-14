@@ -64,22 +64,30 @@ jobs:
           fi
 
           # Fetch PR metadata for fork/release/dependabot gating.
-          TITLE=""
-          AUTHOR=""
-          HEAD_REPO=""
+           TITLE=""
+           AUTHOR=""
+           HEAD_REPO=""
+           HEAD_REF=""
+           BASE_REF=""
 
-          if [ "$EVENT_NAME" = "pull_request" ]; then
-            TITLE="$PR_TITLE"
-            AUTHOR="$PR_AUTHOR"
-            HEAD_REPO="$PR_HEAD_REPO"
-          else
-            PR_JSON=$(gh pr view "$PR_NUMBER" --repo "${{ github.repository }}" --json title,author,headRepository,headRepositoryOwner)
-            TITLE=$(printf '%s' "$PR_JSON" | jq -r '.title // ""')
-            AUTHOR=$(printf '%s' "$PR_JSON" | jq -r '.author.login // ""')
 
-            # gh JSON shape differs across versions; compute full_name defensively.
-            HEAD_REPO=$(printf '%s' "$PR_JSON" | jq -r 'if .headRepository and .headRepository.full_name then .headRepository.full_name elif .headRepositoryOwner and .headRepository and .headRepository.name then (.headRepositoryOwner.login + "/" + .headRepository.name) else "" end')
-          fi
+           if [ "$EVENT_NAME" = "pull_request" ]; then
+             TITLE="$PR_TITLE"
+             AUTHOR="$PR_AUTHOR"
+             HEAD_REPO="$PR_HEAD_REPO"
+             HEAD_REF="${{ github.event.pull_request.head.ref }}"
+             BASE_REF="${{ github.event.pull_request.base.ref }}"
+           else
+             PR_JSON=$(gh pr view "$PR_NUMBER" --repo "${{ github.repository }}" --json title,author,headRepository,headRepositoryOwner,headRefName,baseRefName)
+             TITLE=$(printf '%s' "$PR_JSON" | jq -r '.title // ""')
+             AUTHOR=$(printf '%s' "$PR_JSON" | jq -r '.author.login // ""')
+             HEAD_REF=$(printf '%s' "$PR_JSON" | jq -r '.headRefName // ""')
+             BASE_REF=$(printf '%s' "$PR_JSON" | jq -r '.baseRefName // ""')
+ 
+             # gh JSON shape differs across versions; compute full_name defensively.
+             HEAD_REPO=$(printf '%s' "$PR_JSON" | jq -r 'if .headRepository and .headRepository.full_name then .headRepository.full_name elif .headRepositoryOwner and .headRepository and .headRepository.name then (.headRepositoryOwner.login + "/" + .headRepository.name) else "" end')
+           fi
+
 
           if [ -z "$HEAD_REPO" ]; then
             echo "Could not determine head repo; skipping to protect secrets."
@@ -90,14 +98,24 @@ jobs:
             PROCEED="false"
           fi
 
-          case "$TITLE" in
-            *Release*) PROCEED="false" ;;
-          esac
-
-          if [ "$HEAD_REPO" != "${{ github.repository }}" ]; then
-            echo "Fork PR detected ($HEAD_REPO); skipping to protect secrets."
+          # Skip automated release-please PRs (these are noisy and often machine-generated).
+          if [ "$AUTHOR" = "release-please[bot]" ] || [ "$AUTHOR" = "googleapis-release-please[bot]" ]; then
             PROCEED="false"
           fi
+
+          # Heuristic: release-please branches commonly include "release-please".
+          if [ -n "$HEAD_REF" ] && echo "$HEAD_REF" | grep -qi "release-please"; then
+            PROCEED="false"
+          fi
+
+           if [ "$HEAD_REPO" != "${{ github.repository }}" ]; then
+             echo "Fork PR detected ($HEAD_REPO); skipping to protect secrets."
+             PROCEED="false"
+           fi
+
+           # Debug: print gating context
+           echo "Gate context: author=$AUTHOR title=\"$TITLE\" head_ref=$HEAD_REF base_ref=$BASE_REF head_repo=$HEAD_REPO"
+
 
           echo "proceed=$PROCEED" >> "$GITHUB_OUTPUT"
 
