@@ -290,11 +290,10 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
 				const message = error instanceof Error ? error.message : 'Unlock failed';
 				setError(message);
 				setLoading(false);
-			throw error;
-		}
-
-	},
-	[setLoading, setError, unlockWithDerivedKey]
+				throw error;
+			}
+		},
+		[setLoading, setError, unlockWithDerivedKey],
 	);
 
 	// Setup with passkey (WebAuthn PRF)
