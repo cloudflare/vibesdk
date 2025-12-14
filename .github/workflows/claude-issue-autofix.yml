@@ -31,7 +31,6 @@ jobs:
           LABEL_NAME: ${{ github.event.label.name }}
           COMMENT_BODY: ${{ github.event.comment.body }}
           IS_PR: ${{ github.event.issue.pull_request != null }}
-          IS_PR_COMMENT: ${{ github.event.issue.pull_request != null }}
         run: |
           APPROVED="false"
 
@@ -44,7 +43,7 @@ jobs:
             APPROVED="true"
           fi
 
-          if [ "$EVENT_NAME" = "issue_comment" ] && [ "$IS_PR_COMMENT" != "true" ] && echo "$COMMENT_BODY" | grep -qE "(^|[[:space:]])/claude[[:space:]]+fix([[:space:]]|$)"; then
+          if [ "$EVENT_NAME" = "issue_comment" ] && echo "$COMMENT_BODY" | grep -qE "(^|[[:space:]])/claude[[:space:]]+fix([[:space:]]|$)"; then
             APPROVED="true"
           fi
 
@@ -52,10 +51,15 @@ jobs:
 
       - name: Verify actor is trusted (repo collaborator)
         id: trusted
-        if: steps.gate.outputs.approved == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
+          APPROVED: ${{ steps.gate.outputs.approved }}
         run: |
+          if [ "$APPROVED" != "true" ]; then
+            echo "trusted=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
           PERM=$(gh api "repos/${{ github.repository }}/collaborators/${{ github.actor }}/permission" --jq .permission 2>/dev/null || echo "none")
           case "$PERM" in
             admin|maintain)
@@ -144,16 +148,18 @@ jobs:
 
       - name: Block changes to GitHub automation
         run: |
-          if git diff --name-only | grep -qE '^\.github/'; then
+          if { git diff --name-only; git diff --cached --name-only; } | grep -qE '^\.github/'; then
             echo "Refusing to create PR: .github/ files were modified."
-            git diff --name-only
+            { git diff --name-only; git diff --cached --name-only; } | sort -u
             exit 1
           fi
 
       - name: Commit changes
+        id: commit
         run: |
           if git diff --quiet; then
             echo "No changes produced; exiting."
+            echo "has_changes=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
@@ -162,11 +168,14 @@ jobs:
 
           git add -A
           git commit -m "fix: attempt to address issue #${{ steps.issue.outputs.issue_number }}"
+          echo "has_changes=true" >> "$GITHUB_OUTPUT"
 
       - name: Push branch
+        if: steps.commit.outputs.has_changes == 'true'
         run: git push origin "${{ steps.branch.outputs.branch }}"
 
       - name: Create PR
+        if: steps.commit.outputs.has_changes == 'true'
         id: create_pr
         env:
           GH_TOKEN: ${{ github.token }}
@@ -181,6 +190,7 @@ jobs:
           echo "pr_url=$PR_URL" >> "$GITHUB_OUTPUT"
 
       - name: Comment on issue with PR link
+        if: steps.commit.outputs.has_changes == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |

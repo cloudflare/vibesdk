@@ -12,6 +12,11 @@ jobs:
   intelligent-triage:
     name: Intelligent Issue Triage
     runs-on: ubuntu-latest
+
+    concurrency:
+      group: claude-issue-triage-${{ github.event.issue.number }}
+      cancel-in-progress: true
+
     env:
       ANTHROPIC_BASE_URL: ${{ secrets.ANTHROPIC_BASE_URL }}
       ANTHROPIC_CUSTOM_HEADERS: ${{ secrets.ANTHROPIC_CUSTOM_HEADERS }}
@@ -41,9 +46,9 @@ jobs:
             Title: ${{ github.event.issue.title }}
             Author: @${{ github.event.issue.user.login }}
 
-            Body:
-            ```
-            ${{ github.event.issue.body }}
+            Fetch the full issue body with:
+            ```bash
+            gh issue view ${{ github.event.issue.number }} --repo ${{ github.repository }} --json body --jq .body
             ```
 
             ## Labels (do not fail the workflow)

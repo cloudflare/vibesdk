@@ -28,6 +28,10 @@ jobs:
     needs: release-please
     if: needs.release-please.outputs.release_created
     runs-on: ubuntu-latest
+
+    concurrency:
+      group: release-ai-changelog-${{ github.ref }}
+      cancel-in-progress: true
     permissions:
       contents: write
       pull-requests: write
