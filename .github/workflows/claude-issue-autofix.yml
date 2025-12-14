@@ -157,7 +157,7 @@ jobs:
       - name: Commit changes
         id: commit
         run: |
-          if git diff --quiet; then
+          if git diff --quiet && git diff --cached --quiet; then
             echo "No changes produced; exiting."
             echo "has_changes=false" >> "$GITHUB_OUTPUT"
             exit 0
@@ -182,7 +182,7 @@ jobs:
         run: |
           PR_URL=$(gh pr create \
             --repo "${{ github.repository }}" \
-            --base main \
+            --base "${{ github.event.repository.default_branch }}" \
             --head "${{ steps.branch.outputs.branch }}" \
             --title "fix: issue #${{ steps.issue.outputs.issue_number }}" \
             --body "## Summary\n\nAutomated fix attempt for #${{ steps.issue.outputs.issue_number }}.\n\n## Notes\n- Please review carefully before merging.\n- This PR is generated only after maintainer approval (label/comment).")
