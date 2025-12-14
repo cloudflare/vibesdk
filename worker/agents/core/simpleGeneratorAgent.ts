@@ -1374,7 +1374,7 @@ export class SimpleCodeGeneratorAgent extends Agent<Env, CodeGenState> {
             phase: phase
         });
     
-        this.logger().info("Files generated for phase:", phase.name, finalFiles.map(f => f.filePath));
+        this.logger().info("Files generated for phase:", phase.name, safeFiles.map(f => f.filePath));
     
         this.logger().info(`Validation complete for phase: ${phase.name}`);
     
@@ -1382,7 +1382,7 @@ export class SimpleCodeGeneratorAgent extends Agent<Env, CodeGenState> {
         this.broadcast(WebSocketMessageResponses.PHASE_IMPLEMENTED, {
             phase: {
                 name: phase.name,
-                files: finalFiles.map(f => ({
+                files: safeFiles.map(f => ({
                     path: f.filePath,
                     purpose: f.filePurpose,
                     contents: f.fileContents
