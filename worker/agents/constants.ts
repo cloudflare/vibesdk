@@ -120,7 +120,7 @@ export const MAX_TOOL_CALLING_DEPTH_DEFAULT = 7;
 export const getMaxToolCallingDepth = (agentActionKey: AgentActionKey | 'testModelConfig') => {
     switch (agentActionKey) {
         case 'deepDebugger':
-            return 50;
+            return 40;
         default:
             return MAX_TOOL_CALLING_DEPTH_DEFAULT;
     }
