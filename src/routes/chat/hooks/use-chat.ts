@@ -421,6 +421,9 @@ export function useChat({
 						return;
 					}
 
+					// Prevent duplicate session creation on rerenders while streaming
+					connectionStatus.current = 'connecting';
+
 					// Start new code generation using API client
 					const response = await apiClient.createAgentSession({
 						query: userQuery,
@@ -487,6 +490,10 @@ export function useChat({
 					setIsGeneratingBlueprint(false);
 					sendMessage(createAIMessage('main', 'Blueprint generation complete. Now starting the code generation...', true));
 
+					if (!result.websocketUrl || !result.agentId) {
+						throw new Error('Failed to initialize agent session');
+					}
+
 					// Connect to WebSocket
 					logger.debug('connecting to ws with created id');
 					connectWithRetry(result.websocketUrl);
@@ -498,6 +505,9 @@ export function useChat({
 						description: userQuery,
 					});
 				} else if (connectionStatus.current === 'idle') {
+					// Prevent duplicate connect calls on rerenders
+					connectionStatus.current = 'connecting';
+
 					setIsBootstrapping(false);
 					// Show starting message with thinking indicator
 					setMessages(() => [
@@ -516,12 +526,18 @@ export function useChat({
 					setChatId(urlChatId);
 
 
+					if (!response.data.websocketUrl) {
+						throw new Error('Missing websocketUrl for existing agent');
+					}
+
 					logger.debug('connecting from init for existing chatId');
 					connectWithRetry(response.data.websocketUrl, {
 						disableGenerate: true, // We'll handle generation resume in the WebSocket open handler
 					});
 				}
 			} catch (error) {
+				// Allow retry on failure
+				connectionStatus.current = 'idle';
 				logger.error('Error initializing code generation:', error);
 				if (error instanceof RateLimitExceededError) {
 					const rateLimitMessage = handleRateLimitError(error.details, onDebugMessage);

@@ -51,3 +51,5 @@ debug-tools/*.json
 .env.sentry-build-plugin
 data-dump
 debug-tools/extracted
+cli
+debug-tools
