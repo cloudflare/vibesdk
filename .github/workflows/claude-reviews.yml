@@ -18,11 +18,31 @@ jobs:
       github.event.pull_request.head.repo.full_name == github.repository
 
     runs-on: ubuntu-latest
+
+    concurrency:
+      group: claude-review-${{ github.event.pull_request.number }}
+      cancel-in-progress: true
+
     env:
       ANTHROPIC_BASE_URL: ${{ secrets.ANTHROPIC_BASE_URL }}
       ANTHROPIC_CUSTOM_HEADERS: ${{ secrets.ANTHROPIC_CUSTOM_HEADERS }}
 
     steps:
+      - name: Cleanup previous Claude workflow comments
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          COMMENT_IDS=$(gh api repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/comments --paginate --jq '.[] | select(.user.login == "github-actions[bot]") | select(.body | (contains("Claude encountered an error") or contains("Claude finished") or contains("Code Review for PR")) and contains("View job")) | .id')
+          if [ -z "$COMMENT_IDS" ]; then
+            echo "No previous Claude comments to delete."
+            exit 0
+          fi
+
+          echo "$COMMENT_IDS" | while read -r comment_id; do
+            echo "Deleting comment $comment_id"
+            gh api repos/${{ github.repository }}/issues/comments/$comment_id -X DELETE
+          done
+
       - name: Checkout repository
         uses: actions/checkout@v4
 
@@ -45,7 +65,7 @@ jobs:
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
-          show_full_output: ${{ github.actor == 'AshishKumar4' && 'true' || 'false' }}
+          use_sticky_comment: true
           track_progress: true
           prompt: |
             ${{ steps.critical_paths.outputs.is_critical == 'true' && '🔒 **CRITICAL PATH SECURITY REVIEW**
