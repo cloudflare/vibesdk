@@ -30,8 +30,6 @@ export function useAutoScroll<T extends HTMLElement>(
 
     // initial stick
     isAtBottomRef.current = true;
-    // eslint-disable-next-line @typescript-eslint/no-floating-promises
-    // setTimeout(scrollToBottom, 0);
     Promise.resolve().then(scrollToBottom);
 
     el.addEventListener('scroll', onScroll, { passive: true });

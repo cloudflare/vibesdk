@@ -20,7 +20,6 @@ export type {
     AppLike, NewAppLike, AppComment, NewAppComment,
     AppView, NewAppView, OAuthState, NewOAuthState,
     SystemSetting, NewSystemSetting,
-    UserSecret, NewUserSecret,
     UserModelConfig, NewUserModelConfig,
 } from './schema';
 

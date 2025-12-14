@@ -27,6 +27,7 @@ import { ImageAttachment } from "worker/types/image-attachment";
 import { RateLimitExceededError } from "shared/types/errors";
 import { ProjectObjective } from "./objectives/base";
 import { FileOutputType } from "../schemas";
+import { SecretsClient, type UserSecretsStoreStub } from '../../services/secrets/SecretsClient';
 
 const DEFAULT_CONVERSATION_SESSION_ID = 'default';
 
@@ -39,6 +40,7 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
     public _logger: StructuredLogger | undefined;
     private behavior!: BaseCodingBehavior<AgentState>;
     private objective!: ProjectObjective<BaseProjectState>;
+    private secretsClient: SecretsClient | null = null;
     protected static readonly PROJECT_NAME_PREFIX_MAX_LENGTH = 20;
     // Services
     readonly fileManager: FileManager;
@@ -82,8 +84,8 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
     constructor(ctx: AgentContext, env: Env) {
         super(ctx, env);
                 
-        this.sql`CREATE TABLE IF NOT EXISTS full_conversations (id TEXT PRIMARY KEY, messages TEXT)`;
-        this.sql`CREATE TABLE IF NOT EXISTS compact_conversations (id TEXT PRIMARY KEY, messages TEXT)`;
+        void this.sql`CREATE TABLE IF NOT EXISTS full_conversations (id TEXT PRIMARY KEY, messages TEXT)`;
+        void this.sql`CREATE TABLE IF NOT EXISTS compact_conversations (id TEXT PRIMARY KEY, messages TEXT)`;
 
         // Create StateManager
         const stateManager = new StateManager(
@@ -250,7 +252,45 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
     getWebSockets(): WebSocket[] {
         return this.ctx.getWebSockets();
     }
-    
+
+    handleVaultUnlocked(): void {
+        this.secretsClient?.notifyUnlocked();
+        this.logger().info('Vault unlocked notification received', {});
+    }
+
+    handleVaultLocked(): void {
+        this.secretsClient?.notifyUnlockFailed('Vault locked');
+        this.secretsClient = null;
+        this.logger().info('Vault locked', {});
+    }
+
+    private getSecretsClient(): SecretsClient {
+        if (!this.secretsClient) {
+            const userId = this.state.inferenceContext.userId;
+            const stub = this.env.UserSecretsStore.get(
+                this.env.UserSecretsStore.idFromName(userId)
+            ) as unknown as UserSecretsStoreStub;
+
+            this.secretsClient = new SecretsClient(stub, (type, data) => {
+                if (type === 'vault_required') {
+                    const vaultData = data as { reason: string; provider?: string; envVarName?: string; secretId?: string };
+                    broadcastToConnections(this, 'vault_required', vaultData);
+                }
+            });
+        }
+
+        return this.secretsClient;
+    }
+
+    async getDecryptedSecret(query: { provider?: string; envVarName?: string; secretId?: string }): Promise<string | null> {
+        try {
+            return await this.getSecretsClient().get(query);
+        } catch (error) {
+            this.logger().info('Secret request failed', { query, error: String(error) });
+            return null;
+        }
+    }
+
     /**
      * Get the project objective (defines what is being built)
      */
@@ -507,7 +547,7 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
      * Handle WebSocket close - Agent owns WebSocket lifecycle
      */
     async onClose(connection: Connection): Promise<void> {
-        handleWebSocketClose(connection);
+        handleWebSocketClose(this, connection);
     }
     
     /**

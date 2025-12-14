@@ -21,4 +21,3 @@ export interface AgentConnectionData {
 }
 
 export type AgentPreviewResponse = PreviewType;
-    

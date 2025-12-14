@@ -245,125 +245,56 @@ const value = useMemo(() => ({ user, setUser }), [user]);
 \`\`\`
 
 ╔═══════════════════════════════════════════════════════════════════════════════╗
-║  🔥🔥🔥 ZUSTAND ABSOLUTE RULE - VIOLATION = INSTANT CRASH 🔥🔥🔥              ║
 ║                                                                               ║
-║  ⚠️  ONLY RULE: Select individual primitives. NO EXCEPTIONS. ⚠️              ║
+║  IMPORTANT: Every "useStore" example below applies to ANY subscription-based ║
+║  store hook (Zustand etc), regardless of the hook name.                       ║
 ║                                                                               ║
-║  ❌ BANNED FOREVER: useStore(s => ({ ... }))                                 ║
-║  ❌ BANNED FOREVER: useStore()  (no selector)                                ║
-║  ❌ BANNED FOREVER: useStore(s => s.getXxx())  (method calls)                ║
+║  ✅ SAFE SELECTORS: return ONLY stable refs or primitives                      ║
+║     - Property access is always OK: useStore(s => s.user.id)                  ║
+║     - Primitive ops without calls are OK: useStore(s => !!s.isOpen)           ║
 ║                                                                               ║
-║  ✅ ONLY ALLOWED: useStore(s => s.primitiveValue)                            ║
-║                                                                               ║
-║  Zustand is SUBSCRIPTION-BASED, not context-based like React Context.        ║
-║  Object/array selectors create NEW references every render = CRASH           ║
+║  ❌ UNSAFE SELECTORS (INSTANT CRASH RISK): any allocation or call              ║
+║     - useStore() (no selector)                                                ║
+║     - object/array literals: ({}) / ([])                                      ║
+║     - ANY function/method call: s.getX(), Object.keys/values/entries,         ║
+║       map/filter/reduce/sort, Date.now(), Math.*                              ║
+║     - useShallow DOES NOT make unsafe selectors safe                           ║
 ╚═══════════════════════════════════════════════════════════════════════════════╝
 
-❌ FORBIDDEN PATTERNS (THESE CAUSE INFINITE LOOPS):
+❌ FORBIDDEN STORE SELECTOR PATTERNS (CAUSE INFINITE LOOPS):
+If a store hook subscribes via useSyncExternalStore, the selector must return a stable snapshot. Treat this as a strict rule:
+
+✅ ALLOWED SELECTOR SHAPES:
 \`\`\`tsx
-// 🔍 SCAN FOR: "useStore(s => ({" or "useStore((s) => ({"
-const { a, b, c } = useStore(s => ({ a: s.a, b: s.b, c: s.c })); // ❌ CRASH
-
-// 🔍 SCAN FOR: "useStore(useShallow"
-import { useShallow } from 'zustand/react/shallow';
-const { a, b, c } = useStore(useShallow(s => ({ a: s.a, b: s.b, c: s.c }))); // ❌ CRASH
-// Why? You're creating a NEW object ({ a, b, c }) every render in the selector
-// useShallow can't help - the object reference is new every time
-
-// 🔍 SCAN FOR: "useStore()" or "= useStore();"
-const { a, b, c } = useStore(); // ❌ CRASH
-const state = useStore(); // ❌ CRASH
-
-// 🔍 SCAN FOR: "useStore(s => s.get" or "useStore((state) => state.get"
-const items = useStore(s => s.getItems()); // ❌ INFINITE LOOP
-const filtered = useStore(s => s.items.filter(...)); // ❌ INFINITE LOOP
-const mapped = useStore(s => s.data.map(...)); // ❌ INFINITE LOOP
-
-// 🔍 SCAN FOR: "useShallow((s) => Object." or "useShallow(s => Object."
-const items = useStore(useShallow(s => Object.values(s.itemsById))); // ❌ CRASH
-const keys = useStore(useShallow(s => Object.keys(s.data))); // ❌ CRASH
-const entries = useStore(useShallow(s => Object.entries(s.map))); // ❌ CRASH
-// Why? Object.values/keys/entries creates NEW ARRAY every render
-// useShallow compares array contents, but selector runs BEFORE comparison
-// React's useSyncExternalStore requires getSnapshot to return cached result
+useStore(s => s.some.deep.value)     // ✅ stable ref from store
+useStore(s => !!s.isOpen)            // ✅ primitive op, no calls
+useStore(s => s.items.length)        // ✅ primitive op, no calls
 \`\`\`
 
-⚠️ CRITICAL: useShallow DOES NOT FIX ARRAY-CREATING SELECTORS
-Many developers think useShallow fixes object-literal selectors. It does not.
-Avoid using useShallow in selectors entirely.
-useShallow only does shallow comparison AFTER selector runs. If selector creates new array/object, it's already too late.
-The selector itself must return a STABLE reference from the store, not a computed value.
-
-✅ CORRECT PATTERN - ONLY ONE OPTION:
+❌ BANNED SELECTOR SHAPES:
 \`\`\`tsx
-// ONLY ALLOWED: Separate primitive selectors
-const a = useStore(s => s.a);
-const b = useStore(s => s.b);
-const c = useStore(s => s.c);
-// ⚡ EFFICIENCY: Each selector ONLY triggers re-render when ITS value changes
-// This is NOT inefficient! It's the BEST pattern for Zustand. This is actually good quality, elegant code!
-// THERE IS NO OPTION 2. Only individual primitive selectors are allowed.
-// If you need multiple values, call useStore multiple times - it's the ONLY correct pattern.
-
-// For derived/computed values: Select primitives + useMemo in component
-const items = useStore(s => s.items);
-const filter = useStore(s => s.filter);
-const filtered = useMemo(() => 
-    items.filter(i => i.status === filter), 
-    [items, filter]
-);
-
-// For Object.values/keys/entries: Select the RAW object, derive in useMemo
-const itemsById = useStore(s => s.itemsById); // ✅ Select raw object (stable ref)
-const itemsList = useMemo(() => Object.values(itemsById), [itemsById]); // ✅ Derive outside selector
+useStore()                           // ❌ no selector
+useStore(s => ({ a: s.a }))           // ❌ allocates new object
+useStore(s => [s.a, s.b])             // ❌ allocates new array
+useStore(s => s.getItems())           // ❌ any call
+useStore(s => Object.keys(s.map))     // ❌ allocates new array
+useStore(s => s.items.filter(...))    // ❌ allocates new array
+useStore(useShallow(s => ({ a: s.a })))// ❌ still unsafe (new object)
 \`\`\`
 
-💡 IMPORTANT: Multiple Individual Selectors is MOST EFFICIENT (Debunking Common Myth)
-
-❌ WRONG BELIEF: "Multiple useStore calls = inefficient = many re-renders"
-✅ TRUTH: Each selector ONLY triggers re-render when ITS specific value changes
-
-Example:
+✅ CORRECT FIX (STABLE SNAPSHOT):
 \`\`\`tsx
-const name = useStore(s => s.user.name);  // Subscribes to name only
-const count = useStore(s => s.count);     // Subscribes to count only
-
-// If count changes:
-// ✓ count selector triggers ONE re-render
-// ✓ name selector does NOT trigger (name didn't change)
-// Result: ONE re-render total - perfectly efficient!
+const itemsById = useStore(s => s.itemsById); // ✅ raw stable ref
+const itemIds = useMemo(() => Object.keys(itemsById), [itemsById]);
 \`\`\`
 
-Contrast with object selector (even with useShallow):
-\`\`\`tsx
-const { name, count } = useStore(useShallow(s => ({ 
-  name: s.user.name, 
-  count: s.count 
-})));
-
-// If count changes:
-// ✗ Creates NEW object { name, count } every render
-// ✗ useShallow sees count changed, triggers re-render
-// ✗ NEW object creation itself can cause infinite loop
-// Result: LESS efficient + risk of crash
-\`\`\`
-
-⚠️ CRITICAL DIFFERENCES:
-\`\`\`tsx
-// This works fine in React Context (context-based):
-const { user, isLoading } = useContext(UserContext); // ✅ OK
-
-// But this CRASHES in Zustand (subscription-based):
-const { user, isLoading } = useStore(); // ❌ CRASH - NOT THE SAME!
-\`\`\`
-
-⚠️ ERROR SIGNATURES - ZUSTAND SELECTOR ISSUES:
+⚠️ ERROR SIGNATURES - STORE SELECTOR ISSUES:
 - "Maximum update depth exceeded"
 - "The result of getSnapshot should be cached"
 - "Too many re-renders"
 
-→ SCAN FOR: \`useStore(s => ({\`, \`useStore(s => s.get\`, \`useStore()\`, \`useShallow(s => Object.\`
-→ FIX: Select ONLY stable refs from store, derive arrays/objects with useMemo OUTSIDE selector
+→ SCAN FOR: \`useStore()\`, \`useShallow(\`, \`({\`/\`[\` in selectors, \`Object.\`, \`.map(\`/\`.filter(\`/\`.reduce(\`/\`.sort(\`, \`s.get\`, any \`(...)\` call inside selector
+→ FIX: Select raw stable refs/primitives only; derive arrays/objects with useMemo OUTSIDE selector
 
 ╔═══════════════════════════════════════════════════════════════════════════════╗
 ║  OTHER COMMON PATTERNS THAT CAUSE LOOPS                                       ║
@@ -415,7 +346,7 @@ const handleClick = useCallback(() => setCount(prev => prev + 1), []);
 ✅ **DOM listeners stable** - Keep effect deps static; read live store values via refs; do not reattach listeners on every state change
 
 **QUICK VALIDATION BEFORE SUBMITTING CODE:**
-→ Search for: \`useStore(s => ({\`, \`useStore(s => s.get\`, \`useStore()\`
+→ Search for: \`useStore()\`, \`useShallow(\`, \`useStore(s => ({\`, \`useStore(s => [\`, \`useStore(s => Object.\`, \`.map(\`/\`.filter(\`/\`.reduce(\`/\`.sort(\` inside selectors
 → Search for: \`setState\` outside event handlers/useEffect
 → Search for: \`useEffect(() => {\` without \`}, [\`
 → If found: REWRITE immediately using patterns above

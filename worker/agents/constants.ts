@@ -79,7 +79,10 @@ export const WebSocketMessageResponses: Record<string, WebSocketMessageType> = {
     // Terminal messages
     TERMINAL_OUTPUT: 'terminal_output',
     SERVER_LOG: 'server_log',
-}
+
+    // Vault messages
+    VAULT_REQUIRED: 'vault_required',
+} as const satisfies Record<string, WebSocketMessageType>;
 
 // WebSocket message types
 export const WebSocketMessageRequests = {
@@ -108,6 +111,10 @@ export const WebSocketMessageRequests = {
     
     // Terminal command request
     TERMINAL_COMMAND: 'terminal_command',
+
+    // Vault session sync (SK sent to vault WebSocket, only sessionId here)
+    VAULT_UNLOCKED: 'vault_unlocked',
+    VAULT_LOCKED: 'vault_locked',
 };
 
 export const PREVIEW_EXPIRED_ERROR = 'Preview expired, attempting redeploy. Please try again after a minute or refresh the page';
@@ -117,7 +124,7 @@ export const MAX_TOOL_CALLING_DEPTH_DEFAULT = 7;
 export const getMaxToolCallingDepth = (agentActionKey: AgentActionKey | 'testModelConfig') => {
     switch (agentActionKey) {
         case 'deepDebugger':
-            return 50;
+            return 40;
         case 'agenticProjectBuilder':
             return 100;
         default:

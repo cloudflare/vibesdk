@@ -11,12 +11,6 @@ import { env } from 'cloudflare:workers';
 
 // Common configs - these are good defaults
 const COMMON_AGENT_CONFIGS = {
-    templateSelection: {
-        name: AIModels.GEMINI_2_5_FLASH_LITE,
-        max_tokens: 2000,
-        fallbackModel: AIModels.GEMINI_2_5_FLASH,
-        temperature: 0.6,
-    },
     screenshotAnalysis: {
         name: AIModels.DISABLED,
         reasoning_effort: 'medium' as const,
@@ -25,10 +19,10 @@ const COMMON_AGENT_CONFIGS = {
         fallbackModel: AIModels.GEMINI_2_5_FLASH,
     },
     realtimeCodeFixer: {
-        name: AIModels.DISABLED,
+        name: AIModels.VERTEX_GPT_OSS_120,
         reasoning_effort: 'low' as const,
         max_tokens: 32000,
-        temperature: 1,
+        temperature: 0.2,
         fallbackModel: AIModels.GEMINI_2_5_FLASH,
     },
     fastCodeFixer: {
@@ -57,22 +51,28 @@ Cloudflare AI Gateway unified billing for seamless model access without managing
 */
 const PLATFORM_AGENT_CONFIG: AgentConfig = {
     ...COMMON_AGENT_CONFIGS,
+    templateSelection: {
+        name: AIModels.VERTEX_GPT_OSS_120,
+        max_tokens: 2000,
+        fallbackModel: AIModels.GEMINI_2_5_FLASH_LITE,
+        temperature: 0.6,
+    },
     blueprint: {
-        name: AIModels.OPENAI_5_MINI,
+        name: AIModels.GEMINI_3_PRO_PREVIEW,
         reasoning_effort: 'medium',
         max_tokens: 20000,
         fallbackModel: AIModels.GEMINI_2_5_FLASH,
         temperature: 1.0,
     },
     projectSetup: {
-        name: AIModels.GROK_4_FAST,
+        name: AIModels.GROK_4_1_FAST,
         reasoning_effort: 'medium',
         max_tokens: 8000,
         temperature: 1,
         fallbackModel: AIModels.GEMINI_2_5_PRO,
     },
     phaseGeneration: {
-        name: AIModels.GROK_4_FAST,
+        name: AIModels.GROK_4_1_FAST,
         reasoning_effort: 'medium',
         max_tokens: 8000,
         temperature: 1,
@@ -87,24 +87,24 @@ const PLATFORM_AGENT_CONFIG: AgentConfig = {
         ...SHARED_IMPLEMENTATION_CONFIG,
     },
     conversationalResponse: {
-        name: AIModels.GROK_4_FAST,
+        name: AIModels.GROK_4_1_FAST,
         reasoning_effort: 'low',
         max_tokens: 4000,
         temperature: 1,
         fallbackModel: AIModels.GEMINI_2_5_FLASH,
     },
     deepDebugger: {
-        name: AIModels.OPENAI_5_MINI,
+        name: AIModels.GROK_4_1_FAST,
         reasoning_effort: 'high',
         max_tokens: 8000,
         temperature: 1,
-        fallbackModel: AIModels.GEMINI_2_5_FLASH,
+        fallbackModel: AIModels.GEMINI_2_5_PRO,
     },
     fileRegeneration: {
-        name: AIModels.OPENAI_5_MINI,
+        name: AIModels.VERTEX_GPT_OSS_120,
         reasoning_effort: 'medium',
         max_tokens: 16000,
-        temperature: 1,
+        temperature: 0.2,
         fallbackModel: AIModels.GROK_CODE_FAST_1,
     },
     agenticProjectBuilder: {
@@ -122,6 +122,12 @@ const PLATFORM_AGENT_CONFIG: AgentConfig = {
 /* These are the default out-of-the box gemini-only models used when PLATFORM_MODEL_PROVIDERS is not set */
 const DEFAULT_AGENT_CONFIG: AgentConfig = {
     ...COMMON_AGENT_CONFIGS,
+    templateSelection: {
+        name: AIModels.GEMINI_2_5_FLASH_LITE,
+        max_tokens: 2000,
+        fallbackModel: AIModels.GEMINI_2_5_FLASH,
+        temperature: 0.6,
+    },
     blueprint: {
         name: AIModels.GEMINI_2_5_PRO,
         reasoning_effort: 'medium',

@@ -276,7 +276,7 @@ export class DeploymentManager extends BaseAgentService<BaseProjectState> implem
             throw new Error(`Failed to fetch runtime errors: ${resp?.error || 'Unknown error'}`);
         }
 
-        let errors = resp.errors || [];
+        const errors = resp.errors || [];
             
         if (errors.length > 0) {
             logger.info(`Found ${errors.length} runtime errors: ${errors.map(e => e.message).join(', ')}`);

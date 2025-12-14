@@ -80,7 +80,7 @@ export function handleWebSocketMessage(
                     logger.error('Error during screenshot capture:', error);
                 });
                 break;
-            case WebSocketMessageRequests.STOP_GENERATION:
+            case WebSocketMessageRequests.STOP_GENERATION: {
                 logger.info('User requested to stop generation');
                 
                 // Cancel current inference operation
@@ -98,6 +98,7 @@ export function handleWebSocketMessage(
                         : 'No active inference to cancel'
                 });
                 break;
+            }
             case WebSocketMessageRequests.RESUME_GENERATION:
                 // Set shouldBeGenerating and restart generation
                 logger.info('Resuming code generation');
@@ -178,6 +179,12 @@ export function handleWebSocketMessage(
                 logger.info('Clearing conversation history');
                 agent.clearConversation();
                 break;
+            case WebSocketMessageRequests.VAULT_UNLOCKED:
+                agent.handleVaultUnlocked();
+                break;
+            case WebSocketMessageRequests.VAULT_LOCKED:
+                agent.handleVaultLocked();
+                break;
             case WebSocketMessageRequests.GET_CONVERSATION_STATE:
                 try {
                     const state = agent.getConversationState();
@@ -225,8 +232,10 @@ export function handleWebSocketMessage(
     }
 }
 
-export function handleWebSocketClose(connection: Connection): void {
+export function handleWebSocketClose(agent: CodeGeneratorAgent, connection: Connection): void {
     logger.info(`WebSocket connection closed: ${connection.id}`);
+    // Clear vault session on disconnect for security
+    agent.handleVaultLocked();
 }
 
 export function broadcastToConnections<T extends WebSocketMessageType>(

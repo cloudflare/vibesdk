@@ -14,6 +14,7 @@ import { getAgentStub } from './agents';
 // Durable Object and Service exports
 export { UserAppSandboxService } from './services/sandbox/sandboxSdkClient';
 export { CodeGeneratorAgent } from './agents/core/codingAgent';
+export { UserSecretsStore } from './services/secrets/UserSecretsStore';
 
 // export const CodeGeneratorAgent = Sentry.instrumentDurableObjectWithSentry(sentryOptions, CodeGeneratorAgent);
 // export const DORateLimitStore = Sentry.instrumentDurableObjectWithSentry(sentryOptions, BaseDORateLimitStore);
@@ -174,7 +175,7 @@ const worker = {
 			if (isGitProtocolRequest(pathname)) {
 				return handleGitProtocolRequest(request, env, ctx);
 			}
-			
+
 			// Serve static assets for all non-API routes from the ASSETS binding.
 			if (!pathname.startsWith('/api/')) {
 				return env.ASSETS.fetch(request);

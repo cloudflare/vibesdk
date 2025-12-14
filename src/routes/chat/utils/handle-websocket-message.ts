@@ -90,13 +90,14 @@ export interface HandleMessageDeps {
         messageType?: string,
         rawMessage?: unknown
     ) => void;
-    onTerminalMessage?: (log: { 
-        id: string; 
-        content: string; 
-        type: 'command' | 'stdout' | 'stderr' | 'info' | 'error' | 'warn' | 'debug'; 
-        timestamp: number; 
-        source?: string 
+    onTerminalMessage?: (log: {
+        id: string;
+        content: string;
+        type: 'command' | 'stdout' | 'stderr' | 'info' | 'error' | 'warn' | 'debug';
+        timestamp: number;
+        source?: string
     }) => void;
+    onVaultUnlockRequired?: (reason: string) => void;
 }
 
 export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
@@ -978,6 +979,24 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
                         source: message.source
                     };
                     onTerminalMessage(serverLog);
+                }
+                break;
+            }
+
+            case 'vault_required': {
+                // Agent needs access to secrets but vault is locked
+                logger.info('Agent requested vault unlock:', message.reason);
+                const reason = message.reason || 'Please unlock your vault to continue';
+
+                // Trigger unlock modal via callback if available
+                if (deps.onVaultUnlockRequired) {
+                    deps.onVaultUnlockRequired(reason);
+                } else {
+                    // Fallback to toast if callback not provided
+                    toast.info('Vault unlock required', {
+                        description: reason,
+                        duration: 5000,
+                    });
                 }
                 break;
             }

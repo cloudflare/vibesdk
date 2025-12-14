@@ -27,6 +27,7 @@ import { BaseCodingBehavior, BaseCodingOperations } from './base';
 import { ICodingAgent } from '../../services/interfaces/ICodingAgent';
 import { SimpleCodeGenerationOperation } from '../../operations/SimpleCodeGeneration';
 import { StateMigration } from '../stateMigration';
+import { runPreDeploySafetyGate } from '../../utils/preDeploySafetyGate';
 
 interface PhasicOperations extends BaseCodingOperations {
     generateNextPhase: PhaseGenerationOperation;
@@ -621,20 +622,29 @@ export class PhasicCodingBehavior extends BaseCodingBehavior<PhasicState> implem
             }).filter((f): f is FileOutputType => f !== null);
         });
     
-        // Update state with completed phase
-        await this.fileManager.saveGeneratedFiles(finalFiles, `feat: ${phase.name}\n\n${phase.description}`);
+        const templateDetails = this.getTemplateDetails();
+        const safeFiles = templateDetails
+            ? await runPreDeploySafetyGate({
+                  files: finalFiles,
+                  env: this.env,
+                  inferenceContext: this.state.inferenceContext,
+                  query: this.state.query,
+                  template: templateDetails,
+                  phase,
+              })
+            : finalFiles;
 
-        this.logger.info("Files generated for phase:", phase.name, finalFiles.map(f => f.filePath));
+        await this.fileManager.saveGeneratedFiles(safeFiles, `feat: ${phase.name}\n\n${phase.description}`);
 
-        // Execute commands if provided
+        this.logger.info("Files generated for phase:", phase.name, safeFiles.map(f => f.filePath));
+
         if (result.commands && result.commands.length > 0) {
             this.logger.info("Phase implementation suggested install commands:", result.commands);
             await this.executeCommands(result.commands, false);
         }
-    
-        // Deploy generated files
-        if (finalFiles.length > 0) {
-            await this.deployToSandbox(finalFiles, false, phase.name, true);
+
+        if (safeFiles.length > 0) {
+            await this.deployToSandbox(safeFiles, false, phase.name, true);
             if (postPhaseFixing) {
                 await this.applyDeterministicCodeFixes();
                 if (this.state.inferenceContext.enableFastSmartCodeFix) {
@@ -657,7 +667,7 @@ export class PhasicCodingBehavior extends BaseCodingBehavior<PhasicState> implem
         this.broadcast(WebSocketMessageResponses.PHASE_IMPLEMENTED, {
             phase: {
                 name: phase.name,
-                files: finalFiles.map(f => ({
+                files: safeFiles.map(f => ({
                     path: f.filePath,
                     purpose: f.filePurpose,
                     contents: f.fileContents
@@ -670,7 +680,7 @@ export class PhasicCodingBehavior extends BaseCodingBehavior<PhasicState> implem
         this.markPhaseComplete(phase.name);
         
         return {
-            files: finalFiles,
+            files: safeFiles,
             deploymentNeeded: result.deploymentNeeded,
             commands: result.commands
         };

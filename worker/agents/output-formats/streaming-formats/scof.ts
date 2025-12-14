@@ -4,8 +4,7 @@ import { applyDiff } from '../diff-formats/udiff';
 import { extractCommands } from '../../utils/common';
 
 // SCOF-specific parsing state with comprehensive tracking
-export interface SCOFParsingState extends ParsingState {
-}
+export type SCOFParsingState = ParsingState;
 
 /**
  * SCOF (Shell Command Output Format) implementation with robust chunk handling
@@ -625,7 +624,7 @@ export class SCOFFormat extends CodeGenerationFormat {
     formatInstructions(): string {
         return `
 <OUTPUT FORMAT>
-Use familiar shell patterns (using cat and pipes) for multi-file code generation:
+Use the **EXACT** following format (familiar shell patterns using cat and pipes) for multi-file code generation:
 
 FILE CREATION as \`full_content\`:
 
@@ -654,15 +653,33 @@ You may optionally suggest install commands if needed for any dependencies (only
 bun install <dependencies>
 \`\`\`
 
-IMPORTANT RULES:
+SUPER IMPORTANT RULES:
 1. Command-line paths (cat > filename) ALWAYS override comment paths
 2. Use single quotes around EOF markers for consistency
-3. Ensure proper line endings and EOF markers
+3. Ensure proper line endings and EOF markers JUST AS PROVIDED in the format instructions
 4. Adhere to the above instructions for file creation and patching
 5. Each file can use consistently either full content OR unified diff depending on other instructions.
 6. Write multiple files in sequence, separated by newlines
-7. At the end of the output, there should always be a EOF marker
+7. At the end of the contents of every file, there should always be a EOF marker to mark the end of the file contents
 8. Do not add any additional bash commands or instructions. This would be parsed by a custom parser, not by the shell. No commands are supported other than bun add/install
+9. No need to add backticks in your output, they are used here for formatting
+
+Example:
+
+\`\`\`
+cat > src/utils/helper.ts << 'EOF'
+export function formatDate(date: Date): string {
+  return date.toISOString().split('T')[0];
+}
+EOF
+
+cat << 'EOF' | patch src/index.ts
+@@ -1,3 +1,4 @@
++import { formatDate } from './utils/helper';
+ console.log('Hello');
+EOF
+\`\`\`
+
 </OUTPUT FORMAT>
 `;
     }

@@ -165,6 +165,16 @@ const MODELS_MASTER = {
             contextSize: 400000, // 400K Context
         }
     },
+    OPENAI_5_2: {
+        id: 'openai/gpt-5.2',
+        config: {
+            name: 'GPT-5.2',
+            size: ModelSize.LARGE,
+            provider: 'openai',
+            creditCost: 7, // $1.75
+            contextSize: 400000, // 400K Context
+        }
+    },
     OPENAI_5_MINI: {
         id: 'openai/gpt-5-mini',
         config: {
@@ -252,10 +262,21 @@ const MODELS_MASTER = {
             nonReasoning: true,
         }
     },
+    GROK_4_1_FAST: {
+        id: 'grok/grok-4-1-fast-reasoning',
+        config: {
+            name: 'Grok 4.1 Fast',
+            size: ModelSize.LITE,
+            provider: 'grok',
+            creditCost: 0.8, // $0.20
+            contextSize: 2_000_000, // 2M Context
+            nonReasoning: true,
+        }
+    },
 
     // --- Vertex Models ---
     VERTEX_GPT_OSS_120: {
-        id: 'google-vertex-ai/openai/gpt-oss-120b',
+        id: 'google-vertex-ai/openai/gpt-oss-120b-maas',
         config: {
             name: 'Google Vertex GPT OSS 120B',
             size: ModelSize.LITE,

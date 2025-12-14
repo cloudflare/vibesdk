@@ -45,6 +45,16 @@ export function useImageUpload(options: UseImageUploadOptions = {}): UseImageUpl
 			return null;
 		}
 
+		// Validate file size
+		if (file.size > maxSizeBytes) {
+			const maxSizeMB = (maxSizeBytes / (1024 * 1024)).toFixed(1);
+			const fileSizeMB = (file.size / (1024 * 1024)).toFixed(1);
+			const errorMsg = `Image too large: ${fileSizeMB}MB. Maximum allowed is ${maxSizeMB}MB.`;
+			toast.error(errorMsg);
+			onError?.(errorMsg);
+			return null;
+		}
+
 		return new Promise((resolve, reject) => {
 			const reader = new FileReader();
 

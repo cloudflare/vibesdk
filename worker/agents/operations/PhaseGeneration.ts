@@ -240,7 +240,7 @@ ${serialized}`;
     return serialized;
 };
 
-const userPromptFormatter = (isFinal: Boolean, issues: IssueReport, userSuggestions?: string[], isUserSuggestedPhase?: boolean) => {
+const userPromptFormatter = (isFinal: boolean, issues: IssueReport, userSuggestions?: string[], isUserSuggestedPhase?: boolean) => {
     let prompt = isFinal ? LAST_PHASE_PROMPT : NEXT_PHASE_USER_PROMPT;
     prompt = prompt
         .replaceAll('{{issues}}', issuesPromptFormatterWithGuidelines(issues))

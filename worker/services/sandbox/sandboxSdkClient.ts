@@ -1045,10 +1045,9 @@ export class SandboxSdkClient extends BaseSandboxService {
                     error: 'Failed to write files to sandbox'
                 };
             }
-
-            const setupPromise = () => this.setupInstance(instanceId, projectName, initCommand, envVars);
-            const setupResult = await setupPromise();
-            if (!setupResult) {
+            
+            const results = await this.setupInstance(instanceId, projectName, initCommand, envVars);
+            if (!results) {
                 return {
                     success: false,
                     error: 'Failed to setup instance'
@@ -1059,10 +1058,10 @@ export class SandboxSdkClient extends BaseSandboxService {
                 projectName: projectName,
                 startTime: new Date().toISOString(),
                 webhookUrl: webhookUrl,
-                previewURL: setupResult?.previewURL,
-                processId: setupResult?.processId,
-                tunnelURL: setupResult?.tunnelURL,
-                allocatedPort: setupResult?.allocatedPort,
+                previewURL: results.previewURL,
+                processId: results.processId,
+                tunnelURL: results.tunnelURL,
+                allocatedPort: results.allocatedPort,
                 donttouch_files: dontTouchFiles,
                 redacted_files: redactedFiles,
             };
@@ -1072,9 +1071,9 @@ export class SandboxSdkClient extends BaseSandboxService {
                 success: true,
                 runId: instanceId,
                 message: `Successfully created instance ${instanceId}`,
-                previewURL: setupResult?.previewURL,
-                tunnelURL: setupResult?.tunnelURL,
-                processId: setupResult?.processId,
+                previewURL: results.previewURL,
+                tunnelURL: results.tunnelURL,
+                processId: results.processId,
             };
         } catch (error) {
             this.logger.error(`Failed to create instance for project ${projectName}`, error);
@@ -1271,10 +1270,13 @@ export class SandboxSdkClient extends BaseSandboxService {
 
             const successCount = results.filter(r => r.success).length;
 
-            // If code files were modified, touch vite.config.ts to trigger a rebuild
+            // If code files were modified, touch .reload-trigger to trigger a page reload
+            // We use .reload-trigger instead of vite.config.ts because:
+            // - vite.config.ts triggers a FULL SERVER RESTART (disposes miniflare, causes race condition errors)
+            // - .reload-trigger triggers a PAGE RELOAD via WebSocket (server stays running)
             if (successCount > 0 && filteredFiles.some(file => file.filePath.endsWith('.ts') || file.filePath.endsWith('.tsx'))) {
-                this.logger.info('Touching vite.config.ts to trigger rebuild');
-                await session.exec(`touch vite.config.ts`);
+                this.logger.info('Touching .reload-trigger to trigger page reload');
+                await session.exec(`touch .reload-trigger`);
             }
 
             return {
@@ -1338,6 +1340,7 @@ export class SandboxSdkClient extends BaseSandboxService {
                         filePath
                     };
                 } catch (error) {
+                    this.logger.error(`Failed to read file ${filePath}`, { error });
                     return {
                         result: null,
                         filePath,

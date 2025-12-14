@@ -4,7 +4,7 @@ import { HTTPException } from 'hono/http-exception';
 import type { AppEnv } from '../types/appenv';
 
 export function sentryOptions(env: Env) : Sentry.CloudflareOptions {
-    let transportOptions : Sentry.CloudflareOptions['transportOptions'] = {};
+    const transportOptions: Sentry.CloudflareOptions['transportOptions'] = {};
     if (env.CF_ACCESS_ID && env.CF_ACCESS_SECRET) {
         transportOptions.headers = {
             'CF-Access-Client-Id': env.CF_ACCESS_ID,

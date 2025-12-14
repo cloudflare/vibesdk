@@ -37,7 +37,7 @@ export class AiGatewayAnalyticsService {
    * Initialize configuration from environment variables
    */
   private initializeConfig(env: Env): AnalyticsConfig {
-    let config: AnalyticsConfig = {
+    const config: AnalyticsConfig = {
       accountId: '',
       gateway: '',
       graphqlEndpoint: 'https://api.cloudflare.com/client/v4/graphql',
