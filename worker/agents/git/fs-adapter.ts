@@ -54,7 +54,7 @@ export class SqliteFS {
 
     init() {
         // Create table
-        this.sql`
+        void this.sql`
             CREATE TABLE IF NOT EXISTS git_objects (
                 path TEXT PRIMARY KEY,
                 parent_path TEXT NOT NULL DEFAULT '',
@@ -65,11 +65,11 @@ export class SqliteFS {
         `;
         
         // Create indexes for efficient lookups
-        this.sql`CREATE INDEX IF NOT EXISTS idx_git_objects_parent ON git_objects(parent_path, path)`;
-        this.sql`CREATE INDEX IF NOT EXISTS idx_git_objects_is_dir ON git_objects(is_dir, path)`;
+        void this.sql`CREATE INDEX IF NOT EXISTS idx_git_objects_parent ON git_objects(parent_path, path)`;
+        void this.sql`CREATE INDEX IF NOT EXISTS idx_git_objects_is_dir ON git_objects(is_dir, path)`;
         
         // Ensure root directory exists
-        this.sql`INSERT OR IGNORE INTO git_objects (path, parent_path, data, is_dir, mtime) VALUES ('', '', '', 1, ${Date.now()})`;
+        void this.sql`INSERT OR IGNORE INTO git_objects (path, parent_path, data, is_dir, mtime) VALUES ('', '', '', 1, ${Date.now()})`;
         
         // promises property required for isomorphic-git
         Object.defineProperty(this, 'promises', {
@@ -148,7 +148,7 @@ export class SqliteFS {
             for (let i = 0; i < parts.length - 1; i++) {
                 const dirPath = parts.slice(0, i + 1).join('/');
                 const dirParent = i === 0 ? '' : parts.slice(0, i).join('/');
-                this.sql`INSERT OR IGNORE INTO git_objects (path, parent_path, data, is_dir, mtime) VALUES (${dirPath}, ${dirParent}, '', 1, ${now})`;
+                void this.sql`INSERT OR IGNORE INTO git_objects (path, parent_path, data, is_dir, mtime) VALUES (${dirPath}, ${dirParent}, '', 1, ${now})`;
             }
         }
         
@@ -162,7 +162,7 @@ export class SqliteFS {
             base64Content = btoa(binaryString);
         }
         
-        this.sql`INSERT OR REPLACE INTO git_objects (path, parent_path, data, is_dir, mtime) VALUES (${normalized}, ${parentPath}, ${base64Content}, 0, ${Date.now()})`;
+        void this.sql`INSERT OR REPLACE INTO git_objects (path, parent_path, data, is_dir, mtime) VALUES (${normalized}, ${parentPath}, ${base64Content}, 0, ${Date.now()})`;
     }
 
     async unlink(path: string): Promise<void> {
@@ -184,7 +184,7 @@ export class SqliteFS {
             throw error;
         }
         
-        this.sql`DELETE FROM git_objects WHERE path = ${normalized} AND is_dir = 0`;
+        void this.sql`DELETE FROM git_objects WHERE path = ${normalized} AND is_dir = 0`;
     }
 
     async readdir(path: string): Promise<string[]> {
@@ -250,7 +250,7 @@ export class SqliteFS {
         }
         
         const parentPath = parts.length > 1 ? parts.slice(0, -1).join('/') : '';
-        this.sql`INSERT OR IGNORE INTO git_objects (path, parent_path, data, is_dir, mtime) VALUES (${normalized}, ${parentPath}, '', 1, ${Date.now()})`;
+        void this.sql`INSERT OR IGNORE INTO git_objects (path, parent_path, data, is_dir, mtime) VALUES (${normalized}, ${parentPath}, '', 1, ${Date.now()})`;
     }
 
     async rmdir(path: string): Promise<void> {
@@ -287,7 +287,7 @@ export class SqliteFS {
             throw error;
         }
         
-        this.sql`DELETE FROM git_objects WHERE path = ${normalized}`;
+        void this.sql`DELETE FROM git_objects WHERE path = ${normalized}`;
     }
 
     async stat(path: string): Promise<{ type: 'file' | 'dir'; mode: number; size: number; mtimeMs: number }> {

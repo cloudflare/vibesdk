@@ -18,6 +18,4 @@ export interface AgentConnectionData {
     agentId: string;
 }
 
-export interface AgentPreviewResponse extends PreviewType {
-}
-    
+export type AgentPreviewResponse = PreviewType;

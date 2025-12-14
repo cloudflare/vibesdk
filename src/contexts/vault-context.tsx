@@ -155,6 +155,22 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
 		[]
 	);
 
+	const unlockWithDerivedKey = useCallback(
+		async (vmk: CryptoKey): Promise<void> => {
+			const sessionKey = generateSessionKey();
+			const encryptedVMK = await encryptVMKForSession(vmk, sessionKey);
+
+			const connected = await connectVaultWebSocket(encryptedVMK.ciphertext, encryptedVMK.nonce, sessionKey);
+			if (!connected) {
+				throw new Error('Failed to establish vault WebSocket connection');
+			}
+
+			storeSession({ sessionKey });
+			vmkRef.current = vmk;
+		},
+		[connectVaultWebSocket],
+	);
+
 	// Fetch vault status
 	const refreshStatus = useCallback(async () => {
 		if (!isAuthenticated) {
@@ -274,11 +290,11 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
 				const message = error instanceof Error ? error.message : 'Unlock failed';
 				setError(message);
 				setLoading(false);
-				throw error;
-			}
+			throw error;
+		}
 
-		},
-		[setLoading, setError]
+	},
+	[setLoading, setError, unlockWithDerivedKey]
 	);
 
 	// Setup with passkey (WebAuthn PRF)
@@ -381,24 +397,8 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
 			setLoading(false);
 			throw error;
 		}
-	}, [setLoading, setError, user]);
+	}, [setLoading, setError, unlockWithDerivedKey, user]);
 
-	const unlockWithDerivedKey = async (vmk: CryptoKey): Promise<void> => {
-		const sessionKey = generateSessionKey();
-		const encryptedVMK = await encryptVMKForSession(vmk, sessionKey);
-
-		const connected = await connectVaultWebSocket(
-			encryptedVMK.ciphertext,
-			encryptedVMK.nonce,
-			sessionKey
-		);
-		if (!connected) {
-			throw new Error('Failed to establish vault WebSocket connection');
-		}
-
-		storeSession({ sessionKey });
-		vmkRef.current = vmk;
-	};
 
 	// Unlock with password
 	const unlockWithPassword = useCallback(
@@ -447,7 +447,7 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
 				return { success: false, error: message };
 			}
 		},
-		[setLoading, setError]
+		[setLoading, setError, unlockWithDerivedKey]
 	);
 
 	// Unlock with passkey
@@ -520,7 +520,7 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
 			setLoading(false);
 			return { success: false, error: message };
 		}
-	}, [setLoading, setError]);
+	}, [setLoading, setError, unlockWithDerivedKey]);
 
 	// Unlock with recovery code
 	const unlockWithRecoveryCode = useCallback(
@@ -569,7 +569,7 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
 				return { success: false, error: message };
 			}
 		},
-		[setLoading, setError]
+		[setLoading, setError, unlockWithDerivedKey]
 	);
 
 	const lockVault = useCallback(async (): Promise<void> => {

@@ -175,7 +175,7 @@ function analyzeUsageContext(fileContent: string, name: string, line: number): s
     // 2. React/JSX component - check for JSX usage
     // Look for: <Name or <Name> or <Name/> or <Name prop=
     // Also check if file is .tsx and name starts with capital
-    const jsxPattern = new RegExp(`<${name}(?:\\s|>|\/>)`, 'g');
+    const jsxPattern = new RegExp(`<${name}(?:\\s|>|/>)`, 'g');
     if (jsxPattern.test(contextLines) || 
         (fileContent.includes('React') && name[0] === name[0].toUpperCase() && jsxPattern.test(contextLines))) {
         return 'react_component';

@@ -3,7 +3,7 @@
  * Three-mode interface: Platform Models, BYOK (Bring Your Own Key), Custom Providers
  */
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Settings, Play, RotateCcw, Info, Key } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -115,7 +115,7 @@ export function ConfigModal({
   const [loadingByok, setLoadingByok] = useState(false);
 
   // Load BYOK data (filtered by agent constraints)
-  const loadByokData = async () => {
+  const loadByokData = useCallback(async () => {
     try {
       setLoadingByok(true);
       // Pass agent key to get constraint-filtered models
@@ -128,7 +128,7 @@ export function ConfigModal({
     } finally {
       setLoadingByok(false);
     }
-  };
+  }, [agentConfig.key]);
 
   // Handle modal open/close lifecycle
   useEffect(() => {
@@ -148,7 +148,7 @@ export function ConfigModal({
       // Modal closed - reset for next time
       setIsInitialOpen(false);
     }
-  }, [isOpen, isInitialOpen, userConfig]);
+  }, [isOpen, isInitialOpen, userConfig, loadByokData]);
 
   // Load BYOK data when modal opens
   useEffect(() => {

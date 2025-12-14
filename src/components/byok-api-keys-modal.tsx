@@ -4,7 +4,7 @@
  * Tab 2: Manage existing keys with delete functionality
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Key, Check, AlertCircle, Loader2, Plus, Settings, Trash2, Eye, Lock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -121,34 +121,7 @@ export function ByokApiKeysModal({ isOpen, onClose, onKeyAdded }: ByokApiKeysMod
 	// Get selected provider details
 	const provider = byokProviders.find((p) => p.id === selectedProvider);
 
-	// Load BYOK templates when modal opens
-	useEffect(() => {
-		if (isOpen) {
-			// Reset add keys tab
-			setSelectedProvider(null);
-			setApiKey('');
-			setIsSaving(false);
-
-			// Reset manage keys tab
-			setDeleteDialogOpen(false);
-			setSecretToDelete(null);
-			setIsDeleting(false);
-
-			// Load data
-			loadBYOKProviders();
-		}
-	}, [isOpen]);
-
-	// Load secrets when vault is unlocked
-	useEffect(() => {
-		if (isOpen && isUnlocked) {
-			loadManagedSecrets();
-		} else if (isOpen && !isUnlocked) {
-			setManagedSecrets([]);
-		}
-	}, [isOpen, isUnlocked]);
-
-	const loadBYOKProviders = async () => {
+	const loadBYOKProviders = useCallback(async () => {
 		try {
 			setIsLoading(true);
 			const response = await apiClient.getBYOKTemplates();
@@ -165,9 +138,9 @@ export function ByokApiKeysModal({ isOpen, onClose, onKeyAdded }: ByokApiKeysMod
 		} finally {
 			setIsLoading(false);
 		}
-	};
+	}, []);
 
-	const loadManagedSecrets = async () => {
+	const loadManagedSecrets = useCallback(async () => {
 		if (!isUnlocked) return;
 
 		try {
@@ -199,7 +172,34 @@ export function ByokApiKeysModal({ isOpen, onClose, onKeyAdded }: ByokApiKeysMod
 		} finally {
 			setLoadingSecrets(false);
 		}
-	};
+	}, [isUnlocked, listSecrets]);
+
+	// Load BYOK templates when modal opens
+	useEffect(() => {
+		if (isOpen) {
+			// Reset add keys tab
+			setSelectedProvider(null);
+			setApiKey('');
+			setIsSaving(false);
+
+			// Reset manage keys tab
+			setDeleteDialogOpen(false);
+			setSecretToDelete(null);
+			setIsDeleting(false);
+
+			// Load data
+			loadBYOKProviders();
+		}
+	}, [isOpen, loadBYOKProviders]);
+
+	// Load secrets when vault is unlocked
+	useEffect(() => {
+		if (isOpen && isUnlocked) {
+			loadManagedSecrets();
+		} else if (isOpen && !isUnlocked) {
+			setManagedSecrets([]);
+		}
+	}, [isOpen, isUnlocked, loadManagedSecrets]);
 
 	// Handle provider selection
 	const handleProviderSelect = (providerId: string) => {

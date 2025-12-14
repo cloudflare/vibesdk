@@ -4,8 +4,7 @@ import { applyDiff } from '../diff-formats/udiff';
 import { extractCommands } from '../../utils/common';
 
 // SCOF-specific parsing state with comprehensive tracking
-export interface SCOFParsingState extends ParsingState {
-}
+export type SCOFParsingState = ParsingState;
 
 /**
  * SCOF (Shell Command Output Format) implementation with robust chunk handling

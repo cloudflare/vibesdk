@@ -1059,7 +1059,6 @@ export class SandboxSdkClient extends BaseSandboxService {
             }
             this.logger.info('Creating sandbox instance', { instanceId, templateName, projectName });
             
-            let results: {previewURL: string, tunnelURL: string, processId: string, allocatedPort: number} | undefined;
             await this.ensureTemplateExists(templateName);
 
             const [donttouchFiles, redactedFiles] = await Promise.all([
@@ -1072,25 +1071,24 @@ export class SandboxSdkClient extends BaseSandboxService {
                 throw new Error(`Failed to move template: ${moveTemplateResult.stderr}`);
             }
             
-            const setupPromise = () => this.setupInstance(instanceId, projectName, localEnvVars);
-            const setupResult = await setupPromise();
-            if (!setupResult) {
+            const results = await this.setupInstance(instanceId, projectName, localEnvVars);
+            if (!results) {
                 return {
                     success: false,
                     error: 'Failed to setup instance'
                 };
             }
-            results = setupResult;
+
             // Store instance metadata
             const metadata = {
                 templateName: templateName,
                 projectName: projectName,
                 startTime: new Date().toISOString(),
                 webhookUrl: webhookUrl,
-                previewURL: results?.previewURL,
-                processId: results?.processId,
-                tunnelURL: results?.tunnelURL,
-                allocatedPort: results?.allocatedPort,
+                previewURL: results.previewURL,
+                processId: results.processId,
+                tunnelURL: results.tunnelURL,
+                allocatedPort: results.allocatedPort,
                 donttouch_files: donttouchFiles,
                 redacted_files: redactedFiles,
             };
@@ -1578,7 +1576,7 @@ export class SandboxSdkClient extends BaseSandboxService {
 
     async clearInstanceErrors(instanceId: string): Promise<ClearErrorsResponse> {
         try {
-            let clearedCount = 0;
+            const clearedCount = 0;
 
             // Try enhanced error system first - clear ALL errors
             try {
@@ -1823,7 +1821,7 @@ export class SandboxSdkClient extends BaseSandboxService {
             
             // Step 2: Parse wrangler config from KV
             this.logger.info('Reading wrangler configuration from KV');
-            let wranglerConfigContent = await env.VibecoderStore.get(this.getWranglerKVKey(instanceId));
+            const wranglerConfigContent = await env.VibecoderStore.get(this.getWranglerKVKey(instanceId));
             
             if (!wranglerConfigContent) {
                 // This should never happen unless KV itself has some issues

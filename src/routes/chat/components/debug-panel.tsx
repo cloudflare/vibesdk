@@ -1,4 +1,4 @@
-import { useState, useRef, useMemo, Component } from 'react';
+import { useState, useRef, useMemo, useCallback, Component } from 'react';
 import { Bug, X, Download, Mail, Maximize2, Minimize2, Clock, BookmarkPlus, Bookmark, Activity, BarChart3 } from 'lucide-react';
 import { Button } from '../../../components/primitives/button';
 import { captureDebugScreenshot } from '../../../utils/screenshot';
@@ -280,7 +280,38 @@ function DebugPanelCore({ messages, onClear, chatSessionId }: DebugPanelProps) {
     }
   };
   
-  const processTimelineData = (messages: DebugMessage[]) => {
+  const categorizeWebSocketMessage = useCallback((messageType?: string): 'generation' | 'phase' | 'file' | 'deployment' | 'system' | undefined => {
+    if (!messageType) return undefined;
+    
+    // Generation messages
+    if (['generation_started', 'generation_complete', 'generation_errors'].includes(messageType)) {
+      return 'generation';
+    }
+    
+    // Phase messages  
+    if (['phase_generating', 'phase_generated', 'phase_implementing', 'phase_implemented'].includes(messageType)) {
+      return 'phase';
+    }
+    
+    // File operation messages
+    if (['file_generating', 'file_generated', 'file_regenerated', 'file_chunk_generated', 'file_enhanced', 'file_regenerating'].includes(messageType)) {
+      return 'file';
+    }
+    
+    // Deployment messages
+    if (['cloudflare_deployment_started', 'cloudflare_deployment_completed', 'cloudflare_deployment_error', 'deployment_completed'].includes(messageType)) {
+      return 'deployment';
+    }
+    
+    // System/Runtime messages
+    if (['runtime_error_found', 'command_executing', 'code_review', 'error'].includes(messageType)) {
+      return 'system';
+    }
+    
+    return 'system'; // Default fallback
+  }, []);
+
+  const processTimelineData = useCallback((messages: DebugMessage[]) => {
     try {
       if (!messages || messages.length === 0) return { events: [], lanes: [] };
       
@@ -309,7 +340,7 @@ function DebugPanelCore({ messages, onClear, chatSessionId }: DebugPanelProps) {
       console.error('Error processing timeline data:', error);
       return { events: [], lanes: [] };
     }
-  };
+  }, [bookmarkedMessages, categorizeWebSocketMessage]);
   
   // Advanced performance analytics - only compute when panel is open
   const analyticsData = useMemo(() => {
@@ -358,7 +389,7 @@ function DebugPanelCore({ messages, onClear, chatSessionId }: DebugPanelProps) {
       console.error('Error calculating analytics data:', error);
       return null;
     }
-  }, [messages, isOpen, bookmarkedMessages]);
+  }, [messages, isOpen]);
   
   // Timeline data processing - optimized for performance
   const timelineData = useMemo(() => {
@@ -370,7 +401,7 @@ function DebugPanelCore({ messages, onClear, chatSessionId }: DebugPanelProps) {
       console.error('Error processing timeline data:', error);
       return null;
     }
-  }, [messages, isOpen, viewMode, bookmarkedMessages]);
+  }, [messages, isOpen, viewMode, processTimelineData]);
   
   // notifications logic removed
   
@@ -385,37 +416,7 @@ function DebugPanelCore({ messages, onClear, chatSessionId }: DebugPanelProps) {
     setBookmarkedMessages(newBookmarks);
   };
   
-  // WebSocket message categorization
-  const categorizeWebSocketMessage = (messageType?: string): 'generation' | 'phase' | 'file' | 'deployment' | 'system' | undefined => {
-    if (!messageType) return undefined;
-    
-    // Generation messages
-    if (['generation_started', 'generation_complete', 'generation_errors'].includes(messageType)) {
-      return 'generation';
-    }
-    
-    // Phase messages  
-    if (['phase_generating', 'phase_generated', 'phase_implementing', 'phase_implemented'].includes(messageType)) {
-      return 'phase';
-    }
-    
-    // File operation messages
-    if (['file_generating', 'file_generated', 'file_regenerated', 'file_chunk_generated', 'file_enhanced', 'file_regenerating'].includes(messageType)) {
-      return 'file';
-    }
-    
-    // Deployment messages
-    if (['cloudflare_deployment_started', 'cloudflare_deployment_completed', 'cloudflare_deployment_error', 'deployment_completed'].includes(messageType)) {
-      return 'deployment';
-    }
-    
-    // System/Runtime messages
-    if (['runtime_error_found', 'command_executing', 'code_review', 'error'].includes(messageType)) {
-      return 'system';
-    }
-    
-    return 'system'; // Default fallback
-  };
+
   
   const panelRef = useRef<HTMLDivElement>(null);
 

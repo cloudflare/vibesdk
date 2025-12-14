@@ -230,7 +230,7 @@ export async function generateAppProxyToken(
 
 export function generateAppProxyUrl(env: Env) {
     let protocol = 'https';
-    let domain = env.CUSTOM_DOMAIN;
+    const domain = env.CUSTOM_DOMAIN;
     if (isDev(env)) {
         protocol = 'http';
     }

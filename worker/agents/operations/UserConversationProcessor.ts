@@ -308,7 +308,7 @@ async function prepareMessagesForInference(env: Env, messages: ConversationMessa
     // For each multimodal image, convert the image to base64 data url
     const processedMessages = await Promise.all(messages.map(m => {
         return mapImagesInMultiModalMessage(structuredClone(m), async (c) => {
-            let url = c.image_url.url;
+            const url = c.image_url.url;
             if (url.includes('base64,')) {
                 return c;
             }

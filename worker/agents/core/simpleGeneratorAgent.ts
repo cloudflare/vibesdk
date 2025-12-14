@@ -169,8 +169,8 @@ export class SimpleCodeGeneratorAgent extends Agent<Env, CodeGenState> {
 
     constructor(ctx: AgentContext, env: Env) {
         super(ctx, env);
-        this.sql`CREATE TABLE IF NOT EXISTS full_conversations (id TEXT PRIMARY KEY, messages TEXT)`;
-        this.sql`CREATE TABLE IF NOT EXISTS compact_conversations (id TEXT PRIMARY KEY, messages TEXT)`;
+        void this.sql`CREATE TABLE IF NOT EXISTS full_conversations (id TEXT PRIMARY KEY, messages TEXT)`;
+        void this.sql`CREATE TABLE IF NOT EXISTS compact_conversations (id TEXT PRIMARY KEY, messages TEXT)`;
         
         // Initialize StateManager
         this.stateManager = new StateManager(
@@ -507,7 +507,9 @@ export class SimpleCodeGeneratorAgent extends Agent<Env, CodeGenState> {
                 if (Array.isArray(parsed)) {
                     fullHistory = parsed as ConversationMessage[];
                 }
-            } catch (_e) {}
+            } catch (_e) {
+                // Ignore invalid stored conversation history
+            }
         }
         if (fullHistory.length === 0) {
             fullHistory = currentConversation;
@@ -521,7 +523,9 @@ export class SimpleCodeGeneratorAgent extends Agent<Env, CodeGenState> {
                 if (Array.isArray(parsed)) {
                     runningHistory = parsed as ConversationMessage[];
                 }
-            } catch (_e) {}
+            } catch (_e) {
+                // Ignore invalid stored conversation history
+            }
         }
         if (runningHistory.length === 0) {
             runningHistory = currentConversation;
@@ -554,8 +558,8 @@ export class SimpleCodeGeneratorAgent extends Agent<Env, CodeGenState> {
         const serializedCompact = JSON.stringify(conversations.runningHistory);
         try {
             this.logger().info(`Saving conversation state ${conversations.id}, full_length: ${serializedFull.length}, compact_length: ${serializedCompact.length}`);
-            this.sql`INSERT OR REPLACE INTO compact_conversations (id, messages) VALUES (${conversations.id}, ${serializedCompact})`;
-            this.sql`INSERT OR REPLACE INTO full_conversations (id, messages) VALUES (${conversations.id}, ${serializedFull})`;
+            void this.sql`INSERT OR REPLACE INTO compact_conversations (id, messages) VALUES (${conversations.id}, ${serializedCompact})`;
+            void this.sql`INSERT OR REPLACE INTO full_conversations (id, messages) VALUES (${conversations.id}, ${serializedFull})`;
         } catch (error) {
             this.logger().error(`Failed to save conversation state ${conversations.id}`, error);
         }
@@ -1811,7 +1815,7 @@ export class SimpleCodeGeneratorAgent extends Agent<Env, CodeGenState> {
             phaseName
         });
 
-        let skippedFiles: { path: string; purpose: string; diff: string }[] = [];
+        const skippedFiles: { path: string; purpose: string; diff: string }[] = [];
 
         // Enforce template donttouch constraints
         const templateDetails = this.getTemplateDetails();

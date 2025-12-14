@@ -91,7 +91,9 @@ export default function DiscoverPage() {
 						onValueChange={(v) => {
 							handleSortChange(v);
 							// Persist to URL and localStorage
-							try { localStorage.setItem('discover.sort', v); } catch {}
+							try { localStorage.setItem('discover.sort', v); } catch {
+								console.error('Failed to persist sort to localStorage');
+							}
 							const next = new URLSearchParams(searchParams);
 							next.set('sort', v);
 							setSearchParams(next, { replace: true });
