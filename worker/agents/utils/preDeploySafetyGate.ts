@@ -1,10 +1,13 @@
-import traverse, { type NodePath } from '@babel/traverse';
+import * as _traverse from '@babel/traverse';
+import type { NodePath } from '@babel/traverse';
 import * as t from '@babel/types';
 import type { FileOutputType, PhaseConceptType } from '../schemas';
 import type { TemplateDetails } from '../../services/sandbox/sandboxTypes';
 import type { InferenceContext } from '../inferutils/config.types';
 import { parseCode, generateCode } from '../../services/code-fixer/utils/ast';
 import { RealtimeCodeFixer } from '../assistants/realtimeCodeFixer';
+
+const traverse = _traverse.default;
 
 export interface SafetyFinding {
 	message: string;
@@ -403,7 +406,8 @@ export async function runPreDeploySafetyGate(args: {
 					return await realtimeCodeFixer.run(
 						file,
 						{ query: args.query, template: args.template },
-						args.phase,
+						// args.phase,
+                        undefined,
 						issuesText,
 						3,
 					);
