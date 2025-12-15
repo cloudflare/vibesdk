@@ -19,7 +19,7 @@ const COMMON_AGENT_CONFIGS = {
         fallbackModel: AIModels.GEMINI_2_5_FLASH,
     },
     realtimeCodeFixer: {
-        name: AIModels.VERTEX_GPT_OSS_120,
+        name: AIModels.GROK_4_1_FAST_NON_REASONING,
         reasoning_effort: 'low' as const,
         max_tokens: 32000,
         temperature: 0.2,
@@ -101,8 +101,8 @@ const PLATFORM_AGENT_CONFIG: AgentConfig = {
         fallbackModel: AIModels.GEMINI_2_5_PRO,
     },
     fileRegeneration: {
-        name: AIModels.VERTEX_GPT_OSS_120,
-        reasoning_effort: 'medium',
+        name: AIModels.GROK_4_1_FAST_NON_REASONING,
+        reasoning_effort: 'low',
         max_tokens: 16000,
         temperature: 0.2,
         fallbackModel: AIModels.GROK_CODE_FAST_1,

@@ -133,6 +133,16 @@ const MODELS_MASTER = {
             contextSize: 200000, // 200K Context
         }
     },
+    CLAUDE_4_5_OPUS: {
+        id: 'anthropic/claude-opus-4-5',
+        config: {
+            name: 'Claude 4.5 Opus',
+            size: ModelSize.LARGE,
+            provider: 'anthropic',
+            creditCost: 20, // $5.00
+            contextSize: 200000, // 200K Context
+        }
+    },
     CLAUDE_4_5_HAIKU: {
         id: 'anthropic/claude-haiku-4-5',
         config: {
@@ -273,7 +283,17 @@ const MODELS_MASTER = {
             nonReasoning: true,
         }
     },
-
+    GROK_4_1_FAST_NON_REASONING: {
+        id: 'grok/grok-4-1-fast-non-reasoning',
+        config: {
+            name: 'Grok 4.1 Fast Non reasoning',
+            size: ModelSize.LITE,
+            provider: 'grok',
+            creditCost: 0.8, // $0.20
+            contextSize: 2_000_000, // 2M Context
+            nonReasoning: true,
+        }
+    },
     // --- Vertex Models ---
     VERTEX_GPT_OSS_120: {
         id: 'google-vertex-ai/openai/gpt-oss-120b-maas',
@@ -295,6 +315,16 @@ const MODELS_MASTER = {
             contextSize: 262144, // 256K Context
         }
     },
+    QWEN_3_CODER_480B: {
+        id: 'google-vertex-ai/qwen/qwen3-coder-480b-a35b-instruct-maas',
+        config: {
+            name: 'Qwen 3 Coder 480B',
+            size: ModelSize.LITE,
+            provider: 'google-vertex-ai',
+            creditCost: 8, // $0.22
+            contextSize: 262144, // 256K Context
+        },
+    }
 } as const;
 
 /**
