@@ -1,7 +1,7 @@
 import { FileTreeNode, RuntimeError, StaticAnalysisResponse, TemplateDetails } from "../services/sandbox/sandboxTypes";
 import { TemplateRegistry } from "./inferutils/schemaFormatters";
 import z from 'zod';
-import { Blueprint, BlueprintSchemaLite, FileOutputType, PhaseConceptLiteSchema, PhaseConceptSchema, PhaseConceptType, TemplateSelection } from "./schemas";
+import { PhasicBlueprint, AgenticBlueprint, BlueprintSchemaLite, AgenticBlueprintSchema, FileOutputType, PhaseConceptLiteSchema, PhaseConceptSchema, PhaseConceptType, TemplateSelection, Blueprint } from "./schemas";
 import { IssueReport } from "./domain/values/IssueReport";
 import { FileState, MAX_PHASES } from "./core/state";
 import { CODE_SERIALIZERS, CodeSerializerType } from "./utils/codeSerializers";
@@ -55,16 +55,12 @@ export const PROMPT_UTILS = {
 
     serializeTemplate(template?: TemplateDetails): string {
         if (template) {
-            // const indentedFilesText = filesText.replace(/^(?=.)/gm, '\t\t\t\t'); // Indent each line with 4 spaces
             return `
 <TEMPLATE DETAILS>
 The following are the details (structures and files) of the starting boilerplate template, on which the project is based.
 
 Name: ${template.name}
 Frameworks: ${template.frameworks?.join(', ')}
-
-Apart from these files, All SHADCN Components are present in ./src/components/ui/* and can be imported from there, example: import { Button } from "@/components/ui/button";
-**Please do not rewrite these components, just import them and use them**
 
 Template Usage Instructions: 
 ${template.description.usage}
@@ -144,7 +140,21 @@ ${typecheckOutput}`;
     serializeFiles(files: FileOutputType[], serializerType: CodeSerializerType): string {
         // Use scof format
         return CODE_SERIALIZERS[serializerType](files);
+    },    
+    
+    summarizeFiles(files: FileState[], max = 120): string {
+        const compact = files
+            .slice(0, max)
+            .map((file) => {
+                const purpose = file.filePurpose ? ` — ${file.filePurpose}` : '';
+                return `- ${file.filePath}${purpose}`;
+            })
+            .join('\n');
+
+        const extra = files.length > max ? `\n...and ${files.length - max} more` : '';
+        return compact + extra;
     },
+
 
     REACT_RENDER_LOOP_PREVENTION: `
 ⚠️⚠️⚠️ ABSOLUTE ZERO-TOLERANCE RULES - VIOLATION CRASHES THE APP ⚠️⚠️⚠️
@@ -926,8 +936,8 @@ FRONTEND_FIRST_CODING: `<PHASES GENERATION STRATEGY>
 
 export interface GeneralSystemPromptBuilderParams {
     query: string,
-    templateDetails: TemplateDetails,
-    dependencies: Record<string, string>,
+    templateDetails?: TemplateDetails,
+    dependencies?: Record<string, string>,
     blueprint?: Blueprint,
     language?: string,
     frameworks?: string[],
@@ -941,19 +951,29 @@ export function generalSystemPromptBuilder(
     // Base variables always present
     const variables: Record<string, string> = {
         query: params.query,
-        template: PROMPT_UTILS.serializeTemplate(params.templateDetails),
-        dependencies: JSON.stringify(params.dependencies ?? {})
     };
+    
+    // Template context (optional)
+    if (params.templateDetails) {
+        variables.template = PROMPT_UTILS.serializeTemplate(params.templateDetails);
+        variables.dependencies = JSON.stringify(params.dependencies ?? {});
+    }
 
-    // Optional blueprint variables
+    // Blueprint variables - discriminate by type
     if (params.blueprint) {
-        // Redact the initial phase information from blueprint
-        const blueprint = {
-            ...params.blueprint,
-            initialPhase: undefined,
+        if ('implementationRoadmap' in params.blueprint) {
+            // Phasic blueprint
+            const phasicBlueprint = params.blueprint as PhasicBlueprint;
+            const blueprintForPrompt = { ...phasicBlueprint, initialPhase: undefined };
+            variables.blueprint = TemplateRegistry.markdown.serialize(blueprintForPrompt, BlueprintSchemaLite);
+            variables.blueprintDependencies = phasicBlueprint.frameworks?.join(', ') ?? '';
+        } else {
+            // Agentic blueprint
+            const agenticBlueprint = params.blueprint as AgenticBlueprint;
+            variables.blueprint = TemplateRegistry.markdown.serialize(agenticBlueprint, AgenticBlueprintSchema);
+            variables.blueprintDependencies = agenticBlueprint.frameworks?.join(', ') ?? '';
+            variables.agenticPlan = agenticBlueprint.plan.map((step, i) => `${i + 1}. ${step}`).join('\n');
         }
-        variables.blueprint = TemplateRegistry.markdown.serialize(blueprint, BlueprintSchemaLite);
-        variables.blueprintDependencies = params.blueprint.frameworks?.join(', ') ?? '';
     }
 
     // Optional language and frameworks

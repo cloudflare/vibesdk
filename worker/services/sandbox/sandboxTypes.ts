@@ -47,11 +47,21 @@ export type StoredError = z.infer<typeof StoredErrorSchema>;
 export const RuntimeErrorSchema = SimpleErrorSchema
 export type RuntimeError = z.infer<typeof RuntimeErrorSchema>
 
+// -- Instance creation options --
+
+export const InstanceCreationRequestSchema = z.object({
+    files: z.array(TemplateFileSchema),
+    projectName: z.string(),
+    webhookUrl: z.string().url().optional(),
+    envVars: z.record(z.string(), z.string()).optional(),
+    initCommand: z.string().default('bun run dev'),
+})
+export type InstanceCreationRequest = z.infer<typeof InstanceCreationRequestSchema>
+
 // --- Instance Details ---
 
 export const InstanceDetailsSchema = z.object({
     runId: z.string(),
-    templateName: z.string(),
     startTime: z.union([z.string(), z.date()]),
     uptime: z.number(),
     previewURL: z.string().optional(),
@@ -77,36 +87,13 @@ export type CommandExecutionResult = z.infer<typeof CommandExecutionResultSchema
 
 // --- API Request/Response Schemas ---
 
-
-// --- Template Details ---
-
-export const TemplateDetailsSchema = z.object({
-    name: z.string(),
-    description: z.object({
-        selection: z.string(),
-        usage: z.string(),
-    }),
-    fileTree: FileTreeNodeSchema,
-    allFiles: z.record(z.string(), z.string()),
-    language: z.string().optional(),
-    deps: z.record(z.string(), z.string()),
-    frameworks: z.array(z.string()).optional(),
-    importantFiles: z.array(z.string()),
-    dontTouchFiles: z.array(z.string()),
-    redactedFiles: z.array(z.string()),
-    renderMode: z.enum(['sandbox', 'browser']).optional(),
-    slideDirectory: z.string().optional(),
-    disabled: z.boolean(),
-})
-export type TemplateDetails = z.infer<typeof TemplateDetailsSchema>
-
 // /templates (GET)
 
 export const TemplateInfoSchema = z.object({
     name: z.string(),
     language: z.string().optional(),
     frameworks: z.array(z.string()).optional(),
-    projectType: z.enum(['app', 'workflow', 'presentation']).default('app'),
+    projectType: z.enum(['app', 'workflow', 'presentation', 'general']).default('app'),
     description: z.object({
         selection: z.string(),
         usage: z.string(),
@@ -116,6 +103,18 @@ export const TemplateInfoSchema = z.object({
     disabled: z.boolean(),
 })
 export type TemplateInfo = z.infer<typeof TemplateInfoSchema>
+
+// --- Template Details ---
+
+export const TemplateDetailsSchema = TemplateInfoSchema.extend({
+    fileTree: FileTreeNodeSchema,
+    allFiles: z.record(z.string(), z.string()),
+    deps: z.record(z.string(), z.string()),
+    importantFiles: z.array(z.string()),
+    dontTouchFiles: z.array(z.string()),
+    redactedFiles: z.array(z.string()),
+})
+export type TemplateDetails = z.infer<typeof TemplateDetailsSchema>
 
 export const TemplateListResponseSchema = z.object({
     success: z.boolean(),
@@ -147,12 +146,7 @@ export const GetTemplateFilesResponseSchema = z.object({
 })
 export type GetTemplateFilesResponse = z.infer<typeof GetTemplateFilesResponseSchema>
 
-export const BootstrapRequestSchema = z.object({
-    templateName: z.string(),
-    projectName: z.string(),
-    webhookUrl: z.string().url().optional(),
-    envVars: z.record(z.string(), z.string()).optional(),
-})
+export const BootstrapRequestSchema = InstanceCreationRequestSchema
 export type BootstrapRequest = z.infer<typeof BootstrapRequestSchema>
 
 export const PreviewSchema = z.object({
@@ -298,44 +292,6 @@ export const ShutdownResponseSchema = z.object({
 })
 export type ShutdownResponse = z.infer<typeof ShutdownResponseSchema>
 
-// /templates/from-instance (POST)
-export const PromoteToTemplateRequestSchema = z.object({
-    instanceId: z.string(),
-    templateName: z.string().optional(),
-})
-export type PromoteToTemplateRequest = z.infer<typeof PromoteToTemplateRequestSchema>
-
-export const PromoteToTemplateResponseSchema = z.object({
-    success: z.boolean(),
-    message: z.string().optional(),
-    templateName: z.string().optional(),
-    error: z.string().optional(),
-})
-export type PromoteToTemplateResponse = z.infer<typeof PromoteToTemplateResponseSchema>
-
-// /templates (POST) - AI template generation
-export const GenerateTemplateRequestSchema = z.object({
-    prompt: z.string(),
-    templateName: z.string(),
-    options: z.object({
-        framework: z.string().optional(),
-        language: z.enum(['javascript', 'typescript']).optional(),
-        styling: z.enum(['tailwind', 'css', 'scss']).optional(),
-        features: z.array(z.string()).optional(),
-    }).optional(),
-})
-export type GenerateTemplateRequest = z.infer<typeof GenerateTemplateRequestSchema>
-
-export const GenerateTemplateResponseSchema = z.object({
-    success: z.boolean(),
-    templateName: z.string(),
-    summary: z.string().optional(),
-    fileCount: z.number().optional(),
-    fileTree: FileTreeNodeSchema.optional(),
-    error: z.string().optional(),
-})
-export type GenerateTemplateResponse = z.infer<typeof GenerateTemplateResponseSchema>
-
 // /instances/:id/lint (GET)
 export const LintSeveritySchema = z.enum(['error', 'warning', 'info'])
 export type LintSeverity = z.infer<typeof LintSeveritySchema>
@@ -407,7 +363,7 @@ export const WebhookRuntimeErrorEventSchema = WebhookEventBaseSchema.extend({
         runId: z.string(),
         error: RuntimeErrorSchema,
         instanceInfo: z.object({
-            templateName: z.string().optional(),
+            instanceId: z.string(),
             serviceDirectory: z.string().optional(),
         }),
     }),
@@ -484,18 +440,6 @@ export const WebhookPayloadSchema = z.object({
     event: WebhookEventSchema,
 })
 export type WebhookPayload = z.infer<typeof WebhookPayloadSchema>
-
-// Current runner service payload (direct payload without wrapper)
-export const RunnerServiceWebhookPayloadSchema = z.object({
-    runId: z.string(),
-    error: RuntimeErrorSchema,
-    instanceInfo: z.object({
-        templateName: z.string().optional(),
-        serviceDirectory: z.string().optional(),
-    }),
-})
-export type RunnerServiceWebhookPayload = z.infer<typeof RunnerServiceWebhookPayloadSchema>
-
 /**
  * GitHub integration types for exporting generated applications
  */

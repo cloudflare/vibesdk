@@ -51,5 +51,7 @@ debug-tools/*.json
 .env.sentry-build-plugin
 data-dump
 debug-tools/extracted
+debug-tools/presentation-tester
+
+.test-data
 cli
-debug-tools

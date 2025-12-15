@@ -5,6 +5,7 @@ import { GitHubExporterOAuthProvider } from '../../../services/oauth/github-expo
 import { getAgentStub } from '../../../agents';
 import { createLogger } from '../../../logger';
 import { AppService } from '../../../database/services/AppService';
+import { ExportResult } from 'worker/agents/core/types';
 
 export interface GitHubExportData {
     success: boolean;
@@ -164,13 +165,16 @@ export class GitHubExporterController extends BaseController {
             this.logger.info('Pushing files to repository', { agentId, repositoryUrl });
             
             const agentStub = await getAgentStub(env, agentId);
-            const pushResult = await agentStub.pushToGitHub({
-                cloneUrl,
-                repositoryHtmlUrl: repositoryUrl,
-                isPrivate,
-                token,
-                email: 'vibesdk-bot@cloudflare.com',
-                username
+            const pushResult: ExportResult = await agentStub.exportProject({
+                kind: 'github',
+                github: {
+                    cloneUrl,
+                    repositoryHtmlUrl: repositoryUrl,
+                    isPrivate,
+                    token,
+                    email: 'vibesdk-bot@cloudflare.com',
+                    username
+                }
             });
 
             if (!pushResult?.success) {

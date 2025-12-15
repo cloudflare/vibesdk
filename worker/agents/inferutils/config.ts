@@ -60,7 +60,7 @@ const PLATFORM_AGENT_CONFIG: AgentConfig = {
     blueprint: {
         name: AIModels.GEMINI_3_PRO_PREVIEW,
         reasoning_effort: 'medium',
-        max_tokens: 32000,
+        max_tokens: 20000,
         fallbackModel: AIModels.GEMINI_2_5_FLASH,
         temperature: 1.0,
     },
@@ -106,6 +106,13 @@ const PLATFORM_AGENT_CONFIG: AgentConfig = {
         max_tokens: 16000,
         temperature: 0.2,
         fallbackModel: AIModels.GROK_CODE_FAST_1,
+    },
+    agenticProjectBuilder: {
+        name: AIModels.GEMINI_2_5_PRO,
+        reasoning_effort: 'medium',
+        max_tokens: 8000,
+        temperature: 1,
+        fallbackModel: AIModels.GEMINI_2_5_PRO,
     },
 };
 
@@ -163,6 +170,13 @@ const DEFAULT_AGENT_CONFIG: AgentConfig = {
         reasoning_effort: 'low',
         max_tokens: 32000,
         temperature: 0,
+        fallbackModel: AIModels.GEMINI_2_5_FLASH,
+    },
+    agenticProjectBuilder: {
+        name: AIModels.GEMINI_2_5_PRO,
+        reasoning_effort: 'high',
+        max_tokens: 8000,
+        temperature: 0.5,
         fallbackModel: AIModels.GEMINI_2_5_FLASH,
     },
 };

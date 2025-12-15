@@ -6,7 +6,18 @@ import tseslint from 'typescript-eslint'
 import importPlugin from 'eslint-plugin-import'
 
 export default tseslint.config(
-	{ ignores: ['dist', 'wrangler-configuration.d.ts', 'test-diff-formatters/**', '**/*.test.ts', '**/*.test.tsx', '**/*.spec.ts', '**/*.spec.tsx'] },
+	{
+		ignores: [
+			'dist',
+			'wrangler-configuration.d.ts',
+			'test-diff-formatters/**',
+			'cf-git/**',
+			'**/*.test.ts',
+			'**/*.test.tsx',
+			'**/*.spec.ts',
+			'**/*.spec.tsx',
+		],
+	},
   {
     extends: [
       js.configs.recommended,
@@ -42,6 +53,20 @@ export default tseslint.config(
   // as shadcn/ui components commonly export both components and utilities
   {
     files: ['src/components/ui/**/*.{ts,tsx}'],
+    rules: {
+      'react-refresh/only-export-components': 'off',
+    },
+  },
+  // Contexts and feature modules intentionally export hooks/objects
+  {
+    files: ['src/contexts/**/*.{ts,tsx}', 'src/features/**/*.{ts,tsx}'],
+    rules: {
+      'react-refresh/only-export-components': 'off',
+    },
+  },
+  // Auth modal provider exports a hook + provider
+  {
+    files: ['src/components/auth/**/*.{ts,tsx}'],
     rules: {
       'react-refresh/only-export-components': 'off',
     },

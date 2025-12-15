@@ -6,7 +6,12 @@ import {
 	type BlueprintType,
 	type WebSocketMessage,
 	type CodeFixEdits,
-	type ImageAttachment
+	type ImageAttachment,
+	type ProjectType,
+	type BehaviorType,
+	type FileType,
+	type TemplateDetails,
+	getBehaviorTypeForProject,
 } from '@/api-types';
 import {
 	createRepairingJSONParser,
@@ -14,6 +19,7 @@ import {
 } from '@/utils/ndjson-parser/ndjson-parser';
 import { getFileType } from '@/utils/string';
 import { logger } from '@/utils/logger';
+import { mergeFiles } from '@/utils/file-helpers';
 import { apiClient } from '@/lib/api-client';
 import { appEvents } from '@/lib/app-events';
 import { createWebSocketMessageHandler, type HandleMessageDeps } from '../utils/handle-websocket-message';
@@ -22,16 +28,7 @@ import { sendWebSocketMessage } from '../utils/websocket-helpers';
 import { initialStages as defaultStages, updateStage as updateStageHelper } from '../utils/project-stage-helpers';
 import type { ProjectStage } from '../utils/project-stage-helpers';
 
-
-export interface FileType {
-	filePath: string;
-	fileContents: string;
-	explanation?: string;
-	isGenerating?: boolean;
-	needsFixing?: boolean;
-	hasErrors?: boolean;
-	language?: string;
-}
+export type Edit = Omit<CodeFixEdits, 'type'>;
 
 // New interface for phase timeline tracking
 export interface PhaseTimelineItem {
@@ -52,7 +49,7 @@ export function useChat({
 	chatId: urlChatId,
 	query: userQuery,
 	images: userImages,
-	agentMode = 'deterministic',
+	projectType = 'app',
 	onDebugMessage,
 	onTerminalMessage,
 	onVaultUnlockRequired,
@@ -60,17 +57,24 @@ export function useChat({
 	chatId?: string;
 	query: string | null;
 	images?: ImageAttachment[];
-	agentMode?: 'deterministic' | 'smart';
+	projectType?: ProjectType;
 	onDebugMessage?: (type: 'error' | 'warning' | 'info' | 'websocket', message: string, details?: string, source?: string, messageType?: string, rawMessage?: unknown) => void;
 	onTerminalMessage?: (log: { id: string; content: string; type: 'command' | 'stdout' | 'stderr' | 'info' | 'error' | 'warn' | 'debug'; timestamp: number; source?: string }) => void;
 	onVaultUnlockRequired?: (reason: string) => void;
 }) {
+	// Derive initial behavior type from project type using feature system
+	const getInitialBehaviorType = (): BehaviorType => {
+		return getBehaviorTypeForProject(projectType);
+	};
+
 	const connectionStatus = useRef<'idle' | 'connecting' | 'connected' | 'failed' | 'retrying'>('idle');
 	const retryCount = useRef(0);
 	const maxRetries = 5;
 	const retryTimeouts = useRef<NodeJS.Timeout[]>([]);
 	// Track whether component is mounted and should attempt reconnects
 	const shouldReconnectRef = useRef(true);
+	// Track deployment timeout for cleanup
+	const deploymentTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 	// Track the latest connection attempt to avoid handling stale socket events
 	const connectAttemptIdRef = useRef(0);
 	const connectWithRetryRef = useRef<
@@ -91,6 +95,9 @@ export function useChat({
 	const [blueprint, setBlueprint] = useState<BlueprintType>();
 	const [previewUrl, setPreviewUrl] = useState<string>();
 	const [query, setQuery] = useState<string>();
+	const [behaviorType, setBehaviorType] = useState<BehaviorType>(getInitialBehaviorType());
+	const [internalProjectType, setInternalProjectType] = useState<ProjectType>(projectType);
+	const [templateDetails, setTemplateDetails] = useState<TemplateDetails | null>(null);
 
 	const [websocket, setWebsocket] = useState<WebSocket>();
 
@@ -154,6 +161,14 @@ export function useChat({
 		setEdit(undefined);
 	}, []);
 
+	// Callback to clear deployment timeout (used by websocket handler)
+	const clearDeploymentTimeout = useCallback(() => {
+		if (deploymentTimeoutRef.current) {
+			clearTimeout(deploymentTimeoutRef.current);
+			deploymentTimeoutRef.current = null;
+		}
+	}, []);
+
 
 	const sendMessage = useCallback((message: ChatMessage) => {
 		// Only add conversational messages to the chat UI
@@ -202,6 +217,9 @@ export function useChat({
 			setRuntimeErrorCount,
 			setStaticIssueCount,
 			setIsDebugging,
+			setBehaviorType,
+			setInternalProjectType,
+			setTemplateDetails,
 			// Current state
 			isInitialStateRestored,
 			blueprint,
@@ -213,6 +231,7 @@ export function useChat({
 			projectStages,
 			isGenerating,
 			urlChatId,
+			behaviorType,
 			// Functions
 			updateStage,
 			sendMessage,
@@ -220,6 +239,11 @@ export function useChat({
 			onDebugMessage,
 			onTerminalMessage,
 			onVaultUnlockRequired,
+			clearDeploymentTimeout,
+			onPresentationFileEvent: (evt) => {
+				if (!evt.path.includes('/slides/')) return;
+				window.dispatchEvent(new CustomEvent('presentation-file-event', { detail: evt }));
+			},
 		} as HandleMessageDeps),
 		[
 			isInitialStateRestored,
@@ -232,12 +256,14 @@ export function useChat({
 			projectStages,
 			isGenerating,
 			urlChatId,
+			behaviorType,
 			updateStage,
 			sendMessage,
 			loadBootstrapFiles,
 			onDebugMessage,
 			onTerminalMessage,
 			onVaultUnlockRequired,
+			clearDeploymentTimeout,
 		],
 	);
 
@@ -427,7 +453,7 @@ export function useChat({
 					// Start new code generation using API client
 					const response = await apiClient.createAgentSession({
 						query: userQuery,
-						agentMode,
+						projectType,
 						images: userImages, // Pass images from URL params for multi-modal blueprint
 					});
 
@@ -436,19 +462,28 @@ export function useChat({
 					const result: {
 						websocketUrl: string;
 						agentId: string;
+						behaviorType: BehaviorType;
+						projectType: ProjectType;
 						template: {
 							files: FileType[];
 						};
 					} = {
 						websocketUrl: '',
 						agentId: '',
+						behaviorType: 'phasic',
+						projectType: 'app',
 						template: {
 							files: [],
 						},
 					};
 
 					let startedBlueprintStream = false;
-					sendMessage(createAIMessage('main', "Sure, let's get started. Bootstrapping the project first...", true));
+					const initialBehaviorType = getBehaviorTypeForProject(projectType);
+					if (initialBehaviorType === 'phasic') {
+						sendMessage(
+							createAIMessage('main', "Sure, let's get started. Bootstrapping the project first...", true),
+						);
+					}
 
 					for await (const obj of ndjsonStream(response.stream)) {
                         logger.debug('Received chunk from server:', obj);
@@ -469,13 +504,22 @@ export function useChat({
 							} catch (e) {
 								logger.error('Error parsing JSON:', e, obj.chunk);
 							}
-						} 
+						}
 						if (obj.agentId) {
 							result.agentId = obj.agentId;
 						}
 						if (obj.websocketUrl) {
 							result.websocketUrl = obj.websocketUrl;
 							logger.debug('📡 Received WebSocket URL from server:', result.websocketUrl)
+						}
+						if (obj.behaviorType) {
+							result.behaviorType = obj.behaviorType;
+							setBehaviorType(obj.behaviorType);
+							logger.debug('Received behaviorType from server:', obj.behaviorType);
+						}
+						if (obj.projectType) {
+							result.projectType = obj.projectType;
+							logger.debug('Received projectType from server:', obj.projectType);
 						}
 						if (obj.template) {
                             logger.debug('Received template from server:', obj.template);
@@ -488,7 +532,12 @@ export function useChat({
 
 					updateStage('blueprint', { status: 'completed' });
 					setIsGeneratingBlueprint(false);
-					sendMessage(createAIMessage('main', 'Blueprint generation complete. Now starting the code generation...', true));
+					const finalBehaviorType = getBehaviorTypeForProject(projectType);
+					if (finalBehaviorType === 'phasic') {
+						sendMessage(
+							createAIMessage('main', 'Blueprint generation complete. Now starting the code generation...', true),
+						);
+					}
 
 					if (!result.websocketUrl || !result.agentId) {
 						throw new Error('Failed to initialize agent session');
@@ -547,7 +596,7 @@ export function useChat({
 		}
 		init();
 	}, [
-		agentMode,
+		projectType,
 		connectWithRetry,
 		loadBootstrapFiles,
 		onDebugMessage,
@@ -565,6 +614,11 @@ export function useChat({
             shouldReconnectRef.current = false;
             retryTimeouts.current.forEach(clearTimeout);
             retryTimeouts.current = [];
+            // Clear deployment timeout on unmount
+            if (deploymentTimeoutRef.current) {
+                clearTimeout(deploymentTimeoutRef.current);
+                deploymentTimeoutRef.current = null;
+            }
         };
     }, []);
 
@@ -618,50 +672,55 @@ export function useChat({
 		try {
 			// Send deployment command via WebSocket instead of HTTP request
 			if (sendWebSocketMessage(websocket, 'deploy', { instanceId })) {
-				logger.debug('🚀 Deployment WebSocket message sent:', instanceId);
-				
+				logger.debug('Deployment WebSocket message sent:', instanceId);
+
+				// Clear any existing deployment timeout
+				if (deploymentTimeoutRef.current) {
+					clearTimeout(deploymentTimeoutRef.current);
+					deploymentTimeoutRef.current = null;
+				}
+
 				// Set 1-minute timeout for deployment
-				setTimeout(() => {
+				deploymentTimeoutRef.current = setTimeout(() => {
 					if (isDeploying) {
-						logger.warn('⏰ Deployment timeout after 1 minute');
-						
+						logger.warn('Deployment timeout after 1 minute');
+
 						// Reset deployment state
 						setIsDeploying(false);
 						setCloudflareDeploymentUrl('');
 						setIsRedeployReady(false);
-						
+
 						// Show timeout message
-						sendMessage(createAIMessage('deployment_timeout', `⏰ Deployment timed out after 1 minute.\n\n🔄 Please try deploying again. The server may be busy.`));
-						
+						sendMessage(createAIMessage('deployment_timeout', `Deployment timed out after 1 minute.\n\nPlease try deploying again. The server may be busy.`));
+
 						// Debug logging for timeout
-						onDebugMessage?.('warning', 
+						onDebugMessage?.('warning',
 							'Deployment Timeout',
 							`Deployment for ${instanceId} timed out after 60 seconds`,
 							'Deployment Timeout Management'
 						);
 					}
+					deploymentTimeoutRef.current = null;
 				}, 60000); // 1 minute = 60,000ms
-				
-				// Store timeout ID for cleanup if deployment completes early
-				// Note: In a real implementation, you'd want to clear this timeout
-				// when deployment completes successfully
-				
+
 			} else {
 				throw new Error('WebSocket connection not available');
 			}
 		} catch (error) {
-			logger.error('❌ Error sending deployment WebSocket message:', error);
-			
+			logger.error('Error sending deployment WebSocket message:', error);
+
 			// Set deployment state immediately for UI feedback
 			setIsDeploying(true);
 			// Clear any previous deployment error
 			setDeploymentError('');
 			setCloudflareDeploymentUrl('');
 			setIsRedeployReady(false);
-			
-			sendMessage(createAIMessage('deployment_error', `❌ Failed to initiate deployment: ${error instanceof Error ? error.message : 'Unknown error'}\n\n🔄 You can try again.`));
+
+			sendMessage(createAIMessage('deployment_error', `Failed to initiate deployment: ${error instanceof Error ? error.message : 'Unknown error'}\n\nYou can try again.`));
 		}
 	}, [websocket, sendMessage, isDeploying, onDebugMessage]);
+
+	const allFiles = useMemo(() => mergeFiles(bootstrapFiles, files), [bootstrapFiles, files]);
 
 	return {
 		messages,
@@ -703,5 +762,10 @@ export function useChat({
 		runtimeErrorCount,
 		staticIssueCount,
 		isDebugging,
+		// Behavior type from backend
+		behaviorType,
+		projectType: internalProjectType,
+		templateDetails,
+		allFiles,
 	};
 }

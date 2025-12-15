@@ -1,5 +1,5 @@
 import type { WebSocket } from 'partysocket';
-import type { WebSocketMessage, BlueprintType, ConversationMessage } from '@/api-types';
+import type { WebSocketMessage, BlueprintType, ConversationMessage, AgentState, PhasicState, BehaviorType, ProjectType, TemplateDetails } from '@/api-types';
 import { deduplicateMessages, isAssistantMessageDuplicate } from './deduplicate-messages';
 import { logger } from '@/utils/logger';
 import { getFileType } from '@/utils/string';
@@ -11,17 +11,29 @@ import {
     setAllFilesCompleted,
     updatePhaseFileStatus,
 } from './file-state-helpers';
-import { 
+import {
     createAIMessage,
     handleRateLimitError,
     handleStreamingMessage,
     appendToolEvent,
     type ChatMessage,
 } from './message-helpers';
-import { completeStages } from './project-stage-helpers';
+import { completeStages, type ProjectStage } from './project-stage-helpers';
 import { sendWebSocketMessage } from './websocket-helpers';
-import type { FileType, PhaseTimelineItem } from '../hooks/use-chat';
+import type { PhaseTimelineItem } from '../hooks/use-chat';
+import type { FileType } from '@/api-types';
 import { toast } from 'sonner';
+import { createRepairingJSONParser } from '@/utils/ndjson-parser/ndjson-parser';
+
+const isPhasicState = (state: AgentState): state is PhasicState => {
+	const record = state as unknown as Record<string, unknown>;
+	const behaviorType = record.behaviorType;
+	if (behaviorType === 'phasic') return true;
+	if (behaviorType === undefined || behaviorType === null) {
+		return Array.isArray(record.generatedPhases);
+	}
+	return false;
+};
 
 export interface HandleMessageDeps {
     // State setters
@@ -47,7 +59,12 @@ export interface HandleMessageDeps {
     setRuntimeErrorCount: React.Dispatch<React.SetStateAction<number>>;
     setStaticIssueCount: React.Dispatch<React.SetStateAction<number>>;
     setIsDebugging: React.Dispatch<React.SetStateAction<boolean>>;
-    
+    setBehaviorType: React.Dispatch<React.SetStateAction<BehaviorType>>;
+    setInternalProjectType: React.Dispatch<React.SetStateAction<ProjectType>>;
+    setTemplateDetails: React.Dispatch<React.SetStateAction<TemplateDetails | null>>;
+    onPresentationFileEvent?: (event: { type: 'file_generating' | 'file_chunk' | 'file_generated'; path: string; chunk?: string; contents?: string }) => void;
+    clearDeploymentTimeout?: () => void;
+
     // Current state
     isInitialStateRestored: boolean;
     blueprint: BlueprintType | undefined;
@@ -56,12 +73,13 @@ export interface HandleMessageDeps {
     files: FileType[];
     phaseTimeline: PhaseTimelineItem[];
     previewUrl: string | undefined;
-    projectStages: any[];
+    projectStages: ProjectStage[];
     isGenerating: boolean;
     urlChatId: string | undefined;
+    behaviorType: BehaviorType;
     
     // Functions
-    updateStage: (stageId: string, updates: any) => void;
+    updateStage: (stageId: ProjectStage['id'], updates: Partial<Omit<ProjectStage, 'id'>>) => void;
     sendMessage: (message: ConversationMessage) => void;
     loadBootstrapFiles: (files: FileType[]) => void;
     onDebugMessage?: (
@@ -94,6 +112,10 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
         }
         return '';
     };
+
+    // Blueprint chunk parser (maintained across chunks)
+    let blueprintParser: ReturnType<typeof createRepairingJSONParser> | null = null;
+
     return (websocket: WebSocket, message: WebSocketMessage) => {
         const {
             setFiles,
@@ -116,6 +138,9 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
             setIsGenerating,
             setIsPhaseProgressActive,
             setIsDebugging,
+            setBehaviorType,
+            setInternalProjectType,
+            setTemplateDetails,
             isInitialStateRestored,
             blueprint,
             query,
@@ -126,11 +151,13 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
             projectStages,
             isGenerating,
             urlChatId,
+            behaviorType,
             updateStage,
             sendMessage,
             loadBootstrapFiles,
             onDebugMessage,
             onTerminalMessage,
+            clearDeploymentTimeout,
         } = deps;
 
         // Log messages except for frequent ones
@@ -155,12 +182,22 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
                 break;
             }
             case 'agent_connected': {
-                const { state, templateDetails } = message;
-                console.log('Agent connected', state, templateDetails);
-                
+                const { state, templateDetails, previewUrl } = message;
                 if (!isInitialStateRestored) {
                     logger.debug('📥 Performing initial state restoration');
-                    
+
+                    const restoredBehaviorType = state.behaviorType ?? 'phasic';
+                    if (restoredBehaviorType !== behaviorType) {
+                        setBehaviorType(restoredBehaviorType);
+                        logger.debug('🔄 Restored behaviorType from backend:', restoredBehaviorType);
+                    }
+
+                    const restoredProjectType = state.projectType ?? 'app';
+                    if (restoredProjectType) {
+                        setInternalProjectType(restoredProjectType);
+                        logger.debug('🔄 Restored projectType from backend:', restoredProjectType);
+                    }
+
                     if (state.blueprint && !blueprint) {
                         setBlueprint(state.blueprint);
                         updateStage('blueprint', { status: 'completed' });
@@ -170,18 +207,33 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
                         setQuery(state.query);
                     }
 
-                    if (templateDetails?.allFiles && bootstrapFiles.length === 0) {
-                        const files = Object.entries(templateDetails.allFiles).map(([filePath, fileContents]) => ({
-                            filePath,
-                            fileContents,
-                        })).filter((file) => templateDetails.importantFiles.includes(file.filePath));
-                        logger.debug('📥 Restoring bootstrap files:', files);
-                        loadBootstrapFiles(files);
+                    if (previewUrl) {
+                        setPreviewUrl(previewUrl);
+                    }
+
+                    if (templateDetails) {
+                        // Store template details for manifest parsing and validation
+                        setTemplateDetails(templateDetails);
+                        logger.debug('📥 Stored template details:', {
+                            renderMode: templateDetails.renderMode,
+                            slideDirectory: templateDetails.slideDirectory,
+                            fileCount: Object.keys(templateDetails.allFiles || {}).length,
+                        });
+
+                        if (templateDetails.allFiles && bootstrapFiles.length === 0) {
+                            const importantFilesSet = new Set(templateDetails.importantFiles);
+                            const files = Object.entries(templateDetails.allFiles).map(([filePath, fileContents]) => ({
+                                filePath,
+                                fileContents,
+                            })).filter((file) => importantFilesSet.has(file.filePath));
+                            logger.debug('📥 Restoring bootstrap files:', files);
+                            loadBootstrapFiles(files);
+                        }
                     }
 
                     if (state.generatedFilesMap && files.length === 0) {
                         setFiles(
-                            Object.values(state.generatedFilesMap).map((file: any) => ({
+                            Object.values(state.generatedFilesMap).map((file: { filePath: string; fileContents: string }) => ({
                                 filePath: file.filePath,
                                 fileContents: file.fileContents,
                                 isGenerating: false,
@@ -192,12 +244,12 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
                         );
                     }
 
-                    if (state.generatedPhases && state.generatedPhases.length > 0 && phaseTimeline.length === 0) {
+                    if (isPhasicState(state) && state.generatedPhases.length > 0 && phaseTimeline.length === 0) {
                         logger.debug('📋 Restoring phase timeline:', state.generatedPhases);
                         // If not actively generating, mark incomplete phases as cancelled (they were interrupted)
                         const isActivelyGenerating = state.shouldBeGenerating === true;
                         
-                        const timeline = state.generatedPhases.map((phase: any, index: number) => {
+                        const timeline = state.generatedPhases.map((phase, index: number) => {
                             // Determine phase status:
                             // - completed if explicitly marked complete
                             // - cancelled if incomplete and not actively generating (interrupted)
@@ -213,7 +265,7 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
                                 name: phase.name,
                                 description: phase.description,
                                 status: phaseStatus,
-                                files: phase.files.map((filesConcept: any) => {
+                                files: phase.files.map(filesConcept => {
                                     const file = state.generatedFilesMap?.[filesConcept.path];
                                     // File status:
                                     // - completed if it exists in generated files
@@ -251,6 +303,20 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
                         }
                     }
 
+                    // Display queued user messages from state
+                    const queuedInputs = state.pendingUserInputs || [];
+                    if (queuedInputs.length > 0) {
+                        logger.debug('📋 Restoring queued user messages:', queuedInputs);
+                        const queuedMessages: ChatMessage[] = queuedInputs.map((msg, idx) => ({
+                            role: 'user',
+                            content: msg,
+                            conversationId: `queued-${idx}`,
+                            status: 'queued' as const,
+                            queuePosition: idx + 1
+                        }));
+                        setMessages(prev => [...prev, ...queuedMessages]);
+                    }
+
                     setIsInitialStateRestored(true);
                     
                     if (state.shouldBeGenerating && !isGenerating) {
@@ -262,15 +328,41 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
                 }
                 break;
             }
+            case 'template_updated': {
+                const { templateDetails } = message;
+                // Update stored template details
+                setTemplateDetails(templateDetails);
+                logger.debug('📥 Template details updated:', {
+                    renderMode: templateDetails.renderMode,
+                    slideDirectory: templateDetails.slideDirectory,
+                    fileCount: Object.keys(templateDetails.allFiles || {}).length,
+                });
+
+                if (templateDetails.allFiles && bootstrapFiles.length === 0) {
+                    const importantFilesSet = new Set(templateDetails.importantFiles);
+                    const files = Object.entries(templateDetails.allFiles).map(([filePath, fileContents]) => ({
+                        filePath,
+                        fileContents,
+                    })).filter((file) => importantFilesSet.has(file.filePath));
+                    logger.debug('📥 Restoring bootstrap files:', files);
+                    loadBootstrapFiles(files);
+                }
+                break;
+            }
             case 'cf_agent_state': {
                 const { state } = message;
                 logger.debug('🔄 Agent state update received:', state);
+                
+                // Sync projectType from backend if it changed
+                if (state.projectType) {
+                    setInternalProjectType(state.projectType);
+                }
 
                 if (state.shouldBeGenerating && !isGenerating) {
                     logger.debug('🔄 shouldBeGenerating=true, updating UI to active state');
                     updateStage('code', { status: 'active' });
                 } else if (!state.shouldBeGenerating) {
-                    const codeStage = projectStages.find((stage: any) => stage.id === 'code');
+                    const codeStage = projectStages.find((stage) => stage.id === 'code');
                     if (codeStage?.status === 'active' && !isGenerating) {
                         if (state.generatedFilesMap && Object.keys(state.generatedFilesMap).length > 0) {
                             updateStage('code', { status: 'completed' });
@@ -430,26 +522,29 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
                 break;
             }
 
-            case 'file_generating': {
-                setFiles((prev) => setFileGenerating(prev, message.filePath));
-                break;
-            }
+			case 'file_generating': {
+				setFiles((prev) => setFileGenerating(prev, message.filePath));
+				deps.onPresentationFileEvent?.({ type: 'file_generating', path: message.filePath });
+				break;
+			}
 
-            case 'file_chunk_generated': {
-                setFiles((prev) => appendFileChunk(prev, message.filePath, message.chunk));
-                break;
-            }
+			case 'file_chunk_generated': {
+				setFiles((prev) => appendFileChunk(prev, message.filePath, message.chunk));
+				deps.onPresentationFileEvent?.({ type: 'file_chunk', path: message.filePath, chunk: message.chunk });
+				break;
+			}
 
-            case 'file_generated': {
-                setFiles((prev) => setFileCompleted(prev, message.file.filePath, message.file.fileContents));
-                setPhaseTimeline((prev) => updatePhaseFileStatus(
-                    prev,
-                    message.file.filePath,
-                    'completed',
-                    message.file.fileContents
-                ));
-                break;
-            }
+			case 'file_generated': {
+				setFiles((prev) => setFileCompleted(prev, message.file.filePath, message.file.fileContents));
+				setPhaseTimeline((prev) => updatePhaseFileStatus(
+					prev,
+					message.file.filePath,
+					'completed',
+					message.file.fileContents
+				));
+				deps.onPresentationFileEvent?.({ type: 'file_generated', path: message.file.filePath, contents: message.file.fileContents });
+				break;
+			}
 
             case 'file_regenerated': {
                 setIsRedeployReady(true);
@@ -509,7 +604,7 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
 
             case 'code_reviewed': {
                 const reviewData = message.review;
-                const totalIssues = reviewData?.filesToFix?.reduce((count: number, file: any) =>
+                const totalIssues = reviewData?.filesToFix?.reduce((count: number, file: { issues: unknown[] }) =>
                     count + file.issues.length, 0) || 0;
 
                 let reviewMessage = 'Code review complete';
@@ -531,7 +626,7 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
                 
                 onDebugMessage?.('error', 
                     `Runtime Error (${message.count} errors)`,
-                    message.errors.map((e: any) => `${e.message}\nStack: ${e.stack || 'N/A'}`).join('\n\n'),
+                    message.errors.map((e: { message: string; stack?: string }) => `${e.message}\nStack: ${e.stack || 'N/A'}`).join('\n\n'),
                     'Runtime Detection'
                 );
                 break;
@@ -596,7 +691,7 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
                             id: `${message.phase.name}-${Date.now()}`,
                             name: message.phase.name,
                             description: message.phase.description,
-                            files: message.phase.files?.map((f: any) => ({
+                            files: message.phase.files?.map((f: { path: string; purpose: string }) => ({
                                 path: f.path,
                                 purpose: f.purpose,
                                 status: 'generating' as const,
@@ -729,14 +824,15 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
             }
 
             case 'cloudflare_deployment_completed': {
+                clearDeploymentTimeout?.();
                 setIsDeploying(false);
                 setCloudflareDeploymentUrl(message.deploymentUrl);
                 setDeploymentError('');
                 setIsRedeployReady(false);
-                
+
                 sendMessage(createAIMessage('cloudflare_deployment_completed', `Your project has been permanently deployed to Cloudflare Workers: ${message.deploymentUrl}`));
-                
-                onDebugMessage?.('info', 
+
+                onDebugMessage?.('info',
                     'Deployment Completed - Redeploy Reset',
                     `Deployment URL: ${message.deploymentUrl}\nPhase count at deployment: ${phaseTimeline.length}\nRedeploy button disabled until next phase`,
                     'Redeployment Management'
@@ -745,12 +841,13 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
             }
 
             case 'cloudflare_deployment_error': {
+                clearDeploymentTimeout?.();
                 setIsDeploying(false);
                 setDeploymentError(message.error || 'Unknown deployment error');
                 setCloudflareDeploymentUrl('');
                 setIsRedeployReady(true);
-                
-                sendMessage(createAIMessage('cloudflare_deployment_error', `❌ Deployment failed: ${message.error}\n\n🔄 You can try deploying again.`));
+
+                sendMessage(createAIMessage('cloudflare_deployment_error', `Deployment failed: ${message.error}\n\nYou can try deploying again.`));
 
                 toast.error(`Error: ${message.error}`);
                 
@@ -833,6 +930,27 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
                     
                     return [...prev, createAIMessage(conversationId, newContent)];
                 });
+                break;
+            }
+
+            case 'blueprint_chunk': {
+                // Initialize parser on first chunk
+                if (!blueprintParser) {
+                    blueprintParser = createRepairingJSONParser();
+                    logger.debug('Blueprint streaming started');
+                }
+
+                // Feed chunk to parser
+                blueprintParser.feed(message.chunk);
+
+                // Try to parse partial blueprint
+                try {
+                    const partial = blueprintParser.finalize();
+                    setBlueprint(partial);
+                    logger.debug('Blueprint chunk processed, partial blueprint updated');
+                } catch (e) {
+                    logger.debug('Blueprint chunk accumulated, waiting for more data');
+                }
                 break;
             }
 

@@ -1,6 +1,6 @@
 import { captureMessage, withScope, flush } from '@sentry/cloudflare';
 import { env } from 'cloudflare:workers';
-import { ErrorResult, ToolDefinition } from '../types';
+import { ErrorResult, tool, t } from '../types';
 
 type FeedbackArgs = {
 	message: string;
@@ -22,29 +22,24 @@ const submitFeedbackImplementation = async (
 			};
 		}
 
-		// Use withScope to isolate this event's context
 		const eventId = withScope((scope) => {
-			// Set tags for categorization
 			scope.setTags({
 				type: args.type,
 				severity: args.severity || 'medium',
 				source: 'ai_conversation_tool',
 			});
 
-			// Set context for additional information
 			scope.setContext('feedback', {
 				user_provided_context: args.context || 'No additional context',
 				submission_type: args.type,
 			});
 
-			// Capture the message with appropriate severity level
 			return captureMessage(
 				args.message,
 				args.type === 'bug' ? 'error' : 'info'
 			);
 		});
 
-		// Flush to ensure it's sent immediately
 		await flush(2000);
 
 		return {
@@ -61,44 +56,14 @@ const submitFeedbackImplementation = async (
 	}
 };
 
-export const toolFeedbackDefinition: ToolDefinition<
-	FeedbackArgs,
-	FeedbackResult
-> = {
-	type: 'function' as const,
-	function: {
-		name: 'submit_feedback',
-		description:
-			'Submit bug reports or user feedback to the development team. ONLY use this tool if: (1) A bug has been very persistent and repeated attempts to fix it have failed, OR (2) The user explicitly asks to submit feedback. Do NOT use this for every bug - only for critical or persistent issues.',
-		parameters: {
-			type: 'object',
-			properties: {
-				message: {
-					type: 'string',
-					description:
-						'Clear description of the bug or feedback. Include what the user tried, what went wrong, and any error messages.',
-					minLength: 20,
-				},
-				type: {
-					type: 'string',
-					enum: ['bug', 'feedback'],
-					description:
-						"'bug' for persistent technical issues, 'feedback' for feature requests or general comments",
-				},
-				severity: {
-					type: 'string',
-					enum: ['low', 'medium', 'high'],
-					description:
-						"Severity level - 'high' only for critical blocking issues",
-				},
-				context: {
-					type: 'string',
-					description:
-						'Additional context about the project, what the user was trying to build, or environment details',
-				},
-			},
-			required: ['message', 'type'],
-		},
+export const toolFeedbackDefinition = tool({
+	name: 'submit_feedback',
+	description: 'Submit bug reports or user feedback to the development team. ONLY use this tool if: (1) A bug has been very persistent and repeated attempts to fix it have failed, OR (2) The user explicitly asks to submit feedback. Do NOT use this for every bug - only for critical or persistent issues.',
+	args: {
+		message: t.string().describe('Clear description of the bug or feedback. Include what the user tried, what went wrong, and any error messages.'),
+		type: t.enum(['bug', 'feedback'] as const).describe("'bug' for persistent technical issues, 'feedback' for feature requests or general comments"),
+		severity: t.enum(['low', 'medium', 'high'] as const).optional().describe("Severity level - 'high' only for critical blocking issues"),
+		context: t.string().optional().describe('Additional context about the project, what the user was trying to build, or environment details'),
 	},
-	implementation: submitFeedbackImplementation,
-};
+	run: submitFeedbackImplementation,
+});

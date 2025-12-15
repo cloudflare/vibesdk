@@ -49,19 +49,20 @@ import type{
 	ProfileResponseData,
 	AuthProvidersResponseData,
 	CsrfTokenResponseData,
+	CliTokenData,
 	OAuthProvider,
 	CodeGenArgs,
 	AgentPreviewResponse,
 	PlatformStatusData,
 	RateLimitError,
+	CapabilitiesData,
 	VaultConfigResponse,
 	VaultStatusResponse,
 } from '@/api-types';
 import {
-    
-    RateLimitExceededError,
-    SecurityError,
-    SecurityErrorType,
+	RateLimitExceededError,
+	SecurityError,
+	SecurityErrorType,
 } from '@/api-types';
 import { toast } from 'sonner';
 
@@ -412,6 +413,17 @@ class ApiClient {
 
 	async getPlatformStatus(noToast: boolean = true): Promise<ApiResponse<PlatformStatusData>> {
 		return this.request<PlatformStatusData>('/api/status', undefined, noToast);
+	}
+
+	// ===============================
+	// Platform Capabilities API Methods
+	// ===============================
+
+	/**
+	 * Get platform capabilities including available features
+	 */
+	async getCapabilities(noToast: boolean = true): Promise<ApiResponse<CapabilitiesData>> {
+		return this.request<CapabilitiesData>('/api/capabilities', undefined, noToast);
 	}
 
 	// ===============================
@@ -1150,6 +1162,14 @@ class ApiClient {
 		return this.request<{ message: string }>('/api/auth/logout', {
 			method: 'POST',
 		});
+	}
+
+	/**
+	 * Get CLI authentication token
+	 * Returns the user's existing session token for CLI use
+	 */
+	async getCliToken(): Promise<ApiResponse<CliTokenData>> {
+		return this.request<CliTokenData>('/api/auth/cli-token');
 	}
 
 	/**

@@ -1,48 +1,44 @@
-import { ToolDefinition } from '../types';
+import { tool, t, type Type, type } from '../types';
 import { StructuredLogger } from '../../../logger';
-import { CodingAgentInterface } from 'worker/agents/services/implementations/CodingAgent';
+import { ICodingAgent } from 'worker/agents/services/interfaces/ICodingAgent';
 import { RenderToolCall } from 'worker/agents/operations/UserConversationProcessor';
+import { z } from 'zod';
 
 export function createDeepDebuggerTool(
-	agent: CodingAgentInterface,
+	agent: ICodingAgent,
 	logger: StructuredLogger,
-    toolRenderer: RenderToolCall,
-    streamCb: (chunk: string) => void,
-): ToolDefinition<
-	{ issue: string; focus_paths?: string[] },
-	{ transcript: string } | { error: string }
-> {
-	// Track calls per conversation turn (resets when buildTools is called again)
+	toolRenderer: RenderToolCall,
+	streamCb: (chunk: string) => void
+) {
 	let callCount = 0;
-	
-	return {
-		type: 'function',
-		function: {
-			name: 'deep_debug',
-			description:
-				'Autonomous debugging assistant that investigates errors, reads files, and applies fixes. CANNOT run during code generation - will return GENERATION_IN_PROGRESS error if generation is active. LIMITED TO ONE CALL PER CONVERSATION TURN.',
-			parameters: {
-				type: 'object',
-				properties: {
-					issue: { type: 'string' },
-					focus_paths: { type: 'array', items: { type: 'string' } },
-				},
-				required: ['issue'],
-			},
+
+	const focusPathsType: Type<string[] | undefined> = type(
+		z.array(z.string()).optional(),
+		(paths: string[] | undefined) => ({
+			files: paths ? { mode: 'write', paths } : { mode: 'write', paths: [] },
+			gitCommit: true,
+			sandbox: { operation: 'deploy' },
+		})
+	);
+
+	return tool({
+		name: 'deep_debug',
+		description:
+			'Autonomous debugging assistant that investigates errors, reads files, and applies fixes. CANNOT run during code generation - will return GENERATION_IN_PROGRESS error if generation is active. LIMITED TO ONE CALL PER CONVERSATION TURN.',
+		args: {
+			issue: t.string().describe('Description of the issue to debug'),
+			focus_paths: focusPathsType.describe('Optional array of file paths to focus debugging on'),
 		},
-		implementation: async ({ issue, focus_paths }: { issue: string; focus_paths?: string[] }) => {
-			// Check if already called in this turn
+		run: async ({ issue, focus_paths }) => {
 			if (callCount > 0) {
 				logger.warn('Cannot start debugging: Already called once this turn');
 				return {
 					error: 'CALL_LIMIT_EXCEEDED: You are only allowed to make a single deep_debug call per conversation turn. Ask user for permission before trying again.'
 				};
 			}
-			
-			// Increment call counter
+
 			callCount++;
-			
-			// Check if code generation is in progress
+
 			if (agent.isCodeGenerating()) {
 				logger.warn('Cannot start debugging: Code generation in progress');
 				return {
@@ -50,7 +46,6 @@ export function createDeepDebuggerTool(
 				};
 			}
 
-			// Check if another debug session is running
 			if (agent.isDeepDebugging()) {
 				logger.warn('Cannot start debugging: Another debug session in progress');
 				return {
@@ -58,15 +53,13 @@ export function createDeepDebuggerTool(
 				};
 			}
 
-			// Execute debug session - agent handles all logic internally
 			const result = await agent.executeDeepDebug(issue, toolRenderer, streamCb, focus_paths);
-			
-			// Convert discriminated union to tool response format
+
 			if (result.success) {
 				return { transcript: result.transcript };
 			} else {
 				return { error: result.error };
 			}
 		},
-	};
+	});
 }

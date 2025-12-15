@@ -1,24 +1,17 @@
-import { ToolDefinition } from '../types';
+import { tool } from '../types';
 import { StructuredLogger } from '../../../logger';
-import { CodingAgentInterface } from 'worker/agents/services/implementations/CodingAgent';
+import { ICodingAgent } from 'worker/agents/services/interfaces/ICodingAgent';
 
 export function createWaitForDebugTool(
-	agent: CodingAgentInterface,
+	agent: ICodingAgent,
 	logger: StructuredLogger
-): ToolDefinition<Record<string, never>, { status: string } | { error: string }> {
-	return {
-		type: 'function',
-		function: {
-			name: 'wait_for_debug',
-			description:
-				'Wait for the current debug session to complete. Use when deep_debug returns DEBUG_IN_PROGRESS error. Returns immediately if no debug session is running.',
-			parameters: {
-				type: 'object',
-				properties: {},
-				required: [],
-			},
-		},
-		implementation: async () => {
+) {
+	return tool({
+		name: 'wait_for_debug',
+		description:
+			'Wait for the current debug session to complete. Use when deep_debug returns DEBUG_IN_PROGRESS error. Returns immediately if no debug session is running.',
+		args: {},
+		run: async () => {
 			try {
 				if (agent.isDeepDebugging()) {
 					logger.info('Waiting for debug session to complete...');
@@ -39,5 +32,5 @@ export function createWaitForDebugTool(
 				};
 			}
 		},
-	};
+	});
 }

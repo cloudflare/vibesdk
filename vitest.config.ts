@@ -35,6 +35,7 @@ export default defineWorkersConfig({
       '**/worker/api/routes/**',
       '**/test/worker-entry.ts',
       '**/container/monitor-cli.test.ts',
+      '**/cf-git/**',
     ],
   },
 });

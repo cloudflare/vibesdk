@@ -7,6 +7,7 @@ import { SCOFFormat, SCOFParsingState } from '../output-formats/streaming-format
 import { CodeGenerationStreamingState } from '../output-formats/streaming-formats/base';
 import { FileProcessing } from '../domain/pure/FileProcessing';
 import { CodeSerializerType } from '../utils/codeSerializers';
+import { GenerationContext } from '../domain/values/GenerationContext';
 import { FileState } from '../core/state';
 
 export interface SimpleCodeGenerationInputs {
@@ -25,9 +26,8 @@ export interface SimpleCodeGenerationOutputs {
 
 const SYSTEM_PROMPT = `You are an expert Cloudflare developer specializing in Cloudflare Workers and Workflows.
 
-Your task is to generate production-ready code based on the provided specifications.
+Your task is to generate production-ready code files specifically based on the provided specifications.
 
-## Original User Request
 {{userQuery}}
 
 ## Critical Guidelines
@@ -120,12 +120,13 @@ const formatExistingFiles = (allFiles: FileState[]): string => {
 };
 
 export class SimpleCodeGenerationOperation extends AgentOperation<
+    GenerationContext,
     SimpleCodeGenerationInputs,
     SimpleCodeGenerationOutputs
 > {
     async execute(
         inputs: SimpleCodeGenerationInputs,
-        options: OperationOptions
+        options: OperationOptions<GenerationContext>
     ): Promise<SimpleCodeGenerationOutputs> {
         const { phaseName, phaseDescription, requirements, files } = inputs;
         const { env, logger, context, inferenceContext } = options;
@@ -145,7 +146,7 @@ export class SimpleCodeGenerationOperation extends AgentOperation<
 
         // Build system message with full context
         const systemPrompt = PROMPT_UTILS.replaceTemplateVariables(SYSTEM_PROMPT, {
-            userQuery: context.query || 'No specific user query available',
+            userQuery: context.query ? `## Requirements:\n${context.query}` : '',
         });
 
         // Build user message with requirements

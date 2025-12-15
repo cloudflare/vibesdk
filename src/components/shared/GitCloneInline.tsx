@@ -1,6 +1,6 @@
-import { useState } from 'react';
 import { Check, Lock, ArrowRight } from 'lucide-react';
-import { toast } from 'sonner';
+import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard';
+import { normalizeAppTitle } from '@/utils/string';
 
 interface GitCloneCommandProps {
 	cloneUrl: string;
@@ -8,30 +8,15 @@ interface GitCloneCommandProps {
 }
 
 export function GitCloneCommand({ cloneUrl, appTitle }: GitCloneCommandProps) {
-	const [copied, setCopied] = useState(false);
-
-	const normalizeAppTitle = (title: string): string => {
-		return title
-			.toLowerCase()
-			.replace(/[^a-z0-9\s-]/g, '')
-			.trim()
-			.replace(/\s+/g, '-')
-			.replace(/-+/g, '-')
-			.replace(/^-+|-+$/g, '');
-	};
+	const { copied, copy } = useCopyToClipboard({
+		successMessage: 'Clone command copied!',
+	});
 
 	const normalizedTitle = normalizeAppTitle(appTitle);
 	const fullCommand = `git clone ${cloneUrl} ${normalizedTitle}`;
 
-	const handleCopy = async () => {
-		try {
-			await navigator.clipboard.writeText(fullCommand);
-			setCopied(true);
-			toast.success('Clone command copied!');
-			setTimeout(() => setCopied(false), 2500);
-		} catch (error) {
-			toast.error('Failed to copy');
-		}
+	const handleCopy = () => {
+		copy(fullCommand);
 	};
 
 	return (

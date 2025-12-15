@@ -20,14 +20,19 @@ export const getFileType = (path: string): string => {
 	}
 };
 
-export const formatFileSize = (bytes?: number) => {
-	if (!bytes) return '';
-	const units = ['B', 'KB', 'MB', 'GB'];
-	let size = bytes;
-	let unitIndex = 0;
-	while (size >= 1024 && unitIndex < units.length - 1) {
-		size /= 1024;
-		unitIndex++;
-	}
-	return `${size.toFixed(1)} ${units[unitIndex]}`;
+/**
+ * Normalize a title for use as a Git repository name
+ * - Converts to lowercase
+ * - Removes special characters except spaces and hyphens
+ * - Replaces spaces with hyphens
+ * - Removes consecutive/leading/trailing hyphens
+ */
+export const normalizeAppTitle = (title: string): string => {
+	return title
+		.toLowerCase()
+		.replace(/[^a-z0-9\s-]/g, '')
+		.trim()
+		.replace(/\s+/g, '-')
+		.replace(/-+/g, '-')
+		.replace(/^-+|-+$/g, '');
 };

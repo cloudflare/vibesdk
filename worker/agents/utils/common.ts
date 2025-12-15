@@ -1,3 +1,6 @@
+import { downloadR2Image, imageToBase64 } from "../../utils/images";
+import { ConversationMessage, mapImagesInMultiModalMessage } from "../inferutils/common";
+
 export function extractCommands(rawOutput: string, onlyInstallCommands: boolean = false): string[] {
 	const commands: string[] = [];
 
@@ -215,4 +218,25 @@ export function looksLikeCommand(text: string): boolean {
 	];
 
 	return commandIndicators.some((pattern) => pattern.test(text));
+}
+
+export async function prepareMessagesForInference(env: Env, messages: ConversationMessage[]) : Promise<ConversationMessage[]> {
+    // For each multimodal image, convert the image to base64 data url
+    const processedMessages = await Promise.all(messages.map(m => {
+        return mapImagesInMultiModalMessage(structuredClone(m), async (c) => {
+            const url = c.image_url.url;
+            if (url.includes('base64,')) {
+                return c;
+            }
+            const image = await downloadR2Image(env, url);
+            return {
+                ...c,
+                image_url: {
+                    ...c.image_url,
+                    url: await imageToBase64(env, image)
+                },
+            };
+        });
+    }));
+    return processedMessages;
 }

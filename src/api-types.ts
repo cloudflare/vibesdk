@@ -61,6 +61,22 @@ export type {
 
 export type { PlatformStatusData } from 'worker/api/controllers/status/types';
 
+export type { CapabilitiesData } from 'worker/api/controllers/capabilities/types';
+
+export type {
+  ViewMode,
+  FeatureCapabilities,
+  FeatureDefinition,
+  ViewDefinition,
+  PlatformCapabilities,
+  PlatformCapabilitiesConfig,
+} from 'worker/agents/core/features/types';
+
+export {
+  DEFAULT_FEATURE_DEFINITIONS,
+  getBehaviorTypeForProject,
+} from 'worker/agents/core/features';
+
 // Model Config API Types
 export type {
   ModelConfigsData,
@@ -112,14 +128,19 @@ export type {
 	SecretMetadata,
 } from 'worker/services/secrets/vault-types';
 
-// Agent/CodeGen API Types  
+// Agent/CodeGen API Types
 export type {
   AgentConnectionData,
 } from 'worker/api/controllers/agent/types';
 
+// Template Types
+export type {
+  TemplateDetails,
+} from 'worker/services/sandbox/sandboxTypes';
+
 // WebSocket Types
-export type { 
-  WebSocketMessage, 
+export type {
+  WebSocketMessage,
   WebSocketMessageData,
   CodeFixEdits,
   ModelConfigsInfoMessage,
@@ -144,16 +165,23 @@ export type {
 } from 'worker/database/types';
 
 // Agent/Generator Types
-export type { 
+export type {
   Blueprint as BlueprintType,
+  PhasicBlueprint,
   CodeReviewOutputType,
   FileConceptType,
   FileOutputType as GeneratedFile,
 } from 'worker/agents/schemas';
 
-export type { 
-  CodeGenState 
+export type {
+  AgentState,
+  PhasicState
 } from 'worker/agents/core/state';
+
+export type {
+  BehaviorType,
+  ProjectType
+} from 'worker/agents/core/types';
 
 export type {
   ConversationMessage,
@@ -176,7 +204,7 @@ export type {
 export type { RateLimitError } from "worker/services/rate-limit/errors";
 export type { AgentPreviewResponse, CodeGenArgs } from 'worker/api/controllers/agent/types';
 export type { RateLimitErrorResponse } from 'worker/api/responses';
-export { RateLimitExceededError, SecurityError, SecurityErrorType } from 'shared/types/errors';
+export { RateLimitExceededError, SecurityError, SecurityErrorType } from '../shared/types/errors.js';
 
 export type { AIModels } from 'worker/agents/inferutils/config.types';
 // Model selection types
@@ -249,6 +277,14 @@ export interface CsrfTokenResponseData {
   token: string;
   headerName: string;
   expiresIn?: number;
+}
+
+// CLI Token Response - for CLI authentication
+export interface CliTokenData {
+  token: string;
+  expiresIn: number;
+  expiresAt: string;
+  instructions: string;
 }
 
 // Active Sessions Response - matches getUserSessions + isCurrent from controller
