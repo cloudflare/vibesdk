@@ -2,6 +2,8 @@ import type { PreviewType } from "../../../services/sandbox/sandboxTypes";
 import type { ImageAttachment } from '../../../types/image-attachment';
 import type { BehaviorType, ProjectType } from '../../../agents/core/types';
 
+export const MAX_AGENT_QUERY_LENGTH = 20_000;
+
 export interface CodeGenArgs {
     query: string;
     language?: string;

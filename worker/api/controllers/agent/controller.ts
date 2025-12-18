@@ -4,7 +4,13 @@ import { generateId } from '../../../utils/idGenerator';
 import { AgentState } from '../../../agents/core/state';
 import { BehaviorType, ProjectType } from '../../../agents/core/types';
 import { getAgentStub, getTemplateForQuery } from '../../../agents';
-import { AgentConnectionData, AgentPreviewResponse, CodeGenArgs } from './types';
+import {
+    AgentConnectionData,
+    AgentPreviewResponse,
+    CodeGenArgs,
+    MAX_AGENT_QUERY_LENGTH,
+} from './types';
+import { SecurityError, SecurityErrorType } from 'shared/types/errors';
 import { ApiResponse, ControllerResponse } from '../types';
 import { RouteContext } from '../../types/route-context';
 import { ModelConfigService } from '../../../database';
@@ -59,8 +65,18 @@ export class CodingAgentController extends BaseController {
             }
 
             const query = body.query;
-            if (!query) {
+            if (typeof query !== 'string' || query.trim().length === 0) {
                 return CodingAgentController.createErrorResponse('Missing "query" field in request body', 400);
+            }
+            if (query.length > MAX_AGENT_QUERY_LENGTH) {
+                return CodingAgentController.createErrorResponse(
+                    new SecurityError(
+                        SecurityErrorType.INVALID_INPUT,
+                        `Prompt too large (${query.length} characters). Maximum allowed is ${MAX_AGENT_QUERY_LENGTH} characters.`,
+                        413,
+                    ),
+                    413,
+                );
             }
             const { readable, writable } = new TransformStream({
                 transform(chunk, controller) {

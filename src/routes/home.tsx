@@ -3,7 +3,7 @@ import { ArrowRight, Info } from 'react-feather';
 import { useNavigate } from 'react-router';
 import { useAuth } from '@/contexts/auth-context';
 import { ProjectModeSelector, type ProjectModeOption } from '../components/project-mode-selector';
-import type { ProjectType } from '@/api-types';
+import { MAX_AGENT_QUERY_LENGTH, SUPPORTED_IMAGE_MIME_TYPES, type ProjectType } from '@/api-types';
 import { useFeature } from '@/features';
 import { useAuthGuard } from '../hooks/useAuthGuard';
 import { usePaginatedApps } from '@/hooks/use-paginated-apps';
@@ -14,7 +14,6 @@ import { useImageUpload } from '@/hooks/use-image-upload';
 import { useDragDrop } from '@/hooks/use-drag-drop';
 import { ImageUploadButton } from '@/components/image-upload-button';
 import { ImageAttachmentPreview } from '@/components/image-attachment-preview';
-import { SUPPORTED_IMAGE_MIME_TYPES } from '@/api-types';
 import { toast } from 'sonner';
 
 export default function Home() {
@@ -89,6 +88,13 @@ export default function Home() {
 	const discoverReady = useMemo(() => !loading && (apps?.length ?? 0) > 5, [loading, apps]);
 
 	const handleCreateApp = (query: string, mode: ProjectType) => {
+		if (query.length > MAX_AGENT_QUERY_LENGTH) {
+			toast.error(
+				`Prompt too large (${query.length} characters). Maximum allowed is ${MAX_AGENT_QUERY_LENGTH} characters.`,
+			);
+			return;
+		}
+
 		const encodedQuery = encodeURIComponent(query);
 		const encodedMode = encodeURIComponent(mode);
 

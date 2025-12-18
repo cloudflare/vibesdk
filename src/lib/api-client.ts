@@ -592,11 +592,16 @@ class ApiClient {
 
 	async createAgentSession(args: CodeGenArgs): Promise<AgentStreamingResponse> {
 		try {
-			const { response, data } = await this.requestRaw('/api/agent', {
-				method: 'POST',
-				body: args,
-				skipJsonParsing: true, // Don't parse JSON for streaming response
-			});
+			const { response, data } = await this.requestRaw(
+				'/api/agent',
+				{
+					method: 'POST',
+					body: args,
+					skipJsonParsing: true, // Don't parse JSON for streaming response
+				},
+				false,
+				true,
+			);
 			
 			// Check if response is ok
 			if (!response.ok) {
