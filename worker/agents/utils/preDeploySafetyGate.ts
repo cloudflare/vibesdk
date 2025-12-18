@@ -109,12 +109,14 @@ function collectSafetyFindings(ast: t.File): SafetyFinding[] {
 
 	let inComponent = false;
 	let nestedFunctionDepth = 0;
+	let moduleLevelFunctionDepth = 0; // Track ALL function depth for JSX detection
 	const stack: WalkState[] = [];
 
 	traverse(ast, {
 		noScope: true,
 		Function: {
 			enter(path) {
+				moduleLevelFunctionDepth += 1;
 				stack.push({ inComponent, nestedFunctionDepth });
 
 				if (!inComponent && isLikelyComponentFunctionPath(path)) {
@@ -126,11 +128,22 @@ function collectSafetyFindings(ast: t.File): SafetyFinding[] {
 				if (inComponent) nestedFunctionDepth += 1;
 			},
 			exit() {
+				moduleLevelFunctionDepth -= 1;
 				const prev = stack.pop();
 				if (!prev) return;
 				inComponent = prev.inComponent;
 				nestedFunctionDepth = prev.nestedFunctionDepth;
 			},
+		},
+		JSXElement(path) {
+			// JSX at module level (not inside any function) is an anti-pattern
+			if (moduleLevelFunctionDepth === 0) {
+				findings.push({
+					message:
+						"JSX element at module level. Store component references instead of JSX instances: use { Icon: Component } not { icon: <Component /> }. Module-level JSX causes memory leaks and render issues.",
+					...getNodeLoc(path.node),
+				});
+			}
 		},
 		CallExpression(path) {
 			const node = path.node;
