@@ -131,11 +131,22 @@ Adhere to the following guidelines:
 •   Use the <PHASES GENERATION STRATEGY> section to guide your phase generation.
 •   Ensure the next phase logically and iteratively builds on the previous one, maintaining visual excellence with modern design patterns, smooth interactions, and professional UI polish.
 •   Provide a clear, concise, to the point description of the next phase and the purpose and contents of each file in it.
-•   Keep all the description fields very short and concise.
+•   Keep all the description fields very short and concise but unambiguous so the coding agent can implement them effectively and accurately.
 •   If there are any files that were supposed to be generated in the previous phase, but were not, please mention them in the phase description and suggest them in the phase.
 •   Always suggest phases in sequential ordering - Phase 1 comes after Phase 0, Phase 2 comes after Phase 1 and so on.
 •   **Every phase must be deployable with all views/pages working properly and looking professional.**
 •   IF you need to get any file to be deleted or cleaned, please set the \`changes\` field to \`delete\` for that file.
+•   **\`changes\` field format:** 
+    - WHAT (user-visible behavior) + HOW (conceptual approach) + CONSTRAINTS — but NO code/syntax
+    
+    ❌ "openWindow('finder', file.name, FinderWindow, {dirId: file.id})"
+    ✅ "Double-click folder navigates within same window (update dir state, not new window). Breadcrumbs show path, clickable to ancestors."
+    
+    ❌ "Add useState for loading, show Skeleton, catch error and setError"
+    ✅ "Fetch files on mount with loading/error states. Skeleton during load, error with retry on failure, empty state with create prompt."
+    
+    ❌ "onPointerDown check e.target === e.currentTarget before dragControls.start"
+    ✅ "Drag from title bar area only, not from buttons or title text. Use existing drag controls."
 •   **Visual assets:** Use external image URLs, canvas elements, or icon libraries. Reference these in file descriptions as needed.
 </SUGGESTING NEXT PHASE>
 

@@ -157,202 +157,108 @@ ${typecheckOutput}`;
 
 
     REACT_RENDER_LOOP_PREVENTION: `
-⚠️⚠️⚠️ ABSOLUTE ZERO-TOLERANCE RULES - VIOLATION CRASHES THE APP ⚠️⚠️⚠️
+<REACT_RENDER_LOOP_PREVENTION>
+"Maximum update depth exceeded" or "Too many re-renders" = your code has an infinite loop. React aborts after ~50 nested updates.
 
-╔═══════════════════════════════════════════════════════════════════════════════╗
-║                   🚨 REACT INFINITE LOOP PREVENTION 🚨                        ║
-║                                                                               ║
-║  "Maximum update depth exceeded" = render→setState→render loop                ║
-║  React aborts after ~50 nested updates. FIX THESE PATTERNS IMMEDIATELY.       ║
-╚═══════════════════════════════════════════════════════════════════════════════╝
+## VALIDATION CHECKLIST (Run Before Submitting)
+Search your code for these patterns. If found, rewrite immediately:
+- \`useStore()\` without selector → CRASH
+- \`useStore(s => s)\` returning entire store → CRASH
+- \`useStore(s => ({\` or \`useStore(s => [\` → CRASH (object/array allocation)
+- \`useStore(s => s.get\` or \`useStore(s => Object.\` → CRASH (function call in selector)
+- \`useEffect(() => {\` without \`}, [\` → CRASH (missing dependency array)
+- \`setState\` call outside useEffect/event handler → CRASH
 
-╔═══════════════════════════════════════════════════════════════════════════════╗
-║  ROOT CAUSE #1: setState DURING RENDER (MOST COMMON)                          ║
-╚═══════════════════════════════════════════════════════════════════════════════╝
+## ZUSTAND STORE SELECTORS
 
-❌ FORBIDDEN PATTERNS:
+### ONLY ALLOWED PATTERNS (use these exclusively):
 \`\`\`tsx
-// Direct setState in render
-function Bad() {
+// Direct property access - returns stable ref or primitive
+const user = useStore(s => s.user);
+const name = useStore(s => s.user.name);
+const isOpen = useStore(s => s.isOpen);
+const count = useStore(s => s.items.length);
+const isValid = useStore(s => !!s.data);
+
+// Multiple values? Call useStore multiple times:
+const name = useStore(s => s.name);
+const age = useStore(s => s.age);
+
+// Need derived data? Derive OUTSIDE the selector with useMemo:
+const items = useStore(s => s.items);
+const sortedItems = useMemo(() => [...items].sort(), [items]);
+\`\`\`
+
+### BANNED ANTI-PATTERNS (never write these):
+\`\`\`tsx
+useStore()                              // no selector - returns entire store, new ref every time
+useStore(s => s)                        // identity selector - same problem, returns entire store
+useStore(s => ({ name: s.name }))       // object literal - allocates new object every render
+useStore(s => [s.a, s.b])               // array literal - allocates new array every render
+useStore(s => s.getItems())             // method call - may return new ref
+useStore(s => Object.keys(s.data))      // Object.keys - allocates new array
+useStore(s => s.items.filter(x => x))   // .filter/.map/.reduce - allocates new array
+useStore(useShallow(s => ({ a: s.a }))) // useShallow doesn't fix object allocation
+const { name, age } = useStore(s => s)  // destructuring entire store - still causes re-render
+\`\`\`
+
+## STATE UPDATES
+
+### ALLOWED: Only in event handlers or useEffect
+\`\`\`tsx
+const handleClick = () => setCount(count + 1);     // event handler - OK
+useEffect(() => { setData(result); }, [result]);   // useEffect - OK
+\`\`\`
+
+### BANNED: During render phase
+\`\`\`tsx
+function Component() {
     const [n, setN] = useState(0);
-    setN(n + 1); // ❌ INFINITE LOOP
+    setN(n + 1);                    // CRASH - setState during render
+    if (condition) setX(value);     // CRASH - conditional setState during render
     return <div>{n}</div>;
 }
-
-// Conditional setState in render
-if (showModal && !modalOpen) {
-    setModalOpen(true); // ❌ INFINITE LOOP
-}
-
-// setState in useMemo/useCallback
-useMemo(() => {
-    setProcessed(data); // ❌ SIDE EFFECT IN MEMOIZATION
-    return value;
-}, [data]);
 \`\`\`
 
-✅ CORRECT PATTERNS:
+## useEffect RULES
+
+### ALLOWED:
 \`\`\`tsx
-// State updates ONLY in event handlers or useEffect
-const handleClick = () => setState(newValue);
-
+useEffect(() => { /* ... */ }, []);           // empty deps - run once
+useEffect(() => { /* ... */ }, [userId]);     // specific deps
 useEffect(() => {
-    setModalOpen(showModal);
-}, [showModal]);
-\`\`\`
-
-╔═══════════════════════════════════════════════════════════════════════════════╗
-║  ROOT CAUSE #2: EFFECTS WITHOUT DEPENDENCIES OR GUARDS                        ║
-╚═══════════════════════════════════════════════════════════════════════════════╝
-
-❌ FORBIDDEN:
-\`\`\`tsx
-useEffect(() => {
-    setCount(count + 1); // ❌ NO DEPENDENCY ARRAY = INFINITE LOOP
-});
-\`\`\`
-
-✅ CORRECT:
-\`\`\`tsx
-useEffect(() => {
-    setCount(1);
-}, []); // ✅ Empty array = run once on mount
-
-useEffect(() => {
-    if (userId) { // ✅ Conditional guard
-        fetchUser(userId).then(setUser);
-    }
+    if (userId) fetchUser(userId);             // guard before async/setState
 }, [userId]);
 \`\`\`
 
-╔═══════════════════════════════════════════════════════════════════════════════╗
-║  ROOT CAUSE #3: UNSTABLE DEPENDENCIES (REFERENTIAL INEQUALITY)                ║
-╚═══════════════════════════════════════════════════════════════════════════════╝
-
-❌ FORBIDDEN:
+### BANNED:
 \`\`\`tsx
-const filters = { type: 'active' }; // ❌ New object every render
-useEffect(() => { fetch(filters); }, [filters]); // ❌ INFINITE LOOP
-
-const value = { user, setUser }; // ❌ New object every render
-<Context.Provider value={value}> // ❌ ALL CONSUMERS RE-RENDER
+useEffect(() => { setCount(count + 1); });    // no dependency array - infinite loop
+useEffect(() => { setX(y); }, [y, setX]);     // including setter that triggers itself
 \`\`\`
 
-✅ CORRECT:
+## UNSTABLE REFERENCES
+
+### Problem: New object/array created every render triggers useEffect infinitely
 \`\`\`tsx
-const filters = useMemo(() => ({ type: 'active' }), []);
-const value = useMemo(() => ({ user, setUser }), [user]);
+// BANNED:
+const config = { theme: 'dark' };              // new object every render
+useEffect(() => { init(config); }, [config]); // infinite loop
+
+// ALLOWED:
+const config = useMemo(() => ({ theme: 'dark' }), []);
+useEffect(() => { init(config); }, [config]); // stable reference
 \`\`\`
 
-╔═══════════════════════════════════════════════════════════════════════════════╗
-║                                                                               ║
-║  IMPORTANT: Every "useStore" example below applies to ANY subscription-based ║
-║  store hook (Zustand etc), regardless of the hook name.                       ║
-║                                                                               ║
-║  ✅ SAFE SELECTORS: return ONLY stable refs or primitives                      ║
-║     - Property access is always OK: useStore(s => s.user.id)                  ║
-║     - Primitive ops without calls are OK: useStore(s => !!s.isOpen)           ║
-║                                                                               ║
-║  ❌ UNSAFE SELECTORS (INSTANT CRASH RISK): any allocation or call              ║
-║     - useStore() (no selector)                                                ║
-║     - object/array literals: ({}) / ([])                                      ║
-║     - ANY function/method call: s.getX(), Object.keys/values/entries,         ║
-║       map/filter/reduce/sort, Date.now(), Math.*                              ║
-║     - useShallow DOES NOT make unsafe selectors safe                           ║
-╚═══════════════════════════════════════════════════════════════════════════════╝
+## QUICK RULES
+1. Zustand selectors: return primitive or direct property access ONLY
+2. setState: ONLY in useEffect or event handlers, NEVER during render
+3. useEffect: ALWAYS include dependency array
+4. Objects/arrays in deps: wrap with useMemo
+5. Multiple store values: call useStore multiple times, don't destructure
+6. Derived data: compute with useMemo OUTSIDE selector
 
-❌ FORBIDDEN STORE SELECTOR PATTERNS (CAUSE INFINITE LOOPS):
-If a store hook subscribes via useSyncExternalStore, the selector must return a stable snapshot. Treat this as a strict rule:
-
-✅ ALLOWED SELECTOR SHAPES:
-\`\`\`tsx
-useStore(s => s.some.deep.value)     // ✅ stable ref from store
-useStore(s => !!s.isOpen)            // ✅ primitive op, no calls
-useStore(s => s.items.length)        // ✅ primitive op, no calls
-\`\`\`
-
-❌ BANNED SELECTOR SHAPES:
-\`\`\`tsx
-useStore()                           // ❌ no selector
-useStore(s => ({ a: s.a }))           // ❌ allocates new object
-useStore(s => [s.a, s.b])             // ❌ allocates new array
-useStore(s => s.getItems())           // ❌ any call
-useStore(s => Object.keys(s.map))     // ❌ allocates new array
-useStore(s => s.items.filter(...))    // ❌ allocates new array
-useStore(useShallow(s => ({ a: s.a })))// ❌ still unsafe (new object)
-\`\`\`
-
-✅ CORRECT FIX (STABLE SNAPSHOT):
-\`\`\`tsx
-const itemsById = useStore(s => s.itemsById); // ✅ raw stable ref
-const itemIds = useMemo(() => Object.keys(itemsById), [itemsById]);
-\`\`\`
-
-⚠️ ERROR SIGNATURES - STORE SELECTOR ISSUES:
-- "Maximum update depth exceeded"
-- "The result of getSnapshot should be cached"
-- "Too many re-renders"
-
-→ SCAN FOR: \`useStore()\`, \`useShallow(\`, \`({\`/\`[\` in selectors, \`Object.\`, \`.map(\`/\`.filter(\`/\`.reduce(\`/\`.sort(\`, \`s.get\`, any \`(...)\` call inside selector
-→ FIX: Select raw stable refs/primitives only; derive arrays/objects with useMemo OUTSIDE selector
-
-╔═══════════════════════════════════════════════════════════════════════════════╗
-║  OTHER COMMON PATTERNS THAT CAUSE LOOPS                                       ║
-╚═══════════════════════════════════════════════════════════════════════════════╝
-
-**Parent/Child Feedback Loops:**
-Child effect updates parent → parent rerenders → child effect runs again
-→ Solution: Lift state up, use idempotent callbacks
-
-**State in Recursive Components:**
-\`\`\`tsx
-// ❌ Each recursion creates new state
-function Tree({ items }) {
-    const [expanded, setExpanded] = useState(new Set());
-    return items.map(i => <Tree items={i.children} />); // ❌ WRONG
-}
-
-// ✅ Lift state to non-recursive parent
-function Tree({ items, expanded, onToggle }) {
-    return items.map(i => <Tree items={i.children} expanded={expanded} onToggle={onToggle} />);
-}
-\`\`\`
-
-**Stale Closures (Correctness Bug):**
-\`\`\`tsx
-// ❌ Captures stale count
-const handleClick = () => setCount(count + 1);
-
-// ✅ Functional update
-const handleClick = useCallback(() => setCount(prev => prev + 1), []);
-\`\`\`
-
-╔═══════════════════════════════════════════════════════════════════════════════╗
-║  ✅ PREVENTION CHECKLIST - THE GOLDEN RULES ✅                                ║
-╚═══════════════════════════════════════════════════════════════════════════════╝
-
-✅ **Move setState out of render** - Only in useEffect/event handlers
-✅ **Dependency arrays required** - Every useEffect must have one
-✅ **Conditional guards in effects** - \`if (condition)\` before setState
-✅ **Stabilize objects/arrays** - useMemo for objects, useCallback for functions
-✅ **Zustand: Primitives only** - \`useStore(s => s.value)\` NOT \`useStore(s => ({ ... }))\`
-✅ **NEVER call methods in selectors** - \`useStore(s => s.getXxx())\` = CRASH
-✅ **No selector = CRASH** - \`useStore()\` returns whole object = infinite loop
-✅ **Lift state from recursion** - Never useState inside recursive components
-✅ **Store actions are stable** - Zustand actions NOT in dependency arrays
-✅ **Use functional updates** - \`setState(prev => prev + 1)\` for correctness
-✅ **useRef for non-UI data** - Doesn't trigger re-renders
-✅ **Derive, don't mirror** - \`const upper = prop.toUpperCase()\` not useState
-✅ **DOM listeners stable** - Keep effect deps static; read live store values via refs; do not reattach listeners on every state change
-
-**QUICK VALIDATION BEFORE SUBMITTING CODE:**
-→ Search for: \`useStore()\`, \`useShallow(\`, \`useStore(s => ({\`, \`useStore(s => [\`, \`useStore(s => Object.\`, \`.map(\`/\`.filter(\`/\`.reduce(\`/\`.sort(\` inside selectors
-→ Search for: \`setState\` outside event handlers/useEffect
-→ Search for: \`useEffect(() => {\` without \`}, [\`
-→ If found: REWRITE immediately using patterns above
-
-⚠️⚠️⚠️ THESE RULES OVERRIDE ALL OTHER CONSIDERATIONS INCLUDING CODE AESTHETICS ⚠️⚠️⚠️
-⚠️⚠️⚠️ IF YOU WRITE FORBIDDEN PATTERNS, YOU MUST IMMEDIATELY REWRITE THE FILE ⚠️⚠️⚠️`,
+</REACT_RENDER_LOOP_PREVENTION>`,
 
 COMMON_PITFALLS: `<AVOID COMMON PITFALLS>
     **TOP 6 MISSION-CRITICAL RULES (FAILURE WILL CRASH THE APP):**
