@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import {
     RateLimitExceededError,
+	MAX_AGENT_QUERY_LENGTH,
 	type BlueprintType,
 	type WebSocketMessage,
 	type CodeFixEdits,
@@ -444,6 +445,13 @@ export function useChat({
 						const errorMsg = 'Please enter a description of what you want to build';
 						logger.error('Query is required for new code generation');
 						toast.error(errorMsg);
+						return;
+					}
+
+					if (userQuery.length > MAX_AGENT_QUERY_LENGTH) {
+						const errorMsg = `Prompt too large (${userQuery.length} characters). Maximum allowed is ${MAX_AGENT_QUERY_LENGTH} characters.`;
+						toast.error(errorMsg);
+						setMessages(() => [createAIMessage('main', errorMsg)]);
 						return;
 					}
 
