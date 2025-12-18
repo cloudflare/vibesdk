@@ -482,7 +482,10 @@ export default function Chat() {
 			hasSeenPreview.current = true;
 		} else if (previewUrl) {
 			const isExistingChat = urlChatId !== 'new';
-			const shouldSwitch = behaviorType === 'agentic' || isPhase1Complete || isExistingChat;
+			const shouldSwitch =
+				behaviorType === 'agentic' ||
+				(behaviorType === 'phasic' && isPhase1Complete) ||
+				(isExistingChat && behaviorType !== 'phasic');
 
 			if (shouldSwitch) {
 				setView('preview');

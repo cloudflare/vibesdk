@@ -33,8 +33,6 @@ Your task is to generate production-ready code files specifically based on the p
 ## Critical Guidelines
 - Write clean, type-safe TypeScript code
 - Follow best practices for the specific project type
-- For Workflows: use WorkflowEntrypoint, step.do(), step.sleep() patterns
-- For Workers: use standard Worker patterns with Request/Response
 - Ensure all imports are correct
 - Add proper error handling
 - Include JSDoc comments where helpful

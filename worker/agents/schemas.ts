@@ -26,7 +26,7 @@ export const FileOutputSchema = z.object({
 export const FileConceptSchema = z.object({
     path: z.string().describe('Path to the file relative to the project root. File name should be valid and not contain any special characters apart from hyphen, underscore and dot.'),
     purpose: z.string().describe('Very short, Breif, Concise, to the point description, purpose and expected contents of the whole file including its role in the architecture, data and code flow details'),
-    changes: z.string().nullable().describe('Specific, directed changes to be made to the file as instructions, if it\'s not a new file. Don\'t include code.'),
+    changes: z.string().nullable().describe('Spec-like description of WHAT to change. No code, no JSX. Unambiguous, Actionable, Specific, Directed, Concise.'),
 })
 
 export const PhaseConceptSchema = z.object({

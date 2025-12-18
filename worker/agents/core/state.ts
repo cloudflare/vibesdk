@@ -27,7 +27,7 @@ export enum CurrentDevState {
     FINALIZING,
 }
 
-export const MAX_PHASES = 12;
+export const MAX_PHASES = 10;
 
 /** Common state fields for all agent behaviors */
 export interface BaseProjectState {
