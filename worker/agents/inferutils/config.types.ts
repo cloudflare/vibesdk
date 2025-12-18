@@ -101,6 +101,16 @@ const MODELS_MASTER = {
             contextSize: 1048576,
         }
     },
+    GEMINI_3_FLASH_PREVIEW: {
+        id: 'google-ai-studio/gemini-3-flash-preview',
+        config: {
+            name: 'Gemini 3.0 Flash Preview',
+            size: ModelSize.REGULAR,
+            provider: 'google-ai-studio',
+            creditCost: 2, // $0.5
+            contextSize: 1048576, // 1M Context
+        }
+    },
 
     // --- Anthropic Models ---
     CLAUDE_3_7_SONNET_20250219: {
