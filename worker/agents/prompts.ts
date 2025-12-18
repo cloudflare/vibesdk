@@ -5,6 +5,7 @@ import { PhasicBlueprint, AgenticBlueprint, BlueprintSchemaLite, AgenticBlueprin
 import { IssueReport } from "./domain/values/IssueReport";
 import { FileState, MAX_PHASES } from "./core/state";
 import { CODE_SERIALIZERS, CodeSerializerType } from "./utils/codeSerializers";
+import { getCodebaseContext } from "./utils/codebaseContext";
 
 export const PROMPT_UTILS = {
     /**
@@ -764,8 +765,9 @@ export const STRATEGIES_UTILS = {
             - **Comprehensive Polish Review:** Every pixel perfect, every interaction smooth
             - **Performance Optimization:** Lightning-fast load times with beautiful interfaces
             - **Cross-Browser Excellence:** Perfect rendering across all modern browsers
-            - **Quality Assurance:** Thorough testing of every feature and interaction
-            - **Launch Readiness:** Production-ready code with comprehensive documentation`,
+            - **Launch Readiness:** Production-ready code
+            
+        **Always deliver project within the agreed timeline and scope**`,
     CODING_GUIDELINES: `**Make sure the product is **FUNCTIONAL** along with **POLISHED**
     **MAKE SURE TO NOT BREAK THE APPLICATION in SUBSEQUENT PHASES. Always keep fallbacks and failsafes in place for any backend interactions. Look out for simple syntax errors and dependencies you use!**
     **The client needs to be provided with a good demoable application after each phase. The initial first phase is the most impressionable phase! Make sure it deploys and renders well.**
@@ -815,10 +817,10 @@ export const STRATEGIES = {
 
     ${STRATEGIES_UTILS.CONSTRAINTS}
 
-    **No need to add accessibility features. Focus on delivering an actually feature-wise polished and complete application in as few phases as possible.**
+    **No need to add accessibility features. Focus on delivering an actually working, feature-wise polished and complete application in as few phases as possible.**
     **Always stick to existing project/template patterns. Respect and work with existing worker bindings rather than making custom ones**
     **Rely on open source tools and free tier services only apart from whats configured in the environment. Refer to template usage instructions to know if specific cloudflare services are also available for use.**
-    **Make sure to implement all the features and functionality requested by the user and more. The application should be fully complete by the end of the last phase. There should be no compromises**
+    **Make sure to implement all the features and functionality requested by the user. Stick to the blueprint's implementation roadmap and end at the conclusion of the final phase. There should be no compromises**
     **This is a Cloudflare Workers & Durable Objects project. The environment is preconfigured. Absolutely DO NOT Propose changes to wrangler.toml or any other config files. These config files are hidden from you but they do exist.**
     **The Homepage of the frontend is a dummy page. It should be rewritten as the primary page of the application in the initial phase.**
     **Refrain from editing any of the 'dont touch' files in the project, e.g - package.json, vite.config.ts, wrangler.jsonc, etc.**
@@ -934,7 +936,7 @@ The following phases have been completed and implemented:
 </COMPLETED_PHASES>`
 
 export const USER_PROMPT_FORMATTER = {
-    PROJECT_CONTEXT: (phases: PhaseConceptType[], files: FileState[], fileTree: FileTreeNode, commandsHistory: string[], serializerType: CodeSerializerType = CodeSerializerType.SIMPLE, recentPhasesCount: number = 1) => {
+    PROJECT_CONTEXT: (phases: PhaseConceptType[], files: FileState[], fileTree: FileTreeNode, commandsHistory: string[], serializerType: CodeSerializerType = CodeSerializerType.SIMPLE) => {
         let lastPhaseFilesDiff = '';
         let phasesText = '';
         try {
@@ -955,24 +957,18 @@ export const USER_PROMPT_FORMATTER = {
                     });
                 }
 
-                // Split phases into older (redacted) and recent (full) groups
-                const olderPhases = phases.slice(0, -recentPhasesCount);
-                const recentPhases = phases.slice(-recentPhasesCount);
+                // Split phases into older (redacted) and last
+                const olderPhases = phases.slice(0, -1);
                 
                 // Serialize older phases without files, recent phases with files
                 if (olderPhases.length > 0) {
                     const olderPhasesLite = olderPhases.map(({ name, description }) => ({ name, description }));
                     phasesText += TemplateRegistry.markdown.serialize({ phases: olderPhasesLite }, z.object({ phases: z.array(PhaseConceptLiteSchema) }));
-                    if (recentPhases.length > 0) {
-                        phasesText += '\n\n';
-                    }
                 }
-                if (recentPhases.length > 0) {
-                    phasesText += TemplateRegistry.markdown.serialize({ phases: recentPhases }, z.object({ phases: z.array(PhaseConceptSchema) }));
-                }
+                phasesText += '\n\nLast Phase Implemented:\n' + TemplateRegistry.markdown.serialize(lastPhase, PhaseConceptSchema);
                 
                 const redactionNotice = olderPhases.length > 0 
-                    ? `**Note:** File details for the first ${olderPhases.length} phase(s) have been redacted to optimize context. Only the last ${recentPhasesCount} phase(s) include complete file information.\n` 
+                    ? `**Note:** File details for the first ${olderPhases.length} phase(s) have been redacted to optimize context. Only the last phase includes complete file information.\n` 
                     : '';
 
                 phasesText = COMPLETED_PHASES_CONTEXT.replaceAll('{{phases}}', phasesText).replaceAll('{{redactionNotice}}', redactionNotice);
@@ -981,9 +977,11 @@ export const USER_PROMPT_FORMATTER = {
             console.error('Error processing project context:', error);
         }
 
+        const relevantFiles = getCodebaseContext(files);
+
         const variables: Record<string, string> = {
             phasesText: phasesText,
-            files: PROMPT_UTILS.serializeFiles(files, serializerType),
+            files: PROMPT_UTILS.serializeFiles(relevantFiles, serializerType),
             fileTree: PROMPT_UTILS.serializeTreeNodes(fileTree),
             lastDiffs: lastPhaseFilesDiff,
             commandsHistory: commandsHistory.length > 0 ? `<COMMANDS HISTORY>\n\nThe following commands have been executed successfully in the project environment so far (These may not include the ones that are currently pending):\n\n${commandsHistory.join('\n')}\n\n</COMMANDS HISTORY>` : ''
@@ -1032,7 +1030,7 @@ const getStyleInstructions = (style: TemplateSelection['styleSelection']): strin
 - Stylized illustrations resembling 2D animation or children's book art
 - Smooth, rounded shapes and clean borders—no gradients or realism
 - Similar to Pablo Stanley, Burnt Toast Creative, or Outline-style art.
-- Children’s book meets modern web`
+- Children's book meets modern web`
         case 'Minimalist Design':
             return `
 **Style Name: Minimalist Design**
