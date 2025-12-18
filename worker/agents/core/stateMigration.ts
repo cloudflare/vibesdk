@@ -3,6 +3,7 @@ import { StructuredLogger } from '../../logger';
 import { TemplateDetails } from 'worker/services/sandbox/sandboxTypes';
 import { generateNanoId } from '../../utils/idGenerator';
 import { generateProjectName } from '../utils/templateCustomizer';
+import { MAX_AGENT_QUERY_LENGTH } from 'worker/api/controllers/agent/types';
 
 // Type guards for legacy state detection
 type LegacyFileFormat = {
@@ -38,6 +39,14 @@ export class StateMigration {
     static migrateIfNeeded(state: AgentState, logger: StructuredLogger): AgentState | null {
         let needsMigration = false;
         
+
+        // If the query is too long, truncate it to avoid performance issues
+        if (state.query && state.query.length > MAX_AGENT_QUERY_LENGTH) {
+            logger.warn("Large prompt detected. Truncating query to avoid performance issues");
+            state.query = state.query.slice(0, MAX_AGENT_QUERY_LENGTH);
+            needsMigration = true;
+        }
+
         //------------------------------------------------------------------------------------
         // Migrate files from old schema
         //------------------------------------------------------------------------------------
