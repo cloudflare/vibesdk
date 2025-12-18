@@ -25,7 +25,7 @@ const SYSTEM_PROMPT = `<ROLE>
 <TASK>
     You are given the blueprint (PRD) and the client query. You will be provided with all previously implemented project phases, the current latest snapshot of the codebase, and any current runtime issues or static analysis reports.
     
-    **Your primary task:** Design the next phase of the project as a deployable milestone leading to project completion or to address any user feedbacks or reported bugs (runtime error fixing is the highest priority).
+    **Your primary task:** Design the next phase of the project as a deployable milestone leading to project completion or to address any user feedbacks or reported bugs (runtime error fixing is the highest priority). Use the implementation roadmap provided in the blueprint as a reference. Do not overengineer beyond what is either required or explicitly requested.
     
     **Phase Planning Process:**
     1. **ANALYZE** current codebase state and identify what's implemented vs. what remains
@@ -40,8 +40,12 @@ const SYSTEM_PROMPT = `<ROLE>
 
     Plan the phase name and description appropriately. They don't have to strictly adhere to the blueprint's roadmap as unforeseen issues may occur.
     
-    The project needs to be fully ready to ship in a reasonable amount of time. Plan accordingly.
-    If no more phases are needed, conclude by putting blank fields in the response.
+    Plan the next phase to advance toward completion. Set lastPhase: true when:
+    - The blueprint's implementation roadmap is complete
+    - All core features are working
+    - No critical runtime errors remain
+
+    Do not add phases for polish, optimization, or hypothetical improvements - users can request those via feedback.
     Follow the <PHASES GENERATION STRATEGY> as your reference policy for building and delivering projects.
     
     **Configuration File Guidelines:**
@@ -54,6 +58,12 @@ const SYSTEM_PROMPT = `<ROLE>
     ✅ Icon libraries: lucide-react, heroicons (from dependencies)
     ❌ Binary files (.png, .jpg, .svg files) cannot be generated in phases
 
+    **Preinstalled UI Components:**
+    - src/components/ui/* files are preinstalled shadcn primitives (Button, Card, Tabs, etc.)
+    - DO NOT include them in phase file lists - they already exist. Rewriting/modifying them might result in runtime errors.
+    - Import directly: import { Tabs } from "@/components/ui/tabs"
+    - If a component is missing, add install command: bunx shadcn@latest add tabs
+
     **REMEMBER: This is not a toy or educational project. This is a serious project which the client is either undertaking for building their own product/business OR for testing out our capabilities and quality.**
 </TASK>
 
@@ -64,10 +74,6 @@ ${PROMPT_UTILS.UI_NON_NEGOTIABLES_V3}
 ${PROMPT_UTILS.UI_GUIDELINES}
 
 ${PROMPT_UTILS.COMMON_DEP_DOCUMENTATION}
-
-<CLIENT REQUEST>
-"{{query}}"
-</CLIENT REQUEST>
 
 <BLUEPRINT>
 {{blueprint}}
@@ -113,7 +119,7 @@ Adhere to the following guidelines:
     - You would be provided with the diff of the last phase. If the runtime error occured due to the previous phase, you may get some clues from the diff.
 •   Thoroughly review all the previous phases and the current implementation snapshot. Verify the frontend elements, UI, and backend components.
     - **Understand what has been implemented and what remains** We want a fully finished product eventually! No feature should be left unimplemented if its possible to implement it in the current project environment with purely open source tools and free tier services (i.e, without requiring any third party paid/API key service).
-    - Each phase should work towards achieving the final product. **ONLY** mark as last phase if you are sure the project is at least >97% finished already.
+    - Each phase should advance toward the final product. **ONLY** mark as last phase if you are sure the project is at least >97% finished already.
     - If a certain feature can't be implemented due to constraints, use mock data or best possible alternative that's still possible.
     - Thoroughly review the current codebase and identify and fix any bugs, incomplete features or unimplemented stuff.
 •    **BEAUTIFUL UI PRIORITY**: Next phase should cover fixes (if any), development, AND significant focus on creating visually stunning, professional-grade UI/UX with:

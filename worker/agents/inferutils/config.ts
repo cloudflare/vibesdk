@@ -75,7 +75,7 @@ const PLATFORM_AGENT_CONFIG: AgentConfig = {
         name: AIModels.GEMINI_3_FLASH_PREVIEW,
         reasoning_effort: 'medium',
         max_tokens: 8000,
-        temperature: 1,
+        temperature: 0.7,
         fallbackModel: AIModels.OPENAI_5_MINI,
     },
     firstPhaseImplementation: {
@@ -94,17 +94,17 @@ const PLATFORM_AGENT_CONFIG: AgentConfig = {
         fallbackModel: AIModels.GEMINI_2_5_FLASH,
     },
     deepDebugger: {
-        name: AIModels.GEMINI_3_FLASH_PREVIEW,
+        name: AIModels.GROK_4_1_FAST,
         reasoning_effort: 'high',
         max_tokens: 8000,
         temperature: 1,
-        fallbackModel: AIModels.GEMINI_3_PRO_PREVIEW,
+        fallbackModel: AIModels.GEMINI_2_5_PRO,
     },
     fileRegeneration: {
         name: AIModels.GROK_4_1_FAST_NON_REASONING,
         reasoning_effort: 'low',
         max_tokens: 16000,
-        temperature: 0.2,
+        temperature: 0.0,
         fallbackModel: AIModels.GROK_CODE_FAST_1,
     },
     agenticProjectBuilder: {
@@ -159,11 +159,11 @@ const DEFAULT_AGENT_CONFIG: AgentConfig = {
         fallbackModel: AIModels.GEMINI_2_5_PRO,
     },
     deepDebugger: {
-        name: AIModels.GEMINI_3_FLASH_PREVIEW,
+        name: AIModels.GEMINI_3_PRO_PREVIEW,
         reasoning_effort: 'high',
         max_tokens: 8000,
         temperature: 0.5,
-        fallbackModel: AIModels.GEMINI_3_PRO_PREVIEW,
+        fallbackModel: AIModels.GEMINI_2_5_FLASH,
     },
     fileRegeneration: {
         name: AIModels.GEMINI_3_FLASH_PREVIEW,
@@ -173,11 +173,11 @@ const DEFAULT_AGENT_CONFIG: AgentConfig = {
         fallbackModel: AIModels.GEMINI_2_5_FLASH,
     },
     agenticProjectBuilder: {
-        name: AIModels.GEMINI_3_FLASH_PREVIEW,
+        name: AIModels.GEMINI_2_5_PRO,
         reasoning_effort: 'high',
         max_tokens: 8000,
         temperature: 0.5,
-        fallbackModel: AIModels.GEMINI_3_PRO_PREVIEW,
+        fallbackModel: AIModels.GEMINI_2_5_FLASH,
     },
 };
 
