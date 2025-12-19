@@ -1980,8 +1980,9 @@ class CloudflareDeploymentManager {
 			this.updateContainerConfiguration();
 			this.updateDispatchNamespace(dispatchNamespacesAvailable);
 
-			// Step 3: Resolve var/secret conflicts before deployment
-			console.log('\n📋 Step 3: Resolving var/secret conflicts...');
+			// Step 3: Create .prod.vars and resolve var/secret conflicts before deployment
+			console.log('\n📋 Step 3: Creating .prod.vars and resolving var/secret conflicts...');
+			this.createProdVarsFile();
 			const conflictingVars = await this.removeConflictingVars();
 			
 			// Store for potential cleanup on early exit
