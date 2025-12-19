@@ -1736,7 +1736,13 @@ class CloudflareDeploymentManager {
 			'GITHUB_CLIENT_SECRET',
 			'JWT_SECRET',
 			'WEBHOOK_SECRET',
+			'SECRETS_ENCRYPTION_KEY',
+			'SENTRY_DSN',
 			'MAX_SANDBOX_INSTANCES',
+			'CUSTOM_DOMAIN',
+			'CUSTOM_PREVIEW_DOMAIN',
+			'SANDBOX_INSTANCE_TYPE',
+			'DISPATCH_NAMESPACE',
 		];
 
 		const prodVarsContent: string[] = [
