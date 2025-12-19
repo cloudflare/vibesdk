@@ -231,7 +231,7 @@ export function createAgentConnection(url: string, options: AgentConnectionOptio
 
 		if (ws.on) {
 			ws.on('open', () => onOpen());
-			ws.on('close', (code: unknown, reason: unknown) => onClose({ code: code as any, reason: reason as any }));
+			ws.on('close', (code: unknown, reason: unknown) => onClose({ code: typeof code === 'number' ? code : undefined, reason: typeof reason === 'string' ? reason : undefined }));
 			ws.on('error', (error: unknown) => onError(error));
 			ws.on('message', (data: unknown) => onMessage(data));
 		}

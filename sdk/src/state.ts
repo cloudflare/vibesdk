@@ -117,7 +117,7 @@ export class SessionStateStore {
 
 			case 'phase_generating': {
 				const m = msg as WsMessageOf<'phase_generating'>;
-				this.setState({ phase: { status: 'generating', ...extractPhaseInfo(m as any) } });
+				this.setState({ phase: { status: 'generating', ...extractPhaseInfo(m) } });
 				break;
 			}
 			case 'phase_generated': {

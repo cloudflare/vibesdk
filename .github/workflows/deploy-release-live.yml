@@ -46,8 +46,8 @@ jobs:
     timeout-minutes: 45
     needs: test-build
 
-    # If secrets aren't configured (e.g. forks), do not attempt deploy.
-    if: ${{ secrets.CLOUDFLARE_API_TOKEN != '' }}
+    # Skip deploy for forks (they won't have secrets anyway)
+    if: github.repository_owner == 'cloudflare'
 
     env:
       CI: true
