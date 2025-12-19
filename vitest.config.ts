@@ -1,6 +1,11 @@
 import { defineWorkersConfig } from '@cloudflare/vitest-pool-workers/config';
 
 export default defineWorkersConfig({
+  resolve: {
+    alias: {
+      'bun:test': 'vitest',
+    },
+  },
   test: {
     globals: true,
     pool: '@cloudflare/vitest-pool-workers',
