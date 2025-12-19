@@ -247,7 +247,12 @@ export function createAgentConnection(url: string, options: AgentConnectionOptio
 		}
 
 		pendingSends.push(data);
-		if (pendingSends.length > maxPendingSends) pendingSends.shift();
+		if (pendingSends.length > maxPendingSends) {
+			pendingSends.shift();
+			emitter.emit('ws:error', {
+				error: new Error(`Message queue overflow: dropped oldest message (queue size: ${maxPendingSends})`),
+			});
+		}
 	}
 
 	function close(): void {
