@@ -564,8 +564,8 @@ export class DeploymentManager extends BaseAgentService<BaseProjectState> implem
                 localEnvVars = {
                     "CF_AI_BASE_URL": generateAppProxyUrl(this.env),
                     "CF_AI_API_KEY": await generateAppProxyToken(
-                        state.inferenceContext.agentId,
-                        state.inferenceContext.userId,
+                        state.metadata.agentId,
+                        state.metadata.userId,
                         this.env
                     )
                 };

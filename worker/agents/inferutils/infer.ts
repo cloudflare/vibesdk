@@ -85,7 +85,7 @@ export async function executeInference<T extends z.AnyZodObject>(   {
     if (modelConfig) {
         // Use explicitly provided model config
         conf = modelConfig;
-    } else if (context?.userId && context?.userModelConfigs) {
+    } else if (context?.metadata.userId && context?.userModelConfigs) {
         // Try to get user-specific configuration from context cache
         conf = context.userModelConfigs[agentActionName];
         if (conf) {
@@ -176,7 +176,7 @@ export async function executeInference<T extends z.AnyZodObject>(   {
 
             const result = schema ? await infer<T>({
                 env,
-                metadata: context,
+                metadata: context.metadata,
                 messages,
                 schema,
                 schemaName: agentActionName,
@@ -194,9 +194,10 @@ export async function executeInference<T extends z.AnyZodObject>(   {
                 abortSignal: context.abortSignal,
                 onAssistantMessage,
                 completionConfig,
+                runtimeOverrides: context.runtimeOverrides,
             }) : await infer({
                 env,
-                metadata: context,
+                metadata: context.metadata,
                 messages,
                 maxTokens,
                 modelName: useCheaperModel ? AIModels.GEMINI_2_5_FLASH: modelName,
@@ -208,6 +209,7 @@ export async function executeInference<T extends z.AnyZodObject>(   {
                 abortSignal: context.abortSignal,
                 onAssistantMessage,
                 completionConfig,
+                runtimeOverrides: context.runtimeOverrides,
             });
             logger.info(`Successfully completed ${agentActionName} operation`);
             // console.log(result);

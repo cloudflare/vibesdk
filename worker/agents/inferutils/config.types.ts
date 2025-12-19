@@ -412,17 +412,58 @@ export type ReasoningEffortType = 'low' | 'medium' | 'high';
 
 export type AgentActionKey = keyof AgentConfig;
 
+/**
+ * Metadata used in agent for inference and other tasks
+ */
 export type InferenceMetadata = {
     agentId: string;
     userId: string;
     // llmRateLimits: LLMCallsRateLimitConfig;
 }
 
-export interface InferenceContext extends InferenceMetadata {
-    userModelConfigs?: Record<AgentActionKey, ModelConfig>;
+export type InferenceRuntimeOverrides = {
+	/** Provider API keys (BYOK) keyed by provider id, e.g. "openai" -> key. */
+	userApiKeys?: Record<string, string>;
+	/** Optional AI gateway override (baseUrl + token). */
+	aiGatewayOverride?: { baseUrl: string; token: string };
+};
+
+/**
+ * Runtime-only overrides used for inference.
+ * This is never persisted in Durable Object state.
+ */
+export interface InferenceContext {
+    metadata: InferenceMetadata;
     enableRealtimeCodeFix: boolean;
     enableFastSmartCodeFix: boolean;
     abortSignal?: AbortSignal;
+    userModelConfigs?: Record<AgentActionKey, ModelConfig>;
+    runtimeOverrides?: InferenceRuntimeOverrides;
+}
+
+/**
+ * SDK-facing credential payload
+ */
+export type CredentialsPayload = {
+	providers?: Record<string, { apiKey: string }>;
+	aiGateway?: { baseUrl: string; token: string };
+};
+
+export function credentialsToRuntimeOverrides(
+	credentials: CredentialsPayload | undefined,
+): InferenceRuntimeOverrides | undefined {
+	if (!credentials) return undefined;
+
+	const userApiKeys: Record<string, string> = {};
+	for (const [provider, v] of Object.entries(credentials.providers ?? {})) {
+		if (v.apiKey) userApiKeys[provider] = v.apiKey;
+	}
+
+	const hasKeys = Object.keys(userApiKeys).length > 0;
+	return {
+		...(hasKeys ? { userApiKeys } : {}),
+		...(credentials.aiGateway ? { aiGatewayOverride: credentials.aiGateway } : {}),
+	};
 }
 
 export function isValidAIModel(value: string): value is AIModels {

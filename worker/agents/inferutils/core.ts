@@ -15,7 +15,7 @@ import {
 } from 'openai/resources.mjs';
 import { CompletionSignal, Message, MessageContent, MessageRole } from './common';
 import { ToolCallResult, ToolDefinition, toOpenAITool } from '../tools/types';
-import { AgentActionKey, AI_MODEL_CONFIG, AIModelConfig, AIModels, InferenceMetadata } from './config.types';
+import { AgentActionKey, AI_MODEL_CONFIG, AIModelConfig, AIModels, InferenceMetadata, type InferenceRuntimeOverrides } from './config.types';
 import { RateLimitService } from '../../services/rate-limit/rateLimits';
 import { getUserConfigurableSettings } from '../../config';
 import { SecurityError, RateLimitExceededError } from 'shared/types/errors';
@@ -186,7 +186,27 @@ function optimizeTextContent(content: string): string {
     return content;
 }
 
-export async function buildGatewayUrl(env: Env, providerOverride?: AIGatewayProviders): Promise<string> {
+function buildGatewayPathname(cleanPathname: string, providerOverride?: AIGatewayProviders): string {
+    return providerOverride ? `${cleanPathname}/${providerOverride}` : `${cleanPathname}/compat`;
+}
+
+function constructGatewayUrl(url: URL, providerOverride?: AIGatewayProviders): string {
+    const cleanPathname = url.pathname.replace(/\/$/, '');
+    url.pathname = buildGatewayPathname(cleanPathname, providerOverride);
+    return url.toString();
+}
+
+export async function buildGatewayUrl(
+	env: Env,
+	providerOverride?: AIGatewayProviders,
+	gatewayOverride?: { baseUrl: string; token: string },
+): Promise<string> {
+    // Runtime override (SDK): explicit AI Gateway base URL
+    if (gatewayOverride?.baseUrl) {
+        const url = new URL(gatewayOverride.baseUrl);
+        return constructGatewayUrl(url, providerOverride);
+    }
+
     // If CLOUDFLARE_AI_GATEWAY_URL is set and is a valid URL, use it directly
     if (env.CLOUDFLARE_AI_GATEWAY_URL && 
         env.CLOUDFLARE_AI_GATEWAY_URL !== 'none' && 
@@ -198,7 +218,7 @@ export async function buildGatewayUrl(env: Env, providerOverride?: AIGatewayProv
             if (url.protocol === 'http:' || url.protocol === 'https:') {
                 // Add 'providerOverride' as a segment to the URL
                 const cleanPathname = url.pathname.replace(/\/$/, ''); // Remove trailing slash
-                url.pathname = providerOverride ? `${cleanPathname}/${providerOverride}` : `${cleanPathname}/compat`;
+                url.pathname = buildGatewayPathname(cleanPathname, providerOverride);
                 return url.toString();
             }
         } catch (error) {
@@ -224,8 +244,18 @@ function isValidApiKey(apiKey: string): boolean {
     return true;
 }
 
-async function getApiKey(provider: string, env: Env, _userId: string): Promise<string> {
+async function getApiKey(
+	provider: string,
+	env: Env,
+	_userId: string,
+	runtimeOverrides?: InferenceRuntimeOverrides,
+): Promise<string> {
     console.log("Getting API key for provider: ", provider);
+
+    const runtimeKey = runtimeOverrides?.userApiKeys?.[provider];
+    if (runtimeKey && isValidApiKey(runtimeKey)) {
+        return runtimeKey;
+    }
     // try {
     //     const userProviderKeys = await secretsService.getUserBYOKKeysMap(userId);
     //     // First check if user has a custom API key for this provider
@@ -246,7 +276,7 @@ async function getApiKey(provider: string, env: Env, _userId: string): Promise<s
     
     // Check if apiKey is empty or undefined and is valid
     if (!isValidApiKey(apiKey)) {
-        apiKey = env.CLOUDFLARE_AI_GATEWAY_TOKEN;
+        apiKey = runtimeOverrides?.aiGatewayOverride?.token ?? env.CLOUDFLARE_AI_GATEWAY_TOKEN;
     }
     return apiKey;
 }
@@ -255,6 +285,7 @@ export async function getConfigurationForModel(
     modelConfig: AIModelConfig,
     env: Env, 
     userId: string,
+    runtimeOverrides?: InferenceRuntimeOverrides,
 ): Promise<{
     baseURL: string,
     apiKey: string,
@@ -284,14 +315,17 @@ export async function getConfigurationForModel(
         }
     }
 
-    const baseURL = await buildGatewayUrl(env, providerForcedOverride);
+    const gatewayOverride = runtimeOverrides?.aiGatewayOverride;
+    const baseURL = await buildGatewayUrl(env, providerForcedOverride, gatewayOverride);
 
-    // Try to find API key of type <PROVIDER>_API_KEY else default to CLOUDFLARE_AI_GATEWAY_TOKEN
-    // `env` is an interface of type `Env`
-    const apiKey = await getApiKey(modelConfig.provider, env, userId);
-    // AI Gateway Wholesaling checks
-    const defaultHeaders = env.CLOUDFLARE_AI_GATEWAY_TOKEN && apiKey !== env.CLOUDFLARE_AI_GATEWAY_TOKEN ? {
-        'cf-aig-authorization': `Bearer ${env.CLOUDFLARE_AI_GATEWAY_TOKEN}`,
+    const gatewayToken = gatewayOverride?.token ?? env.CLOUDFLARE_AI_GATEWAY_TOKEN;
+
+    // Try to find API key of type <PROVIDER>_API_KEY else default to gateway token
+    const apiKey = await getApiKey(modelConfig.provider, env, userId, runtimeOverrides);
+
+    // AI Gateway wholesaling: when using BYOK provider key + platform gateway token
+    const defaultHeaders = gatewayToken && apiKey !== gatewayToken ? {
+        'cf-aig-authorization': `Bearer ${gatewayToken}`,
     } : undefined;
     return {
         baseURL,
@@ -316,7 +350,7 @@ type InferArgsBase = {
     };
     tools?: ToolDefinition<any, any>[];
     providerOverride?: 'cloudflare' | 'direct';
-    userApiKeys?: Record<string, string>;
+    runtimeOverrides?: InferenceRuntimeOverrides;
     abortSignal?: AbortSignal;
     onAssistantMessage?: (message: Message) => Promise<void>;
     completionConfig?: CompletionConfig;
@@ -492,6 +526,7 @@ export async function infer<OutputSchema extends z.AnyZodObject>({
     maxTokens,
     stream,
     tools,
+    runtimeOverrides,
     abortSignal,
     onAssistantMessage,
     completionConfig,
@@ -525,7 +560,12 @@ export async function infer<OutputSchema extends z.AnyZodObject>({
         await RateLimitService.enforceLLMCallsRateLimit(env, userConfig.security.rateLimit, metadata.userId, modelName)
         const modelConfig = AI_MODEL_CONFIG[modelName as AIModels];
 
-        const { apiKey, baseURL, defaultHeaders } = await getConfigurationForModel(modelConfig, env, metadata.userId);
+        const { apiKey, baseURL, defaultHeaders } = await getConfigurationForModel(
+            modelConfig,
+            env,
+            metadata.userId,
+            runtimeOverrides,
+        );
         console.log(`baseUrl: ${baseURL}, modelName: ${modelName}`);
 
         // Remove [*.] from model name

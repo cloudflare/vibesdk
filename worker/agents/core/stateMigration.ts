@@ -4,6 +4,7 @@ import { TemplateDetails } from 'worker/services/sandbox/sandboxTypes';
 import { generateNanoId } from '../../utils/idGenerator';
 import { generateProjectName } from '../utils/templateCustomizer';
 import { MAX_AGENT_QUERY_LENGTH } from 'worker/api/controllers/agent/types';
+import type { InferenceMetadata } from '../inferutils/config.types';
 
 // Type guards for legacy state detection
 type LegacyFileFormat = {
@@ -16,6 +17,7 @@ type StateWithDeprecatedFields = AgentState & {
     latestScreenshot?: unknown;
     templateDetails?: TemplateDetails;
     agentMode?: string;
+    inferenceContext?: unknown;
 };
 
 function hasLegacyFileFormat(file: unknown): file is LegacyFileFormat {
@@ -35,10 +37,56 @@ function isStateWithAgentMode(state: AgentState): state is StateWithDeprecatedFi
     return 'agentMode' in state;
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+    return typeof value === 'object' && value !== null;
+}
+
+function extractInferenceMetadata(value: unknown): InferenceMetadata | null {
+    if (!isRecord(value)) return null;
+
+    const agentId = value.agentId;
+    const userId = value.userId;
+    if (typeof agentId !== 'string' || agentId.trim() === '') return null;
+    if (typeof userId !== 'string' || userId.trim() === '') return null;
+
+    return { agentId, userId };
+}
+
 export class StateMigration {
-    static migrateIfNeeded(state: AgentState, logger: StructuredLogger): AgentState | null {
+    static migrateCommon(state: AgentState): AgentState | null {
+        const stateRecord = state as unknown as Record<string, unknown>;
+
+        // Check if we already have valid metadata
+        if (state.metadata?.agentId && state.metadata?.userId) {
+            return null; // No migration needed
+        }
+
+        // Try to extract from legacy inferenceContext
+        const hasLegacyInferenceContext = hasField(state, 'inferenceContext');
+        if (hasLegacyInferenceContext) {
+            const rawInferenceContext = stateRecord.inferenceContext;
+            const extractedMetadata = extractInferenceMetadata(rawInferenceContext);
+
+            if (extractedMetadata) {
+                // Create new state with migrated metadata
+                const nextStateRecord: Record<string, unknown> = {
+                    ...stateRecord,
+                    metadata: extractedMetadata,
+                };
+                // Remove the old inferenceContext field
+                delete nextStateRecord.inferenceContext;
+
+                return nextStateRecord as unknown as AgentState;
+            }
+        }
+
+        return null; // No migration possible
+    }
+
+    // Mostly for phasic behavior
+    static migratePhasic(state: AgentState, logger: StructuredLogger): AgentState | null {
         let needsMigration = false;
-        
+        const stateRecord = state as unknown as Record<string, unknown>;
 
         // If the query is too long, truncate it to avoid performance issues
         if (state.query && state.query.length > MAX_AGENT_QUERY_LENGTH) {
@@ -65,29 +113,14 @@ export class StateMigration {
         const migratedFilesMap: Record<string, FileState> = {};
         for (const [key, file] of Object.entries(state.generatedFilesMap)) {
             const migratedFile = migrateFile(file);
-            
+
             migratedFilesMap[key] = {
                 ...migratedFile,
             };
-            
+
             if (migratedFile !== file) {
                 needsMigration = true;
             }
-        }
-
-        //------------------------------------------------------------------------------------
-        // Migrate inference context from old schema
-        //------------------------------------------------------------------------------------
-        let migratedInferenceContext = state.inferenceContext;
-        if (migratedInferenceContext && 'userApiKeys' in migratedInferenceContext) {
-            migratedInferenceContext = {
-                ...migratedInferenceContext
-            };
-            
-            // Remove the deprecated field using type assertion
-            const contextWithLegacyField = migratedInferenceContext as unknown as Record<string, unknown>;
-            delete contextWithLegacyField.userApiKeys;
-            needsMigration = true;
         }
 
         //------------------------------------------------------------------------------------
@@ -138,7 +171,6 @@ export class StateMigration {
         }
 
         let migratedBehaviorType = state.behaviorType;
-        const stateRecord = state as unknown as Record<string, unknown>;
         const rawBehaviorType = stateRecord.behaviorType;
         const hasValidBehaviorType = rawBehaviorType === 'phasic' || rawBehaviorType === 'agentic';
 
@@ -162,21 +194,21 @@ export class StateMigration {
             : [];
 
         if (needsMigration) {
-            logger.info('Migrating state: schema format, conversation cleanup, security fixes, and bootstrap setup', {
+            logger.info('Migrating state: schema format fixes and legacy field cleanup', {
                 generatedFilesCount: Object.keys(migratedFilesMap).length,
-                removedUserApiKeys: state.inferenceContext && 'userApiKeys' in state.inferenceContext,
             });
 
-            const newState: AgentState = {
-                ...state,
+            const nextStateRecord: Record<string, unknown> = {
+                ...stateRecord,
                 behaviorType: migratedBehaviorType,
                 projectType: migratedProjectType,
                 generatedFilesMap: migratedFilesMap,
-                inferenceContext: migratedInferenceContext,
                 projectUpdatesAccumulator: migratedProjectUpdatesAccumulator,
                 templateName: migratedTemplateName,
                 projectName: migratedProjectName,
-            } as AgentState;
+            };
+
+            const newState = nextStateRecord as unknown as AgentState;
 
             const stateWithDeprecated = newState as StateWithDeprecatedFields;
             if (stateHasDeprecatedProps) {

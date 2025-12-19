@@ -114,7 +114,7 @@ export class PhasicCodingBehavior extends BaseCodingBehavior<PhasicState> implem
             lastPackageJson: packageJson,
             sessionId: sandboxSessionId!,
             hostname,
-            inferenceContext,
+            metadata: inferenceContext.metadata,
             projectType: this.projectType,
             behaviorType: 'phasic'
         };
@@ -159,7 +159,7 @@ export class PhasicCodingBehavior extends BaseCodingBehavior<PhasicState> implem
     }
 
     migrateStateIfNeeded(): void {
-        const migratedState = StateMigration.migrateIfNeeded(this.state, this.logger) as PhasicState | null;
+        const migratedState = StateMigration.migratePhasic(this.state, this.logger) as PhasicState | null;
         if (migratedState) {
             this.setState(migratedState);
         }
@@ -587,7 +587,7 @@ export class PhasicCodingBehavior extends BaseCodingBehavior<PhasicState> implem
                     });
                 },
                 userContext,
-                shouldAutoFix: this.state.inferenceContext.enableRealtimeCodeFix,
+                shouldAutoFix: this.getInferenceContext().enableRealtimeCodeFix,
                 fileChunkGeneratedCallback: streamChunks ? (filePath: string, chunk: string, format: 'full_content' | 'unified_diff') => {
                     this.broadcast(WebSocketMessageResponses.FILE_CHUNK_GENERATED, {
                         message: `Generating file: ${filePath}`,
@@ -627,7 +627,7 @@ export class PhasicCodingBehavior extends BaseCodingBehavior<PhasicState> implem
             ? await runPreDeploySafetyGate({
                   files: finalFiles,
                   env: this.env,
-                  inferenceContext: this.state.inferenceContext,
+                  inferenceContext: this.getInferenceContext(),
                   query: this.state.query,
                   template: templateDetails,
                   phase,
@@ -647,7 +647,7 @@ export class PhasicCodingBehavior extends BaseCodingBehavior<PhasicState> implem
             await this.deployToSandbox(safeFiles, false, phase.name, true);
             if (postPhaseFixing) {
                 await this.applyDeterministicCodeFixes();
-                if (this.state.inferenceContext.enableFastSmartCodeFix) {
+                if (this.getInferenceContext().enableFastSmartCodeFix) {
                     await this.applyFastSmartCodeFixes();
                 }
             }

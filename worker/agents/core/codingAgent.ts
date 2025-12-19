@@ -4,7 +4,7 @@ import { AgenticState, AgentState, BaseProjectState, CurrentDevState, MAX_PHASES
 import { Blueprint } from "../schemas";
 import { BaseCodingBehavior } from "./behaviors/base";
 import { createObjectLogger, StructuredLogger } from '../../logger';
-import { InferenceContext } from "../inferutils/config.types";
+import { InferenceMetadata } from "../inferutils/config.types";
 import { getMimeType } from 'hono/utils/mime';
 import { normalizePath, isPathSafe } from '../../utils/pathUtils';
 import { FileManager } from '../services/implementations/FileManager';
@@ -28,6 +28,7 @@ import { RateLimitExceededError } from "shared/types/errors";
 import { ProjectObjective } from "./objectives/base";
 import { FileOutputType } from "../schemas";
 import { SecretsClient, type UserSecretsStoreStub } from '../../services/secrets/SecretsClient';
+import { StateMigration } from './stateMigration';
 
 const DEFAULT_CONVERSATION_SESSION_ID = 'default';
 
@@ -66,7 +67,7 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
         templateName: '',
         generatedFilesMap: {},
         conversationMessages: [],
-        inferenceContext: {} as InferenceContext,
+        metadata: {} as InferenceMetadata,
         shouldBeGenerating: false,
         sandboxInstanceId: undefined,
         commandsHistory: [],
@@ -123,7 +124,7 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
     ): Promise<AgentState> {
         const { inferenceContext } = initArgs;
         const sandboxSessionId = DeploymentManager.generateNewSessionId();
-        this.initLogger(inferenceContext.agentId, inferenceContext.userId, sandboxSessionId);
+        this.initLogger(inferenceContext.metadata.agentId, inferenceContext.metadata.userId, sandboxSessionId);
 
         // Infrastructure setup
         await this.gitInit();
@@ -148,6 +149,12 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
      * @param props - Optional props
      */
     async onStart(props?: Record<string, unknown> | undefined): Promise<void> {
+        // Run common migration FIRST, before any state access
+        const migratedState = StateMigration.migrateCommon(this.state);
+        if (migratedState) {
+            this.setState(migratedState);
+        }
+
         this.logger().info(`Agent ${this.getAgentId()} session: ${this.state.sessionId} onStart`, { props });
 
         this.logger().info('Bootstrapping CodeGeneratorAgent', { props });
@@ -171,7 +178,7 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
             this.logger().warn(`Agent ${this.getAgentId()} session: ${this.state.sessionId} onStart ignored, agent not initialized`);
             return;
         }
-        
+
         // Ensure state is migrated for any previous versions
         this.behavior.migrateStateIfNeeded();
         
@@ -191,14 +198,8 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
 
         // Load the latest user configs
         const modelConfigService = new ModelConfigService(this.env);
-        const userConfigsRecord = await modelConfigService.getUserModelConfigs(this.state.inferenceContext.userId);
-        this.setState({
-            ...this.state,
-            inferenceContext: {
-                ...this.state.inferenceContext,
-                userModelConfigs: userConfigsRecord,
-            },
-        });
+        const userConfigsRecord = await modelConfigService.getUserModelConfigs(this.state.metadata.userId);
+        this.behavior.setUserModelConfigs(userConfigsRecord);
         this.logger().info(`Agent ${this.getAgentId()} session: ${this.state.sessionId} onStart: User configs loaded successfully`, {userConfigsRecord});
     }
     
@@ -240,13 +241,13 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
 
     logger(): StructuredLogger {
         if (!this._logger) {
-            this._logger = this.initLogger(this.getAgentId(), this.state.inferenceContext.userId, this.state.sessionId);
+            this._logger = this.initLogger(this.getAgentId(), this.state.metadata.userId, this.state.sessionId);
         }
         return this._logger;
     }
 
     getAgentId() {
-        return this.state.inferenceContext.agentId;
+        return this.state.metadata.agentId;
     }
     
     getWebSockets(): WebSocket[] {
@@ -266,7 +267,7 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
 
     private getSecretsClient(): SecretsClient {
         if (!this.secretsClient) {
-            const userId = this.state.inferenceContext.userId;
+            const userId = this.state.metadata.userId;
             const stub = this.env.UserSecretsStore.get(
                 this.env.UserSecretsStore.idFromName(userId)
             ) as unknown as UserSecretsStoreStub;
@@ -347,8 +348,8 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
         // Save the app to database (authenticated users only)
         const appService = new AppService(this.env);
         await appService.createApp({
-            id: this.state.inferenceContext.agentId,
-            userId: this.state.inferenceContext.userId,
+            id: this.state.metadata.agentId,
+            userId: this.state.metadata.userId,
             sessionToken: null,
             title: this.state.blueprint.title || this.state.query.substring(0, 100),
             description: this.state.blueprint.description,
@@ -360,12 +361,12 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
                 createdAt: new Date(),
             updatedAt: new Date()
             });
-        this.logger().info(`App saved successfully to database for agent ${this.state.inferenceContext.agentId}`, { 
-            agentId: this.state.inferenceContext.agentId, 
-            userId: this.state.inferenceContext.userId,
+        this.logger().info(`App saved successfully to database for agent ${this.state.metadata.agentId}`, { 
+            agentId: this.state.metadata.agentId, 
+            userId: this.state.metadata.userId,
             visibility: 'private'
         });
-        this.logger().info(`Agent initialized successfully for agent ${this.state.inferenceContext.agentId}`);
+        this.logger().info(`Agent initialized successfully for agent ${this.state.metadata.agentId}`);
     }
 
     // ==========================================

@@ -122,9 +122,11 @@ export class CodingAgentController extends BaseController {
             }
 
             const inferenceContext = {
+                metadata: {
+                    agentId: agentId,
+                    userId: user.id,
+                },
                 userModelConfigs,
-                agentId: agentId,
-                userId: user.id,
                 enableRealtimeCodeFix: false, // This costs us too much, so disabled it for now
                 enableFastSmartCodeFix: false,
             }
