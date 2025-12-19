@@ -2,7 +2,7 @@ import type { PhasicBlueprint, AgenticBlueprint, PhaseConceptType ,
     FileOutputType,
     Blueprint,
 } from '../schemas';
-import type { InferenceContext } from '../inferutils/config.types';
+import type { InferenceMetadata } from '../inferutils/config.types';
 import { BehaviorType, Plan, ProjectType } from './types';
 
 export interface FileState extends FileOutputType {
@@ -45,7 +45,7 @@ export interface BaseProjectState {
     templateName: string | 'custom';
     
     // Inference context
-    inferenceContext: InferenceContext;
+    readonly metadata: InferenceMetadata;
     
     // Generation control
     shouldBeGenerating: boolean;

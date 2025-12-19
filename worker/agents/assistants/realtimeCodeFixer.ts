@@ -490,7 +490,7 @@ ${block.error}
             
             const llmResponse = await infer({
                 env: this.env,
-                metadata: this.inferenceContext,
+                metadata: this.inferenceContext.metadata,
                 modelName: AGENT_CONFIG['realtimeCodeFixer'].name,
                 reasoning_effort: 'low',
                 temperature: 0.0,

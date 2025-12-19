@@ -43,7 +43,7 @@ import { generateId } from '../../utils/idGenerator';
 import { ResourceProvisioner } from './resourceProvisioner';
 import { TemplateParser } from './templateParser';
 import { ResourceProvisioningResult } from './types';
-import { getPreviewDomain } from '../../utils/urls';
+import { getPreviewDomain, migratePreviewUrl } from '../../utils/urls';
 import { isDev } from 'worker/utils/envs'
 import { FileTreeBuilder } from './fileTreeBuilder';
 import { DeploymentTarget } from 'worker/agents/core/types';
@@ -538,7 +538,7 @@ export class SandboxSdkClient extends BaseSandboxService {
                         uptime: Math.floor((Date.now() - new Date(metadata.startTime).getTime()) / 1000),
                         directory: instanceId,
                         serviceDirectory: instanceId,
-                        previewURL: metadata.previewURL,
+                        previewURL: migratePreviewUrl(metadata.previewURL, env),
                         processId: metadata.processId,
                         tunnelURL: metadata.tunnelURL,
                         // Skip file tree
@@ -1112,7 +1112,7 @@ export class SandboxSdkClient extends BaseSandboxService {
                 serviceDirectory: instanceId,
                 fileTree,
                 runtimeErrors: runtimeErrors.errors,
-                previewURL: metadata.previewURL,
+                previewURL: migratePreviewUrl(metadata.previewURL, env),
                 processId: metadata.processId,
                 tunnelURL: metadata.tunnelURL,
             };
@@ -1169,7 +1169,7 @@ export class SandboxSdkClient extends BaseSandboxService {
                 pending: false,
                 isHealthy,
                 message: isHealthy ? 'Instance is running normally' : 'Instance may have issues',
-                previewURL: metadata.previewURL,
+                previewURL: migratePreviewUrl(metadata.previewURL, env),
                 tunnelURL: metadata.tunnelURL,
                 processId: metadata.processId
             };

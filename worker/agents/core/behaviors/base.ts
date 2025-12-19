@@ -18,7 +18,7 @@ import { BaseSandboxService } from '../../../services/sandbox/BaseSandboxService
 import { getTemplateImportantFiles } from '../../../services/sandbox/utils';
 import { createScratchTemplateDetails } from '../../utils/templates';
 import { WebSocketMessageData, WebSocketMessageType } from '../../../api/websocketTypes';
-import { InferenceContext } from '../../inferutils/config.types';
+import { AgentActionKey, InferenceContext, InferenceRuntimeOverrides, ModelConfig } from '../../inferutils/config.types';
 import { ModelConfigService } from '../../../database/services/ModelConfigService';
 import { fixProjectIssues } from '../../../services/code-fixer';
 import { FastCodeFixerOperation } from '../../operations/PostPhaseCodeFixer';
@@ -68,6 +68,9 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
     protected deepDebugConversationId: string | null = null;
 
     protected staticAnalysisCache: StaticAnalysisResponse | null = null;
+
+    protected userModelConfigs?: Record<AgentActionKey, ModelConfig>;
+    protected runtimeOverrides?: InferenceRuntimeOverrides;
     
     protected operations: BaseCodingOperations = {
         regenerateFile: new FileRegenerationOperation(),
@@ -229,7 +232,7 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
                 query: this.state.query,
                 blueprint: this.state.blueprint,
                 template: this.getTemplateDetails(),
-                inferenceContext: this.state.inferenceContext
+                inferenceContext: this.getInferenceContext()
             });
         }
         return this.projectSetupAssistant;
@@ -245,6 +248,22 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
 
     isCodeGenerating(): boolean {
         return this.generationPromise !== null;
+    }
+
+    getUserModelConfigs(): Record<AgentActionKey, ModelConfig> | undefined {
+        return this.userModelConfigs;
+    }
+
+    setUserModelConfigs(configs: Record<AgentActionKey, ModelConfig> | undefined): void {
+        this.userModelConfigs = configs;
+    }
+
+    getRuntimeOverrides(): InferenceRuntimeOverrides | undefined {
+        return this.runtimeOverrides;
+    }
+
+    setRuntimeOverrides(overrides: InferenceRuntimeOverrides | undefined): void {
+        this.runtimeOverrides = overrides;
     }
 
     abstract getOperationOptions(): OperationOptions;
@@ -293,8 +312,12 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
         const controller = this.getOrCreateAbortController();
         
         return {
-            ...this.state.inferenceContext,
+            metadata: this.state.metadata,
+            enableFastSmartCodeFix: false,  // TODO: Do we want to enable it via some config?
+            enableRealtimeCodeFix: false,   // TODO: Do we want to enable it via some config?
             abortSignal: controller.signal,
+            userModelConfigs: this.getUserModelConfigs(),
+            runtimeOverrides: this.getRuntimeOverrides(),
         };
     }
 
@@ -496,7 +519,7 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
 
     getModelConfigsInfo() {
         const modelService = new ModelConfigService(this.env);
-        return modelService.getModelConfigsInfo(this.state.inferenceContext.userId);
+        return modelService.getModelConfigsInfo(this.state.metadata.userId);
     }
 
     getTotalFiles(): number {

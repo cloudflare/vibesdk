@@ -88,7 +88,7 @@ export class AgenticCodingBehavior extends BaseCodingBehavior<AgenticState> impl
             lastPackageJson: packageJson,
             sessionId: sandboxSessionId!,
             hostname,
-            inferenceContext,
+            metadata: inferenceContext.metadata,
             projectType: this.projectType,
             behaviorType: 'agentic'
         });
