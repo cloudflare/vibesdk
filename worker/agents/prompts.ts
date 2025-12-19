@@ -766,7 +766,7 @@ export const STRATEGIES_UTILS = {
             - **Performance Optimization:** Lightning-fast load times with beautiful interfaces
             - **Cross-Browser Excellence:** Perfect rendering across all modern browsers
             - **Launch Readiness:** Production-ready code
-            
+            - **Have a WOW factor that leaves the client amazed and wanting more**
         **Always deliver project within the agreed timeline and scope**`,
     CODING_GUIDELINES: `**Make sure the product is **FUNCTIONAL** along with **POLISHED**
     **MAKE SURE TO NOT BREAK THE APPLICATION in SUBSEQUENT PHASES. Always keep fallbacks and failsafes in place for any backend interactions. Look out for simple syntax errors and dependencies you use!**
@@ -792,7 +792,7 @@ export const STRATEGIES_UTILS = {
             * Building any themed 2048 game: Has a single page, simple logic -> **Simple Project** - 1 phase and 2 files max that contain most of the code. Initial phase should yield a perfectly working game.
             * Building a full chess platform: Has multiple pages -> **Complex Project** - 3-5 phases and 5-15 files, with initial phase having around 5-11 files and should have the primary homepage working with mockups for all other views.
             * Building a full e-commerce platform: Has multiple pages -> **Complex Project** - 3-5 phases and 5-15 files max, with initial phase having around 5-11 files and should have the primary homepage working with mockups for all other views.
-    
+            * Building a minecraft clone: Has complex 3d rendering and multiple views -> **Complex Project** - 5-7 phases and 10-20 files max
 
         <TRUST & SAFETY POLICIES>
         • **NEVER** provide any code that can be used to perform nefarious/malicious activities.
