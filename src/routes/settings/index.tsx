@@ -5,7 +5,6 @@ import {
 	Key,
 	Lock,
 	Settings,
-	Terminal,
 	Copy,
 	Check,
 	Eye,
@@ -16,7 +15,7 @@ import type {
 	ModelConfigsData,
 	ModelConfigUpdate,
 	ActiveSessionsData,
-	CliTokenData,
+	ApiKeysData,
 } from '@/api-types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -35,6 +34,24 @@ import {
 	AlertDialogTitle,
 	AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
+import {
+	Dialog,
+	DialogContent,
+	DialogDescription,
+	DialogFooter,
+	DialogHeader,
+	DialogTitle,
+	DialogTrigger,
+} from '@/components/ui/dialog';
+import {
+	Table,
+	TableBody,
+	TableCaption,
+	TableCell,
+	TableHead,
+	TableHeader,
+	TableRow,
+} from '@/components/ui/table';
 import { toast } from 'sonner';
 import { apiClient } from '@/lib/api-client';
 import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard';
@@ -47,13 +64,29 @@ export default function SettingsPage() {
 		ActiveSessionsData & { loading: boolean }
 	>({ sessions: [], loading: true });
 
-	const [cliToken, setCliToken] = useState<CliTokenData | null>(null);
-	const [showCliToken, setShowCliToken] = useState(false);
-	const [loadingCliToken, setLoadingCliToken] = useState(false);
+
+	// SDK API keys state
+	const [apiKeys, setApiKeys] = useState<ApiKeysData & { loading: boolean }>({
+		keys: [],
+		loading: true,
+	});
+	const [createKeyOpen, setCreateKeyOpen] = useState(false);
+	const [newKeyName, setNewKeyName] = useState('');
+	const [creatingKey, setCreatingKey] = useState(false);
+	const [createdKey, setCreatedKey] = useState<{
+		key: string;
+		keyPreview: string;
+		name: string;
+	} | null>(null);
+	const [showCreatedKey, setShowCreatedKey] = useState(true);
+	const [keyToRevoke, setKeyToRevoke] = useState<
+		ApiKeysData['keys'][number] | null
+	>(null);
+	const [revokingKey, setRevokingKey] = useState(false);
 	const {
-		copied: copiedCliToken,
-		copy: copyCliToken,
-		reset: resetCliTokenCopy,
+		copied: copiedCreatedKey,
+		copy: copyCreatedKey,
+		reset: resetCreatedKeyCopy,
 	} = useCopyToClipboard();
 
 	// Model configurations state
@@ -307,6 +340,59 @@ export default function SettingsPage() {
 		}
 	};
 
+	const loadApiKeys = async () => {
+		try {
+			setApiKeys((prev) => ({ ...prev, loading: true }));
+			const response = await apiClient.getApiKeys();
+			setApiKeys({ keys: response.data?.keys ?? [], loading: false });
+		} catch (error) {
+			console.error('Error loading API keys:', error);
+			setApiKeys({ keys: [], loading: false });
+			toast.error('Failed to load API keys');
+		}
+	};
+
+	const handleCreateApiKey = async () => {
+		if (!newKeyName.trim() || creatingKey) return;
+		try {
+			setCreatingKey(true);
+			const response = await apiClient.createApiKey({ name: newKeyName.trim() });
+			if (response.success && response.data) {
+				setCreatedKey({
+					key: response.data.key,
+					keyPreview: response.data.keyPreview,
+					name: response.data.name,
+				});
+				setShowCreatedKey(true);
+				resetCreatedKeyCopy();
+				toast.success('API key created');
+				await loadApiKeys();
+				setNewKeyName('');
+			}
+		} catch (error) {
+			console.error('Error creating API key:', error);
+			toast.error('Failed to create API key');
+		} finally {
+			setCreatingKey(false);
+		}
+	};
+
+	const handleRevokeApiKey = async () => {
+		if (!keyToRevoke || revokingKey) return;
+		try {
+			setRevokingKey(true);
+			await apiClient.revokeApiKey(keyToRevoke.id);
+			toast.success('API key revoked');
+			setKeyToRevoke(null);
+			await loadApiKeys();
+		} catch (error) {
+			console.error('Error revoking API key:', error);
+			toast.error('Failed to revoke API key');
+		} finally {
+			setRevokingKey(false);
+		}
+	};
+
 	// Load agent configurations dynamically from API
 	React.useEffect(() => {
 		apiClient
@@ -333,6 +419,7 @@ export default function SettingsPage() {
 		if (user) {
 			loadActiveSessions();
 			loadModelConfigs();
+			loadApiKeys();
 		}
 	}, [user]);
 
@@ -468,7 +555,7 @@ export default function SettingsPage() {
 									size="sm"
 									onClick={() => {
 										const secretsSection =
-											document.getElementById('secrets');
+											document.getElementById('api-keys');
 										if (secretsSection) {
 											secretsSection.scrollIntoView({
 												behavior: 'smooth',
@@ -478,8 +565,8 @@ export default function SettingsPage() {
 									}}
 									className="gap-2 shrink-0"
 								>
-									<Key className="h-4 w-4" />
-									Manage Keys
+														<Key className="h-4 w-4" />
+														API Keys
 								</Button>
 							</div>
 
@@ -504,119 +591,238 @@ export default function SettingsPage() {
 					{/* User Secrets Vault Section */}
 					{/* <SecretsManager id="secrets" /> */}
 
-					<Card id="cli-auth">
+					<Card id="api-keys">
 						<CardHeader variant="minimal">
 							<div className="flex items-center gap-3 border-b w-full py-3 text-text-primary">
-								<Terminal className="h-5 w-5" />
+								<Key className="h-5 w-5" />
 								<div>
-									<CardTitle>CLI Authentication</CardTitle>
+									<CardTitle>API Keys</CardTitle>
 								</div>
 							</div>
 						</CardHeader>
 						<CardContent className="space-y-4 mt-4 px-6">
-							<div className="space-y-3">
-								<div>
-									<h4 className="font-medium text-sm mb-2">Authenticate CLI with your session token</h4>
+							<div className="flex items-start justify-between gap-4">
+								<div className="space-y-1">
+									<h4 className="font-medium text-sm">VibeSDK API Keys</h4>
 									<p className="text-sm text-text-secondary">
-										Use this token to authenticate the vibesdk CLI with your account.
-										This token has the same permissions as your current session.
+										Use these keys to authenticate external SDK clients. The full key is shown only once when created.
 									</p>
 								</div>
 
-								{!cliToken ? (
-									<Button
-										size="sm"
-										onClick={async () => {
-											setLoadingCliToken(true);
-											try {
-												const response = await apiClient.getCliToken();
-												if (response.success && response.data) {
-													setCliToken(response.data);
-													setShowCliToken(true);
-												}
-											} catch (error) {
-												console.error('Failed to get CLI token:', error);
-												toast.error('Failed to get CLI token');
-											} finally {
-												setLoadingCliToken(false);
-											}
-										}}
-										disabled={loadingCliToken}
-										className="gap-2"
-									>
-										{loadingCliToken ? (
-											<>
-												<Settings className="h-4 w-4 animate-spin" />
-												Loading...
-											</>
-										) : (
-											<>
-												<Key className="h-4 w-4" />
-												Show CLI Token
-											</>
-										)}
-									</Button>
-								) : (
-									<div className="space-y-3">
-										<div className="flex items-center gap-2">
-											<div className="flex-1 relative">
-												<Input
-													type={showCliToken ? 'text' : 'password'}
-													value={cliToken.token}
-													readOnly
-													className="font-mono text-sm pr-20"
-												/>
-												<div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
-													<Button
-														size="icon"
-														variant="ghost"
-														className="h-7 w-7"
-														onClick={() => setShowCliToken(!showCliToken)}
-													>
-														{showCliToken ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-													</Button>
-													<Button
-														size="icon"
-														variant="ghost"
-														className="h-7 w-7"
-														onClick={() => copyCliToken(cliToken.token)}
-													>
-														{copiedCliToken ? (
-															<Check className="h-4 w-4 text-green-500" />
-														) : (
-															<Copy className="h-4 w-4" />
-														)}
-													</Button>
+								<Dialog
+									open={createKeyOpen}
+									onOpenChange={(open) => {
+										setCreateKeyOpen(open);
+										if (!open) {
+											setNewKeyName('');
+											setCreatedKey(null);
+											setShowCreatedKey(true);
+											resetCreatedKeyCopy();
+										}
+									}}
+								>
+									<DialogTrigger asChild>
+										<Button size="sm" className="gap-2">
+											<Key className="h-4 w-4" />
+											Create API Key
+										</Button>
+									</DialogTrigger>
+									<DialogContent>
+										<DialogHeader>
+											<DialogTitle>
+												{createdKey ? 'Your new API key' : 'Create API key'}
+											</DialogTitle>
+											<DialogDescription>
+												{createdKey
+													? 'Copy this key now. You will not be able to see it again.'
+													: 'Give your key a memorable name. You can revoke it anytime.'}
+											</DialogDescription>
+										</DialogHeader>
+
+										{!createdKey ? (
+											<div className="space-y-3">
+												<div className="space-y-2">
+													<p className="text-sm font-medium">Key name</p>
+													<Input
+														value={newKeyName}
+														onChange={(e) => setNewKeyName(e.target.value)}
+														placeholder="e.g. My production SDK"
+														autoFocus
+													/>
+												</div>
+
+												<div className="rounded-lg bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 p-3">
+													<p className="text-sm text-amber-800 dark:text-amber-200">
+														<strong>Important:</strong> Treat this like a password. Anyone with this key can act as your VibeSDK account.
+													</p>
 												</div>
 											</div>
-										</div>
+										) : (
+											<div className="space-y-3">
+												<div className="space-y-2">
+													<p className="text-sm font-medium">API key</p>
+													<div className="relative">
+														<Input
+															type={showCreatedKey ? 'text' : 'password'}
+															value={createdKey.key}
+															readOnly
+															className="font-mono text-sm pr-20"
+														/>
+														<div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
+															<Button
+																size="icon"
+																variant="ghost"
+																className="h-7 w-7"
+																onClick={() => setShowCreatedKey(!showCreatedKey)}
+															>
+																{showCreatedKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+															</Button>
+															<Button
+																size="icon"
+																variant="ghost"
+																className="h-7 w-7"
+																onClick={() => copyCreatedKey(createdKey.key)}
+															>
+																{copiedCreatedKey ? (
+																	<Check className="h-4 w-4 text-green-500" />
+																) : (
+																	<Copy className="h-4 w-4" />
+																)}
+															</Button>
+														</div>
+													</div>
+												</div>
 
-										<div className="rounded-lg bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 p-3">
-											<p className="text-sm text-amber-800 dark:text-amber-200">
-												<strong>Important:</strong> This token expires in {Math.floor(cliToken.expiresIn / 3600)} hours. Keep it secure and do not share it.
+												<div className="rounded-lg bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 p-3">
+													<p className="text-xs font-medium text-slate-700 dark:text-slate-300 mb-2">SDK usage</p>
+													<code className="text-xs text-slate-600 dark:text-slate-400 block font-mono">
+														VIBESDK_API_KEY={createdKey.keyPreview}
+													</code>
+												</div>
+											</div>
+										)}
+
+										<DialogFooter>
+											{!createdKey ? (
+												<Button
+													onClick={handleCreateApiKey}
+													disabled={!newKeyName.trim() || creatingKey}
+													className="gap-2"
+												>
+													{creatingKey ? (
+														<>
+															<Settings className="h-4 w-4 animate-spin" />
+															Creating...
+														</>
+													) : (
+														'Create'
+													)}
+												</Button>
+											) : (
+												<Button
+													variant="outline"
+													onClick={() => setCreateKeyOpen(false)}
+												>
+													Done
+												</Button>
+											)}
+										</DialogFooter>
+									</DialogContent>
+								</Dialog>
+							</div>
+
+							{apiKeys.loading ? (
+								<div className="flex items-center gap-3">
+									<Settings className="h-5 w-5 animate-spin text-text-tertiary" />
+									<span className="text-sm text-text-tertiary">Loading API keys...</span>
+								</div>
+							) : apiKeys.keys.length === 0 ? (
+								<div className="rounded-lg border border-dashed border-bg-4 bg-bg-2/50 p-6">
+									<div className="flex items-start gap-3">
+										<div className="h-10 w-10 rounded-full bg-bg-3 flex items-center justify-center">
+											<Key className="h-5 w-5 text-text-tertiary" />
+										</div>
+										<div className="space-y-1">
+											<p className="font-medium">No API keys yet</p>
+											<p className="text-sm text-text-tertiary">
+												Create an API key to use the VibeSDK SDK from your own apps.
 											</p>
 										</div>
-
-										<div className="rounded-lg bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 p-3">
-											<p className="text-xs font-medium text-slate-700 dark:text-slate-300 mb-2">Usage Instructions:</p>
-											<code className="text-xs text-slate-600 dark:text-slate-400 block">{cliToken.instructions}</code>
-										</div>
-
-										<Button
-											size="sm"
-											variant="outline"
-											onClick={() => {
-												setCliToken(null);
-												setShowCliToken(false);
-												resetCliTokenCopy();
-											}}
-											className="gap-2"
-										>
-											Hide Token
-										</Button>
 									</div>
-								)}
-							</div>
+								</div>
+							) : (
+								<>
+									<Table>
+										<TableCaption>Active keys for SDK usage</TableCaption>
+										<TableHeader>
+											<TableRow>
+												<TableHead>Name</TableHead>
+												<TableHead>Preview</TableHead>
+												<TableHead>Created</TableHead>
+												<TableHead>Last used</TableHead>
+												<TableHead>Status</TableHead>
+												<TableHead className="text-right">Actions</TableHead>
+											</TableRow>
+										</TableHeader>
+										<TableBody>
+											{apiKeys.keys.map((k) => (
+												<TableRow key={k.id}>
+													<TableCell className="font-medium">{k.name}</TableCell>
+													<TableCell className="font-mono text-xs text-text-secondary">{k.keyPreview}</TableCell>
+													<TableCell className="text-text-secondary">
+														{k.createdAt ? new Date(k.createdAt).toLocaleDateString() : '—'}
+													</TableCell>
+													<TableCell className="text-text-secondary">
+														{k.lastUsed ? new Date(k.lastUsed).toLocaleDateString() : '—'}
+													</TableCell>
+													<TableCell>
+														{k.isActive ? (
+															<Badge variant="secondary" className="bg-green-100 text-green-800 dark:bg-green-950 dark:text-green-200">
+																Active
+															</Badge>
+														) : (
+															<Badge variant="secondary">Revoked</Badge>
+														)}
+													</TableCell>
+													<TableCell className="text-right">
+														<Button
+															variant="outline"
+															size="sm"
+															disabled={!k.isActive}
+															onClick={() => setKeyToRevoke(k)}
+															className="gap-2 text-destructive hover:text-destructive"
+														>
+															<Trash2 className="h-4 w-4" />
+															Revoke
+														</Button>
+													</TableCell>
+												</TableRow>
+											))}
+										</TableBody>
+									</Table>
+
+									<AlertDialog open={!!keyToRevoke} onOpenChange={(open) => !open && setKeyToRevoke(null)}>
+										<AlertDialogContent>
+											<AlertDialogHeader>
+												<AlertDialogTitle>Revoke API key?</AlertDialogTitle>
+												<AlertDialogDescription>
+													This will immediately disable the key <span className="font-mono">{keyToRevoke?.keyPreview}</span>. Any SDK clients using it will stop working.
+												</AlertDialogDescription>
+											</AlertDialogHeader>
+											<AlertDialogFooter>
+												<AlertDialogCancel disabled={revokingKey}>Cancel</AlertDialogCancel>
+												<AlertDialogAction
+													onClick={handleRevokeApiKey}
+													disabled={revokingKey}
+													className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+												>
+													{revokingKey ? 'Revoking…' : 'Revoke key'}
+												</AlertDialogAction>
+											</AlertDialogFooter>
+										</AlertDialogContent>
+									</AlertDialog>
+								</>
+							)}
 						</CardContent>
 					</Card>
 

@@ -280,14 +280,6 @@ export interface CsrfTokenResponseData {
   expiresIn?: number;
 }
 
-// CLI Token Response - for CLI authentication
-export interface CliTokenData {
-  token: string;
-  expiresIn: number;
-  expiresAt: string;
-  instructions: string;
-}
-
 // Active Sessions Response - matches getUserSessions + isCurrent from controller
 export interface ActiveSessionsData {
   sessions: Array<{

@@ -1,0 +1,102 @@
+import type { VibeClientOptions } from './types';
+
+type ExchangeApiKeyData = {
+	accessToken: string;
+	expiresIn: number;
+	expiresAt: string;
+	apiKeyId: string;
+	user: unknown;
+};
+
+type ApiResponse<T> =
+	| { success: true; data: T; message?: string }
+	| { success: false; error: { message: string }; message?: string };
+
+export class HttpClient {
+	private cachedAccessToken: { token: string; expiresAtMs: number } | null = null;
+
+	constructor(private opts: VibeClientOptions) {}
+
+	get baseUrl(): string {
+		return this.opts.baseUrl.replace(/\/$/, '');
+	}
+
+	private get fetchFn(): typeof fetch {
+		return this.opts.fetchFn ?? fetch;
+	}
+
+	getToken(): string | undefined {
+		return this.opts.token ?? this.cachedAccessToken?.token;
+	}
+
+	private async ensureAccessToken(): Promise<string | undefined> {
+		if (this.opts.token) return this.opts.token;
+		if (!this.opts.apiKey) return undefined;
+
+		const now = Date.now();
+		const skewMs = 30_000;
+		if (this.cachedAccessToken && this.cachedAccessToken.expiresAtMs - skewMs > now) {
+			return this.cachedAccessToken.token;
+		}
+
+		const url = `${this.baseUrl}/api/auth/exchange-api-key`;
+		const resp = await this.fetchFn(url, {
+			method: 'POST',
+			headers: {
+				'Content-Type': 'application/json',
+				Authorization: `Bearer ${this.opts.apiKey}`,
+			},
+		});
+
+		if (!resp.ok) {
+			const text = await resp.text().catch(() => '');
+			if (resp.status === 401) {
+				throw new Error(
+					`HTTP 401 for /api/auth/exchange-api-key: invalid API key (regenerate in Settings → API Keys). ${text || ''}`.trim(),
+				);
+			}
+			throw new Error(`HTTP ${resp.status} for /api/auth/exchange-api-key: ${text || resp.statusText}`);
+		}
+
+		const parsed = (await resp.json()) as ApiResponse<ExchangeApiKeyData>;
+		if (!parsed.success) {
+			throw new Error(parsed.error.message);
+		}
+
+		const expiresAtMs = Date.parse(parsed.data.expiresAt);
+		this.cachedAccessToken = { token: parsed.data.accessToken, expiresAtMs };
+		return parsed.data.accessToken;
+	}
+
+	async headers(extra?: Record<string, string>): Promise<Headers> {
+		const headers = new Headers({
+			...this.opts.defaultHeaders,
+			...extra,
+		});
+
+		const token = await this.ensureAccessToken();
+		if (token) headers.set('Authorization', `Bearer ${token}`);
+
+		return headers;
+	}
+
+	async fetchJson<T>(path: string, init?: RequestInit): Promise<T> {
+		const url = `${this.baseUrl}${path}`;
+		const resp = await this.fetchFn(url, init);
+		if (!resp.ok) {
+			const text = await resp.text().catch(() => '');
+			throw new Error(`HTTP ${resp.status} for ${path}: ${text || resp.statusText}`);
+		}
+		return (await resp.json()) as T;
+	}
+
+	async fetchRaw(path: string, init?: RequestInit): Promise<Response> {
+		const url = `${this.baseUrl}${path}`;
+		const resp = await this.fetchFn(url, init);
+		if (!resp.ok) {
+			const text = await resp.text().catch(() => '');
+			throw new Error(`HTTP ${resp.status} for ${path}: ${text || resp.statusText}`);
+		}
+		return resp;
+	}
+}

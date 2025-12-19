@@ -86,6 +86,7 @@ export const WebSocketMessageResponses: Record<string, WebSocketMessageType> = {
 
 // WebSocket message types
 export const WebSocketMessageRequests = {
+    SESSION_INIT: 'session_init',
     GENERATE_ALL: 'generate_all',
     GENERATE: 'generate',
     DEPLOY: 'deploy',

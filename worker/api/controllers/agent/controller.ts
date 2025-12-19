@@ -14,7 +14,7 @@ import { SecurityError, SecurityErrorType } from 'shared/types/errors';
 import { ApiResponse, ControllerResponse } from '../types';
 import { RouteContext } from '../../types/route-context';
 import { ModelConfigService } from '../../../database';
-import { ModelConfig } from '../../../agents/inferutils/config.types';
+import { ModelConfig, credentialsToRuntimeOverrides } from '../../../agents/inferutils/config.types';
 import { RateLimitService } from '../../../services/rate-limit/rateLimits';
 import { validateWebSocketOrigin } from '../../../middleware/security/websocket';
 import { createLogger } from '../../../logger';
@@ -121,12 +121,15 @@ export class CodingAgentController extends BaseController {
                 }
             }
 
+            const runtimeOverrides = credentialsToRuntimeOverrides(body.credentials);
+
             const inferenceContext = {
                 metadata: {
                     agentId: agentId,
                     userId: user.id,
                 },
                 userModelConfigs,
+                runtimeOverrides,
                 enableRealtimeCodeFix: false, // This costs us too much, so disabled it for now
                 enableFastSmartCodeFix: false,
             }
