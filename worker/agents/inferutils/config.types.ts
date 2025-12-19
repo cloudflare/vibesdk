@@ -2,7 +2,10 @@
  * Config Types - Pure type definitions only
  */
 
-import { ReasoningEffort } from "openai/resources.mjs";export enum ModelSize {
+export type ReasoningEffortType = 'minimal' | 'low' | 'medium' | 'high';
+export type ReasoningEffort = ReasoningEffortType;
+
+export enum ModelSize {
     LITE = 'lite',
     REGULAR = 'regular',
     LARGE = 'large',
@@ -408,7 +411,6 @@ export interface AgentConfig {
 
 // Provider and reasoning effort types for validation
 export type ProviderOverrideType = 'cloudflare' | 'direct';
-export type ReasoningEffortType = 'low' | 'medium' | 'high';
 
 export type AgentActionKey = keyof AgentConfig;
 

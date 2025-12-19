@@ -1,4 +1,12 @@
-import { type ChatCompletionMessageToolCall } from 'openai/resources'
+// Provider-agnostic tool call shape used across providers.
+export type ToolCall = {
+	id: string;
+	type: 'function';
+	function: {
+		name: string;
+		arguments: string;
+	};
+};
 
 // Define allowed message roles for type safety
 export type MessageRole = 'system' | 'user' | 'assistant' | 'function' | 'tool';
@@ -24,7 +32,7 @@ export type Message = {
 	role: MessageRole;
 	content: MessageContent;
 	name?: string; // Optional name field required for function messages
-	tool_calls?: ChatCompletionMessageToolCall[];
+	tool_calls?: ToolCall[];
     tool_call_id?: string;  // For role = tool
 };
 
