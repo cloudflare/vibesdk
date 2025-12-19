@@ -1,11 +1,13 @@
 import { TypedEmitter } from './emitter';
 import type { AgentWsServerMessage, WsMessageOf } from './types';
 
+export type ConnectionState = 'disconnected' | 'connecting' | 'connected';
+
 export type GenerationState =
 	| { status: 'idle' }
-	| { status: 'running'; totalFiles?: number }
-	| { status: 'stopped'; instanceId?: string }
-	| { status: 'complete'; instanceId?: string; previewURL?: string };
+	| { status: 'running'; totalFiles?: number; filesGenerated: number }
+	| { status: 'stopped'; instanceId?: string; filesGenerated: number }
+	| { status: 'complete'; instanceId?: string; previewURL?: string; filesGenerated: number };
 
 export type PhaseState =
 	| { status: 'idle' }
@@ -30,10 +32,14 @@ export type CloudflareDeploymentState =
 export type ConversationState = WsMessageOf<'conversation_state'>['state'];
 
 export type SessionState = {
+	connection: ConnectionState;
 	conversationState?: ConversationState;
 	lastConversationResponse?: WsMessageOf<'conversation_response'>;
 	generation: GenerationState;
 	phase: PhaseState;
+
+	/** Currently generating file path (set on file_generating, cleared on file_generated). */
+	currentFile?: string;
 
 	/** Best-known preview url (from agent_connected, generation_complete, deployment_completed). */
 	previewUrl?: string;
@@ -48,6 +54,7 @@ type SessionStateEvents = {
 };
 
 const INITIAL_STATE: SessionState = {
+	connection: 'disconnected',
 	generation: { status: 'idle' },
 	phase: { status: 'idle' },
 	preview: { status: 'idle' },
@@ -74,6 +81,10 @@ export class SessionStateStore {
 		return this.emitter.on('change', ({ prev, next }) => cb(next, prev));
 	}
 
+	setConnection(state: ConnectionState): void {
+		this.setState({ connection: state });
+	}
+
 	applyWsMessage(msg: AgentWsServerMessage): void {
 		switch (msg.type) {
 			case 'conversation_state': {
@@ -88,29 +99,58 @@ export class SessionStateStore {
 			}
 			case 'generation_started': {
 				const m = msg as WsMessageOf<'generation_started'>;
-				this.setState({ generation: { status: 'running', totalFiles: m.totalFiles } });
+				this.setState({
+					generation: { status: 'running', totalFiles: m.totalFiles, filesGenerated: 0 },
+					currentFile: undefined,
+				});
 				break;
 			}
 			case 'generation_complete': {
 				const m = msg as WsMessageOf<'generation_complete'>;
 				const previewURL = (m as { previewURL?: string }).previewURL;
+				const prev = this.state.generation;
+				const filesGenerated = 'filesGenerated' in prev ? prev.filesGenerated : 0;
 				this.setState({
 					generation: {
 						status: 'complete',
 						instanceId: m.instanceId,
 						previewURL,
+						filesGenerated,
 					},
+					currentFile: undefined,
 					...(previewURL ? { previewUrl: previewURL } : {}),
 				});
 				break;
 			}
 			case 'generation_stopped': {
 				const m = msg as WsMessageOf<'generation_stopped'>;
-				this.setState({ generation: { status: 'stopped', instanceId: m.instanceId } });
+				const prev = this.state.generation;
+				const filesGenerated = 'filesGenerated' in prev ? prev.filesGenerated : 0;
+				this.setState({
+					generation: { status: 'stopped', instanceId: m.instanceId, filesGenerated },
+				});
 				break;
 			}
 			case 'generation_resumed': {
-				this.setState({ generation: { status: 'running' } });
+				const prev = this.state.generation;
+				const filesGenerated = 'filesGenerated' in prev ? prev.filesGenerated : 0;
+				this.setState({ generation: { status: 'running', filesGenerated } });
+				break;
+			}
+
+			case 'file_generating': {
+				const m = msg as WsMessageOf<'file_generating'>;
+				this.setState({ currentFile: m.filePath });
+				break;
+			}
+			case 'file_generated': {
+				const prev = this.state.generation;
+				if (prev.status === 'running' || prev.status === 'stopped') {
+					this.setState({
+						generation: { ...prev, filesGenerated: prev.filesGenerated + 1 },
+						currentFile: undefined,
+					});
+				}
 				break;
 			}
 
