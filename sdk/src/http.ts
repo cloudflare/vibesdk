@@ -1,4 +1,5 @@
 import type { VibeClientOptions } from './types';
+import { normalizeRetryConfig, computeBackoffMs, sleep, type NormalizedRetryConfig } from './retry';
 
 type ExchangeApiKeyData = {
 	accessToken: string;
@@ -12,10 +13,24 @@ type ApiResponse<T> =
 	| { success: true; data: T; message?: string }
 	| { success: false; error: { message: string }; message?: string };
 
+const HTTP_RETRY_DEFAULTS: NormalizedRetryConfig = {
+	enabled: true,
+	initialDelayMs: 1_000,
+	maxDelayMs: 10_000,
+	maxRetries: 3,
+};
+
+function isRetryableStatus(status: number): boolean {
+	return status >= 500 && status < 600;
+}
+
 export class HttpClient {
 	private cachedAccessToken: { token: string; expiresAtMs: number } | null = null;
+	private retryCfg: NormalizedRetryConfig;
 
-	constructor(private opts: VibeClientOptions) {}
+	constructor(private opts: VibeClientOptions) {
+		this.retryCfg = normalizeRetryConfig(opts.retry, HTTP_RETRY_DEFAULTS);
+	}
 
 	get baseUrl(): string {
 		return this.opts.baseUrl.replace(/\/$/, '');
@@ -82,21 +97,65 @@ export class HttpClient {
 
 	async fetchJson<T>(path: string, init?: RequestInit): Promise<T> {
 		const url = `${this.baseUrl}${path}`;
-		const resp = await this.fetchFn(url, init);
-		if (!resp.ok) {
-			const text = (await resp.text().catch(() => '')).slice(0, 1000);
-			throw new Error(`HTTP ${resp.status} for ${path}: ${text || resp.statusText}`);
+		let lastError: Error | null = null;
+
+		for (let attempt = 0; attempt <= this.retryCfg.maxRetries; attempt++) {
+			try {
+				const resp = await this.fetchFn(url, init);
+				if (!resp.ok) {
+					const text = (await resp.text().catch(() => '')).slice(0, 1000);
+					const error = new Error(`HTTP ${resp.status} for ${path}: ${text || resp.statusText}`);
+
+					if (this.retryCfg.enabled && isRetryableStatus(resp.status) && attempt < this.retryCfg.maxRetries) {
+						lastError = error;
+						await sleep(computeBackoffMs(attempt, this.retryCfg));
+						continue;
+					}
+					throw error;
+				}
+				return (await resp.json()) as T;
+			} catch (error) {
+				if (error instanceof TypeError && this.retryCfg.enabled && attempt < this.retryCfg.maxRetries) {
+					lastError = error;
+					await sleep(computeBackoffMs(attempt, this.retryCfg));
+					continue;
+				}
+				throw error;
+			}
 		}
-		return (await resp.json()) as T;
+
+		throw lastError ?? new Error(`Failed after ${this.retryCfg.maxRetries} retries`);
 	}
 
 	async fetchRaw(path: string, init?: RequestInit): Promise<Response> {
 		const url = `${this.baseUrl}${path}`;
-		const resp = await this.fetchFn(url, init);
-		if (!resp.ok) {
-			const text = (await resp.text().catch(() => '')).slice(0, 1000);
-			throw new Error(`HTTP ${resp.status} for ${path}: ${text || resp.statusText}`);
+		let lastError: Error | null = null;
+
+		for (let attempt = 0; attempt <= this.retryCfg.maxRetries; attempt++) {
+			try {
+				const resp = await this.fetchFn(url, init);
+				if (!resp.ok) {
+					const text = (await resp.text().catch(() => '')).slice(0, 1000);
+					const error = new Error(`HTTP ${resp.status} for ${path}: ${text || resp.statusText}`);
+
+					if (this.retryCfg.enabled && isRetryableStatus(resp.status) && attempt < this.retryCfg.maxRetries) {
+						lastError = error;
+						await sleep(computeBackoffMs(attempt, this.retryCfg));
+						continue;
+					}
+					throw error;
+				}
+				return resp;
+			} catch (error) {
+				if (error instanceof TypeError && this.retryCfg.enabled && attempt < this.retryCfg.maxRetries) {
+					lastError = error;
+					await sleep(computeBackoffMs(attempt, this.retryCfg));
+					continue;
+				}
+				throw error;
+			}
 		}
-		return resp;
+
+		throw lastError ?? new Error(`Failed after ${this.retryCfg.maxRetries} retries`);
 	}
 }
