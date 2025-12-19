@@ -61,7 +61,10 @@ jobs:
       DISPATCH_NAMESPACE: ${{ vars.DISPATCH_NAMESPACE }}
       CLOUDFLARE_AI_GATEWAY: ${{ vars.CLOUDFLARE_AI_GATEWAY }}
       TEMPLATES_REPOSITORY: ${{ vars.TEMPLATES_REPOSITORY }}
-
+      ALLOCATION_STRATEGY: ${{ vars.ALLOCATION_STRATEGY }}
+      ENVIRONMENT: ${{ vars.ENVIRONMENT }}
+      PLATFORM_MODEL_PROVIDERS: ${{ vars.PLATFORM_MODEL_PROVIDERS }}
+      USE_CLOUDFLARE_IMAGES: ${{ vars.USE_CLOUDFLARE_IMAGES }}
 
     steps:
       - name: Checkout repository
@@ -114,4 +117,5 @@ jobs:
           WEBHOOK_SECRET: ${{ secrets.WEBHOOK_SECRET }}
           SECRETS_ENCRYPTION_KEY: ${{ secrets.SECRETS_ENCRYPTION_KEY }}
           SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
+          AI_PROXY_JWT_SECRET: ${{ secrets.AI_PROXY_JWT_SECRET }}
         run: bun scripts/deploy.ts
