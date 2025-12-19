@@ -3,6 +3,7 @@ import { createLogger } from '../../logger';
 import { WebSocketMessageRequests, WebSocketMessageResponses } from '../constants';
 import { WebSocketMessage, WebSocketMessageData, WebSocketMessageType } from '../../api/websocketTypes';
 import { MAX_IMAGES_PER_MESSAGE, MAX_IMAGE_SIZE_BYTES } from '../../types/image-attachment';
+import { credentialsToRuntimeOverrides, type CredentialsPayload } from '../inferutils/config.types';
 import type { CodeGeneratorAgent } from './codingAgent';
 
 const logger = createLogger('CodeGeneratorWebSocket');
@@ -17,6 +18,11 @@ export function handleWebSocketMessage(
         const parsedMessage = JSON.parse(message);
 
         switch (parsedMessage.type) {
+            case WebSocketMessageRequests.SESSION_INIT: {
+                const credentials = parsedMessage.credentials as CredentialsPayload | undefined;
+                agent.getBehavior().setRuntimeOverrides(credentialsToRuntimeOverrides(credentials));
+                break;
+            }
             case WebSocketMessageRequests.GENERATE_ALL:
                 // Set shouldBeGenerating flag to indicate persistent intent
                 agent.setState({ 
