@@ -43,7 +43,7 @@ const COMMON_AGENT_CONFIGS = {
 const SHARED_IMPLEMENTATION_CONFIG = {
     reasoning_effort: 'low' as const,
     max_tokens: 48000,
-    temperature: 0.2,
+    temperature: 1,
     fallbackModel: AIModels.GEMINI_2_5_PRO,
 };
 
@@ -59,7 +59,7 @@ const PLATFORM_AGENT_CONFIG: AgentConfig = {
     ...COMMON_AGENT_CONFIGS,
     blueprint: {
         name: AIModels.GEMINI_3_PRO_PREVIEW,
-        reasoning_effort: 'medium',
+        reasoning_effort: 'high',
         max_tokens: 20000,
         fallbackModel: AIModels.GEMINI_2_5_FLASH,
         temperature: 1.0,
@@ -75,7 +75,7 @@ const PLATFORM_AGENT_CONFIG: AgentConfig = {
         name: AIModels.GEMINI_3_FLASH_PREVIEW,
         reasoning_effort: 'medium',
         max_tokens: 8000,
-        temperature: 0.7,
+        temperature: 1,
         fallbackModel: AIModels.OPENAI_5_MINI,
     },
     firstPhaseImplementation: {
@@ -130,7 +130,7 @@ const DEFAULT_AGENT_CONFIG: AgentConfig = {
     },
     blueprint: {
         name: AIModels.GEMINI_3_PRO_PREVIEW,
-        reasoning_effort: 'medium',
+        reasoning_effort: 'high',
         max_tokens: 64000,
         fallbackModel: AIModels.GEMINI_2_5_FLASH,
         temperature: 1,
@@ -169,7 +169,7 @@ const DEFAULT_AGENT_CONFIG: AgentConfig = {
         name: AIModels.GEMINI_3_FLASH_PREVIEW,
         reasoning_effort: 'low',
         max_tokens: 32000,
-        temperature: 0,
+        temperature: 1,
         fallbackModel: AIModels.GEMINI_2_5_FLASH,
     },
     agenticProjectBuilder: {
