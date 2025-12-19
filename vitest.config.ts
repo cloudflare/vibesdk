@@ -1,5 +1,7 @@
 import { defineWorkersConfig } from '@cloudflare/vitest-pool-workers/config';
 
+const runIntegrationTests = process.env.VIBESDK_RUN_INTEGRATION_TESTS === '1';
+
 export default defineWorkersConfig({
   resolve: {
     alias: {
@@ -41,6 +43,7 @@ export default defineWorkersConfig({
       '**/test/worker-entry.ts',
       '**/container/monitor-cli.test.ts',
       '**/cf-git/**',
+      ...(runIntegrationTests ? [] : ['**/sdk/test/integration/**']),
     ],
   },
 });

@@ -1,6 +1,9 @@
 # Add common bun installation paths to PATH
 export PATH="/opt/homebrew/bin:$HOME/.bun/bin:$PATH"
 
+# Never run SDK integration tests in pre-commit.
+unset VIBESDK_RUN_INTEGRATION_TESTS
+
 # Optional override flags
 # - SKIP_TESTS=1: skip all pre-commit checks
 # - RUN_ALL_TESTS=1: run full suite instead of related
@@ -36,7 +39,7 @@ fi
 # Exclude heavy directories that are not relevant at commit time.
 if [ "${RUN_ALL_TESTS:-}" = "1" ]; then
   echo "[pre-commit] RUN_ALL_TESTS=1 set; running full test suite"
-  bunx vitest run --passWithNoTests --exclude "container/**" --exclude "generated/**"
+  bunx vitest run --passWithNoTests --exclude "container/**" --exclude "generated/**" --exclude "sdk/test/integration/**"
   exit $?
 fi
 
@@ -63,4 +66,4 @@ EOF
 
 echo "[pre-commit] Running related tests for staged files"
 # Vitest takes file paths as filters.
-bunx vitest related --run --passWithNoTests --exclude "container/**" --exclude "generated/**" "$@"
+bunx vitest related --run --passWithNoTests --exclude "container/**" --exclude "generated/**" --exclude "sdk/test/integration/**" "$@"
