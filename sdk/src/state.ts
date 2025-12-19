@@ -54,12 +54,11 @@ const INITIAL_STATE: SessionState = {
 	cloudflare: { status: 'idle' },
 };
 
-function extractPhaseInfo(msg: {
-	phase?: { name?: string; description?: string };
-}): { name?: string; description?: string } {
+function extractPhaseInfo(msg: unknown): { name?: string; description?: string } {
+	const phase = (msg as { phase?: { name?: string; description?: string } } | undefined)?.phase;
 	return {
-		name: msg.phase?.name,
-		description: msg.phase?.description,
+		name: phase?.name,
+		description: phase?.description,
 	};
 }
 
@@ -122,27 +121,27 @@ export class SessionStateStore {
 			}
 			case 'phase_generated': {
 				const m = msg as WsMessageOf<'phase_generated'>;
-				this.setState({ phase: { status: 'generated', ...extractPhaseInfo(m as any) } });
+				this.setState({ phase: { status: 'generated', ...extractPhaseInfo(m) } });
 				break;
 			}
 			case 'phase_implementing': {
 				const m = msg as WsMessageOf<'phase_implementing'>;
-				this.setState({ phase: { status: 'implementing', ...extractPhaseInfo(m as any) } });
+				this.setState({ phase: { status: 'implementing', ...extractPhaseInfo(m) } });
 				break;
 			}
 			case 'phase_implemented': {
 				const m = msg as WsMessageOf<'phase_implemented'>;
-				this.setState({ phase: { status: 'implemented', ...extractPhaseInfo(m as any) } });
+				this.setState({ phase: { status: 'implemented', ...extractPhaseInfo(m) } });
 				break;
 			}
 			case 'phase_validating': {
 				const m = msg as WsMessageOf<'phase_validating'>;
-				this.setState({ phase: { status: 'validating', ...extractPhaseInfo(m as any) } });
+				this.setState({ phase: { status: 'validating', ...extractPhaseInfo(m) } });
 				break;
 			}
 			case 'phase_validated': {
 				const m = msg as WsMessageOf<'phase_validated'>;
-				this.setState({ phase: { status: 'validated', ...extractPhaseInfo(m as any) } });
+				this.setState({ phase: { status: 'validated', ...extractPhaseInfo(m) } });
 				break;
 			}
 
@@ -216,5 +215,10 @@ export class SessionStateStore {
 		const next: SessionState = { ...prev, ...patch };
 		this.state = next;
 		this.emitter.emit('change', { prev, next });
+	}
+
+	clear(): void {
+		this.state = INITIAL_STATE;
+		this.emitter.clear();
 	}
 }

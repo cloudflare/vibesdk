@@ -1,5 +1,5 @@
 import { TypedEmitter } from './emitter';
-import type { AgentState } from './protocol';
+import type { AgentState, FileOutputType } from './protocol';
 import type { AgentWsServerMessage } from './types';
 
 export type WorkspaceFile = {
@@ -20,24 +20,23 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 	return typeof value === 'object' && value !== null;
 }
 
+function isFileOutputType(value: unknown): value is FileOutputType {
+	if (!isRecord(value)) return false;
+	return typeof value.filePath === 'string' && typeof value.fileContents === 'string';
+}
+
 function extractGeneratedFilesFromState(state: AgentState): WorkspaceFile[] {
 	const out: WorkspaceFile[] = [];
 	for (const file of Object.values(state.generatedFilesMap ?? {})) {
-		const path = (file as unknown as { filePath?: unknown }).filePath;
-		const content = (file as unknown as { fileContents?: unknown }).fileContents;
-		if (typeof path === 'string' && typeof content === 'string') {
-			out.push({ path, content });
-		}
+		if (!isFileOutputType(file)) continue;
+		out.push({ path: file.filePath, content: file.fileContents });
 	}
 	return out;
 }
 
 function extractGeneratedFileFromMessageFile(file: unknown): WorkspaceFile | null {
-	if (!isRecord(file)) return null;
-	const path = file.filePath;
-	const content = file.fileContents;
-	if (typeof path !== 'string' || typeof content !== 'string') return null;
-	return { path, content };
+	if (!isFileOutputType(file)) return null;
+	return { path: file.filePath, content: file.fileContents };
 }
 
 export class WorkspaceStore {
@@ -96,5 +95,10 @@ export class WorkspaceStore {
 			default:
 				break;
 		}
+	}
+
+	clear(): void {
+		this.files.clear();
+		this.emitter.clear();
 	}
 }
