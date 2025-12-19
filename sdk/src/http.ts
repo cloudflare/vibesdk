@@ -49,7 +49,7 @@ export class HttpClient {
 		});
 
 		if (!resp.ok) {
-			const text = await resp.text().catch(() => '');
+			const text = (await resp.text().catch(() => '')).slice(0, 1000);
 			if (resp.status === 401) {
 				throw new Error(
 					`HTTP 401 for /api/auth/exchange-api-key: invalid API key (regenerate in Settings → API Keys). ${text || ''}`.trim(),
@@ -84,7 +84,7 @@ export class HttpClient {
 		const url = `${this.baseUrl}${path}`;
 		const resp = await this.fetchFn(url, init);
 		if (!resp.ok) {
-			const text = await resp.text().catch(() => '');
+			const text = (await resp.text().catch(() => '')).slice(0, 1000);
 			throw new Error(`HTTP ${resp.status} for ${path}: ${text || resp.statusText}`);
 		}
 		return (await resp.json()) as T;
@@ -94,7 +94,7 @@ export class HttpClient {
 		const url = `${this.baseUrl}${path}`;
 		const resp = await this.fetchFn(url, init);
 		if (!resp.ok) {
-			const text = await resp.text().catch(() => '');
+			const text = (await resp.text().catch(() => '')).slice(0, 1000);
 			throw new Error(`HTTP ${resp.status} for ${path}: ${text || resp.statusText}`);
 		}
 		return resp;

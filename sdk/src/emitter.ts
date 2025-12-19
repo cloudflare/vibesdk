@@ -28,4 +28,9 @@ export class TypedEmitter<Events extends Record<string, unknown>> {
 		if (!set) return;
 		for (const cb of set) cb(payload as Events[keyof Events]);
 	}
+
+	clear(): void {
+		this.listeners.clear();
+		this.anyListeners.clear();
+	}
 }

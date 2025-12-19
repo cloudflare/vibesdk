@@ -325,6 +325,8 @@ export class BuildSession {
 	close(): void {
 		this.connection?.close();
 		this.connection = null;
+		this.workspace.clear();
+		this.state.clear();
 	}
 
 	private assertConnected(): void {
