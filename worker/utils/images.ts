@@ -44,7 +44,7 @@ export function calculateEntropy(data: Uint8Array): number {
  * @param viewport - Expected viewport dimensions
  * @param minFileSize - Minimum expected file size in bytes (default: 10KB)
  * @param minEntropy - Minimum entropy threshold (default: 2.0)
- */
+ * @param minFileSize - Minimum expected file size in bytes (default: 10KB)
 export function detectBlankScreenshot(
     base64Data: string,
     minFileSize: number = 10000,
