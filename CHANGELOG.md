@@ -1,5 +1,68 @@
 # Changelog
 
+## [1.4.0](https://github.com/cloudflare/vibesdk/compare/v1.3.0...v1.4.0) (2025-12-20)
+
+
+### Features
+
+* add blueprint parsing utilities and enhanced session state tracking to SDK ([96168d5](https://github.com/cloudflare/vibesdk/commit/96168d54ebf8352af9bfdf9113f04a3df5aaf90b))
+* add common pitfalls and dependency documentation to phase implementation prompt ([0184e5f](https://github.com/cloudflare/vibesdk/commit/0184e5fadf4f8c2a0f31d6e11853b7cd2115e5b1))
+* add concurrency control and cleanup for Claude review workflow ([b5a76da](https://github.com/cloudflare/vibesdk/commit/b5a76dae70febd9c624ab75f4f0e117c044c5c4e))
+* add dedicated AI changelog workflow and improve release-please gating ([4e97d5a](https://github.com/cloudflare/vibesdk/commit/4e97d5a8e1e85be02d04bf3c62a00d2ab8ff5f62))
+* add feature modules and capabilities discovery ([0534a95](https://github.com/cloudflare/vibesdk/commit/0534a955f40682cd0163ed315a4963cfde0cf1b4))
+* add HTTP retry logic with exponential backoff to SDK client ([b02025e](https://github.com/cloudflare/vibesdk/commit/b02025e050adc6c6c7fa324211743b63efe6df49))
+* add integration test controls and exclude from pre-commit hooks ([e68369b](https://github.com/cloudflare/vibesdk/commit/e68369b9e61b4eb7ad56b30d4c39c2b55d437fd2))
+* add missing environment variables to .prod.vars template generation ([7127cad](https://github.com/cloudflare/vibesdk/commit/7127cadd0c7a8b2b456c7e7bd79371af98f8d3b8))
+* add missing environment variables to deployment workflow and script ([965381c](https://github.com/cloudflare/vibesdk/commit/965381ca7e47bd138656cb50d47ecd32a388ff6f))
+* add new model definitions ([e73a089](https://github.com/cloudflare/vibesdk/commit/e73a08928021823068d5dc2ece0a97d303b30504))
+* add pre-deploy safety gate with automated code fixing ([611eb8e](https://github.com/cloudflare/vibesdk/commit/611eb8e5bb0cc3c9c3ea56efb7578a3d5117d177))
+* add query length validation with 20k character limit ([8927bf0](https://github.com/cloudflare/vibesdk/commit/8927bf01b48ff4357a1d2e46cb5cb518ef9cbde4))
+* add query length validation with 20k character limit ([715d21f](https://github.com/cloudflare/vibesdk/commit/715d21fca5a2ac04972d9b7eea600471b81663b9))
+* add release-live deployment workflow and vitest bun:test alias ([a71e382](https://github.com/cloudflare/vibesdk/commit/a71e3826bf011c90bdbd89d26a0ab3a8bd0edc7c))
+* add retry logic and blank screenshot detection for browser rendering ([c30a422](https://github.com/cloudflare/vibesdk/commit/c30a422fa606bac5480ba7bca8cc31178e08db6d))
+* add SDK documentation and usage example to main README ([3b11517](https://github.com/cloudflare/vibesdk/commit/3b11517310cd4fc5594cdab4caf1316ea7b4e9ce))
+* change the official preview domain to cloudflarepreviews.net ([516f92c](https://github.com/cloudflare/vibesdk/commit/516f92cbc5ac94024ae5a933cd3aa93b29b666fd))
+* client sdk + tests + docs ([46d7769](https://github.com/cloudflare/vibesdk/commit/46d7769bc12253a4240c5b447772f0391d8f28c3))
+* enable Agent SDK for all Claude Code Action workflows ([4aa6f5f](https://github.com/cloudflare/vibesdk/commit/4aa6f5f12ab2050930a759d44b1260d6af2103b8))
+* enhance CI/CD workflows with security and automation improvements ([d86377e](https://github.com/cloudflare/vibesdk/commit/d86377eebfe5d2086f9b9700ea241bec17ae5129))
+* enhance Claude review workflow with comment-based triggers and sticky comments ([9716c42](https://github.com/cloudflare/vibesdk/commit/9716c42988338e3026627483680777d9e91abbfb))
+* enhance Claude review workflow with improved PR description handling and streamlined review process ([6f6dc84](https://github.com/cloudflare/vibesdk/commit/6f6dc84c11e724f320e3ac2b6d6d8dc224361381))
+* gemini 3 flash ([6452622](https://github.com/cloudflare/vibesdk/commit/64526224e96e8284e345bdcc61cdf28d0c49658a))
+* improve phase generation and React render loop prevention prompts ([edc9deb](https://github.com/cloudflare/vibesdk/commit/edc9deb1e4d243dfb80118ddebcad0b6a50c8c16))
+* improve SDK error handling and resource cleanup ([17f1d4e](https://github.com/cloudflare/vibesdk/commit/17f1d4ed28487cd83da8ba3271c07ef65f30782b))
+* improve workflow metadata handling and cryptographic security ([5869e41](https://github.com/cloudflare/vibesdk/commit/5869e4123aeffe756b0e2b86597b83b4eade5ec3))
+* improve workflow reliability and add nightly branch support ([07d2d09](https://github.com/cloudflare/vibesdk/commit/07d2d09d1b65a5673e429f911ec6f770e4d4760d))
+* increase temperature and reasoning effort for blueprint ([f0ec7c9](https://github.com/cloudflare/vibesdk/commit/f0ec7c97c519c3c9c06fc54ca827324a90cc960a))
+* new zero knowledge vault implementation ([fd28396](https://github.com/cloudflare/vibesdk/commit/fd283966ef257178b4332a1c828638d1c3d77f47))
+* optimize phase context and reduce max phases to 10 ([0557bf7](https://github.com/cloudflare/vibesdk/commit/0557bf71c61ba6c7eb68ad07600ef87768366cbb))
+* optimize pre-commit hook with selective typecheck and related tests ([1cab335](https://github.com/cloudflare/vibesdk/commit/1cab3357291c91f631705a975d4786a5304ed58f))
+* phase implementation propmt rewrite - v78 prompt variant ([ffa547e](https://github.com/cloudflare/vibesdk/commit/ffa547e3e6fedc07c694052a2added4a810424b9))
+* refine agent model configurations and phase generation strategy ([69c8642](https://github.com/cloudflare/vibesdk/commit/69c86425590c108d7926a7c074ee2a830d5aa593))
+* replace CLI token authentication with SDK API key management ([30ba991](https://github.com/cloudflare/vibesdk/commit/30ba9918fc0eb176c65ff0ff0d4912a425413ecb))
+* some prompt improvements ([e136129](https://github.com/cloudflare/vibesdk/commit/e1361297a704e78e059bddcffeb5c3f3f3490782))
+* suppress AI Gateway token in CI and limit template deploy environment variables ([ee7a83f](https://github.com/cloudflare/vibesdk/commit/ee7a83ff1d1e11bbbf7607c4c7a74a75dbef29d1))
+* truncate exec command output to prevent token overflow ([2d05283](https://github.com/cloudflare/vibesdk/commit/2d0528363c98fc54c4e105e750eda20b8e55b414))
+
+
+### Bug Fixes
+
+* correct indentation in vault-context unlock error handler ([f908d31](https://github.com/cloudflare/vibesdk/commit/f908d31e0e3956675a9def25e74d1913dbb19b9c))
+* detect module-level JSX anti-pattern in safety gate ([37e5ef5](https://github.com/cloudflare/vibesdk/commit/37e5ef5edd6c48b075d8cd31b03b40b502a43d2b))
+* improve shell safety and variable handling in claude-reviews gating ([f656cf0](https://github.com/cloudflare/vibesdk/commit/f656cf07d0e1b9d33ea593733ca15b77a715452d))
+* improve shell safety and variable handling in claude-reviews gating ([31a1820](https://github.com/cloudflare/vibesdk/commit/31a1820c2c3cac6ce7d41401a13565ec2f91f08a))
+* improved process monitoring, failure detection and restarts ([ca7d309](https://github.com/cloudflare/vibesdk/commit/ca7d309405c4a750f344371caef6a7b95b0714d3))
+* prevent duplicate agent session creation and improve error handling in chat initialization ([40103ef](https://github.com/cloudflare/vibesdk/commit/40103ef67687d642b955172f6a841dd3abf6125d))
+* refine preview switching logic and fix code generation prompt ([a658282](https://github.com/cloudflare/vibesdk/commit/a658282b1ca6e364e5dbe374ca75fde12d18ab99))
+* remove redundant width/height styles from preview iframe ([f1efe5b](https://github.com/cloudflare/vibesdk/commit/f1efe5b1905cc59c6ee596183808add37f7a0e00))
+* resolve babel traverse import compatibility and disable phase parameter in safety gate ([c33a972](https://github.com/cloudflare/vibesdk/commit/c33a972a4aec6bee0ce056192a0bc75300db5d51))
+* stabilize legacy chats and preview rendering ([61421ed](https://github.com/cloudflare/vibesdk/commit/61421ed3575209356dc19828c7453b67a2d8d41f))
+* use safeFiles instead of finalFiles for phase implementation logging and broadcast ([849fdce](https://github.com/cloudflare/vibesdk/commit/849fdced2ad43dbf79be8d44d74f3524b2bb7f70))
+
+
+### Reverts
+
+* remove USE_AGENT_SDK flag from Claude Code Action workflows ([1380279](https://github.com/cloudflare/vibesdk/commit/13802798cf81fafa756d2d6c5030ea837db2fe00))
+
 ## [1.3.0](https://github.com/cloudflare/vibesdk/compare/v1.2.0...v1.3.0) (2025-12-08)
 
 
