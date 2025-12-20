@@ -2,7 +2,10 @@
  * Config Types - Pure type definitions only
  */
 
-import { ReasoningEffort } from "openai/resources.mjs";export enum ModelSize {
+export type ReasoningEffortType = 'minimal' | 'low' | 'medium' | 'high';
+export type ReasoningEffort = ReasoningEffortType;
+
+export enum ModelSize {
     LITE = 'lite',
     REGULAR = 'regular',
     LARGE = 'large',
@@ -101,6 +104,16 @@ const MODELS_MASTER = {
             contextSize: 1048576,
         }
     },
+    GEMINI_3_FLASH_PREVIEW: {
+        id: 'google-ai-studio/gemini-3-flash-preview',
+        config: {
+            name: 'Gemini 3.0 Flash Preview',
+            size: ModelSize.REGULAR,
+            provider: 'google-ai-studio',
+            creditCost: 2, // $0.5
+            contextSize: 1048576, // 1M Context
+        }
+    },
 
     // --- Anthropic Models ---
     CLAUDE_3_7_SONNET_20250219: {
@@ -133,6 +146,16 @@ const MODELS_MASTER = {
             contextSize: 200000, // 200K Context
         }
     },
+    CLAUDE_4_5_OPUS: {
+        id: 'anthropic/claude-opus-4-5',
+        config: {
+            name: 'Claude 4.5 Opus',
+            size: ModelSize.LARGE,
+            provider: 'anthropic',
+            creditCost: 20, // $5.00
+            contextSize: 200000, // 200K Context
+        }
+    },
     CLAUDE_4_5_HAIKU: {
         id: 'anthropic/claude-haiku-4-5',
         config: {
@@ -162,6 +185,16 @@ const MODELS_MASTER = {
             size: ModelSize.LARGE,
             provider: 'openai',
             creditCost: 5, // $1.25
+            contextSize: 400000, // 400K Context
+        }
+    },
+    OPENAI_5_2: {
+        id: 'openai/gpt-5.2',
+        config: {
+            name: 'GPT-5.2',
+            size: ModelSize.LARGE,
+            provider: 'openai',
+            creditCost: 7, // $1.75
             contextSize: 400000, // 400K Context
         }
     },
@@ -252,10 +285,31 @@ const MODELS_MASTER = {
             nonReasoning: true,
         }
     },
-
+    GROK_4_1_FAST: {
+        id: 'grok/grok-4-1-fast-reasoning',
+        config: {
+            name: 'Grok 4.1 Fast',
+            size: ModelSize.LITE,
+            provider: 'grok',
+            creditCost: 0.8, // $0.20
+            contextSize: 2_000_000, // 2M Context
+            nonReasoning: true,
+        }
+    },
+    GROK_4_1_FAST_NON_REASONING: {
+        id: 'grok/grok-4-1-fast-non-reasoning',
+        config: {
+            name: 'Grok 4.1 Fast Non reasoning',
+            size: ModelSize.LITE,
+            provider: 'grok',
+            creditCost: 0.8, // $0.20
+            contextSize: 2_000_000, // 2M Context
+            nonReasoning: true,
+        }
+    },
     // --- Vertex Models ---
     VERTEX_GPT_OSS_120: {
-        id: 'google-vertex-ai/openai/gpt-oss-120b',
+        id: 'google-vertex-ai/openai/gpt-oss-120b-maas',
         config: {
             name: 'Google Vertex GPT OSS 120B',
             size: ModelSize.LITE,
@@ -265,7 +319,7 @@ const MODELS_MASTER = {
         }
     },
     VERTEX_KIMI_THINKING: {
-        id: 'google-vertex-ai/moonshotai/kimi-k2-thinking',
+        id: 'google-vertex-ai/moonshotai/kimi-k2-thinking-maas',
         config: {
             name: 'Google Vertex Kimi K2 Thinking',
             size: ModelSize.LITE,
@@ -274,6 +328,16 @@ const MODELS_MASTER = {
             contextSize: 262144, // 256K Context
         }
     },
+    QWEN_3_CODER_480B: {
+        id: 'google-vertex-ai/qwen/qwen3-coder-480b-a35b-instruct-maas',
+        config: {
+            name: 'Qwen 3 Coder 480B',
+            size: ModelSize.LITE,
+            provider: 'google-vertex-ai',
+            creditCost: 8, // $0.22
+            contextSize: 262144, // 256K Context
+        },
+    }
 } as const;
 
 /**
@@ -325,6 +389,7 @@ export interface ModelConfig {
     reasoning_effort?: ReasoningEffort;
     max_tokens?: number;
     temperature?: number;
+    frequency_penalty?: number;
     fallbackModel?: AIModels | string;
 }
 
@@ -341,25 +406,66 @@ export interface AgentConfig {
     fastCodeFixer: ModelConfig;
     conversationalResponse: ModelConfig;
     deepDebugger: ModelConfig;
+    agenticProjectBuilder: ModelConfig;
 }
 
 // Provider and reasoning effort types for validation
 export type ProviderOverrideType = 'cloudflare' | 'direct';
-export type ReasoningEffortType = 'low' | 'medium' | 'high';
 
 export type AgentActionKey = keyof AgentConfig;
 
+/**
+ * Metadata used in agent for inference and other tasks
+ */
 export type InferenceMetadata = {
     agentId: string;
     userId: string;
     // llmRateLimits: LLMCallsRateLimitConfig;
 }
 
-export interface InferenceContext extends InferenceMetadata {
-    userModelConfigs?: Record<AgentActionKey, ModelConfig>;
+export type InferenceRuntimeOverrides = {
+	/** Provider API keys (BYOK) keyed by provider id, e.g. "openai" -> key. */
+	userApiKeys?: Record<string, string>;
+	/** Optional AI gateway override (baseUrl + token). */
+	aiGatewayOverride?: { baseUrl: string; token: string };
+};
+
+/**
+ * Runtime-only overrides used for inference.
+ * This is never persisted in Durable Object state.
+ */
+export interface InferenceContext {
+    metadata: InferenceMetadata;
     enableRealtimeCodeFix: boolean;
     enableFastSmartCodeFix: boolean;
     abortSignal?: AbortSignal;
+    userModelConfigs?: Record<AgentActionKey, ModelConfig>;
+    runtimeOverrides?: InferenceRuntimeOverrides;
+}
+
+/**
+ * SDK-facing credential payload
+ */
+export type CredentialsPayload = {
+	providers?: Record<string, { apiKey: string }>;
+	aiGateway?: { baseUrl: string; token: string };
+};
+
+export function credentialsToRuntimeOverrides(
+	credentials: CredentialsPayload | undefined,
+): InferenceRuntimeOverrides | undefined {
+	if (!credentials) return undefined;
+
+	const userApiKeys: Record<string, string> = {};
+	for (const [provider, v] of Object.entries(credentials.providers ?? {})) {
+		if (v.apiKey) userApiKeys[provider] = v.apiKey;
+	}
+
+	const hasKeys = Object.keys(userApiKeys).length > 0;
+	return {
+		...(hasKeys ? { userApiKeys } : {}),
+		...(credentials.aiGateway ? { aiGatewayOverride: credentials.aiGateway } : {}),
+	};
 }
 
 export function isValidAIModel(value: string): value is AIModels {

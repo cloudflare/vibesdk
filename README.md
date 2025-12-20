@@ -65,6 +65,34 @@ Cloudflare VibeSDK Build utilizes the full Cloudflare developer ecosystem:
 - **Storage**: R2 buckets for templates, KV for sessions
 - **Deployment**: Workers for Platforms with dispatch namespaces
 
+### SDK for Programmatic Access
+
+Build apps programmatically using the official TypeScript SDK:
+
+```bash
+npm install @cf-vibesdk/sdk
+```
+
+```ts
+import { PhasicClient } from '@cf-vibesdk/sdk';
+
+const client = new PhasicClient({
+  baseUrl: 'https://build.cloudflare.dev',
+  apiKey: process.env.VIBESDK_API_KEY!,
+});
+
+const session = await client.build('Build a simple hello world page.', {
+  projectType: 'app',
+  autoGenerate: true,
+});
+
+await session.wait.deployable();
+console.log('Preview URL:', session.state.previewUrl);
+session.close();
+```
+
+**[SDK Documentation](sdk/README.md)** - Full API reference and examples
+
 ## 📋 Quick Deploy Checklist
 
 Before clicking "Deploy to Cloudflare", have these ready:

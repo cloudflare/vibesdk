@@ -1,9 +1,9 @@
-import { infer, InferError, InferResponseString, InferResponseObject, AbortError } from './core';
+import { infer, InferError, InferResponseString, InferResponseObject, AbortError, CompletionConfig } from './core';
 import { createAssistantMessage, createUserMessage, Message } from './common';
 import z from 'zod';
 // import { CodeEnhancementOutput, CodeEnhancementOutputType } from '../codegen/phasewiseGenerator';
 import { SchemaFormat } from './schemaFormatters';
-import { ReasoningEffort } from 'openai/resources.mjs';
+import type { ReasoningEffort } from './config.types';
 import { AgentActionKey, AIModels, InferenceContext, ModelConfig } from './config.types';
 import { AGENT_CONFIG } from './config';
 import { createLogger } from '../../logger';
@@ -41,6 +41,8 @@ interface InferenceParamsBase {
     reasoning_effort?: ReasoningEffort;
     modelConfig?: ModelConfig;
     context: InferenceContext;
+    onAssistantMessage?: (message: Message) => Promise<void>;
+    completionConfig?: CompletionConfig;
 }
 
 interface InferenceParamsStructured<T extends z.AnyZodObject> extends InferenceParamsBase {
@@ -62,7 +64,7 @@ export async function executeInference<T extends z.AnyZodObject>(   {
     messages,
     temperature,
     maxTokens,
-    retryLimit = 5, // Increased retry limit for better reliability
+    retryLimit = 5,
     stream,
     tools,
     reasoning_effort,
@@ -71,7 +73,9 @@ export async function executeInference<T extends z.AnyZodObject>(   {
     format,
     modelName,
     modelConfig,
-    context
+    context,
+    onAssistantMessage,
+    completionConfig,
 }: InferenceParamsBase &    {
     schema?: T;
     format?: SchemaFormat;
@@ -81,7 +85,7 @@ export async function executeInference<T extends z.AnyZodObject>(   {
     if (modelConfig) {
         // Use explicitly provided model config
         conf = modelConfig;
-    } else if (context?.userId && context?.userModelConfigs) {
+    } else if (context?.metadata.userId && context?.userModelConfigs) {
         // Try to get user-specific configuration from context cache
         conf = context.userModelConfigs[agentActionName];
         if (conf) {
@@ -172,7 +176,7 @@ export async function executeInference<T extends z.AnyZodObject>(   {
 
             const result = schema ? await infer<T>({
                 env,
-                metadata: context,
+                metadata: context.metadata,
                 messages,
                 schema,
                 schemaName: agentActionName,
@@ -188,9 +192,12 @@ export async function executeInference<T extends z.AnyZodObject>(   {
                 reasoning_effort: useCheaperModel ? undefined : reasoning_effort,
                 temperature,
                 abortSignal: context.abortSignal,
+                onAssistantMessage,
+                completionConfig,
+                runtimeOverrides: context.runtimeOverrides,
             }) : await infer({
                 env,
-                metadata: context,
+                metadata: context.metadata,
                 messages,
                 maxTokens,
                 modelName: useCheaperModel ? AIModels.GEMINI_2_5_FLASH: modelName,
@@ -200,6 +207,9 @@ export async function executeInference<T extends z.AnyZodObject>(   {
                 reasoning_effort: useCheaperModel ? undefined : reasoning_effort,
                 temperature,
                 abortSignal: context.abortSignal,
+                onAssistantMessage,
+                completionConfig,
+                runtimeOverrides: context.runtimeOverrides,
             });
             logger.info(`Successfully completed ${agentActionName} operation`);
             // console.log(result);
@@ -227,6 +237,16 @@ export async function executeInference<T extends z.AnyZodObject>(   {
                     messages.push(createAssistantMessage(error.response));
                     messages.push(createUserMessage(responseRegenerationPrompts));
                     useCheaperModel = true;
+                    
+                    // If this was a repetition error, apply a frequency penalty to the retry
+                    if (error.message.toLowerCase().includes('repetition')) {
+                        logger.info('Applying frequency penalty to retry due to repetition');
+                        // Create a temporary config override for this retry
+                        conf = {
+                            ...finalConf,
+                            frequency_penalty: 0.5 // Apply moderate penalty
+                        };
+                    }
                 }
             } else {
                 // Try using fallback model if available

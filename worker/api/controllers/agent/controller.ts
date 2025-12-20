@@ -1,13 +1,20 @@
 import { WebSocketMessageResponses } from '../../../agents/constants';
 import { BaseController } from '../baseController';
 import { generateId } from '../../../utils/idGenerator';
-import { CodeGenState } from '../../../agents/core/state';
+import { AgentState } from '../../../agents/core/state';
+import { BehaviorType, ProjectType } from '../../../agents/core/types';
 import { getAgentStub, getTemplateForQuery } from '../../../agents';
-import { AgentConnectionData, AgentPreviewResponse, CodeGenArgs } from './types';
+import {
+    AgentConnectionData,
+    AgentPreviewResponse,
+    CodeGenArgs,
+    MAX_AGENT_QUERY_LENGTH,
+} from './types';
+import { SecurityError, SecurityErrorType } from 'shared/types/errors';
 import { ApiResponse, ControllerResponse } from '../types';
 import { RouteContext } from '../../types/route-context';
 import { ModelConfigService } from '../../../database';
-import { ModelConfig } from '../../../agents/inferutils/config.types';
+import { ModelConfig, credentialsToRuntimeOverrides } from '../../../agents/inferutils/config.types';
 import { RateLimitService } from '../../../services/rate-limit/rateLimits';
 import { validateWebSocketOrigin } from '../../../middleware/security/websocket';
 import { createLogger } from '../../../logger';
@@ -16,12 +23,22 @@ import { ImageType, uploadImage } from 'worker/utils/images';
 import { ProcessedImageAttachment } from 'worker/types/image-attachment';
 import { getTemplateImportantFiles } from 'worker/services/sandbox/utils';
 
-const defaultCodeGenArgs: CodeGenArgs = {
-    query: '',
+const defaultCodeGenArgs: Partial<CodeGenArgs> = {
     language: 'typescript',
     frameworks: ['react', 'vite'],
     selectedTemplate: 'auto',
-    agentMode: 'deterministic',
+};
+
+const resolveBehaviorType = (body: CodeGenArgs): BehaviorType => {
+    if (body.behaviorType) return body.behaviorType;
+    const pt = body.projectType;
+    if (pt === 'presentation' || pt === 'workflow' || pt === 'general') return 'agentic';
+    // default (including 'app' and when projectType omitted)
+    return 'phasic';
+};
+
+const resolveProjectType = (body: CodeGenArgs): ProjectType | 'auto' => {
+    return body.projectType || 'auto';
 };
 
 
@@ -48,8 +65,18 @@ export class CodingAgentController extends BaseController {
             }
 
             const query = body.query;
-            if (!query) {
+            if (typeof query !== 'string' || query.trim().length === 0) {
                 return CodingAgentController.createErrorResponse('Missing "query" field in request body', 400);
+            }
+            if (query.length > MAX_AGENT_QUERY_LENGTH) {
+                return CodingAgentController.createErrorResponse(
+                    new SecurityError(
+                        SecurityErrorType.INVALID_INPUT,
+                        `Prompt too large (${query.length} characters). Maximum allowed is ${MAX_AGENT_QUERY_LENGTH} characters.`,
+                        413,
+                    ),
+                    413,
+                );
             }
             const { readable, writable } = new TransformStream({
                 transform(chunk, controller) {
@@ -77,12 +104,13 @@ export class CodingAgentController extends BaseController {
 
             const agentId = generateId();
             const modelConfigService = new ModelConfigService(env);
+            const projectType = resolveProjectType(body);
+            const behaviorType = resolveBehaviorType(body);
+
+            this.logger.info(`Resolved behaviorType: ${behaviorType}, projectType: ${projectType} for agent ${agentId}`);
                                 
             // Fetch all user model configs, api keys and agent instance at once
-            const [userConfigsRecord, agentInstance] = await Promise.all([
-                modelConfigService.getUserModelConfigs(user.id),
-                getAgentStub(env, agentId)
-            ]);
+            const userConfigsRecord = await modelConfigService.getUserModelConfigs(user.id);
                                 
             // Extract only user-overridden configs, stripping metadata fields
             const userModelConfigs: Record<string, ModelConfig> = {};
@@ -93,10 +121,15 @@ export class CodingAgentController extends BaseController {
                 }
             }
 
+            const runtimeOverrides = credentialsToRuntimeOverrides(body.credentials);
+
             const inferenceContext = {
+                metadata: {
+                    agentId: agentId,
+                    userId: user.id,
+                },
                 userModelConfigs,
-                agentId: agentId,
-                userId: user.id,
+                runtimeOverrides,
                 enableRealtimeCodeFix: false, // This costs us too much, so disabled it for now
                 enableFastSmartCodeFix: false,
             }
@@ -104,8 +137,9 @@ export class CodingAgentController extends BaseController {
             this.logger.info(`Initialized inference context for user ${user.id}`, {
                 modelConfigsCount: Object.keys(userModelConfigs).length,
             });
+            this.logger.info(`Creating project of type: ${projectType}`);
 
-            const { templateDetails, selection } = await getTemplateForQuery(env, inferenceContext, query, body.images, this.logger);
+            const { templateDetails, selection, projectType: finalProjectType } = await getTemplateForQuery(env, inferenceContext, query, projectType, body.images, this.logger);
 
             const websocketUrl = `${url.protocol === 'https:' ? 'wss:' : 'ws:'}//${url.host}/api/agent/${agentId}/ws`;
             const httpStatusUrl = `${url.origin}/api/agent/${agentId}`;
@@ -116,19 +150,22 @@ export class CodingAgentController extends BaseController {
                     return uploadImage(env, image, ImageType.UPLOADS);
                 }));
             }
-        
+
             writer.write({
                 message: 'Code generation started',
                 agentId: agentId,
                 websocketUrl,
                 httpStatusUrl,
+                behaviorType,
+                projectType: finalProjectType,
                 template: {
                     name: templateDetails.name,
                     files: getTemplateImportantFiles(templateDetails),
                 }
             });
+            const agentInstance = await getAgentStub(env, agentId, { behaviorType, projectType: finalProjectType });
 
-            const agentPromise = agentInstance.initialize({
+            const baseInitArgs = {
                 query,
                 language: body.language || defaultCodeGenArgs.language,
                 frameworks: body.frameworks || defaultCodeGenArgs.frameworks,
@@ -138,9 +175,12 @@ export class CodingAgentController extends BaseController {
                 onBlueprintChunk: (chunk: string) => {
                     writer.write({chunk});
                 },
-                templateInfo: { templateDetails, selection },
-            }, body.agentMode || defaultCodeGenArgs.agentMode) as Promise<CodeGenState>;
-            agentPromise.then(async (_state: CodeGenState) => {
+            } as const;
+
+            const initArgs = { ...baseInitArgs, templateInfo: { templateDetails, selection } }
+
+            const agentPromise = agentInstance.initialize(initArgs) as Promise<AgentState>;
+            agentPromise.then(async (_state: AgentState) => {
                 writer.write("terminate");
                 writer.close();
                 this.logger.info(`Agent ${agentId} terminated successfully`);

@@ -6,20 +6,21 @@ import { AuthService } from '../../../database/services/AuthService';
 import { SessionService } from '../../../database/services/SessionService';
 import { UserService } from '../../../database/services/UserService';
 import { ApiKeyService } from '../../../database/services/ApiKeyService';
-import { generateApiKey } from '../../../utils/cryptoUtils';
+import { generateApiKey, sha256Hash } from '../../../utils/cryptoUtils';
 import { 
     loginSchema, 
     registerSchema, 
     oauthProviderSchema
 } from './authSchemas';
 import { SecurityError } from 'shared/types/errors';
-import { 
+import {
     formatAuthResponse,
-    mapUserResponse, 
-    setSecureAuthCookies, 
-    clearAuthCookies, 
-    extractSessionId
+    mapUserResponse,
+    setSecureAuthCookies,
+	clearAuthCookies,
+	extractSessionId
 } from '../../../utils/authUtils';
+import { JWTUtils } from '../../../utils/jwtUtils';
 import { RouteContext } from '../../types/route-context';
 import { authMiddleware } from '../../../middleware/auth/auth';
 import { CsrfService } from '../../../services/csrf/CsrfService';
@@ -465,6 +466,9 @@ export class AuthController extends BaseController {
         }
     }
 
+    // Maximum number of API keys a user can create
+    private static readonly MAX_API_KEYS_PER_USER = 25;
+
     /**
      * Create a new API key
      * POST /api/auth/api-keys
@@ -489,9 +493,17 @@ export class AuthController extends BaseController {
 
             const sanitizedName = name.trim().substring(0, 100);
 
-            const { key, keyHash, keyPreview } = await generateApiKey();
-            
+            // Check if user has reached the maximum number of API keys
             const apiKeyService = new ApiKeyService(env);
+            const activeKeyCount = await apiKeyService.getActiveApiKeyCount(user.id);
+            if (activeKeyCount >= AuthController.MAX_API_KEYS_PER_USER) {
+                return AuthController.createErrorResponse(
+                    `Maximum of ${AuthController.MAX_API_KEYS_PER_USER} API keys allowed. Please revoke an existing key before creating a new one.`,
+                    400
+                );
+            }
+
+            const { key, keyHash, keyPreview } = await generateApiKey();
             await apiKeyService.createApiKey({
                 userId: user.id,
                 name: sanitizedName,
@@ -535,6 +547,91 @@ export class AuthController extends BaseController {
             });
         } catch (error) {
             return AuthController.handleError(error, 'revoke API key');
+        }
+    }
+
+    /**
+     * Exchange API key for a short-lived access token.
+     * POST /api/auth/exchange-api-key
+     *
+     * Security notes:
+     * - Does not create a D1 session row.
+     * - Accepts API key only via Authorization Bearer or X-API-Key.
+     * - Performs basic format/size checks to reduce abuse.
+     */
+    static async exchangeApiKey(request: Request, env: Env, _ctx: ExecutionContext, _routeContext: RouteContext): Promise<Response> {
+        try {
+            const authHeader = request.headers.get('Authorization')?.trim();
+            const xApiKey = request.headers.get('X-API-Key')?.trim();
+
+            let apiKeyRaw: string | null = null;
+            if (authHeader && authHeader.toLowerCase().startsWith('bearer ')) {
+                apiKeyRaw = authHeader.slice('bearer '.length).trim();
+            } else if (xApiKey) {
+                apiKeyRaw = xApiKey;
+            }
+
+            if (!apiKeyRaw) {
+                return AuthController.createErrorResponse('Missing API key', 401);
+            }
+
+            // Basic hardening: avoid hashing arbitrarily large inputs
+            if (apiKeyRaw.length > 256) {
+                return AuthController.createErrorResponse('Invalid API key', 401);
+            }
+
+            // Only accept base64url-ish keys (matches generateApiKey())
+            if (!/^[A-Za-z0-9_-]+$/.test(apiKeyRaw)) {
+                return AuthController.createErrorResponse('Invalid API key', 401);
+            }
+
+            const keyHash = await sha256Hash(apiKeyRaw);
+            const apiKeyService = new ApiKeyService(env);
+            const apiKey = await apiKeyService.findApiKeyByHash(keyHash);
+            if (!apiKey) {
+                return AuthController.createErrorResponse('Invalid API key', 401);
+            }
+
+            const userService = new UserService(env);
+            const user = await userService.findUser({ id: apiKey.userId });
+            if (!user) {
+                return AuthController.createErrorResponse('Invalid API key', 401);
+            }
+
+            // Check user account status
+            if (user.deletedAt || !user.isActive || user.isSuspended) {
+                return AuthController.createErrorResponse('Invalid API key', 401);
+            }
+            if (user.lockedUntil && user.lockedUntil > new Date()) {
+                return AuthController.createErrorResponse('Account temporarily locked', 401);
+            }
+
+            const jwtUtils = JWTUtils.getInstance(env);
+            const expiresIn = 15 * 60; // 15 minutes
+            const expiresAt = new Date(Date.now() + expiresIn * 1000).toISOString();
+
+            const sessionId = `api_key:${apiKey.id}`;
+            const accessToken = await jwtUtils.createToken(
+                {
+                    sub: user.id,
+                    email: user.email,
+                    type: 'access',
+                    sessionId,
+                },
+                expiresIn,
+            );
+
+            await apiKeyService.updateApiKeyLastUsed(apiKey.id);
+
+            return AuthController.createSuccessResponse({
+                accessToken,
+                expiresIn,
+                expiresAt,
+                apiKeyId: apiKey.id,
+                user: mapUserResponse(user),
+            });
+        } catch (error) {
+            return AuthController.handleError(error, 'exchange API key');
         }
     }
 
@@ -667,7 +764,7 @@ export class AuthController extends BaseController {
             
             return response;
         } catch (error) {
-            console.error('Get auth providers error:', error);
+            this.logger.error('Get auth providers error', error);
             return AuthController.createErrorResponse('Failed to get authentication providers', 500);
         }
     }

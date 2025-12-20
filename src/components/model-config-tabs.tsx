@@ -1,14 +1,5 @@
 import { useState, useCallback } from 'react';
-import { 
-  Settings, 
-  Rocket, 
-  Code, 
-  Bug,
-  Brain,
-  Search,
-  RotateCcw,
-  Play
-} from 'lucide-react';
+import { Search, RotateCcw, Play, Settings } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -16,93 +7,14 @@ import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { ConfigCard } from './config-card';
 import { ConfigModal } from './config-modal';
-import type { ModelConfig, UserModelConfigWithMetadata, ModelConfigUpdate, AgentDisplayConfig } from '@/api-types';
-
-// Define workflow-based tab structure with dynamic agent categorization
-export const WORKFLOW_TABS = {
-  quickstart: {
-    id: 'quickstart',
-    label: 'Quick Start',
-    icon: Rocket,
-    description: 'Most commonly customized settings',
-    patterns: ['template', 'blueprint', 'conversational']
-  },
-  planning: {
-    id: 'planning', 
-    label: 'Planning',
-    icon: Brain,
-    description: 'Project planning and setup',
-    patterns: ['phase', 'project', 'suggestion', 'generation']
-  },
-  coding: {
-    id: 'coding',
-    label: 'Coding', 
-    icon: Code,
-    description: 'Development and implementation',
-    patterns: ['implementation', 'file', 'regeneration']
-  },
-  debugging: {
-    id: 'debugging',
-    label: 'Debugging',
-    icon: Bug, 
-    description: 'Code fixing and review',
-    patterns: ['fixer', 'fix', 'review', 'debug']
-  },
-} as const;
-
-// Helper function to categorize agents dynamically with specific mappings
-const categorizeAgent = (agentKey: string): string => {
-  // Specific agent mappings first (highest priority)
-  const specificMappings: Record<string, string> = {
-    // Quick Start - Most commonly used
-    'templateSelection': 'quickstart',
-    'conversationalResponse': 'quickstart',
-    
-    // Planning - Project planning and setup
-    'phaseGeneration': 'planning',
-    'blueprint': 'quickstart', 
-    'projectSetup': 'planning',
-    
-    // Coding - Development and implementation 
-    'phaseImplementation': 'coding',        // Fix: was going to planning due to "phase"
-    'firstPhaseImplementation': 'coding',   // Fix: was going to planning due to "phase"
-    'fileRegeneration': 'coding',           // Fix: was going to planning due to "generation"
-    
-    // Debugging - Code fixing and review
-    'deepDebugger': 'debugging',
-  };
-  
-  // Check specific mappings first
-  if (specificMappings[agentKey]) {
-    return specificMappings[agentKey];
-  }
-  
-  // Fallback to pattern matching for unknown agents (future-proofing)
-  const key = agentKey.toLowerCase();
-  
-  // More targeted pattern matching to avoid conflicts
-  if (key.includes('template') || key.includes('selection')) return 'quickstart';
-  if (key.includes('blueprint') || key.includes('architect')) return 'quickstart';
-  if (key.includes('conversation') || key.includes('chat') || key.includes('response')) return 'quickstart';
-  
-  if (key.includes('project') && key.includes('setup')) return 'planning';
-  if (key.includes('suggestion') && key.includes('process')) return 'planning';
-  if (key.includes('planning') || key.includes('plan')) return 'planning';
-  
-  if (key.includes('implementation') || key.includes('implement')) return 'coding';
-  if (key.includes('regenerat') || key.includes('regen')) return 'coding';
-  if (key.includes('code') && key.includes('gen')) return 'coding';
-  
-  if (key.includes('fixer') || key.includes('fix')) return 'debugging';
-  if (key.includes('debug') || key.includes('review')) return 'debugging';
-  if (key.includes('lint') || key.includes('check')) return 'debugging';
-  
-  if (key.includes('screenshot') || key.includes('image') || key.includes('vision')) return 'advanced';
-  if (key.includes('analysis') || key.includes('analyz')) return 'advanced';
-  
-  // Default to advanced for completely unknown agents
-  return 'advanced';
-};
+import { categorizeAgent } from '@/utils/model-helpers';
+import { WORKFLOW_TABS } from '@/lib/constants/workflow-tabs';
+import type {
+  ModelConfig,
+  UserModelConfigWithMetadata,
+  ModelConfigUpdate,
+  AgentDisplayConfig
+} from '@/api-types';
 
 interface ModelConfigTabsProps {
   agentConfigs: AgentDisplayConfig[];

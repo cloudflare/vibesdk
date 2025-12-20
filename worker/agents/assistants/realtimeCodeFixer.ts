@@ -239,11 +239,11 @@ export class RealtimeCodeFixer extends Assistant<Env> {
         passes: number = DEFAULT_PASSES
     ): Promise<FileOutputType> {
         try {
-            // Ignore css or json files or *.config.js
-            if (generatedFile.filePath.endsWith('.css') || generatedFile.filePath.endsWith('.json') || generatedFile.filePath.endsWith('.config.js')) {
-                this.logger.info(`Skipping realtime code fixer for file: ${generatedFile.filePath}`);
-                return generatedFile;
-            }
+            // // Ignore css or json files or *.config.js
+            // if (generatedFile.filePath.endsWith('.css') || generatedFile.filePath.endsWith('.json') || generatedFile.filePath.endsWith('.config.js')) {
+            //     this.logger.info(`Skipping realtime code fixer for file: ${generatedFile.filePath}`);
+            //     return generatedFile;
+            // }
             
             let content = generatedFile.fileContents;
 
@@ -364,7 +364,7 @@ ${content}
             let currentDiff = originalDiff;
 
             for (let attempt = 0; attempt <= maxRetries; attempt++) {
-                currentDiff = currentDiff.replaceAll(/^={7}\s*$\n^`{3}\s*$/gm, '>>>>>>> REPLACE\n\`\`\`\n')         // A hack cuz LLM often returns =7 and `3 instead of >>>>> REPLACE
+                currentDiff = currentDiff.replaceAll(/^={7}\s*$\n^`{3}\s*$/gm, '>>>>>>> REPLACE\n```\n');
                 const searchBlocks = currentDiff.match(/<<<\s+SEARCH/g)?.length ?? 0;
                 const replaceBlocks = currentDiff.match(/\s+REPLACE/g)?.length ?? 0;
                 if (searchBlocks !== replaceBlocks) {
@@ -490,8 +490,8 @@ ${block.error}
             
             const llmResponse = await infer({
                 env: this.env,
-                metadata: this.inferenceContext,
-                modelName: AIModels.GEMINI_2_5_FLASH,
+                metadata: this.inferenceContext.metadata,
+                modelName: AGENT_CONFIG['realtimeCodeFixer'].name,
                 reasoning_effort: 'low',
                 temperature: 0.0,
                 maxTokens: 10000,

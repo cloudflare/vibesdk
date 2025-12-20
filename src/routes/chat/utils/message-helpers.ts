@@ -16,6 +16,8 @@ export type ChatMessage = Omit<ConversationMessage, 'content'> & {
         isThinking?: boolean;
         toolEvents?: ToolEvent[];
     };
+    status?: 'queued' | 'active';
+    queuePosition?: number;
 };
 
 /**

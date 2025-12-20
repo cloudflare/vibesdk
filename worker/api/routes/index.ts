@@ -3,13 +3,14 @@ import { setupAppRoutes } from './appRoutes';
 import { setupUserRoutes } from './userRoutes';
 import { setupStatsRoutes } from './statsRoutes';
 import { setupAnalyticsRoutes } from './analyticsRoutes';
-import { setupSecretsRoutes } from './secretsRoutes';
+// import { setupUserSecretsRoutes } from './userSecretsRoutes';
 import { setupModelConfigRoutes } from './modelConfigRoutes';
 import { setupModelProviderRoutes } from './modelProviderRoutes';
 import { setupGitHubExporterRoutes } from './githubExporterRoutes';
 import { setupCodegenRoutes } from './codegenRoutes';
 import { setupScreenshotRoutes } from './imagesRoutes';
 import { setupSentryRoutes } from './sentryRoutes';
+import { setupCapabilitiesRoutes } from './capabilitiesRoutes';
 import { Hono } from "hono";
 import { AppEnv } from "../../types/appenv";
 import { setupStatusRoutes } from './statusRoutes';
@@ -25,6 +26,9 @@ export function setupRoutes(app: Hono<AppEnv>): void {
 
     // Platform status routes (public)
     setupStatusRoutes(app);
+
+    // Platform capabilities routes (public)
+    setupCapabilitiesRoutes(app);
 
     // Authentication and user management routes
     setupAuthRoutes(app);
@@ -44,8 +48,11 @@ export function setupRoutes(app: Hono<AppEnv>): void {
     // AI Gateway Analytics routes
     setupAnalyticsRoutes(app);
     
-    // Secrets management routes
-    setupSecretsRoutes(app);
+    // // Secrets management routes (legacy D1-based)
+    // setupSecretsRoutes(app);
+
+    // // User secrets vault routes
+    // setupUserSecretsRoutes(app);
     
     // Model configuration and provider keys routes
     setupModelConfigRoutes(app);

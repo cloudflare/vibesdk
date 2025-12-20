@@ -531,9 +531,13 @@ class CloudflareDeploymentManager {
 				);
 				console.log(`   Token ID: ${tokenData.result.id}`);
 				console.warn(
-					'⚠️  Please save this token and add it to CLOUDFLARE_AI_GATEWAY_TOKEN:',
+					'⚠️  Store this token securely and set CLOUDFLARE_AI_GATEWAY_TOKEN for future deployments.',
 				);
-				console.warn(`   ${newToken}`);
+				if (!process.env.CI) {
+					console.warn(`   ${newToken}`);
+				} else {
+					console.warn('   (Token value suppressed because CI=true)');
+				}
 
 				// Initialize separate AI Gateway SDK instance
 				this.aiGatewayCloudflare = new Cloudflare({
@@ -632,8 +636,29 @@ class CloudflareDeploymentManager {
 				`🚀 Deploying templates to R2 bucket: ${templatesBucket.bucket_name}`,
 			);
 
-			const deployEnv = {
-				...process.env,
+			const inheritedKeys = [
+				'PATH',
+				'HOME',
+				'USER',
+				'SHELL',
+				'TMPDIR',
+				'TMP',
+				'TEMP',
+				'LANG',
+				'LC_ALL',
+				'CI',
+				'GITHUB_WORKSPACE',
+			];
+			const inheritedEnv: NodeJS.ProcessEnv = {};
+			inheritedKeys.forEach((key) => {
+				const value = process.env[key];
+				if (value !== undefined) {
+					inheritedEnv[key] = value;
+				}
+			});
+
+			const deployEnv: NodeJS.ProcessEnv = {
+				...inheritedEnv,
 				CLOUDFLARE_API_TOKEN: this.env.CLOUDFLARE_API_TOKEN,
 				CLOUDFLARE_ACCOUNT_ID: this.env.CLOUDFLARE_ACCOUNT_ID,
 				BUCKET_NAME: templatesBucket.bucket_name,
@@ -1711,7 +1736,18 @@ class CloudflareDeploymentManager {
 			'GITHUB_CLIENT_SECRET',
 			'JWT_SECRET',
 			'WEBHOOK_SECRET',
+			'SECRETS_ENCRYPTION_KEY',
+			'SENTRY_DSN',
+			'AI_PROXY_JWT_SECRET',
 			'MAX_SANDBOX_INSTANCES',
+			'CUSTOM_DOMAIN',
+			'CUSTOM_PREVIEW_DOMAIN',
+			'SANDBOX_INSTANCE_TYPE',
+			'DISPATCH_NAMESPACE',
+			'ALLOCATION_STRATEGY',
+			'ENVIRONMENT',
+			'PLATFORM_MODEL_PROVIDERS',
+			'USE_CLOUDFLARE_IMAGES',
 		];
 
 		const prodVarsContent: string[] = [
@@ -1955,8 +1991,9 @@ class CloudflareDeploymentManager {
 			this.updateContainerConfiguration();
 			this.updateDispatchNamespace(dispatchNamespacesAvailable);
 
-			// Step 3: Resolve var/secret conflicts before deployment
-			console.log('\n📋 Step 3: Resolving var/secret conflicts...');
+			// Step 3: Create .prod.vars and resolve var/secret conflicts before deployment
+			console.log('\n📋 Step 3: Creating .prod.vars and resolving var/secret conflicts...');
+			this.createProdVarsFile();
 			const conflictingVars = await this.removeConflictingVars();
 			
 			// Store for potential cleanup on early exit

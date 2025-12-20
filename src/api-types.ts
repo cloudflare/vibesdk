@@ -61,6 +61,22 @@ export type {
 
 export type { PlatformStatusData } from 'worker/api/controllers/status/types';
 
+export type { CapabilitiesData } from 'worker/api/controllers/capabilities/types';
+
+export type {
+  ViewMode,
+  FeatureCapabilities,
+  FeatureDefinition,
+  ViewDefinition,
+  PlatformCapabilities,
+  PlatformCapabilitiesConfig,
+} from 'worker/agents/core/features/types';
+
+export {
+  DEFAULT_FEATURE_DEFINITIONS,
+  getBehaviorTypeForProject,
+} from 'worker/agents/core/features';
+
 // Model Config API Types
 export type {
   ModelConfigsData,
@@ -99,21 +115,32 @@ export interface ModelConfigUpdate {
 }
 
 // Secrets API Types
-export type {
-  SecretsData,
-  SecretStoreData,
-  SecretDeleteData,
-  SecretTemplatesData
-} from 'worker/api/controllers/secrets/types';
+export type { SecretTemplatesData } from 'worker/api/controllers/secrets/types';
 
-// Agent/CodeGen API Types  
+// Vault API Types
+export type {
+	VaultConfig,
+	VaultConfigResponse,
+	VaultStatusResponse,
+	SetupVaultRequest,
+	KdfAlgorithm,
+	Argon2Params,
+	SecretMetadata,
+} from 'worker/services/secrets/vault-types';
+
+// Agent/CodeGen API Types
 export type {
   AgentConnectionData,
 } from 'worker/api/controllers/agent/types';
 
+// Template Types
+export type {
+  TemplateDetails,
+} from 'worker/services/sandbox/sandboxTypes';
+
 // WebSocket Types
-export type { 
-  WebSocketMessage, 
+export type {
+  WebSocketMessage,
   WebSocketMessageData,
   CodeFixEdits,
   ModelConfigsInfoMessage,
@@ -133,22 +160,28 @@ export type {
   FavoriteToggleResult,
   UserStats,
   UserActivity,
-  EncryptedSecret,
   UserModelConfigWithMetadata,
   ModelTestResult
 } from 'worker/database/types';
 
 // Agent/Generator Types
-export type { 
+export type {
   Blueprint as BlueprintType,
+  PhasicBlueprint,
   CodeReviewOutputType,
   FileConceptType,
   FileOutputType as GeneratedFile,
 } from 'worker/agents/schemas';
 
-export type { 
-  CodeGenState 
+export type {
+  AgentState,
+  PhasicState
 } from 'worker/agents/core/state';
+
+export type {
+  BehaviorType,
+  ProjectType
+} from 'worker/agents/core/types';
 
 export type {
   ConversationMessage,
@@ -170,8 +203,9 @@ export type {
 
 export type { RateLimitError } from "worker/services/rate-limit/errors";
 export type { AgentPreviewResponse, CodeGenArgs } from 'worker/api/controllers/agent/types';
+export { MAX_AGENT_QUERY_LENGTH } from 'worker/api/controllers/agent/types';
 export type { RateLimitErrorResponse } from 'worker/api/responses';
-export { RateLimitExceededError, SecurityError, SecurityErrorType } from 'shared/types/errors';
+export { RateLimitExceededError, SecurityError, SecurityErrorType } from '../shared/types/errors.js';
 
 export type { AIModels } from 'worker/agents/inferutils/config.types';
 // Model selection types

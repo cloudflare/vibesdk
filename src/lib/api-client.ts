@@ -38,9 +38,6 @@ import type{
 	CreateProviderRequest,
 	UpdateProviderRequest,
 	TestProviderRequest,
-	SecretsData,
-	SecretStoreData,
-	SecretDeleteData,
 	SecretTemplatesData,
 	AgentConnectionData,
 	AgentStreamingResponse,
@@ -53,16 +50,18 @@ import type{
 	AuthProvidersResponseData,
 	CsrfTokenResponseData,
 	OAuthProvider,
-    CodeGenArgs,
-    AgentPreviewResponse,
-    PlatformStatusData,
-    RateLimitError
+	CodeGenArgs,
+	AgentPreviewResponse,
+	PlatformStatusData,
+	RateLimitError,
+	CapabilitiesData,
+	VaultConfigResponse,
+	VaultStatusResponse,
 } from '@/api-types';
 import {
-    
-    RateLimitExceededError,
-    SecurityError,
-    SecurityErrorType,
+	RateLimitExceededError,
+	SecurityError,
+	SecurityErrorType,
 } from '@/api-types';
 import { toast } from 'sonner';
 
@@ -416,6 +415,17 @@ class ApiClient {
 	}
 
 	// ===============================
+	// Platform Capabilities API Methods
+	// ===============================
+
+	/**
+	 * Get platform capabilities including available features
+	 */
+	async getCapabilities(noToast: boolean = true): Promise<ApiResponse<CapabilitiesData>> {
+		return this.request<CapabilitiesData>('/api/capabilities', undefined, noToast);
+	}
+
+	// ===============================
 	// Apps API Methods
 	// ===============================
 
@@ -581,11 +591,16 @@ class ApiClient {
 
 	async createAgentSession(args: CodeGenArgs): Promise<AgentStreamingResponse> {
 		try {
-			const { response, data } = await this.requestRaw('/api/agent', {
-				method: 'POST',
-				body: args,
-				skipJsonParsing: true, // Don't parse JSON for streaming response
-			});
+			const { response, data } = await this.requestRaw(
+				'/api/agent',
+				{
+					method: 'POST',
+					body: args,
+					skipJsonParsing: true, // Don't parse JSON for streaming response
+				},
+				false,
+				true,
+			);
 			
 			// Check if response is ok
 			if (!response.ok) {
@@ -876,59 +891,45 @@ class ApiClient {
 	// ===============================
 
 	/**
-	 * Get all user secrets including inactive ones
+	 * Get secret templates for BYOK providers
 	 */
-	async getAllSecrets(): Promise<ApiResponse<SecretsData>> {
-		return this.request<SecretsData>('/api/secrets');
+	async getSecretTemplates(): Promise<ApiResponse<SecretTemplatesData>> {
+		return this.request<SecretTemplatesData>('/api/secrets/templates');
 	}
 
-	/**
-	 * Store a new secret
-	 */
-	async storeSecret(data: {
-		templateId?: string;
-		name?: string;
-		envVarName?: string;
-		value: string;
-		environment?: string;
-		description?: string;
-	}): Promise<ApiResponse<SecretStoreData>> {
-		return this.request<SecretStoreData>('/api/secrets', {
+	// ===============================
+	// Vault API Methods
+	// ===============================
+
+	async getVaultStatus(): Promise<ApiResponse<VaultStatusResponse>> {
+		return this.request<VaultStatusResponse>('/api/vault/status');
+	}
+
+	async getVaultConfig(): Promise<ApiResponse<{ config: VaultConfigResponse }>> {
+		return this.request<{ config: VaultConfigResponse }>('/api/vault/config');
+	}
+
+	async setupVault(data: {
+		kdfAlgorithm: 'argon2id' | 'webauthn-prf';
+		kdfSalt: string;
+		kdfParams?: { time: number; mem: number; parallelism: number };
+		prfCredentialId?: string;
+		prfSalt?: string;
+		encryptedRecoveryCodes?: string;
+		recoveryCodesNonce?: string;
+		verificationBlob: string;
+		verificationNonce: string;
+	}): Promise<ApiResponse<{ success: boolean }>> {
+		return this.request<{ success: boolean }>('/api/vault/setup', {
 			method: 'POST',
 			body: data,
 		});
 	}
 
-	/**
-	 * Delete a secret
-	 */
-	async deleteSecret(
-		secretId: string,
-	): Promise<ApiResponse<SecretDeleteData>> {
-		return this.request<SecretDeleteData>(`/api/secrets/${secretId}`, {
-			method: 'DELETE',
+	async resetVault(): Promise<ApiResponse<{ success: boolean }>> {
+		return this.request<{ success: boolean }>('/api/vault/reset', {
+			method: 'POST',
 		});
-	}
-
-	/**
-	 * Toggle secret active status
-	 */
-	async toggleSecret(
-		secretId: string,
-	): Promise<ApiResponse<SecretStoreData>> {
-		return this.request<SecretStoreData>(
-			`/api/secrets/${secretId}/toggle`,
-			{
-				method: 'PATCH',
-			},
-		);
-	}
-
-	/**
-	 * Get secret templates
-	 */
-	async getSecretTemplates(): Promise<ApiResponse<SecretTemplatesData>> {
-		return this.request<SecretTemplatesData>('/api/secrets/templates');
 	}
 
 	/**

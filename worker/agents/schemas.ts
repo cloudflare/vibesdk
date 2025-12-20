@@ -1,5 +1,12 @@
 import z from 'zod';
 
+// Schema for AI project type prediction
+export const ProjectTypePredictionSchema = z.object({
+    projectType: z.enum(['app', 'workflow', 'presentation', 'general']).describe('The predicted type of project based on the user query'),
+    reasoning: z.string().describe('Brief explanation for why this project type was selected'),
+    confidence: z.enum(['high', 'medium', 'low']).describe('Confidence level in the prediction'),
+});
+
 // Schema for AI template selection output
 export const TemplateSelectionSchema = z.object({
     selectedTemplateName: z.string().nullable().describe('The name of the most suitable template, or null if none are suitable.'),
@@ -7,7 +14,7 @@ export const TemplateSelectionSchema = z.object({
     useCase: z.enum(['SaaS Product Website', 'Dashboard', 'Blog', 'Portfolio', 'E-Commerce', 'General', 'Other']).describe('The use case for which the template is selected, if applicable.').nullable(),
     complexity: z.enum(['simple', 'moderate', 'complex']).describe('The complexity of developing the project based on the the user query').nullable(),
     styleSelection: z.enum(['Minimalist Design', 'Brutalism', 'Retro', 'Illustrative', 'Kid_Playful', 'Custom']).describe('Pick a style relevant to the user query').nullable(),
-    projectName: z.string().describe('The name of the project based on the user query'),
+    projectType: z.enum(['app', 'workflow', 'presentation', 'general']).default('app').describe('The type of project based on the user query'),
 });
 
 export const FileOutputSchema = z.object({
@@ -19,7 +26,7 @@ export const FileOutputSchema = z.object({
 export const FileConceptSchema = z.object({
     path: z.string().describe('Path to the file relative to the project root. File name should be valid and not contain any special characters apart from hyphen, underscore and dot.'),
     purpose: z.string().describe('Very short, Breif, Concise, to the point description, purpose and expected contents of the whole file including its role in the architecture, data and code flow details'),
-    changes: z.string().nullable().describe('Specific, directed changes to be made to the file as instructions, if it\'s not a new file. Don\'t include code.'),
+    changes: z.string().nullable().describe('Spec-like description of WHAT to change. No code, no JSX. Unambiguous, Actionable, Specific, Directed, Concise.'),
 })
 
 export const PhaseConceptSchema = z.object({
@@ -75,12 +82,16 @@ export const CodeReviewOutput = z.object({
     commands: z.array(z.string()).describe('Commands that might be needed to run for fixing an issue. Empty array if no commands are needed'),
 });
 
-export const BlueprintSchema = z.object({
-    title: z.string().describe('Title of the application'),
-    projectName: z.string().describe('Name of the project, in small case, no special characters, no spaces, no dots. Only letters, numbers, hyphens, underscores are allowed.'),
+export const SimpleBlueprintSchema = z.object({
+    title: z.string().describe('Title for the project'),
+    projectName: z.string().describe('Name for the project, in small case, no special characters, no spaces, no dots. Only letters, numbers, hyphens, underscores are allowed.'),
+    description: z.string().describe('Short, brief, concise description of the project in a single sentence'),
+    colorPalette: z.array(z.string()).describe('Color palette RGB codes to be used in the project, only base colors and not their shades, max 3 colors'),
+    frameworks: z.array(z.string()).describe('Essential Frameworks, libraries and dependencies to be used in the project, with only major versions optionally specified'),
+});
+
+export const PhasicBlueprintSchema = SimpleBlueprintSchema.extend({
     detailedDescription: z.string().describe('Enhanced and detailed description of what the application does and how its supposed to work. Break down the project into smaller components and describe each component in detail.'),
-    description: z.string().describe('Short, brief, concise description of the application in a single sentence'),
-    colorPalette: z.array(z.string()).describe('Color palette RGB codes to be used in the application, only base colors and not their shades, max 3 colors'),
     views: z.array(z.object({
         name: z.string().describe('Name of the view'),
         description: z.string().describe('Description of the view'),
@@ -101,10 +112,13 @@ export const BlueprintSchema = z.object({
         description: z.string().describe('Concise and brief description of the phase'),
     })).describe('Rough roadmap of the project'),
     initialPhase: PhaseConceptSchema.describe('The first phase to be implemented, in **STRICT** accordance with <PHASE GENERATION STRATEGY>'),
-    // commands: z.array(z.string()).describe('Commands to set up the development environment and install all dependencies not already in the template. These will run before code generation starts.'),
 });
 
-export const BlueprintSchemaLite = BlueprintSchema.omit({
+export const AgenticBlueprintSchema = SimpleBlueprintSchema.extend({
+    plan: z.array(z.string()).describe('Step by step plan for implementing the project'),
+});
+
+export const BlueprintSchemaLite = PhasicBlueprintSchema.omit({
     initialPhase: true,
 });
 
@@ -124,7 +138,8 @@ export const ScreenshotAnalysisSchema = z.object({
 });
 
 export type TemplateSelection = z.infer<typeof TemplateSelectionSchema>;
-export type Blueprint = z.infer<typeof BlueprintSchema>;
+export type PhasicBlueprint = z.infer<typeof PhasicBlueprintSchema>;
+export type AgenticBlueprint = z.infer<typeof AgenticBlueprintSchema>;
 export type FileConceptType = z.infer<typeof FileConceptSchema>;
 export type PhaseConceptType = z.infer<typeof PhaseConceptSchema>;
 export type PhaseConceptLiteType = z.infer<typeof PhaseConceptLiteSchema>;
@@ -145,4 +160,4 @@ export const ConversationalResponseSchema = z.object({
 
 export type ConversationalResponseType = z.infer<typeof ConversationalResponseSchema>;
 
-
+export type Blueprint = z.infer<typeof PhasicBlueprintSchema> | z.infer<typeof AgenticBlueprintSchema>;

@@ -103,7 +103,18 @@ export class CsrfService {
         if (['GET', 'HEAD', 'OPTIONS'].includes(method)) {
             return true;
         }
-        
+
+        // CSRF is only relevant for cookie-based (ambient) authentication.
+        // If the client provides an explicit credential header, skip CSRF.
+        const authHeader = request.headers.get('Authorization');
+        if (authHeader && authHeader.toLowerCase().startsWith('bearer ')) {
+            return true;
+        }
+        const apiKeyHeader = request.headers.get('X-API-Key');
+        if (apiKeyHeader) {
+            return true;
+        }
+
         // Skip for WebSocket upgrades
         const upgradeHeader = request.headers.get('upgrade');
         if (upgradeHeader?.toLowerCase() === 'websocket') {

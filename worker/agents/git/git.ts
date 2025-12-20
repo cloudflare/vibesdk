@@ -93,7 +93,7 @@ export class GitVersionControl {
             }
         }
 
-        console.log(`[Git] Staged ${files.length} files`, files);
+        console.log(`[Git] Staged ${files.length} files: ${files.map(f => f.filePath).join(', ')}`);
     }
 
     private normalizePath(path: string): string {

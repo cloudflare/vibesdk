@@ -443,48 +443,6 @@ export const auditLogs = sqliteTable('audit_logs', {
 }));
 
 // ========================================
-// USER SECRETS AND API KEYS
-// ========================================
-
-/**
- * User Secrets table - Stores encrypted API keys and secrets for code generation
- * Used by code generator to access external services (Stripe, OpenAI, etc.)
- */
-export const userSecrets = sqliteTable('user_secrets', {
-    id: text('id').primaryKey(),
-    userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
-    
-    // Secret identification
-    name: text('name').notNull(), // User-friendly name (e.g., "My Stripe API Key")
-    provider: text('provider').notNull(), // Service provider (stripe, openai, etc.)
-    secretType: text('secret_type').notNull(), // api_key, account_id, secret_key, token, etc.
-    
-    // Encrypted secret data
-    encryptedValue: text('encrypted_value').notNull(), // AES-256 encrypted secret
-    keyPreview: text('key_preview').notNull(), // First/last few chars for identification
-    
-    // Configuration and metadata
-    description: text('description'), // Optional user description
-    expiresAt: integer('expires_at', { mode: 'timestamp' }), // Optional expiration
-    
-    // Usage tracking
-    lastUsed: integer('last_used', { mode: 'timestamp' }),
-    usageCount: integer('usage_count').default(0),
-    
-    // Status and security
-    isActive: integer('is_active', { mode: 'boolean' }).default(true),
-    
-    // Metadata
-    createdAt: integer('created_at', { mode: 'timestamp' }).default(sql`CURRENT_TIMESTAMP`),
-    updatedAt: integer('updated_at', { mode: 'timestamp' }).default(sql`CURRENT_TIMESTAMP`),
-}, (table) => ({
-    userIdx: index('user_secrets_user_idx').on(table.userId),
-    providerIdx: index('user_secrets_provider_idx').on(table.provider),
-    userProviderIdx: index('user_secrets_user_provider_idx').on(table.userId, table.provider, table.secretType),
-    activeIdx: index('user_secrets_active_idx').on(table.isActive),
-}));
-
-// ========================================
 // USER MODEL CONFIGURATIONS
 // ========================================
 
@@ -524,7 +482,7 @@ export const userModelProviders = sqliteTable('user_model_providers', {
     // Provider Details
     name: text('name').notNull(), // User-friendly name (e.g., "My Local Ollama")
     baseUrl: text('base_url').notNull(), // OpenAI-compatible API base URL
-    secretId: text('secret_id').references(() => userSecrets.id), // API key stored in userSecrets
+    secretId: text('secret_id'),
     
     // Status and Metadata
     isActive: integer('is_active', { mode: 'boolean' }).default(true),
@@ -604,9 +562,6 @@ export type NewEmailVerificationToken = typeof emailVerificationTokens.$inferIns
 
 export type AuditLog = typeof auditLogs.$inferSelect;
 export type NewAuditLog = typeof auditLogs.$inferInsert;
-
-export type UserSecret = typeof userSecrets.$inferSelect;
-export type NewUserSecret = typeof userSecrets.$inferInsert;
 
 export type UserModelConfig = typeof userModelConfigs.$inferSelect;
 export type NewUserModelConfig = typeof userModelConfigs.$inferInsert;

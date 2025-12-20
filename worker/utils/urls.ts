@@ -18,6 +18,37 @@ export function buildUserWorkerUrl(env: Env, deploymentId: string): string {
     return `${protocol}://${deploymentId}.${domain}`;
 }
 
+/**
+ * Migrate a stored preview URL to the current domain.
+ * Extracts subdomain from old URL and rebuilds with current getPreviewDomain().
+ * Used to handle domain changes without invalidating existing sandbox instances.
+ */
+export function migratePreviewUrl(storedUrl: string | undefined, env: Env): string | undefined {
+    if (!storedUrl) return undefined;
+
+    try {
+        const url = new URL(storedUrl);
+        const hostname = url.hostname;
+        const currentDomain = getPreviewDomain(env);
+
+        // Already using current domain
+        if (hostname.endsWith(`.${currentDomain}`)) {
+            return storedUrl;
+        }
+
+        // Extract subdomain by finding the first dot
+        const firstDotIndex = hostname.indexOf('.');
+        if (firstDotIndex === -1) return storedUrl;
+
+        const subdomain = hostname.slice(0, firstDotIndex);
+
+        // Rebuild with current domain
+        return `${url.protocol}//${subdomain}.${currentDomain}${url.pathname}`;
+    } catch {
+        return storedUrl;
+    }
+}
+
 export function buildGitCloneUrl(env: Env, appId: string, token?: string): string {
     const domain = env.CUSTOM_DOMAIN;
     const protocol = getProtocolForHost(domain);

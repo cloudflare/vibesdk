@@ -16,4 +16,4 @@ export type ControllerResponse<T> = Response & {
 /**
  * Type-safe API response interface that ensures data is properly typed
  */
-export interface ApiResponse<T = unknown> extends BaseApiResponse<T> {}
+export type ApiResponse<T = unknown> = BaseApiResponse<T>;

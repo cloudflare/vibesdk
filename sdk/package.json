@@ -1,0 +1,38 @@
+{
+	"name": "@cf-vibesdk/sdk",
+	"version": "0.0.3",
+	"type": "module",
+	"exports": {
+		".": {
+			"types": "./dist/index.d.ts",
+			"default": "./dist/index.js"
+		},
+		"./node": {
+			"types": "./dist/node.d.ts",
+			"default": "./dist/node.js"
+		}
+	},
+	"files": [
+		"dist"
+	],
+	"publishConfig": {
+		"access": "public"
+	},
+	"scripts": {
+		"build": "rm -rf ./dist && bun build ./src/index.ts ./src/node.ts --outdir ./dist --target bun",
+		"bundle-types": "dts-bundle-generator --export-referenced-types false --project ./tsconfig.protocol.json -o ./dist/index.d.ts ./src/index.ts && dts-bundle-generator --export-referenced-types false --project ./tsconfig.protocol.json -o ./dist/node.d.ts ./src/node.ts",
+		"typecheck": "tsc -p ./tsconfig.json --noEmit",
+		"test": "bun test test/*.test.ts",
+		"test:integration": "bun test --timeout 600000 test/integration/*.test.ts"
+	},
+	"dependencies": {
+		"ws": "^8.18.3"
+	},
+	"devDependencies": {
+		"@types/ws": "^8.18.1",
+		"dts-bundle-generator": "^9.5.1",
+		"typescript": "^5.9.3"
+	}
+}
+
+

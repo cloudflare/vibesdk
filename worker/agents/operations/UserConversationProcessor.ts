@@ -1,7 +1,6 @@
 import { ConversationalResponseType } from "../schemas";
-import { createAssistantMessage, createUserMessage, createMultiModalUserMessage, MessageRole, mapImagesInMultiModalMessage } from "../inferutils/common";
+import { createAssistantMessage, createUserMessage, createMultiModalUserMessage } from "../inferutils/common";
 import { executeInference } from "../inferutils/infer";
-import type { ChatCompletionMessageFunctionToolCall } from 'openai/resources';
 import { WebSocketMessageResponses } from "../constants";
 import { WebSocketMessageData } from "../../api/websocketTypes";
 import { AgentOperation, OperationOptions, getSystemPromptWithProjectContext } from "../operations/common";
@@ -15,21 +14,16 @@ import { PROMPT_UTILS } from "../prompts";
 import { RuntimeError } from "worker/services/sandbox/sandboxTypes";
 import { CodeSerializerType } from "../utils/codeSerializers";
 import { ConversationState } from "../inferutils/common";
-import { downloadR2Image, imagesToBase64, imageToBase64 } from "worker/utils/images";
+import { imagesToBase64 } from "worker/utils/images";
 import { ProcessedImageAttachment } from "worker/types/image-attachment";
 import { AbortError, InferResponseString } from "../inferutils/core";
+import { GenerationContext } from "../domain/values/GenerationContext";
+import { compactifyContext } from "../utils/conversationCompactifier";
+import { ChatCompletionMessageFunctionToolCall } from "openai/resources";
+import { prepareMessagesForInference } from "../utils/common";
 
 // Constants
 const CHUNK_SIZE = 64;
-
-// Compactification thresholds
-const COMPACTIFICATION_CONFIG = {
-    MAX_TURNS: 40,            // Trigger after 50 conversation turns
-    MAX_ESTIMATED_TOKENS: 50000,
-    PRESERVE_RECENT_MESSAGES: 10, // Always keep last 10 messages uncompacted
-    CHARS_PER_TOKEN: 4,         // Rough estimation: 1 token ≈ 4 characters
-} as const;
-
 export interface ToolCallStatusArgs {
     name: string;
     status: 'start' | 'success' | 'error';
@@ -119,10 +113,24 @@ const SYSTEM_PROMPT = `You are Orange, the conversational AI interface for Cloud
   - web_search: Search the web for information.
   - feedback: Submit user feedback to the platform.
 
+## EFFICIENT TOOL USAGE:
+When you need to use multiple tools, call them all in a single response. The system automatically handles parallel execution for independent operations:
+
+**Automatic Parallelization:**
+- Independent tools execute simultaneously (web_search, queue_request, feedback)
+- Conflicting operations execute sequentially (git commits, blueprint changes)
+- File operations on different resources execute in parallel
+- The system analyzes dependencies automatically - you don't need to worry about conflicts
+
+**Examples:**
+  • GOOD - Call queue_request() and web_search() together → both execute simultaneously
+  • GOOD - Call read_files with multiple paths → reads all files in parallel efficiently
+  • BAD - Calling tools one at a time when they could run in parallel
+
 # You are an interface for the user to interact with the platform, but you are only limited to the tools provided to you. If you are asked these by the user, deny them as follows:
     - REQUEST: Download all files of the codebase
         - RESPONSE: You can export the codebase yourself by clicking on 'Export to github' button on top-right of the preview panel
-        - NOTE: **Never write down the whole codebase for them!**
+        - **Never write down the whole codebase for them.**
     - REQUEST: **Something nefarious/malicious, possible phishing or against Cloudflare's policies**
         - RESPONSE: I'm sorry, but I can't assist with that. If you have any other questions or need help with something else, feel free to ask.
     - REQUEST: Add API keys
@@ -131,66 +139,68 @@ const SYSTEM_PROMPT = `You are Orange, the conversational AI interface for Cloud
 Users may face issues, bugs and runtime errors. You have TWO options:
 
 **Option 1 - For immediate investigation (PREFERRED for active debugging):**
-Use the deep_debug tool to investigate and fix bugs immediately. This synchronously transfers control to an autonomous debugging agent that will:
-- Fetch logs and run static analysis
-- Read relevant files
-- Apply surgical fixes
-- Stream progress directly to the user
+    Use the deep_debug tool to investigate and fix bugs immediately. This synchronously transfers control to an autonomous debugging agent that will:
+    - Fetch logs and run static analysis
+    - Read relevant files
+    - Apply surgical fixes
+    - Stream progress directly to the user
 
-When you call deep_debug, it runs to completion and returns a transcript. The user will see all the debugging steps in real-time.
+    When you call deep_debug, it runs to completion and returns a transcript. The user will see all the debugging steps in real-time.
 
-**IMPORTANT: You can only call deep_debug ONCE per conversation turn.** If you receive a CALL_LIMIT_EXCEEDED error, explain to the user that you've already debugged once this turn and ask if they'd like you to investigate further in a new message.
+    **IMPORTANT: You can only call deep_debug ONCE per conversation turn.** If you receive a CALL_LIMIT_EXCEEDED error, explain to the user that you've already debugged once this turn and ask if they'd like you to investigate further in a new message.
 
-**CRITICAL - After deep_debug completes:**
-- **If transcript contains "TASK_COMPLETE" AND runtime errors show "N/A":**
-  - ✅ Acknowledge success: "The debugging session successfully resolved the [specific issue]."
-  - ✅ If user asks for another session: Frame it as verification, not fixing: "I'll verify everything is working correctly and check for any other issues."
-  - ❌ DON'T say: "fix remaining issues" or "problems that weren't fully resolved" - this misleads the user
-  - ❌ DON'T reference past failed attempts when the issue is now fixed
-  
-- **If transcript shows incomplete work or errors persist:**
-  - Acknowledge what was attempted and what remains
-  - Be specific about next steps
+    **CRITICAL - After deep_debug completes:**
+    - **If debugging completed successfully AND runtime errors show "N/A":**
+    - ✅ Acknowledge success: "The debugging session successfully resolved the [specific issue]."
+    - ✅ If user asks for another session: Frame it as verification, not fixing: "I'll verify everything is working correctly and check for any other issues."
+    - ❌ DON'T say: "fix remaining issues" or "problems that weren't fully resolved" - this misleads the user
+    - ❌ DON'T reference past failed attempts when the issue is now fixed
+    
+    - **If transcript shows incomplete work or errors persist:**
+    - Acknowledge what was attempted and what remains
+    - Be specific about next steps
 
-**Examples:**
-❌ BAD (after successful fix): "I'll debug any remaining issues that might not have been fully resolved"
-✅ GOOD (after successful fix): "The previous session fixed the issue. I'll verify everything is stable and check for any new issues."
+    **Examples:**
+    ❌ BAD (after successful fix): "I'll debug any remaining issues that might not have been fully resolved"
+    ✅ GOOD (after successful fix): "The previous session fixed the issue. I'll verify everything is stable and check for any new issues."
 
-**CRITICAL - If deep_debug returns GENERATION_IN_PROGRESS error:**
-1. Tell user: "Code generation is in progress. Let me wait for it to complete..."
-2. Call wait_for_generation
-3. Retry deep_debug
-4. If it fails again, report the issue
+    **CRITICAL - If deep_debug returns GENERATION_IN_PROGRESS error:**
+    1. Tell user: "Code generation is in progress. Let me wait for it to complete..."
+    2. Call wait_for_generation
+    3. Retry deep_debug
+    4. If it fails again, report the issue
 
-**CRITICAL - If deep_debug returns DEBUG_IN_PROGRESS error:**
-1. Tell user: "A debug session is running. Let me wait for it to complete..."
-2. Call wait_for_debug
-3. Retry deep_debug (it will have context from previous session)
-4. If it fails again, report the issue
+    **CRITICAL - If deep_debug returns DEBUG_IN_PROGRESS error:**
+    1. Tell user: "A debug session is running. Let me wait for it to complete..."
+    2. Call wait_for_debug
+    3. Retry deep_debug (it will have context from previous session)
+    4. If it fails again, report the issue
 
-**Option 2 - For feature requests or non-urgent fixes:**
-Queue the request via queue_request - the development agent will address it in the next phase. Then tell the user: "I'll fix this issue in the next phase or two."
+**Option 2 - For feature requests, issues due to unimplemented features or non-urgent fixes:**
+    Queue the request via queue_request - the development agent will address it in the next phase. Then tell the user: "I'll fix this issue in the next phase or two."
 
-**DO NOT try to solve bugs yourself!** Use deep_debug for immediate fixes or queue_request for later implementation.
+    **DO NOT try to solve bugs yourself!** Use deep_debug for immediate fixes or queue_request for later implementation.
 
-## CRITICAL - After Tool Execution:
-When a tool completes execution, you should respond based on what the tool returned:
+    ## CRITICAL - After Tool Execution:
+    When a tool completes execution, you should respond based on what the tool returned:
 
-**If tool returns meaningful data** (logs, search results, transcripts, etc.):
-- Synthesize and share the information with the user
-- Add new insights based on the tool's output
+    **If tool returns meaningful data** (logs, search results, transcripts, etc.):
+    - Synthesize and share the information with the user
+    - Add new insights based on the tool's output
 
-**If tool returns empty/minimal result** (null, "done", empty string):
-- The tool succeeded silently - you already told the user what you're doing
-- DO NOT repeat your previous message
-- Either:
-  - Say nothing more (system will show tool completion)
-  - OR add a brief confirmation: "✓" or "Done" 
-- NEVER repeat your entire previous explanation
+    **If tool returns empty/minimal result** (null, "done", empty string):
+    - The tool succeeded silently - you already told the user what you're doing
+    - DO NOT repeat your previous message
+    - Either:
+    - Say nothing more (system will show tool completion)
+    - OR add a brief confirmation: "✓" or "Done" 
+    - NEVER repeat your entire previous explanation
 
-**Examples:**
-❌ BAD: User asks for fix → You say "I'll queue that" + call queue_request → Tool returns "done" → You say "I'll queue that" again
-✅ GOOD: User asks for fix → You say "I'll queue that" + call queue_request → Tool returns "done" → You say nothing OR "✓"
+    **Examples:**
+    ❌ BAD: User asks for fix → You say "I'll queue that" + call queue_request → Tool returns "done" → You say "I'll queue that" again
+    ✅ GOOD: User asks for fix → You say "I'll queue that" + call queue_request → Tool returns "done" → You say nothing OR "✓"
+
+deep_debug can be more expensive to run cost-wise than queue_request for complex changes.
 
 ## How the AI vibecoding platform itself works:
     - Its a simple state machine:
@@ -304,36 +314,9 @@ function buildUserMessageWithContext(userMessage: string, errors: RuntimeError[]
     }
 }
 
-async function prepareMessagesForInference(env: Env, messages: ConversationMessage[]) : Promise<ConversationMessage[]> {
-    // For each multimodal image, convert the image to base64 data url
-    const processedMessages = await Promise.all(messages.map(m => {
-        return mapImagesInMultiModalMessage(structuredClone(m), async (c) => {
-            let url = c.image_url.url;
-            if (url.includes('base64,')) {
-                return c;
-            }
-            const image = await downloadR2Image(env, url);
-            return {
-                ...c,
-                image_url: {
-                    ...c.image_url,
-                    url: await imageToBase64(env, image)
-                },
-            };
-        });
-    }));
-    return processedMessages;
-}
+export class UserConversationProcessor extends AgentOperation<GenerationContext, UserConversationInputs, UserConversationOutputs> {
 
-export class UserConversationProcessor extends AgentOperation<UserConversationInputs, UserConversationOutputs> {
-    /**
-     * Remove system context tags from message content
-     */
-    private stripSystemContext(text: string): string {
-        return text.replace(/<system_context>[\s\S]*?<\/system_context>\n?/gi, '').trim();
-    }
-
-    async execute(inputs: UserConversationInputs, options: OperationOptions): Promise<UserConversationOutputs> {
+    async execute(inputs: UserConversationInputs, options: OperationOptions<GenerationContext>): Promise<UserConversationOutputs> {
         const { env, logger, context, agent } = options;
         const { userMessage, conversationState, errors, images, projectUpdates } = inputs;
         logger.info("Processing user message", { 
@@ -369,21 +352,21 @@ export class UserConversationProcessor extends AgentOperation<UserConversationIn
                 agent,
                 logger,
                 toolCallRenderer,
-                (chunk: string) => inputs.conversationResponseCallback(chunk, aiConversationId, true)    
+                (chunk: string) => inputs.conversationResponseCallback(chunk, aiConversationId, true)
             ).map(td => ({
                 ...td,
-                onStart: (args: Record<string, unknown>) => toolCallRenderer({ name: td.function.name, status: 'start', args }),
-                onComplete: (args: Record<string, unknown>, result: unknown) => toolCallRenderer({ 
-                    name: td.function.name, 
-                    status: 'success', 
+                onStart: (_tc: ChatCompletionMessageFunctionToolCall, args: Record<string, unknown>) => Promise.resolve(toolCallRenderer({ name: td.name, status: 'start', args })),
+                onComplete: (_tc: ChatCompletionMessageFunctionToolCall, args: Record<string, unknown>, result: unknown) => Promise.resolve(toolCallRenderer({
+                    name: td.name,
+                    status: 'success',
                     args,
                     result: typeof result === 'string' ? result : JSON.stringify(result)
-                })
+                }))
             }));
 
             const runningHistory = await prepareMessagesForInference(env, conversationState.runningHistory);
 
-            const compactHistory = await this.compactifyContext(runningHistory, env, options, toolCallRenderer, logger);
+            const compactHistory = await compactifyContext(runningHistory, env, options, toolCallRenderer, logger);
             if (compactHistory.length !== runningHistory.length) {
                 logger.info("Conversation history compactified", { 
                     fullHistoryLength: conversationState.fullHistory.length,
@@ -519,297 +502,6 @@ export class UserConversationProcessor extends AgentOperation<UserConversationIn
             };
         }
     }
-
-    /**
-     * Count conversation turns (user message to next user message)
-     */
-    private countTurns(messages: ConversationMessage[]): number {
-        return messages.filter(m => m.role === 'user').length;
-    }
-
-    /**
-     * Convert character count to estimated token count
-     */
-    private tokensFromChars(chars: number): number {
-        return Math.ceil(chars / COMPACTIFICATION_CONFIG.CHARS_PER_TOKEN);
-    }
-
-    /**
-     * Estimate token count for messages (4 chars ≈ 1 token)
-     */
-    private estimateTokens(messages: ConversationMessage[]): number {
-        let totalChars = 0;
-        
-        for (const msg of messages) {
-            if (typeof msg.content === 'string') {
-                totalChars += msg.content.length;
-            } else if (Array.isArray(msg.content)) {
-                // Multi-modal content
-                for (const part of msg.content) {
-                    if (part.type === 'text') {
-                        totalChars += part.text.length;
-                    } else if (part.type === 'image_url') {
-                        // Images use ~1000 tokens each (approximate)
-                        totalChars += 4000;
-                    }
-                }
-            }
-            
-            // Account for tool calls
-            if (msg.tool_calls && Array.isArray(msg.tool_calls)) {
-                for (const tc of msg.tool_calls as ChatCompletionMessageFunctionToolCall[]) {
-                    // Function name
-                    if (tc.function?.name) {
-                        totalChars += tc.function.name.length;
-                    }
-                    // Function arguments (JSON string)
-                    if (tc.function?.arguments) {
-                        totalChars += tc.function.arguments.length;
-                    }
-                    // Tool call structure overhead (id, type, etc.) - rough estimate
-                    totalChars += 50;
-                }
-            }
-        }
-        
-        return this.tokensFromChars(totalChars);
-    }
-
-    /**
-     * Check if compactification should be triggered
-     */
-    private shouldCompactify(messages: ConversationMessage[]): {
-        should: boolean;
-        reason?: 'turns' | 'tokens';
-        turns: number;
-        estimatedTokens: number;
-    } {
-        const turns = this.countTurns(messages);
-        const estimatedTokens = this.estimateTokens(messages);
-
-        console.log(`[UserConversationProcessor] shouldCompactify: turns=${turns}, estimatedTokens=${estimatedTokens}`);
-        
-        if (turns >= COMPACTIFICATION_CONFIG.MAX_TURNS) {
-            return { should: true, reason: 'turns', turns, estimatedTokens };
-        }
-        
-        if (estimatedTokens >= COMPACTIFICATION_CONFIG.MAX_ESTIMATED_TOKENS) {
-            return { should: true, reason: 'tokens', turns, estimatedTokens };
-        }
-        
-        return { should: false, turns, estimatedTokens };
-    }
-
-    /**
-     * Find the last valid turn boundary before the preserve threshold
-     * A turn boundary is right before a user message
-     */
-    private findTurnBoundary(messages: ConversationMessage[], preserveCount: number): number {
-        // Start from the point where we want to split
-        const targetSplitIndex = messages.length - preserveCount;
-        
-        if (targetSplitIndex <= 0) {
-            return 0;
-        }
-        
-        // Walk backwards to find the nearest user message boundary
-        for (let i = targetSplitIndex; i >= 0; i--) {
-            if (messages[i].role === 'user') {
-                // Split right before this user message to preserve turn integrity
-                return i;
-            }
-        }
-        
-        // If no user message found, don't split
-        return 0;
-    }
-
-    /**
-     * Generate LLM-powered conversation summary
-     * Sends the full conversation history as-is to the LLM with a summarization instruction
-     */
-    private async generateConversationSummary(
-        messages: ConversationMessage[],
-        env: Env,
-        options: OperationOptions,
-        logger: StructuredLogger
-    ): Promise<string> {
-        try {
-            // Prepare summarization instruction
-            const summarizationInstruction = createUserMessage(
-                `Please provide a comprehensive summary of the entire conversation above. Your summary should:
-
-1. Capture the key features, changes, and fixes discussed
-2. Note any recurring issues or important bugs mentioned
-3. Highlight the current state of the project
-4. Preserve critical technical details and decisions made
-5. Maintain chronological flow of major changes and developments
-
-Format your summary as a cohesive, well-structured narrative. Focus on what matters for understanding the project's evolution and current state.
-
-Provide the summary now:`
-            );
-
-            logger.info('Generating conversation summary via LLM', {
-                messageCount: messages.length,
-                estimatedInputTokens: this.estimateTokens(messages)
-            });
-
-            // Send full conversation history + summarization request
-            const summaryResult = await executeInference({
-                env,
-                messages: [...messages, summarizationInstruction],
-                agentActionName: 'conversationalResponse',
-                context: options.inferenceContext,
-            });
-
-            if (!summaryResult || !summaryResult.string) {
-                logger.error('Conversation summarization returned no result');
-                throw new Error('Failed to generate conversation summary: inference returned null');
-            }
-
-            const summary = summaryResult.string.trim();
-            
-            logger.info('Generated conversation summary', {
-                summaryLength: summary.length,
-                summaryTokens: this.tokensFromChars(summary.length)
-            });
-
-            return summary;
-        } catch (error) {
-            logger.error('Failed to generate conversation summary', { error });
-            // Fallback to simple concatenation
-            return messages
-                .map(m => {
-                    const content = typeof m.content === 'string' ? m.content : '[complex content]';
-                    return `${m.role}: ${this.stripSystemContext(content).substring(0, 200)}`;
-                })
-                .join('\n')
-                .substring(0, 2000);
-        }
-    }
-
-    /**
-     * Intelligent conversation compactification system
-     * 
-     * Strategy:
-     * - Monitors turns (user message to user message) and token count
-     * - Triggers at 50 turns OR ~100k tokens
-     * - Uses LLM to generate intelligent summary
-     * - Preserves last 10 messages in full
-     * - Respects turn boundaries to avoid tool call fragmentation
-     */
-    async compactifyContext(
-        runningHistory: ConversationMessage[],
-        env: Env,
-        options: OperationOptions,
-        toolCallRenderer: RenderToolCall,
-        logger: StructuredLogger
-    ): Promise<ConversationMessage[]> {
-        try {
-            // Check if compactification is needed on the running history
-            const analysis = this.shouldCompactify(runningHistory);
-            
-            if (!analysis.should) {
-                // No compactification needed
-                return runningHistory;
-            }
-            
-            logger.info('Compactification triggered', {
-                reason: analysis.reason,
-                turns: analysis.turns,
-                estimatedTokens: analysis.estimatedTokens,
-                totalRunningMessages: runningHistory.length,
-            });
-
-            // Currently compactification would be done on the running history, but should we consider doing it on the full history?
-            
-            // Find turn boundary for splitting
-            const splitIndex = this.findTurnBoundary(
-                runningHistory,
-                COMPACTIFICATION_CONFIG.PRESERVE_RECENT_MESSAGES
-            );
-            
-            // Safety check: ensure we have something to compactify
-            if (splitIndex <= 0) {
-                logger.warn('Cannot find valid turn boundary for compactification, preserving all messages');
-                return runningHistory;
-            }
-            
-            // Split messages
-            const messagesToSummarize = runningHistory.slice(0, splitIndex);
-            const recentMessages = runningHistory.slice(splitIndex);
-            
-            logger.info('Compactification split determined', {
-                summarizeCount: messagesToSummarize.length,
-                preserveCount: recentMessages.length,
-                splitIndex
-            });
-            
-            toolCallRenderer({ 
-                name: 'summarize_history', 
-                status: 'start', 
-                args: { 
-                    messageCount: messagesToSummarize.length,
-                    recentCount: recentMessages.length 
-                } 
-            });
-
-            // Generate LLM-powered summary
-            const summary = await this.generateConversationSummary(
-                messagesToSummarize,
-                env,
-                options,
-                logger
-            );
-
-            // Create summary message - its conversationId will be the archive ID
-            const summarizedTurns = this.countTurns(messagesToSummarize);
-            const archiveId = `archive-${Date.now()}-${IdGenerator.generateConversationId()}`;
-            
-            const summaryMessage: ConversationMessage = {
-                role: 'assistant' as MessageRole,
-                content: `[Conversation History Summary: ${messagesToSummarize.length} messages, ${summarizedTurns} turns]\n[Archive ID: ${archiveId}]\n\n${summary}`,
-                conversationId: archiveId
-            };
-            
-            toolCallRenderer({ 
-                name: 'summarize_history', 
-                status: 'success', 
-                args: { 
-                    summary: summary.substring(0, 200) + '...',
-                    archiveId 
-                } 
-            });
-            
-            // Return summary + recent messages
-            const compactifiedHistory = [summaryMessage, ...recentMessages];
-            
-            logger.info('Compactification completed with archival', {
-                originalMessageCount: runningHistory.length,
-                newMessageCount: compactifiedHistory.length,
-                compressionRatio: (compactifiedHistory.length / runningHistory.length).toFixed(2),
-                estimatedTokenSavings: analysis.estimatedTokens - this.estimateTokens(compactifiedHistory),
-                archivedMessageCount: messagesToSummarize.length,
-                archiveId
-            });
-            
-            return compactifiedHistory;
-            
-        } catch (error) {
-            logger.error('Compactification failed, preserving original messages', { error });
-            
-            // Safe fallback: if we have too many messages, keep recent ones
-            if (runningHistory.length > COMPACTIFICATION_CONFIG.PRESERVE_RECENT_MESSAGES * 3) {
-                const fallbackCount = COMPACTIFICATION_CONFIG.PRESERVE_RECENT_MESSAGES * 2;
-                logger.warn(`Applying emergency fallback: keeping last ${fallbackCount} messages`);
-                return runningHistory.slice(-fallbackCount);
-            }
-
-            return runningHistory;
-        }
-    }
-
 
     processProjectUpdates<T extends ProjectUpdateType>(updateType: T, _data: WebSocketMessageData<T>, logger: StructuredLogger) : ConversationMessage[] {
         try {

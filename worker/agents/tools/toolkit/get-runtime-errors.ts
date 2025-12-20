@@ -1,22 +1,15 @@
-import { ErrorResult, ToolDefinition } from '../types';
+import { tool, t } from '../types';
 import { StructuredLogger } from '../../../logger';
-import { CodingAgentInterface } from 'worker/agents/services/implementations/CodingAgent';
-import { RuntimeError } from 'worker/services/sandbox/sandboxTypes';
-
-type GetRuntimeErrorsArgs = Record<string, never>;
-
-type GetRuntimeErrorsResult = { errors: RuntimeError[] } | ErrorResult;
+import { ICodingAgent } from 'worker/agents/services/interfaces/ICodingAgent';
 
 export function createGetRuntimeErrorsTool(
-	agent: CodingAgentInterface,
+	agent: ICodingAgent,
 	logger: StructuredLogger
-): ToolDefinition<GetRuntimeErrorsArgs, GetRuntimeErrorsResult> {
-	return {
-		type: 'function' as const,
-		function: {
-			name: 'get_runtime_errors',
-			description:
-				`Fetch latest runtime errors from the sandbox error storage. These are errors captured by the runtime error detection system.
+) {
+	return tool({
+		name: 'get_runtime_errors',
+		description:
+			`Fetch latest runtime errors from the sandbox error storage. These are errors captured by the runtime error detection system.
 
 **IMPORTANT CHARACTERISTICS:**
 - Runtime errors are USER-INTERACTION DRIVEN - they only appear when users interact with the app
@@ -30,26 +23,23 @@ export function createGetRuntimeErrorsTool(
 4. Call get_runtime_errors again to verify errors are resolved
 
 **When to use:**
-- ✅ To see what runtime errors users have encountered
-- ✅ After deploying fixes to verify issues are resolved
-- ✅ To understand error patterns in the application
+- To see what runtime errors users have encountered
+- After deploying fixes to verify issues are resolved
+- To understand error patterns in the application
 
 **When NOT to use:**
-- ❌ Immediately after deploy (errors need user interaction to generate)
-- ❌ In rapid succession (errors update on user interaction, not continuously)`,
-			parameters: {
-				type: 'object',
-				properties: {},
-				required: [],
-			},
+- Immediately after deploy (errors need user interaction to generate)
+- In rapid succession (errors update on user interaction, not continuously)`,
+		args: {
+			_trigger: t.runtimeErrors().describe('Internal trigger for resource tracking'),
 		},
-		implementation: async (_args?) => {
+		run: async () => {
 			try {
 				logger.info('Fetching runtime errors from sandbox');
-				
+
 				const errors = await agent.fetchRuntimeErrors(true);
-				
-				return { 
+
+				return {
 					errors: errors || []
 				};
 			} catch (error) {
@@ -61,5 +51,5 @@ export function createGetRuntimeErrorsTool(
 				};
 			}
 		},
-	};
+	});
 }

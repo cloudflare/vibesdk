@@ -1,31 +1,27 @@
 import React, { useState } from 'react';
-// import { useNavigate } from 'react-router';
 import {
-	Eye,
-	EyeOff,
-	Github,
-    Smartphone,
+	Smartphone,
 	Trash2,
 	Key,
 	Lock,
-    Settings,
+	Settings,
+	Copy,
+	Check,
+	Eye,
+	EyeOff,
 } from 'lucide-react';
 import { ModelConfigTabs } from '@/components/model-config-tabs';
 import type {
 	ModelConfigsData,
 	ModelConfigUpdate,
-	EncryptedSecret,
 	ActiveSessionsData,
-	SecretTemplate,
+	ApiKeysData,
 } from '@/api-types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
 import { useAuth } from '@/contexts/auth-context';
-// import { useTheme } from '@/contexts/theme-context';
 import { Badge } from '@/components/ui/badge';
 import {
 	AlertDialog,
@@ -45,24 +41,21 @@ import {
 	DialogFooter,
 	DialogHeader,
 	DialogTitle,
+	DialogTrigger,
 } from '@/components/ui/dialog';
 import {
-	Select,
-	SelectContent,
-	SelectItem,
-	SelectTrigger,
-	SelectValue,
-} from '@/components/ui/select';
+	Table,
+	TableBody,
+	TableCaption,
+	TableCell,
+	TableHead,
+	TableHeader,
+	TableRow,
+} from '@/components/ui/table';
 import { toast } from 'sonner';
 import { apiClient } from '@/lib/api-client';
-import { ByokApiKeysModal } from '@/components/byok-api-keys-modal';
-
-// Import provider logos (reusing existing pattern from BYOK modal)
-import OpenAILogo from '@/assets/provider-logos/openai.svg?react';
-import AnthropicLogo from '@/assets/provider-logos/anthropic.svg?react';
-import GoogleLogo from '@/assets/provider-logos/google.svg?react';
-import CerebrasLogo from '@/assets/provider-logos/cerebras.svg?react';
-import CloudflareLogo from '@/assets/provider-logos/cloudflare.svg?react';
+import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard';
+// import { SecretsManager } from '@/components/vault';
 
 export default function SettingsPage() {
 	const { user } = useAuth();
@@ -71,35 +64,30 @@ export default function SettingsPage() {
 		ActiveSessionsData & { loading: boolean }
 	>({ sessions: [], loading: true });
 
-	// API Keys state - commented out since not used
-	// const [apiKeys, setApiKeys] = useState<ApiKeysData & { loading: boolean }>({ keys: [], loading: true });
 
-	// User Secrets state
-	const [userSecrets, setUserSecrets] = useState<{
-		secrets: EncryptedSecret[];
-		loading: boolean;
-	}>({ secrets: [], loading: true });
-
-	// Templates state
-	const [secretTemplates, setSecretTemplates] = useState<SecretTemplate[]>(
-		[],
-	);
-
-	const [secretDialog, setSecretDialog] = useState(false);
-	const [selectedTemplate, setSelectedTemplate] = useState<string | null>(
-		null,
-	);
-	const [isCustomSecret, setIsCustomSecret] = useState(false);
-	const [newSecret, setNewSecret] = useState({
-		templateId: '',
-		name: '',
-		envVarName: '',
-		value: '',
-		environment: 'production',
-		description: '',
+	// SDK API keys state
+	const [apiKeys, setApiKeys] = useState<ApiKeysData & { loading: boolean }>({
+		keys: [],
+		loading: true,
 	});
-	const [showSecretValue, setShowSecretValue] = useState(false);
-	const [isSavingSecret, setIsSavingSecret] = useState(false);
+	const [createKeyOpen, setCreateKeyOpen] = useState(false);
+	const [newKeyName, setNewKeyName] = useState('');
+	const [creatingKey, setCreatingKey] = useState(false);
+	const [createdKey, setCreatedKey] = useState<{
+		key: string;
+		keyPreview: string;
+		name: string;
+	} | null>(null);
+	const [showCreatedKey, setShowCreatedKey] = useState(true);
+	const [keyToRevoke, setKeyToRevoke] = useState<
+		ApiKeysData['keys'][number] | null
+	>(null);
+	const [revokingKey, setRevokingKey] = useState(false);
+	const {
+		copied: copiedCreatedKey,
+		copy: copyCreatedKey,
+		reset: resetCreatedKeyCopy,
+	} = useCopyToClipboard();
 
 	// Model configurations state
 	const [agentConfigs, setAgentConfigs] = useState<
@@ -114,15 +102,6 @@ export default function SettingsPage() {
 	const [loadingConfigs, setLoadingConfigs] = useState(true);
 	const [savingConfigs, setSavingConfigs] = useState(false);
 	const [testingConfig, setTestingConfig] = useState<string | null>(null);
-
-	// BYOK modal state
-	const [byokModalOpen, setByokModalOpen] = useState(false);
-
-	// Handle BYOK key added/removed - refresh both secrets and model configs
-	const handleByokKeyAdded = () => {
-		loadUserSecrets();
-		loadModelConfigs(); // Refresh model configs since BYOK provider availability changed
-	};
 
 	// const handleSaveProfile = async () => {
 	// 	if (isSaving) return;
@@ -361,125 +340,57 @@ export default function SettingsPage() {
 		}
 	};
 
-	// Load user secrets
-	const loadUserSecrets = async () => {
+	const loadApiKeys = async () => {
 		try {
-			const response = await apiClient.getAllSecrets();
-			setUserSecrets({
-				secrets: response.data?.secrets || [],
-				loading: false,
-			});
+			setApiKeys((prev) => ({ ...prev, loading: true }));
+			const response = await apiClient.getApiKeys();
+			setApiKeys({ keys: response.data?.keys ?? [], loading: false });
 		} catch (error) {
-			console.error('Error loading user secrets:', error);
-			setUserSecrets({
-				secrets: [],
-				loading: false,
-			});
+			console.error('Error loading API keys:', error);
+			setApiKeys({ keys: [], loading: false });
+			toast.error('Failed to load API keys');
 		}
 	};
 
-	// Load secret templates
-	const loadSecretTemplates = async () => {
+	const handleCreateApiKey = async () => {
+		if (!newKeyName.trim() || creatingKey) return;
 		try {
-			const response = await apiClient.getSecretTemplates();
-			setSecretTemplates(response.data?.templates || []);
+			setCreatingKey(true);
+			const response = await apiClient.createApiKey({ name: newKeyName.trim() });
+			if (response.success && response.data) {
+				setCreatedKey({
+					key: response.data.key,
+					keyPreview: response.data.keyPreview,
+					name: response.data.name,
+				});
+				setShowCreatedKey(true);
+				resetCreatedKeyCopy();
+				toast.success('API key created');
+				await loadApiKeys();
+				setNewKeyName('');
+			}
 		} catch (error) {
-			console.error('Error loading secret templates:', error);
-		}
-	};
-
-	const handleSaveSecret = async () => {
-		if (isSavingSecret) return;
-
-		try {
-			setIsSavingSecret(true);
-
-			const payload = isCustomSecret
-				? {
-						name: newSecret.name,
-						envVarName: newSecret.envVarName,
-						value: newSecret.value,
-						environment: newSecret.environment,
-						description: newSecret.description,
-					}
-				: {
-						templateId: selectedTemplate || undefined,
-						value: newSecret.value,
-						environment: newSecret.environment,
-					};
-
-			await apiClient.storeSecret(payload);
-			toast.success('Secret saved successfully');
-			resetSecretDialog();
-			loadUserSecrets();
-		} catch (error) {
-			console.error('Error saving secret:', error);
-			toast.error('Failed to save secret');
+			console.error('Error creating API key:', error);
+			toast.error('Failed to create API key');
 		} finally {
-			setIsSavingSecret(false);
+			setCreatingKey(false);
 		}
 	};
 
-	const resetSecretDialog = () => {
-		setSecretDialog(false);
-		setSelectedTemplate(null);
-		setIsCustomSecret(false);
-		setNewSecret({
-			templateId: '',
-			name: '',
-			envVarName: '',
-			value: '',
-			environment: 'production',
-			description: '',
-		});
-		setShowSecretValue(false);
-	};
-
-	const handleDeleteSecret = async (secretId: string) => {
+	const handleRevokeApiKey = async () => {
+		if (!keyToRevoke || revokingKey) return;
 		try {
-			await apiClient.deleteSecret(secretId);
-			toast.success('Secret deleted successfully');
-			loadUserSecrets();
-			// Also refresh model configs since BYOK provider availability may have changed
-			loadModelConfigs();
+			setRevokingKey(true);
+			await apiClient.revokeApiKey(keyToRevoke.id);
+			toast.success('API key revoked');
+			setKeyToRevoke(null);
+			await loadApiKeys();
 		} catch (error) {
-			console.error('Error deleting secret:', error);
-			toast.error('Failed to delete secret');
+			console.error('Error revoking API key:', error);
+			toast.error('Failed to revoke API key');
+		} finally {
+			setRevokingKey(false);
 		}
-	};
-
-	// Provider logo mapping (following existing BYOK modal pattern)
-	const PROVIDER_LOGOS: Record<
-		string,
-		React.ComponentType<{ className?: string }>
-	> = {
-		openai: OpenAILogo,
-		anthropic: AnthropicLogo,
-		'google-ai-studio': GoogleLogo,
-		google: GoogleLogo,
-		cerebras: CerebrasLogo,
-		cloudflare: CloudflareLogo,
-	};
-
-	const getProviderLogo = (
-		provider: string,
-		className: string = 'h-5 w-5',
-	) => {
-		const LogoComponent = PROVIDER_LOGOS[provider];
-		if (LogoComponent) {
-			return <LogoComponent className={className} />;
-		}
-
-		// Fallback to emoji for unknown providers
-		const emojiMap: Record<string, string> = {
-			stripe: '💳',
-			github: '🐙',
-			vercel: '▲',
-			supabase: '🗄️',
-			custom: '🔑',
-		};
-
-		return <span className="text-lg">{emojiMap[provider] || '🔑'}</span>;
 	};
 
 	// Load agent configurations dynamically from API
@@ -503,12 +414,12 @@ export default function SettingsPage() {
 			});
 	}, [formatAgentConfigName, getAgentConfigDescription]);
 
-	// Load GitHub integration, sessions, API keys, user secrets, and model configs on component mount
+	// Load sessions and model configs on component mount
 	React.useEffect(() => {
 		if (user) {
 			loadActiveSessions();
 			loadModelConfigs();
-            loadSecretTemplates();
+			loadApiKeys();
 		}
 	}, [user]);
 
@@ -644,7 +555,7 @@ export default function SettingsPage() {
 									size="sm"
 									onClick={() => {
 										const secretsSection =
-											document.getElementById('secrets');
+											document.getElementById('api-keys');
 										if (secretsSection) {
 											secretsSection.scrollIntoView({
 												behavior: 'smooth',
@@ -654,8 +565,8 @@ export default function SettingsPage() {
 									}}
 									className="gap-2 shrink-0"
 								>
-									<Key className="h-4 w-4" />
-									Manage Keys
+														<Key className="h-4 w-4" />
+														API Keys
 								</Button>
 							</div>
 
@@ -677,996 +588,241 @@ export default function SettingsPage() {
 						</CardContent>
 					</Card>
 
-					{/* User Secrets Section */}
-					<Card id="secrets">
+					{/* User Secrets Vault Section */}
+					{/* <SecretsManager id="secrets" /> */}
+
+					<Card id="api-keys">
 						<CardHeader variant="minimal">
 							<div className="flex items-center gap-3 border-b w-full py-3 text-text-primary">
 								<Key className="h-5 w-5" />
 								<div>
-									<CardTitle>API Keys & Secrets</CardTitle>
+									<CardTitle>API Keys</CardTitle>
 								</div>
 							</div>
 						</CardHeader>
-						<CardContent className="space-y-3 mt-4 px-6">
-							{/* App Environment Variables Section */}
-							{/* <div className="space-y-4">
-								<div className="flex justify-between items-center">
-									<div>
-										<h4 className="font-medium">
-											Environment Variables for the
-											generated apps
-										</h4>
-									</div>
-									<Dialog
-										open={secretDialog}
-										onOpenChange={(open) => {
-											if (open) {
-												setSelectedTemplate(null);
-												setIsCustomSecret(false);
-												setNewSecret({
-													templateId: '',
-													name: '',
-													envVarName: '',
-													value: '',
-													environment: 'production',
-													description: '',
-												});
-											}
-											setSecretDialog(open);
-										}}
-									>
-										<DialogTrigger asChild>
-											<Button size="sm" className="gap-2">
-												<Plus className="h-4 w-4" />
-												Add Env Vars
-											</Button>
-										</DialogTrigger>
-									</Dialog>
+						<CardContent className="space-y-4 mt-4 px-6">
+							<div className="flex items-start justify-between gap-4">
+								<div className="space-y-1">
+									<h4 className="font-medium text-sm">VibeSDK API Keys</h4>
+									<p className="text-sm text-text-secondary">
+										Use these keys to authenticate external SDK clients. The full key is shown only once when created.
+									</p>
 								</div>
 
-								{userSecrets.loading ? (
-									<div className="flex items-center gap-3">
-										<Settings className="h-5 w-5 animate-spin text-text-tertiary" />
-										<span className="text-sm text-text-tertiary">
-											Loading secrets...
-										</span>
-									</div>
-								) : userSecrets.secrets.length === 0 ? (
-									<div className="text-center py-8 border-2 border-dashed dark:border-bg-4 rounded-lg">
-										<Key className="h-8 w-8 text-text-tertiary mx-auto mb-2" />
-										<p className="text-sm text-text-tertiary">
-											Add API keys and secrets that your
-											generated apps can use
-										</p>
-									</div>
-								) : (
-									<div className="space-y-3">
-										{userSecrets.secrets
-											.filter(
-												(secret) =>
-													!secret.secretType.endsWith(
-														'_BYOK',
-													),
-											)
-											.map((secret) => (
-												<div
-													key={secret.id}
-													className={`flex items-center justify-between p-4 border rounded-lg transition-colors ${
-														secret.isActive
-															? 'bg-bg-4'
-															: 'bg-bg-3/20 border-dashed opacity-70'
-													}`}
-												>
-													<div className="flex items-center gap-3">
-														<div
-															className={`flex items-center justify-center w-8 h-8 rounded-md border shadow-sm ${
-																secret.isActive
-																	? 'bg-white'
-																	: 'bg-bg-3 border-dashed opacity-60'
-															}`}
-														>
-															{getProviderLogo(
-																secret.provider,
-																`h-5 w-5 ${secret.isActive ? '' : 'opacity-60'}`,
-															)}
-														</div>
-														<div>
-															<p
-																className={`font-medium ${secret.isActive ? '' : 'opacity-60'}`}
-															>
-																{secret.name}
-															</p>
-															<div className="flex items-center gap-2 mt-1">
-																<Badge
-																	variant={
-																		secret.isActive
-																			? 'default'
-																			: 'outline'
-																	}
-																	className={`text-xs ${secret.isActive ? '' : 'opacity-60'}`}
-																>
-																	{secret.isActive
-																		? 'Active'
-																		: 'Inactive'}
-																</Badge>
-																<Badge
-																	variant="outline"
-																	className={`text-xs ${secret.isActive ? '' : 'opacity-60'}`}
-																>
-																	{
-																		secret.provider
-																	}
-																</Badge>
-																<Badge
-																	variant="secondary"
-																	className={`text-xs ${secret.isActive ? '' : 'opacity-60'}`}
-																>
-																	{secret.secretType.replace(
-																		'_',
-																		' ',
-																	)}
-																</Badge>
-																<span className="text-xs text-text-tertiary">
-																	{
-																		secret.keyPreview
-																	}
-																</span>
-															</div>
-															{secret.description && (
-																<p className="text-xs text-text-tertiary mt-1">
-																	{
-																		secret.description
-																	}
-																</p>
-															)}
-														</div>
-													</div>
-													<div className="flex items-center gap-2">
-														<AlertDialog>
-															<AlertDialogTrigger
-																asChild
-															>
-																<Button
-																	variant="outline"
-																	size="sm"
-																	className="text-destructive hover:text-destructive"
-																>
-																	<Trash2 className="h-4 w-4" />
-																</Button>
-															</AlertDialogTrigger>
-															<AlertDialogContent>
-																<AlertDialogHeader>
-																	<AlertDialogTitle>
-																		Delete
-																		Secret
-																	</AlertDialogTitle>
-																	<AlertDialogDescription>
-																		Are you
-																		sure you
-																		want to
-																		delete "
-																		{
-																			secret.name
-																		}
-																		"? This
-																		action
-																		cannot
-																		be
-																		undone.
-																	</AlertDialogDescription>
-																</AlertDialogHeader>
-																<AlertDialogFooter>
-																	<AlertDialogCancel>
-																		Cancel
-																	</AlertDialogCancel>
-																	<AlertDialogAction
-																		onClick={() =>
-																			handleDeleteSecret(
-																				secret.id,
-																			)
-																		}
-																		className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-																	>
-																		Delete
-																	</AlertDialogAction>
-																</AlertDialogFooter>
-															</AlertDialogContent>
-														</AlertDialog>
-													</div>
-												</div>
-											))}
-									</div>
-								)}
-							</div> */}
+								<Dialog
+									open={createKeyOpen}
+									onOpenChange={(open) => {
+										setCreateKeyOpen(open);
+										if (!open) {
+											setNewKeyName('');
+											setCreatedKey(null);
+											setShowCreatedKey(true);
+											resetCreatedKeyCopy();
+										}
+									}}
+								>
+									<DialogTrigger asChild>
+										<Button size="sm" className="gap-2">
+											<Key className="h-4 w-4" />
+											Create API Key
+										</Button>
+									</DialogTrigger>
+									<DialogContent>
+										<DialogHeader>
+											<DialogTitle>
+												{createdKey ? 'Your new API key' : 'Create API key'}
+											</DialogTitle>
+											<DialogDescription>
+												{createdKey
+													? 'Copy this key now. You will not be able to see it again.'
+													: 'Give your key a memorable name. You can revoke it anytime.'}
+											</DialogDescription>
+										</DialogHeader>
 
-							{/* <Separator /> */}
-
-							{/* BYOK API Keys Section */}
-							<div className="space-y-4">
-								<div className="flex justify-between items-center">
-									<h4 className="font-medium">
-										BYOK Provider Keys
-									</h4>
-									<Button
-										size="sm"
-										variant="outline"
-										onClick={() => setByokModalOpen(true)}
-                                        disabled // DISABLED: BYOK Disabled for security reasons
-										className="gap-2"
-									>
-										<Key className="h-4 w-4" />
-										{/* Manage BYOK Keys */}
-                                        Coming Soon
-									</Button>
-								</div>
-
-								{/* BYOK Status Display */}
-								{(() => {
-									const byokSecrets =
-										userSecrets.secrets.filter((secret) =>
-											secret.secretType.endsWith('_BYOK'),
-										);
-
-									if (byokSecrets.length === 0) {
-										return (
-											<div className="text-center py-6 border-2 border-dashed dark:border-bg-4 border-muted rounded-lg">
-												<Key className="h-8 w-8 text-text-tertiary mx-auto mb-2" />
-
-												<p className="text-sm text-text-tertiary">
-													{/* Add your LLM keys to use
-													your own billing */}
-                                                    Coming Soon: You would be able to add your own LLM keys to bypass rate limits from here.
-												</p>
-											</div>
-										);
-									}
-
-									return (
-										<div className="rounded-lg bg-bg-3/50 p-4">
-											<div className="flex items-center justify-between mb-3">
-												<div className="flex items-center gap-2">
-													<div className="w-2 h-2 bg-green-500 rounded-full"></div>
-													<span className="text-sm font-medium">
-														{byokSecrets.length}{' '}
-														provider
-														{byokSecrets.length !==
-														1
-															? 's'
-															: ''}{' '}
-														configured
-													</span>
-												</div>
-											</div>
+										{!createdKey ? (
 											<div className="space-y-3">
-												{byokSecrets.map((secret) => {
-													const providerName =
-														secret.secretType
-															.replace(
-																'_API_KEY_BYOK',
-																'',
-															)
-															.replace('_', ' ')
-															.toLowerCase()
-															.replace(
-																/\b\w/g,
-																(l) =>
-																	l.toUpperCase(),
-															);
-
-													return (
-														<div
-															key={secret.id}
-															className={`flex items-center justify-between p-3 border rounded-lg transition-colors ${
-																secret.isActive
-																	? 'bg-white/50 dark:bg-gray-800/50'
-																	: 'bg-bg-3/20 border-dashed opacity-70'
-															}`}
-														>
-															<div className="flex items-center gap-3">
-																<div
-																	className={`flex items-center justify-center w-8 h-8 rounded-md border shadow-sm ${
-																		secret.isActive
-																			? 'bg-white'
-																			: 'bg-bg-3 border-dashed opacity-60'
-																	}`}
-																>
-																	{getProviderLogo(
-																		secret.provider,
-																		`h-5 w-5 ${secret.isActive ? '' : 'opacity-60'}`,
-																	)}
-																</div>
-																<div>
-																	<span
-																		className={`font-medium text-sm ${secret.isActive ? '' : 'opacity-60'}`}
-																	>
-																		{
-																			providerName
-																		}
-																	</span>
-																	<div
-																		className={`text-xs text-text-tertiary ${secret.isActive ? '' : 'opacity-60'}`}
-																	>
-																		{
-																			secret.keyPreview
-																		}
-																	</div>
-																</div>
-															</div>
-															<div className="flex items-center gap-2">
-																<Badge
-																	variant={
-																		secret.isActive
-																			? 'default'
-																			: 'outline'
-																	}
-																	className={`text-xs ${secret.isActive ? '' : 'opacity-60'}`}
-																>
-																	{secret.isActive
-																		? 'Active'
-																		: 'Inactive'}
-																</Badge>
-																<AlertDialog>
-																	<AlertDialogTrigger
-																		asChild
-																	>
-																		<Button
-																			variant="outline"
-																			size="sm"
-																			className="text-destructive hover:text-destructive h-8 w-8 p-0"
-																		>
-																			<Trash2 className="h-4 w-4" />
-																		</Button>
-																	</AlertDialogTrigger>
-																	<AlertDialogContent>
-																		<AlertDialogHeader>
-																			<AlertDialogTitle>
-																				Remove{' '}
-																				{
-																					providerName
-																				}{' '}
-																				Key
-																			</AlertDialogTitle>
-																			<AlertDialogDescription>
-																				Are
-																				you
-																				sure
-																				you
-																				want
-																				to
-																				remove
-																				your{' '}
-																				{
-																					providerName
-																				}{' '}
-																				API
-																				key?
-																				You'll
-																				need
-																				to
-																				add
-																				it
-																				again
-																				to
-																				use
-																				BYOK
-																				mode
-																				with
-																				this
-																				provider.
-																			</AlertDialogDescription>
-																		</AlertDialogHeader>
-																		<AlertDialogFooter>
-																			<AlertDialogCancel>
-																				Cancel
-																			</AlertDialogCancel>
-																			<AlertDialogAction
-																				onClick={() =>
-																					handleDeleteSecret(
-																						secret.id,
-																					)
-																				}
-																				className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-																			>
-																				Remove
-																				Key
-																			</AlertDialogAction>
-																		</AlertDialogFooter>
-																	</AlertDialogContent>
-																</AlertDialog>
-															</div>
-														</div>
-													);
-												})}
-											</div>
-											<p className="text-xs text-text-tertiary mt-3">
-												These keys are used
-												automatically when you select
-												BYOK mode in model
-												configurations.
-												<Button
-													variant="link"
-													size="sm"
-													className="text-xs p-0 h-auto ml-1"
-													onClick={() => {
-														const modelConfigsSection =
-															document.getElementById(
-																'model-configs',
-															);
-														if (
-															modelConfigsSection
-														) {
-															modelConfigsSection.scrollIntoView(
-																{
-																	behavior:
-																		'smooth',
-																	block: 'start',
-																},
-															);
-														}
-													}}
-												>
-													Configure models →
-												</Button>
-											</p>
-										</div>
-									);
-								})()}
-							</div>
-
-							{/* Add Secret Dialog */}
-							<Dialog
-								open={secretDialog}
-								onOpenChange={resetSecretDialog}
-							>
-								<DialogContent className="max-w-lg">
-									<DialogHeader>
-										<DialogTitle>
-											Add API Key or Secret
-										</DialogTitle>
-										<DialogDescription>
-											Choose a predefined template or add
-											a custom environment variable
-										</DialogDescription>
-									</DialogHeader>
-
-									<div className="space-y-6">
-										{/* Step 1: Template Selection */}
-										{!selectedTemplate &&
-											!isCustomSecret && (
-												<div className="space-y-4">
-													<div>
-														<h4 className="font-medium mb-3">
-															Quick Setup
-															(Recommended)
-														</h4>
-														<div className="grid grid-cols-1 gap-2 max-h-60 overflow-y-auto">
-															{secretTemplates
-																.sort(
-																	(a, b) =>
-																		(b.required
-																			? 1
-																			: 0) -
-																		(a.required
-																			? 1
-																			: 0),
-																)
-																.map(
-																	(
-																		template,
-																	) => (
-																		<Button
-																			key={
-																				template.id
-																			}
-																			variant="outline"
-																			className="justify-start h-auto p-3 text-left"
-																			onClick={() => {
-																				setSelectedTemplate(
-																					template.id,
-																				);
-																				setNewSecret(
-																					(
-																						prev,
-																					) => ({
-																						...prev,
-																						templateId:
-																							template.id,
-																						environment:
-																							'production',
-																					}),
-																				);
-																			}}
-																		>
-																			<div className="flex items-start">
-																				<span className="text-lg">
-																					{
-																						template.icon
-																					}
-																				</span>
-																				<div className="flex items-start">
-																					<Github className="w-5 h-5 text-yellow-400 dark:text-yellow-200 mr-2" />
-																					<ul className="space-y-1">
-																						<li>
-																							•{' '}
-																							<strong>
-																								More
-																								secure:
-																							</strong>{' '}
-																							Uses
-																							short-lived
-																							tokens
-																							(1
-																							hour
-																							expiry)
-																						</li>
-																						<li>
-																							•{' '}
-																							<strong>
-																								Fine-grained
-																								permissions:
-																							</strong>{' '}
-																							Only
-																							accesses
-																							repositories
-																							you
-																							choose
-																						</li>
-																						<li>
-																							•{' '}
-																							<strong>
-																								One-time
-																								setup:
-																							</strong>{' '}
-																							Install
-																							once,
-																							export
-																							anytime
-																						</li>
-																						<li>
-																							•{' '}
-																							<strong>
-																								GitHub
-																								recommended:
-																							</strong>{' '}
-																							Apps
-																							are
-																							the
-																							preferred
-																							integration
-																							method
-																						</li>
-																					</ul>
-																				</div>
-																			</div>
-																		</Button>
-																	),
-																)}
-														</div>
-													</div>
-
-													<div className="relative">
-														<div className="absolute inset-0 flex items-center">
-															<span className="w-full border-t" />
-														</div>
-														<div className="relative flex justify-center text-xs uppercase">
-															<span className="bg-bg-3 px-2 text-text-tertiary">
-																Or
-															</span>
-														</div>
-													</div>
-
-													<Button
-														variant="outline"
-														className="w-full justify-start h-auto p-3"
-														onClick={() =>
-															setIsCustomSecret(
-																true,
-															)
-														}
-													>
-														<div className="flex items-center gap-3">
-															<span className="text-lg">
-																🔑
-															</span>
-															<div className="text-left">
-																<div className="font-medium">
-																	Custom
-																	Environment
-																	Variable
-																</div>
-																<p className="text-xs text-text-tertiary">
-																	Add any
-																	custom API
-																	key or
-																	secret with
-																	your own
-																	variable
-																	name
-																</p>
-															</div>
-														</div>
-													</Button>
-												</div>
-											)}
-
-										{/* Step 2: Template Form */}
-										{selectedTemplate && (
-											<div className="space-y-4">
-												{(() => {
-													const template =
-														secretTemplates.find(
-															(t) =>
-																t.id ===
-																selectedTemplate,
-														);
-													if (!template) return null;
-
-													return (
-														<>
-															<div className="flex items-center gap-3 p-3 bg-bg-3/50 rounded-lg">
-																<span className="text-xl">
-																	{
-																		template.icon
-																	}
-																</span>
-																<div>
-																	<h4 className="font-medium">
-																		{
-																			template.displayName
-																		}
-																	</h4>
-																	<p className="text-sm text-text-tertiary">
-																		{
-																			template.description
-																		}
-																	</p>
-																</div>
-																<Button
-																	variant="ghost"
-																	size="sm"
-																	onClick={() => {
-																		setSelectedTemplate(
-																			null,
-																		);
-																		setNewSecret(
-																			(
-																				prev,
-																			) => ({
-																				...prev,
-																				templateId:
-																					'',
-																				value: '',
-																			}),
-																		);
-																	}}
-																>
-																	Change
-																</Button>
-															</div>
-
-															<div className="space-y-3">
-																<div>
-																	<Label>
-																		Environment
-																		Variable
-																		Name
-																	</Label>
-																	<Input
-																		value={
-																			template.envVarName
-																		}
-																		disabled
-																		className="bg-bg-3"
-																	/>
-																	<p className="text-xs text-text-tertiary mt-1">
-																		This
-																		will be
-																		available
-																		as{' '}
-																		<code className="bg-bg-3 px-1 rounded text-xs">
-																			{
-																				template.envVarName
-																			}
-																		</code>{' '}
-																		in your
-																		generated
-																		apps
-																	</p>
-																</div>
-
-																<div>
-																	<Label htmlFor="templateValue">
-																		Value
-																	</Label>
-																	<div className="relative">
-																		<Input
-																			id="templateValue"
-																			type={
-																				showSecretValue
-																					? 'text'
-																					: 'password'
-																			}
-																			placeholder={
-																				template.placeholder
-																			}
-																			value={
-																				newSecret.value
-																			}
-																			onChange={(
-																				e,
-																			) =>
-																				setNewSecret(
-																					(
-																						prev,
-																					) => ({
-																						...prev,
-																						value: e
-																							.target
-																							.value,
-																					}),
-																				)
-																			}
-																			className="pr-10"
-																		/>
-																		<Button
-																			type="button"
-																			variant="ghost"
-																			size="sm"
-																			className="absolute right-2 top-1/2 transform -translate-y-1/2 h-6 w-6 p-0"
-																			onClick={() =>
-																				setShowSecretValue(
-																					!showSecretValue,
-																				)
-																			}
-																		>
-																			{showSecretValue ? (
-																				<EyeOff className="h-4 w-4" />
-																			) : (
-																				<Eye className="h-4 w-4" />
-																			)}
-																		</Button>
-																	</div>
-																</div>
-
-																<div className="rounded-lg bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 p-3">
-																	<h5 className="font-medium text-blue-900 dark:text-blue-100 text-sm mb-1">
-																		How to
-																		get
-																		this:
-																	</h5>
-																	<p className="text-xs text-blue-700 dark:text-blue-300">
-																		{
-																			template.instructions
-																		}
-																	</p>
-																</div>
-															</div>
-														</>
-													);
-												})()}
-											</div>
-										)}
-
-										{/* Step 3: Custom Secret Form */}
-										{isCustomSecret && (
-											<div className="space-y-4">
-												<div className="flex items-center justify-between">
-													<h4 className="font-medium">
-														Custom Environment
-														Variable
-													</h4>
-													<Button
-														variant="ghost"
-														size="sm"
-														onClick={() => {
-															setIsCustomSecret(
-																false,
-															);
-															setNewSecret(
-																(prev) => ({
-																	...prev,
-																	name: '',
-																	envVarName:
-																		'',
-																	value: '',
-																}),
-															);
-														}}
-													>
-														Back
-													</Button>
-												</div>
-
-												<div>
-													<Label htmlFor="customName">
-														Display Name
-													</Label>
+												<div className="space-y-2">
+													<p className="text-sm font-medium">Key name</p>
 													<Input
-														id="customName"
-														placeholder="e.g., My Custom API Key"
-														value={newSecret.name}
-														onChange={(e) =>
-															setNewSecret(
-																(prev) => ({
-																	...prev,
-																	name: e
-																		.target
-																		.value,
-																}),
-															)
-														}
+														value={newKeyName}
+														onChange={(e) => setNewKeyName(e.target.value)}
+														placeholder="e.g. My production SDK"
+														autoFocus
 													/>
 												</div>
 
-												<div>
-													<Label htmlFor="customEnvVar">
-														Environment Variable
-														Name
-													</Label>
-													<Input
-														id="customEnvVar"
-														placeholder="e.g., MY_API_KEY"
-														value={
-															newSecret.envVarName
-														}
-														onChange={(e) =>
-															setNewSecret(
-																(prev) => ({
-																	...prev,
-																	envVarName:
-																		e.target.value.toUpperCase(),
-																}),
-															)
-														}
-													/>
-													<p className="text-xs text-text-tertiary mt-1">
-														Must be uppercase
-														letters, numbers, and
-														underscores only
+												<div className="rounded-lg bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 p-3">
+													<p className="text-sm text-amber-800 dark:text-amber-200">
+														<strong>Important:</strong> Treat this like a password. Anyone with this key can act as your VibeSDK account.
 													</p>
 												</div>
-
-												<div>
-													<Label htmlFor="customValue">
-														Value
-													</Label>
+											</div>
+										) : (
+											<div className="space-y-3">
+												<div className="space-y-2">
+													<p className="text-sm font-medium">API key</p>
 													<div className="relative">
 														<Input
-															id="customValue"
-															type={
-																showSecretValue
-																	? 'text'
-																	: 'password'
-															}
-															placeholder="Enter your API key or secret"
-															value={
-																newSecret.value
-															}
-															onChange={(e) =>
-																setNewSecret(
-																	(prev) => ({
-																		...prev,
-																		value: e
-																			.target
-																			.value,
-																	}),
-																)
-															}
-															className="pr-10"
+															type={showCreatedKey ? 'text' : 'password'}
+															value={createdKey.key}
+															readOnly
+															className="font-mono text-sm pr-20"
 														/>
-														<Button
-															type="button"
-															variant="ghost"
-															size="sm"
-															className="absolute right-2 top-1/2 transform -translate-y-1/2 h-6 w-6 p-0"
-															onClick={() =>
-																setShowSecretValue(
-																	!showSecretValue,
-																)
-															}
-														>
-															{showSecretValue ? (
-																<EyeOff className="h-4 w-4" />
-															) : (
-																<Eye className="h-4 w-4" />
-															)}
-														</Button>
+														<div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
+															<Button
+																size="icon"
+																variant="ghost"
+																className="h-7 w-7"
+																onClick={() => setShowCreatedKey(!showCreatedKey)}
+															>
+																{showCreatedKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+															</Button>
+															<Button
+																size="icon"
+																variant="ghost"
+																className="h-7 w-7"
+																onClick={() => copyCreatedKey(createdKey.key)}
+															>
+																{copiedCreatedKey ? (
+																	<Check className="h-4 w-4 text-green-500" />
+																) : (
+																	<Copy className="h-4 w-4" />
+																)}
+															</Button>
+														</div>
 													</div>
 												</div>
 
-												<div>
-													<Label htmlFor="customDescription">
-														Description (Optional)
-													</Label>
-													<Textarea
-														id="customDescription"
-														placeholder="Brief description of this secret"
-														value={
-															newSecret.description
-														}
-														onChange={(e) =>
-															setNewSecret(
-																(prev) => ({
-																	...prev,
-																	description:
-																		e.target
-																			.value,
-																}),
-															)
-														}
-														rows={2}
-													/>
+												<div className="rounded-lg bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 p-3">
+													<p className="text-xs font-medium text-slate-700 dark:text-slate-300 mb-2">SDK usage</p>
+													<code className="text-xs text-slate-600 dark:text-slate-400 block font-mono">
+														VIBESDK_API_KEY={createdKey.keyPreview}
+													</code>
 												</div>
 											</div>
 										)}
 
-										{/* Environment Selection (for both template and custom) */}
-										{(selectedTemplate ||
-											isCustomSecret) && (
-											<div>
-												<Label htmlFor="environment">
-													Environment
-												</Label>
-												<Select
-													value={
-														newSecret.environment
-													}
-													onValueChange={(value) =>
-														setNewSecret(
-															(prev) => ({
-																...prev,
-																environment:
-																	value,
-															}),
-														)
-													}
+										<DialogFooter>
+											{!createdKey ? (
+												<Button
+													onClick={handleCreateApiKey}
+													disabled={!newKeyName.trim() || creatingKey}
+													className="gap-2"
 												>
-													<SelectTrigger>
-														<SelectValue />
-													</SelectTrigger>
-													<SelectContent>
-														<SelectItem value="production">
-															Production
-														</SelectItem>
-														<SelectItem value="sandbox">
-															Sandbox
-														</SelectItem>
-														<SelectItem value="test">
-															Test
-														</SelectItem>
-													</SelectContent>
-												</Select>
-											</div>
-										)}
-									</div>
+													{creatingKey ? (
+														<>
+															<Settings className="h-4 w-4 animate-spin" />
+															Creating...
+														</>
+													) : (
+														'Create'
+													)}
+												</Button>
+											) : (
+												<Button
+													variant="outline"
+													onClick={() => setCreateKeyOpen(false)}
+												>
+													Done
+												</Button>
+											)}
+										</DialogFooter>
+									</DialogContent>
+								</Dialog>
+							</div>
 
-									<DialogFooter>
-										<Button
-											variant="outline"
-											onClick={resetSecretDialog}
-										>
-											Cancel
-										</Button>
-										{(selectedTemplate ||
-											isCustomSecret) && (
-											<Button
-												onClick={handleSaveSecret}
-												disabled={
-													!newSecret.value ||
-													(isCustomSecret &&
-														(!newSecret.name ||
-															!newSecret.envVarName)) ||
-													isSavingSecret
-												}
-											>
-												{isSavingSecret
-													? 'Saving...'
-													: 'Save Secret'}
-											</Button>
-										)}
-									</DialogFooter>
-								</DialogContent>
-							</Dialog>
+							{apiKeys.loading ? (
+								<div className="flex items-center gap-3">
+									<Settings className="h-5 w-5 animate-spin text-text-tertiary" />
+									<span className="text-sm text-text-tertiary">Loading API keys...</span>
+								</div>
+							) : apiKeys.keys.length === 0 ? (
+								<div className="rounded-lg border border-dashed border-bg-4 bg-bg-2/50 p-6">
+									<div className="flex items-start gap-3">
+										<div className="h-10 w-10 rounded-full bg-bg-3 flex items-center justify-center">
+											<Key className="h-5 w-5 text-text-tertiary" />
+										</div>
+										<div className="space-y-1">
+											<p className="font-medium">No API keys yet</p>
+											<p className="text-sm text-text-tertiary">
+												Create an API key to use the VibeSDK SDK from your own apps.
+											</p>
+										</div>
+									</div>
+								</div>
+							) : (
+								<>
+									<Table>
+										<TableCaption>Active keys for SDK usage</TableCaption>
+										<TableHeader>
+											<TableRow>
+												<TableHead>Name</TableHead>
+												<TableHead>Preview</TableHead>
+												<TableHead>Created</TableHead>
+												<TableHead>Last used</TableHead>
+												<TableHead>Status</TableHead>
+												<TableHead className="text-right">Actions</TableHead>
+											</TableRow>
+										</TableHeader>
+										<TableBody>
+											{apiKeys.keys.map((k) => (
+												<TableRow key={k.id}>
+													<TableCell className="font-medium">{k.name}</TableCell>
+													<TableCell className="font-mono text-xs text-text-secondary">{k.keyPreview}</TableCell>
+													<TableCell className="text-text-secondary">
+														{k.createdAt ? new Date(k.createdAt).toLocaleDateString() : '—'}
+													</TableCell>
+													<TableCell className="text-text-secondary">
+														{k.lastUsed ? new Date(k.lastUsed).toLocaleDateString() : '—'}
+													</TableCell>
+													<TableCell>
+														{k.isActive ? (
+															<Badge variant="secondary" className="bg-green-100 text-green-800 dark:bg-green-950 dark:text-green-200">
+																Active
+															</Badge>
+														) : (
+															<Badge variant="secondary">Revoked</Badge>
+														)}
+													</TableCell>
+													<TableCell className="text-right">
+														<Button
+															variant="outline"
+															size="sm"
+															disabled={!k.isActive}
+															onClick={() => setKeyToRevoke(k)}
+															className="gap-2 text-destructive hover:text-destructive"
+														>
+															<Trash2 className="h-4 w-4" />
+															Revoke
+														</Button>
+													</TableCell>
+												</TableRow>
+											))}
+										</TableBody>
+									</Table>
+
+									<AlertDialog open={!!keyToRevoke} onOpenChange={(open) => !open && setKeyToRevoke(null)}>
+										<AlertDialogContent>
+											<AlertDialogHeader>
+												<AlertDialogTitle>Revoke API key?</AlertDialogTitle>
+												<AlertDialogDescription>
+													This will immediately disable the key <span className="font-mono">{keyToRevoke?.keyPreview}</span>. Any SDK clients using it will stop working.
+												</AlertDialogDescription>
+											</AlertDialogHeader>
+											<AlertDialogFooter>
+												<AlertDialogCancel disabled={revokingKey}>Cancel</AlertDialogCancel>
+												<AlertDialogAction
+													onClick={handleRevokeApiKey}
+													disabled={revokingKey}
+													className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+												>
+													{revokingKey ? 'Revoking…' : 'Revoke key'}
+												</AlertDialogAction>
+											</AlertDialogFooter>
+										</AlertDialogContent>
+									</AlertDialog>
+								</>
+							)}
 						</CardContent>
 					</Card>
 
@@ -1818,13 +974,6 @@ export default function SettingsPage() {
 					</div>
 				</div>
 			</main>
-
-			{/* BYOK API Keys Modal */}
-			<ByokApiKeysModal
-				isOpen={byokModalOpen}
-				onClose={() => setByokModalOpen(false)}
-				onKeyAdded={handleByokKeyAdded}
-			/>
 		</div>
 	);
 }

@@ -9,8 +9,10 @@ lerna-debug.log*
 
 node_modules
 dist
-dist-ssr
-.tmp
+ dist-ssr
+ .tmp
+*.tsbuildinfo
+
 *.local
 
 # Editor directories and files
@@ -49,3 +51,7 @@ debug-tools/*.json
 .env.sentry-build-plugin
 data-dump
 debug-tools/extracted
+debug-tools/presentation-tester
+
+.test-data
+cli

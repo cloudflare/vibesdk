@@ -27,15 +27,18 @@ export function setupAuthRoutes(app: Hono<AppEnv>): void {
     authRouter.get('/profile', setAuthLevel(AuthConfig.authenticated), adaptController(AuthController, AuthController.getProfile));
     authRouter.put('/profile', setAuthLevel(AuthConfig.authenticated), adaptController(AuthController, AuthController.updateProfile));
     authRouter.post('/logout', setAuthLevel(AuthConfig.authenticated), adaptController(AuthController, AuthController.logout));
-    
+
     // Session management routes
     authRouter.get('/sessions', setAuthLevel(AuthConfig.authenticated), adaptController(AuthController, AuthController.getActiveSessions));
     authRouter.delete('/sessions/:sessionId', setAuthLevel(AuthConfig.authenticated), adaptController(AuthController, AuthController.revokeSession));
     
-    // // API Keys management routes
-    // authRouter.get('/api-keys', createHandler('getApiKeys'), AuthConfig.authenticated);
-    // authRouter.post('/api-keys', createHandler('createApiKey'), AuthConfig.authenticated);
-    // authRouter.delete('/api-keys/:keyId', createHandler('revokeApiKey'), AuthConfig.authenticated);
+    // API Keys management routes
+    authRouter.get('/api-keys', setAuthLevel(AuthConfig.authenticated), adaptController(AuthController, AuthController.getApiKeys));
+    authRouter.post('/api-keys', setAuthLevel(AuthConfig.authenticated), adaptController(AuthController, AuthController.createApiKey));
+    authRouter.delete('/api-keys/:keyId', setAuthLevel(AuthConfig.authenticated), adaptController(AuthController, AuthController.revokeApiKey));
+
+    // SDK: exchange API key for short-lived access token
+    authRouter.post('/exchange-api-key', setAuthLevel(AuthConfig.public), adaptController(AuthController, AuthController.exchangeApiKey));
     
     // OAuth routes (under /oauth path to avoid conflicts)
     authRouter.get('/oauth/:provider', setAuthLevel(AuthConfig.public), adaptController(AuthController, AuthController.initiateOAuth));

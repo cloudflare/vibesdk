@@ -341,6 +341,7 @@ export const PreviewIframe = forwardRef<HTMLIFrameElement, PreviewIframeProps>(
 					src={loadState.loadedSrc}
 					className={className}
 					title={title}
+					style={{ border: 'none' }}
 					onError={() => {
 						console.error('Iframe failed to load');
 						setLoadState(prev => ({

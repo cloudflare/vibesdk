@@ -7,6 +7,13 @@ export function validateWebSocketOrigin(request: Request, env: Env): boolean {
     const origin = request.headers.get('Origin');
     
     if (!origin) {
+        // Server-side SDK clients do not send `Origin`.
+        // ownership and authorization is anyways checked in the middlewares already
+        const authHeader = request.headers.get('Authorization');
+        if (authHeader && authHeader.toLowerCase().startsWith('bearer ')) {
+            return true;
+        }
+
         logger.warn('WebSocket connection attempt without Origin header');
         return false;
     }

@@ -1,0 +1,121 @@
+name: Deploy (release-live)
+
+on:
+  push:
+    branches: [release-live]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-release-live
+  cancel-in-progress: false
+
+jobs:
+  test-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+
+      - name: Cache Bun install cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-bun-
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      # Intentionally skipping lint/typecheck; CI already enforces those.
+      - name: Test
+        run: bun run test
+
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    needs: test-build
+
+    # Skip deploy for forks (they won't have secrets anyway)
+    if: github.repository_owner == 'cloudflare'
+
+    env:
+      CI: true
+      WRANGLER_NON_INTERACTIVE: true
+
+      # Prefer repo variables for non-sensitive config.
+      CUSTOM_DOMAIN: ${{ vars.CUSTOM_DOMAIN }}
+      CUSTOM_PREVIEW_DOMAIN: ${{ vars.CUSTOM_PREVIEW_DOMAIN }}
+      MAX_SANDBOX_INSTANCES: ${{ vars.MAX_SANDBOX_INSTANCES }}
+      SANDBOX_INSTANCE_TYPE: ${{ vars.SANDBOX_INSTANCE_TYPE }}
+      DISPATCH_NAMESPACE: ${{ vars.DISPATCH_NAMESPACE }}
+      CLOUDFLARE_AI_GATEWAY: ${{ vars.CLOUDFLARE_AI_GATEWAY }}
+      TEMPLATES_REPOSITORY: ${{ vars.TEMPLATES_REPOSITORY }}
+      ALLOCATION_STRATEGY: ${{ vars.ALLOCATION_STRATEGY }}
+      ENVIRONMENT: ${{ vars.ENVIRONMENT }}
+      PLATFORM_MODEL_PROVIDERS: ${{ vars.PLATFORM_MODEL_PROVIDERS }}
+      USE_CLOUDFLARE_IMAGES: ${{ vars.USE_CLOUDFLARE_IMAGES }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+
+      - name: Cache Bun install cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-bun-
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Add local binaries to PATH
+        run: echo "${{ github.workspace }}/node_modules/.bin" >> "$GITHUB_PATH"
+
+      - name: Deploy via deploy script
+        env:
+          # Secrets used by deploy script to create/sync .prod.vars.
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_AI_GATEWAY_TOKEN: ${{ secrets.CLOUDFLARE_AI_GATEWAY_TOKEN }}
+          CLOUDFLARE_AI_GATEWAY_URL: ${{ secrets.CLOUDFLARE_AI_GATEWAY_URL }}
+
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          GOOGLE_AI_STUDIO_API_KEY: ${{ secrets.GOOGLE_AI_STUDIO_API_KEY }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+
+          GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+          GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+          GITHUB_CLIENT_ID: ${{ secrets.GITHUB_CLIENT_ID }}
+          GITHUB_CLIENT_SECRET: ${{ secrets.GITHUB_CLIENT_SECRET }}
+
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          WEBHOOK_SECRET: ${{ secrets.WEBHOOK_SECRET }}
+          SECRETS_ENCRYPTION_KEY: ${{ secrets.SECRETS_ENCRYPTION_KEY }}
+          SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
+          AI_PROXY_JWT_SECRET: ${{ secrets.AI_PROXY_JWT_SECRET }}
+        run: bun scripts/deploy.ts

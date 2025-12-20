@@ -14,6 +14,8 @@ import { ServiceOptions } from '../interfaces/IServiceOptions';
 import { BaseSandboxService } from 'worker/services/sandbox/BaseSandboxService';
 import { getSandboxService } from '../../../services/sandbox/factory';
 import { validateAndCleanBootstrapCommands } from 'worker/agents/utils/common';
+import { DeploymentTarget } from '../../core/types';
+import { BaseProjectState } from '../../core/state';
 
 const PER_ATTEMPT_TIMEOUT_MS = 60000;  // 60 seconds per individual attempt
 const MASTER_DEPLOYMENT_TIMEOUT_MS = 300000;  // 5 minutes total
@@ -24,14 +26,14 @@ const HEALTH_CHECK_INTERVAL_MS = 30000;
  * Handles instance creation, file deployment, analysis, and GitHub/Cloudflare export
  * Also manages sessionId and health check intervals
  */
-export class DeploymentManager extends BaseAgentService implements IDeploymentManager {
+export class DeploymentManager extends BaseAgentService<BaseProjectState> implements IDeploymentManager {
     private healthCheckInterval: ReturnType<typeof setInterval> | null = null;
     private currentDeploymentPromise: Promise<PreviewType | null> | null = null;
     private cachedSandboxClient: BaseSandboxService | null = null;
 
     constructor(
-        options: ServiceOptions,
-        private maxCommandsHistory: number
+        options: ServiceOptions<BaseProjectState>,
+        private maxCommandsHistory: number,
     ) {
         super(options);
         
@@ -274,7 +276,7 @@ export class DeploymentManager extends BaseAgentService implements IDeploymentMa
             throw new Error(`Failed to fetch runtime errors: ${resp?.error || 'Unknown error'}`);
         }
 
-        let errors = resp.errors || [];
+        const errors = resp.errors || [];
             
         if (errors.length > 0) {
             logger.info(`Found ${errors.length} runtime errors: ${errors.map(e => e.message).join(', ')}`);
@@ -552,7 +554,6 @@ export class DeploymentManager extends BaseAgentService implements IDeploymentMa
      */
     private async createNewInstance(): Promise<BootstrapResponse | null> {
         const state = this.getState();
-        const templateName = state.templateName;
         const projectName = state.projectName;
 
         // Add AI proxy vars if AI template
@@ -563,25 +564,32 @@ export class DeploymentManager extends BaseAgentService implements IDeploymentMa
                 localEnvVars = {
                     "CF_AI_BASE_URL": generateAppProxyUrl(this.env),
                     "CF_AI_API_KEY": await generateAppProxyToken(
-                        state.inferenceContext.agentId,
-                        state.inferenceContext.userId,
+                        state.metadata.agentId,
+                        state.metadata.userId,
                         this.env
                     )
                 };
             }
         }
-        
+
+        // Get latest files
+        const files = this.fileManager.getAllFiles();
+
+        this.getLog().info('Files to deploy', {
+            files: files.map(f => f.filePath)
+        });
+
         // Create instance
         const client = this.getClient();
         const logger = this.getLog();
-        
-        const createResponse = await client.createInstance(
-            templateName,
-            `v1-${projectName}`,
-            undefined,
-            localEnvVars
-        );
-        
+
+        const createResponse = await client.createInstance({
+            files,
+            projectName,
+            initCommand: 'bun run dev',
+            envVars: localEnvVars
+        });
+
         if (!createResponse || !createResponse.success || !createResponse.runId) {
             throw new Error(`Failed to create sandbox instance: ${createResponse?.error || 'Unknown error'}`);
         }
@@ -622,10 +630,15 @@ export class DeploymentManager extends BaseAgentService implements IDeploymentMa
      * Deploy to Cloudflare Workers
      * Returns deployment URL and deployment ID for database updates
      */
-    async deployToCloudflare(callbacks?: CloudflareDeploymentCallbacks): Promise<{ deploymentUrl: string | null; deploymentId?: string }> {
+    async deployToCloudflare(request?: {
+        target?: DeploymentTarget;
+        callbacks?: CloudflareDeploymentCallbacks;
+    }): Promise<{ deploymentUrl: string | null; deploymentId?: string }> {
         const state = this.getState();
         const logger = this.getLog();
         const client = this.getClient();
+        const target = request?.target ?? 'platform';
+        const callbacks = request?.callbacks;
         
         await this.waitForPreview();
         
@@ -634,7 +647,7 @@ export class DeploymentManager extends BaseAgentService implements IDeploymentMa
             instanceId: state.sandboxInstanceId ?? ''
         });
         
-        logger.info('Starting Cloudflare deployment');
+        logger.info('Starting Cloudflare deployment', { target });
 
         // Check if we have generated files
         if (!state.generatedFilesMap || Object.keys(state.generatedFilesMap).length === 0) {
@@ -660,7 +673,8 @@ export class DeploymentManager extends BaseAgentService implements IDeploymentMa
 
         // Deploy to Cloudflare
         const deploymentResult = await client.deployToCloudflareWorkers(
-            state.sandboxInstanceId
+            state.sandboxInstanceId,
+            target
         );
 
         logger.info('Deployment result:', deploymentResult);
@@ -675,7 +689,7 @@ export class DeploymentManager extends BaseAgentService implements IDeploymentMa
             if (deploymentResult?.error?.includes('Failed to read instance metadata') || 
                 deploymentResult?.error?.includes(`/bin/sh: 1: cd: can't cd to i-`)) {
                 logger.error('Deployment sandbox died - preview expired');
-                callbacks?.onPreviewExpired?.();
+                this.deployToSandbox();
             } else {
                 callbacks?.onError?.({
                     message: `Deployment failed: ${deploymentResult?.message || 'Unknown error'}`,

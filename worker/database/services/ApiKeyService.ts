@@ -5,7 +5,7 @@
 
 import { BaseService } from './BaseService';
 import * as schema from '../schema';
-import { eq, and, desc, sql } from 'drizzle-orm';
+import { eq, and, desc, sql, or, isNull, gt } from 'drizzle-orm';
 import { generateId } from '../../utils/idGenerator';
 import { createLogger } from '../../logger';
 
@@ -118,17 +118,22 @@ export class ApiKeyService extends BaseService {
      */
     async findApiKeyByHash(keyHash: string): Promise<schema.ApiKey | null> {
         try {
+            const now = new Date();
             const key = await this.database
                 .select()
                 .from(schema.apiKeys)
                 .where(
                     and(
                         eq(schema.apiKeys.keyHash, keyHash),
-                        eq(schema.apiKeys.isActive, true)
+                        eq(schema.apiKeys.isActive, true),
+                        or(
+                            isNull(schema.apiKeys.expiresAt),
+                            gt(schema.apiKeys.expiresAt, now)
+                        )
                     )
                 )
                 .get();
-            
+
             return key || null;
         } catch (error) {
             logger.error('Error finding API key by hash', error);
@@ -137,7 +142,7 @@ export class ApiKeyService extends BaseService {
     }
     
     /**
-     * Update API key last used time
+     * Update API key last used time and increment request count
      */
     async updateApiKeyLastUsed(keyId: string): Promise<void> {
         try {
@@ -145,7 +150,8 @@ export class ApiKeyService extends BaseService {
                 .update(schema.apiKeys)
                 .set({
                     lastUsed: new Date(),
-                    updatedAt: new Date()
+                    updatedAt: new Date(),
+                    requestCount: sql`COALESCE(${schema.apiKeys.requestCount}, 0) + 1`
                 })
                 .where(eq(schema.apiKeys.id, keyId));
         } catch (error) {

@@ -7,7 +7,6 @@ import { BaseController } from '../baseController';
 import { RouteContext } from '../../types/route-context';
 import { ApiResponse, ControllerResponse } from '../types';
 import { ModelConfigService } from '../../../database/services/ModelConfigService';
-import { SecretsService } from '../../../database/services/SecretsService';
 import { ModelTestService } from '../../../database/services/ModelTestService';
 import {
     AgentActionKey,
@@ -280,7 +279,6 @@ export class ModelConfigController extends BaseController {
             }
 
             const modelConfigService = new ModelConfigService(env);
-            const secretsService = new SecretsService(env);
             const modelTestService = new ModelTestService(env);
 
             // Get base configuration and merge with temporary changes if provided
@@ -297,12 +295,8 @@ export class ModelConfigController extends BaseController {
                 ...(validatedData.tempConfig.providerOverride != null && { providerOverride: validatedData.tempConfig.providerOverride })
             } : baseConfig;
 
-            // Get user API keys if requested
-            let userApiKeys: Record<string, string> | undefined;
-            if (validatedData.useUserKeys) {
-                const userApiKeysMap = await secretsService.getUserBYOKKeysMap(user.id);
-                userApiKeys = Object.fromEntries(userApiKeysMap);
-            }
+			const userApiKeys: Record<string, string> | undefined = undefined;
+
 
             // Test the configuration
             const testResult = await modelTestService.testModelConfig({

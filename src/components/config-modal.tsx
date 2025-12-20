@@ -3,7 +3,7 @@
  * Three-mode interface: Platform Models, BYOK (Bring Your Own Key), Custom Providers
  */
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Settings, Play, RotateCcw, Info, Key } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -24,11 +24,10 @@ import {
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { apiClient } from '@/lib/api-client';
 import { ByokApiKeysModal } from './byok-api-keys-modal';
-import type { 
-  ModelConfig, 
-  UserModelConfigWithMetadata, 
-  ModelConfigUpdate, 
-  AIModels,
+import type {
+  ModelConfig,
+  UserModelConfigWithMetadata,
+  ModelConfigUpdate,
   ByokProvidersData,
   AgentDisplayConfig
 } from '@/api-types';
@@ -60,10 +59,6 @@ const hasUserKeyForModel = (modelName: string, byokProviders: Array<{ provider: 
   return byokProviders.some(p => p.provider === provider && p.hasValidKey);
 };
 
-// Helper to get clean model display name
-const getModelDisplayName = (model: AIModels | string): string => {
-  return typeof model === 'string' ? model : model;
-};
 
 // Model recommendations by agent
 const getModelRecommendation = (agentAction: string) => {
@@ -115,7 +110,7 @@ export function ConfigModal({
   const [loadingByok, setLoadingByok] = useState(false);
 
   // Load BYOK data (filtered by agent constraints)
-  const loadByokData = async () => {
+  const loadByokData = useCallback(async () => {
     try {
       setLoadingByok(true);
       // Pass agent key to get constraint-filtered models
@@ -128,7 +123,7 @@ export function ConfigModal({
     } finally {
       setLoadingByok(false);
     }
-  };
+  }, [agentConfig.key]);
 
   // Handle modal open/close lifecycle
   useEffect(() => {
@@ -148,7 +143,7 @@ export function ConfigModal({
       // Modal closed - reset for next time
       setIsInitialOpen(false);
     }
-  }, [isOpen, isInitialOpen, userConfig]);
+  }, [isOpen, isInitialOpen, userConfig, loadByokData]);
 
   // Load BYOK data when modal opens
   useEffect(() => {
@@ -186,7 +181,7 @@ export function ConfigModal({
           
           models.push({
             value: modelStr,
-            label: getModelDisplayName(modelStr),
+            label: modelStr,
             provider,
             hasUserKey,
             byokAvailable: true
@@ -202,7 +197,7 @@ export function ConfigModal({
       if (!processedModels.has(modelStr)) {
         models.push({
           value: modelStr,
-          label: getModelDisplayName(modelStr),
+          label: modelStr,
           provider: '',
           hasUserKey: false,
           byokAvailable: false

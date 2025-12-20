@@ -6,6 +6,7 @@ import { FileOutputType, PhaseConceptType } from '../schemas';
 import { SCOFFormat } from '../output-formats/streaming-formats/scof';
 import { CodeIssue } from '../../services/sandbox/sandboxTypes';
 import { CodeSerializerType } from '../utils/codeSerializers';
+import { PhasicGenerationContext } from '../domain/values/GenerationContext';
 
 export interface FastCodeFixerInputs {
     query: string;
@@ -71,10 +72,10 @@ const userPromptFormatter = (query: string, issues: CodeIssue[], allFiles: FileO
     return PROMPT_UTILS.verifyPrompt(prompt);
 }
 
-export class FastCodeFixerOperation extends AgentOperation<FastCodeFixerInputs, FileOutputType[]> {
+export class FastCodeFixerOperation extends AgentOperation<PhasicGenerationContext, FastCodeFixerInputs, FileOutputType[]> {
     async execute(
         inputs: FastCodeFixerInputs,
-        options: OperationOptions
+        options: OperationOptions<PhasicGenerationContext>
     ): Promise<FileOutputType[]> {
         const { query, issues, allFiles, allPhases } = inputs;
         const { env, logger } = options;

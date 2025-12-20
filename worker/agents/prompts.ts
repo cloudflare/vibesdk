@@ -1,10 +1,11 @@
 import { FileTreeNode, RuntimeError, StaticAnalysisResponse, TemplateDetails } from "../services/sandbox/sandboxTypes";
 import { TemplateRegistry } from "./inferutils/schemaFormatters";
 import z from 'zod';
-import { Blueprint, BlueprintSchemaLite, FileOutputType, PhaseConceptLiteSchema, PhaseConceptSchema, PhaseConceptType, TemplateSelection } from "./schemas";
+import { PhasicBlueprint, AgenticBlueprint, BlueprintSchemaLite, AgenticBlueprintSchema, FileOutputType, PhaseConceptLiteSchema, PhaseConceptSchema, PhaseConceptType, TemplateSelection, Blueprint } from "./schemas";
 import { IssueReport } from "./domain/values/IssueReport";
 import { FileState, MAX_PHASES } from "./core/state";
 import { CODE_SERIALIZERS, CodeSerializerType } from "./utils/codeSerializers";
+import { getCodebaseContext } from "./utils/codebaseContext";
 
 export const PROMPT_UTILS = {
     /**
@@ -55,16 +56,12 @@ export const PROMPT_UTILS = {
 
     serializeTemplate(template?: TemplateDetails): string {
         if (template) {
-            // const indentedFilesText = filesText.replace(/^(?=.)/gm, '\t\t\t\t'); // Indent each line with 4 spaces
             return `
 <TEMPLATE DETAILS>
 The following are the details (structures and files) of the starting boilerplate template, on which the project is based.
 
 Name: ${template.name}
 Frameworks: ${template.frameworks?.join(', ')}
-
-Apart from these files, All SHADCN Components are present in ./src/components/ui/* and can be imported from there, example: import { Button } from "@/components/ui/button";
-**Please do not rewrite these components, just import them and use them**
 
 Template Usage Instructions: 
 ${template.description.usage}
@@ -144,274 +141,125 @@ ${typecheckOutput}`;
     serializeFiles(files: FileOutputType[], serializerType: CodeSerializerType): string {
         // Use scof format
         return CODE_SERIALIZERS[serializerType](files);
+    },    
+    
+    summarizeFiles(files: FileState[], max = 120): string {
+        const compact = files
+            .slice(0, max)
+            .map((file) => {
+                const purpose = file.filePurpose ? ` — ${file.filePurpose}` : '';
+                return `- ${file.filePath}${purpose}`;
+            })
+            .join('\n');
+
+        const extra = files.length > max ? `\n...and ${files.length - max} more` : '';
+        return compact + extra;
     },
 
+
     REACT_RENDER_LOOP_PREVENTION: `
-⚠️⚠️⚠️ ABSOLUTE ZERO-TOLERANCE RULES - VIOLATION CRASHES THE APP ⚠️⚠️⚠️
+<REACT_RENDER_LOOP_PREVENTION>
+"Maximum update depth exceeded" or "Too many re-renders" = your code has an infinite loop. React aborts after ~50 nested updates.
 
-╔═══════════════════════════════════════════════════════════════════════════════╗
-║                   🚨 REACT INFINITE LOOP PREVENTION 🚨                        ║
-║                                                                               ║
-║  "Maximum update depth exceeded" = render→setState→render loop                ║
-║  React aborts after ~50 nested updates. FIX THESE PATTERNS IMMEDIATELY.       ║
-╚═══════════════════════════════════════════════════════════════════════════════╝
+## VALIDATION CHECKLIST (Run Before Submitting)
+Search your code for these patterns. If found, rewrite immediately:
+- \`useStore()\` without selector → CRASH
+- \`useStore(s => s)\` returning entire store → CRASH
+- \`useStore(s => ({\` or \`useStore(s => [\` → CRASH (object/array allocation)
+- \`useStore(s => s.get\` or \`useStore(s => Object.\` → CRASH (function call in selector)
+- \`useEffect(() => {\` without \`}, [\` → CRASH (missing dependency array)
+- \`setState\` call outside useEffect/event handler → CRASH
 
-╔═══════════════════════════════════════════════════════════════════════════════╗
-║  ROOT CAUSE #1: setState DURING RENDER (MOST COMMON)                          ║
-╚═══════════════════════════════════════════════════════════════════════════════╝
+## ZUSTAND STORE SELECTORS
 
-❌ FORBIDDEN PATTERNS:
+### ONLY ALLOWED PATTERNS (use these exclusively):
 \`\`\`tsx
-// Direct setState in render
-function Bad() {
+// Direct property access - returns stable ref or primitive
+const user = useStore(s => s.user);
+const name = useStore(s => s.user.name);
+const isOpen = useStore(s => s.isOpen);
+const count = useStore(s => s.items.length);
+const isValid = useStore(s => !!s.data);
+
+// Multiple values? Call useStore multiple times:
+const name = useStore(s => s.name);
+const age = useStore(s => s.age);
+
+// Need derived data? Derive OUTSIDE the selector with useMemo:
+const items = useStore(s => s.items);
+const sortedItems = useMemo(() => [...items].sort(), [items]);
+\`\`\`
+
+### BANNED ANTI-PATTERNS (never write these):
+\`\`\`tsx
+useStore()                              // no selector - returns entire store, new ref every time
+useStore(s => s)                        // identity selector - same problem, returns entire store
+useStore(s => ({ name: s.name }))       // object literal - allocates new object every render
+useStore(s => [s.a, s.b])               // array literal - allocates new array every render
+useStore(s => s.getItems())             // method call - may return new ref
+useStore(s => Object.keys(s.data))      // Object.keys - allocates new array
+useStore(s => s.items.filter(x => x))   // .filter/.map/.reduce - allocates new array
+useStore(useShallow(s => ({ a: s.a }))) // useShallow doesn't fix object allocation
+const { name, age } = useStore(s => s)  // destructuring entire store - still causes re-render
+\`\`\`
+
+## STATE UPDATES
+
+### ALLOWED: Only in event handlers or useEffect
+\`\`\`tsx
+const handleClick = () => setCount(count + 1);     // event handler - OK
+useEffect(() => { setData(result); }, [result]);   // useEffect - OK
+\`\`\`
+
+### BANNED: During render phase
+\`\`\`tsx
+function Component() {
     const [n, setN] = useState(0);
-    setN(n + 1); // ❌ INFINITE LOOP
+    setN(n + 1);                    // CRASH - setState during render
+    if (condition) setX(value);     // CRASH - conditional setState during render
     return <div>{n}</div>;
 }
-
-// Conditional setState in render
-if (showModal && !modalOpen) {
-    setModalOpen(true); // ❌ INFINITE LOOP
-}
-
-// setState in useMemo/useCallback
-useMemo(() => {
-    setProcessed(data); // ❌ SIDE EFFECT IN MEMOIZATION
-    return value;
-}, [data]);
 \`\`\`
 
-✅ CORRECT PATTERNS:
+## useEffect RULES
+
+### ALLOWED:
 \`\`\`tsx
-// State updates ONLY in event handlers or useEffect
-const handleClick = () => setState(newValue);
-
+useEffect(() => { /* ... */ }, []);           // empty deps - run once
+useEffect(() => { /* ... */ }, [userId]);     // specific deps
 useEffect(() => {
-    setModalOpen(showModal);
-}, [showModal]);
-\`\`\`
-
-╔═══════════════════════════════════════════════════════════════════════════════╗
-║  ROOT CAUSE #2: EFFECTS WITHOUT DEPENDENCIES OR GUARDS                        ║
-╚═══════════════════════════════════════════════════════════════════════════════╝
-
-❌ FORBIDDEN:
-\`\`\`tsx
-useEffect(() => {
-    setCount(count + 1); // ❌ NO DEPENDENCY ARRAY = INFINITE LOOP
-});
-\`\`\`
-
-✅ CORRECT:
-\`\`\`tsx
-useEffect(() => {
-    setCount(1);
-}, []); // ✅ Empty array = run once on mount
-
-useEffect(() => {
-    if (userId) { // ✅ Conditional guard
-        fetchUser(userId).then(setUser);
-    }
+    if (userId) fetchUser(userId);             // guard before async/setState
 }, [userId]);
 \`\`\`
 
-╔═══════════════════════════════════════════════════════════════════════════════╗
-║  ROOT CAUSE #3: UNSTABLE DEPENDENCIES (REFERENTIAL INEQUALITY)                ║
-╚═══════════════════════════════════════════════════════════════════════════════╝
-
-❌ FORBIDDEN:
+### BANNED:
 \`\`\`tsx
-const filters = { type: 'active' }; // ❌ New object every render
-useEffect(() => { fetch(filters); }, [filters]); // ❌ INFINITE LOOP
-
-const value = { user, setUser }; // ❌ New object every render
-<Context.Provider value={value}> // ❌ ALL CONSUMERS RE-RENDER
+useEffect(() => { setCount(count + 1); });    // no dependency array - infinite loop
+useEffect(() => { setX(y); }, [y, setX]);     // including setter that triggers itself
 \`\`\`
 
-✅ CORRECT:
+## UNSTABLE REFERENCES
+
+### Problem: New object/array created every render triggers useEffect infinitely
 \`\`\`tsx
-const filters = useMemo(() => ({ type: 'active' }), []);
-const value = useMemo(() => ({ user, setUser }), [user]);
+// BANNED:
+const config = { theme: 'dark' };              // new object every render
+useEffect(() => { init(config); }, [config]); // infinite loop
+
+// ALLOWED:
+const config = useMemo(() => ({ theme: 'dark' }), []);
+useEffect(() => { init(config); }, [config]); // stable reference
 \`\`\`
 
-╔═══════════════════════════════════════════════════════════════════════════════╗
-║  🔥🔥🔥 ZUSTAND ABSOLUTE RULE - VIOLATION = INSTANT CRASH 🔥🔥🔥              ║
-║                                                                               ║
-║  ⚠️  ONLY RULE: Select individual primitives. NO EXCEPTIONS. ⚠️              ║
-║                                                                               ║
-║  ❌ BANNED FOREVER: useStore(s => ({ ... }))                                 ║
-║  ❌ BANNED FOREVER: useStore()  (no selector)                                ║
-║  ❌ BANNED FOREVER: useStore(s => s.getXxx())  (method calls)                ║
-║                                                                               ║
-║  ✅ ONLY ALLOWED: useStore(s => s.primitiveValue)                            ║
-║                                                                               ║
-║  Zustand is SUBSCRIPTION-BASED, not context-based like React Context.        ║
-║  Object/array selectors create NEW references every render = CRASH           ║
-╚═══════════════════════════════════════════════════════════════════════════════╝
+## QUICK RULES
+1. Zustand selectors: return primitive or direct property access ONLY
+2. setState: ONLY in useEffect or event handlers, NEVER during render
+3. useEffect: ALWAYS include dependency array
+4. Objects/arrays in deps: wrap with useMemo
+5. Multiple store values: call useStore multiple times, don't destructure
+6. Derived data: compute with useMemo OUTSIDE selector
 
-❌ FORBIDDEN PATTERNS (THESE CAUSE INFINITE LOOPS):
-\`\`\`tsx
-// 🔍 SCAN FOR: "useStore(s => ({" or "useStore((s) => ({"
-const { a, b, c } = useStore(s => ({ a: s.a, b: s.b, c: s.c })); // ❌ CRASH
-
-// 🔍 SCAN FOR: "useStore(useShallow"
-import { useShallow } from 'zustand/react/shallow';
-const { a, b, c } = useStore(useShallow(s => ({ a: s.a, b: s.b, c: s.c }))); // ❌ CRASH
-// Why? You're creating a NEW object ({ a, b, c }) every render in the selector
-// useShallow can't help - the object reference is new every time
-
-// 🔍 SCAN FOR: "useStore()" or "= useStore();"
-const { a, b, c } = useStore(); // ❌ CRASH
-const state = useStore(); // ❌ CRASH
-
-// 🔍 SCAN FOR: "useStore(s => s.get" or "useStore((state) => state.get"
-const items = useStore(s => s.getItems()); // ❌ INFINITE LOOP
-const filtered = useStore(s => s.items.filter(...)); // ❌ INFINITE LOOP
-const mapped = useStore(s => s.data.map(...)); // ❌ INFINITE LOOP
-
-// 🔍 SCAN FOR: "useShallow((s) => Object." or "useShallow(s => Object."
-const items = useStore(useShallow(s => Object.values(s.itemsById))); // ❌ CRASH
-const keys = useStore(useShallow(s => Object.keys(s.data))); // ❌ CRASH
-const entries = useStore(useShallow(s => Object.entries(s.map))); // ❌ CRASH
-// Why? Object.values/keys/entries creates NEW ARRAY every render
-// useShallow compares array contents, but selector runs BEFORE comparison
-// React's useSyncExternalStore requires getSnapshot to return cached result
-\`\`\`
-
-⚠️ CRITICAL: useShallow DOES NOT FIX ARRAY-CREATING SELECTORS
-Many developers think useShallow fixes object-literal selectors. It does not.
-Avoid using useShallow in selectors entirely.
-useShallow only does shallow comparison AFTER selector runs. If selector creates new array/object, it's already too late.
-The selector itself must return a STABLE reference from the store, not a computed value.
-
-✅ CORRECT PATTERN - ONLY ONE OPTION:
-\`\`\`tsx
-// ONLY ALLOWED: Separate primitive selectors
-const a = useStore(s => s.a);
-const b = useStore(s => s.b);
-const c = useStore(s => s.c);
-// ⚡ EFFICIENCY: Each selector ONLY triggers re-render when ITS value changes
-// This is NOT inefficient! It's the BEST pattern for Zustand. This is actually good quality, elegant code!
-// THERE IS NO OPTION 2. Only individual primitive selectors are allowed.
-// If you need multiple values, call useStore multiple times - it's the ONLY correct pattern.
-
-// For derived/computed values: Select primitives + useMemo in component
-const items = useStore(s => s.items);
-const filter = useStore(s => s.filter);
-const filtered = useMemo(() => 
-    items.filter(i => i.status === filter), 
-    [items, filter]
-);
-
-// For Object.values/keys/entries: Select the RAW object, derive in useMemo
-const itemsById = useStore(s => s.itemsById); // ✅ Select raw object (stable ref)
-const itemsList = useMemo(() => Object.values(itemsById), [itemsById]); // ✅ Derive outside selector
-\`\`\`
-
-💡 IMPORTANT: Multiple Individual Selectors is MOST EFFICIENT (Debunking Common Myth)
-
-❌ WRONG BELIEF: "Multiple useStore calls = inefficient = many re-renders"
-✅ TRUTH: Each selector ONLY triggers re-render when ITS specific value changes
-
-Example:
-\`\`\`tsx
-const name = useStore(s => s.user.name);  // Subscribes to name only
-const count = useStore(s => s.count);     // Subscribes to count only
-
-// If count changes:
-// ✓ count selector triggers ONE re-render
-// ✓ name selector does NOT trigger (name didn't change)
-// Result: ONE re-render total - perfectly efficient!
-\`\`\`
-
-Contrast with object selector (even with useShallow):
-\`\`\`tsx
-const { name, count } = useStore(useShallow(s => ({ 
-  name: s.user.name, 
-  count: s.count 
-})));
-
-// If count changes:
-// ✗ Creates NEW object { name, count } every render
-// ✗ useShallow sees count changed, triggers re-render
-// ✗ NEW object creation itself can cause infinite loop
-// Result: LESS efficient + risk of crash
-\`\`\`
-
-⚠️ CRITICAL DIFFERENCES:
-\`\`\`tsx
-// This works fine in React Context (context-based):
-const { user, isLoading } = useContext(UserContext); // ✅ OK
-
-// But this CRASHES in Zustand (subscription-based):
-const { user, isLoading } = useStore(); // ❌ CRASH - NOT THE SAME!
-\`\`\`
-
-⚠️ ERROR SIGNATURES - ZUSTAND SELECTOR ISSUES:
-- "Maximum update depth exceeded"
-- "The result of getSnapshot should be cached"
-- "Too many re-renders"
-
-→ SCAN FOR: \`useStore(s => ({\`, \`useStore(s => s.get\`, \`useStore()\`, \`useShallow(s => Object.\`
-→ FIX: Select ONLY stable refs from store, derive arrays/objects with useMemo OUTSIDE selector
-
-╔═══════════════════════════════════════════════════════════════════════════════╗
-║  OTHER COMMON PATTERNS THAT CAUSE LOOPS                                       ║
-╚═══════════════════════════════════════════════════════════════════════════════╝
-
-**Parent/Child Feedback Loops:**
-Child effect updates parent → parent rerenders → child effect runs again
-→ Solution: Lift state up, use idempotent callbacks
-
-**State in Recursive Components:**
-\`\`\`tsx
-// ❌ Each recursion creates new state
-function Tree({ items }) {
-    const [expanded, setExpanded] = useState(new Set());
-    return items.map(i => <Tree items={i.children} />); // ❌ WRONG
-}
-
-// ✅ Lift state to non-recursive parent
-function Tree({ items, expanded, onToggle }) {
-    return items.map(i => <Tree items={i.children} expanded={expanded} onToggle={onToggle} />);
-}
-\`\`\`
-
-**Stale Closures (Correctness Bug):**
-\`\`\`tsx
-// ❌ Captures stale count
-const handleClick = () => setCount(count + 1);
-
-// ✅ Functional update
-const handleClick = useCallback(() => setCount(prev => prev + 1), []);
-\`\`\`
-
-╔═══════════════════════════════════════════════════════════════════════════════╗
-║  ✅ PREVENTION CHECKLIST - THE GOLDEN RULES ✅                                ║
-╚═══════════════════════════════════════════════════════════════════════════════╝
-
-✅ **Move setState out of render** - Only in useEffect/event handlers
-✅ **Dependency arrays required** - Every useEffect must have one
-✅ **Conditional guards in effects** - \`if (condition)\` before setState
-✅ **Stabilize objects/arrays** - useMemo for objects, useCallback for functions
-✅ **Zustand: Primitives only** - \`useStore(s => s.value)\` NOT \`useStore(s => ({ ... }))\`
-✅ **NEVER call methods in selectors** - \`useStore(s => s.getXxx())\` = CRASH
-✅ **No selector = CRASH** - \`useStore()\` returns whole object = infinite loop
-✅ **Lift state from recursion** - Never useState inside recursive components
-✅ **Store actions are stable** - Zustand actions NOT in dependency arrays
-✅ **Use functional updates** - \`setState(prev => prev + 1)\` for correctness
-✅ **useRef for non-UI data** - Doesn't trigger re-renders
-✅ **Derive, don't mirror** - \`const upper = prop.toUpperCase()\` not useState
-✅ **DOM listeners stable** - Keep effect deps static; read live store values via refs; do not reattach listeners on every state change
-
-**QUICK VALIDATION BEFORE SUBMITTING CODE:**
-→ Search for: \`useStore(s => ({\`, \`useStore(s => s.get\`, \`useStore()\`
-→ Search for: \`setState\` outside event handlers/useEffect
-→ Search for: \`useEffect(() => {\` without \`}, [\`
-→ If found: REWRITE immediately using patterns above
-
-⚠️⚠️⚠️ THESE RULES OVERRIDE ALL OTHER CONSIDERATIONS INCLUDING CODE AESTHETICS ⚠️⚠️⚠️
-⚠️⚠️⚠️ IF YOU WRITE FORBIDDEN PATTERNS, YOU MUST IMMEDIATELY REWRITE THE FILE ⚠️⚠️⚠️`,
+</REACT_RENDER_LOOP_PREVENTION>`,
 
 COMMON_PITFALLS: `<AVOID COMMON PITFALLS>
     **TOP 6 MISSION-CRITICAL RULES (FAILURE WILL CRASH THE APP):**
@@ -917,8 +765,9 @@ export const STRATEGIES_UTILS = {
             - **Comprehensive Polish Review:** Every pixel perfect, every interaction smooth
             - **Performance Optimization:** Lightning-fast load times with beautiful interfaces
             - **Cross-Browser Excellence:** Perfect rendering across all modern browsers
-            - **Quality Assurance:** Thorough testing of every feature and interaction
-            - **Launch Readiness:** Production-ready code with comprehensive documentation`,
+            - **Launch Readiness:** Production-ready code
+            - **Have a WOW factor that leaves the client amazed and wanting more**
+        **Always deliver project within the agreed timeline and scope**`,
     CODING_GUIDELINES: `**Make sure the product is **FUNCTIONAL** along with **POLISHED**
     **MAKE SURE TO NOT BREAK THE APPLICATION in SUBSEQUENT PHASES. Always keep fallbacks and failsafes in place for any backend interactions. Look out for simple syntax errors and dependencies you use!**
     **The client needs to be provided with a good demoable application after each phase. The initial first phase is the most impressionable phase! Make sure it deploys and renders well.**
@@ -943,7 +792,7 @@ export const STRATEGIES_UTILS = {
             * Building any themed 2048 game: Has a single page, simple logic -> **Simple Project** - 1 phase and 2 files max that contain most of the code. Initial phase should yield a perfectly working game.
             * Building a full chess platform: Has multiple pages -> **Complex Project** - 3-5 phases and 5-15 files, with initial phase having around 5-11 files and should have the primary homepage working with mockups for all other views.
             * Building a full e-commerce platform: Has multiple pages -> **Complex Project** - 3-5 phases and 5-15 files max, with initial phase having around 5-11 files and should have the primary homepage working with mockups for all other views.
-    
+            * Building a minecraft clone: Has complex 3d rendering and multiple views -> **Complex Project** - 5-7 phases and 10-20 files max
 
         <TRUST & SAFETY POLICIES>
         • **NEVER** provide any code that can be used to perform nefarious/malicious activities.
@@ -968,10 +817,10 @@ export const STRATEGIES = {
 
     ${STRATEGIES_UTILS.CONSTRAINTS}
 
-    **No need to add accessibility features. Focus on delivering an actually feature-wise polished and complete application in as few phases as possible.**
+    **No need to add accessibility features. Focus on delivering an actually working, feature-wise polished and complete application in as few phases as possible.**
     **Always stick to existing project/template patterns. Respect and work with existing worker bindings rather than making custom ones**
     **Rely on open source tools and free tier services only apart from whats configured in the environment. Refer to template usage instructions to know if specific cloudflare services are also available for use.**
-    **Make sure to implement all the features and functionality requested by the user and more. The application should be fully complete by the end of the last phase. There should be no compromises**
+    **Make sure to implement all the features and functionality requested by the user. Stick to the blueprint's implementation roadmap and end at the conclusion of the final phase. There should be no compromises**
     **This is a Cloudflare Workers & Durable Objects project. The environment is preconfigured. Absolutely DO NOT Propose changes to wrangler.toml or any other config files. These config files are hidden from you but they do exist.**
     **The Homepage of the frontend is a dummy page. It should be rewritten as the primary page of the application in the initial phase.**
     **Refrain from editing any of the 'dont touch' files in the project, e.g - package.json, vite.config.ts, wrangler.jsonc, etc.**
@@ -995,8 +844,8 @@ FRONTEND_FIRST_CODING: `<PHASES GENERATION STRATEGY>
 
 export interface GeneralSystemPromptBuilderParams {
     query: string,
-    templateDetails: TemplateDetails,
-    dependencies: Record<string, string>,
+    templateDetails?: TemplateDetails,
+    dependencies?: Record<string, string>,
     blueprint?: Blueprint,
     language?: string,
     frameworks?: string[],
@@ -1010,19 +859,29 @@ export function generalSystemPromptBuilder(
     // Base variables always present
     const variables: Record<string, string> = {
         query: params.query,
-        template: PROMPT_UTILS.serializeTemplate(params.templateDetails),
-        dependencies: JSON.stringify(params.dependencies ?? {})
     };
+    
+    // Template context (optional)
+    if (params.templateDetails) {
+        variables.template = PROMPT_UTILS.serializeTemplate(params.templateDetails);
+        variables.dependencies = JSON.stringify(params.dependencies ?? {});
+    }
 
-    // Optional blueprint variables
+    // Blueprint variables - discriminate by type
     if (params.blueprint) {
-        // Redact the initial phase information from blueprint
-        const blueprint = {
-            ...params.blueprint,
-            initialPhase: undefined,
+        if ('implementationRoadmap' in params.blueprint) {
+            // Phasic blueprint
+            const phasicBlueprint = params.blueprint as PhasicBlueprint;
+            const blueprintForPrompt = { ...phasicBlueprint, initialPhase: undefined };
+            variables.blueprint = TemplateRegistry.markdown.serialize(blueprintForPrompt, BlueprintSchemaLite);
+            variables.blueprintDependencies = phasicBlueprint.frameworks?.join(', ') ?? '';
+        } else {
+            // Agentic blueprint
+            const agenticBlueprint = params.blueprint as AgenticBlueprint;
+            variables.blueprint = TemplateRegistry.markdown.serialize(agenticBlueprint, AgenticBlueprintSchema);
+            variables.blueprintDependencies = agenticBlueprint.frameworks?.join(', ') ?? '';
+            variables.agenticPlan = agenticBlueprint.plan.map((step, i) => `${i + 1}. ${step}`).join('\n');
         }
-        variables.blueprint = TemplateRegistry.markdown.serialize(blueprint, BlueprintSchemaLite);
-        variables.blueprintDependencies = params.blueprint.frameworks?.join(', ') ?? '';
     }
 
     // Optional language and frameworks
@@ -1077,7 +936,7 @@ The following phases have been completed and implemented:
 </COMPLETED_PHASES>`
 
 export const USER_PROMPT_FORMATTER = {
-    PROJECT_CONTEXT: (phases: PhaseConceptType[], files: FileState[], fileTree: FileTreeNode, commandsHistory: string[], serializerType: CodeSerializerType = CodeSerializerType.SIMPLE, recentPhasesCount: number = 1) => {
+    PROJECT_CONTEXT: (phases: PhaseConceptType[], files: FileState[], fileTree: FileTreeNode, commandsHistory: string[], serializerType: CodeSerializerType = CodeSerializerType.SIMPLE) => {
         let lastPhaseFilesDiff = '';
         let phasesText = '';
         try {
@@ -1098,24 +957,18 @@ export const USER_PROMPT_FORMATTER = {
                     });
                 }
 
-                // Split phases into older (redacted) and recent (full) groups
-                const olderPhases = phases.slice(0, -recentPhasesCount);
-                const recentPhases = phases.slice(-recentPhasesCount);
+                // Split phases into older (redacted) and last
+                const olderPhases = phases.slice(0, -1);
                 
                 // Serialize older phases without files, recent phases with files
                 if (olderPhases.length > 0) {
                     const olderPhasesLite = olderPhases.map(({ name, description }) => ({ name, description }));
                     phasesText += TemplateRegistry.markdown.serialize({ phases: olderPhasesLite }, z.object({ phases: z.array(PhaseConceptLiteSchema) }));
-                    if (recentPhases.length > 0) {
-                        phasesText += '\n\n';
-                    }
                 }
-                if (recentPhases.length > 0) {
-                    phasesText += TemplateRegistry.markdown.serialize({ phases: recentPhases }, z.object({ phases: z.array(PhaseConceptSchema) }));
-                }
+                phasesText += '\n\nLast Phase Implemented:\n' + TemplateRegistry.markdown.serialize(lastPhase, PhaseConceptSchema);
                 
                 const redactionNotice = olderPhases.length > 0 
-                    ? `**Note:** File details for the first ${olderPhases.length} phase(s) have been redacted to optimize context. Only the last ${recentPhasesCount} phase(s) include complete file information.\n` 
+                    ? `**Note:** File details for the first ${olderPhases.length} phase(s) have been redacted to optimize context. Only the last phase includes complete file information.\n` 
                     : '';
 
                 phasesText = COMPLETED_PHASES_CONTEXT.replaceAll('{{phases}}', phasesText).replaceAll('{{redactionNotice}}', redactionNotice);
@@ -1124,9 +977,11 @@ export const USER_PROMPT_FORMATTER = {
             console.error('Error processing project context:', error);
         }
 
+        const relevantFiles = getCodebaseContext(files);
+
         const variables: Record<string, string> = {
             phasesText: phasesText,
-            files: PROMPT_UTILS.serializeFiles(files, serializerType),
+            files: PROMPT_UTILS.serializeFiles(relevantFiles, serializerType),
             fileTree: PROMPT_UTILS.serializeTreeNodes(fileTree),
             lastDiffs: lastPhaseFilesDiff,
             commandsHistory: commandsHistory.length > 0 ? `<COMMANDS HISTORY>\n\nThe following commands have been executed successfully in the project environment so far (These may not include the ones that are currently pending):\n\n${commandsHistory.join('\n')}\n\n</COMMANDS HISTORY>` : ''
@@ -1175,7 +1030,7 @@ const getStyleInstructions = (style: TemplateSelection['styleSelection']): strin
 - Stylized illustrations resembling 2D animation or children's book art
 - Smooth, rounded shapes and clean borders—no gradients or realism
 - Similar to Pablo Stanley, Burnt Toast Creative, or Outline-style art.
-- Children’s book meets modern web`
+- Children's book meets modern web`
         case 'Minimalist Design':
             return `
 **Style Name: Minimalist Design**

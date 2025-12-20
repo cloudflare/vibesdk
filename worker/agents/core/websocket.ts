@@ -1,18 +1,28 @@
 import { Connection } from 'agents';
 import { createLogger } from '../../logger';
 import { WebSocketMessageRequests, WebSocketMessageResponses } from '../constants';
-import { SimpleCodeGeneratorAgent } from './simpleGeneratorAgent';
 import { WebSocketMessage, WebSocketMessageData, WebSocketMessageType } from '../../api/websocketTypes';
 import { MAX_IMAGES_PER_MESSAGE, MAX_IMAGE_SIZE_BYTES } from '../../types/image-attachment';
+import { credentialsToRuntimeOverrides, type CredentialsPayload } from '../inferutils/config.types';
+import type { CodeGeneratorAgent } from './codingAgent';
 
 const logger = createLogger('CodeGeneratorWebSocket');
 
-export function handleWebSocketMessage(agent: SimpleCodeGeneratorAgent, connection: Connection, message: string): void {
+export function handleWebSocketMessage(
+    agent: CodeGeneratorAgent, 
+    connection: Connection, 
+    message: string
+): void {
     try {
         logger.info(`Received WebSocket message from ${connection.id}: ${message}`);
         const parsedMessage = JSON.parse(message);
 
         switch (parsedMessage.type) {
+            case WebSocketMessageRequests.SESSION_INIT: {
+                const credentials = parsedMessage.credentials as CredentialsPayload | undefined;
+                agent.getBehavior().setRuntimeOverrides(credentialsToRuntimeOverrides(credentials));
+                break;
+            }
             case WebSocketMessageRequests.GENERATE_ALL:
                 // Set shouldBeGenerating flag to indicate persistent intent
                 agent.setState({ 
@@ -21,7 +31,7 @@ export function handleWebSocketMessage(agent: SimpleCodeGeneratorAgent, connecti
                 });
                 
                 // Check if generation is already active to avoid duplicate processes
-                if (agent.isCodeGenerating()) {
+                if (agent.getBehavior().isCodeGenerating()) {
                     logger.info('Generation already in progress, skipping duplicate request');
                     // sendToConnection(connection, WebSocketMessageResponses.GENERATION_STARTED, {
                     //     message: 'Code generation is already in progress'
@@ -31,13 +41,13 @@ export function handleWebSocketMessage(agent: SimpleCodeGeneratorAgent, connecti
                 
                 // Start generation process
                 logger.info('Starting code generation process');
-                agent.generateAllFiles().catch(error => {
+                agent.getBehavior().generateAllFiles().catch(error => {
                     logger.error('Error during code generation:', error);
                     sendError(connection, `Error generating files: ${error instanceof Error ? error.message : String(error)}`);
                 }).finally(() => {
                     // Only clear shouldBeGenerating on successful completion
                     // (errors might want to retry, so this could be handled differently)
-                    if (!agent.isCodeGenerating()) {
+                    if (!agent.getBehavior().isCodeGenerating()) {
                         agent.setState({ 
                             ...agent.state, 
                             shouldBeGenerating: false 
@@ -46,12 +56,12 @@ export function handleWebSocketMessage(agent: SimpleCodeGeneratorAgent, connecti
                 });
                 break;
             case WebSocketMessageRequests.DEPLOY:
-                agent.deployToCloudflare().then((deploymentResult) => {
-                    if (!deploymentResult) {
-                        logger.error('Failed to deploy to Cloudflare Workers');
+                agent.deployProject().then((deploymentResult) => {
+                    if (!deploymentResult.success) {
+                        logger.error('Deployment failed', deploymentResult);
                         return;
                     }
-                    logger.info('Successfully deployed to Cloudflare Workers!', deploymentResult);
+                    logger.info('Deployment completed', deploymentResult);
                 }).catch((error: unknown) => {
                     logger.error('Error during deployment:', error);
                 });
@@ -59,14 +69,14 @@ export function handleWebSocketMessage(agent: SimpleCodeGeneratorAgent, connecti
             case WebSocketMessageRequests.PREVIEW:
                 // Deploy current state for preview
                 logger.info('Deploying for preview');
-                agent.deployToSandbox().then((deploymentResult) => {
+                agent.getBehavior().deployToSandbox().then((deploymentResult) => {
                     logger.info(`Preview deployed successfully!, deploymentResult:`, deploymentResult);
                 }).catch((error: unknown) => {
                     logger.error('Error during preview deployment:', error);
                 });
                 break;
             case WebSocketMessageRequests.CAPTURE_SCREENSHOT:
-                agent.captureScreenshot(parsedMessage.data.url, parsedMessage.data.viewport).then((screenshotResult) => {
+                agent.getBehavior().captureScreenshot(parsedMessage.data.url, parsedMessage.data.viewport).then((screenshotResult) => {
                     if (!screenshotResult) {
                         logger.error('Failed to capture screenshot');
                         return;
@@ -76,11 +86,11 @@ export function handleWebSocketMessage(agent: SimpleCodeGeneratorAgent, connecti
                     logger.error('Error during screenshot capture:', error);
                 });
                 break;
-            case WebSocketMessageRequests.STOP_GENERATION:
+            case WebSocketMessageRequests.STOP_GENERATION: {
                 logger.info('User requested to stop generation');
                 
                 // Cancel current inference operation
-                const wasCancelled = agent.cancelCurrentInference();
+                const wasCancelled = agent.getBehavior().cancelCurrentInference();
                 
                 // Clear shouldBeGenerating flag
                 agent.setState({ 
@@ -94,6 +104,7 @@ export function handleWebSocketMessage(agent: SimpleCodeGeneratorAgent, connecti
                         : 'No active inference to cancel'
                 });
                 break;
+            }
             case WebSocketMessageRequests.RESUME_GENERATION:
                 // Set shouldBeGenerating and restart generation
                 logger.info('Resuming code generation');
@@ -102,11 +113,11 @@ export function handleWebSocketMessage(agent: SimpleCodeGeneratorAgent, connecti
                     shouldBeGenerating: true 
                 });
                 
-                if (!agent.isCodeGenerating()) {
+                if (!agent.getBehavior().isCodeGenerating()) {
                     sendToConnection(connection, WebSocketMessageResponses.GENERATION_RESUMED, {
                         message: 'Code generation resumed'
                     });
-                    agent.generateAllFiles().catch(error => {
+                    agent.getBehavior().generateAllFiles().catch(error => {
                         logger.error('Error resuming code generation:', error);
                         sendError(connection, `Error resuming generation: ${error instanceof Error ? error.message : String(error)}`);
                     });
@@ -160,7 +171,7 @@ export function handleWebSocketMessage(agent: SimpleCodeGeneratorAgent, connecti
                 break;
             case WebSocketMessageRequests.GET_MODEL_CONFIGS:
                 logger.info('Fetching model configurations');
-                agent.getModelConfigsInfo().then(configsInfo => {
+                agent.getBehavior().getModelConfigsInfo().then(configsInfo => {
                     sendToConnection(connection, WebSocketMessageResponses.MODEL_CONFIGS_INFO, {
                         message: 'Model configurations retrieved',
                         configs: configsInfo
@@ -174,10 +185,16 @@ export function handleWebSocketMessage(agent: SimpleCodeGeneratorAgent, connecti
                 logger.info('Clearing conversation history');
                 agent.clearConversation();
                 break;
+            case WebSocketMessageRequests.VAULT_UNLOCKED:
+                agent.handleVaultUnlocked();
+                break;
+            case WebSocketMessageRequests.VAULT_LOCKED:
+                agent.handleVaultLocked();
+                break;
             case WebSocketMessageRequests.GET_CONVERSATION_STATE:
                 try {
                     const state = agent.getConversationState();
-                    const debugState = agent.getDeepDebugSessionState();
+                    const debugState = agent.getBehavior().getDeepDebugSessionState();
                     logger.info('Conversation state retrieved', state);
                     sendToConnection(connection, WebSocketMessageResponses.CONVERSATION_STATE, { 
                         state,
@@ -221,8 +238,10 @@ export function handleWebSocketMessage(agent: SimpleCodeGeneratorAgent, connecti
     }
 }
 
-export function handleWebSocketClose(connection: Connection): void {
+export function handleWebSocketClose(agent: CodeGeneratorAgent, connection: Connection): void {
     logger.info(`WebSocket connection closed: ${connection.id}`);
+    // Clear vault session on disconnect for security
+    agent.handleVaultLocked();
 }
 
 export function broadcastToConnections<T extends WebSocketMessageType>(
