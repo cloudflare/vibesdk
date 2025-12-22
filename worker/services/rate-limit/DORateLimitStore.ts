@@ -22,6 +22,9 @@ export interface RateLimitConfig {
 export interface RateLimitResult {
     success: boolean;
     remainingLimit?: number;
+    exceededLimit?: 'main' | 'burst' | 'daily';
+    limitValue?: number;
+    periodSeconds?: number;
 }
 
 /**
@@ -69,15 +72,33 @@ export class DORateLimitStore extends DurableObject<Env> {
 
         // Check limits
         if (mainCount >= config.limit) {
-            return { success: false, remainingLimit: 0 };
+            return {
+                success: false,
+                remainingLimit: 0,
+                exceededLimit: 'main',
+                limitValue: config.limit,
+                periodSeconds: config.period
+            };
         }
 
         if (config.burst && burstCount >= config.burst) {
-            return { success: false, remainingLimit: 0 };
+            return {
+                success: false,
+                remainingLimit: 0,
+                exceededLimit: 'burst',
+                limitValue: config.burst,
+                periodSeconds: config.burstWindow
+            };
         }
 
         if (config.dailyLimit && dailyCount >= config.dailyLimit) {
-            return { success: false, remainingLimit: 0 };
+            return {
+                success: false,
+                remainingLimit: 0,
+                exceededLimit: 'daily',
+                limitValue: config.dailyLimit,
+                periodSeconds: 24 * 60 * 60
+            };
         }
 
         // Increment current bucket

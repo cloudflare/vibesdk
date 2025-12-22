@@ -1,7 +1,6 @@
 import { createSystemMessage, createUserMessage, Message } from '../inferutils/common';
-import { AgentActionKey, ModelConfig } from '../inferutils/config.types';
+import { AgentActionKey } from '../inferutils/config.types';
 import { CompletionConfig, InferError, InferResponseString } from '../inferutils/core';
-import { AGENT_CONFIG } from '../inferutils/config';
 import { buildDebugTools } from '../tools/customTools';
 import { RenderToolCall } from './UserConversationProcessor';
 import { PROMPT_UTILS } from '../prompts';
@@ -82,7 +81,6 @@ export interface DeepDebuggerInputs {
     runtimeErrors?: RuntimeError[];
     streamCb?: (chunk: string) => void;
     toolRenderer?: RenderToolCall;
-    modelConfigOverride?: ModelConfig;
 }
 
 export interface DeepDebuggerOutputs {
@@ -193,7 +191,6 @@ export class DeepDebuggerOperation extends AgentOperationWithTools<
 
         return {
             agentActionName: 'deepDebugger' as AgentActionKey,
-            modelConfig: inputs.modelConfigOverride || AGENT_CONFIG.deepDebugger,
             completionSignalName: 'mark_debugging_complete',
             operationalMode: 'initial' as const,
             allowWarningInjection: true,
@@ -221,7 +218,6 @@ export class DeepDebuggerOperation extends AgentOperationWithTools<
             messages: Message[];
             tools: ToolDefinition<unknown, unknown>[];
             agentActionName: AgentActionKey;
-            modelConfig: ModelConfig;
             streamCb?: (chunk: string) => void;
             onAssistantMessage?: (message: Message) => Promise<void>;
             completionConfig?: CompletionConfig;

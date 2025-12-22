@@ -4,8 +4,7 @@ import {
     Message,
     ConversationMessage,
 } from '../inferutils/common';
-import { AgentActionKey, ModelConfig } from '../inferutils/config.types';
-import { AGENT_CONFIG } from '../inferutils/config';
+import { AgentActionKey } from '../inferutils/config.types';
 import { withRenderer } from '../tools/customTools';
 import { RenderToolCall } from './UserConversationProcessor';
 import { PROMPT_UTILS } from '../prompts';
@@ -47,7 +46,6 @@ export interface AgenticProjectBuilderInputs {
     toolRenderer: RenderToolCall;
     onToolComplete?: (message: Message) => Promise<void>;
     onAssistantMessage?: (message: Message) => Promise<void>;
-    modelConfigOverride?: ModelConfig;
 }
 
 export interface AgenticProjectBuilderOutputs {
@@ -293,7 +291,6 @@ export class AgenticProjectBuilderOperation extends AgentOperationWithTools<
 
         return {
             agentActionName: 'agenticProjectBuilder' as AgentActionKey,
-            modelConfig: inputs.modelConfigOverride || AGENT_CONFIG.agenticProjectBuilder,
             completionSignalName: 'mark_generation_complete',
             operationalMode: inputs.operationalMode,
             allowWarningInjection: inputs.operationalMode === 'initial',

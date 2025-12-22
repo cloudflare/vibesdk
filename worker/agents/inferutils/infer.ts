@@ -20,6 +20,64 @@ Please provide a valid response that matches the expected output format exactly.
 `;
 
 /**
+ * Resolves model configuration with field-by-field merge
+ *
+ * Precedence: userConfig > AGENT_CONFIG defaults
+ * Each field is resolved independently (first defined value wins)
+ */
+function resolveModelConfig(
+    agentActionName: AgentActionKey,
+    userConfig?: ModelConfig,
+): ModelConfig {
+    const defaultConfig = AGENT_CONFIG[agentActionName];
+
+    const merged: ModelConfig = {
+        name: userConfig?.name ?? defaultConfig.name,
+        reasoning_effort: userConfig?.reasoning_effort ?? defaultConfig.reasoning_effort,
+        max_tokens: userConfig?.max_tokens ?? defaultConfig.max_tokens,
+        temperature: userConfig?.temperature ?? defaultConfig.temperature,
+        fallbackModel: userConfig?.fallbackModel ?? defaultConfig.fallbackModel,
+    };
+
+    // Validate model name - try userConfig first, then default
+    const modelCandidates = [userConfig?.name, defaultConfig.name]
+        .filter((n): n is AIModels | string => n !== undefined);
+
+    let validModelName: AIModels | string | undefined;
+    for (const candidate of modelCandidates) {
+        if (!isValidAIModel(candidate)) {
+            logger.warn(`Model ${candidate} not valid, trying next`);
+            continue;
+        }
+        const check = validateAgentConstraints(agentActionName, candidate);
+        if (check.constraintEnabled && !check.valid) {
+            logger.warn(`Model ${candidate} violates constraints for ${agentActionName}`);
+            continue;
+        }
+        validModelName = candidate;
+        break;
+    }
+
+    if (!validModelName) {
+        logger.warn(`No valid model found for ${agentActionName}, using default`);
+        validModelName = defaultConfig.name;
+    }
+    merged.name = validModelName;
+
+    // Validate fallback model
+    if (merged.fallbackModel) {
+        const fallbackCheck = validateAgentConstraints(agentActionName, merged.fallbackModel);
+        if (fallbackCheck.constraintEnabled && !fallbackCheck.valid) {
+            logger.warn(`Fallback ${merged.fallbackModel} violates constraints, using default`);
+            merged.fallbackModel = defaultConfig.fallbackModel;
+        }
+    }
+
+    logger.info(`Resolved config for ${agentActionName}: model=${merged.name}, fallback=${merged.fallbackModel}`);
+    return merged;
+}
+
+/**
  * Helper function to execute AI inference with consistent error handling
  * @param params Parameters for the inference operation
  * @returns The inference result or null if error
@@ -39,7 +97,6 @@ interface InferenceParamsBase {
         onChunk: (chunk: string) => void;
     };
     reasoning_effort?: ReasoningEffort;
-    modelConfig?: ModelConfig;
     context: InferenceContext;
     onAssistantMessage?: (message: Message) => Promise<void>;
     completionConfig?: CompletionConfig;
@@ -72,7 +129,6 @@ export async function executeInference<T extends z.AnyZodObject>(   {
     agentActionName,
     format,
     modelName,
-    modelConfig,
     context,
     onAssistantMessage,
     completionConfig,
@@ -80,90 +136,16 @@ export async function executeInference<T extends z.AnyZodObject>(   {
     schema?: T;
     format?: SchemaFormat;
 }): Promise<InferResponseString | InferResponseObject<T> | null> {
-    let conf: ModelConfig | undefined;
-    
-    if (modelConfig) {
-        // Use explicitly provided model config
-        conf = modelConfig;
-    } else if (context?.metadata.userId && context?.userModelConfigs) {
-        // Try to get user-specific configuration from context cache
-        conf = context.userModelConfigs[agentActionName];
-        if (conf) {
-            logger.info(`Using user configuration for ${agentActionName}: ${JSON.stringify(conf)}`);
-        } else {
-            logger.info(`No user configuration for ${agentActionName}, using AGENT_CONFIG defaults`, context.userModelConfigs, context);
-        }
+    // Resolve config with clear precedence: userConfig > defaults
+    const resolvedConfig = resolveModelConfig(
+        agentActionName,
+        context?.userModelConfigs?.[agentActionName],
+    );
 
-        // If conf.name is not a valid AIModels enum value, fall back to defaults
-        if (conf && !isValidAIModel(conf.name)) {
-            logger.warn(`User config model ${conf.name} not in defined AIModels, falling back to defaults`);
-            conf = undefined;
-        }
-
-        // If conf.name violates agent constraints, fall back to defaults
-        if (conf && conf.name) {
-            const constraintCheck = validateAgentConstraints(agentActionName, conf.name);
-
-            if (constraintCheck.constraintEnabled && !constraintCheck.valid) {
-                logger.warn(
-                    `User config model ${conf.name} violates constraints for ${agentActionName}, falling back to defaults. ` +
-                    `Allowed models: ${constraintCheck.allowedModels?.join(', ')}`
-                );
-                conf = undefined; // Trigger fallback to AGENT_CONFIG[agentActionName]
-            }
-        }
-
-        // Validate fallback model too (if exists in conf)
-        if (conf && conf.fallbackModel) {
-            const fallbackCheck = validateAgentConstraints(agentActionName, conf.fallbackModel);
-
-            if (fallbackCheck.constraintEnabled && !fallbackCheck.valid) {
-                logger.warn(
-                    `User config fallback model ${conf.fallbackModel} violates constraints for ${agentActionName}, removing fallback`
-                );
-                conf.fallbackModel = undefined; // Remove invalid fallback
-            }
-        }
-
-        // If conf.name is not in defined AIModels, fall back to defaults
-        if (conf && !(conf.name in AIModels)) {
-            logger.warn(`User config model ${conf.name} not in defined AIModels, falling back to defaults`);
-            conf = undefined;
-        }
-
-        // If conf.name violates agent constraints, fall back to defaults
-        if (conf && conf.name) {
-            const constraintCheck = validateAgentConstraints(agentActionName, conf.name);
-
-            if (constraintCheck.constraintEnabled && !constraintCheck.valid) {
-                logger.warn(
-                    `User config model ${conf.name} violates constraints for ${agentActionName}, falling back to defaults. ` +
-                    `Allowed models: ${constraintCheck.allowedModels?.join(', ')}`
-                );
-                conf = undefined; // Trigger fallback to AGENT_CONFIG[agentActionName]
-            }
-        }
-
-        // Validate fallback model too (if exists in conf)
-        if (conf && conf.fallbackModel) {
-            const fallbackCheck = validateAgentConstraints(agentActionName, conf.fallbackModel);
-
-            if (fallbackCheck.constraintEnabled && !fallbackCheck.valid) {
-                logger.warn(
-                    `User config fallback model ${conf.fallbackModel} violates constraints for ${agentActionName}, removing fallback`
-                );
-                conf.fallbackModel = undefined; // Remove invalid fallback
-            }
-        }
-    }
-
-    // Use the final config or fall back to AGENT_CONFIG defaults
-    const finalConf = conf || AGENT_CONFIG[agentActionName];
-
-    modelName = modelName || finalConf.name;
-    temperature = temperature || finalConf.temperature || 0.2;
-    maxTokens = maxTokens || finalConf.max_tokens || 16000;
-    reasoning_effort = reasoning_effort || finalConf.reasoning_effort;
+    modelName = modelName || resolvedConfig.name;
+    temperature = temperature ?? resolvedConfig.temperature ?? 0.2;
+    maxTokens = maxTokens || resolvedConfig.max_tokens || 16000;
+    reasoning_effort = reasoning_effort || resolvedConfig.reasoning_effort;
 
     // Exponential backoff for retries
     const backoffMs = (attempt: number) => Math.min(500 * Math.pow(2, attempt), 10000);
@@ -237,20 +219,13 @@ export async function executeInference<T extends z.AnyZodObject>(   {
                     messages.push(createAssistantMessage(error.response));
                     messages.push(createUserMessage(responseRegenerationPrompts));
                     useCheaperModel = true;
-                    
-                    // If this was a repetition error, apply a frequency penalty to the retry
-                    if (error.message.toLowerCase().includes('repetition')) {
-                        logger.info('Applying frequency penalty to retry due to repetition');
-                        // Create a temporary config override for this retry
-                        conf = {
-                            ...finalConf,
-                            frequency_penalty: 0.5 // Apply moderate penalty
-                        };
-                    }
                 }
             } else {
-                // Try using fallback model if available
-                modelName = conf?.fallbackModel || modelName;
+                // Switch to fallback model if available
+                if (resolvedConfig.fallbackModel && resolvedConfig.fallbackModel !== modelName) {
+                    logger.info(`Switching to fallback model: ${resolvedConfig.fallbackModel}`);
+                    modelName = resolvedConfig.fallbackModel;
+                }
             }
 
             if (!isLastAttempt) {
