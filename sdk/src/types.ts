@@ -4,6 +4,8 @@ import type {
 	PlatformCodeGenArgs,
 	WebSocketMessage,
 } from './protocol';
+import type { RetryConfig } from './retry';
+export type { RetryConfig } from './retry';
 
 export type BehaviorType = PlatformBehaviorType;
 export type ProjectType = PlatformProjectType;
@@ -218,4 +220,6 @@ export type VibeClientOptions = {
 	/** Optional WebSocket factory for Node/Bun runtimes. */
 	webSocketFactory?: AgentConnectionOptions['webSocketFactory'];
 	fetchFn?: typeof fetch;
+	/** HTTP retry configuration for transient failures (5xx, network errors). */
+	retry?: RetryConfig;
 };

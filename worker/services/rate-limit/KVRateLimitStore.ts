@@ -39,11 +39,23 @@ export class KVRateLimitStore {
 			const burstCount = burstBuckets.reduce((sum, bucketKey) => sum + (bucketMap.get(bucketKey) || 0), 0);
 
 			if (mainCount >= config.limit) {
-				return { success: false, remainingLimit: 0 };
+				return {
+					success: false,
+					remainingLimit: 0,
+					exceededLimit: 'main',
+					limitValue: config.limit,
+					periodSeconds: config.period
+				};
 			}
 
 			if (config.burst && burstCount >= config.burst) {
-				return { success: false, remainingLimit: 0 };
+				return {
+					success: false,
+					remainingLimit: 0,
+					exceededLimit: 'burst',
+					limitValue: config.burst,
+					periodSeconds: config.burstWindow
+				};
 			}
 
 			const currentBucketKey = `ratelimit:${key}:${currentBucket}`;

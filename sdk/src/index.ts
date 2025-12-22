@@ -5,6 +5,11 @@ export { BuildSession } from './session';
 export { WorkspaceStore } from './workspace';
 export { SessionStateStore } from './state';
 
+export { isRecord, blueprintToMarkdown, BlueprintStreamParser } from './blueprint';
+export type { Blueprint } from './blueprint';
+
+export { withTimeout, TimeoutError } from './utils';
+
 export type {
 	AgentConnection,
 	AgentConnectionOptions,
@@ -29,7 +34,7 @@ export type {
 	WaitOptions,
 } from './types';
 
-export type { SessionState } from './state';
+export type { SessionState, ConnectionState, GenerationState, PhaseState } from './state';
 
 export type {
 	AgentState,

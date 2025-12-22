@@ -1,4 +1,5 @@
 import { TypedEmitter } from './emitter';
+import { normalizeRetryConfig, computeBackoffMs, type NormalizedRetryConfig } from './retry';
 import type {
 	AgentConnection,
 	AgentConnectionOptions,
@@ -15,29 +16,17 @@ function toWsCloseEvent(ev: CloseEvent | { code?: number; reason?: string }): { 
 	};
 }
 
-type RetryConfig = Required<NonNullable<AgentConnectionOptions['retry']>>;
-
-function normalizeRetryConfig(retry: AgentConnectionOptions['retry']): RetryConfig {
-	const enabled = retry?.enabled ?? true;
-	return {
-		enabled,
-		initialDelayMs: retry?.initialDelayMs ?? 1_000,
-		maxDelayMs: retry?.maxDelayMs ?? 30_000,
-		maxRetries: retry?.maxRetries ?? Infinity,
-	};
-}
-
-function computeBackoffMs(attempt: number, cfg: RetryConfig): number {
-	const base = Math.min(cfg.maxDelayMs, cfg.initialDelayMs * Math.pow(2, Math.max(0, attempt)));
-	// ±20% jitter to avoid thundering herds.
-	const jitter = base * 0.2;
-	return Math.max(0, Math.floor(base - jitter + Math.random() * jitter * 2));
-}
+const WS_RETRY_DEFAULTS: NormalizedRetryConfig = {
+	enabled: true,
+	initialDelayMs: 1_000,
+	maxDelayMs: 30_000,
+	maxRetries: Infinity,
+};
 
 export function createAgentConnection(url: string, options: AgentConnectionOptions = {}): AgentConnection {
 	const emitter = new TypedEmitter<AgentEventMap>();
 
-	const retryCfg = normalizeRetryConfig(options.retry);
+	const retryCfg = normalizeRetryConfig(options.retry, WS_RETRY_DEFAULTS);
 
 	const headers: Record<string, string> = { ...(options.headers ?? {}) };
 	if (options.origin) headers.Origin = options.origin;

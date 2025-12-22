@@ -129,10 +129,10 @@ const DEFAULT_AGENT_CONFIG: AgentConfig = {
         temperature: 0.6,
     },
     blueprint: {
-        name: AIModels.GEMINI_3_PRO_PREVIEW,
+        name: AIModels.GEMINI_3_FLASH_PREVIEW,
         reasoning_effort: 'high',
         max_tokens: 64000,
-        fallbackModel: AIModels.GEMINI_2_5_FLASH,
+        fallbackModel: AIModels.GEMINI_2_5_PRO,
         temperature: 1,
     },
     projectSetup: {
@@ -159,10 +159,10 @@ const DEFAULT_AGENT_CONFIG: AgentConfig = {
         fallbackModel: AIModels.GEMINI_2_5_PRO,
     },
     deepDebugger: {
-        name: AIModels.GEMINI_3_PRO_PREVIEW,
+        name: AIModels.GEMINI_3_FLASH_PREVIEW,
         reasoning_effort: 'high',
         max_tokens: 8000,
-        temperature: 0.5,
+        temperature: 1,
         fallbackModel: AIModels.GEMINI_2_5_FLASH,
     },
     fileRegeneration: {
@@ -173,10 +173,10 @@ const DEFAULT_AGENT_CONFIG: AgentConfig = {
         fallbackModel: AIModels.GEMINI_2_5_FLASH,
     },
     agenticProjectBuilder: {
-        name: AIModels.GEMINI_2_5_PRO,
+        name: AIModels.GEMINI_3_FLASH_PREVIEW,
         reasoning_effort: 'high',
         max_tokens: 8000,
-        temperature: 0.5,
+        temperature: 1,
         fallbackModel: AIModels.GEMINI_2_5_FLASH,
     },
 };

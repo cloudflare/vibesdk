@@ -143,10 +143,17 @@ export class BuildSession {
 			...(webSocketFactory ? { webSocketFactory } : {}),
 		};
 
+		this.state.setConnection('connecting');
 		this.connection = createAgentConnection(this.websocketUrl, connectOptions);
 		this.connection.on('ws:message', (m) => {
 			this.workspace.applyWsMessage(m);
 			this.state.applyWsMessage(m);
+		});
+		this.connection.on('ws:open', () => {
+			this.state.setConnection('connected');
+		});
+		this.connection.on('ws:close', () => {
+			this.state.setConnection('disconnected');
 		});
 
 		const credentials = agentOptions.credentials ?? this.init.defaultCredentials;
