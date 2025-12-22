@@ -1,7 +1,7 @@
 import { StructuredLogger } from "../../logger";
 import { GenerationContext } from "../domain/values/GenerationContext";
 import { Message } from "../inferutils/common";
-import { InferenceContext, AgentActionKey, ModelConfig } from "../inferutils/config.types";
+import { InferenceContext, AgentActionKey } from "../inferutils/config.types";
 import { createUserMessage, createSystemMessage, createAssistantMessage } from "../inferutils/common";
 import { generalSystemPromptBuilder, USER_PROMPT_FORMATTER } from "../prompts";
 import { CodeSerializerType } from "../utils/codeSerializers";
@@ -121,7 +121,6 @@ export abstract class AgentOperationWithTools<
         session: TSession
     ): {
         agentActionName: AgentActionKey;
-        modelConfig: ModelConfig;
         completionSignalName?: string;
         operationalMode?: "initial" | "followup";
         allowWarningInjection?: boolean;
@@ -154,7 +153,6 @@ export abstract class AgentOperationWithTools<
             messages: Message[];
             tools: ToolDefinition<unknown, unknown>[];
             agentActionName: AgentActionKey;
-            modelConfig: ModelConfig;
             streamCb?: (chunk: string) => void;
             onAssistantMessage?: (message: Message) => Promise<void>;
             completionConfig?: CompletionConfig;
@@ -165,7 +163,6 @@ export abstract class AgentOperationWithTools<
             messages,
             tools,
             agentActionName,
-            modelConfig,
             streamCb,
             onAssistantMessage,
             completionConfig,
@@ -235,7 +232,6 @@ export abstract class AgentOperationWithTools<
                 abortSignal: controller.signal
             },
             agentActionName,
-            modelConfig,
             messages,
             tools: wrappedTools,
             stream: wrappedStreamCb
@@ -262,7 +258,6 @@ export abstract class AgentOperationWithTools<
 
         const {
             agentActionName,
-            modelConfig,
             completionSignalName,
             operationalMode,
             allowWarningInjection,
@@ -280,7 +275,6 @@ export abstract class AgentOperationWithTools<
             messages,
             tools: rawTools,
             agentActionName,
-            modelConfig,
             streamCb: callbacks.streamCb,
             onAssistantMessage: callbacks.onAssistantMessage,
             completionConfig,
