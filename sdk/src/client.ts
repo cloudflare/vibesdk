@@ -2,11 +2,16 @@ import type {
 	ApiResponse,
 	AppDetails,
 	AppListItem,
+	AppVisibility,
+	AppWithFavoriteStatus,
 	BuildOptions,
 	BuildStartEvent,
 	Credentials,
+	DeleteResult,
 	PublicAppsQuery,
+	ToggleResult,
 	VibeClientOptions,
+	VisibilityUpdateResult,
 } from './types';
 import { HttpClient } from './http';
 import { parseNdjsonStream } from './ndjson';
@@ -116,6 +121,7 @@ export class VibeClient {
 	}
 
 	apps = {
+		/** List public apps with optional filtering and pagination. */
 		listPublic: async (query: PublicAppsQuery = {}) => {
 			const qs = toQueryString({
 				limit: query.limit,
@@ -132,13 +138,31 @@ export class VibeClient {
 			);
 		},
 
+		/** List all apps owned by the authenticated user. */
 		listMine: async () => {
-			return this.http.fetchJson<ApiResponse<{ apps: AppListItem[] }>>('/api/apps', {
+			return this.http.fetchJson<ApiResponse<{ apps: AppWithFavoriteStatus[] }>>('/api/apps', {
 				method: 'GET',
 				headers: await this.http.headers(),
 			});
 		},
 
+		/** List recent apps (last 10) for the authenticated user. */
+		listRecent: async () => {
+			return this.http.fetchJson<ApiResponse<{ apps: AppWithFavoriteStatus[] }>>('/api/apps/recent', {
+				method: 'GET',
+				headers: await this.http.headers(),
+			});
+		},
+
+		/** List favorite apps for the authenticated user. */
+		listFavorites: async () => {
+			return this.http.fetchJson<ApiResponse<{ apps: AppWithFavoriteStatus[] }>>('/api/apps/favorites', {
+				method: 'GET',
+				headers: await this.http.headers(),
+			});
+		},
+
+		/** Get detailed information about a specific app. */
 		get: async (appId: string) => {
 			return this.http.fetchJson<ApiResponse<AppDetails>>(`/api/apps/${appId}`, {
 				method: 'GET',
@@ -146,6 +170,40 @@ export class VibeClient {
 			});
 		},
 
+		/** Delete an app (owner only). */
+		delete: async (appId: string) => {
+			return this.http.fetchJson<ApiResponse<DeleteResult>>(`/api/apps/${appId}`, {
+				method: 'DELETE',
+				headers: await this.http.headers(),
+			});
+		},
+
+		/** Update app visibility (owner only). */
+		setVisibility: async (appId: string, visibility: AppVisibility) => {
+			return this.http.fetchJson<ApiResponse<VisibilityUpdateResult>>(`/api/apps/${appId}/visibility`, {
+				method: 'PUT',
+				headers: await this.http.headers({ 'Content-Type': 'application/json' }),
+				body: JSON.stringify({ visibility }),
+			});
+		},
+
+		/** Toggle star/bookmark status on an app. */
+		toggleStar: async (appId: string) => {
+			return this.http.fetchJson<ApiResponse<ToggleResult>>(`/api/apps/${appId}/star`, {
+				method: 'POST',
+				headers: await this.http.headers(),
+			});
+		},
+
+		/** Toggle favorite status on an app. */
+		toggleFavorite: async (appId: string) => {
+			return this.http.fetchJson<ApiResponse<ToggleResult>>(`/api/apps/${appId}/favorite`, {
+				method: 'POST',
+				headers: await this.http.headers(),
+			});
+		},
+
+		/** Generate a git clone token for an app (owner only). */
 		getGitCloneToken: async (appId: string) => {
 			return this.http.fetchJson<
 				ApiResponse<{ token: string; expiresIn: number; expiresAt: string; cloneUrl: string }>
