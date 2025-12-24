@@ -37,7 +37,9 @@ export class HttpClient {
 	}
 
 	private get fetchFn(): typeof fetch {
-		return this.opts.fetchFn ?? fetch;
+		// Wrap global fetch to preserve context in Workers runtime
+		// See: https://developers.cloudflare.com/workers/observability/errors/#illegal-invocation-errors
+		return this.opts.fetchFn ?? ((...args: Parameters<typeof fetch>) => fetch(...args));
 	}
 
 	getToken(): string | undefined {
