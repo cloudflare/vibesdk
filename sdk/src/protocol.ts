@@ -23,3 +23,5 @@ export type {
 	CodeGenArgs as PlatformCodeGenArgs,
 	AgentPreviewResponse,
 } from '../../worker/api/controllers/agent/types';
+
+export type { ImageAttachment } from '../../worker/types/image-attachment';

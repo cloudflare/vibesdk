@@ -6,6 +6,7 @@ import type {
 	BuildStartEvent,
 	Credentials,
 	FileTreeNode,
+	ImageAttachment,
 	PhaseEventType,
 	ProjectType,
 	SessionDeployable,
@@ -183,7 +184,7 @@ export class BuildSession {
 		this.connection!.send({ type: 'stop_generation' });
 	}
 
-	followUp(message: string, options?: { images?: unknown[] }): void {
+	followUp(message: string, options?: { images?: ImageAttachment[] }): void {
 		this.assertConnected();
 		this.connection!.send({
 			type: 'user_suggestion',

@@ -5,10 +5,12 @@ export { BuildSession } from './session';
 export { WorkspaceStore } from './workspace';
 export { SessionStateStore } from './state';
 
-export { isRecord, blueprintToMarkdown, BlueprintStreamParser } from './blueprint';
+export { blueprintToMarkdown, BlueprintStreamParser } from './blueprint';
 export type { Blueprint } from './blueprint';
 
-export { withTimeout, TimeoutError } from './utils';
+export { isRecord, withTimeout, TimeoutError } from './utils';
+
+export type { WebSocketFactory } from './ws';
 
 export type {
 	AgentConnection,
@@ -18,18 +20,23 @@ export type {
 	ApiResponse,
 	AppDetails,
 	AppListItem,
+	AppVisibility,
+	AppWithFavoriteStatus,
 	BehaviorType,
 	BuildOptions,
 	BuildStartEvent,
 	CodeGenArgs,
 	Credentials,
+	DeleteResult,
 	FileTreeNode,
 	PhaseEventType,
 	ProjectType,
 	PublicAppsQuery,
 	SessionDeployable,
 	SessionFiles,
+	ToggleResult,
 	VibeClientOptions,
+	VisibilityUpdateResult,
 	WaitForPhaseOptions,
 	WaitOptions,
 } from './types';
