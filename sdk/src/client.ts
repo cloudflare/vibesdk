@@ -30,7 +30,7 @@ function toQueryString(query: Record<string, string | number | undefined>): stri
 export class VibeClient {
 	private http: HttpClient;
 
-	constructor(private options: VibeClientOptions) {
+	constructor(options: VibeClientOptions) {
 		this.http = new HttpClient(options);
 	}
 
@@ -40,9 +40,6 @@ export class VibeClient {
 
 	/**
 	 * Creates a new agent/app from a prompt and returns a BuildSession.
-	 *
-	 * Current platform requirement: `token` must be a valid JWT access token.
-	 * Later: `apiKey` will be exchanged for a short-lived JWT.
 	 */
 	async build(prompt: string, options: BuildOptions = {}): Promise<BuildSession> {
 		const body = {
@@ -53,7 +50,6 @@ export class VibeClient {
 			behaviorType: options.behaviorType,
 			projectType: options.projectType,
 			images: options.images,
-			// Future: credentials
 			credentials: options.credentials,
 		};
 
@@ -84,12 +80,13 @@ export class VibeClient {
 			throw new Error('No start event received from /api/agent');
 		}
 
-		const session = new BuildSession(this.options, start, {
-			getAuthToken: () => this.http.getToken(),
+		const session = new BuildSession(start, {
+			httpClient: this.http,
 			...(options.credentials ? { defaultCredentials: options.credentials } : {}),
 		});
+
 		if (options.autoConnect ?? true) {
-			session.connect();
+			await session.connect();
 			if (options.autoGenerate ?? true) {
 				session.startGeneration();
 			}
@@ -114,8 +111,8 @@ export class VibeClient {
 			websocketUrl: data.data.websocketUrl,
 		};
 
-		return new BuildSession(this.options, start, {
-			getAuthToken: () => this.http.getToken(),
+		return new BuildSession(start, {
+			httpClient: this.http,
 			...(options.credentials ? { defaultCredentials: options.credentials } : {}),
 		});
 	}

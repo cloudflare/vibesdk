@@ -160,4 +160,25 @@ export class HttpClient {
 
 		throw lastError ?? new Error(`Failed after ${this.retryCfg.maxRetries} retries`);
 	}
+
+	/**
+	 * Request a WebSocket ticket for secure agent connection.
+	 * Tickets are single-use and short-lived (15 seconds).
+	 */
+	async getWsTicket(agentId: string): Promise<{ ticket: string; expiresIn: number; expiresAt: string }> {
+		const resp = await this.fetchJson<ApiResponse<{ ticket: string; expiresIn: number; expiresAt: string }>>(
+			'/api/ws-ticket',
+			{
+				method: 'POST',
+				headers: await this.headers({ 'Content-Type': 'application/json' }),
+				body: JSON.stringify({ resourceType: 'agent', resourceId: agentId }),
+			},
+		);
+
+		if (!resp.success) {
+			throw new Error(resp.error.message || 'Failed to get WebSocket ticket');
+		}
+
+		return resp.data;
+	}
 }

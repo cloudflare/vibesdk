@@ -128,7 +128,6 @@ export type AgentEventMap = {
 	'ws:raw': { raw: Record<string, unknown> };
 	'ws:message': AgentWsServerMessage;
 
-	// High-level sugar events (typed)
 	connected: WsMessageOf<'agent_connected'>;
 	conversation: WsMessageOf<'conversation_response' | 'conversation_state'>;
 	phase: WsMessageOf<
@@ -153,51 +152,23 @@ export type AgentEventMap = {
 		| 'cloudflare_deployment_completed'
 		| 'cloudflare_deployment_error'
 	>;
-	/** User-friendly error derived from `{ type: 'error' }` message */
 	error: { error: string };
 };
 
-export type WsOpenEvent = Event;
-export type WsCloseEvent = CloseEvent | { code?: number; reason?: string };
-export type WsErrorEvent = Event | Error;
-export type WsMessageEvent = MessageEvent | { data: string };
+/**
+ * URL provider for WebSocket connections.
+ * Called on initial connect and on each reconnect to get fresh ticket.
+ */
+export type UrlProvider = () => Promise<string>;
 
-export type WebSocketEventMap = {
-	open: WsOpenEvent;
-	close: WsCloseEvent;
-	error: WsErrorEvent;
-	message: WsMessageEvent;
-};
-
-export type WebSocketEventType = keyof WebSocketEventMap;
-export type WebSocketEventListener<K extends WebSocketEventType> = (event: WebSocketEventMap[K]) => void;
-
-export type WebSocketLike = {
-	send: (data: string) => void;
-	close: () => void;
-	addEventListener?<K extends WebSocketEventType>(type: K, listener: WebSocketEventListener<K>): void;
-	on?<K extends WebSocketEventType>(type: K, listener: WebSocketEventListener<K>): void;
-};
-
+/**
+ * Options for WebSocket connection behavior.
+ */
 export type AgentConnectionOptions = {
-	/** Override Origin header for WS (browser-like security). */
-	origin?: string;
-	/** Optional per-connection ephemeral credentials (used by `session_init`). */
+	/** Credentials to send via session_init after connection. */
 	credentials?: Credentials;
-	/** Additional headers (Node/Bun via ws factory). */
-	headers?: Record<string, string>;
-	/** Optional WebSocket factory for Node/Bun runtimes. */
-	webSocketFactory?: (url: string, protocols?: string | string[], headers?: Record<string, string>) => WebSocketLike;
-	/**
-	 * Auto-reconnect config (enabled by default).
-	 * Set `{ enabled: false }` to disable.
-	 */
-	retry?: {
-		enabled?: boolean;
-		initialDelayMs?: number;
-		maxDelayMs?: number;
-		maxRetries?: number;
-	};
+	/** Auto-reconnect config (enabled by default). */
+	retry?: RetryConfig;
 };
 
 export type AgentConnection = {
@@ -251,11 +222,9 @@ export type VibeClientOptions = {
 	token?: string;
 	/** VibeSDK API key. */
 	apiKey?: string;
+	/** Default headers for HTTP requests. */
 	defaultHeaders?: Record<string, string>;
-	/** Origin header for WebSocket connections. */
-	websocketOrigin?: string;
-	/** WebSocket factory - use runtime-specific factories from /browser, /worker, or /node. */
-	webSocketFactory?: AgentConnectionOptions['webSocketFactory'];
+	/** Custom fetch function (for Workers or custom environments). */
 	fetchFn?: typeof fetch;
 	/** HTTP retry config for transient failures. */
 	retry?: RetryConfig;

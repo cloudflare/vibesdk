@@ -10,8 +10,6 @@ export type { Blueprint } from './blueprint';
 
 export { isRecord, withTimeout, TimeoutError } from './utils';
 
-export type { WebSocketFactory } from './ws';
-
 export type {
 	AgentConnection,
 	AgentConnectionOptions,
@@ -35,6 +33,7 @@ export type {
 	SessionDeployable,
 	SessionFiles,
 	ToggleResult,
+	UrlProvider,
 	VibeClientOptions,
 	VisibilityUpdateResult,
 	WaitForPhaseOptions,
