@@ -24,6 +24,8 @@ import {
 	CLEANUP_INTERVAL_MS,
 	STORAGE_LIMITS,
 } from './vault-types';
+import { PendingWsTicket, TicketConsumptionResult } from '../../types/auth-types';
+import { WsTicketManager } from '../../utils/wsTicketManager';
 
 interface VaultSession {
 	encryptedVMK: ArrayBuffer;
@@ -35,6 +37,9 @@ interface VaultSession {
 
 export class UserSecretsStore extends DurableObject<Env> {
 	private session: VaultSession | null = null;
+	
+	/** Ticket manager for WebSocket authentication */
+	private ticketManager = new WsTicketManager();
 
 	constructor(ctx: DurableObjectState, env: Env) {
 		super(ctx, env);
@@ -897,5 +902,22 @@ export class UserSecretsStore extends DurableObject<Env> {
 		const result = new TextDecoder().decode(arr);
 		arr.fill(0);
 		return result;
+	}
+
+	// ========== WEBSOCKET TICKET MANAGEMENT ==========
+
+	/**
+	 * Store a WebSocket ticket for later consumption
+	 */
+	storeWsTicket(ticket: PendingWsTicket): void {
+		this.ticketManager.store(ticket);
+	}
+
+	/**
+	 * Consume a WebSocket ticket (one-time use)
+	 * Returns user session if valid, null otherwise
+	 */
+	consumeWsTicket(token: string): TicketConsumptionResult | null {
+		return this.ticketManager.consume(token);
 	}
 }

@@ -13,9 +13,12 @@ export function setupUserSecretsRoutes(app: Hono<AppEnv>): void {
 	const vaultRouter = new Hono<AppEnv>();
 
 	// WebSocket connection to vault DO - must be before other routes
+	// Supports ticket-based auth (SDK) or JWT-based auth (browser)
 	vaultRouter.get(
 		'/ws',
-		setAuthLevel(AuthConfig.authenticated),
+		setAuthLevel(AuthConfig.authenticated, {
+			ticketAuth: { resourceType: 'vault' }
+		}),
 		adaptController(UserSecretsController, UserSecretsController.handleWebSocketConnection)
 	);
 
