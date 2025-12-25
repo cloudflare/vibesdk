@@ -204,7 +204,7 @@ export function createAgentConnection(
 		if (typeof WebSocket === 'undefined') {
 			emitter.emit('ws:error', {
 				error: new Error(
-					'WebSocket is not available. This SDK requires Node.js 22+ or a modern browser.'
+					'WebSocket is not available. This SDK requires a runtime with native WebSocket support (Cloudflare Workers, browsers, Bun, or Node.js 22+).'
 				),
 			});
 			return;
