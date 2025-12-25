@@ -7,50 +7,6 @@ export function streamFromString(input: string): ReadableStream<Uint8Array> {
 	});
 }
 
-export class FakeWebSocket {
-	sent: string[] = [];
-	closed = false;
-
-	private listeners = new Map<string, Set<(...args: unknown[]) => void>>();
-
-	addEventListener(type: 'open' | 'close' | 'error' | 'message', listener: (event: unknown) => void): void {
-		this.on(type, listener);
-	}
-
-	on(type: string, listener: (...args: unknown[]) => void): void {
-		const set = this.listeners.get(type) ?? new Set();
-		set.add(listener);
-		this.listeners.set(type, set);
-	}
-
-	private emit(type: string, ...args: unknown[]): void {
-		const set = this.listeners.get(type);
-		if (!set) return;
-		for (const cb of set) cb(...args);
-	}
-
-	send(data: string): void {
-		this.sent.push(data);
-	}
-
-	close(): void {
-		this.closed = true;
-		this.emit('close', { code: 1000, reason: '' });
-	}
-
-	emitOpen(): void {
-		this.emit('open', {});
-	}
-
-	emitMessageJson(obj: unknown): void {
-		this.emit('message', { data: JSON.stringify(obj) });
-	}
-
-	emitError(err: unknown): void {
-		this.emit('error', err);
-	}
-}
-
 export type FetchCall = {
 	url: string;
 	init?: RequestInit;
