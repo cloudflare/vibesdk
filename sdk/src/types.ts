@@ -5,9 +5,45 @@ import type {
 	WebSocketMessage,
 	ImageAttachment as PlatformImageAttachment,
 	AgentState as PlatformAgentState,
+	App as PlatformApp,
+	Visibility,
+	PlatformAppWithFavoriteStatus,
+	PlatformEnhancedAppData,
+	FavoriteToggleResult,
+	PaginationInfo,
+	PublicAppQueryOptions,
+	PlatformAppWithUserAndStats,
+	PlatformUpdateAppVisibilityData,
+	AppDeleteData,
+	PlatformAppDetailsData,
+	AppStarToggleData,
+	GitCloneTokenData,
+	BaseApiResponse,
 } from './protocol';
 import type { RetryConfig } from './retry';
 export type { RetryConfig } from './retry';
+
+// ============================================================================
+// Serialization Utility
+// ============================================================================
+
+/**
+ * Recursively converts Date fields to string for JSON-serialized API responses.
+ * When data is sent over HTTP/JSON, Date objects become ISO strings.
+ */
+type Serialized<T> = T extends Date
+	? string
+	: T extends Date | null
+		? string | null
+		: T extends (infer U)[]
+			? Serialized<U>[]
+			: T extends object
+				? { [K in keyof T]: Serialized<T[K]> }
+				: T;
+
+// ============================================================================
+// Agent/Build Types
+// ============================================================================
 
 export type BehaviorType = PlatformBehaviorType;
 export type ProjectType = PlatformProjectType;
@@ -35,70 +71,65 @@ export type BuildStartEvent = {
 	template?: { name: string; files?: TemplateFiles };
 };
 
-export type ApiResponse<T> =
-	| { success: true; data: T; message?: string }
-	| { success: false; error: { message: string }; message?: string };
+// ============================================================================
+// API Response Types
+// ============================================================================
 
-export type PublicAppsQuery = {
-	limit?: number;
-	page?: number;
-	sort?: string;
-	order?: string;
-	period?: string;
-	framework?: string;
-	search?: string;
-};
+export type ApiResponse<T> = BaseApiResponse<T>;
 
-export type AppListItem = {
-	id: string;
-	title: string;
-	description?: string | null;
-	framework?: string | null;
-	updatedAt?: string | null;
-	createdAt?: string | null;
-	visibility?: 'public' | 'private';
-	previewUrl?: string;
-};
+/** Pagination info for list endpoints */
+export type { PaginationInfo };
 
-export type AppDetails = {
-	id: string;
-	previewUrl?: string;
-	cloudflareUrl?: string;
-	title?: string;
-	description?: string | null;
-	framework?: string | null;
-	visibility?: 'public' | 'private';
-	createdAt?: string | null;
-	updatedAt?: string | null;
-	[key: string]: string | null | undefined;
-};
+// ============================================================================
+// App Types (serialized versions of platform types)
+// ============================================================================
 
-export type AppVisibility = 'public' | 'private';
+/** Base App type with all fields (serialized for JSON) */
+export type App = Serialized<PlatformApp>;
 
-export type AppWithFavoriteStatus = AppListItem & {
-	isFavorite: boolean;
-	updatedAtFormatted?: string;
-};
+/** App visibility setting */
+export type AppVisibility = Visibility;
 
-export type VisibilityUpdateResult = {
-	app: {
-		id: string;
-		title: string;
-		visibility: AppVisibility;
-		updatedAt: string | null;
-	};
-	message: string;
-};
+/** App with favorite status for user-specific queries */
+export type AppWithFavoriteStatus = Serialized<PlatformAppWithFavoriteStatus>;
 
-export type ToggleResult = {
-	isFavorite?: boolean;
-	isStarred?: boolean;
-};
+/** Enhanced app data with user info and social stats */
+export type EnhancedAppData = Serialized<PlatformEnhancedAppData>;
 
-export type DeleteResult = {
-	success: boolean;
-	message: string;
-};
+/** App item for public listings (with user and stats) - alias for cleaner SDK API */
+export type AppListItem = Serialized<PlatformAppWithUserAndStats>;
+
+/** Full app details response - alias for cleaner SDK API */
+export type AppDetails = Serialized<PlatformAppDetailsData>;
+
+// ============================================================================
+// App API Response Types
+// ============================================================================
+
+/** Query parameters for public apps listing */
+export type PublicAppsQuery = Partial<PublicAppQueryOptions>;
+
+/** Response for visibility update endpoint */
+export type VisibilityUpdateResult = Serialized<PlatformUpdateAppVisibilityData>;
+
+/** Response for delete endpoint - alias for cleaner SDK API */
+export type DeleteResult = AppDeleteData;
+
+/** Response for star toggle endpoint */
+export type { AppStarToggleData };
+
+/** Response for favorite toggle endpoint */
+export type { FavoriteToggleResult };
+
+/** Union type for toggle operations (star or favorite) */
+export type ToggleResult = AppStarToggleData | FavoriteToggleResult;
+
+/** Response for git clone token endpoint */
+export type { GitCloneTokenData };
+
+// ============================================================================
+// WebSocket Types
+// ============================================================================
 
 export type AgentWsServerMessage = WebSocketMessage;
 
@@ -155,6 +186,10 @@ export type AgentEventMap = {
 	error: { error: string };
 };
 
+// ============================================================================
+// Connection Types
+// ============================================================================
+
 /**
  * URL provider for WebSocket connections.
  * Called on initial connect and on each reconnect to get fresh ticket.
@@ -182,6 +217,10 @@ export type AgentConnection = {
 		timeoutMs?: number
 	) => Promise<AgentEventMap[K]>;
 };
+
+// ============================================================================
+// Session Types
+// ============================================================================
 
 export type FileTreeNode =
 	| { type: 'dir'; name: string; path: string; children: FileTreeNode[] }
@@ -215,6 +254,10 @@ export type SessionDeployable = {
 	reason: 'generation_complete' | 'phase_validated';
 	previewUrl?: string;
 };
+
+// ============================================================================
+// Client Options
+// ============================================================================
 
 export type VibeClientOptions = {
 	baseUrl: string;
