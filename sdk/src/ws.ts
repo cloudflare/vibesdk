@@ -1,20 +1,15 @@
 import { TypedEmitter } from './emitter';
 import { normalizeRetryConfig, computeBackoffMs, type NormalizedRetryConfig } from './retry';
+import { isRecord } from './utils';
 import type {
 	AgentConnection,
 	AgentConnectionOptions,
 	AgentEventMap,
 	AgentWsClientMessage,
 	AgentWsServerMessage,
-	WebSocketLike,
+	AgentState,
+	UrlProvider,
 } from './types';
-
-function toWsCloseEvent(ev: CloseEvent | { code?: number; reason?: string }): { code: number; reason: string } {
-	return {
-		code: typeof (ev as CloseEvent).code === 'number' ? (ev as CloseEvent).code : 1000,
-		reason: typeof (ev as CloseEvent).reason === 'string' ? (ev as CloseEvent).reason : '',
-	};
-}
 
 const WS_RETRY_DEFAULTS: NormalizedRetryConfig = {
 	enabled: true,
@@ -23,15 +18,21 @@ const WS_RETRY_DEFAULTS: NormalizedRetryConfig = {
 	maxRetries: Infinity,
 };
 
-export function createAgentConnection(url: string, options: AgentConnectionOptions = {}): AgentConnection {
+/**
+ * Create a WebSocket connection to an agent.
+ *
+ * @param getUrl - Async function that returns WebSocket URL with fresh ticket.
+ *                 Called on initial connect and on each reconnect attempt.
+ * @param options - Connection options (retry config, credentials).
+ */
+export function createAgentConnection(
+	getUrl: UrlProvider,
+	options: AgentConnectionOptions = {}
+): AgentConnection {
 	const emitter = new TypedEmitter<AgentEventMap>();
-
 	const retryCfg = normalizeRetryConfig(options.retry, WS_RETRY_DEFAULTS);
 
-	const headers: Record<string, string> = { ...(options.headers ?? {}) };
-	if (options.origin) headers.Origin = options.origin;
-
-	let ws: WebSocketLike | null = null;
+	let ws: WebSocket | null = null;
 	let isOpen = false;
 	let closedByUser = false;
 	let reconnectAttempts = 0;
@@ -41,19 +42,17 @@ export function createAgentConnection(url: string, options: AgentConnectionOptio
 	const maxPendingSends = 1_000;
 
 	function clearReconnectTimer(): void {
-		if (!reconnectTimer) return;
-		clearTimeout(reconnectTimer);
-		reconnectTimer = null;
-	}
-
-	function makeWebSocket(): WebSocketLike {
-		if (options.webSocketFactory) return options.webSocketFactory(url, undefined, headers);
-		return new WebSocket(url) as unknown as WebSocketLike;
+		if (reconnectTimer) {
+			clearTimeout(reconnectTimer);
+			reconnectTimer = null;
+		}
 	}
 
 	function flushPendingSends(): void {
 		if (!ws || !isOpen) return;
-		for (const data of pendingSends) ws.send(data);
+		for (const data of pendingSends) {
+			ws.send(data);
+		}
 		pendingSends.length = 0;
 	}
 
@@ -73,81 +72,81 @@ export function createAgentConnection(url: string, options: AgentConnectionOptio
 
 		reconnectTimer = setTimeout(() => {
 			reconnectTimer = null;
-			connectNow();
+			void connectNow();
 		}, delayMs);
 	}
 
-	function onOpen() {
+	function onOpen(): void {
 		isOpen = true;
 		reconnectAttempts = 0;
 		emitter.emit('ws:open', undefined);
-		// Flush after emitting open so user `ws:open` listeners can send auth/session_init first.
 		flushPendingSends();
 	}
 
-	function onClose(ev: CloseEvent | { code?: number; reason?: string }) {
+	function onClose(e: CloseEvent): void {
 		isOpen = false;
-		emitter.emit('ws:close', toWsCloseEvent(ev));
+		emitter.emit('ws:close', { code: e.code, reason: e.reason });
 		scheduleReconnect('close');
 	}
 
-	function onError(error: unknown) {
-		// Many runtimes emit 'error' before 'close'. We attempt reconnect on either.
-		emitter.emit('ws:error', { error });
+	function onError(): void {
+		emitter.emit('ws:error', { error: new Error('WebSocket error') });
 		scheduleReconnect('error');
 	}
 
-	function looksLikeAgentState(obj: unknown): obj is Record<string, unknown> {
-		if (!obj || typeof obj !== 'object') return false;
-		const behaviorType = (obj as { behaviorType?: unknown }).behaviorType;
-		const projectType = (obj as { projectType?: unknown }).projectType;
-		return typeof behaviorType === 'string' && typeof projectType === 'string';
+	function isAgentState(obj: unknown): obj is AgentState {
+		if (!isRecord(obj)) return false;
+		return typeof obj.behaviorType === 'string' && typeof obj.projectType === 'string';
 	}
 
 	function normalizeServerPayload(raw: unknown): AgentWsServerMessage | null {
-		if (!raw || typeof raw !== 'object') return null;
-		const t = (raw as { type?: unknown }).type;
+		if (!isRecord(raw)) return null;
+
+		const t = raw.type;
 		if (typeof t === 'string') {
-			// Defensive: some buggy servers encode a full JSON payload into `type`.
-			// If it looks like JSON, attempt to parse and normalize it.
 			const trimmed = t.trim();
 			if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
 				try {
 					const inner = JSON.parse(trimmed) as unknown;
 					const normalizedInner = normalizeServerPayload(inner);
 					if (normalizedInner) return normalizedInner;
-					emitter.emit('ws:raw', { raw: inner });
+					if (isRecord(inner)) {
+						emitter.emit('ws:raw', { raw: inner });
+					}
 					return null;
 				} catch {
-					// fall through
+					// Invalid JSON in type field, treat as regular message
 				}
 			}
 			return raw as AgentWsServerMessage;
 		}
 
-		// Some servers/runtimes may send AgentState-ish objects without the `{ type }` envelope.
-		const state = (raw as { state?: unknown }).state;
-		if (looksLikeAgentState(state)) {
-			return { type: 'cf_agent_state', state } as unknown as AgentWsServerMessage;
+		const state = raw.state;
+		if (isAgentState(state)) {
+			return { type: 'cf_agent_state', state };
 		}
-		if (looksLikeAgentState(raw)) {
-			return { type: 'cf_agent_state', state: raw } as unknown as AgentWsServerMessage;
+		if (isAgentState(raw)) {
+			return { type: 'cf_agent_state', state: raw };
 		}
 		return null;
 	}
 
-	function onMessage(data: unknown) {
+	function onMessage(e: MessageEvent): void {
 		try {
-			const raw = JSON.parse(String(data)) as unknown;
+			const data = typeof e.data === 'string' ? e.data : String(e.data);
+			const raw = JSON.parse(data) as unknown;
 			const parsed = normalizeServerPayload(raw);
+
 			if (!parsed) {
-				emitter.emit('ws:raw', { raw });
+				if (isRecord(raw)) {
+					emitter.emit('ws:raw', { raw });
+				}
 				return;
 			}
 
 			emitter.emit('ws:message', parsed);
 
-			// Best-effort sugar routing
+			// Route to typed event channels
 			switch (parsed.type) {
 				case 'agent_connected':
 					emitter.emit('connected', parsed);
@@ -190,43 +189,45 @@ export function createAgentConnection(url: string, options: AgentConnectionOptio
 				case 'error':
 					emitter.emit('error', { error: String(parsed.error ?? 'Unknown error') });
 					break;
-				default:
-					break;
 			}
 		} catch (error) {
-			onError(error);
+			emitter.emit('ws:error', {
+				error: error instanceof Error ? error : new Error(String(error)),
+			});
 		}
 	}
 
-	function connectNow(): void {
+	async function connectNow(): Promise<void> {
 		if (closedByUser) return;
 		clearReconnectTimer();
 
+		if (typeof WebSocket === 'undefined') {
+			emitter.emit('ws:error', {
+				error: new Error(
+					'WebSocket is not available. This SDK requires a runtime with native WebSocket support (Cloudflare Workers, browsers, Bun, or Node.js 22+).'
+				),
+			});
+			return;
+		}
+
 		try {
-			ws = makeWebSocket();
+			const url = await getUrl();
+			ws = new WebSocket(url);
+
+			ws.addEventListener('open', onOpen);
+			ws.addEventListener('close', onClose);
+			ws.addEventListener('error', onError);
+			ws.addEventListener('message', onMessage);
 		} catch (error) {
-			onError(error);
+			emitter.emit('ws:error', {
+				error: error instanceof Error ? error : new Error(String(error)),
+			});
 			scheduleReconnect('error');
-			return;
-		}
-
-		if (ws.addEventListener) {
-			ws.addEventListener('open', () => onOpen());
-			ws.addEventListener('close', (ev) => onClose(ev as CloseEvent));
-			ws.addEventListener('error', (ev) => onError(ev));
-			ws.addEventListener('message', (ev) => onMessage((ev as MessageEvent).data));
-			return;
-		}
-
-		if (ws.on) {
-			ws.on('open', () => onOpen());
-			ws.on('close', (code: unknown, reason: unknown) => onClose({ code: typeof code === 'number' ? code : undefined, reason: typeof reason === 'string' ? reason : undefined }));
-			ws.on('error', (error: unknown) => onError(error));
-			ws.on('message', (data: unknown) => onMessage(data));
 		}
 	}
 
-	connectNow();
+	// Start initial connection
+	void connectNow();
 
 	function send(msg: AgentWsClientMessage): void {
 		const data = JSON.stringify(msg);
@@ -239,7 +240,7 @@ export function createAgentConnection(url: string, options: AgentConnectionOptio
 		if (pendingSends.length > maxPendingSends) {
 			pendingSends.shift();
 			emitter.emit('ws:error', {
-				error: new Error(`Message queue overflow: dropped oldest message (queue size: ${maxPendingSends})`),
+				error: new Error(`Message queue overflow: dropped oldest message (max: ${maxPendingSends})`),
 			});
 		}
 	}
@@ -256,7 +257,7 @@ export function createAgentConnection(url: string, options: AgentConnectionOptio
 	async function waitFor<K extends keyof AgentEventMap>(
 		event: K,
 		predicate?: (payload: AgentEventMap[K]) => boolean,
-		timeoutMs: number = 60_000,
+		timeoutMs = 60_000
 	): Promise<AgentEventMap[K]> {
 		return new Promise((resolve, reject) => {
 			const timeout = setTimeout(() => {

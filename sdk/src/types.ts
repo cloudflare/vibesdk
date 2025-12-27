@@ -3,32 +3,27 @@ import type {
 	ProjectType as PlatformProjectType,
 	PlatformCodeGenArgs,
 	WebSocketMessage,
+	ImageAttachment as PlatformImageAttachment,
+	AgentState as PlatformAgentState,
 } from './protocol';
 import type { RetryConfig } from './retry';
 export type { RetryConfig } from './retry';
 
 export type BehaviorType = PlatformBehaviorType;
 export type ProjectType = PlatformProjectType;
+export type ImageAttachment = PlatformImageAttachment;
+export type AgentState = PlatformAgentState;
 
-// Ephemeral, optional credentials (not persisted by SDK).
 export type Credentials = NonNullable<PlatformCodeGenArgs['credentials']>;
-
 export type CodeGenArgs = PlatformCodeGenArgs;
 
 export type BuildOptions = Omit<CodeGenArgs, 'query'> & {
-	/**
-	 * If true (default), connect to the agent websocket immediately.
-	 */
 	autoConnect?: boolean;
-	/**
-	 * If true (default), send `{ type: 'generate_all' }` after websocket connection.
-	 */
 	autoGenerate?: boolean;
-	/**
-	 * Called for each blueprint chunk emitted by the create-agent stream.
-	 */
 	onBlueprintChunk?: (chunk: string) => void;
 };
+
+export type TemplateFiles = Record<string, string>;
 
 export type BuildStartEvent = {
 	message?: string;
@@ -37,7 +32,7 @@ export type BuildStartEvent = {
 	httpStatusUrl?: string;
 	behaviorType?: BehaviorType;
 	projectType?: string;
-	template?: { name: string; files?: unknown };
+	template?: { name: string; files?: TemplateFiles };
 };
 
 export type ApiResponse<T> =
@@ -65,10 +60,44 @@ export type AppListItem = {
 	previewUrl?: string;
 };
 
-export type AppDetails = Record<string, unknown> & {
+export type AppDetails = {
 	id: string;
 	previewUrl?: string;
 	cloudflareUrl?: string;
+	title?: string;
+	description?: string | null;
+	framework?: string | null;
+	visibility?: 'public' | 'private';
+	createdAt?: string | null;
+	updatedAt?: string | null;
+	[key: string]: string | null | undefined;
+};
+
+export type AppVisibility = 'public' | 'private';
+
+export type AppWithFavoriteStatus = AppListItem & {
+	isFavorite: boolean;
+	updatedAtFormatted?: string;
+};
+
+export type VisibilityUpdateResult = {
+	app: {
+		id: string;
+		title: string;
+		visibility: AppVisibility;
+		updatedAt: string | null;
+	};
+	message: string;
+};
+
+export type ToggleResult = {
+	isFavorite?: boolean;
+	isStarred?: boolean;
+};
+
+export type DeleteResult = {
+	success: boolean;
+	message: string;
 };
 
 export type AgentWsServerMessage = WebSocketMessage;
@@ -82,7 +111,7 @@ export type AgentWsClientMessage =
 	| { type: 'deploy' }
 	| { type: 'get_conversation_state' }
 	| { type: 'clear_conversation' }
-	| { type: 'user_suggestion'; message: string; images?: unknown[] };
+	| { type: 'user_suggestion'; message: string; images?: ImageAttachment[] };
 
 export type AgentWebSocketMessage = AgentWsServerMessage | AgentWsClientMessage;
 
@@ -96,12 +125,9 @@ export type AgentEventMap = {
 	'ws:close': { code: number; reason: string };
 	'ws:error': { error: unknown };
 	'ws:reconnecting': { attempt: number; delayMs: number; reason: 'close' | 'error' };
-	/** Server payload that isn't a well-formed typed message. */
 	'ws:raw': { raw: unknown };
-	/** Raw server->client message (typed) */
 	'ws:message': AgentWsServerMessage;
 
-	// High-level sugar events (typed)
 	connected: WsMessageOf<'agent_connected'>;
 	conversation: WsMessageOf<'conversation_response' | 'conversation_state'>;
 	phase: WsMessageOf<
@@ -126,39 +152,23 @@ export type AgentEventMap = {
 		| 'cloudflare_deployment_completed'
 		| 'cloudflare_deployment_error'
 	>;
-	/** User-friendly error derived from `{ type: 'error' }` message */
 	error: { error: string };
 };
 
-export type WebSocketLike = {
-	send: (data: string) => void;
-	close: () => void;
-	addEventListener?: (
-		type: 'open' | 'close' | 'error' | 'message',
-		listener: (event: unknown) => void
-	) => void;
-	on?: (type: string, listener: (...args: unknown[]) => void) => void;
-};
+/**
+ * URL provider for WebSocket connections.
+ * Called on initial connect and on each reconnect to get fresh ticket.
+ */
+export type UrlProvider = () => Promise<string>;
 
+/**
+ * Options for WebSocket connection behavior.
+ */
 export type AgentConnectionOptions = {
-	/** Override Origin header for WS (browser-like security). */
-	origin?: string;
-	/** Optional per-connection ephemeral credentials (used by `session_init`). */
+	/** Credentials to send via session_init after connection. */
 	credentials?: Credentials;
-	/** Additional headers (Node/Bun via ws factory). */
-	headers?: Record<string, string>;
-	/** Optional WebSocket factory for Node/Bun runtimes. */
-	webSocketFactory?: (url: string, protocols?: string | string[], headers?: Record<string, string>) => WebSocketLike;
-	/**
-	 * Auto-reconnect config (enabled by default).
-	 * Set `{ enabled: false }` to disable.
-	 */
-	retry?: {
-		enabled?: boolean;
-		initialDelayMs?: number;
-		maxDelayMs?: number;
-		maxRetries?: number;
-	};
+	/** Auto-reconnect config (enabled by default). */
+	retry?: RetryConfig;
 };
 
 export type AgentConnection = {
@@ -208,18 +218,14 @@ export type SessionDeployable = {
 
 export type VibeClientOptions = {
 	baseUrl: string;
-	/**
-	 * Current platform requirement: JWT access token. In future this will be minted from `apiKey`.
-	 */
+	/** JWT access token (or will be minted from apiKey). */
 	token?: string;
-	/** Future: VibeSDK API key. */
+	/** VibeSDK API key. */
 	apiKey?: string;
+	/** Default headers for HTTP requests. */
 	defaultHeaders?: Record<string, string>;
-	/** Used as Origin header for WS (optional but often required). */
-	websocketOrigin?: string;
-	/** Optional WebSocket factory for Node/Bun runtimes. */
-	webSocketFactory?: AgentConnectionOptions['webSocketFactory'];
+	/** Custom fetch function (for Workers or custom environments). */
 	fetchFn?: typeof fetch;
-	/** HTTP retry configuration for transient failures (5xx, network errors). */
+	/** HTTP retry config for transient failures. */
 	retry?: RetryConfig;
 };

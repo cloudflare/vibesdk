@@ -22,6 +22,7 @@ import { getPreviewDomain } from 'worker/utils/urls';
 import { ImageType, uploadImage } from 'worker/utils/images';
 import { ProcessedImageAttachment } from 'worker/types/image-attachment';
 import { getTemplateImportantFiles } from 'worker/services/sandbox/utils';
+import { hasTicketParam } from '../../../middleware/auth/ticketAuth';
 
 const defaultCodeGenArgs: Partial<CodeGenArgs> = {
     language: 'typescript',
@@ -209,6 +210,10 @@ export class CodingAgentController extends BaseController {
     /**
      * Handle WebSocket connections for code generation
      * This routes the WebSocket connection directly to the Agent
+     * 
+     * Supports two authentication methods:
+     * 1. Ticket-based auth (SDK): ?ticket=tk_xxx in URL
+     * 2. JWT-based auth (Browser): Cookie/Header with origin validation
      */
     static async handleWebSocketConnection(
         request: Request,
@@ -217,8 +222,8 @@ export class CodingAgentController extends BaseController {
         context: RouteContext
     ): Promise<Response> {
         try {
-            const chatId = context.pathParams.agentId; // URL param is still agentId for backward compatibility
-            if (!chatId) {
+            const agentId = context.pathParams.agentId;
+            if (!agentId) {
                 return CodingAgentController.createErrorResponse('Missing agent ID parameter', 400);
             }
 
@@ -226,43 +231,34 @@ export class CodingAgentController extends BaseController {
             if (request.headers.get('Upgrade') !== 'websocket') {
                 return new Response('Expected WebSocket upgrade', { status: 426 });
             }
-            
-            // Validate WebSocket origin
-            if (!validateWebSocketOrigin(request, env)) {
+
+            // User already authenticated via ticket OR JWT by middleware
+            const user = context.user;
+            if (!user) {
+                return CodingAgentController.createErrorResponse('Authentication required', 401);
+            }
+
+            // Origin validation only for non-ticket auth (ticket auth is origin-agnostic)
+            const isTicketAuth = hasTicketParam(request);
+            if (!isTicketAuth && !validateWebSocketOrigin(request, env)) {
                 return new Response('Forbidden: Invalid origin', { status: 403 });
             }
 
-            // Extract user for rate limiting
-            const user = context.user!;
-            if (!user) {
-                return CodingAgentController.createErrorResponse('Missing user', 401);
-            }
-
-            this.logger.info(`WebSocket connection request for chat: ${chatId}`);
-            
-            // Log request details for debugging
-            const headers: Record<string, string> = {};
-            request.headers.forEach((value, key) => {
-                headers[key] = value;
-            });
-            this.logger.info('WebSocket request details', {
-                headers,
-                url: request.url,
-                chatId
+            this.logger.info('WebSocket connection authorized', {
+                agentId,
+                userId: user.id,
+                authMethod: isTicketAuth ? 'ticket' : 'jwt',
             });
 
             try {
                 // Get the agent instance to handle the WebSocket connection
-                const agentInstance = await getAgentStub(env, chatId);
-                
-                this.logger.info(`Successfully got agent instance for chat: ${chatId}`);
+                const agentInstance = await getAgentStub(env, agentId);
 
                 // Let the agent handle the WebSocket connection directly
                 return agentInstance.fetch(request);
             } catch (error) {
-                this.logger.error(`Failed to get agent instance with ID ${chatId}:`, error);
+                this.logger.error(`Failed to get agent instance with ID ${agentId}:`, error);
                 // Return an appropriate WebSocket error response
-                // We need to emulate a WebSocket response even for errors
                 const { 0: client, 1: server } = new WebSocketPair();
 
                 server.accept();

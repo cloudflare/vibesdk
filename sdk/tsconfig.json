@@ -5,9 +5,15 @@
 		"moduleResolution": "Bundler",
 		"lib": ["ES2022", "DOM"],
 		"strict": true,
+		"esModuleInterop": true,
 		"outDir": "dist",
 		"skipLibCheck": true,
-		"noUncheckedIndexedAccess": false
+		"noUncheckedIndexedAccess": false,
+		"baseUrl": ".",
+		"paths": {
+			"worker/*": ["../worker/*"],
+			"shared/*": ["../shared/*"]
+		}
 	},
 	"include": ["src/**/*.ts", "src/**/*.d.ts"]
 }

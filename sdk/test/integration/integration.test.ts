@@ -1,10 +1,14 @@
 import { describe, expect, it } from 'bun:test';
 
-import { PhasicClient } from '../../src/phasic';
-import { createNodeWebSocketFactory } from '../../src/node';
+// Native WebSocket is available in Node.js 22+, Bun, and browsers
+import { PhasicClient } from '../../src/index';
 
-function requireEnv(name: string): string {
-	const v = process.env[name];
+function getEnv(name: string, fallback?: string): string | undefined {
+	return process.env[name] ?? fallback;
+}
+
+function requireEnv(name: string, altName?: string): string {
+	const v = process.env[name] ?? (altName ? process.env[altName] : undefined);
 	if (!v) {
 		throw new Error(
 			`Missing ${name}. Create an API key in Settings → API Keys and run: ${name}=<key> bun run test:integration`,
@@ -13,11 +17,11 @@ function requireEnv(name: string): string {
 	return v;
 }
 
-const describeIntegration =
-	process.env.VIBESDK_RUN_INTEGRATION_TESTS === '1' &&
-	process.env.VIBESDK_INTEGRATION_API_KEY
-		? describe
-		: describe.skip;
+// Support both VIBESDK_API_KEY (from .env) and VIBESDK_INTEGRATION_API_KEY
+const apiKeyAvailable = !!(process.env.VIBESDK_API_KEY || process.env.VIBESDK_INTEGRATION_API_KEY);
+const runIntegration = process.env.VIBESDK_RUN_INTEGRATION_TESTS === '1' || apiKeyAvailable;
+
+const describeIntegration = runIntegration ? describe : describe.skip;
 
 function previewUrlFromState(state: { previewUrl?: string; preview?: { status: string; previewURL?: string } }): string | undefined {
 	if (state.preview?.status === 'complete' && state.preview.previewURL) return state.preview.previewURL;
@@ -25,9 +29,8 @@ function previewUrlFromState(state: { previewUrl?: string; preview?: { status: s
 }
 
 describeIntegration('SDK integration (local platform)', () => {
-	const apiKey = requireEnv('VIBESDK_INTEGRATION_API_KEY');
-	const baseUrl = process.env.VIBESDK_INTEGRATION_BASE_URL ?? 'http://localhost:5173';
-	const wsFactory = createNodeWebSocketFactory();
+	const apiKey = requireEnv('VIBESDK_API_KEY', 'VIBESDK_INTEGRATION_API_KEY');
+	const baseUrl = getEnv('VIBESDK_BASE_URL', getEnv('VIBESDK_INTEGRATION_BASE_URL', 'http://localhost:5173')) as string;
 
 	const fetchFn: typeof fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
 		return await fetch(input, init);
@@ -56,7 +59,6 @@ describeIntegration('SDK integration (local platform)', () => {
 			baseUrl,
 			apiKey,
 			fetchFn,
-			webSocketFactory: wsFactory,
 		});
 
 		console.log('[integration] build: creating agent');
