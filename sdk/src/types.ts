@@ -125,7 +125,7 @@ export type AgentEventMap = {
 	'ws:close': { code: number; reason: string };
 	'ws:error': { error: unknown };
 	'ws:reconnecting': { attempt: number; delayMs: number; reason: 'close' | 'error' };
-	'ws:raw': { raw: Record<string, unknown> };
+	'ws:raw': { raw: unknown };
 	'ws:message': AgentWsServerMessage;
 
 	connected: WsMessageOf<'agent_connected'>;
