@@ -1,212 +1,242 @@
-import { describe, expect, it } from 'bun:test';
+import { describe, expect, it, beforeEach, afterEach } from 'bun:test';
 import { BuildSession } from '../src/session';
-import type { BuildStartEvent, Credentials, VibeClientOptions } from '../src/types';
-
-import { FakeWebSocket } from './fakes';
+import { HttpClient } from '../src/http';
+import type { BuildStartEvent, Credentials } from '../src/types';
+import { startTestServer, waitForClients, waitForMessages, type TestServer } from './test-server';
 
 describe('BuildSession.connect', () => {
-	it('injects Authorization header and sends session_init on open', async () => {
+	let server: TestServer;
+
+	beforeEach(() => {
+		server = startTestServer();
+	});
+
+	afterEach(() => {
+		server.close();
+	});
+
+	function createSession(overrides: Partial<BuildStartEvent> = {}, credentials?: Credentials) {
 		const start: BuildStartEvent = {
-			agentId: 'a1',
-			websocketUrl: 'ws://localhost/ws',
+			agentId: 'test-agent-1',
+			websocketUrl: server.wsUrl,
 			behaviorType: 'phasic',
 			projectType: 'app',
+			...overrides,
 		};
 
+		const httpClient = new HttpClient({
+			baseUrl: server.url,
+		});
+
+		return new BuildSession(start, {
+			httpClient,
+			...(credentials ? { defaultCredentials: credentials } : {}),
+		});
+	}
+
+	it('sends session_init on open with credentials', async () => {
 		const creds: Credentials = { providers: { openai: { apiKey: 'sk-test' } } };
+		const session = createSession({}, creds);
 
-		let capturedHeaders: Record<string, string> | undefined;
-		const ws = new FakeWebSocket();
+		await session.connect();
+		await waitForClients(server, 1);
 
-		const opts: VibeClientOptions = {
-			baseUrl: 'http://localhost:5173',
-			websocketOrigin: undefined,
-		};
+		// Wait for init messages to be sent
+		await waitForMessages(server, 2);
 
-		const session = new BuildSession(opts, start, {
-			getAuthToken: () => 'ACCESS_TOKEN',
-			defaultCredentials: creds,
-		});
+		const received = server.received();
+		const types = received.map((r) => (r.data as { type: string }).type);
 
-		session.connect({
-			webSocketFactory: (_url, _protocols, headers) => {
-				capturedHeaders = headers;
-				return ws;
-			},
-		});
+		expect(types[0]).toBe('session_init');
+		expect(types[1]).toBe('get_conversation_state');
 
-		expect(capturedHeaders?.Authorization).toBe('Bearer ACCESS_TOKEN');
-
-		ws.emitOpen();
-
-		const sent = ws.sent.map((s) => JSON.parse(s) as { type: string });
-		expect(sent[0]?.type).toBe('session_init');
-		expect(sent[1]?.type).toBe('get_conversation_state');
+		session.close();
 	});
 
 	it('waitUntilReady resolves on generation_started (phasic)', async () => {
-		const start: BuildStartEvent = {
-			agentId: 'a1',
-			websocketUrl: 'ws://localhost/ws',
-			behaviorType: 'phasic',
-			projectType: 'app',
-		};
+		const session = createSession({ behaviorType: 'phasic' });
 
-		const ws = new FakeWebSocket();
-		const session = new BuildSession({ baseUrl: 'x' }, start);
-		session.connect({ webSocketFactory: () => ws });
-		ws.emitOpen();
+		await session.connect();
+		await waitForClients(server, 1);
 
 		const ready = session.waitUntilReady({ timeoutMs: 5_000 });
-		ws.emitMessageJson({ type: 'generation_started', message: 'start', totalFiles: 1 });
+
+		// Server sends generation_started
+		server.broadcast({ type: 'generation_started', message: 'start', totalFiles: 1 });
+
 		await ready;
+		session.close();
 	});
 
 	it('waitUntilReady resolves on generation_started (agentic)', async () => {
-		const start: BuildStartEvent = {
-			agentId: 'a1',
-			websocketUrl: 'ws://localhost/ws',
-			behaviorType: 'agentic',
-			projectType: 'general',
-		};
+		const session = createSession({ behaviorType: 'agentic', projectType: 'general' });
 
-		const ws = new FakeWebSocket();
-		const session = new BuildSession({ baseUrl: 'x' }, start);
-		session.connect({ webSocketFactory: () => ws });
-		ws.emitOpen();
+		await session.connect();
+		await waitForClients(server, 1);
 
 		const ready = session.waitUntilReady({ timeoutMs: 5_000 });
-		ws.emitMessageJson({ type: 'generation_started', message: 'start', totalFiles: 1 });
+
+		server.broadcast({ type: 'generation_started', message: 'start', totalFiles: 1 });
+
 		await ready;
+		session.close();
 	});
 
 	it('onMessageType triggers for specific message type', async () => {
-		const start: BuildStartEvent = {
-			agentId: 'a1',
-			websocketUrl: 'ws://localhost/ws',
-			behaviorType: 'phasic',
-			projectType: 'app',
-		};
+		const session = createSession();
 
-		const ws = new FakeWebSocket();
-		const session = new BuildSession({ baseUrl: 'x' }, start);
-		session.connect({ webSocketFactory: () => ws });
-		ws.emitOpen();
+		await session.connect();
+		await waitForClients(server, 1);
 
 		let called = 0;
-		session.onMessageType('agent_connected', () => {
+		session.onMessageType('file_generated', () => {
 			called += 1;
 		});
 
-		ws.emitMessageJson({ type: 'agent_connected', state: {}, templateDetails: {} } as any);
+		server.broadcast({ type: 'file_generated', path: 'index.html', content: '<html></html>' });
+
+		await new Promise((r) => setTimeout(r, 100));
+
 		expect(called).toBe(1);
+		session.close();
 	});
 
 	it('waitForMessageType resolves with matching message', async () => {
-		const start: BuildStartEvent = {
-			agentId: 'a1',
-			websocketUrl: 'ws://localhost/ws',
-			behaviorType: 'phasic',
-			projectType: 'app',
-		};
+		const session = createSession();
 
-		const ws = new FakeWebSocket();
-		const session = new BuildSession({ baseUrl: 'x' }, start);
-		session.connect({ webSocketFactory: () => ws });
-		ws.emitOpen();
+		await session.connect();
+		await waitForClients(server, 1);
 
 		const p = session.waitForMessageType('deployment_completed', 5_000);
-		ws.emitMessageJson({
+
+		server.broadcast({
 			type: 'deployment_completed',
-			previewURL: 'https://preview',
-			tunnelURL: 'https://tunnel',
+			previewURL: 'https://preview.example.com',
+			tunnelURL: 'https://tunnel.example.com',
 			instanceId: 'i1',
 			message: 'done',
-		} as any);
+		});
 
 		const msg = await p;
-		expect((msg as any).type).toBe('deployment_completed');
+		expect(msg.type).toBe('deployment_completed');
+
+		session.close();
 	});
 
-	it('queues messages sent before ws open', async () => {
-		const start: BuildStartEvent = {
-			agentId: 'a1',
-			websocketUrl: 'ws://localhost/ws',
-			behaviorType: 'phasic',
-			projectType: 'app',
-		};
+	it('startGeneration sends generate_all message', async () => {
+		const session = createSession();
 
-		const ws = new FakeWebSocket();
-		const session = new BuildSession({ baseUrl: 'x' }, start);
-		session.connect({ webSocketFactory: () => ws });
+		await session.connect();
+		await waitForClients(server, 1);
+
+		// Clear init messages
+		server.clearReceived();
 
 		session.startGeneration();
-		expect(ws.sent.length).toBe(0);
 
-		ws.emitOpen();
-		const sent = ws.sent.map((s) => JSON.parse(s) as { type: string });
-		expect(sent[0]?.type).toBe('get_conversation_state');
-		expect(sent[1]?.type).toBe('generate_all');
+		await waitForMessages(server, 1);
+
+		const received = server.received();
+		const types = received.map((r) => (r.data as { type: string }).type);
+
+		expect(types).toContain('generate_all');
+
+		session.close();
 	});
 
 	it('wait.deployable resolves on phase_validated for phasic', async () => {
-		const start: BuildStartEvent = {
-			agentId: 'a1',
-			websocketUrl: 'ws://localhost/ws',
-			behaviorType: 'phasic',
-			projectType: 'app',
-		};
+		const session = createSession({ behaviorType: 'phasic' });
 
-		const ws = new FakeWebSocket();
-		const session = new BuildSession({ baseUrl: 'x' }, start);
-		session.connect({ webSocketFactory: () => ws });
-		ws.emitOpen();
+		await session.connect();
+		await waitForClients(server, 1);
 
 		const p = session.wait.deployable({ timeoutMs: 5_000 });
-		ws.emitMessageJson({
+
+		server.broadcast({
 			type: 'phase_validated',
 			message: 'ok',
 			phase: { name: 'Phase 1', description: 'd', files: [] },
-		} as any);
+		});
 
 		const result = await p;
 		expect(result.reason).toBe('phase_validated');
+
+		session.close();
 	});
 
-	it('reconnects and re-sends init messages', async () => {
-		const start: BuildStartEvent = {
-			agentId: 'a1',
-			websocketUrl: 'ws://localhost/ws',
-			behaviorType: 'phasic',
-			projectType: 'app',
-		};
+	it('wait.deployable resolves on generation_complete for agentic', async () => {
+		const session = createSession({ behaviorType: 'agentic' });
 
+		await session.connect();
+		await waitForClients(server, 1);
+
+		const p = session.wait.deployable({ timeoutMs: 5_000 });
+
+		server.broadcast({
+			type: 'generation_complete',
+			message: 'done',
+		});
+
+		const result = await p;
+		expect(result.reason).toBe('generation_complete');
+
+		session.close();
+	});
+
+	it('reconnects on close and re-sends init messages', async () => {
 		const creds: Credentials = { providers: { openai: { apiKey: 'sk-test' } } };
+		const session = createSession({}, creds);
 
-		const ws1 = new FakeWebSocket();
-		const ws2 = new FakeWebSocket();
-		const sockets: FakeWebSocket[] = [];
+		await session.connect({ retry: { initialDelayMs: 50, maxDelayMs: 50 } });
+		await waitForClients(server, 1);
 
-		const session = new BuildSession({ baseUrl: 'x' }, start, { defaultCredentials: creds });
-		session.connect({
-			retry: { initialDelayMs: 1, maxDelayMs: 1 },
-			webSocketFactory: () => {
-				const ws = sockets.length === 0 ? ws1 : ws2;
-				sockets.push(ws);
-				return ws;
+		// Get the client before clearing
+		const clientsBefore = server.clients();
+		expect(clientsBefore.length).toBe(1);
+		const client = clientsBefore[0];
+
+		server.clearReceived();
+
+		// Close the connection - this should trigger reconnect
+		client.close(1006, 'test disconnect');
+
+		// Wait for reconnection
+		await waitForClients(server, 1);
+		await waitForMessages(server, 2);
+
+		// Should have received init messages again on reconnect
+		const received = server.received();
+		const types = received.map((r) => (r.data as { type: string }).type);
+
+		expect(types).toContain('session_init');
+		expect(types).toContain('get_conversation_state');
+
+		session.close();
+	});
+
+	it('handles server-sent file updates', async () => {
+		const session = createSession();
+
+		await session.connect();
+		await waitForClients(server, 1);
+
+		server.broadcast({
+			type: 'file_generated',
+			file: {
+				filePath: 'src/app.tsx',
+				fileContents: 'export default function App() { return <div>Hello</div>; }',
+				filePurpose: 'Main app component',
 			},
 		});
 
-		ws1.emitOpen();
-		ws1.close();
+		await new Promise((r) => setTimeout(r, 100));
 
-		// Wait for reconnect timer to create the next socket
-		await new Promise((r) => setTimeout(r, 5));
-		expect(sockets.length).toBeGreaterThanOrEqual(2);
+		const paths = session.files.listPaths();
+		expect(paths).toContain('src/app.tsx');
 
-		ws2.emitOpen();
-		const sent2 = ws2.sent.map((s) => JSON.parse(s) as { type: string });
-		expect(sent2[0]?.type).toBe('session_init');
-		expect(sent2[1]?.type).toBe('get_conversation_state');
+		const content = session.files.read('src/app.tsx');
+		expect(content).toContain('Hello');
+
+		session.close();
 	});
 });

@@ -1,9 +1,4 @@
-/**
- * Utility for checking if a value is a plain object.
- */
-export function isRecord(v: unknown): v is Record<string, unknown> {
-	return Boolean(v) && typeof v === 'object' && !Array.isArray(v);
-}
+import { isRecord } from './utils';
 
 /**
  * Blueprint structure as streamed from the agent.

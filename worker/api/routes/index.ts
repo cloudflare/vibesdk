@@ -11,6 +11,7 @@ import { setupCodegenRoutes } from './codegenRoutes';
 import { setupScreenshotRoutes } from './imagesRoutes';
 import { setupSentryRoutes } from './sentryRoutes';
 import { setupCapabilitiesRoutes } from './capabilitiesRoutes';
+import { setupTicketRoutes } from './ticketRoutes';
 import { Hono } from "hono";
 import { AppEnv } from "../../types/appenv";
 import { setupStatusRoutes } from './statusRoutes';
@@ -32,6 +33,9 @@ export function setupRoutes(app: Hono<AppEnv>): void {
 
     // Authentication and user management routes
     setupAuthRoutes(app);
+    
+    // WebSocket ticket routes
+    setupTicketRoutes(app);
     
     // Codegen routes
     setupCodegenRoutes(app);

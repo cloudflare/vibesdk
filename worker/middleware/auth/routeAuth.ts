@@ -14,6 +14,7 @@ import { AppEnv } from '../../types/appenv';
 import { RateLimitExceededError } from 'shared/types/errors';
 import * as Sentry from '@sentry/cloudflare';
 import { getUserConfigurableSettings } from 'worker/config';
+import { authenticateViaTicket, hasTicketParam } from './ticketAuth';
 
 const logger = createLogger('RouteAuth');
 
@@ -29,6 +30,26 @@ export interface AuthRequirement {
     required: boolean;
     level: 'public' | 'authenticated' | 'owner-only';
     resourceOwnershipCheck?: (user: AuthUser, params: Record<string, string>, env: Env) => Promise<boolean>;
+}
+
+/**
+ * Ticket authentication configuration
+ */
+export type TicketResourceType = 'agent' | 'vault';
+
+export interface TicketAuthConfig {
+    /** Type of resource this ticket authenticates */
+    resourceType: TicketResourceType;
+    /** Path parameter name containing the resource ID (for agent) */
+    paramName?: string;
+}
+
+/**
+ * Additional options for setAuthLevel middleware
+ */
+export interface AuthLevelOptions {
+    /** Ticket-based authentication configuration */
+    ticketAuth?: TicketAuthConfig;
 }
 
 /**
@@ -138,7 +159,9 @@ export async function routeAuthChecks(
 export async function enforceAuthRequirement(c: Context<AppEnv>) : Promise<Response | undefined> {
     let user: AuthUser | null = c.get('user') || null;
 
-    const requirement = c.get('authLevel');
+    const requirement = c.get('authLevel') as AuthRequirement | undefined;
+    const authOptions = c.get('authLevelOptions') as AuthLevelOptions | undefined;
+    
     if (!requirement) {
         logger.error('No authentication level found');
         return errorResponse('No authentication level found', 500);
@@ -146,26 +169,53 @@ export async function enforceAuthRequirement(c: Context<AppEnv>) : Promise<Respo
     
     // Only perform auth if we need it or don't have user yet
     if (!user && (requirement.level === 'authenticated' || requirement.level === 'owner-only')) {
-        const userSession = await authMiddleware(c.req.raw, c.env);
-        if (!userSession) {
-            return errorResponse('Authentication required', 401);
-        }
-        user = userSession.user;
-        c.set('user', user);
-		c.set('sessionId', userSession.sessionId);
-		Sentry.setUser({ id: user.id, email: user.email });
-
-        const config = await getUserConfigurableSettings(c.env, user.id);
-        c.set('config', config);
-
-        try {
-            await RateLimitService.enforceAuthRateLimit(c.env, config.security.rateLimit, user, c.req.raw);
-        } catch (error) {
-            if (error instanceof RateLimitExceededError) {
-                return errorResponse(error, 429);
+        const request = c.req.raw;
+        const env = c.env;
+        const params = c.req.param();
+        
+        // Strategy 1: Ticket-based auth (if configured and ticket present)
+        if (authOptions?.ticketAuth && hasTicketParam(request)) {
+            const ticketAuth = await authenticateViaTicket(request, env, authOptions.ticketAuth, params);
+            if (ticketAuth) {
+                user = ticketAuth.user;
+                c.set('user', user);
+                c.set('sessionId', ticketAuth.sessionId);
+                Sentry.setUser({ id: user.id, email: user.email });
+                
+                const config = await getUserConfigurableSettings(c.env, user.id);
+                c.set('config', config);
+                
+                // Skip rate limiting for ticket auth (already rate-limited at ticket creation)
+                logger.info('Authenticated via ticket', { userId: user.id, resourceType: authOptions.ticketAuth.resourceType });
+            } else {
+                // Ticket was provided but invalid - reject immediately
+                return errorResponse('Invalid or expired ticket', 403);
             }
-            logger.error('Error enforcing auth rate limit', error);
-            return errorResponse('Internal server error', 500);
+        }
+        
+        // Strategy 2: Standard JWT auth (header/cookie)
+        if (!user) {
+            const userSession = await authMiddleware(c.req.raw, c.env);
+            if (!userSession) {
+                return errorResponse('Authentication required', 401);
+            }
+            user = userSession.user;
+            c.set('user', user);
+            c.set('sessionId', userSession.sessionId);
+            Sentry.setUser({ id: user.id, email: user.email });
+
+            const config = await getUserConfigurableSettings(c.env, user.id);
+            c.set('config', config);
+
+            try {
+                await RateLimitService.enforceAuthRateLimit(c.env, config.security.rateLimit, user, c.req.raw);
+            } catch (error) {
+                if (error instanceof RateLimitExceededError) {
+                    return errorResponse(error, 429);
+                }
+                logger.error('Error enforcing auth rate limit', error);
+                return errorResponse('Internal server error', 500);
+            }
         }
     }
     
@@ -178,9 +228,12 @@ export async function enforceAuthRequirement(c: Context<AppEnv>) : Promise<Respo
     }
 }
 
-export function setAuthLevel(requirement: AuthRequirement) {
+export function setAuthLevel(requirement: AuthRequirement, options?: AuthLevelOptions) {
     return createMiddleware(async (c, next) => {
         c.set('authLevel', requirement);
+        if (options) {
+            c.set('authLevelOptions', options);
+        }
         return await next();
     })
 }

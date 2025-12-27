@@ -170,3 +170,23 @@ export interface SecurityContext {
 export type AuditLogEntry = AuditLog & {
 	securityContext?: Partial<SecurityContext>;
 };
+
+/**
+ * WebSocket ticket for secure, one-time-use authentication
+ * Stored in Agent DO memory, consumed on WebSocket connection
+ */
+export interface PendingWsTicket {
+	token: string;
+	user: AuthUser;
+	sessionId: string;
+	createdAt: number;
+	expiresAt: number;
+}
+
+/**
+ * Result of ticket consumption from Agent DO
+ */
+export interface TicketConsumptionResult {
+	user: AuthUser;
+	sessionId: string;
+}
