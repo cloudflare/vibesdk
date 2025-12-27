@@ -25,3 +25,35 @@ export type {
 } from '../../worker/api/controllers/agent/types';
 
 export type { ImageAttachment } from '../../worker/types/image-attachment';
+
+// App schema type
+export type { App } from '../../worker/database/schema';
+
+// Database types
+export type {
+	Visibility,
+	AppWithFavoriteStatus as PlatformAppWithFavoriteStatus,
+	EnhancedAppData as PlatformEnhancedAppData,
+	FavoriteToggleResult,
+	PaginationInfo,
+	PublicAppQueryOptions,
+} from '../../worker/database/types';
+
+// Apps controller response types
+export type {
+	AppWithUserAndStats as PlatformAppWithUserAndStats,
+	AppsListData as PlatformAppsListData,
+	PublicAppsData as PlatformPublicAppsData,
+	UpdateAppVisibilityData as PlatformUpdateAppVisibilityData,
+	AppDeleteData,
+} from '../../worker/api/controllers/apps/types';
+
+// AppView controller response types
+export type {
+	AppDetailsData as PlatformAppDetailsData,
+	AppStarToggleData,
+	GitCloneTokenData,
+} from '../../worker/api/controllers/appView/types';
+
+// API response wrapper
+export type { BaseApiResponse } from '../../worker/api/responses';
