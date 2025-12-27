@@ -123,7 +123,7 @@ export type WsMessageOf<TType extends AgentWsServerMessage['type']> = Extract<
 export type AgentEventMap = {
 	'ws:open': undefined;
 	'ws:close': { code: number; reason: string };
-	'ws:error': { error: Error | string };
+	'ws:error': { error: unknown };
 	'ws:reconnecting': { attempt: number; delayMs: number; reason: 'close' | 'error' };
 	'ws:raw': { raw: Record<string, unknown> };
 	'ws:message': AgentWsServerMessage;
