@@ -1,6 +1,6 @@
 {
 	"name": "@cf-vibesdk/sdk",
-	"version": "0.0.6",
+	"version": "0.0.7",
 	"type": "module",
 	"exports": {
 		".": {
@@ -19,7 +19,7 @@
 	},
 	"scripts": {
 		"build": "rm -rf ./dist && bun build ./src/index.ts --outdir ./dist --target browser",
-		"bundle-types": "dts-bundle-generator --export-referenced-types false --no-check --project ./tsconfig.protocol.json -o ./dist/index.d.ts ./src/index.ts",
+		"bundle-types": "dts-bundle-generator --export-referenced-types false --no-check --project ./tsconfig.protocol.json -o ./dist/index.d.ts ./src/index.ts && bun run scripts/expand-drizzle-types.ts",
 		"typecheck": "tsc -p ./tsconfig.json --noEmit",
 		"test": "bun test test/*.test.ts",
 		"test:integration": "bun test --timeout 600000 test/integration/*.test.ts"
