@@ -9,6 +9,7 @@ import type {
 	ImageAttachment,
 	PhaseEventType,
 	PhaseInfo,
+	PhaseTimelineEvent,
 	ProjectType,
 	SessionDeployable,
 	SessionFiles,
@@ -129,6 +130,14 @@ export class BuildSession {
 		allCompleted: (): boolean =>
 			this.state.get().phases.length > 0 &&
 			this.state.get().phases.every((p) => p.status === 'completed'),
+
+		/**
+		 * Subscribe to phase timeline changes.
+		 * Fires when a phase is added or when a phase's status/files change.
+		 * @returns Unsubscribe function.
+		 */
+		onChange: (cb: (event: PhaseTimelineEvent) => void): (() => void) =>
+			this.state.onPhaseChange(cb),
 	};
 
 	readonly wait = {

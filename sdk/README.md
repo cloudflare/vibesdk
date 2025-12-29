@@ -250,6 +250,24 @@ if (session.phases.allCompleted()) {
 
 // Get phase by ID
 const phase = session.phases.get('phase-0');
+
+// Subscribe to phase changes
+const unsubscribe = session.phases.onChange((event) => {
+  console.log(`Phase ${event.type}:`, event.phase.name);
+  console.log(`Status: ${event.phase.status}`);
+  console.log(`Total phases: ${event.allPhases.length}`);
+});
+// Later: unsubscribe();
+```
+
+The `onChange` callback receives a `PhaseTimelineEvent`:
+
+```ts
+type PhaseTimelineEvent = {
+  type: 'added' | 'updated';  // New phase vs status/file change
+  phase: PhaseInfo;           // The affected phase
+  allPhases: PhaseInfo[];     // All phases after this change
+};
 ```
 
 Each phase contains:
@@ -403,6 +421,8 @@ import type {
   PhaseStatus,
   PhaseFileStatus,
   PhaseEventType,
+  PhaseTimelineEvent,
+  PhaseTimelineChangeType,
   
   // API
   ApiResponse,
