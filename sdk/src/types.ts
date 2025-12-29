@@ -186,6 +186,9 @@ export type AgentEventMap = {
 		| 'cloudflare_deployment_error'
 	>;
 	error: { error: string };
+
+	/** Emitted when the phase timeline changes (phase added or updated). */
+	phases: PhaseTimelineEvent;
 };
 
 // ============================================================================
@@ -304,6 +307,20 @@ export type SessionPhases = {
 	count: () => number;
 	/** Check if all phases are completed. */
 	allCompleted: () => boolean;
+};
+
+/**
+ * Event emitted when the phase timeline changes.
+ */
+export type PhaseTimelineChangeType = 'added' | 'updated';
+
+export type PhaseTimelineEvent = {
+	/** Type of change: 'added' for new phase, 'updated' for status/file changes. */
+	type: PhaseTimelineChangeType;
+	/** The phase that was added or updated. */
+	phase: PhaseInfo;
+	/** All phases in the timeline after this change. */
+	allPhases: PhaseInfo[];
 };
 
 export type SessionDeployable = {

@@ -38,6 +38,8 @@ export type {
 	PhaseFileStatus,
 	PhaseInfo,
 	PhaseStatus,
+	PhaseTimelineChangeType,
+	PhaseTimelineEvent,
 	ProjectType,
 	PublicAppsQuery,
 	SessionDeployable,

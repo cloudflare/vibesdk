@@ -1,5 +1,5 @@
 import { TypedEmitter } from './emitter';
-import type { AgentWsServerMessage, WsMessageOf, PhaseInfo, PhaseFile, BehaviorType, ProjectType } from './types';
+import type { AgentWsServerMessage, WsMessageOf, PhaseInfo, PhaseFile, BehaviorType, ProjectType, PhaseTimelineEvent, PhaseTimelineChangeType } from './types';
 import type { AgentState } from './protocol';
 
 export type ConnectionState = 'disconnected' | 'connecting' | 'connected';
@@ -78,6 +78,7 @@ export type SessionState = {
 
 type SessionStateEvents = {
 	change: { prev: SessionState; next: SessionState };
+	phaseChange: PhaseTimelineEvent;
 };
 
 const INITIAL_STATE: SessionState = {
@@ -167,6 +168,14 @@ export class SessionStateStore {
 
 	onChange(cb: (next: SessionState, prev: SessionState) => void): () => void {
 		return this.emitter.on('change', ({ prev, next }) => cb(next, prev));
+	}
+
+	/**
+	 * Subscribe to phase timeline changes.
+	 * Fires when a phase is added or when a phase's status/files change.
+	 */
+	onPhaseChange(cb: (event: PhaseTimelineEvent) => void): () => void {
+		return this.emitter.on('phaseChange', cb);
 	}
 
 	setConnection(state: ConnectionState): void {
@@ -451,7 +460,7 @@ export class SessionStateStore {
 		const files: PhaseFile[] = (phaseFiles ?? []).map((f) => ({
 			path: f.path,
 			purpose: f.purpose,
-			status: status === 'completed' ? 'completed' : 'generating',
+			status: status === 'completed' ? 'completed' : 'pending',
 		}));
 
 		if (existingIndex >= 0) {
@@ -481,6 +490,48 @@ export class SessionStateStore {
 		const next: SessionState = { ...prev, ...patch };
 		this.state = next;
 		this.emitter.emit('change', { prev, next });
+
+		// Emit phase change events if phases array changed
+		if (patch.phases && patch.phases !== prev.phases) {
+			this.emitPhaseChanges(prev.phases, patch.phases);
+		}
+	}
+
+	/**
+	 * Compare old and new phases arrays and emit change events.
+	 */
+	private emitPhaseChanges(prevPhases: PhaseInfo[], nextPhases: PhaseInfo[]): void {
+		// Check for new phases (added)
+		for (const phase of nextPhases) {
+			const prevPhase = prevPhases.find((p) => p.id === phase.id);
+			if (!prevPhase) {
+				// New phase added
+				this.emitter.emit('phaseChange', {
+					type: 'added',
+					phase,
+					allPhases: nextPhases,
+				});
+			} else if (this.hasPhaseChanged(prevPhase, phase)) {
+				// Existing phase updated
+				this.emitter.emit('phaseChange', {
+					type: 'updated',
+					phase,
+					allPhases: nextPhases,
+				});
+			}
+		}
+	}
+
+	/**
+	 * Check if a phase has meaningfully changed (status or file statuses).
+	 */
+	private hasPhaseChanged(prev: PhaseInfo, next: PhaseInfo): boolean {
+		if (prev.status !== next.status) return true;
+		if (prev.files.length !== next.files.length) return true;
+		for (let i = 0; i < prev.files.length; i++) {
+			if (prev.files[i]!.status !== next.files[i]!.status) return true;
+		}
+		return false;
 	}
 
 	clear(): void {

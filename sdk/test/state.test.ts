@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'bun:test';
 
 import { SessionStateStore } from '../src/state';
-import type { PhaseInfo } from '../src/types';
+import type { PhaseInfo, PhaseTimelineEvent } from '../src/types';
 
 /**
  * Helper to create a minimal phasic agent state for testing.
@@ -293,6 +293,213 @@ describe('SessionStateStore', () => {
 
 			expect(store.get().phases.length).toBe(0);
 			expect(store.get().behaviorType).toBeUndefined();
+		});
+	});
+
+	describe('onPhaseChange', () => {
+		it('emits added event when new phase is created', () => {
+			const store = new SessionStateStore();
+			const events: PhaseTimelineEvent[] = [];
+
+			store.onPhaseChange((event) => events.push(event));
+
+			store.applyWsMessage({
+				type: 'phase_generating',
+				message: '',
+				phase: {
+					name: 'New Phase',
+					description: 'A new phase',
+					files: [{ path: 'src/new.ts', purpose: 'New file' }],
+				},
+			} as any);
+
+			expect(events.length).toBe(1);
+			expect(events[0]!.type).toBe('added');
+			expect(events[0]!.phase.name).toBe('New Phase');
+			expect(events[0]!.phase.status).toBe('generating');
+			expect(events[0]!.allPhases.length).toBe(1);
+		});
+
+		it('emits updated event when phase status changes', () => {
+			const store = new SessionStateStore();
+			const events: PhaseTimelineEvent[] = [];
+
+			// Create phase first
+			store.applyWsMessage({
+				type: 'phase_generating',
+				message: '',
+				phase: {
+					name: 'Test Phase',
+					description: 'Testing',
+					files: [{ path: 'src/file.ts', purpose: 'File' }],
+				},
+			} as any);
+
+			// Subscribe after creation
+			store.onPhaseChange((event) => events.push(event));
+
+			// Update phase status
+			store.applyWsMessage({
+				type: 'phase_generated',
+				message: '',
+				phase: {
+					name: 'Test Phase',
+					description: 'Testing',
+					files: [{ path: 'src/file.ts', purpose: 'File' }],
+				},
+			} as any);
+
+			expect(events.length).toBe(1);
+			expect(events[0]!.type).toBe('updated');
+			expect(events[0]!.phase.name).toBe('Test Phase');
+			expect(events[0]!.phase.status).toBe('implementing');
+		});
+
+		it('emits updated event when file status changes', () => {
+			const store = new SessionStateStore();
+			const events: PhaseTimelineEvent[] = [];
+
+			// Create phase first
+			store.applyWsMessage({
+				type: 'phase_generating',
+				message: '',
+				phase: {
+					name: 'Test Phase',
+					description: 'Testing',
+					files: [{ path: 'src/file.ts', purpose: 'File' }],
+				},
+			} as any);
+
+			// Subscribe after creation
+			store.onPhaseChange((event) => events.push(event));
+
+			// Update file status
+			store.applyWsMessage({
+				type: 'file_generating',
+				filePath: 'src/file.ts',
+				filePurpose: 'File',
+			} as any);
+
+			expect(events.length).toBe(1);
+			expect(events[0]!.type).toBe('updated');
+			expect(events[0]!.phase.files[0]!.status).toBe('generating');
+		});
+
+		it('emits multiple events through phase lifecycle', () => {
+			const store = new SessionStateStore();
+			const events: PhaseTimelineEvent[] = [];
+
+			store.onPhaseChange((event) => events.push(event));
+
+			const phaseData = {
+				name: 'Lifecycle Phase',
+				description: 'Testing lifecycle',
+				files: [{ path: 'src/file.ts', purpose: 'File' }],
+			};
+
+			// Go through full lifecycle
+			store.applyWsMessage({ type: 'phase_generating', message: '', phase: phaseData } as any);
+			store.applyWsMessage({ type: 'phase_generated', message: '', phase: phaseData } as any);
+			store.applyWsMessage({ type: 'phase_implementing', message: '', phase: phaseData } as any);
+			store.applyWsMessage({ type: 'phase_implemented', message: '', phase: phaseData } as any);
+			store.applyWsMessage({ type: 'phase_validating', message: '', phase: phaseData } as any);
+			store.applyWsMessage({ type: 'phase_validated', message: '', phase: phaseData } as any);
+
+			// First event is 'added', then 'updated' for each status change
+			// Note: phase_implementing doesn't change status (still 'implementing')
+			// and phase_validating doesn't change status (still 'validating')
+			// So we expect: added (generating) -> updated (implementing) -> updated (validating) -> updated (completed)
+			expect(events.length).toBe(4);
+			expect(events[0]!.type).toBe('added');
+			expect(events[0]!.phase.status).toBe('generating');
+			expect(events[1]!.type).toBe('updated');
+			expect(events[1]!.phase.status).toBe('implementing');
+			expect(events[2]!.type).toBe('updated');
+			expect(events[2]!.phase.status).toBe('validating');
+			expect(events[3]!.type).toBe('updated');
+			expect(events[3]!.phase.status).toBe('completed');
+		});
+
+		it('unsubscribes correctly', () => {
+			const store = new SessionStateStore();
+			const events: PhaseTimelineEvent[] = [];
+
+			const unsubscribe = store.onPhaseChange((event) => events.push(event));
+
+			store.applyWsMessage({
+				type: 'phase_generating',
+				message: '',
+				phase: { name: 'Phase 1', description: '', files: [] },
+			} as any);
+
+			expect(events.length).toBe(1);
+
+			// Unsubscribe
+			unsubscribe();
+
+			store.applyWsMessage({
+				type: 'phase_generating',
+				message: '',
+				phase: { name: 'Phase 2', description: '', files: [] },
+			} as any);
+
+			// Should still be 1 since we unsubscribed
+			expect(events.length).toBe(1);
+		});
+
+		it('does not emit when phases array is unchanged', () => {
+			const store = new SessionStateStore();
+			const events: PhaseTimelineEvent[] = [];
+
+			store.onPhaseChange((event) => events.push(event));
+
+			// Non-phase message should not trigger phase change
+			store.applyWsMessage({
+				type: 'generation_started',
+				totalFiles: 10,
+			} as any);
+
+			expect(events.length).toBe(0);
+		});
+
+		it('emits added events for multiple phases from agent_connected', () => {
+			const store = new SessionStateStore();
+			const events: PhaseTimelineEvent[] = [];
+
+			store.onPhaseChange((event) => events.push(event));
+
+			store.applyWsMessage({
+				type: 'agent_connected',
+				state: createPhasicState({
+					shouldBeGenerating: false,
+					generatedPhases: [
+						{
+							name: 'Phase 1',
+							description: 'First phase',
+							files: [{ path: 'src/a.ts', purpose: 'A' }],
+							completed: true,
+						},
+						{
+							name: 'Phase 2',
+							description: 'Second phase',
+							files: [{ path: 'src/b.ts', purpose: 'B' }],
+							completed: true,
+						},
+					],
+					generatedFilesMap: {
+						'src/a.ts': { filePath: 'src/a.ts', fileContents: '// a' },
+						'src/b.ts': { filePath: 'src/b.ts', fileContents: '// b' },
+					},
+				}),
+				templateDetails: {},
+			} as any);
+
+			// Should emit 'added' for each phase
+			expect(events.length).toBe(2);
+			expect(events[0]!.type).toBe('added');
+			expect(events[0]!.phase.name).toBe('Phase 1');
+			expect(events[1]!.type).toBe('added');
+			expect(events[1]!.phase.name).toBe('Phase 2');
 		});
 	});
 });
