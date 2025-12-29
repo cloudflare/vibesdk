@@ -1,5 +1,6 @@
 import { TypedEmitter } from './emitter';
-import type { AgentWsServerMessage, WsMessageOf } from './types';
+import type { AgentWsServerMessage, WsMessageOf, PhaseInfo, PhaseFile, BehaviorType, ProjectType } from './types';
+import type { AgentState } from './protocol';
 
 export type ConnectionState = 'disconnected' | 'connecting' | 'connected';
 
@@ -47,6 +48,32 @@ export type SessionState = {
 
 	cloudflare: CloudflareDeploymentState;
 	lastError?: string;
+
+	// =========================================================================
+	// Phase Timeline (seeded from agent_connected, updated on phase events)
+	// =========================================================================
+
+	/** Full phase timeline with status and files for each phase. */
+	phases: PhaseInfo[];
+
+	// =========================================================================
+	// Agent Metadata (seeded from agent_connected)
+	// =========================================================================
+
+	/** Behavior type of the agent (phasic or agentic). */
+	behaviorType?: BehaviorType;
+
+	/** Project type (app, workflow, presentation, general). */
+	projectType?: ProjectType;
+
+	/** Original user query that started this build. */
+	query?: string;
+
+	/** Whether the agent should be actively generating. */
+	shouldBeGenerating?: boolean;
+
+	/** Project name from the blueprint. */
+	projectName?: string;
 };
 
 type SessionStateEvents = {
@@ -59,6 +86,7 @@ const INITIAL_STATE: SessionState = {
 	phase: { status: 'idle' },
 	preview: { status: 'idle' },
 	cloudflare: { status: 'idle' },
+	phases: [],
 };
 
 function extractPhaseInfo(msg: unknown): { name?: string; description?: string } {
@@ -67,6 +95,66 @@ function extractPhaseInfo(msg: unknown): { name?: string; description?: string }
 		name: phase?.name,
 		description: phase?.description,
 	};
+}
+
+function extractPhaseFiles(
+	msg: unknown,
+): { path: string; purpose: string }[] | undefined {
+	const phase = (msg as { phase?: { files?: { path: string; purpose: string }[] } } | undefined)?.phase;
+	return phase?.files;
+}
+
+function isPhasicState(state: AgentState): state is AgentState & { generatedPhases: Array<{ name: string; description: string; files: { path: string; purpose: string }[]; completed: boolean }> } {
+	return state.behaviorType === 'phasic' && 'generatedPhases' in state;
+}
+
+/**
+ * Build phase timeline from agent state (used on agent_connected).
+ */
+function buildPhaseTimelineFromState(
+	state: AgentState,
+	generatedFilesMap: Record<string, unknown>,
+): PhaseInfo[] {
+	if (!isPhasicState(state)) return [];
+
+	const isActivelyGenerating = state.shouldBeGenerating === true;
+
+	return state.generatedPhases.map((phase, index) => {
+		// Determine phase status based on completion and generation state
+		let status: PhaseInfo['status'];
+		if (phase.completed) {
+			status = 'completed';
+		} else if (!isActivelyGenerating) {
+			status = 'cancelled';
+		} else {
+			status = 'generating';
+		}
+
+		const files: PhaseFile[] = phase.files.map((f) => {
+			const fileExists = f.path in generatedFilesMap;
+			let fileStatus: PhaseFile['status'];
+			if (fileExists) {
+				fileStatus = 'completed';
+			} else if (!isActivelyGenerating) {
+				fileStatus = 'cancelled';
+			} else {
+				fileStatus = 'pending';
+			}
+			return {
+				path: f.path,
+				purpose: f.purpose,
+				status: fileStatus,
+			};
+		});
+
+		return {
+			id: `phase-${index}`,
+			name: phase.name,
+			description: phase.description,
+			status,
+			files,
+		};
+	});
 }
 
 export class SessionStateStore {
@@ -140,48 +228,112 @@ export class SessionStateStore {
 
 			case 'file_generating': {
 				const m = msg as WsMessageOf<'file_generating'>;
-				this.setState({ currentFile: m.filePath });
+				// Update file status in phases
+				const phasesWithGenerating = this.updateFileStatus(m.filePath, 'generating');
+				this.setState({ currentFile: m.filePath, phases: phasesWithGenerating });
 				break;
 			}
 			case 'file_generated': {
+				const m = msg as WsMessageOf<'file_generated'>;
+				const filePath = (m.file as { filePath?: string })?.filePath;
 				const prev = this.state.generation;
+
+				// Update file status in phases
+				const phasesWithCompleted = filePath
+					? this.updateFileStatus(filePath, 'completed')
+					: this.state.phases;
+
 				if (prev.status === 'running' || prev.status === 'stopped') {
 					this.setState({
 						generation: { ...prev, filesGenerated: prev.filesGenerated + 1 },
 						currentFile: undefined,
+						phases: phasesWithCompleted,
 					});
+				} else {
+					this.setState({ phases: phasesWithCompleted, currentFile: undefined });
 				}
 				break;
 			}
 
 			case 'phase_generating': {
 				const m = msg as WsMessageOf<'phase_generating'>;
-				this.setState({ phase: { status: 'generating', ...extractPhaseInfo(m) } });
+				const phaseInfo = extractPhaseInfo(m);
+				const phaseFiles = extractPhaseFiles(m);
+
+				// Add or update phase in timeline
+				const phases = this.updateOrAddPhase(phaseInfo, 'generating', phaseFiles);
+
+				this.setState({
+					phase: { status: 'generating', ...phaseInfo },
+					phases,
+				});
 				break;
 			}
 			case 'phase_generated': {
 				const m = msg as WsMessageOf<'phase_generated'>;
-				this.setState({ phase: { status: 'generated', ...extractPhaseInfo(m) } });
+				const phaseInfo = extractPhaseInfo(m);
+				const phaseFiles = extractPhaseFiles(m);
+
+				// Update phase status in timeline
+				const phases = this.updateOrAddPhase(phaseInfo, 'implementing', phaseFiles);
+
+				this.setState({
+					phase: { status: 'generated', ...phaseInfo },
+					phases,
+				});
 				break;
 			}
 			case 'phase_implementing': {
 				const m = msg as WsMessageOf<'phase_implementing'>;
-				this.setState({ phase: { status: 'implementing', ...extractPhaseInfo(m) } });
+				const phaseInfo = extractPhaseInfo(m);
+				const phaseFiles = extractPhaseFiles(m);
+
+				const phases = this.updateOrAddPhase(phaseInfo, 'implementing', phaseFiles);
+
+				this.setState({
+					phase: { status: 'implementing', ...phaseInfo },
+					phases,
+				});
 				break;
 			}
 			case 'phase_implemented': {
 				const m = msg as WsMessageOf<'phase_implemented'>;
-				this.setState({ phase: { status: 'implemented', ...extractPhaseInfo(m) } });
+				const phaseInfo = extractPhaseInfo(m);
+				const phaseFiles = extractPhaseFiles(m);
+
+				const phases = this.updateOrAddPhase(phaseInfo, 'validating', phaseFiles);
+
+				this.setState({
+					phase: { status: 'implemented', ...phaseInfo },
+					phases,
+				});
 				break;
 			}
 			case 'phase_validating': {
 				const m = msg as WsMessageOf<'phase_validating'>;
-				this.setState({ phase: { status: 'validating', ...extractPhaseInfo(m) } });
+				const phaseInfo = extractPhaseInfo(m);
+				const phaseFiles = extractPhaseFiles(m);
+
+				const phases = this.updateOrAddPhase(phaseInfo, 'validating', phaseFiles);
+
+				this.setState({
+					phase: { status: 'validating', ...phaseInfo },
+					phases,
+				});
 				break;
 			}
 			case 'phase_validated': {
 				const m = msg as WsMessageOf<'phase_validated'>;
-				this.setState({ phase: { status: 'validated', ...extractPhaseInfo(m) } });
+				const phaseInfo = extractPhaseInfo(m);
+				const phaseFiles = extractPhaseFiles(m);
+
+				// Mark phase as completed
+				const phases = this.updateOrAddPhase(phaseInfo, 'completed', phaseFiles);
+
+				this.setState({
+					phase: { status: 'validated', ...phaseInfo },
+					phases,
+				});
 				break;
 			}
 
@@ -235,8 +387,29 @@ export class SessionStateStore {
 
 			case 'agent_connected': {
 				const m = msg as WsMessageOf<'agent_connected'>;
+				const agentState = m.state;
 				const previewUrl = (m as { previewUrl?: string }).previewUrl;
-				if (previewUrl) this.setState({ previewUrl });
+
+				// Build phase timeline from agent state
+				const phases = buildPhaseTimelineFromState(agentState, agentState.generatedFilesMap ?? {});
+
+				// Determine generation state from agent state
+				let generation = this.state.generation;
+				if (agentState.shouldBeGenerating) {
+					const filesGenerated = Object.keys(agentState.generatedFilesMap ?? {}).length;
+					generation = { status: 'running', filesGenerated };
+				}
+
+				this.setState({
+					previewUrl,
+					phases,
+					generation,
+					behaviorType: agentState.behaviorType,
+					projectType: agentState.projectType,
+					query: agentState.query,
+					shouldBeGenerating: agentState.shouldBeGenerating,
+					projectName: agentState.projectName,
+				});
 				break;
 			}
 
@@ -248,6 +421,59 @@ export class SessionStateStore {
 			default:
 				break;
 		}
+	}
+
+	/**
+	 * Update the status of a file in the phase timeline.
+	 */
+	private updateFileStatus(filePath: string, status: PhaseFile['status']): PhaseInfo[] {
+		return this.state.phases.map((phase) => ({
+			...phase,
+			files: phase.files.map((f) =>
+				f.path === filePath ? { ...f, status } : f,
+			),
+		}));
+	}
+
+	/**
+	 * Update an existing phase or add a new one to the timeline.
+	 */
+	private updateOrAddPhase(
+		phaseInfo: { name?: string; description?: string },
+		status: PhaseInfo['status'],
+		phaseFiles?: { path: string; purpose: string }[],
+	): PhaseInfo[] {
+		const phases = [...this.state.phases];
+
+		// Find existing phase by name
+		const existingIndex = phases.findIndex((p) => p.name === phaseInfo.name);
+
+		const files: PhaseFile[] = (phaseFiles ?? []).map((f) => ({
+			path: f.path,
+			purpose: f.purpose,
+			status: status === 'completed' ? 'completed' : 'generating',
+		}));
+
+		if (existingIndex >= 0) {
+			// Update existing phase
+			phases[existingIndex] = {
+				...phases[existingIndex]!,
+				status,
+				description: phaseInfo.description ?? phases[existingIndex]!.description,
+				files: files.length > 0 ? files : phases[existingIndex]!.files,
+			};
+		} else if (phaseInfo.name) {
+			// Add new phase
+			phases.push({
+				id: `phase-${phases.length}`,
+				name: phaseInfo.name,
+				description: phaseInfo.description ?? '',
+				status,
+				files,
+			});
+		}
+
+		return phases;
 	}
 
 	private setState(patch: Partial<SessionState>): void {

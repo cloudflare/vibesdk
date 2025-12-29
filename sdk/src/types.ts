@@ -19,6 +19,8 @@ import type {
 	AppStarToggleData,
 	GitCloneTokenData,
 	BaseApiResponse,
+	FileConceptType as PlatformFileConceptType,
+	PhaseConceptType as PlatformPhaseConceptType,
 } from './protocol';
 import type { RetryConfig } from './retry';
 export type { RetryConfig } from './retry';
@@ -247,6 +249,61 @@ export type PhaseEventType =
 
 export type WaitForPhaseOptions = WaitOptions & {
 	type: PhaseEventType;
+};
+
+// ============================================================================
+// Phase Timeline Types
+// ============================================================================
+// These types extend the platform's PhaseConceptType and FileConceptType
+// with SDK-specific fields for tracking generation status in the UI.
+
+/**
+ * Status of a file within a phase.
+ */
+export type PhaseFileStatus = 'pending' | 'generating' | 'completed' | 'cancelled';
+
+/**
+ * A file concept within a phase, with its generation status.
+ * Extends platform's FileConceptType with status tracking.
+ */
+export type PhaseFile = Pick<PlatformFileConceptType, 'path' | 'purpose'> & {
+	status: PhaseFileStatus;
+};
+
+/**
+ * Status of a phase in the timeline.
+ */
+export type PhaseStatus = 'pending' | 'generating' | 'implementing' | 'validating' | 'completed' | 'cancelled';
+
+/**
+ * A phase in the build timeline with its files and status.
+ * Extends platform's PhaseConceptType with SDK-specific fields.
+ */
+export type PhaseInfo = Pick<PlatformPhaseConceptType, 'name' | 'description'> & {
+	/** Unique identifier for this phase (e.g., "phase-0", "phase-1"). */
+	id: string;
+	/** Current status of the phase. */
+	status: PhaseStatus;
+	/** Files in this phase with their generation status. */
+	files: PhaseFile[];
+};
+
+/**
+ * High-level API for accessing phase timeline data.
+ */
+export type SessionPhases = {
+	/** Get all phases in the timeline. */
+	list: () => PhaseInfo[];
+	/** Get the currently active phase (first non-completed phase), or undefined. */
+	current: () => PhaseInfo | undefined;
+	/** Get all completed phases. */
+	completed: () => PhaseInfo[];
+	/** Get a phase by its id (e.g., "phase-0"). */
+	get: (id: string) => PhaseInfo | undefined;
+	/** Get the total count of phases. */
+	count: () => number;
+	/** Check if all phases are completed. */
+	allCompleted: () => boolean;
 };
 
 export type SessionDeployable = {
