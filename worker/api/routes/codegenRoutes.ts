@@ -27,7 +27,5 @@ export function setupCodegenRoutes(app: Hono<AppEnv>): void {
     // Only the app owner should be able to connect for editing purposes
     app.get('/api/agent/:agentId/connect', setAuthLevel(AuthConfig.ownerOnly), adaptController(CodingAgentController, CodingAgentController.connectToExistingAgent));
 
-    // Deploy preview - OWNER ONLY
-    // Only the app owner should be able to deploy previews
-    app.get('/api/agent/:agentId/preview', setAuthLevel(AuthConfig.ownerOnly), adaptController(CodingAgentController, CodingAgentController.deployPreview));
+    app.get('/api/agent/:agentId/preview', setAuthLevel(AuthConfig.authenticated), adaptController(CodingAgentController, CodingAgentController.deployPreview));
 }
