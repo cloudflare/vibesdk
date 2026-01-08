@@ -261,6 +261,16 @@ export class GitHubExporterController extends BaseController {
             });
 
             if (purpose === 'repository_export' && exportData && agentId) {
+                const appService = new AppService(env);
+                const ownershipResult = await appService.checkAppOwnership(agentId, userId);
+                if (!ownershipResult.isOwner) {
+                    this.logger.warn('OAuth callback ownership check failed', { userId, agentId });
+                    return Response.redirect(
+                        `${returnUrl}?github_export=error&reason=${encodeURIComponent('You do not have permission to export this app')}`,
+                        302,
+                    );
+                }
+
                 const result = await this.createRepositoryAndPush({
                     env,
                     agentId,
