@@ -13,7 +13,7 @@ import {
 import { SecurityError, SecurityErrorType } from 'shared/types/errors';
 import { ApiResponse, ControllerResponse } from '../types';
 import { RouteContext } from '../../types/route-context';
-import { ModelConfigService } from '../../../database';
+import { AppService, ModelConfigService } from '../../../database';
 import { ModelConfig, credentialsToRuntimeOverrides } from '../../../agents/inferutils/config.types';
 import { RateLimitService } from '../../../services/rate-limit/rateLimits';
 import { validateWebSocketOrigin } from '../../../middleware/security/websocket';
@@ -338,6 +338,21 @@ export class CodingAgentController extends BaseController {
                 return CodingAgentController.createErrorResponse<AgentPreviewResponse>('Missing agent ID parameter', 400);
             }
 
+            const appService = new AppService(env);
+            const appResult = await appService.getAppDetails(agentId);
+
+            if (!appResult) {
+                return CodingAgentController.createErrorResponse<AgentPreviewResponse>('App not found', 404);
+            }
+
+            // Check if app is public
+            if(appResult.visibility !== 'public') {
+                // If user is logged in and is the owner, allow preview deployment
+                const user = context.user;
+                if (!user || user.id !== appResult.userId) {
+                    return CodingAgentController.createErrorResponse<AgentPreviewResponse>('App is not public. Preview deployment is only available for public apps.', 403);
+                }
+            }
             this.logger.info(`Deploying preview for agent: ${agentId}`);
 
             try {
