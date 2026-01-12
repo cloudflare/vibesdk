@@ -19,9 +19,11 @@ export function setupCodegenRoutes(app: Hono<AppEnv>): void {
     // APP EDITING ROUTES (/chat/:id frontend)
     // ========================================
     
-    // WebSocket for app editing - OWNER ONLY (for /chat/:id route)
-    // Only the app owner should be able to connect and modify via WebSocket
-    app.get('/api/agent/:agentId/ws', setAuthLevel(AuthConfig.ownerOnly), adaptController(CodingAgentController, CodingAgentController.handleWebSocketConnection));
+    // WebSocket for app editing - OWNER ONLY with ticket support
+    // Supports ticket-based auth (SDK) or JWT-based auth (browser)
+    app.get('/api/agent/:agentId/ws', setAuthLevel(AuthConfig.ownerOnly, { 
+        ticketAuth: { resourceType: 'agent', paramName: 'agentId' } 
+    }), adaptController(CodingAgentController, CodingAgentController.handleWebSocketConnection));
     
     // Connect to existing agent for editing - OWNER ONLY
     // Only the app owner should be able to connect for editing purposes

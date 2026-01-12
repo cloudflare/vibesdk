@@ -1,4 +1,5 @@
 import { TypedEmitter } from './emitter';
+import { isRecord } from './utils';
 import type { AgentState, FileOutputType } from './protocol';
 import type { AgentWsServerMessage } from './types';
 
@@ -15,10 +16,6 @@ export type WorkspaceChange =
 type WorkspaceEvents = {
 	change: WorkspaceChange;
 };
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-	return typeof value === 'object' && value !== null;
-}
 
 function isFileOutputType(value: unknown): value is FileOutputType {
 	if (!isRecord(value)) return false;

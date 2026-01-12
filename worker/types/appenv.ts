@@ -1,5 +1,5 @@
 import { GlobalConfigurableSettings } from "../config";
-import { AuthRequirement } from "../middleware/auth/routeAuth";
+import { AuthLevelOptions, AuthRequirement } from "../middleware/auth/routeAuth";
 import { AuthUser } from "./auth-types";
 
 
@@ -10,5 +10,6 @@ export type AppEnv = {
         sessionId: string | null;
         config: GlobalConfigurableSettings;
         authLevel: AuthRequirement;
+        authLevelOptions?: AuthLevelOptions;
     }
 }

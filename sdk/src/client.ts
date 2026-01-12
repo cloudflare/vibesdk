@@ -2,11 +2,16 @@ import type {
 	ApiResponse,
 	AppDetails,
 	AppListItem,
+	AppVisibility,
+	AppWithFavoriteStatus,
 	BuildOptions,
 	BuildStartEvent,
 	Credentials,
+	DeleteResult,
 	PublicAppsQuery,
+	ToggleResult,
 	VibeClientOptions,
+	VisibilityUpdateResult,
 } from './types';
 import { HttpClient } from './http';
 import { parseNdjsonStream } from './ndjson';
@@ -25,7 +30,7 @@ function toQueryString(query: Record<string, string | number | undefined>): stri
 export class VibeClient {
 	private http: HttpClient;
 
-	constructor(private options: VibeClientOptions) {
+	constructor(options: VibeClientOptions) {
 		this.http = new HttpClient(options);
 	}
 
@@ -35,9 +40,6 @@ export class VibeClient {
 
 	/**
 	 * Creates a new agent/app from a prompt and returns a BuildSession.
-	 *
-	 * Current platform requirement: `token` must be a valid JWT access token.
-	 * Later: `apiKey` will be exchanged for a short-lived JWT.
 	 */
 	async build(prompt: string, options: BuildOptions = {}): Promise<BuildSession> {
 		const body = {
@@ -48,7 +50,6 @@ export class VibeClient {
 			behaviorType: options.behaviorType,
 			projectType: options.projectType,
 			images: options.images,
-			// Future: credentials
 			credentials: options.credentials,
 		};
 
@@ -79,12 +80,13 @@ export class VibeClient {
 			throw new Error('No start event received from /api/agent');
 		}
 
-		const session = new BuildSession(this.options, start, {
-			getAuthToken: () => this.http.getToken(),
+		const session = new BuildSession(start, {
+			httpClient: this.http,
 			...(options.credentials ? { defaultCredentials: options.credentials } : {}),
 		});
+
 		if (options.autoConnect ?? true) {
-			session.connect();
+			await session.connect();
 			if (options.autoGenerate ?? true) {
 				session.startGeneration();
 			}
@@ -100,8 +102,8 @@ export class VibeClient {
 			{ method: 'GET', headers: await this.http.headers() }
 		);
 
-		if (!data.success) {
-			throw new Error(data.error.message);
+		if (!data.success || !data.data) {
+			throw new Error(data.error?.message ?? 'Failed to connect to agent');
 		}
 
 		const start: BuildStartEvent = {
@@ -109,17 +111,18 @@ export class VibeClient {
 			websocketUrl: data.data.websocketUrl,
 		};
 
-		return new BuildSession(this.options, start, {
-			getAuthToken: () => this.http.getToken(),
+		return new BuildSession(start, {
+			httpClient: this.http,
 			...(options.credentials ? { defaultCredentials: options.credentials } : {}),
 		});
 	}
 
 	apps = {
+		/** List public apps with optional filtering and pagination. */
 		listPublic: async (query: PublicAppsQuery = {}) => {
 			const qs = toQueryString({
 				limit: query.limit,
-				page: query.page,
+				offset: query.offset,
 				sort: query.sort,
 				order: query.order,
 				period: query.period,
@@ -132,13 +135,31 @@ export class VibeClient {
 			);
 		},
 
+		/** List all apps owned by the authenticated user. */
 		listMine: async () => {
-			return this.http.fetchJson<ApiResponse<{ apps: AppListItem[] }>>('/api/apps', {
+			return this.http.fetchJson<ApiResponse<{ apps: AppWithFavoriteStatus[] }>>('/api/apps', {
 				method: 'GET',
 				headers: await this.http.headers(),
 			});
 		},
 
+		/** List recent apps (last 10) for the authenticated user. */
+		listRecent: async () => {
+			return this.http.fetchJson<ApiResponse<{ apps: AppWithFavoriteStatus[] }>>('/api/apps/recent', {
+				method: 'GET',
+				headers: await this.http.headers(),
+			});
+		},
+
+		/** List favorite apps for the authenticated user. */
+		listFavorites: async () => {
+			return this.http.fetchJson<ApiResponse<{ apps: AppWithFavoriteStatus[] }>>('/api/apps/favorites', {
+				method: 'GET',
+				headers: await this.http.headers(),
+			});
+		},
+
+		/** Get detailed information about a specific app. */
 		get: async (appId: string) => {
 			return this.http.fetchJson<ApiResponse<AppDetails>>(`/api/apps/${appId}`, {
 				method: 'GET',
@@ -146,6 +167,40 @@ export class VibeClient {
 			});
 		},
 
+		/** Delete an app (owner only). */
+		delete: async (appId: string) => {
+			return this.http.fetchJson<ApiResponse<DeleteResult>>(`/api/apps/${appId}`, {
+				method: 'DELETE',
+				headers: await this.http.headers(),
+			});
+		},
+
+		/** Update app visibility (owner only). */
+		setVisibility: async (appId: string, visibility: AppVisibility) => {
+			return this.http.fetchJson<ApiResponse<VisibilityUpdateResult>>(`/api/apps/${appId}/visibility`, {
+				method: 'PUT',
+				headers: await this.http.headers({ 'Content-Type': 'application/json' }),
+				body: JSON.stringify({ visibility }),
+			});
+		},
+
+		/** Toggle star/bookmark status on an app. */
+		toggleStar: async (appId: string) => {
+			return this.http.fetchJson<ApiResponse<ToggleResult>>(`/api/apps/${appId}/star`, {
+				method: 'POST',
+				headers: await this.http.headers(),
+			});
+		},
+
+		/** Toggle favorite status on an app. */
+		toggleFavorite: async (appId: string) => {
+			return this.http.fetchJson<ApiResponse<ToggleResult>>(`/api/apps/${appId}/favorite`, {
+				method: 'POST',
+				headers: await this.http.headers(),
+			});
+		},
+
+		/** Generate a git clone token for an app (owner only). */
 		getGitCloneToken: async (appId: string) => {
 			return this.http.fetchJson<
 				ApiResponse<{ token: string; expiresIn: number; expiresAt: string; cloneUrl: string }>

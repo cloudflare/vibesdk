@@ -6,11 +6,13 @@ import type {
 	BuildStartEvent,
 	Credentials,
 	FileTreeNode,
+	ImageAttachment,
 	PhaseEventType,
+	PhaseInfo,
+	PhaseTimelineEvent,
 	ProjectType,
 	SessionDeployable,
 	SessionFiles,
-	VibeClientOptions,
 	WaitForPhaseOptions,
 	WaitOptions,
 	WsMessageOf,
@@ -18,16 +20,19 @@ import type {
 import { SessionStateStore } from './state';
 import { createAgentConnection } from './ws';
 import { WorkspaceStore } from './workspace';
+import type { HttpClient } from './http';
 
 export type WaitUntilReadyOptions = WaitOptions;
 
-export type BuildSessionConnectOptions = AgentConnectionOptions & {
+export type BuildSessionConnectOptions = Omit<AgentConnectionOptions, 'credentials'> & {
 	/** If true (default), send `get_conversation_state` on socket open. */
 	autoRequestConversationState?: boolean;
+	/** Credentials to send via session_init after connection. */
+	credentials?: Credentials;
 };
 
 type BuildSessionInit = {
-	getAuthToken?: () => string | undefined;
+	httpClient: HttpClient;
 	defaultCredentials?: Credentials;
 };
 
@@ -98,6 +103,43 @@ export class BuildSession {
 		tree: () => buildFileTree(this.workspace.paths()),
 	};
 
+	/**
+	 * High-level API for accessing the phase timeline.
+	 * Phases are seeded from agent_connected and updated on phase events.
+	 */
+	readonly phases = {
+		/** Get all phases in the timeline. */
+		list: (): PhaseInfo[] => this.state.get().phases,
+
+		/** Get the currently active phase (first non-completed phase), or undefined. */
+		current: (): PhaseInfo | undefined =>
+			this.state.get().phases.find((p) => p.status !== 'completed' && p.status !== 'cancelled'),
+
+		/** Get all completed phases. */
+		completed: (): PhaseInfo[] =>
+			this.state.get().phases.filter((p) => p.status === 'completed'),
+
+		/** Get a phase by its id (e.g., "phase-0"). */
+		get: (id: string): PhaseInfo | undefined =>
+			this.state.get().phases.find((p) => p.id === id),
+
+		/** Get the total count of phases. */
+		count: (): number => this.state.get().phases.length,
+
+		/** Check if all phases are completed. */
+		allCompleted: (): boolean =>
+			this.state.get().phases.length > 0 &&
+			this.state.get().phases.every((p) => p.status === 'completed'),
+
+		/**
+		 * Subscribe to phase timeline changes.
+		 * Fires when a phase is added or when a phase's status/files change.
+		 * @returns Unsubscribe function.
+		 */
+		onChange: (cb: (event: PhaseTimelineEvent) => void): (() => void) =>
+			this.state.onPhaseChange(cb),
+	};
+
 	readonly wait = {
 		generationStarted: (options: WaitOptions = {}) => this.waitForGenerationStarted(options),
 		generationComplete: (options: WaitOptions = {}) => this.waitForGenerationComplete(options),
@@ -108,9 +150,8 @@ export class BuildSession {
 	};
 
 	constructor(
-		private clientOptions: VibeClientOptions,
 		start: BuildStartEvent,
-		private init: BuildSessionInit = {}
+		private init: BuildSessionInit
 	) {
 		this.agentId = start.agentId;
 		this.websocketUrl = start.websocketUrl;
@@ -122,47 +163,49 @@ export class BuildSession {
 		return this.connection !== null;
 	}
 
-	connect(options: BuildSessionConnectOptions = {}): AgentConnection {
+	/**
+	 * Connect to the agent via WebSocket using ticket-based authentication.
+	 * Fetches a fresh ticket on initial connect and on each reconnect.
+	 */
+	async connect(options: BuildSessionConnectOptions = {}): Promise<AgentConnection> {
 		if (this.connection) return this.connection;
 
-		const { autoRequestConversationState, ...agentOptions } = options;
+		const { autoRequestConversationState, credentials, ...connectionOptions } = options;
 
-		const origin = agentOptions.origin ?? this.clientOptions.websocketOrigin;
-		const webSocketFactory = agentOptions.webSocketFactory ?? this.clientOptions.webSocketFactory;
-
-		const headers: Record<string, string> = { ...(agentOptions.headers ?? {}) };
-		const token = this.init.getAuthToken?.();
-		if (token && !headers.Authorization) {
-			headers.Authorization = `Bearer ${token}`;
-		}
-
-		const connectOptions: AgentConnectionOptions = {
-			...agentOptions,
-			...(origin ? { origin } : {}),
-			...(Object.keys(headers).length ? { headers } : {}),
-			...(webSocketFactory ? { webSocketFactory } : {}),
+		// URL provider fetches fresh ticket on each connect/reconnect
+		const getUrl = async (): Promise<string> => {
+			const { ticket } = await this.init.httpClient.getWsTicket(this.agentId);
+			const base = this.websocketUrl;
+			const sep = base.includes('?') ? '&' : '?';
+			return `${base}${sep}ticket=${encodeURIComponent(ticket)}`;
 		};
 
 		this.state.setConnection('connecting');
-		this.connection = createAgentConnection(this.websocketUrl, connectOptions);
+		this.connection = createAgentConnection(getUrl, connectionOptions);
+
+		// Handle state updates from messages
 		this.connection.on('ws:message', (m) => {
 			this.workspace.applyWsMessage(m);
 			this.state.applyWsMessage(m);
 		});
+
 		this.connection.on('ws:open', () => {
 			this.state.setConnection('connected');
 		});
+
 		this.connection.on('ws:close', () => {
 			this.state.setConnection('disconnected');
 		});
 
-		const credentials = agentOptions.credentials ?? this.init.defaultCredentials;
+		// Send credentials and request state on open
+		const sessionCredentials = credentials ?? this.init.defaultCredentials;
 		const shouldRequestConversationState = autoRequestConversationState ?? true;
+
 		this.connection.on('ws:open', () => {
-			if (credentials) {
+			if (sessionCredentials) {
 				this.connection?.send({
 					type: 'session_init',
-					credentials,
+					credentials: sessionCredentials,
 				});
 			}
 			if (shouldRequestConversationState) {
@@ -183,7 +226,7 @@ export class BuildSession {
 		this.connection!.send({ type: 'stop_generation' });
 	}
 
-	followUp(message: string, options?: { images?: unknown[] }): void {
+	followUp(message: string, options?: { images?: ImageAttachment[] }): void {
 		this.assertConnected();
 		this.connection!.send({
 			type: 'user_suggestion',

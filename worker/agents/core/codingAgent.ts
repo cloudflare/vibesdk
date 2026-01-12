@@ -29,6 +29,8 @@ import { ProjectObjective } from "./objectives/base";
 import { FileOutputType } from "../schemas";
 import { SecretsClient, type UserSecretsStoreStub } from '../../services/secrets/SecretsClient';
 import { StateMigration } from './stateMigration';
+import { PendingWsTicket, TicketConsumptionResult } from '../../types/auth-types';
+import { WsTicketManager } from '../../utils/wsTicketManager';
 
 const DEFAULT_CONVERSATION_SESSION_ID = 'default';
 
@@ -43,6 +45,10 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
     private objective!: ProjectObjective<BaseProjectState>;
     private secretsClient: SecretsClient | null = null;
     protected static readonly PROJECT_NAME_PREFIX_MAX_LENGTH = 20;
+    
+    /** Ticket manager for WebSocket authentication */
+    private ticketManager = new WsTicketManager();
+    
     // Services
     readonly fileManager: FileManager;
     readonly deploymentManager: DeploymentManager;
@@ -777,5 +783,35 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
      */
     clearGitHubToken(): void {
         this.objective.clearGitHubToken();
+    }
+
+    // ==========================================
+    // WebSocket Ticket Management
+    // ==========================================
+
+    /**
+     * Store a WebSocket ticket for later consumption
+     * Called by controller after ownership is verified via JWT
+     */
+    storeWsTicket(ticket: PendingWsTicket): void {
+        this.ticketManager.store(ticket);
+        this.logger().info('WebSocket ticket stored', {
+            userId: ticket.user.id,
+            expiresIn: Math.floor((ticket.expiresAt - Date.now()) / 1000),
+        });
+    }
+
+    /**
+     * Consume a WebSocket ticket (one-time use)
+     * Returns user session if valid, null otherwise
+     */
+    consumeWsTicket(token: string): TicketConsumptionResult | null {
+        const result = this.ticketManager.consume(token);
+        if (result) {
+            this.logger().info('Ticket consumed successfully', { userId: result.user.id });
+        } else {
+            this.logger().warn('Ticket consumption failed', { tokenPrefix: token.slice(0, 10) });
+        }
+        return result;
     }
 }

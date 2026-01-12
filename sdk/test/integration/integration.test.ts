@@ -1,117 +1,82 @@
 import { describe, expect, it } from 'bun:test';
+import { testAuth, testFullBuild, type FullTestResult } from './test-flow';
 
-import { PhasicClient } from '../../src/phasic';
-import { createNodeWebSocketFactory } from '../../src/node';
+function getEnv(name: string, fallback?: string): string | undefined {
+	return process.env[name] ?? fallback;
+}
 
-function requireEnv(name: string): string {
-	const v = process.env[name];
+function requireEnv(name: string, altName?: string): string {
+	const v = process.env[name] ?? (altName ? process.env[altName] : undefined);
 	if (!v) {
 		throw new Error(
-			`Missing ${name}. Create an API key in Settings → API Keys and run: ${name}=<key> bun run test:integration`,
+			`Missing ${name}. Create an API key in Settings -> API Keys and run: ${name}=<key> bun run test:integration`
 		);
 	}
 	return v;
 }
 
-const describeIntegration =
-	process.env.VIBESDK_RUN_INTEGRATION_TESTS === '1' &&
-	process.env.VIBESDK_INTEGRATION_API_KEY
-		? describe
-		: describe.skip;
+const apiKeyAvailable = !!(process.env.VIBESDK_API_KEY || process.env.VIBESDK_INTEGRATION_API_KEY);
+const runIntegration = process.env.VIBESDK_RUN_INTEGRATION_TESTS === '1' || apiKeyAvailable;
+const describeIntegration = runIntegration ? describe : describe.skip;
 
-function previewUrlFromState(state: { previewUrl?: string; preview?: { status: string; previewURL?: string } }): string | undefined {
-	if (state.preview?.status === 'complete' && state.preview.previewURL) return state.preview.previewURL;
-	return state.previewUrl;
+const FULL_BUILD_TIMEOUT = 10 * 60 * 1000;
+
+function logStepResults(result: FullTestResult, prefix: string): void {
+	for (const step of result.steps) {
+		const status = step.success ? 'OK' : 'FAIL';
+		const details = step.details ? ` ${JSON.stringify(step.details)}` : '';
+		const error = step.error ? ` ERROR: ${step.error}` : '';
+		console.log(`${prefix} [${status}] ${step.step} (${step.duration}ms)${details}${error}`);
+	}
 }
 
-describeIntegration('SDK integration (local platform)', () => {
-	const apiKey = requireEnv('VIBESDK_INTEGRATION_API_KEY');
-	const baseUrl = process.env.VIBESDK_INTEGRATION_BASE_URL ?? 'http://localhost:5173';
-	const wsFactory = createNodeWebSocketFactory();
+describeIntegration('SDK integration', () => {
+	const apiKey = requireEnv('VIBESDK_API_KEY', 'VIBESDK_INTEGRATION_API_KEY');
+	const baseUrl = getEnv(
+		'VIBESDK_BASE_URL',
+		getEnv('VIBESDK_INTEGRATION_BASE_URL', 'https://build.cloudflare.dev')
+	) as string;
 
-	const fetchFn: typeof fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
-		return await fetch(input, init);
-	};
+	const log = (msg: string) => console.log(`[bun] ${msg}`);
 
-	function safeWsType(m: unknown): string {
-		const t = (m as { type?: unknown })?.type;
-		if (typeof t === 'string') return t.length > 120 ? `${t.slice(0, 120)}…` : t;
-		try {
-			const s = JSON.stringify(t);
-			return s.length > 120 ? `${s.slice(0, 120)}…` : s;
-		} catch {
-			return String(t);
-		}
-	}
+	it('auth: client creation and token exchange', async () => {
+		console.log(`[bun] Testing against: ${baseUrl}`);
 
-	it('sanity: dev server reachable', async () => {
-		console.log(`[integration] baseUrl=${baseUrl}`);
-		const checkResp = await fetch(`${baseUrl}/api/auth/check`, { method: 'GET' });
-		console.log(`[integration] GET /api/auth/check -> ${checkResp.status}`);
-		expect(checkResp.ok).toBe(true);
+		const result = await testAuth({ baseUrl, apiKey, log });
+		logStepResults(result, '[bun]');
+
+		expect(result.ok).toBe(true);
 	});
 
-	it('build: generation started -> deployable -> preview deployed -> generation complete', async () => {
-		const client = new PhasicClient({
-			baseUrl,
-			apiKey,
-			fetchFn,
-			webSocketFactory: wsFactory,
-		});
+	it(
+		'build: full flow with step-by-step verification',
+		async () => {
+			console.log(`[bun] Starting full build test against: ${baseUrl}`);
 
-		console.log('[integration] build: creating agent');
-		const session = await client.build('Build a simple hello world page.', {
-			projectType: 'app',
-			autoGenerate: true,
-			credentials: {},
-		});
+			const result = await testFullBuild({ baseUrl, apiKey, log });
+			logStepResults(result, '[bun]');
 
-		// Log every WS message type for debugging.
-		session.on('ws:message', (m) => {
-			console.log(`[integration] ws: ${safeWsType(m)}`);
-		});
-		session.on('ws:reconnecting', (e) => {
-			console.log(
-				`[integration] ws: reconnecting attempt=${e.attempt} delayMs=${e.delayMs} reason=${e.reason}`,
-			);
-		});
-		session.on('ws:close', (e) => {
-			console.log(`[integration] ws: close code=${e.code} reason=${e.reason}`);
-		});
-		session.on('ws:error', (e) => {
-			console.log('[integration] ws: error', e.error);
-		});
+			if (result.agentId) {
+				console.log(`[bun] Agent ID: ${result.agentId}`);
+			}
+			if (result.previewUrl) {
+				console.log(`[bun] Preview URL: ${result.previewUrl}`);
+			}
 
-		console.log(`[integration] agentId=${session.agentId}`);
-		expect(typeof session.agentId).toBe('string');
+			// Check for rate limit
+			if (result.error?.includes('429') || result.error?.includes('rate limit')) {
+				console.log('[bun] Rate limited - skipping assertion');
+				return;
+			}
 
-		// 1) Generation begins (SDK primitive)
-		if (session.state.get().generation.status === 'idle') {
-			await session.wait.generationStarted();
-		}
+			expect(result.ok).toBe(true);
+			expect(result.agentId).toBeDefined();
+			expect(result.previewUrl).toBeDefined();
+			expect(result.previewUrl!.startsWith('http')).toBe(true);
 
-		// 2) Deployable (SDK primitive; phasic currently maps to phase_validated internally)
-		await session.wait.deployable();
-
-		// 3) Preview deployment completed
-		const previewWait = session.wait.previewDeployed();
-		session.deployPreview();
-		const deployed = await previewWait;
-		expect(deployed.previewURL.startsWith('http')).toBe(true);
-
-		// 4) Generation complete (if not already)
-		if (session.state.get().generation.status !== 'complete') {
-			await session.wait.generationComplete();
-		}
-
-		// Basic workspace sync sanity
-		const paths = session.files.listPaths();
-		console.log(`[integration] workspace files=${paths.length}`);
-		expect(paths.length).toBeGreaterThan(0);
-
-		const statePreviewUrl = previewUrlFromState(session.state.get() as any);
-		console.log(`[integration] previewUrl=${statePreviewUrl ?? deployed.previewURL}`);
-
-		session.close();
-	});
+			const failedSteps = result.steps.filter((s) => !s.success);
+			expect(failedSteps.length).toBe(0);
+		},
+		FULL_BUILD_TIMEOUT
+	);
 });
