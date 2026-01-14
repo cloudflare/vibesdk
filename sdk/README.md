@@ -96,13 +96,21 @@ const session = await client.build('Build a weather dashboard', {
 
 ### `client.connect(agentId)`
 
-Connect to an existing app session.
+Connect to an existing app session. State is automatically restored from the agent, including:
+- Phase timeline with completion status
+- Generated files
+- Agent metadata (query, projectName, behaviorType, etc.)
 
 ```ts
 const session = await client.connect('agent-id-here', {
   credentials: { ... },  // Optional
 });
 await session.connect();
+
+// State is now seeded from the agent
+console.log('Original query:', session.state.get().query);
+console.log('Phases:', session.phases.list());
+console.log('Files:', session.files.listPaths());
 ```
 
 ## App Management
@@ -215,6 +223,71 @@ const snapshot = session.files.snapshot();      // { 'src/App.tsx': '...', ... }
 const tree = session.files.tree();              // Nested file tree structure
 ```
 
+### Phase Timeline
+
+Access the full phase timeline for phasic builds. The timeline is automatically seeded when connecting to an existing agent and updated as phases progress.
+
+```ts
+// Get all phases
+const phases = session.phases.list();
+// [{ id: 'phase-0', name: 'Core Setup', status: 'completed', files: [...] }, ...]
+
+// Get current active phase
+const current = session.phases.current();
+if (current) {
+  console.log(`Working on: ${current.name}`);
+  console.log(`Status: ${current.status}`);  // 'generating' | 'implementing' | 'validating'
+}
+
+// Get completed phases
+const done = session.phases.completed();
+console.log(`Progress: ${done.length}/${session.phases.count()}`);
+
+// Check if all phases are done
+if (session.phases.allCompleted()) {
+  console.log('Build complete!');
+}
+
+// Get phase by ID
+const phase = session.phases.get('phase-0');
+
+// Subscribe to phase changes
+const unsubscribe = session.phases.onChange((event) => {
+  console.log(`Phase ${event.type}:`, event.phase.name);
+  console.log(`Status: ${event.phase.status}`);
+  console.log(`Total phases: ${event.allPhases.length}`);
+});
+// Later: unsubscribe();
+```
+
+The `onChange` callback receives a `PhaseTimelineEvent`:
+
+```ts
+type PhaseTimelineEvent = {
+  type: 'added' | 'updated';  // New phase vs status/file change
+  phase: PhaseInfo;           // The affected phase
+  allPhases: PhaseInfo[];     // All phases after this change
+};
+```
+
+Each phase contains:
+
+```ts
+type PhaseInfo = {
+  id: string;           // 'phase-0', 'phase-1', etc.
+  name: string;         // 'Core Setup', 'Authentication', etc.
+  description: string;  // What the phase accomplishes
+  status: PhaseStatus;  // 'pending' | 'generating' | 'implementing' | 'validating' | 'completed' | 'cancelled'
+  files: PhaseFile[];   // Files in this phase
+};
+
+type PhaseFile = {
+  path: string;         // 'src/App.tsx'
+  purpose: string;      // 'Main application component'
+  status: PhaseFileStatus;  // 'pending' | 'generating' | 'completed' | 'cancelled'
+};
+```
+
 ### State
 
 ```ts
@@ -225,6 +298,16 @@ console.log(state.generation);  // { status: 'idle' | 'running' | 'stopped' | 'c
 console.log(state.phase);       // { status: 'idle' | 'generating' | ... }
 console.log(state.preview);     // Preview deployment state
 console.log(state.cloudflare);  // Cloudflare deployment state
+
+// Phase timeline (array of all phases)
+console.log(state.phases);      // [{ id, name, status, files }, ...]
+
+// Agent metadata (seeded from agent_connected)
+console.log(state.behaviorType);      // 'phasic' | 'agentic'
+console.log(state.projectType);       // 'app' | 'workflow' | etc.
+console.log(state.query);             // Original user prompt
+console.log(state.projectName);       // Project name from blueprint
+console.log(state.shouldBeGenerating); // Whether agent is actively generating
 
 // Subscribe to changes
 session.state.onChange((next, prev) => {
@@ -324,10 +407,24 @@ All types are exported:
 
 ```ts
 import type {
+  // Client & Session
   VibeClientOptions,
   BuildOptions,
   BuildSession,
   SessionState,
+  SessionFiles,
+  SessionPhases,
+  
+  // Phase Timeline
+  PhaseInfo,
+  PhaseFile,
+  PhaseStatus,
+  PhaseFileStatus,
+  PhaseEventType,
+  PhaseTimelineEvent,
+  PhaseTimelineChangeType,
+  
+  // API
   ApiResponse,
   AppDetails,
   Credentials,

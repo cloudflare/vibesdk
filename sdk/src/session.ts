@@ -8,6 +8,8 @@ import type {
 	FileTreeNode,
 	ImageAttachment,
 	PhaseEventType,
+	PhaseInfo,
+	PhaseTimelineEvent,
 	ProjectType,
 	SessionDeployable,
 	SessionFiles,
@@ -99,6 +101,43 @@ export class BuildSession {
 		read: (path) => this.workspace.read(path),
 		snapshot: () => this.workspace.snapshot(),
 		tree: () => buildFileTree(this.workspace.paths()),
+	};
+
+	/**
+	 * High-level API for accessing the phase timeline.
+	 * Phases are seeded from agent_connected and updated on phase events.
+	 */
+	readonly phases = {
+		/** Get all phases in the timeline. */
+		list: (): PhaseInfo[] => this.state.get().phases,
+
+		/** Get the currently active phase (first non-completed phase), or undefined. */
+		current: (): PhaseInfo | undefined =>
+			this.state.get().phases.find((p) => p.status !== 'completed' && p.status !== 'cancelled'),
+
+		/** Get all completed phases. */
+		completed: (): PhaseInfo[] =>
+			this.state.get().phases.filter((p) => p.status === 'completed'),
+
+		/** Get a phase by its id (e.g., "phase-0"). */
+		get: (id: string): PhaseInfo | undefined =>
+			this.state.get().phases.find((p) => p.id === id),
+
+		/** Get the total count of phases. */
+		count: (): number => this.state.get().phases.length,
+
+		/** Check if all phases are completed. */
+		allCompleted: (): boolean =>
+			this.state.get().phases.length > 0 &&
+			this.state.get().phases.every((p) => p.status === 'completed'),
+
+		/**
+		 * Subscribe to phase timeline changes.
+		 * Fires when a phase is added or when a phase's status/files change.
+		 * @returns Unsubscribe function.
+		 */
+		onChange: (cb: (event: PhaseTimelineEvent) => void): (() => void) =>
+			this.state.onPhaseChange(cb),
 	};
 
 	readonly wait = {

@@ -102,8 +102,8 @@ export class VibeClient {
 			{ method: 'GET', headers: await this.http.headers() }
 		);
 
-		if (!data.success) {
-			throw new Error(data.error.message);
+		if (!data.success || !data.data) {
+			throw new Error(data.error?.message ?? 'Failed to connect to agent');
 		}
 
 		const start: BuildStartEvent = {
@@ -122,7 +122,7 @@ export class VibeClient {
 		listPublic: async (query: PublicAppsQuery = {}) => {
 			const qs = toQueryString({
 				limit: query.limit,
-				page: query.page,
+				offset: query.offset,
 				sort: query.sort,
 				order: query.order,
 				period: query.period,
