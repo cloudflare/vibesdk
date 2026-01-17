@@ -6,6 +6,12 @@ import { getAgentStub } from '../../../agents';
 import { createLogger } from '../../../logger';
 import { AppService } from '../../../database/services/AppService';
 import { ExportResult } from 'worker/agents/core/types';
+import { generateSecureToken } from '../../../utils/cryptoUtils';
+import { validateRedirectUrl } from '../../../utils/authUtils';
+import { generateId } from '../../../utils/idGenerator';
+import { DatabaseService } from '../../../database';
+import * as schema from '../../../database/schema';
+import { and, eq } from 'drizzle-orm';
 
 export interface GitHubExportData {
     success: boolean;
@@ -13,13 +19,11 @@ export interface GitHubExportData {
     error?: string;
 }
 
-interface GitHubOAuthCallbackState {
-    userId: string;
-    timestamp: number;
+interface GitHubExporterMetadata {
     purpose: 'repository_export';
-    agentId?: string;
+    agentId: string;
     returnUrl: string;
-    exportData?: {
+    exportData: {
         repositoryName: string;
         description?: string;
         isPrivate?: boolean;
@@ -220,26 +224,64 @@ export class GitHubExporterController extends BaseController {
                 );
             }
 
-            let parsedState: GitHubOAuthCallbackState | null = null;
-            
-            if (stateParam) {
-                try {
-                    parsedState = JSON.parse(
-                        Buffer.from(stateParam, 'base64').toString(),
-                    ) as GitHubOAuthCallbackState;
-                } catch (error) {
-                    this.logger.error('Failed to parse OAuth state parameter', error);
-                }
+            if (!stateParam) {
+                return Response.redirect(
+                    `${new URL(request.url).origin}/settings?integration=github&status=error&reason=missing_state`,
+                    302,
+                );
             }
 
-            if (!parsedState || !parsedState.userId) {
+            // Look up state from database
+            const dbService = new DatabaseService(env);
+            const now = new Date();
+            const oauthState = await dbService.db
+                .select()
+                .from(schema.oauthStates)
+                .where(
+                    and(
+                        eq(schema.oauthStates.state, stateParam),
+                        eq(schema.oauthStates.provider, 'github_exporter'),
+                        eq(schema.oauthStates.isUsed, false)
+                    )
+                )
+                .get();
+
+            if (!oauthState || new Date(oauthState.expiresAt) < now) {
+                this.logger.warn('Invalid or expired OAuth state', { stateParam });
                 return Response.redirect(
                     `${new URL(request.url).origin}/settings?integration=github&status=error&reason=invalid_state`,
                     302,
                 );
             }
 
-            const { userId, purpose, agentId, exportData, returnUrl } = parsedState;
+            // Mark state as used immediately to prevent replay
+            await dbService.db
+                .update(schema.oauthStates)
+                .set({ isUsed: true })
+                .where(eq(schema.oauthStates.id, oauthState.id));
+
+            // Verify userId matches the authenticated user (session binding)
+            if (!context.user || oauthState.userId !== context.user.id) {
+                this.logger.warn('OAuth state userId mismatch', { 
+                    stateUserId: oauthState.userId, 
+                    sessionUserId: context.user?.id 
+                });
+                return Response.redirect(
+                    `${new URL(request.url).origin}/settings?integration=github&status=error&reason=session_mismatch`,
+                    302,
+                );
+            }
+
+            const metadata = oauthState.metadata as GitHubExporterMetadata | null;
+            if (!metadata) {
+                return Response.redirect(
+                    `${new URL(request.url).origin}/settings?integration=github&status=error&reason=invalid_metadata`,
+                    302,
+                );
+            }
+
+            const userId = oauthState.userId!;
+            const { purpose, agentId, exportData, returnUrl } = metadata;
 
             const baseUrl = new URL(request.url).origin;
             const oauthProvider = GitHubExporterOAuthProvider.create(env, baseUrl);
@@ -395,9 +437,18 @@ export class GitHubExporterController extends BaseController {
                 this.logger.info('No cached token, initiating OAuth', { agentId: body.agentId });
             }
 
-            const state: GitHubOAuthCallbackState = {
-                userId: context.user.id,
-                timestamp: Date.now(),
+            const baseUrl = new URL(request.url).origin;
+            
+            // Validate and sanitize returnUrl to prevent open redirect
+            const rawReturnUrl = request.headers.get('referer') || `${baseUrl}/chat`;
+            const validatedReturnUrl = validateRedirectUrl(rawReturnUrl, request) || `${baseUrl}/chat`;
+
+            // Generate secure random state token
+            const stateToken = generateSecureToken();
+            
+            // Store state in database with userId in column and metadata as JSON
+            const dbService = new DatabaseService(env);
+            const metadata: GitHubExporterMetadata = {
                 purpose: 'repository_export',
                 agentId: body.agentId,
                 exportData: {
@@ -405,15 +456,22 @@ export class GitHubExporterController extends BaseController {
                     description: body.description,
                     isPrivate: body.isPrivate
                 },
-                returnUrl: request.headers.get('referer') || `${new URL(request.url).origin}/chat`,
+                returnUrl: validatedReturnUrl,
             };
 
-            const baseUrl = new URL(request.url).origin;
-            const oauthProvider = GitHubExporterOAuthProvider.create(env, baseUrl);
+            await dbService.db.insert(schema.oauthStates).values({
+                id: generateId(),
+                state: stateToken,
+                provider: 'github_exporter',
+                userId: context.user.id,
+                metadata,
+                createdAt: new Date(),
+                expiresAt: new Date(Date.now() + 600000), // 10 minutes
+                isUsed: false,
+            });
 
-            const authUrl = await oauthProvider.getAuthorizationUrl(
-                Buffer.from(JSON.stringify(state)).toString('base64')
-            );
+            const oauthProvider = GitHubExporterOAuthProvider.create(env, baseUrl);
+            const authUrl = await oauthProvider.getAuthorizationUrl(stateToken);
 
             this.logger.info('Initiating OAuth flow', { userId: context.user.id, agentId: body.agentId });
 
