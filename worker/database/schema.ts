@@ -341,7 +341,10 @@ export const oauthStates = sqliteTable('oauth_states', {
     codeVerifier: text('code_verifier'), // For PKCE
     nonce: text('nonce'),
     
-    // Metadata
+    // Custom metadata for flow-specific data (JSON)
+    metadata: text('metadata', { mode: 'json' }),
+    
+    // Timestamps
     createdAt: integer('created_at', { mode: 'timestamp' }).default(sql`CURRENT_TIMESTAMP`),
     expiresAt: integer('expires_at', { mode: 'timestamp' }).notNull(),
     isUsed: integer('is_used', { mode: 'boolean' }).default(false),

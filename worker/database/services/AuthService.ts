@@ -22,7 +22,7 @@ import {
     AuthUser, 
     OAuthProvider
 } from '../../types/auth-types';
-import { mapUserResponse } from '../../utils/authUtils';
+import { mapUserResponse, validateRedirectUrl } from '../../utils/authUtils';
 import { createLogger } from '../../logger';
 import { validateEmail, validatePassword } from '../../utils/validationUtils';
 import { extractRequestMetadata } from '../../utils/authUtils';
@@ -302,7 +302,7 @@ export class AuthService extends BaseService {
         // Validate and sanitize intended redirect URL
         let validatedRedirectUrl: string | null = null;
         if (intendedRedirectUrl) {
-            validatedRedirectUrl = this.validateRedirectUrl(intendedRedirectUrl, request);
+            validatedRedirectUrl = validateRedirectUrl(intendedRedirectUrl, request);
         }
         
         // Generate state for CSRF protection
@@ -532,45 +532,6 @@ export class AuthService extends BaseService {
         }
     }
     
-    /**
-     * Validate and sanitize redirect URL to prevent open redirect attacks
-     */
-    private validateRedirectUrl(redirectUrl: string, request: Request): string | null {
-        try {
-            const requestUrl = new URL(request.url);
-            
-            // Handle relative URLs by constructing absolute URL with same origin
-            const redirectUrlObj = redirectUrl.startsWith('/') 
-                ? new URL(redirectUrl, requestUrl.origin)
-                : new URL(redirectUrl);
-            
-            // Only allow same-origin redirects for security
-            if (redirectUrlObj.origin !== requestUrl.origin) {
-                logger.warn('OAuth redirect URL rejected: different origin', {
-                    redirectUrl: redirectUrl,
-                    requestOrigin: requestUrl.origin,
-                    redirectOrigin: redirectUrlObj.origin
-                });
-                return null;
-            }
-            
-            // Prevent redirecting to authentication endpoints to avoid loops
-            const authPaths = ['/api/auth/', '/logout'];
-            if (authPaths.some(path => redirectUrlObj.pathname.startsWith(path))) {
-                logger.warn('OAuth redirect URL rejected: auth endpoint', {
-                    redirectUrl: redirectUrl,
-                    pathname: redirectUrlObj.pathname
-                });
-                return null;
-            }
-            
-            return redirectUrl;
-        } catch (error) {
-            logger.warn('Invalid OAuth redirect URL format', { redirectUrl, error });
-            return null;
-        }
-    }
-
     /**
      * Generate and store verification OTP for email
      */

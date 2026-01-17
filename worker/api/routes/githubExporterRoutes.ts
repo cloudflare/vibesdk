@@ -13,7 +13,7 @@ import { AuthConfig, setAuthLevel } from '../../middleware/auth/routeAuth';
  * Setup GitHub Exporter routes
  */
 export function setupGitHubExporterRoutes(app: Hono<AppEnv>): void {
-    app.get('/api/github-exporter/callback', setAuthLevel(AuthConfig.public), adaptController(GitHubExporterController, GitHubExporterController.handleOAuthCallback));
+    app.get('/api/github-exporter/callback', setAuthLevel(AuthConfig.authenticated), adaptController(GitHubExporterController, GitHubExporterController.handleOAuthCallback));
     
     // Repository export routes with OAuth flow
     app.post('/api/github-app/export', setAuthLevel(AuthConfig.authenticated), adaptController(GitHubExporterController, GitHubExporterController.initiateGitHubExport));

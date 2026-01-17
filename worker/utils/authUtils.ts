@@ -2,8 +2,11 @@
  * Centralized Authentication Utilities
  */
 
-import type {  AuthUser } from '../types/auth-types';
+import type { AuthUser } from '../types/auth-types';
 import type { User } from '../database/schema';
+import { createLogger } from '../logger';
+
+const logger = createLogger('authUtils');
 
 /**
  * Extract sessionId from cookie
@@ -283,5 +286,41 @@ export function formatAuthResponse(
 	const response: SessionResponse = { user, sessionId, expiresAt };
     
 	return response;
+}
+
+/**
+ * Validate and sanitize redirect URL to prevent open redirect attacks
+ */
+export function validateRedirectUrl(redirectUrl: string, request: Request): string | null {
+	try {
+		const requestUrl = new URL(request.url);
+		
+		const redirectUrlObj = redirectUrl.startsWith('/') 
+			? new URL(redirectUrl, requestUrl.origin)
+			: new URL(redirectUrl);
+		
+		if (redirectUrlObj.origin !== requestUrl.origin) {
+			logger.warn('Redirect URL rejected: different origin', {
+				redirectUrl,
+				requestOrigin: requestUrl.origin,
+				redirectOrigin: redirectUrlObj.origin
+			});
+			return null;
+		}
+		
+		const blockedPaths = ['/api/auth/', '/logout'];
+		if (blockedPaths.some(path => redirectUrlObj.pathname.startsWith(path))) {
+			logger.warn('Redirect URL rejected: blocked path', {
+				redirectUrl,
+				pathname: redirectUrlObj.pathname
+			});
+			return null;
+		}
+		
+		return redirectUrl;
+	} catch (error) {
+		logger.warn('Invalid redirect URL format', { redirectUrl, error });
+		return null;
+	}
 }
 

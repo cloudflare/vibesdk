@@ -1,0 +1,1 @@
+ALTER TABLE `oauth_states` ADD `metadata` text;
