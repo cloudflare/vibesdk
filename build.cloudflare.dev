@@ -1,0 +1,4 @@
+"github.com/cloudflare/cloudflare-go/v6"
+"github.com/cloudflare/cloudflare-go/v6/certificate_authorities"
+"github.com/cloudflare/cloudflare-go/v6/internal/testutil"
+"github.com/cloudflare/cloudflare-go/v6/option"
