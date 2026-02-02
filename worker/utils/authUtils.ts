@@ -285,3 +285,30 @@ export function formatAuthResponse(
 	return response;
 }
 
+/**
+ * Validate and sanitize redirect URL to prevent open redirect attacks
+ * Returns null if the URL is invalid or potentially malicious
+ */
+export function validateRedirectUrl(redirectUrl: string, request: Request): string | null {
+	try {
+		const requestUrl = new URL(request.url);
+
+		const redirectUrlObj = redirectUrl.startsWith('/')
+			? new URL(redirectUrl, requestUrl.origin)
+			: new URL(redirectUrl);
+
+		if (redirectUrlObj.origin !== requestUrl.origin) {
+			return null;
+		}
+
+		const forbiddenPaths = ['/api/auth/', '/logout', '/api/github-exporter/'];
+		if (forbiddenPaths.some(path => redirectUrlObj.pathname.startsWith(path))) {
+			return null;
+		}
+
+		return redirectUrl;
+	} catch {
+		return null;
+	}
+}
+
