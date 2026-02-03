@@ -353,13 +353,38 @@ export class AppService extends BaseService {
                 eq(schema.favorites.appId, schema.apps.id),
                 eq(schema.favorites.userId, userId)
             ))
+            // Authorization: only return public apps OR user's own apps
+            .where(
+                or(
+                    eq(schema.apps.visibility, 'public'),
+                    eq(schema.apps.userId, userId)
+                )
+            )
             .orderBy(desc(schema.apps.updatedAt));
 
-        return results.map(row => ({
-            ...row.app,
-            isFavorite: true as const,
-            updatedAtFormatted: formatRelativeTime(row.app.updatedAt)
-        }));
+        // Strip sensitive fields - explicit about what's excluded
+        return results.map(({ app }) => {
+            const {
+                sessionToken: _sessionToken,
+                originalPrompt: _originalPrompt,
+                finalPrompt: _finalPrompt,
+                githubRepositoryUrl: _githubRepositoryUrl,
+                githubRepositoryVisibility: _githubRepositoryVisibility,
+                ...safeApp
+            } = app;
+
+            return {
+                ...safeApp,
+                // Provide safe defaults for type compatibility
+                sessionToken: null,
+                originalPrompt: '',
+                finalPrompt: null,
+                githubRepositoryUrl: null,
+                githubRepositoryVisibility: null,
+                isFavorite: true as const,
+                updatedAtFormatted: formatRelativeTime(app.updatedAt)
+            };
+        });
     }
 
 
@@ -401,7 +426,7 @@ export class AppService extends BaseService {
     }
 
     /**
-     * Check if user owns an app
+     * Check if user owns an app and get visibility
      */
     async checkAppOwnership(appId: string, userId: string): Promise<OwnershipResult> {
         // Use read replica for ownership checks
@@ -409,7 +434,8 @@ export class AppService extends BaseService {
         const app = await readDb
             .select({
                 id: schema.apps.id,
-                userId: schema.apps.userId
+                userId: schema.apps.userId,
+                visibility: schema.apps.visibility
             })
             .from(schema.apps)
             .where(eq(schema.apps.id, appId))
@@ -421,7 +447,8 @@ export class AppService extends BaseService {
 
         return {
             exists: true,
-            isOwner: app.userId === userId
+            isOwner: app.userId === userId,
+            visibility: app.visibility as 'private' | 'public' | null
         };
     }
 

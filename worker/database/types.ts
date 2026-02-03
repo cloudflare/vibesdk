@@ -118,6 +118,7 @@ export interface PublicAppQueryOptions extends BaseAppQueryOptions {
 export interface OwnershipResult {
     exists: boolean;
     isOwner: boolean;
+    visibility?: 'private' | 'public' | null;
 }
 
 /**
