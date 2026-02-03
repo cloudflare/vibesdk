@@ -4,6 +4,9 @@
 
 import type {  AuthUser } from '../types/auth-types';
 import type { User } from '../database/schema';
+import { createLogger } from '../logger';
+
+const logger = createLogger('AuthUtils');
 
 /**
  * Extract sessionId from cookie
@@ -298,16 +301,26 @@ export function validateRedirectUrl(redirectUrl: string, request: Request): stri
 			: new URL(redirectUrl);
 
 		if (redirectUrlObj.origin !== requestUrl.origin) {
+			logger.warn('Redirect URL rejected: different origin', {
+				redirectUrl,
+				requestOrigin: requestUrl.origin,
+				redirectOrigin: redirectUrlObj.origin
+			});
 			return null;
 		}
 
 		const forbiddenPaths = ['/api/auth/', '/logout', '/api/github-exporter/'];
 		if (forbiddenPaths.some(path => redirectUrlObj.pathname.startsWith(path))) {
+			logger.warn('Redirect URL rejected: forbidden path', {
+				redirectUrl,
+				pathname: redirectUrlObj.pathname
+			});
 			return null;
 		}
 
 		return redirectUrl;
-	} catch {
+	} catch (error) {
+		logger.warn('Invalid redirect URL format', { redirectUrl, error });
 		return null;
 	}
 }
