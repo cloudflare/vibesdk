@@ -3,7 +3,7 @@ import { createLogger } from '../../logger';
 import { WebSocketMessageRequests, WebSocketMessageResponses } from '../constants';
 import { WebSocketMessage, WebSocketMessageData, WebSocketMessageType } from '../../api/websocketTypes';
 import { MAX_IMAGES_PER_MESSAGE, MAX_IMAGE_SIZE_BYTES } from '../../types/image-attachment';
-import { credentialsToRuntimeOverrides, type CredentialsPayload } from '../inferutils/config.types';
+// import { credentialsToRuntimeOverrides, type CredentialsPayload } from '../inferutils/config.types';
 import type { CodeGeneratorAgent } from './codingAgent';
 
 const logger = createLogger('CodeGeneratorWebSocket');
@@ -19,8 +19,9 @@ export function handleWebSocketMessage(
 
         switch (parsedMessage.type) {
             case WebSocketMessageRequests.SESSION_INIT: {
-                const credentials = parsedMessage.credentials as CredentialsPayload | undefined;
-                agent.getBehavior().setRuntimeOverrides(credentialsToRuntimeOverrides(credentials));
+                // const credentials = parsedMessage.credentials as CredentialsPayload | undefined;
+                // agent.getBehavior().setRuntimeOverrides(credentialsToRuntimeOverrides(credentials));
+                logger.info(`Received session init message from ${connection.id}, Disable for now`);
                 break;
             }
             case WebSocketMessageRequests.GENERATE_ALL:

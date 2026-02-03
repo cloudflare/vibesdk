@@ -256,19 +256,6 @@ async function getApiKey(
     if (runtimeKey && isValidApiKey(runtimeKey)) {
         return runtimeKey;
     }
-    // try {
-    //     const userProviderKeys = await secretsService.getUserBYOKKeysMap(userId);
-    //     // First check if user has a custom API key for this provider
-    //     if (userProviderKeys && provider in userProviderKeys) {
-    //         const userKey = userProviderKeys.get(provider);
-    //         if (userKey && isValidApiKey(userKey)) {
-    //             console.log("Found user API key for provider: ", provider, userKey);
-    //             return userKey;
-    //         }
-    //     }
-    // } catch (error) {
-    //     console.error("Error getting API key for provider: ", provider, error);
-    // }
     // Fallback to environment variables
     const providerKeyString = provider.toUpperCase().replaceAll('-', '_');
     const envKey = `${providerKeyString}_API_KEY` as keyof Env;
@@ -276,7 +263,14 @@ async function getApiKey(
     
     // Check if apiKey is empty or undefined and is valid
     if (!isValidApiKey(apiKey)) {
-        apiKey = runtimeOverrides?.aiGatewayOverride?.token ?? env.CLOUDFLARE_AI_GATEWAY_TOKEN;
+        // only use platform token if NOT using a custom gateway URL
+        // User's gateway = user's credentials only
+        if (runtimeOverrides?.aiGatewayOverride?.baseUrl) {
+            // User provided custom gateway
+            apiKey = runtimeOverrides.aiGatewayOverride.token ?? '';
+        } else {
+            apiKey = runtimeOverrides?.aiGatewayOverride?.token ?? env.CLOUDFLARE_AI_GATEWAY_TOKEN;
+        }
     }
     return apiKey;
 }
@@ -316,9 +310,12 @@ export async function getConfigurationForModel(
     }
 
     const gatewayOverride = runtimeOverrides?.aiGatewayOverride;
+    const isUsingCustomGateway = !!gatewayOverride?.baseUrl;
     const baseURL = await buildGatewayUrl(env, providerForcedOverride, gatewayOverride);
 
-    const gatewayToken = gatewayOverride?.token ?? env.CLOUDFLARE_AI_GATEWAY_TOKEN;
+    const gatewayToken = isUsingCustomGateway
+        ? gatewayOverride?.token
+        : (gatewayOverride?.token ?? env.CLOUDFLARE_AI_GATEWAY_TOKEN);  // Platform gateway
 
     // Try to find API key of type <PROVIDER>_API_KEY else default to gateway token
     const apiKey = await getApiKey(modelConfig.provider, env, userId, runtimeOverrides);
