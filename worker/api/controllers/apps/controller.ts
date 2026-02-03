@@ -87,10 +87,15 @@ export class AppController extends BaseController {
                 return AppController.createErrorResponse<FavoriteToggleData>('App ID is required', 400);
             }
 
-            // Check if app exists (no ownership check needed - users can bookmark any app)
+            // Check if app exists and get ownership/visibility info
             const ownershipResult = await appService.checkAppOwnership(appId, user.id);
-            
+
             if (!ownershipResult.exists) {
+                return AppController.createErrorResponse<FavoriteToggleData>('App not found', 404);
+            }
+
+            // Authorization: only allow favorite if user owns the app OR app is public
+            if (!ownershipResult.isOwner && ownershipResult.visibility !== 'public') {
                 return AppController.createErrorResponse<FavoriteToggleData>('App not found', 404);
             }
 
