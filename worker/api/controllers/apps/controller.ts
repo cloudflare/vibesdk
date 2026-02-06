@@ -27,7 +27,7 @@ export class AppController extends BaseController {
             const userApps = await appService.getUserAppsWithFavorites(user.id);
 
             const responseData: AppsListData = {
-                apps: userApps // Already properly typed and formatted by DatabaseService
+                apps: userApps
             };
 
             return AppController.createSuccessResponse(responseData);
@@ -46,7 +46,7 @@ export class AppController extends BaseController {
             const recentApps = await appService.getRecentAppsWithFavorites(user.id, 10);
 
             const responseData: AppsListData = {
-                apps: recentApps // Already properly typed and formatted by DatabaseService
+                apps: recentApps
             };
 
             return AppController.createSuccessResponse(responseData);

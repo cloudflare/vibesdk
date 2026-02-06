@@ -2,11 +2,12 @@ import { BaseController } from '../baseController';
 import type { ControllerResponse, ApiResponse } from '../types';
 import type { RouteContext } from '../../types/route-context';
 import { createLogger } from '../../../logger';
+import { ScreenshotSecurity } from '../../../utils/screenshot-security';
 
 // -------------------------
 // Helpers
 // -------------------------
-function isValidSessionId(id: string): boolean {
+function isValidAppId(id: string): boolean {
     // Allow alphanumeric, underscore, dash. Prevent dots and slashes.
     // Length 1-128.
     return /^[A-Za-z0-9_-]{1,128}$/.test(id);
@@ -51,22 +52,22 @@ function getMimeByExtension(file: string): string | undefined {
 export class ScreenshotsController extends BaseController {
     static logger = createLogger('ScreenshotsController');
     static async serveScreenshot(
-        _request: Request,
+        request: Request,
         env: Env,
         _ctx: ExecutionContext,
         context: RouteContext,
     ): Promise<ControllerResponse<ApiResponse<never>>> {
         try {
-            const sessionId = context.pathParams.id;
+            const appId = context.pathParams.id;
             const file = context.pathParams.file;
 
-            if (!sessionId || !file) {
+            if (!appId || !file) {
                 return ScreenshotsController.createErrorResponse('Missing path parameters', 400);
             }
 
             // Validate and sanitize path parameters
-            if (!isValidSessionId(sessionId)) {
-                return ScreenshotsController.createErrorResponse('Invalid session id', 400);
+            if (!isValidAppId(appId)) {
+                return ScreenshotsController.createErrorResponse('Invalid app id', 400);
             }
 
             const validatedFile = validateFileName(file);
@@ -74,7 +75,21 @@ export class ScreenshotsController extends BaseController {
                 return ScreenshotsController.createErrorResponse('Invalid file name', 400);
             }
 
-            const key = `screenshots/${sessionId}/${validatedFile}`;
+            // Verify screenshot access token
+            const url = new URL(request.url);
+            const token = url.searchParams.get('token');
+
+            if (!token) {
+                return ScreenshotsController.createErrorResponse('Screenshot not found', 404);
+            }
+
+            const security = new ScreenshotSecurity(env);
+            const isValidToken = await security.verifyToken(token, appId);
+            if (!isValidToken) {
+                return ScreenshotsController.createErrorResponse('Screenshot not found', 404);
+            }
+
+            const key = `screenshots/${appId}/${validatedFile}`;
             const obj = await env.TEMPLATES_BUCKET.get(key);
             if (!obj || !obj.body) {
                 return ScreenshotsController.createErrorResponse('Screenshot not found', 404);
@@ -83,7 +98,7 @@ export class ScreenshotsController extends BaseController {
             const contentType = obj.httpMetadata?.contentType || getMimeByExtension(validatedFile) || 'image/png';
             const headers = new Headers({
                 'Content-Type': contentType,
-                'Cache-Control': 'public, max-age=31536000, immutable',
+                'Cache-Control': 'public, max-age=21600',
                 'X-Content-Type-Options': 'nosniff',
             });
 
