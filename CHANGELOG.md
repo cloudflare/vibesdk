@@ -1,6 +1,6 @@
 # Changelog
 
-## [1.5.0](https://github.com/cloudflare/vibesdk/compare/v1.4.0...v1.5.0) (2026-02-03)
+## [1.5.0](https://github.com/cloudflare/vibesdk/compare/v1.4.0...v1.5.0) (2026-02-06)
 
 
 ### Features
@@ -14,6 +14,7 @@
 * expand drizzle types script on sdk bundle ([96b709e](https://github.com/cloudflare/vibesdk/commit/96b709e96bb724458bc6bc680bf94f72466c5cb0))
 * expand drizzle types script on sdk bundle ([33eb39f](https://github.com/cloudflare/vibesdk/commit/33eb39f2d73a3e89b3f83af79566916935c5b9d2))
 * implement phase timeline management and state tracking in SDK ([dbcf51f](https://github.com/cloudflare/vibesdk/commit/dbcf51fd16c75886104cb9c4fd2a93b6ba0923b7))
+* implement signed URL security for screenshot access ([6da9166](https://github.com/cloudflare/vibesdk/commit/6da91663a3ae8588e38534c9bb2643812301d1dc))
 * implement WebSocket ticket authentication and management system ([1fe8640](https://github.com/cloudflare/vibesdk/commit/1fe8640ddaece52a2befe5a227918831f864c7e0))
 * integration tests with worker ([f565aff](https://github.com/cloudflare/vibesdk/commit/f565aff144bd0c2b6065db9406da269e0d587c9d))
 * integration tests with worker ([a68d9cb](https://github.com/cloudflare/vibesdk/commit/a68d9cbde5ba14cba53414361bcbefdb41851f9f))
@@ -29,7 +30,10 @@
 
 ### Bug Fixes
 
+* add logs and ownership check for github export ([271b339](https://github.com/cloudflare/vibesdk/commit/271b3393dd1383a24830c11dc086d5cf59066203))
+* Critical OAuth State Manipulation Vulnerability in GitHub Export ([340c332](https://github.com/cloudflare/vibesdk/commit/340c332c62b88a7d0f321d888e2ee1edd318190d))
 * do not allow non owner to export code to github repo after oauth callback ([0b30b38](https://github.com/cloudflare/vibesdk/commit/0b30b38eb51f5b77f1c56aeef3b546d586ab6eba))
+* jwt oauth state for github oauth to prevent manipulation ([e3a25a8](https://github.com/cloudflare/vibesdk/commit/e3a25a80056f413e3163452702f57cec701e90a4))
 * only app owner should be able to deploy preview ([ba22bf8](https://github.com/cloudflare/vibesdk/commit/ba22bf85cdee42c6144ccdfe071b32be36b3e24e))
 
 ## [1.4.0](https://github.com/cloudflare/vibesdk/compare/v1.3.0...v1.4.0) (2025-12-20)
