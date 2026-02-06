@@ -19,6 +19,7 @@ import type {
     TimePeriod,
     PaginationParams
 } from '../types';
+import { ScreenshotSecurity } from 'worker/utils/screenshot-security';
 
 // Type definitions
 type WhereCondition = ReturnType<typeof eq> | ReturnType<typeof and> | ReturnType<typeof or> | undefined;
@@ -150,7 +151,7 @@ export class AppService extends BaseService {
             });
 
             return {
-                data: appsWithAnalytics,
+                data: await this.enrichScreenshotUrls(appsWithAnalytics),
                 pagination: {
                     limit,
                     offset,
@@ -321,11 +322,12 @@ export class AppService extends BaseService {
 
         const favoriteSet = new Set(favorites.map(f => f.appId));
 
-        return apps.map(app => ({
+        const result = apps.map(app => ({
             ...app,
             isFavorite: favoriteSet.has(app.id),
             updatedAtFormatted: formatRelativeTime(app.updatedAt)
         }));
+        return this.enrichScreenshotUrls(result);
     }
 
     /**
@@ -353,13 +355,39 @@ export class AppService extends BaseService {
                 eq(schema.favorites.appId, schema.apps.id),
                 eq(schema.favorites.userId, userId)
             ))
+            // Authorization: only return public apps OR user's own apps
+            .where(
+                or(
+                    eq(schema.apps.visibility, 'public'),
+                    eq(schema.apps.userId, userId)
+                )
+            )
             .orderBy(desc(schema.apps.updatedAt));
 
-        return results.map(row => ({
-            ...row.app,
-            isFavorite: true as const,
-            updatedAtFormatted: formatRelativeTime(row.app.updatedAt)
-        }));
+        // Strip sensitive fields - explicit about what's excluded
+        const mapped = results.map(({ app }) => {
+            const {
+                sessionToken: _sessionToken,
+                originalPrompt: _originalPrompt,
+                finalPrompt: _finalPrompt,
+                githubRepositoryUrl: _githubRepositoryUrl,
+                githubRepositoryVisibility: _githubRepositoryVisibility,
+                ...safeApp
+            } = app;
+
+            return {
+                ...safeApp,
+                // Provide safe defaults for type compatibility
+                sessionToken: null,
+                originalPrompt: '',
+                finalPrompt: null,
+                githubRepositoryUrl: null,
+                githubRepositoryVisibility: null,
+                isFavorite: true as const,
+                updatedAtFormatted: formatRelativeTime(app.updatedAt)
+            };
+        });
+        return this.enrichScreenshotUrls(mapped);
     }
 
 
@@ -401,7 +429,7 @@ export class AppService extends BaseService {
     }
 
     /**
-     * Check if user owns an app
+     * Check if user owns an app and get visibility
      */
     async checkAppOwnership(appId: string, userId: string): Promise<OwnershipResult> {
         // Use read replica for ownership checks
@@ -409,7 +437,8 @@ export class AppService extends BaseService {
         const app = await readDb
             .select({
                 id: schema.apps.id,
-                userId: schema.apps.userId
+                userId: schema.apps.userId,
+                visibility: schema.apps.visibility
             })
             .from(schema.apps)
             .where(eq(schema.apps.id, appId))
@@ -421,7 +450,8 @@ export class AppService extends BaseService {
 
         return {
             exists: true,
-            isOwner: app.userId === userId
+            isOwner: app.userId === userId,
+            visibility: app.visibility as 'private' | 'public' | null
         };
     }
 
@@ -457,11 +487,13 @@ export class AppService extends BaseService {
             ))
             .get();
 
-        return {
+        const result = {
             ...app,
             isFavorite: !!favorite,
             updatedAtFormatted: formatRelativeTime(app.updatedAt)
         };
+        const [enriched] = await this.enrichScreenshotUrls([result]);
+        return enriched;
     }
 
     /**
@@ -585,7 +617,7 @@ export class AppService extends BaseService {
                 .then(r => !!r) : false
         ]);
         
-        return {
+        const result = {
             ...app,
             userName: appResult.userName,
             userAvatar: appResult.userAvatar,
@@ -594,6 +626,8 @@ export class AppService extends BaseService {
             userFavorited: isFavorite,
             viewCount
         };
+        const [enriched] = await this.enrichScreenshotUrls([result]);
+        return enriched;
     }
 
     /**
@@ -704,7 +738,7 @@ export class AppService extends BaseService {
                 .limit(limit)
                 .offset(offset);
                 
-            return results.map(r => ({
+            const starredApps = results.map(r => ({
                 ...r.app,
                 userName: r.userName,
                 userAvatar: r.userAvatar,
@@ -715,6 +749,7 @@ export class AppService extends BaseService {
                 userStarred: false,
                 userFavorited: true // These are favorited apps
             }));
+            return this.enrichScreenshotUrls(starredApps);
         }
 
         const basicApps = await this.executeRankedQuery(
@@ -734,7 +769,7 @@ export class AppService extends BaseService {
         const appIds = basicApps.map((row: RankedAppQueryResult) => row.app.id);
         const { userStars, userFavorites } = await this.addUserSpecificAppData(appIds, userId);
         
-        return basicApps.map((row: RankedAppQueryResult) => ({
+        const normalApps = basicApps.map((row: RankedAppQueryResult) => ({
             ...row.app,
             userName: row.userName,
             userAvatar: row.userAvatar,
@@ -745,6 +780,7 @@ export class AppService extends BaseService {
             userStarred: userStars.has(row.app.id),
             userFavorited: userFavorites.has(row.app.id)
         }));
+        return this.enrichScreenshotUrls(normalApps);
     }
 
     /**
@@ -1023,5 +1059,13 @@ export class AppService extends BaseService {
             this.logger?.error('Error deleting app:', error);
             return { success: false, error: 'An error occurred while deleting the app' };
         }
+    }
+
+    // ========================================
+    // SCREENSHOT URL SIGNING
+    // ========================================
+
+    private async enrichScreenshotUrls<T extends { id: string; screenshotUrl?: string | null }>(apps: T[]): Promise<T[]> {
+        return new ScreenshotSecurity(this.env).enrichUrls(apps);
     }
 }
