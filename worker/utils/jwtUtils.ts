@@ -56,20 +56,27 @@ export class JWTUtils {
     //     }
     // }
 
-    async createToken(payload: Omit<TokenPayload, 'iat' | 'exp'>, expiresIn: number = 24 * 3600): Promise<string> {
-        try {
-            const now = Math.floor(Date.now() / 1000);
-            
-            const jwt = new SignJWT({
-                ...payload,
-                iat: now,
-                exp: now + expiresIn
-            })
+    async signPayload(payload: Record<string, unknown>, expiresIn: number): Promise<string> {
+        const now = Math.floor(Date.now() / 1000);
+        return new SignJWT({ ...payload })
             .setProtectedHeader({ alg: this.algorithm })
             .setIssuedAt(now)
-            .setExpirationTime(now + expiresIn);
+            .setExpirationTime(now + expiresIn)
+            .sign(this.jwtSecret);
+    }
 
-            return await jwt.sign(this.jwtSecret);
+    async verifyPayload(token: string): Promise<Record<string, unknown> | null> {
+        try {
+            const { payload } = await jwtVerify(token, this.jwtSecret, { algorithms: [this.algorithm] });
+            return payload as Record<string, unknown>;
+        } catch {
+            return null;
+        }
+    }
+
+    async createToken(payload: Omit<TokenPayload, 'iat' | 'exp'>, expiresIn: number = 24 * 3600): Promise<string> {
+        try {
+            return await this.signPayload(payload as Record<string, unknown>, expiresIn);
         } catch (error) {
             logger.error('Error creating token', error);
             throw new SecurityError(
@@ -81,45 +88,39 @@ export class JWTUtils {
     }
 
     async verifyToken(token: string): Promise<TokenPayload | null> {
-        try {
-            const { payload } = await jwtVerify(token, this.jwtSecret);
-            
-            const now = Math.floor(Date.now() / 1000);
-            if (payload.exp && payload.exp < now) {
-                return null;
-            }
-            
-            if (!payload.sub || !payload.email || !payload.type || !payload.exp || !payload.iat) {
-                return null;
-            }
-            
-            return {
-                sub: payload.sub as string,
-                email: payload.email as string,
-                type: payload.type as 'access' | 'refresh',
-                exp: payload.exp as number,
-                iat: payload.iat as number,
-                jti: payload.jti as string | undefined,
-                sessionId: payload.sessionId as string
-            };
-        } catch (error) {
+        const payload = await this.verifyPayload(token);
+        if (!payload) return null;
+
+        if (!payload.sub || !payload.email || !payload.type || !payload.exp || !payload.iat) {
             return null;
         }
+
+        return {
+            sub: payload.sub as string,
+            email: payload.email as string,
+            type: payload.type as 'access' | 'refresh',
+            exp: payload.exp as number,
+            iat: payload.iat as number,
+            jti: payload.jti as string | undefined,
+            sessionId: payload.sessionId as string
+        };
     }
+
+    // -- Convenience methods --
 
     async createAccessToken(userId: string, email: string, sessionId: string): Promise<{
         accessToken: string;
         expiresIn: number;
     }> {
         const accessTokenExpiry = SessionService.config.sessionTTL;
-        
+
         const payload = { sub: userId, email, sessionId };
-        
+
         const accessToken = await this.createToken({
                 ...payload,
                 type: 'access' as const,
             }, accessTokenExpiry);
-        
+
         return { accessToken, expiresIn: accessTokenExpiry };
     }
 
