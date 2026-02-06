@@ -1,5 +1,37 @@
 # Changelog
 
+## [1.5.0](https://github.com/cloudflare/vibesdk/compare/v1.4.0...v1.5.0) (2026-02-03)
+
+
+### Features
+
+* add app visibility check for preview deployment ([3c4f203](https://github.com/cloudflare/vibesdk/commit/3c4f2030d730e95fe0bd8deb17b1265cd5f20ecf))
+* add phase timeline change subscription and event handling ([a1c7404](https://github.com/cloudflare/vibesdk/commit/a1c740411d7b183d26b334d4c5a2a80ab4905728))
+* add phase timeline change subscription and event handling ([f8b14cd](https://github.com/cloudflare/vibesdk/commit/f8b14cde831e284d478633154189e5032dce3506))
+* enhance rate limit result with exceeded limit details and limit values ([aceac60](https://github.com/cloudflare/vibesdk/commit/aceac6076d51c0d744582ebe7f9f6ce3b08b73ad))
+* enhance rate limit result with exceeded limit details and limit values ([721b9e8](https://github.com/cloudflare/vibesdk/commit/721b9e8e2e770530465cc37b057760a6c8b9af47))
+* enhance type exports and improve utility functions for better type safety ([47eba5f](https://github.com/cloudflare/vibesdk/commit/47eba5f32ae48efceb07ac9484500cb6e4d3663e))
+* expand drizzle types script on sdk bundle ([96b709e](https://github.com/cloudflare/vibesdk/commit/96b709e96bb724458bc6bc680bf94f72466c5cb0))
+* expand drizzle types script on sdk bundle ([33eb39f](https://github.com/cloudflare/vibesdk/commit/33eb39f2d73a3e89b3f83af79566916935c5b9d2))
+* implement phase timeline management and state tracking in SDK ([dbcf51f](https://github.com/cloudflare/vibesdk/commit/dbcf51fd16c75886104cb9c4fd2a93b6ba0923b7))
+* implement WebSocket ticket authentication and management system ([1fe8640](https://github.com/cloudflare/vibesdk/commit/1fe8640ddaece52a2befe5a227918831f864c7e0))
+* integration tests with worker ([f565aff](https://github.com/cloudflare/vibesdk/commit/f565aff144bd0c2b6065db9406da269e0d587c9d))
+* integration tests with worker ([a68d9cb](https://github.com/cloudflare/vibesdk/commit/a68d9cbde5ba14cba53414361bcbefdb41851f9f))
+* readme update ([33f72ab](https://github.com/cloudflare/vibesdk/commit/33f72ab3dea70c1bc2c13e9ce30f79caa1c99422))
+* refactor client methods to include app management functionalities ([b9f0416](https://github.com/cloudflare/vibesdk/commit/b9f041655ae82898e757a19be06e9b35f58f98a8))
+* sdk tests ([a841168](https://github.com/cloudflare/vibesdk/commit/a8411685ff7ef3fce82aba34534d6145bb2a09fe))
+* sdk ws ticket auth and auto reconnect ([932271f](https://github.com/cloudflare/vibesdk/commit/932271fd33d9a7f122cd193ae8911195d951339c))
+* update model configurations and enhance inference handling ([f7960d5](https://github.com/cloudflare/vibesdk/commit/f7960d5b4e5c71297733bd6e3f653253efa14ce8))
+* use original worker types in sdk ([6745f04](https://github.com/cloudflare/vibesdk/commit/6745f0446bb11c6fd99adaddd9c45400a1f33014))
+* use original worker types in sdk ([0bc7db9](https://github.com/cloudflare/vibesdk/commit/0bc7db9bf354b6160da046cb0a765a1e502f14e5))
+* wrap global fetch to preserve context in Workers runtime ([b7be5db](https://github.com/cloudflare/vibesdk/commit/b7be5dba23ec03315eb52cc83784699553f56868))
+
+
+### Bug Fixes
+
+* do not allow non owner to export code to github repo after oauth callback ([0b30b38](https://github.com/cloudflare/vibesdk/commit/0b30b38eb51f5b77f1c56aeef3b546d586ab6eba))
+* only app owner should be able to deploy preview ([ba22bf8](https://github.com/cloudflare/vibesdk/commit/ba22bf85cdee42c6144ccdfe071b32be36b3e24e))
+
 ## [1.4.0](https://github.com/cloudflare/vibesdk/compare/v1.3.0...v1.4.0) (2025-12-20)
 
 
