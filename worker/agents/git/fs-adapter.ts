@@ -412,7 +412,8 @@ export class SqliteFS {
 
 		const row = result[0];
 		const isDir = row.is_dir === 1;
-
+        
+		let size = row.size;
 		// Resolve size: stored size for new writes, computed for legacy data
 		if (!isDir && size === 0 && row.data != null) {
 			if (row.data instanceof ArrayBuffer) {
@@ -423,14 +424,7 @@ export class SqliteFS {
 				size = Math.floor((row.data.length * 3) / 4) - padding;
 			}
 		}
-		if (!isDir && size === 0 && row.data != null) {
-			if (row.data instanceof ArrayBuffer) {
-				size = row.data.byteLength;
-			} else if (typeof row.data === 'string') {
-				size = Math.floor(row.data.length * 0.75);
-			}
-		}
-
+        
 		return {
 			type: isDir ? 'dir' : 'file',
 			mode: isDir ? 0o040755 : 0o100644,
