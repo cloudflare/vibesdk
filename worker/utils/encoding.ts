@@ -3,6 +3,8 @@
 // ============================================================================
 
 export function concatBuffers(chunks: Uint8Array[]): Uint8Array {
+export function concatBuffers(chunks: Uint8Array[]): Uint8Array {
+    if (chunks.length === 0) return new Uint8Array(0);
     if (chunks.length === 1) return chunks[0];
     const total = chunks.reduce((n, c) => n + c.length, 0);
     const out = new Uint8Array(total);
