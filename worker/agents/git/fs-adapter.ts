@@ -414,7 +414,15 @@ export class SqliteFS {
 		const isDir = row.is_dir === 1;
 
 		// Resolve size: stored size for new writes, computed for legacy data
-		let size = row.size;
+		if (!isDir && size === 0 && row.data != null) {
+			if (row.data instanceof ArrayBuffer) {
+				size = row.data.byteLength;
+			} else if (typeof row.data === 'string') {
+				// Account for base64 padding when computing original size
+				const padding = (row.data.match(/=+$/) || [''])[0].length;
+				size = Math.floor((row.data.length * 3) / 4) - padding;
+			}
+		}
 		if (!isDir && size === 0 && row.data != null) {
 			if (row.data instanceof ArrayBuffer) {
 				size = row.data.byteLength;
