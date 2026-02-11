@@ -19,6 +19,7 @@ import type {
     TimePeriod,
     PaginationParams
 } from '../types';
+import { ScreenshotSecurity } from 'worker/utils/screenshot-security';
 
 // Type definitions
 type WhereCondition = ReturnType<typeof eq> | ReturnType<typeof and> | ReturnType<typeof or> | undefined;
@@ -150,7 +151,7 @@ export class AppService extends BaseService {
             });
 
             return {
-                data: appsWithAnalytics,
+                data: await this.enrichScreenshotUrls(appsWithAnalytics),
                 pagination: {
                     limit,
                     offset,
@@ -321,11 +322,12 @@ export class AppService extends BaseService {
 
         const favoriteSet = new Set(favorites.map(f => f.appId));
 
-        return apps.map(app => ({
+        const result = apps.map(app => ({
             ...app,
             isFavorite: favoriteSet.has(app.id),
             updatedAtFormatted: formatRelativeTime(app.updatedAt)
         }));
+        return this.enrichScreenshotUrls(result);
     }
 
     /**
@@ -363,7 +365,7 @@ export class AppService extends BaseService {
             .orderBy(desc(schema.apps.updatedAt));
 
         // Strip sensitive fields - explicit about what's excluded
-        return results.map(({ app }) => {
+        const mapped = results.map(({ app }) => {
             const {
                 sessionToken: _sessionToken,
                 originalPrompt: _originalPrompt,
@@ -385,6 +387,7 @@ export class AppService extends BaseService {
                 updatedAtFormatted: formatRelativeTime(app.updatedAt)
             };
         });
+        return this.enrichScreenshotUrls(mapped);
     }
 
 
@@ -484,11 +487,13 @@ export class AppService extends BaseService {
             ))
             .get();
 
-        return {
+        const result = {
             ...app,
             isFavorite: !!favorite,
             updatedAtFormatted: formatRelativeTime(app.updatedAt)
         };
+        const [enriched] = await this.enrichScreenshotUrls([result]);
+        return enriched;
     }
 
     /**
@@ -612,7 +617,7 @@ export class AppService extends BaseService {
                 .then(r => !!r) : false
         ]);
         
-        return {
+        const result = {
             ...app,
             userName: appResult.userName,
             userAvatar: appResult.userAvatar,
@@ -621,6 +626,8 @@ export class AppService extends BaseService {
             userFavorited: isFavorite,
             viewCount
         };
+        const [enriched] = await this.enrichScreenshotUrls([result]);
+        return enriched;
     }
 
     /**
@@ -731,7 +738,7 @@ export class AppService extends BaseService {
                 .limit(limit)
                 .offset(offset);
                 
-            return results.map(r => ({
+            const starredApps = results.map(r => ({
                 ...r.app,
                 userName: r.userName,
                 userAvatar: r.userAvatar,
@@ -742,6 +749,7 @@ export class AppService extends BaseService {
                 userStarred: false,
                 userFavorited: true // These are favorited apps
             }));
+            return this.enrichScreenshotUrls(starredApps);
         }
 
         const basicApps = await this.executeRankedQuery(
@@ -761,7 +769,7 @@ export class AppService extends BaseService {
         const appIds = basicApps.map((row: RankedAppQueryResult) => row.app.id);
         const { userStars, userFavorites } = await this.addUserSpecificAppData(appIds, userId);
         
-        return basicApps.map((row: RankedAppQueryResult) => ({
+        const normalApps = basicApps.map((row: RankedAppQueryResult) => ({
             ...row.app,
             userName: row.userName,
             userAvatar: row.userAvatar,
@@ -772,6 +780,7 @@ export class AppService extends BaseService {
             userStarred: userStars.has(row.app.id),
             userFavorited: userFavorites.has(row.app.id)
         }));
+        return this.enrichScreenshotUrls(normalApps);
     }
 
     /**
@@ -1050,5 +1059,13 @@ export class AppService extends BaseService {
             this.logger?.error('Error deleting app:', error);
             return { success: false, error: 'An error occurred while deleting the app' };
         }
+    }
+
+    // ========================================
+    // SCREENSHOT URL SIGNING
+    // ========================================
+
+    private async enrichScreenshotUrls<T extends { id: string; screenshotUrl?: string | null }>(apps: T[]): Promise<T[]> {
+        return new ScreenshotSecurity(this.env).enrichUrls(apps);
     }
 }

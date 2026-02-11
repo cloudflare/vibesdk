@@ -29,6 +29,7 @@ import { RateLimitExceededError } from 'shared/types/errors';
 import { ImageAttachment, type ProcessedImageAttachment } from '../../../types/image-attachment';
 import { OperationOptions } from '../../operations/common';
 import { ImageType, uploadImage, detectBlankScreenshot } from 'worker/utils/images';
+import { ScreenshotSecurity } from 'worker/utils/screenshot-security';
 import { DeepDebugResult } from '../types';
 import { updatePackageJson } from '../../utils/packageSyncer';
 import { ICodingAgent } from '../../services/interfaces/ICodingAgent';
@@ -1843,15 +1844,20 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
             length: base64Screenshot.length
         });
 
+        // Sign the URL if it points to our internal screenshot endpoint
+        const security = new ScreenshotSecurity(this.env);
+        const signedUrl = await security.signUrl(uploadedImage.publicUrl, this.getAgentId());
+
         // Notify successful screenshot capture
         this.broadcast(WebSocketMessageResponses.SCREENSHOT_CAPTURE_SUCCESS, {
             message: `Successfully captured screenshot of ${url}`,
             url,
             viewport,
             screenshotSize: base64Screenshot.length,
-            timestamp: new Date().toISOString()
+            timestamp: new Date().toISOString(),
+            screenshotUrl: signedUrl,
         });
 
-        return uploadedImage.publicUrl;
+        return signedUrl;
     }
 }
