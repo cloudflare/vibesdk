@@ -3,9 +3,15 @@
  * Full async implementation for isomorphic-git compatibility
  */
 
+/** Strip all leading slashes so '//.gitignore' becomes '.gitignore' */
+function normalize(p: string): string {
+    return p.replace(/^\/+/, '');
+}
+
 export class MemFS {
     private files = new Map<string, Uint8Array>();
-    
+    private symlinks = new Map<string, string>();
+
     constructor() {
         // promises property required for isomorphic-git
         Object.defineProperty(this, 'promises', {
@@ -21,12 +27,12 @@ export class MemFS {
             ? new TextEncoder().encode(data) 
             : data;
         
-        const normalized = path.startsWith('/') ? path.slice(1) : path;
+        const normalized = normalize(path);
         this.files.set(normalized, bytes);
     }
     
     async readFile(path: string, options?: { encoding?: 'utf8' | string }): Promise<Uint8Array | string> {
-        const normalized = path.startsWith('/') ? path.slice(1) : path;
+        const normalized = normalize(path);
         const data = this.files.get(normalized);
         
         if (!data) {
@@ -43,91 +49,89 @@ export class MemFS {
     }
     
     async readdir(dirPath: string): Promise<string[]> {
-        const normalized = dirPath === '/' ? '' : (dirPath.startsWith('/') ? dirPath.slice(1) : dirPath);
+        const normalized = normalize(dirPath);
         const prefix = normalized ? normalized + '/' : '';
         const results = new Set<string>();
-        
+
         for (const filePath of this.files.keys()) {
             if (filePath.startsWith(prefix)) {
                 const relative = filePath.slice(prefix.length);
                 const firstPart = relative.split('/')[0];
-                if (firstPart) {
-                    results.add(firstPart);
-                }
+                if (firstPart) results.add(firstPart);
             }
         }
-        
+        for (const linkPath of this.symlinks.keys()) {
+            if (linkPath.startsWith(prefix)) {
+                const relative = linkPath.slice(prefix.length);
+                const firstPart = relative.split('/')[0];
+                if (firstPart) results.add(firstPart);
+            }
+        }
+
         return Array.from(results);
     }
     
-    async stat(path: string): Promise<{
-        type: 'file' | 'dir';
-        mode: number;
-        size: number;
-        mtimeMs: number;
-        ino: number;
-        uid: number;
-        gid: number;
-        dev: number;
-        ctime: Date;
-        mtime: Date;
-        ctimeMs: number;
-        isFile: () => boolean;
-        isDirectory: () => boolean;
-        isSymbolicLink: () => boolean;
-    }> {
-        const normalized = path.startsWith('/') ? path.slice(1) : path;
-        
-        // Check if it's a file
+    private makeStat(type: 'file' | 'dir', mode: number, size: number, isSymlink = false) {
+        const now = Date.now();
+        return {
+            type,
+            mode,
+            size,
+            mtimeMs: now,
+            ino: 0,
+            uid: 0,
+            gid: 0,
+            dev: 0,
+            ctime: new Date(now),
+            mtime: new Date(now),
+            ctimeMs: now,
+            isFile: () => type === 'file',
+            isDirectory: () => type === 'dir',
+            isSymbolicLink: () => isSymlink,
+        };
+    }
+
+    async stat(path: string) {
+        const normalized = normalize(path);
+
+        // Resolve symlinks for stat (follow the link)
+        if (this.symlinks.has(normalized)) {
+            const target = this.symlinks.get(normalized)!;
+            const targetData = this.files.get(normalize(target));
+            return this.makeStat('file', 0o100644, targetData?.length ?? 0);
+        }
+
         const data = this.files.get(normalized);
         if (data) {
-            return {
-                type: 'file' as const,
-                mode: 0o100644,
-                size: data.length,
-                mtimeMs: Date.now(),
-                ino: 0,
-                uid: 0,
-                gid: 0,
-                dev: 0,
-                ctime: new Date(),
-                mtime: new Date(),
-                ctimeMs: Date.now(),
-                isFile: () => true,
-                isDirectory: () => false,
-                isSymbolicLink: () => false
-            };
+            return this.makeStat('file', 0o100644, data.length);
         }
-        
-        // Check if it's a directory (has children)
+
+        // Check if it's a directory (has children in files or symlinks)
         const prefix = normalized ? normalized + '/' : '';
         for (const filePath of this.files.keys()) {
             if (filePath.startsWith(prefix)) {
-                return {
-                    type: 'dir' as const,
-                    mode: 0o040755,
-                    size: 0,
-                    mtimeMs: Date.now(),
-                    ino: 0,
-                    uid: 0,
-                    gid: 0,
-                    dev: 0,
-                    ctime: new Date(),
-                    mtime: new Date(),
-                    ctimeMs: Date.now(),
-                    isFile: () => false,
-                    isDirectory: () => true,
-                    isSymbolicLink: () => false
-                };
+                return this.makeStat('dir', 0o040755, 0);
             }
         }
-        
+        for (const linkPath of this.symlinks.keys()) {
+            if (linkPath.startsWith(prefix)) {
+                return this.makeStat('dir', 0o040755, 0);
+            }
+        }
+
         const error: NodeJS.ErrnoException = new Error(`ENOENT: no such file or directory, stat '${path}'`);
         error.code = 'ENOENT';
         throw error;
     }
-    
+
     async lstat(path: string) {
+        const normalized = normalize(path);
+
+        // lstat does NOT follow symlinks
+        if (this.symlinks.has(normalized)) {
+            return this.makeStat('file', 0o120000, 0, true);
+        }
+
         return this.stat(path);
     }
     
@@ -140,8 +144,8 @@ export class MemFS {
     }
     
     async rename(oldPath: string, newPath: string): Promise<void> {
-        const oldNormalized = oldPath.startsWith('/') ? oldPath.slice(1) : oldPath;
-        const newNormalized = newPath.startsWith('/') ? newPath.slice(1) : newPath;
+        const oldNormalized = normalize(oldPath);
+        const newNormalized = normalize(newPath);
         
         const data = this.files.get(oldNormalized);
         if (data) {
@@ -154,16 +158,32 @@ export class MemFS {
         // No-op
     }
     
-    async readlink(_path: string): Promise<string> {
-        throw new Error('Symbolic links not supported in MemFS');
+    async readlink(path: string): Promise<string> {
+        const normalized = normalize(path);
+        const target = this.symlinks.get(normalized);
+        if (!target) {
+            const error: NodeJS.ErrnoException = new Error(`ENOENT: no such file or directory, readlink '${path}'`);
+            error.code = 'ENOENT';
+            throw error;
+        }
+        return target;
     }
-    
-    async symlink(_target: string, _path: string): Promise<void> {
-        throw new Error('Symbolic links not supported in MemFS');
+
+    async symlink(target: string, path: string): Promise<void> {
+        const normalized = normalize(path);
+        this.symlinks.set(normalized, target);
     }
     
     async unlink(path: string): Promise<void> {
-        const normalized = path.startsWith('/') ? path.slice(1) : path;
+        const normalized = normalize(path);
         this.files.delete(normalized);
+        this.symlinks.delete(normalized);
+    }
+
+    /** Get all file paths in the working tree (excludes .git/ and symlinks) */
+    getWorkingTreeFiles(): string[] {
+        return Array.from(this.files.keys())
+            .map(p => normalize(p))
+            .filter(p => p && !p.startsWith('.git/') && p !== '.git');
     }
 }

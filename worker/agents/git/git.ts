@@ -4,7 +4,7 @@
 
 import git from '@ashishkumar472/cf-git';
 import { SqliteFS, type SqlExecutor } from './fs-adapter';
-import { FileOutputType } from '../schemas';
+import type { FileOutputType } from '../schemas';
 import * as Diff from 'diff';
 
 export interface CommitInfo {
@@ -105,9 +105,8 @@ export class GitVersionControl {
         if (files.length) {
             // Stage all files first
             await this.stage(files);
-        }
-
-        if (!await this.hasChanges()) {
+        } else if (!await this.hasChanges()) {
+            // Only check for changes when no files were explicitly staged
             console.log('[Git] No changes to commit');
             return null;
         }
@@ -128,7 +127,15 @@ export class GitVersionControl {
 
     private async hasChanges(): Promise<boolean> {
         try {
-            const status = await git.statusMatrix(this.gitConfig);
+            // Get top-level entries excluding .git to pass as filepaths.
+            const entries = await this.fs.readdir('/');
+            const workingTreePaths = entries.filter(e => e !== '.git');
+            if (workingTreePaths.length === 0) return false;
+
+            const status = await git.statusMatrix({
+                ...this.gitConfig,
+                filepaths: workingTreePaths,
+            });
             return status.some(row => row[1] !== row[2]);
         } catch {
             return true;

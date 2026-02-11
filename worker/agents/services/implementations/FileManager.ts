@@ -28,7 +28,7 @@ export class FileManager implements IFileManager {
      * Sync generatedFilesMap from git HEAD
      * TODO: Remove in the future by making git fs the single source of truth
      */
-    private async syncGeneratedFilesMapFromGit(): Promise<void> {
+    async syncGeneratedFilesMapFromGit(): Promise<void> {
         console.log('[FileManager] Auto-syncing generatedFilesMap from git HEAD');
         
         try {

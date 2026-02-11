@@ -53,4 +53,9 @@ export interface IFileManager {
      * Get generated files
      */
     getGeneratedFiles(): FileOutputType[];
+
+    /**
+     * Sync generatedFilesMap from git HEAD
+     */
+    syncGeneratedFilesMapFromGit(): Promise<void>;
 }
