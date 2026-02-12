@@ -40,10 +40,7 @@ const SYSTEM_PROMPT = `<ROLE>
 
     Plan the phase name and description appropriately. They don't have to strictly adhere to the blueprint's roadmap as unforeseen issues may occur.
     
-    Plan the next phase to advance toward completion. Set lastPhase: true when:
-    - The blueprint's implementation roadmap is complete
-    - All core features are working
-    - No critical runtime errors remain
+    Plan the next phase to advance toward completion. The system will automatically determine when the roadmap is complete based on implemented phases.
 
     Do not add phases for polish, optimization, or hypothetical improvements - users can request those via feedback.
     Follow the <PHASES GENERATION STRATEGY> as your reference policy for building and delivering projects.
