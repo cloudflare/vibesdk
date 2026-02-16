@@ -39,6 +39,7 @@
 		"knip:exports": "knip --exports"
 	},
 	"dependencies": {
+		"acorn": "^8.14.0",
 		"@ashishkumar472/cf-git": "1.0.5",
 		"@babel/generator": "^7.28.5",
 		"@babel/parser": "^7.28.5",
@@ -100,6 +101,7 @@
 		"framer-motion": "^12.23.26",
 		"hash-wasm": "^4.12.0",
 		"hono": "^4.11.0",
+		"htmlparser2": "^10.0.0",
 		"html2canvas-pro": "^1.5.13",
 		"input-otp": "^1.4.2",
 		"inquirer": "^12.11.1",
