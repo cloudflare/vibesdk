@@ -130,6 +130,9 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
   // Blueprint chunk parser (maintained across chunks)
   let blueprintParser: ReturnType<typeof createRepairingJSONParser> | null = null;
 
+  // Guard against duplicate preview deploy requests during reconnect/state transitions
+  let previewDeployInFlight = false;
+
   return (websocket: WebSocket, message: WebSocketMessage) => {
     const {
       setFiles,
@@ -316,8 +319,9 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
 
           if (state.generatedFilesMap && Object.keys(state.generatedFilesMap).length > 0) {
             updateStage('code', { status: 'completed' });
-            if (urlChatId !== 'new') {
-              logger.debug('🚀 Requesting preview deployment for existing chat with files');
+            if (urlChatId !== 'new' && !previewDeployInFlight) {
+              logger.debug('Requesting preview deployment for existing chat with files');
+              previewDeployInFlight = true;
               sendWebSocketMessage(websocket, 'preview');
             }
           }
@@ -388,8 +392,9 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
             if (state.generatedFilesMap && Object.keys(state.generatedFilesMap).length > 0) {
               updateStage('code', { status: 'completed' });
 
-              if (!previewUrl) {
-                logger.debug('🚀 Generated files exist but no preview URL - auto-deploying preview');
+              if (!previewUrl && !previewDeployInFlight) {
+                logger.debug('Generated files exist but no preview URL - auto-deploying preview');
+                previewDeployInFlight = true;
                 sendWebSocketMessage(websocket, 'preview');
               }
             }
@@ -623,6 +628,7 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
       }
 
       case 'deployment_completed': {
+        previewDeployInFlight = false;
         setIsPreviewDeploying(false);
         const finalPreviewURL = getPreviewUrl(message.previewURL, message.tunnelURL);
         setPreviewUrl(finalPreviewURL);
@@ -630,6 +636,7 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
       }
 
       case 'deployment_failed': {
+        previewDeployInFlight = false;
         toast.error(message.error);
         break;
       }
