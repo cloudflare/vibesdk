@@ -13,17 +13,17 @@ import { createMarkDebuggingCompleteTool } from '../tools/toolkit/completion-sig
 import { SYSTEM_PROMPT } from './prompts/deepDebuggerPrompts';
 
 const USER_PROMPT = (
-	issue: string,
-	fileSummaries: string,
-	templateInfo?: string,
-	runtimeErrors?: string,
-	previousTranscript?: string,
+  issue: string,
+  fileSummaries: string,
+  templateInfo?: string,
+  runtimeErrors?: string,
+  previousTranscript?: string,
 ) => `## Debugging Task
 **Issue to resolve:** ${issue}
 
 ${
-	previousTranscript
-		? `## Previous Debug Session Context
+  previousTranscript
+    ? `## Previous Debug Session Context
 A previous debug session was completed. Here's what was done:
 
 ${previousTranscript}
@@ -34,7 +34,7 @@ ${previousTranscript}
 - Reference previous findings if relevant
 - Continue from where the last session left off if this is a related issue
 `
-		: ''
+    : ''
 }
 
 ## Project Context
@@ -43,19 +43,19 @@ Below is metadata about the codebase. Use this to orient yourself, but read actu
 ${fileSummaries}
 
 ${
-	templateInfo
-		? `## Template/Boilerplate Information
+  templateInfo
+    ? `## Template/Boilerplate Information
 This project was built from a template with preconfigured components and utilities:
 
 ${templateInfo}
 
 **IMPORTANT:** These are the available components, utilities, and APIs in the project. Always verify imports against this list.`
-		: ''
+    : ''
 }
 
 ${
-	runtimeErrors
-		? `## Initial Runtime Errors (MAY BE STALE - VERIFY BEFORE FIXING)
+  runtimeErrors
+    ? `## Initial Runtime Errors (MAY BE STALE - VERIFY BEFORE FIXING)
 These runtime errors were captured earlier. **CRITICAL: Verify each error still exists before attempting to fix.**
 
 **Before fixing any error below:**
@@ -70,7 +70,7 @@ ${runtimeErrors}
 1. deploy_preview
 2. wait(20-30, "Waiting for user interaction")
 3. get_runtime_errors + get_logs (cross-reference both)`
-		: ''
+    : ''
 }
 
 ## Your Mission
@@ -87,155 +87,153 @@ Diagnose and fix all user issues.
 Begin.`;
 
 export interface DeepDebuggerInputs {
-	issue: string;
-	previousTranscript?: string;
-	filesIndex: FileState[];
-	runtimeErrors?: RuntimeError[];
-	streamCb?: (chunk: string) => void;
-	toolRenderer?: RenderToolCall;
+  issue: string;
+  previousTranscript?: string;
+  filesIndex: FileState[];
+  runtimeErrors?: RuntimeError[];
+  streamCb?: (chunk: string) => void;
+  toolRenderer?: RenderToolCall;
 }
 
 export interface DeepDebuggerOutputs {
-	transcript: string;
+  transcript: string;
 }
 
 export interface DeepDebuggerSession extends ToolSession {
-	templateInfo?: string;
-	fileSummaries: string;
+  templateInfo?: string;
+  fileSummaries: string;
 }
 
 export class DeepDebuggerOperation extends AgentOperationWithTools<
-	GenerationContext,
-	DeepDebuggerInputs,
-	DeepDebuggerOutputs,
-	DeepDebuggerSession
+  GenerationContext,
+  DeepDebuggerInputs,
+  DeepDebuggerOutputs,
+  DeepDebuggerSession
 > {
-	protected getCallbacks(inputs: DeepDebuggerInputs, _options: OperationOptions<GenerationContext>): ToolCallbacks {
-		const { streamCb, toolRenderer } = inputs;
-		return {
-			streamCb,
-			toolRenderer,
-		};
-	}
+  protected getCallbacks(inputs: DeepDebuggerInputs, _options: OperationOptions<GenerationContext>): ToolCallbacks {
+    const { streamCb, toolRenderer } = inputs;
+    return {
+      streamCb,
+      toolRenderer,
+    };
+  }
 
-	protected buildSession(
-		inputs: DeepDebuggerInputs,
-		options: OperationOptions<GenerationContext>,
-	): DeepDebuggerSession {
-		const { agent, context, logger } = options;
-		const { filesIndex, runtimeErrors } = inputs;
+  protected buildSession(
+    inputs: DeepDebuggerInputs,
+    options: OperationOptions<GenerationContext>,
+  ): DeepDebuggerSession {
+    const { agent, context, logger } = options;
+    const { filesIndex, runtimeErrors } = inputs;
 
-		logger.info('Starting deep debug session', {
-			issue: inputs.issue,
-			fileCount: filesIndex.length,
-			hasRuntimeErrors: !!runtimeErrors && runtimeErrors.length > 0,
-		});
+    logger.info('Starting deep debug session', {
+      issue: inputs.issue,
+      fileCount: filesIndex.length,
+      hasRuntimeErrors: !!runtimeErrors && runtimeErrors.length > 0,
+    });
 
-		const templateInfo = context.templateDetails
-			? PROMPT_UTILS.serializeTemplate(context.templateDetails)
-			: undefined;
+    const templateInfo = context.templateDetails ? PROMPT_UTILS.serializeTemplate(context.templateDetails) : undefined;
 
-		const fileSummaries = PROMPT_UTILS.summarizeFiles(filesIndex);
+    const fileSummaries = PROMPT_UTILS.summarizeFiles(filesIndex);
 
-		return {
-			agent,
-			templateInfo,
-			fileSummaries,
-		};
-	}
+    return {
+      agent,
+      templateInfo,
+      fileSummaries,
+    };
+  }
 
-	protected async buildMessages(
-		inputs: DeepDebuggerInputs,
-		_options: OperationOptions<GenerationContext>,
-		session: DeepDebuggerSession,
-	): Promise<Message[]> {
-		const system = createSystemMessage(SYSTEM_PROMPT);
+  protected async buildMessages(
+    inputs: DeepDebuggerInputs,
+    _options: OperationOptions<GenerationContext>,
+    session: DeepDebuggerSession,
+  ): Promise<Message[]> {
+    const system = createSystemMessage(SYSTEM_PROMPT);
 
-		const runtimeErrorsText = inputs.runtimeErrors ? PROMPT_UTILS.serializeErrors(inputs.runtimeErrors) : undefined;
+    const runtimeErrorsText = inputs.runtimeErrors ? PROMPT_UTILS.serializeErrors(inputs.runtimeErrors) : undefined;
 
-		const userPrompt = USER_PROMPT(
-			inputs.issue,
-			session.fileSummaries,
-			session.templateInfo,
-			runtimeErrorsText,
-			inputs.previousTranscript,
-		);
+    const userPrompt = USER_PROMPT(
+      inputs.issue,
+      session.fileSummaries,
+      session.templateInfo,
+      runtimeErrorsText,
+      inputs.previousTranscript,
+    );
 
-		const user = createUserMessage(userPrompt);
+    const user = createUserMessage(userPrompt);
 
-		return [system, user];
-	}
+    return [system, user];
+  }
 
-	protected buildTools(
-		_inputs: DeepDebuggerInputs,
-		options: OperationOptions<GenerationContext>,
-		session: DeepDebuggerSession,
-		callbacks: ToolCallbacks,
-	): ToolDefinition<unknown, unknown>[] {
-		const { logger } = options;
+  protected buildTools(
+    _inputs: DeepDebuggerInputs,
+    options: OperationOptions<GenerationContext>,
+    session: DeepDebuggerSession,
+    callbacks: ToolCallbacks,
+  ): ToolDefinition<unknown, unknown>[] {
+    const { logger } = options;
 
-		const tools = buildDebugTools(session, logger, callbacks.toolRenderer);
+    const tools = buildDebugTools(session, logger, callbacks.toolRenderer);
 
-		tools.push(createMarkDebuggingCompleteTool(logger));
+    tools.push(createMarkDebuggingCompleteTool(logger));
 
-		return tools;
-	}
+    return tools;
+  }
 
-	protected getAgentConfig(
-		inputs: DeepDebuggerInputs,
-		options: OperationOptions<GenerationContext>,
-		_session: DeepDebuggerSession,
-	) {
-		const { logger } = options;
+  protected getAgentConfig(
+    inputs: DeepDebuggerInputs,
+    options: OperationOptions<GenerationContext>,
+    _session: DeepDebuggerSession,
+  ) {
+    const { logger } = options;
 
-		logger.info('Configuring deep debugger', {
-			issue: inputs.issue,
-		});
+    logger.info('Configuring deep debugger', {
+      issue: inputs.issue,
+    });
 
-		return {
-			agentActionName: 'deepDebugger' as AgentActionKey,
-			completionSignalName: 'mark_debugging_complete',
-			operationalMode: 'initial' as const,
-			allowWarningInjection: true,
-		};
-	}
+    return {
+      agentActionName: 'deepDebugger' as AgentActionKey,
+      completionSignalName: 'mark_debugging_complete',
+      operationalMode: 'initial' as const,
+      allowWarningInjection: true,
+    };
+  }
 
-	protected mapResultToOutput(
-		_inputs: DeepDebuggerInputs,
-		options: OperationOptions<GenerationContext>,
-		_session: DeepDebuggerSession,
-		result: InferResponseString,
-	): DeepDebuggerOutputs {
-		const transcript = result?.string || '';
+  protected mapResultToOutput(
+    _inputs: DeepDebuggerInputs,
+    options: OperationOptions<GenerationContext>,
+    _session: DeepDebuggerSession,
+    result: InferResponseString,
+  ): DeepDebuggerOutputs {
+    const transcript = result?.string || '';
 
-		options.logger.info('Deep debug session completed', {
-			transcriptLength: transcript.length,
-		});
+    options.logger.info('Deep debug session completed', {
+      transcriptLength: transcript.length,
+    });
 
-		return { transcript };
-	}
+    return { transcript };
+  }
 
-	protected async runToolInference(
-		options: OperationOptions<GenerationContext>,
-		params: {
-			messages: Message[];
-			tools: ToolDefinition<unknown, unknown>[];
-			agentActionName: AgentActionKey;
-			streamCb?: (chunk: string) => void;
-			onAssistantMessage?: (message: Message) => Promise<void>;
-			completionConfig?: CompletionConfig;
-		},
-	): Promise<InferResponseString> {
-		try {
-			return await super.runToolInference(options, params);
-		} catch (error) {
-			if (error instanceof InferError) {
-				const transcript = error.partialResponseTranscript();
-				options.logger.info('Partial deep debug transcript', { transcript });
-				return error.partialResponse();
-			}
+  protected async runToolInference(
+    options: OperationOptions<GenerationContext>,
+    params: {
+      messages: Message[];
+      tools: ToolDefinition<unknown, unknown>[];
+      agentActionName: AgentActionKey;
+      streamCb?: (chunk: string) => void;
+      onAssistantMessage?: (message: Message) => Promise<void>;
+      completionConfig?: CompletionConfig;
+    },
+  ): Promise<InferResponseString> {
+    try {
+      return await super.runToolInference(options, params);
+    } catch (error) {
+      if (error instanceof InferError) {
+        const transcript = error.partialResponseTranscript();
+        options.logger.info('Partial deep debug transcript', { transcript });
+        return error.partialResponse();
+      }
 
-			throw error;
-		}
-	}
+      throw error;
+    }
+  }
 }

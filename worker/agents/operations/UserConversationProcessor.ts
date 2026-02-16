@@ -25,49 +25,49 @@ import { prepareMessagesForInference } from '../utils/common';
 // Constants
 const CHUNK_SIZE = 64;
 export interface ToolCallStatusArgs {
-	name: string;
-	status: 'start' | 'success' | 'error';
-	args?: Record<string, unknown>;
-	result?: string;
+  name: string;
+  status: 'start' | 'success' | 'error';
+  args?: Record<string, unknown>;
+  result?: string;
 }
 
 export type RenderToolCall = (args: ToolCallStatusArgs) => void;
 
 type ConversationResponseCallback = (
-	message: string,
-	conversationId: string,
-	isStreaming: boolean,
-	tool?: ToolCallStatusArgs,
+  message: string,
+  conversationId: string,
+  isStreaming: boolean,
+  tool?: ToolCallStatusArgs,
 ) => void;
 
 export function buildToolCallRenderer(callback: ConversationResponseCallback, conversationId: string): RenderToolCall {
-	return (args: ToolCallStatusArgs) => {
-		callback('', conversationId, false, args);
-	};
+  return (args: ToolCallStatusArgs) => {
+    callback('', conversationId, false, args);
+  };
 }
 
 export interface UserConversationInputs {
-	userMessage: string;
-	conversationState: ConversationState;
-	conversationResponseCallback: ConversationResponseCallback;
-	errors: RuntimeError[];
-	projectUpdates: string[];
-	images?: ProcessedImageAttachment[];
+  userMessage: string;
+  conversationState: ConversationState;
+  conversationResponseCallback: ConversationResponseCallback;
+  errors: RuntimeError[];
+  projectUpdates: string[];
+  images?: ProcessedImageAttachment[];
 }
 
 export interface UserConversationOutputs {
-	conversationResponse: ConversationalResponseType;
-	conversationState: ConversationState;
+  conversationResponse: ConversationalResponseType;
+  conversationState: ConversationState;
 }
 
 const RelevantProjectUpdateWebsoketMessages = [
-	WebSocketMessageResponses.PHASE_IMPLEMENTING,
-	WebSocketMessageResponses.PHASE_IMPLEMENTED,
-	WebSocketMessageResponses.CODE_REVIEW,
-	WebSocketMessageResponses.FILE_REGENERATING,
-	WebSocketMessageResponses.FILE_REGENERATED,
-	WebSocketMessageResponses.DEPLOYMENT_COMPLETED,
-	WebSocketMessageResponses.COMMAND_EXECUTING,
+  WebSocketMessageResponses.PHASE_IMPLEMENTING,
+  WebSocketMessageResponses.PHASE_IMPLEMENTED,
+  WebSocketMessageResponses.CODE_REVIEW,
+  WebSocketMessageResponses.FILE_REGENERATING,
+  WebSocketMessageResponses.FILE_REGENERATED,
+  WebSocketMessageResponses.DEPLOYMENT_COMPLETED,
+  WebSocketMessageResponses.COMMAND_EXECUTING,
 ] as const;
 export type ProjectUpdateType = (typeof RelevantProjectUpdateWebsoketMessages)[number];
 
@@ -285,7 +285,7 @@ Some troubleshooting tips:
 Remember: YOU are the developer from the user's perspective. Always speak as "I" when discussing changes. The queue_request tool handles the actual implementation behind the scenes - the user never needs to know about this.`;
 
 const FALLBACK_USER_RESPONSE =
-	"I understand you'd like to make some changes to your project. I'll work on that in the next phase.";
+  "I understand you'd like to make some changes to your project. I'll work on that in the next phase.";
 
 const USER_PROMPT = `
 <system_context>
@@ -302,269 +302,259 @@ const USER_PROMPT = `
 `;
 
 function buildUserMessageWithContext(
-	userMessage: string,
-	errors: RuntimeError[],
-	projectUpdates: string[],
-	forInference: boolean,
+  userMessage: string,
+  errors: RuntimeError[],
+  projectUpdates: string[],
+  forInference: boolean,
 ): string {
-	let userPrompt = USER_PROMPT.replace('{{timestamp}}', new Date().toISOString()).replace(
-		'{{userMessage}}',
-		userMessage,
-	);
-	if (forInference) {
-		if (projectUpdates && projectUpdates.length > 0) {
-			userPrompt = userPrompt.replace('{{projectUpdates}}', projectUpdates.join('\n\n'));
-		}
-		return userPrompt.replace('{{errors}}', PROMPT_UTILS.serializeErrors(errors));
-	} else {
-		// To save tokens
-		return userPrompt.replace('{{projectUpdates}}', 'redacted').replace('{{errors}}', 'redacted');
-	}
+  let userPrompt = USER_PROMPT.replace('{{timestamp}}', new Date().toISOString()).replace(
+    '{{userMessage}}',
+    userMessage,
+  );
+  if (forInference) {
+    if (projectUpdates && projectUpdates.length > 0) {
+      userPrompt = userPrompt.replace('{{projectUpdates}}', projectUpdates.join('\n\n'));
+    }
+    return userPrompt.replace('{{errors}}', PROMPT_UTILS.serializeErrors(errors));
+  } else {
+    // To save tokens
+    return userPrompt.replace('{{projectUpdates}}', 'redacted').replace('{{errors}}', 'redacted');
+  }
 }
 
 export class UserConversationProcessor extends AgentOperation<
-	GenerationContext,
-	UserConversationInputs,
-	UserConversationOutputs
+  GenerationContext,
+  UserConversationInputs,
+  UserConversationOutputs
 > {
-	async execute(
-		inputs: UserConversationInputs,
-		options: OperationOptions<GenerationContext>,
-	): Promise<UserConversationOutputs> {
-		const { env, logger, context, agent } = options;
-		const { userMessage, conversationState, errors, images, projectUpdates } = inputs;
-		logger.info('Processing user message', {
-			messageLength: inputs.userMessage.length,
-			hasImages: !!images && images.length > 0,
-			imageCount: images?.length || 0,
-		});
+  async execute(
+    inputs: UserConversationInputs,
+    options: OperationOptions<GenerationContext>,
+  ): Promise<UserConversationOutputs> {
+    const { env, logger, context, agent } = options;
+    const { userMessage, conversationState, errors, images, projectUpdates } = inputs;
+    logger.info('Processing user message', {
+      messageLength: inputs.userMessage.length,
+      hasImages: !!images && images.length > 0,
+      imageCount: images?.length || 0,
+    });
 
-		try {
-			const systemPromptMessages = getSystemPromptWithProjectContext(
-				SYSTEM_PROMPT,
-				context,
-				CodeSerializerType.SIMPLE,
-			);
+    try {
+      const systemPromptMessages = getSystemPromptWithProjectContext(SYSTEM_PROMPT, context, CodeSerializerType.SIMPLE);
 
-			// Create user message with optional images for inference
-			const userPromptForInference = buildUserMessageWithContext(userMessage, errors, projectUpdates, true);
-			const userMessageForInference =
-				images && images.length > 0
-					? createMultiModalUserMessage(userPromptForInference, await imagesToBase64(env, images), 'high')
-					: createUserMessage(userPromptForInference);
+      // Create user message with optional images for inference
+      const userPromptForInference = buildUserMessageWithContext(userMessage, errors, projectUpdates, true);
+      const userMessageForInference =
+        images && images.length > 0
+          ? createMultiModalUserMessage(userPromptForInference, await imagesToBase64(env, images), 'high')
+          : createUserMessage(userPromptForInference);
 
-			let extractedUserResponse = '';
+      let extractedUserResponse = '';
 
-			// Generate unique conversation ID for this turn
-			const aiConversationId = IdGenerator.generateConversationId();
+      // Generate unique conversation ID for this turn
+      const aiConversationId = IdGenerator.generateConversationId();
 
-			logger.info('Generated conversation ID', { aiConversationId });
+      logger.info('Generated conversation ID', { aiConversationId });
 
-			const toolCallRenderer = buildToolCallRenderer(inputs.conversationResponseCallback, aiConversationId);
+      const toolCallRenderer = buildToolCallRenderer(inputs.conversationResponseCallback, aiConversationId);
 
-			// Assemble all tools with lifecycle callbacks for UI updates
-			const tools = buildTools(agent, logger, toolCallRenderer, (chunk: string) =>
-				inputs.conversationResponseCallback(chunk, aiConversationId, true),
-			).map((td) => ({
-				...td,
-				onStart: (_tc: ChatCompletionMessageFunctionToolCall, args: Record<string, unknown>) =>
-					Promise.resolve(toolCallRenderer({ name: td.name, status: 'start', args })),
-				onComplete: (
-					_tc: ChatCompletionMessageFunctionToolCall,
-					args: Record<string, unknown>,
-					result: unknown,
-				) =>
-					Promise.resolve(
-						toolCallRenderer({
-							name: td.name,
-							status: 'success',
-							args,
-							result: typeof result === 'string' ? result : JSON.stringify(result),
-						}),
-					),
-			}));
+      // Assemble all tools with lifecycle callbacks for UI updates
+      const tools = buildTools(agent, logger, toolCallRenderer, (chunk: string) =>
+        inputs.conversationResponseCallback(chunk, aiConversationId, true),
+      ).map((td) => ({
+        ...td,
+        onStart: (_tc: ChatCompletionMessageFunctionToolCall, args: Record<string, unknown>) =>
+          Promise.resolve(toolCallRenderer({ name: td.name, status: 'start', args })),
+        onComplete: (_tc: ChatCompletionMessageFunctionToolCall, args: Record<string, unknown>, result: unknown) =>
+          Promise.resolve(
+            toolCallRenderer({
+              name: td.name,
+              status: 'success',
+              args,
+              result: typeof result === 'string' ? result : JSON.stringify(result),
+            }),
+          ),
+      }));
 
-			const runningHistory = await prepareMessagesForInference(env, conversationState.runningHistory);
+      const runningHistory = await prepareMessagesForInference(env, conversationState.runningHistory);
 
-			const compactHistory = await compactifyContext(runningHistory, env, options, toolCallRenderer, logger);
-			if (compactHistory.length !== runningHistory.length) {
-				logger.info('Conversation history compactified', {
-					fullHistoryLength: conversationState.fullHistory.length,
-					runningHistoryLength: conversationState.runningHistory.length,
-					compactifiedRunningHistoryLength: compactHistory.length,
-					reduction: conversationState.runningHistory.length - compactHistory.length,
-				});
-			}
+      const compactHistory = await compactifyContext(runningHistory, env, options, toolCallRenderer, logger);
+      if (compactHistory.length !== runningHistory.length) {
+        logger.info('Conversation history compactified', {
+          fullHistoryLength: conversationState.fullHistory.length,
+          runningHistoryLength: conversationState.runningHistory.length,
+          compactifiedRunningHistoryLength: compactHistory.length,
+          reduction: conversationState.runningHistory.length - compactHistory.length,
+        });
+      }
 
-			const messagesForInference = [
-				...systemPromptMessages,
-				...compactHistory,
-				{ ...userMessageForInference, conversationId: IdGenerator.generateConversationId() },
-			];
+      const messagesForInference = [
+        ...systemPromptMessages,
+        ...compactHistory,
+        { ...userMessageForInference, conversationId: IdGenerator.generateConversationId() },
+      ];
 
-			logger.info('Executing inference for user message', {
-				messageLength: userMessage.length,
-				aiConversationId,
-				tools,
-			});
+      logger.info('Executing inference for user message', {
+        messageLength: userMessage.length,
+        aiConversationId,
+        tools,
+      });
 
-			// Don't save the system prompts so that every time new initial prompts can be generated with latest project context
-			// Use inference message (with images) for AI, but store text-only in history
-			let result: InferResponseString;
-			try {
-				result = await executeInference({
-					env: env,
-					messages: messagesForInference,
-					agentActionName: 'conversationalResponse',
-					context: options.inferenceContext,
-					tools, // Enable tools for the conversational AI
-					stream: {
-						onChunk: (chunk) => {
-							logger.info('Processing user message chunk', {
-								chunkLength: chunk.length,
-								aiConversationId,
-							});
-							inputs.conversationResponseCallback(chunk, aiConversationId, true);
-							extractedUserResponse += chunk;
-						},
-						chunk_size: CHUNK_SIZE,
-					},
-				});
-			} catch (error) {
-				if (error instanceof AbortError) {
-					logger.info('User message processing aborted', {
-						aiConversationId,
-						partialResponse: error.partialResponse(),
-					});
-					result = error.partialResponse();
-				} else {
-					throw error;
-				}
-			}
+      // Don't save the system prompts so that every time new initial prompts can be generated with latest project context
+      // Use inference message (with images) for AI, but store text-only in history
+      let result: InferResponseString;
+      try {
+        result = await executeInference({
+          env: env,
+          messages: messagesForInference,
+          agentActionName: 'conversationalResponse',
+          context: options.inferenceContext,
+          tools, // Enable tools for the conversational AI
+          stream: {
+            onChunk: (chunk) => {
+              logger.info('Processing user message chunk', {
+                chunkLength: chunk.length,
+                aiConversationId,
+              });
+              inputs.conversationResponseCallback(chunk, aiConversationId, true);
+              extractedUserResponse += chunk;
+            },
+            chunk_size: CHUNK_SIZE,
+          },
+        });
+      } catch (error) {
+        if (error instanceof AbortError) {
+          logger.info('User message processing aborted', {
+            aiConversationId,
+            partialResponse: error.partialResponse(),
+          });
+          result = error.partialResponse();
+        } else {
+          throw error;
+        }
+      }
 
-			logger.info('Successfully processed user message', {
-				streamingSuccess: !!extractedUserResponse,
-			});
+      logger.info('Successfully processed user message', {
+        streamingSuccess: !!extractedUserResponse,
+      });
 
-			const conversationResponse: ConversationalResponseType = {
-				userResponse: extractedUserResponse,
-			};
+      const conversationResponse: ConversationalResponseType = {
+        userResponse: extractedUserResponse,
+      };
 
-			// For conversation history, store only text (images are ephemeral and not persisted)
-			const userPromptForHistory = buildUserMessageWithContext(userMessage, errors, projectUpdates, false);
-			const userMessageForHistory =
-				images && images.length > 0
-					? createMultiModalUserMessage(
-							userPromptForHistory,
-							images.map((img) => img.r2Key),
-							'high',
-						)
-					: createUserMessage(userPromptForHistory);
+      // For conversation history, store only text (images are ephemeral and not persisted)
+      const userPromptForHistory = buildUserMessageWithContext(userMessage, errors, projectUpdates, false);
+      const userMessageForHistory =
+        images && images.length > 0
+          ? createMultiModalUserMessage(
+              userPromptForHistory,
+              images.map((img) => img.r2Key),
+              'high',
+            )
+          : createUserMessage(userPromptForHistory);
 
-			const messages = [{ ...userMessageForHistory, conversationId: IdGenerator.generateConversationId() }];
+      const messages = [{ ...userMessageForHistory, conversationId: IdGenerator.generateConversationId() }];
 
-			// Save the assistant's response to conversation history
-			// If tools were called, include the tool call messages from toolCallContext
-			if (result.toolCallContext?.messages && result.toolCallContext.messages.length > 0) {
-				messages.push(
-					...result.toolCallContext.messages.map((message) => ({
-						...message,
-						conversationId: IdGenerator.generateConversationId(),
-					})),
-				);
-			}
+      // Save the assistant's response to conversation history
+      // If tools were called, include the tool call messages from toolCallContext
+      if (result.toolCallContext?.messages && result.toolCallContext.messages.length > 0) {
+        messages.push(
+          ...result.toolCallContext.messages.map((message) => ({
+            ...message,
+            conversationId: IdGenerator.generateConversationId(),
+          })),
+        );
+      }
 
-			// Check if final response is duplicate of last assistant message in tool context
-			const finalResponse = createAssistantMessage(result.string);
-			const lastToolContextMessage =
-				result.toolCallContext?.messages?.[result.toolCallContext.messages.length - 1];
-			const isDuplicate =
-				lastToolContextMessage?.role === 'assistant' &&
-				lastToolContextMessage?.content === finalResponse.content;
+      // Check if final response is duplicate of last assistant message in tool context
+      const finalResponse = createAssistantMessage(result.string);
+      const lastToolContextMessage = result.toolCallContext?.messages?.[result.toolCallContext.messages.length - 1];
+      const isDuplicate =
+        lastToolContextMessage?.role === 'assistant' && lastToolContextMessage?.content === finalResponse.content;
 
-			if (!isDuplicate) {
-				messages.push({ ...finalResponse, conversationId: IdGenerator.generateConversationId() });
-				logger.info('Added final assistant response to history');
-			} else {
-				logger.info('Skipped duplicate final assistant response');
-			}
+      if (!isDuplicate) {
+        messages.push({ ...finalResponse, conversationId: IdGenerator.generateConversationId() });
+        logger.info('Added final assistant response to history');
+      } else {
+        logger.info('Skipped duplicate final assistant response');
+      }
 
-			// Derive compacted running history for storage using stable IDs (no re-compaction)
-			const originalRunning = conversationState.runningHistory;
-			let storageRunning = originalRunning;
-			if (compactHistory.length !== runningHistory.length) {
-				const summaryMessage = compactHistory[0]; // assistant text-only summary
-				const originalById = new Map(originalRunning.map((m) => [m.conversationId, m] as const));
-				const preservedTail = compactHistory
-					.slice(1)
-					.map((m) => originalById.get(m.conversationId))
-					.filter((m): m is ConversationMessage => !!m);
-				storageRunning = [summaryMessage, ...preservedTail];
-			}
+      // Derive compacted running history for storage using stable IDs (no re-compaction)
+      const originalRunning = conversationState.runningHistory;
+      let storageRunning = originalRunning;
+      if (compactHistory.length !== runningHistory.length) {
+        const summaryMessage = compactHistory[0]; // assistant text-only summary
+        const originalById = new Map(originalRunning.map((m) => [m.conversationId, m] as const));
+        const preservedTail = compactHistory
+          .slice(1)
+          .map((m) => originalById.get(m.conversationId))
+          .filter((m): m is ConversationMessage => !!m);
+        storageRunning = [summaryMessage, ...preservedTail];
+      }
 
-			return {
-				conversationResponse,
-				conversationState: {
-					...conversationState,
-					runningHistory: [...storageRunning, ...messages],
-					fullHistory: [...conversationState.fullHistory, ...messages],
-				},
-			};
-		} catch (error) {
-			logger.error('Error processing user message:', error);
-			if (error instanceof RateLimitExceededError || error instanceof SecurityError) {
-				throw error;
-			}
+      return {
+        conversationResponse,
+        conversationState: {
+          ...conversationState,
+          runningHistory: [...storageRunning, ...messages],
+          fullHistory: [...conversationState.fullHistory, ...messages],
+        },
+      };
+    } catch (error) {
+      logger.error('Error processing user message:', error);
+      if (error instanceof RateLimitExceededError || error instanceof SecurityError) {
+        throw error;
+      }
 
-			const fallbackMessages = [
-				{ ...createUserMessage(userMessage), conversationId: IdGenerator.generateConversationId() },
-				{
-					...createAssistantMessage(FALLBACK_USER_RESPONSE),
-					conversationId: IdGenerator.generateConversationId(),
-				},
-			];
+      const fallbackMessages = [
+        { ...createUserMessage(userMessage), conversationId: IdGenerator.generateConversationId() },
+        {
+          ...createAssistantMessage(FALLBACK_USER_RESPONSE),
+          conversationId: IdGenerator.generateConversationId(),
+        },
+      ];
 
-			// Fallback response
-			return {
-				conversationResponse: {
-					userResponse: FALLBACK_USER_RESPONSE,
-				},
-				conversationState: {
-					...conversationState,
-					runningHistory: [...conversationState.runningHistory, ...fallbackMessages],
-					fullHistory: [...conversationState.fullHistory, ...fallbackMessages],
-				},
-			};
-		}
-	}
+      // Fallback response
+      return {
+        conversationResponse: {
+          userResponse: FALLBACK_USER_RESPONSE,
+        },
+        conversationState: {
+          ...conversationState,
+          runningHistory: [...conversationState.runningHistory, ...fallbackMessages],
+          fullHistory: [...conversationState.fullHistory, ...fallbackMessages],
+        },
+      };
+    }
+  }
 
-	processProjectUpdates<T extends ProjectUpdateType>(
-		updateType: T,
-		_data: WebSocketMessageData<T>,
-		logger: StructuredLogger,
-	): ConversationMessage[] {
-		try {
-			logger.info('Processing project update', { updateType });
+  processProjectUpdates<T extends ProjectUpdateType>(
+    updateType: T,
+    _data: WebSocketMessageData<T>,
+    logger: StructuredLogger,
+  ): ConversationMessage[] {
+    try {
+      logger.info('Processing project update', { updateType });
 
-			// Just save it as an assistant message. Dont save data for now to avoid DO size issues
-			const preparedMessage = `**<Internal Memo>**
+      // Just save it as an assistant message. Dont save data for now to avoid DO size issues
+      const preparedMessage = `**<Internal Memo>**
 Project Updates: ${updateType}
 </Internal Memo>`;
 
-			return [
-				{
-					role: 'assistant',
-					content: preparedMessage,
-					conversationId: IdGenerator.generateConversationId(),
-				},
-			];
-		} catch (error) {
-			logger.error('Error processing project update:', error);
-			return [];
-		}
-	}
+      return [
+        {
+          role: 'assistant',
+          content: preparedMessage,
+          conversationId: IdGenerator.generateConversationId(),
+        },
+      ];
+    } catch (error) {
+      logger.error('Error processing project update:', error);
+      return [];
+    }
+  }
 
-	isProjectUpdateType(type: unknown): type is ProjectUpdateType {
-		return RelevantProjectUpdateWebsoketMessages.includes(type as ProjectUpdateType);
-	}
+  isProjectUpdateType(type: unknown): type is ProjectUpdateType {
+    return RelevantProjectUpdateWebsoketMessages.includes(type as ProjectUpdateType);
+  }
 }

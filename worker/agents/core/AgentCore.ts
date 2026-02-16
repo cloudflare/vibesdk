@@ -15,29 +15,29 @@ import { TemplateDetails } from 'worker/services/sandbox/sandboxTypes';
  * - Services (fileManager, deploymentManager, git)
  */
 export interface AgentInfrastructure<TState extends BaseProjectState> {
-	readonly state: TState;
-	setState(state: TState): void;
-	getWebSockets(): WebSocket[];
-	broadcast<T extends WebSocketMessageType>(type: T, data?: WebSocketMessageData<T>): void;
-	getAgentId(): string;
-	logger(): StructuredLogger;
-	readonly env: Env;
+  readonly state: TState;
+  setState(state: TState): void;
+  getWebSockets(): WebSocket[];
+  broadcast<T extends WebSocketMessageType>(type: T, data?: WebSocketMessageData<T>): void;
+  getAgentId(): string;
+  logger(): StructuredLogger;
+  readonly env: Env;
 
-	setConversationState(state: ConversationState): void;
-	getConversationState(): ConversationState;
-	addConversationMessage(message: ConversationMessage): void;
-	clearConversation(): void;
+  setConversationState(state: ConversationState): void;
+  getConversationState(): ConversationState;
+  addConversationMessage(message: ConversationMessage): void;
+  clearConversation(): void;
 
-	// Services
-	readonly fileManager: FileManager;
-	readonly deploymentManager: DeploymentManager;
-	readonly git: GitVersionControl;
+  // Services
+  readonly fileManager: FileManager;
+  readonly deploymentManager: DeploymentManager;
+  readonly git: GitVersionControl;
 
-	// Git export infrastructure
-	exportGitObjects(): Promise<{
-		gitObjects: Array<{ path: string; data: Uint8Array }>;
-		query: string;
-		hasCommits: boolean;
-		templateDetails: TemplateDetails | null;
-	}>;
+  // Git export infrastructure
+  exportGitObjects(): Promise<{
+    gitObjects: Array<{ path: string; data: Uint8Array }>;
+    query: string;
+    hasCommits: boolean;
+    templateDetails: TemplateDetails | null;
+  }>;
 }

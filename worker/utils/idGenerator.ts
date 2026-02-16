@@ -6,9 +6,9 @@
 import { nanoid } from 'nanoid';
 
 export function generateId(): string {
-	return crypto.randomUUID();
+  return crypto.randomUUID();
 }
 
 export function generateNanoId(): string {
-	return nanoid();
+  return nanoid();
 }

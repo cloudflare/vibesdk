@@ -21,12 +21,12 @@ This collection includes **100+ API endpoints** organized into logical groups:
 ### 1. Import Collection & Environment
 
 1. **Import Collection**:
-    - Open Postman → Import → Upload `v1dev-api-collection.postman_collection.json`
+   - Open Postman → Import → Upload `v1dev-api-collection.postman_collection.json`
 
 2. **Import Environment**:
-    - Import → Upload `v1dev-environment.postman_environment.json`
+   - Import → Upload `v1dev-environment.postman_environment.json`
 3. **Select Environment**:
-    - Choose "V1 Dev Environment" from the environment dropdown
+   - Choose "V1 Dev Environment" from the environment dropdown
 
 ### 2. Configure Base URL
 
@@ -42,18 +42,18 @@ Update the `baseUrl` environment variable:
 #### 🌐 Recommended Approach: OAuth Helper Requests
 
 1. **Use the OAuth Helper requests**:
-    - Run "🌐 OAuth Helper - Get Google URL"
-    - Check the **Console tab** in Postman for the OAuth URL
-    - Copy the URL and open it in your browser
+   - Run "🌐 OAuth Helper - Get Google URL"
+   - Check the **Console tab** in Postman for the OAuth URL
+   - Copy the URL and open it in your browser
 
 2. **Complete authentication in browser**:
-    - Follow the OAuth flow in your browser
-    - After successful auth, you'll be redirected back to your app
-    - Session cookies are now set for your domain
+   - Follow the OAuth flow in your browser
+   - After successful auth, you'll be redirected back to your app
+   - Session cookies are now set for your domain
 
 3. **Return to Postman**:
-    - Session cookies will work automatically for same-domain requests
-    - Test with "Get User Profile" to verify authentication
+   - Session cookies will work automatically for same-domain requests
+   - Test with "Get User Profile" to verify authentication
 
 #### Alternative: Manual URL Construction
 
@@ -234,18 +234,18 @@ For WebSocket endpoints like agent communication:
 
 1. **Start Wrangler Dev Server**:
 
-    ```bash
-    cd /path/to/v1dev
-    npm run local  # Starts on http://localhost:8787
-    ```
+   ```bash
+   cd /path/to/v1dev
+   npm run local  # Starts on http://localhost:8787
+   ```
 
 2. **Update Environment**:
-    - Set `baseUrl` to `http://localhost:8787`
-    - Ensure `.dev.vars` contains required environment variables
+   - Set `baseUrl` to `http://localhost:8787`
+   - Ensure `.dev.vars` contains required environment variables
 
 3. **Test Authentication**:
-    - OAuth may require ngrok for localhost callback URLs
-    - Email auth works directly with localhost
+   - OAuth may require ngrok for localhost callback URLs
+   - Email auth works directly with localhost
 
 ### Production Testing
 
@@ -306,24 +306,24 @@ All API responses follow this structure:
 ### Common Issues
 
 1. **CSRF Token Errors**:
-    - Ensure pre-request scripts are enabled
-    - Manually run "Get CSRF Token" request
-    - Check that `X-CSRF-Token` header is included in POST/PUT/DELETE requests
+   - Ensure pre-request scripts are enabled
+   - Manually run "Get CSRF Token" request
+   - Check that `X-CSRF-Token` header is included in POST/PUT/DELETE requests
 
 2. **Authentication Issues**:
-    - Verify cookies are enabled in Postman
-    - Check that OAuth callback URLs match your configuration
-    - Ensure session hasn't expired (check "Get User Profile")
+   - Verify cookies are enabled in Postman
+   - Check that OAuth callback URLs match your configuration
+   - Ensure session hasn't expired (check "Get User Profile")
 
 3. **WebSocket Connection Issues**:
-    - WebSockets require active session authentication
-    - Use external WebSocket client if Postman WebSocket support is limited
-    - Verify agent ownership for WebSocket connections
+   - WebSockets require active session authentication
+   - Use external WebSocket client if Postman WebSocket support is limited
+   - Verify agent ownership for WebSocket connections
 
 4. **Local Development Issues**:
-    - Ensure Wrangler is running (`npm run local`)
-    - Check that `.dev.vars` file contains required environment variables
-    - Verify D1 database is set up (`npm run db:setup`)
+   - Ensure Wrangler is running (`npm run local`)
+   - Check that `.dev.vars` file contains required environment variables
+   - Verify D1 database is set up (`npm run db:setup`)
 
 ### Getting Help
 

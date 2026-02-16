@@ -1,11 +1,11 @@
 {
-	"extends": "./tsconfig.node.json",
-	"compilerOptions": {
-		"composite": true,
-		"tsBuildInfoFile": "./node_modules/.tmp/tsconfig.worker.tsbuildinfo",
-		"types": ["@cloudflare/workers-types", "./worker-configuration.d.ts", "vite/client", "jest"],
-		"lib": ["ES2023"]
-	},
-	"include": ["./worker-configuration.d.ts", "./shared", "./worker", "./worker/types"],
-	"exclude": ["**/__tests__/**/*", "**/*.test.ts"]
+  "extends": "./tsconfig.node.json",
+  "compilerOptions": {
+    "composite": true,
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.worker.tsbuildinfo",
+    "types": ["@cloudflare/workers-types", "./worker-configuration.d.ts", "vite/client", "jest"],
+    "lib": ["ES2023"]
+  },
+  "include": ["./worker-configuration.d.ts", "./shared", "./worker", "./worker/types"],
+  "exclude": ["**/__tests__/**/*", "**/*.test.ts"]
 }

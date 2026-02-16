@@ -66,39 +66,39 @@ GOOD: const openWindow = useOSStore(s => s.openWindow); const setActiveWindow = 
 </CURRENT_PHASE>`;
 
 const formatUserSuggestions = (suggestions?: string[] | null): string => {
-	if (!suggestions || suggestions.length === 0) return '';
+  if (!suggestions || suggestions.length === 0) return '';
 
-	return `Client feedback to address in this phase:\n${suggestions.map((s, i) => `${i + 1}. ${s}`).join('\n')}`;
+  return `Client feedback to address in this phase:\n${suggestions.map((s, i) => `${i + 1}. ${s}`).join('\n')}`;
 };
 
 export function formatPhaseImplementationUserPrompt(args: {
-	phaseText: string;
-	issuesText?: string;
-	userSuggestionsText?: string;
-	fileCount?: number;
+  phaseText: string;
+  issuesText?: string;
+  userSuggestionsText?: string;
+  fileCount?: number;
 }): string {
-	const prompt = PROMPT_UTILS.replaceTemplateVariables(PHASE_IMPLEMENTATION_USER_PROMPT_TEMPLATE, {
-		phaseText: args.phaseText,
-		issues: args.issuesText ?? '',
-		userSuggestions: args.userSuggestionsText ?? '',
-		fileCount: String(args.fileCount ?? 0),
-	});
+  const prompt = PROMPT_UTILS.replaceTemplateVariables(PHASE_IMPLEMENTATION_USER_PROMPT_TEMPLATE, {
+    phaseText: args.phaseText,
+    issues: args.issuesText ?? '',
+    userSuggestions: args.userSuggestionsText ?? '',
+    fileCount: String(args.fileCount ?? 0),
+  });
 
-	return PROMPT_UTILS.verifyPrompt(prompt);
+  return PROMPT_UTILS.verifyPrompt(prompt);
 }
 
 export function buildPhaseImplementationUserPrompt(args: {
-	phase: PhaseConceptType;
-	issues: IssueReport;
-	userContext?: UserContext;
+  phase: PhaseConceptType;
+  issues: IssueReport;
+  userContext?: UserContext;
 }): string {
-	const phaseText = TemplateRegistry.markdown.serialize(args.phase, PhaseConceptSchema);
-	const fileCount = args.phase.files?.length ?? 0;
+  const phaseText = TemplateRegistry.markdown.serialize(args.phase, PhaseConceptSchema);
+  const fileCount = args.phase.files?.length ?? 0;
 
-	return formatPhaseImplementationUserPrompt({
-		phaseText,
-		issuesText: issuesPromptFormatter(args.issues),
-		userSuggestionsText: formatUserSuggestions(args.userContext?.suggestions),
-		fileCount,
-	});
+  return formatPhaseImplementationUserPrompt({
+    phaseText,
+    issuesText: issuesPromptFormatter(args.issues),
+    userSuggestionsText: formatUserSuggestions(args.userContext?.suggestions),
+    fileCount,
+  });
 }

@@ -15,30 +15,30 @@ import type { ChatMessage } from './message-helpers';
  * @returns Deduplicated array of messages
  */
 export function deduplicateMessages(messages: readonly ChatMessage[]): ChatMessage[] {
-	if (messages.length === 0) return [];
+  if (messages.length === 0) return [];
 
-	const result: ChatMessage[] = [];
-	let lastAssistantContent: string | null = null;
+  const result: ChatMessage[] = [];
+  let lastAssistantContent: string | null = null;
 
-	for (const msg of messages) {
-		if (msg.role !== 'assistant') {
-			// Keep all non-assistant messages (user, tool, etc.)
-			result.push(msg);
-			continue;
-		}
+  for (const msg of messages) {
+    if (msg.role !== 'assistant') {
+      // Keep all non-assistant messages (user, tool, etc.)
+      result.push(msg);
+      continue;
+    }
 
-		// For assistant messages, check against last assistant content
-		if (lastAssistantContent !== null && msg.content === lastAssistantContent) {
-			// Skip this duplicate
-			continue;
-		}
+    // For assistant messages, check against last assistant content
+    if (lastAssistantContent !== null && msg.content === lastAssistantContent) {
+      // Skip this duplicate
+      continue;
+    }
 
-		// Not a duplicate - keep it and update last content
-		result.push(msg);
-		lastAssistantContent = msg.content;
-	}
+    // Not a duplicate - keep it and update last content
+    result.push(msg);
+    lastAssistantContent = msg.content;
+  }
 
-	return result;
+  return result;
 }
 
 /**
@@ -50,11 +50,11 @@ export function deduplicateMessages(messages: readonly ChatMessage[]): ChatMessa
  * @returns true if this would be a duplicate, false otherwise
  */
 export function isAssistantMessageDuplicate(messages: readonly ChatMessage[], newContent: string): boolean {
-	// Find the last assistant message
-	for (let i = messages.length - 1; i >= 0; i--) {
-		if (messages[i].role === 'assistant') {
-			return messages[i].content === newContent;
-		}
-	}
-	return false; // No previous assistant message found
+  // Find the last assistant message
+  for (let i = messages.length - 1; i >= 0; i--) {
+    if (messages[i].role === 'assistant') {
+      return messages[i].content === newContent;
+    }
+  }
+  return false; // No previous assistant message found
 }

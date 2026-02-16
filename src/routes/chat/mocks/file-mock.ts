@@ -2,7 +2,7 @@ import type { FileType } from '@/api-types';
 
 // Mock file contents for different file types
 const mockFileContents = {
-	'src/components/Button.tsx': `import React from 'react';
+  'src/components/Button.tsx': `import React from 'react';
 import clsx from 'clsx';
 
 interface ButtonProps {
@@ -45,7 +45,7 @@ export function Button({
   );
 }`,
 
-	'src/components/Input.tsx': `import React from 'react';
+  'src/components/Input.tsx': `import React from 'react';
 import clsx from 'clsx';
 
 interface InputProps {
@@ -103,7 +103,7 @@ export function Input({
   );
 }`,
 
-	'src/game/Game.tsx': `import React, { useState, useEffect, useCallback } from 'react';
+  'src/game/Game.tsx': `import React, { useState, useEffect, useCallback } from 'react';
 import { Board } from './Board';
 import { Tile } from './Tile';
 import { initializeBoard, moveBoard, addRandomTile, isGameOver } from './logic';
@@ -194,7 +194,7 @@ export function Game() {
   );
 }`,
 
-	'src/api/client.ts': `interface ApiConfig {
+  'src/api/client.ts': `interface ApiConfig {
   baseURL: string;
   timeout: number;
   headers: Record<string, string>;
@@ -263,107 +263,107 @@ export const apiClient = new ApiClient();`,
 };
 
 export function generateMockFiles(): FileType[] {
-	const filePaths = Object.keys(mockFileContents);
+  const filePaths = Object.keys(mockFileContents);
 
-	return filePaths.map((filePath, index) => ({
-		filePath: filePath,
-		fileContents: mockFileContents[filePath as keyof typeof mockFileContents],
-		isGenerating: index >= filePaths.length - 2, // Last 2 files are "generating"
-	}));
+  return filePaths.map((filePath, index) => ({
+    filePath: filePath,
+    fileContents: mockFileContents[filePath as keyof typeof mockFileContents],
+    isGenerating: index >= filePaths.length - 2, // Last 2 files are "generating"
+  }));
 }
 
 // Generate mock files with very long names and high line counts for testing truncation
 export function generateLongFileNameMockFiles(): FileType[] {
-	// Helper function to generate content with specific line count
-	const generateContent = (lines: number, fileType = 'tsx') => {
-		const imports = `import React from 'react';
+  // Helper function to generate content with specific line count
+  const generateContent = (lines: number, fileType = 'tsx') => {
+    const imports = `import React from 'react';
 import { useState, useEffect, useCallback } from 'react';
 import clsx from 'clsx';
 `;
-		const content = Array.from(
-			{ length: Math.max(1, lines - 10) },
-			(_, i) => `// Line ${i + 4}: ${fileType === 'tsx' ? 'Component logic' : 'Business logic'} implementation`,
-		).join('\n');
-		const footer =
-			fileType === 'tsx'
-				? `\nexport default function Component() {\n  return <div>Component</div>;\n}`
-				: `\nexport { default };`;
-		return imports + content + footer;
-	};
+    const content = Array.from(
+      { length: Math.max(1, lines - 10) },
+      (_, i) => `// Line ${i + 4}: ${fileType === 'tsx' ? 'Component logic' : 'Business logic'} implementation`,
+    ).join('\n');
+    const footer =
+      fileType === 'tsx'
+        ? `\nexport default function Component() {\n  return <div>Component</div>;\n}`
+        : `\nexport { default };`;
+    return imports + content + footer;
+  };
 
-	return [
-		{
-			filePath:
-				'src/components/very-complex-and-extremely-long-named-components/super-detailed-user-interface-elements/advanced-dashboard-analytics-visualization-component.tsx',
-			fileContents: generateContent(15234, 'tsx'), // Very high line count
-			isGenerating: false,
-		},
-		{
-			filePath:
-				'src/features/user-management/authentication/multi-factor-authentication/providers/oauth/google/configuration-and-settings.ts',
-			fileContents: generateContent(8947, 'ts'),
-			isGenerating: false,
-		},
-		{
-			filePath:
-				'src/utils/database/migrations/version-2024-07-17/add-user-preferences-and-advanced-settings-with-json-schema-validation.sql',
-			fileContents: generateContent(2456, 'sql'),
-			isGenerating: true,
-		},
-		{
-			filePath:
-				'src/api/endpoints/v2/external-integrations/third-party-services/payment-processing/stripe/webhooks/subscription-management.ts',
-			fileContents: generateContent(12589, 'ts'),
-			isGenerating: false,
-		},
-		{
-			filePath:
-				'src/types/interfaces/backend-api-contracts/user-generated-content/comments-and-ratings-system-with-moderation.ts',
-			fileContents: generateContent(6743, 'ts'),
-			isGenerating: false,
-		},
-		{
-			filePath: 'index.ts',
-			fileContents: generateContent(42, 'ts'), // Short file name, low line count
-			isGenerating: false,
-		},
-		{
-			filePath:
-				'src/extremely-long-path-that-should-definitely-be-truncated-in-the-user-interface/nested/deeply/component.tsx',
-			fileContents: generateContent(987, 'tsx'),
-			isGenerating: false,
-		},
-		{
-			filePath: 'src/app.tsx',
-			fileContents: generateContent(156, 'tsx'), // Short file name, normal line count
-			isGenerating: true,
-		},
-		{
-			filePath:
-				'src/features/advanced-enterprise-level-business-logic/complex-workflow-management/automated-processes/background-job-scheduler.ts',
-			fileContents: generateContent(23847, 'ts'), // Extremely high line count + long name
-			isGenerating: true,
-		},
-	];
+  return [
+    {
+      filePath:
+        'src/components/very-complex-and-extremely-long-named-components/super-detailed-user-interface-elements/advanced-dashboard-analytics-visualization-component.tsx',
+      fileContents: generateContent(15234, 'tsx'), // Very high line count
+      isGenerating: false,
+    },
+    {
+      filePath:
+        'src/features/user-management/authentication/multi-factor-authentication/providers/oauth/google/configuration-and-settings.ts',
+      fileContents: generateContent(8947, 'ts'),
+      isGenerating: false,
+    },
+    {
+      filePath:
+        'src/utils/database/migrations/version-2024-07-17/add-user-preferences-and-advanced-settings-with-json-schema-validation.sql',
+      fileContents: generateContent(2456, 'sql'),
+      isGenerating: true,
+    },
+    {
+      filePath:
+        'src/api/endpoints/v2/external-integrations/third-party-services/payment-processing/stripe/webhooks/subscription-management.ts',
+      fileContents: generateContent(12589, 'ts'),
+      isGenerating: false,
+    },
+    {
+      filePath:
+        'src/types/interfaces/backend-api-contracts/user-generated-content/comments-and-ratings-system-with-moderation.ts',
+      fileContents: generateContent(6743, 'ts'),
+      isGenerating: false,
+    },
+    {
+      filePath: 'index.ts',
+      fileContents: generateContent(42, 'ts'), // Short file name, low line count
+      isGenerating: false,
+    },
+    {
+      filePath:
+        'src/extremely-long-path-that-should-definitely-be-truncated-in-the-user-interface/nested/deeply/component.tsx',
+      fileContents: generateContent(987, 'tsx'),
+      isGenerating: false,
+    },
+    {
+      filePath: 'src/app.tsx',
+      fileContents: generateContent(156, 'tsx'), // Short file name, normal line count
+      isGenerating: true,
+    },
+    {
+      filePath:
+        'src/features/advanced-enterprise-level-business-logic/complex-workflow-management/automated-processes/background-job-scheduler.ts',
+      fileContents: generateContent(23847, 'ts'), // Extremely high line count + long name
+      isGenerating: true,
+    },
+  ];
 }
 
 export function generateMockFilesForPhases(): FileType[] {
-	// Generate files that match the phase timeline mock data
-	const allFiles = [
-		// Core Components (completed)
-		{
-			filePath: 'src/components/Button.tsx',
-			fileContents: mockFileContents['src/components/Button.tsx'],
-			isGenerating: false,
-		},
-		{
-			filePath: 'src/components/Input.tsx',
-			fileContents: mockFileContents['src/components/Input.tsx'],
-			isGenerating: false,
-		},
-		{
-			filePath: 'src/types/index.ts',
-			fileContents: `export interface User {
+  // Generate files that match the phase timeline mock data
+  const allFiles = [
+    // Core Components (completed)
+    {
+      filePath: 'src/components/Button.tsx',
+      fileContents: mockFileContents['src/components/Button.tsx'],
+      isGenerating: false,
+    },
+    {
+      filePath: 'src/components/Input.tsx',
+      fileContents: mockFileContents['src/components/Input.tsx'],
+      isGenerating: false,
+    },
+    {
+      filePath: 'src/types/index.ts',
+      fileContents: `export interface User {
   id: string;
   displayName: string;
   email: string;
@@ -374,17 +374,17 @@ export interface ApiResponse<T> {
   success: boolean;
   message?: string;
 }`,
-			isGenerating: false,
-		},
-		// API Integration (completed)
-		{
-			filePath: 'src/api/client.ts',
-			fileContents: mockFileContents['src/api/client.ts'],
-			isGenerating: false,
-		},
-		{
-			filePath: 'src/hooks/useApi.tsx',
-			fileContents: `import { useState, useEffect } from 'react';
+      isGenerating: false,
+    },
+    // API Integration (completed)
+    {
+      filePath: 'src/api/client.ts',
+      fileContents: mockFileContents['src/api/client.ts'],
+      isGenerating: false,
+    },
+    {
+      filePath: 'src/hooks/useApi.tsx',
+      fileContents: `import { useState, useEffect } from 'react';
 import { apiClient } from '../api/client';
 
 export function useApi<T>(endpoint: string) {
@@ -401,17 +401,17 @@ export function useApi<T>(endpoint: string) {
 
   return { data, loading, error };
 }`,
-			isGenerating: false,
-		},
-		// Game Logic (currently generating)
-		{
-			filePath: 'src/game/Game.tsx',
-			fileContents: mockFileContents['src/game/Game.tsx'],
-			isGenerating: true,
-		},
-		{
-			filePath: 'src/game/Board.tsx',
-			fileContents: `import React from 'react';
+      isGenerating: false,
+    },
+    // Game Logic (currently generating)
+    {
+      filePath: 'src/game/Game.tsx',
+      fileContents: mockFileContents['src/game/Game.tsx'],
+      isGenerating: true,
+    },
+    {
+      filePath: 'src/game/Board.tsx',
+      fileContents: `import React from 'react';
 import { Tile } from './Tile';
 
 interface BoardProps {
@@ -427,9 +427,9 @@ export function Board({ board }: BoardProps) {
     </div>
   );
 }`,
-			isGenerating: true,
-		},
-	];
+      isGenerating: true,
+    },
+  ];
 
-	return allFiles;
+  return allFiles;
 }

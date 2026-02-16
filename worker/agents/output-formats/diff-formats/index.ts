@@ -7,25 +7,25 @@
 
 import { applyDiff as applyUnifiedDiff } from './udiff';
 import {
-	applyDiff as applySearchReplaceDiff,
-	createSearchReplaceDiff,
-	validateDiff as validateSearchReplaceDiff,
-	ApplyResult,
-	FailedBlock,
-	MatchingStrategy,
+  applyDiff as applySearchReplaceDiff,
+  createSearchReplaceDiff,
+  validateDiff as validateSearchReplaceDiff,
+  ApplyResult,
+  FailedBlock,
+  MatchingStrategy,
 } from './search-replace';
 
 export {
-	// Unified Diff Format (git-style)
-	applyUnifiedDiff,
+  // Unified Diff Format (git-style)
+  applyUnifiedDiff,
 
-	// Search/Replace Format (simpler, more reliable for LLMs)
-	applySearchReplaceDiff,
-	createSearchReplaceDiff,
-	validateSearchReplaceDiff,
+  // Search/Replace Format (simpler, more reliable for LLMs)
+  applySearchReplaceDiff,
+  createSearchReplaceDiff,
+  validateSearchReplaceDiff,
 
-	// Types and utilities
-	type ApplyResult,
-	type FailedBlock,
-	MatchingStrategy,
+  // Types and utilities
+  type ApplyResult,
+  type FailedBlock,
+  MatchingStrategy,
 };

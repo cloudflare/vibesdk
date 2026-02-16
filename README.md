@@ -79,13 +79,13 @@ npm install @cf-vibesdk/sdk
 import { PhasicClient } from '@cf-vibesdk/sdk';
 
 const client = new PhasicClient({
-	baseUrl: 'https://build.cloudflare.dev',
-	apiKey: process.env.VIBESDK_API_KEY!,
+  baseUrl: 'https://build.cloudflare.dev',
+  apiKey: process.env.VIBESDK_API_KEY!,
 });
 
 const session = await client.build('Build a simple hello world page.', {
-	projectType: 'app',
-	autoGenerate: true,
+  projectType: 'app',
+  autoGenerate: true,
 });
 
 await session.wait.deployable();
@@ -157,8 +157,8 @@ During the "Deploy to Cloudflare" flow, you can set the instance type as a **bui
 
 - Variable name: `SANDBOX_INSTANCE_TYPE`
 - Recommended values:
-    - **Standard/Paid users**: `standard-3` (default, best balance)
-    - **High-performance needs**: `standard-4`
+  - **Standard/Paid users**: `standard-3` (default, best balance)
+  - **High-performance needs**: `standard-4`
 
 **Option B: Via Environment Variable**
 For local deployment or CI/CD, set the environment variable:
@@ -205,10 +205,10 @@ OAuth configuration is **not** shown on the initial deploy page. If you want use
 4. Add authorized origins: `https://your-custom-domain.`
 5. Add redirect URI: `https://your-worker-name.workers.dev/api/auth/callback/google`
 6. Add to **both** `.dev.vars` (for local development) and `.prod.vars` (for deployment):
-    ```bash
-    GOOGLE_CLIENT_ID="your-google-client-id"
-    GOOGLE_CLIENT_SECRET="your-google-client-secret"
-    ```
+   ```bash
+   GOOGLE_CLIENT_ID="your-google-client-id"
+   GOOGLE_CLIENT_SECRET="your-google-client-secret"
+   ```
 
 **GitHub OAuth Setup:**
 
@@ -218,20 +218,20 @@ OAuth configuration is **not** shown on the initial deploy page. If you want use
 4. Homepage URL: `https://your-worker-name.workers.dev`
 5. Authorization callback URL: `https://your-worker-name.workers.dev/api/auth/callback/github`
 6. Add to **both** `.dev.vars` (for local development) and `.prod.vars` (for deployment):
-    ```bash
-    GITHUB_CLIENT_ID="your-github-client-id"
-    GITHUB_CLIENT_SECRET="your-github-client-secret"
-    ```
+   ```bash
+   GITHUB_CLIENT_ID="your-github-client-id"
+   GITHUB_CLIENT_SECRET="your-github-client-secret"
+   ```
 
 **GitHub Export OAuth Setup:**
 
 1. Create a separate GitHub OAuth app (e.g., `VibeSDK Export`)—do not reuse the login app above.
 2. Authorization callback URL: `https://your-worker-name.workers.dev/api/github-exporter/callback` (or your custom domain equivalent).
 3. Add to **both** `.dev.vars` and `.prod.vars`:
-    ```bash
-    GITHUB_EXPORTER_CLIENT_ID="your-export-client-id"
-    GITHUB_EXPORTER_CLIENT_SECRET="your-export-client-secret"
-    ```
+   ```bash
+   GITHUB_EXPORTER_CLIENT_ID="your-export-client-id"
+   GITHUB_EXPORTER_CLIENT_SECRET="your-export-client-secret"
+   ```
 4. Redeploy or restart local development so the new variables take effect.
 
 ---
@@ -303,11 +303,11 @@ Want to see these prompts in action? **[Visit the live demo at build.cloudflare.
 
 ```typescript
 class CodeGeneratorAgent extends DurableObject {
-	async generateCode(prompt: string) {
-		// Persistent state across WebSocket connections
-		// Phase-wise generation with error recovery
-		// Real-time progress streaming to frontend
-	}
+  async generateCode(prompt: string) {
+    // Persistent state across WebSocket connections
+    // Phase-wise generation with error recovery
+    // Real-time progress streaming to frontend
+  }
 }
 ```
 
@@ -316,11 +316,11 @@ class CodeGeneratorAgent extends DurableObject {
 ```javascript
 // Generated apps deployed to dispatch namespace
 export default {
-	async fetch(request, env) {
-		const appId = extractAppId(request);
-		const userApp = env.DISPATCHER.get(appId);
-		return await userApp.fetch(request);
-	},
+  async fetch(request, env) {
+    const appId = extractAppId(request);
+    const userApp = env.DISPATCHER.get(appId);
+    return await userApp.fetch(request);
+  },
 };
 ```
 
@@ -387,30 +387,30 @@ If you're deploying manually using `bun run deploy`, you **must** set these envi
 **Cloudflare API Token & Account ID:**
 
 1. **Get your Account ID**:
-    - Go to [Cloudflare Dashboard -> Workers and Pages](https://dash.cloudflare.com/?to=/:account/workers-and-pages)
-    - Copy your Account ID from the right sidebar or URL
+   - Go to [Cloudflare Dashboard -> Workers and Pages](https://dash.cloudflare.com/?to=/:account/workers-and-pages)
+   - Copy your Account ID from the right sidebar or URL
 
 2. **Create an API Token**:
-    - Go to [Cloudflare Dashboard -> API Tokens](https://dash.cloudflare.com/?to=/:account/api-tokens)
-    - Click "Create Token" → Use custom token
-    - Configure with these **minimum required permissions**:
-        - **Account** → **Containers** → **Edit**
-        - **Account** → **Secrets Store** → **Edit**
-        - **Account** → **D1** → **Edit**
-        - **Account** → **Workers R2 Storage** → **Edit**
-        - **Account** → **Workers KV Storage** → **Edit**
-        - **Account** → **Workers Scripts** → **Edit**
-        - **Account** → **Account Settings** → **Read**
-        - **Zone** → **Workers Routes** → **Edit**
-    - Under "Zone Resources": Select "All zones from an account" → Choose your account
-    - Click "Continue to summary" → "Create Token"
-    - Copy the token immediately (you won't see it again)
+   - Go to [Cloudflare Dashboard -> API Tokens](https://dash.cloudflare.com/?to=/:account/api-tokens)
+   - Click "Create Token" → Use custom token
+   - Configure with these **minimum required permissions**:
+     - **Account** → **Containers** → **Edit**
+     - **Account** → **Secrets Store** → **Edit**
+     - **Account** → **D1** → **Edit**
+     - **Account** → **Workers R2 Storage** → **Edit**
+     - **Account** → **Workers KV Storage** → **Edit**
+     - **Account** → **Workers Scripts** → **Edit**
+     - **Account** → **Account Settings** → **Read**
+     - **Zone** → **Workers Routes** → **Edit**
+   - Under "Zone Resources": Select "All zones from an account" → Choose your account
+   - Click "Continue to summary" → "Create Token"
+   - Copy the token immediately (you won't see it again)
 
 3. **Set the environment variables**:
-    ```bash
-    export CLOUDFLARE_API_TOKEN="your-api-token-here"
-    export CLOUDFLARE_ACCOUNT_ID="your-account-id-here"
-    ```
+   ```bash
+   export CLOUDFLARE_API_TOKEN="your-api-token-here"
+   export CLOUDFLARE_ACCOUNT_ID="your-account-id-here"
+   ```
 
 > **Note**: These credentials are automatically provided when using the "Deploy to Cloudflare" button, but are required for manual `bun run deploy`.
 
@@ -451,12 +451,12 @@ bun run deploy  # Builds and deploys automatically (includes remote DB migration
 
 1. **Build Variables**: Set in your deployment platform (GitHub Actions, etc.)
 2. **Worker Secrets**: Automatically handled by deployment script or set manually:
-    ```bash
-    wrangler secret put ANTHROPIC_API_KEY
-    wrangler secret put OPENAI_API_KEY
-    wrangler secret put GOOGLE_AI_STUDIO_API_KEY
-    # ... etc
-    ```
+   ```bash
+   wrangler secret put ANTHROPIC_API_KEY
+   wrangler secret put OPENAI_API_KEY
+   wrangler secret put GOOGLE_AI_STUDIO_API_KEY
+   # ... etc
+   ```
 
 #### Environment Variable Priority
 
@@ -516,9 +516,9 @@ Cloudflare VibeSDK implements enterprise-grade security:
 
 - **With AI Gateway Token**: The deployment script should automatically create the gateway. Check that your token has Read, Edit, and **Run** permissions.
 - **Without AI Gateway Token**: You must manually create an AI Gateway before deployment:
-    1. Go to [AI Gateway Dashboard](https://dash.cloudflare.com/ai/ai-gateway)
-    2. Create gateway named `vibesdk-gateway` (or your custom name)
-    3. Enable authentication and create a token with **Run** permissions
+  1. Go to [AI Gateway Dashboard](https://dash.cloudflare.com/ai/ai-gateway)
+  2. Create gateway named `vibesdk-gateway` (or your custom name)
+  3. Enable authentication and create a token with **Run** permissions
 
 **🏗️ "Container Instance Type Issues"**
 

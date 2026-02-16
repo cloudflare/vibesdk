@@ -13,13 +13,13 @@ initSentry();
 import type { RouterState } from 'react-router';
 
 declare global {
-	interface Window {
-		__staticRouterHydrationData?: Partial<Pick<RouterState, 'loaderData' | 'actionData' | 'errors'>>;
-	}
+  interface Window {
+    __staticRouterHydrationData?: Partial<Pick<RouterState, 'loaderData' | 'actionData' | 'errors'>>;
+  }
 }
 
 const router = createBrowserRouter(routes, {
-	hydrationData: window.__staticRouterHydrationData,
+  hydrationData: window.__staticRouterHydrationData,
 });
 
 createRoot(document.getElementById('root')!).render(<RouterProvider router={router} />);

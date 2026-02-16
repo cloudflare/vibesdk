@@ -14,104 +14,104 @@ const logger = createLogger('UserController');
  * Handles user dashboard, profile management, and app history
  */
 export class UserController extends BaseController {
-	static logger = logger;
+  static logger = logger;
 
-	/**
-	 * Get user's apps with pagination and filtering
-	 */
-	static async getApps(
-		request: Request,
-		env: Env,
-		_ctx: ExecutionContext,
-		context: RouteContext,
-	): Promise<ControllerResponse<ApiResponse<UserAppsData>>> {
-		try {
-			const user = context.user!;
+  /**
+   * Get user's apps with pagination and filtering
+   */
+  static async getApps(
+    request: Request,
+    env: Env,
+    _ctx: ExecutionContext,
+    context: RouteContext,
+  ): Promise<ControllerResponse<ApiResponse<UserAppsData>>> {
+    try {
+      const user = context.user!;
 
-			const url = new URL(request.url);
-			const page = parseInt(url.searchParams.get('page') || '1');
-			const limit = parseInt(url.searchParams.get('limit') || '20');
-			const status = url.searchParams.get('status') as 'generating' | 'completed' | undefined;
-			const visibility = url.searchParams.get('visibility') as Visibility | undefined;
-			const framework = url.searchParams.get('framework') || undefined;
-			const search = url.searchParams.get('search') || undefined;
-			const sort = (url.searchParams.get('sort') || 'recent') as AppSortOption;
-			const order = (url.searchParams.get('order') || 'desc') as SortOrder;
-			const period = (url.searchParams.get('period') || 'all') as TimePeriod;
-			const offset = (page - 1) * limit;
+      const url = new URL(request.url);
+      const page = parseInt(url.searchParams.get('page') || '1');
+      const limit = parseInt(url.searchParams.get('limit') || '20');
+      const status = url.searchParams.get('status') as 'generating' | 'completed' | undefined;
+      const visibility = url.searchParams.get('visibility') as Visibility | undefined;
+      const framework = url.searchParams.get('framework') || undefined;
+      const search = url.searchParams.get('search') || undefined;
+      const sort = (url.searchParams.get('sort') || 'recent') as AppSortOption;
+      const order = (url.searchParams.get('order') || 'desc') as SortOrder;
+      const period = (url.searchParams.get('period') || 'all') as TimePeriod;
+      const offset = (page - 1) * limit;
 
-			const queryOptions = {
-				limit,
-				offset,
-				status,
-				visibility,
-				framework,
-				search,
-				sort,
-				order,
-				period,
-			};
+      const queryOptions = {
+        limit,
+        offset,
+        status,
+        visibility,
+        framework,
+        search,
+        sort,
+        order,
+        period,
+      };
 
-			const appService = new AppService(env);
+      const appService = new AppService(env);
 
-			// Get user apps with analytics and proper total count
-			const [apps, totalCount] = await Promise.all([
-				appService.getUserAppsWithAnalytics(user.id, queryOptions),
-				appService.getUserAppsCount(user.id, queryOptions),
-			]);
+      // Get user apps with analytics and proper total count
+      const [apps, totalCount] = await Promise.all([
+        appService.getUserAppsWithAnalytics(user.id, queryOptions),
+        appService.getUserAppsCount(user.id, queryOptions),
+      ]);
 
-			const responseData: UserAppsData = {
-				apps,
-				pagination: {
-					limit,
-					offset,
-					total: totalCount,
-					hasMore: offset + limit < totalCount,
-				},
-			};
+      const responseData: UserAppsData = {
+        apps,
+        pagination: {
+          limit,
+          offset,
+          total: totalCount,
+          hasMore: offset + limit < totalCount,
+        },
+      };
 
-			return UserController.createSuccessResponse(responseData);
-		} catch (error) {
-			this.logger.error('Error getting user apps:', error);
-			return UserController.createErrorResponse<UserAppsData>('Failed to get user apps', 500);
-		}
-	}
+      return UserController.createSuccessResponse(responseData);
+    } catch (error) {
+      this.logger.error('Error getting user apps:', error);
+      return UserController.createErrorResponse<UserAppsData>('Failed to get user apps', 500);
+    }
+  }
 
-	/**
-	 * Update user profile
-	 */
-	static async updateProfile(
-		request: Request,
-		env: Env,
-		_ctx: ExecutionContext,
-		context: RouteContext,
-	): Promise<ControllerResponse<ApiResponse<ProfileUpdateData>>> {
-		try {
-			const user = context.user!;
+  /**
+   * Update user profile
+   */
+  static async updateProfile(
+    request: Request,
+    env: Env,
+    _ctx: ExecutionContext,
+    context: RouteContext,
+  ): Promise<ControllerResponse<ApiResponse<ProfileUpdateData>>> {
+    try {
+      const user = context.user!;
 
-			const bodyResult = await UserController.parseJsonBody<{
-				username?: string;
-				displayName?: string;
-				bio?: string;
-				theme?: 'light' | 'dark' | 'system';
-			}>(request);
+      const bodyResult = await UserController.parseJsonBody<{
+        username?: string;
+        displayName?: string;
+        bio?: string;
+        theme?: 'light' | 'dark' | 'system';
+      }>(request);
 
-			if (!bodyResult.success) {
-				return bodyResult.response! as ControllerResponse<ApiResponse<ProfileUpdateData>>;
-			}
+      if (!bodyResult.success) {
+        return bodyResult.response! as ControllerResponse<ApiResponse<ProfileUpdateData>>;
+      }
 
-			const userService = new UserService(env);
-			const result = await userService.updateUserProfileWithValidation(user.id, bodyResult.data!);
+      const userService = new UserService(env);
+      const result = await userService.updateUserProfileWithValidation(user.id, bodyResult.data!);
 
-			if (!result.success) {
-				return UserController.createErrorResponse<ProfileUpdateData>(result.message, 400);
-			}
+      if (!result.success) {
+        return UserController.createErrorResponse<ProfileUpdateData>(result.message, 400);
+      }
 
-			const responseData: ProfileUpdateData = result;
-			return UserController.createSuccessResponse(responseData);
-		} catch (error) {
-			this.logger.error('Error updating user profile:', error);
-			return UserController.createErrorResponse<ProfileUpdateData>('Failed to update profile', 500);
-		}
-	}
+      const responseData: ProfileUpdateData = result;
+      return UserController.createSuccessResponse(responseData);
+    } catch (error) {
+      this.logger.error('Error updating user profile:', error);
+      return UserController.createErrorResponse<ProfileUpdateData>('Failed to update profile', 500);
+    }
+  }
 }

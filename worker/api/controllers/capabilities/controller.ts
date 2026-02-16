@@ -17,40 +17,40 @@ import { createLogger } from '../../../logger';
 const logger = createLogger('CapabilitiesController');
 
 export class CapabilitiesController extends BaseController {
-	/**
-	 * Get platform capabilities
-	 *
-	 * Returns the list of available features and their capabilities.
-	 * Feature availability is controlled by PLATFORM_CAPABILITIES in wrangler.jsonc.
-	 *
-	 * @route GET /api/capabilities
-	 * @access Public
-	 */
-	static async getCapabilities(
-		_request: Request,
-		env: Env,
-		_ctx: ExecutionContext,
-		_context: RouteContext,
-	): Promise<ControllerResponse<ApiResponse<CapabilitiesData>>> {
-		const config = env.PLATFORM_CAPABILITIES;
+  /**
+   * Get platform capabilities
+   *
+   * Returns the list of available features and their capabilities.
+   * Feature availability is controlled by PLATFORM_CAPABILITIES in wrangler.jsonc.
+   *
+   * @route GET /api/capabilities
+   * @access Public
+   */
+  static async getCapabilities(
+    _request: Request,
+    env: Env,
+    _ctx: ExecutionContext,
+    _context: RouteContext,
+  ): Promise<ControllerResponse<ApiResponse<CapabilitiesData>>> {
+    const config = env.PLATFORM_CAPABILITIES;
 
-		// Build feature list by merging defaults with enabled status from config
-		const features: FeatureDefinition[] = [
-			{ ...DEFAULT_FEATURE_DEFINITIONS.app, enabled: config.features.app.enabled },
-			{ ...DEFAULT_FEATURE_DEFINITIONS.presentation, enabled: config.features.presentation.enabled },
-			{ ...DEFAULT_FEATURE_DEFINITIONS.general, enabled: config.features.general.enabled },
-		];
+    // Build feature list by merging defaults with enabled status from config
+    const features: FeatureDefinition[] = [
+      { ...DEFAULT_FEATURE_DEFINITIONS.app, enabled: config.features.app.enabled },
+      { ...DEFAULT_FEATURE_DEFINITIONS.presentation, enabled: config.features.presentation.enabled },
+      { ...DEFAULT_FEATURE_DEFINITIONS.general, enabled: config.features.general.enabled },
+    ];
 
-		const capabilities: PlatformCapabilities = {
-			features,
-			version: config.version,
-		};
+    const capabilities: PlatformCapabilities = {
+      features,
+      version: config.version,
+    };
 
-		logger.info('Returning platform capabilities', {
-			enabledFeatures: features.filter((f) => f.enabled).map((f) => f.id),
-			version: capabilities.version,
-		});
+    logger.info('Returning platform capabilities', {
+      enabledFeatures: features.filter((f) => f.enabled).map((f) => f.id),
+      version: capabilities.version,
+    });
 
-		return CapabilitiesController.createSuccessResponse(capabilities);
-	}
+    return CapabilitiesController.createSuccessResponse(capabilities);
+  }
 }

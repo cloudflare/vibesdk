@@ -18,69 +18,69 @@ import { WebSocketMessageResponses } from '../constants';
  * - Services (fileManager, deploymentManager, git)
  */
 export abstract class AgentComponent<TState extends BaseProjectState = AgentState> {
-	constructor(protected readonly infrastructure: AgentInfrastructure<TState>) {}
+  constructor(protected readonly infrastructure: AgentInfrastructure<TState>) {}
 
-	// ==========================================
-	// PROTECTED HELPERS (Infrastructure access)
-	// ==========================================
+  // ==========================================
+  // PROTECTED HELPERS (Infrastructure access)
+  // ==========================================
 
-	protected get env(): Env {
-		return this.infrastructure.env;
-	}
+  protected get env(): Env {
+    return this.infrastructure.env;
+  }
 
-	get logger(): StructuredLogger {
-		return this.infrastructure.logger();
-	}
+  get logger(): StructuredLogger {
+    return this.infrastructure.logger();
+  }
 
-	protected getAgentId(): string {
-		return this.infrastructure.getAgentId();
-	}
+  protected getAgentId(): string {
+    return this.infrastructure.getAgentId();
+  }
 
-	public getWebSockets(): WebSocket[] {
-		return this.infrastructure.getWebSockets();
-	}
+  public getWebSockets(): WebSocket[] {
+    return this.infrastructure.getWebSockets();
+  }
 
-	protected get state(): TState {
-		return this.infrastructure.state;
-	}
+  protected get state(): TState {
+    return this.infrastructure.state;
+  }
 
-	setState(state: TState): void {
-		try {
-			this.infrastructure.setState(state);
-		} catch (error) {
-			this.broadcastError('Error setting state', error);
-			this.logger.error('State details:', {
-				originalState: JSON.stringify(this.state, null, 2),
-				newState: JSON.stringify(state, null, 2),
-			});
-		}
-	}
+  setState(state: TState): void {
+    try {
+      this.infrastructure.setState(state);
+    } catch (error) {
+      this.broadcastError('Error setting state', error);
+      this.logger.error('State details:', {
+        originalState: JSON.stringify(this.state, null, 2),
+        newState: JSON.stringify(state, null, 2),
+      });
+    }
+  }
 
-	// ==========================================
-	// PROTECTED HELPERS (Service access)
-	// ==========================================
+  // ==========================================
+  // PROTECTED HELPERS (Service access)
+  // ==========================================
 
-	protected get fileManager(): FileManager {
-		return this.infrastructure.fileManager;
-	}
+  protected get fileManager(): FileManager {
+    return this.infrastructure.fileManager;
+  }
 
-	protected get deploymentManager(): DeploymentManager {
-		return this.infrastructure.deploymentManager;
-	}
+  protected get deploymentManager(): DeploymentManager {
+    return this.infrastructure.deploymentManager;
+  }
 
-	public get git(): GitVersionControl {
-		return this.infrastructure.git;
-	}
+  public get git(): GitVersionControl {
+    return this.infrastructure.git;
+  }
 
-	protected broadcast<T extends WebSocketMessageType>(type: T, data?: WebSocketMessageData<T>): void {
-		this.infrastructure.broadcast(type, data);
-	}
+  protected broadcast<T extends WebSocketMessageType>(type: T, data?: WebSocketMessageData<T>): void {
+    this.infrastructure.broadcast(type, data);
+  }
 
-	protected broadcastError(context: string, error: unknown): void {
-		const errorMessage = error instanceof Error ? error.message : String(error);
-		this.logger.error(`${context}:`, error);
-		this.broadcast(WebSocketMessageResponses.ERROR, {
-			error: `${context}: ${errorMessage}`,
-		});
-	}
+  protected broadcastError(context: string, error: unknown): void {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    this.logger.error(`${context}:`, error);
+    this.broadcast(WebSocketMessageResponses.ERROR, {
+      error: `${context}: ${errorMessage}`,
+    });
+  }
 }

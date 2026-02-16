@@ -11,7 +11,7 @@ Run SDK unit tests (no env required):
 The integration tests hit a real VibeSDK dev server and require an API key.
 
 1. Start the platform dev server:
-    - `npm run dev`
+   - `npm run dev`
 
 2. Create an API key in Settings → API Keys.
 

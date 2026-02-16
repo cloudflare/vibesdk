@@ -21,41 +21,41 @@
 **Changes Made:**
 
 1. **GitVersionControl Class (`/worker/agents/git/git.ts`):**
-    - Added `reset(ref, options)` - Aligns with `git reset --hard` (moves HEAD, no new commit)
-    - Removed `revert()` - Was creating incorrect "revert commits"
-    - Removed `restoreCommit()` - Functionality merged into internal helpers
-    - Removed `inferPurposeFromPath()` - No longer needed
-    - Added `setOnFilesChangedCallback()` - Callback mechanism for FileManager sync
-    - Added `getAllFilesFromHead()` - Simple HEAD file read for syncing
+   - Added `reset(ref, options)` - Aligns with `git reset --hard` (moves HEAD, no new commit)
+   - Removed `revert()` - Was creating incorrect "revert commits"
+   - Removed `restoreCommit()` - Functionality merged into internal helpers
+   - Removed `inferPurposeFromPath()` - No longer needed
+   - Added `setOnFilesChangedCallback()` - Callback mechanism for FileManager sync
+   - Added `getAllFilesFromHead()` - Simple HEAD file read for syncing
 
 2. **FileManager Auto-Sync (`/worker/agents/services/implementations/FileManager.ts`):**
-    - Self-contained synchronization via callback registration
-    - Auto-registers with GitVersionControl during construction
-    - Syncs `generatedFilesMap` from git HEAD after operations
-    - Preserves file purposes across syncs
-    - No external changes required - fully transparent
+   - Self-contained synchronization via callback registration
+   - Auto-registers with GitVersionControl during construction
+   - Syncs `generatedFilesMap` from git HEAD after operations
+   - Preserves file purposes across syncs
+   - No external changes required - fully transparent
 
 3. **Git Tool with Access Control (`/worker/agents/tools/toolkit/git.ts`):**
-    - Parameterized tool creation: `createGitTool(agent, logger, options?)`
-    - Dynamic command filtering via `excludeCommands` parameter
-    - **User conversations:** Get safe version (commit, log, show only)
-    - **Deep debugger:** Gets full version (includes reset with warnings)
-    - Type-safe enum generation based on context
+   - Parameterized tool creation: `createGitTool(agent, logger, options?)`
+   - Dynamic command filtering via `excludeCommands` parameter
+   - **User conversations:** Get safe version (commit, log, show only)
+   - **Deep debugger:** Gets full version (includes reset with warnings)
+   - Type-safe enum generation based on context
 
 4. **Deep Debugger Prompt Updates (`/worker/agents/assistants/codeDebugger.ts`):**
-    - Updated git command documentation
-    - Added strong warnings about reset being UNTESTED and DESTRUCTIVE
-    - Clear guidance: only use reset when absolutely necessary
-    - Documented proper git semantics (reset vs checkout)
+   - Updated git command documentation
+   - Added strong warnings about reset being UNTESTED and DESTRUCTIVE
+   - Clear guidance: only use reset when absolutely necessary
+   - Documented proper git semantics (reset vs checkout)
 
 5. **User Conversation Updates (`/worker/agents/operations/UserConversationProcessor.ts`):**
-    - Added git tool to help documentation
-    - Noted reset unavailable for safety
+   - Added git tool to help documentation
+   - Noted reset unavailable for safety
 
 6. **Commit Message Enhancement (`/worker/agents/core/simpleGeneratorAgent.ts`):**
-    - Phase commits now include description in body
-    - Format: `feat: Phase Name\n\nPhase description`
-    - Provides better context in git history
+   - Phase commits now include description in body
+   - Format: `feat: Phase Name\n\nPhase description`
+   - Provides better context in git history
 
 **Benefits:**
 
@@ -126,13 +126,13 @@ npm run dev:worker # Backend (Wrangler)
 
 ```typescript
 export const AGENT_CONFIG = {
-	blueprint: {
-		name: GEMINI_2_5_PRO, // Change this
-		reasoning_effort: 'medium',
-		max_tokens: 64000,
-		temperature: 0.7,
-	},
-	// ... other operations
+  blueprint: {
+    name: GEMINI_2_5_PRO, // Change this
+    reasoning_effort: 'medium',
+    max_tokens: 64000,
+    temperature: 0.7,
+  },
+  // ... other operations
 };
 ```
 
@@ -154,9 +154,9 @@ See "Getting Started - Common Tasks" section below (line 1605)
 ```typescript
 // In simpleGeneratorAgent.ts
 this.logger().info('Current state', {
-	devState: this.state.currentDevState,
-	filesCount: Object.keys(this.state.generatedFilesMap).length,
-	currentPhase: this.state.currentPhase,
+  devState: this.state.currentDevState,
+  filesCount: Object.keys(this.state.generatedFilesMap).length,
+  currentPhase: this.state.currentPhase,
 });
 ```
 
@@ -631,12 +631,12 @@ Each chat session is a Durable Object instance:
 
 ```typescript
 class SimpleCodeGeneratorAgent implements DurableObject {
-	// Persisted in SQLite
-	private state: CodeGenState;
+  // Persisted in SQLite
+  private state: CodeGenState;
 
-	// In-memory only (ephemeral)
-	private currentAbortController?: AbortController;
-	private deepDebugPromise: Promise<any> | null = null;
+  // In-memory only (ephemeral)
+  private currentAbortController?: AbortController;
+  private deepDebugPromise: Promise<any> | null = null;
 }
 ```
 
@@ -711,22 +711,22 @@ The blueprint is the complete PRD generated from user's prompt. Contains:
 **Key files:**
 
 1. **cli-tools.ts** - Command-line interface for container operations:
-    - File synchronization
-    - Command execution in sandbox
-    - Log retrieval
-    - Static analysis
-    - Runtime error monitoring
+   - File synchronization
+   - Command execution in sandbox
+   - Log retrieval
+   - Static analysis
+   - Runtime error monitoring
 
 2. **storage.ts** - Persistent storage management:
-    - Key-value store for container state
-    - File system operations
-    - Cache management
+   - Key-value store for container state
+   - File system operations
+   - Cache management
 
 3. **process-monitor.ts** - Process lifecycle monitoring:
-    - Dev server health checks
-    - Process restart on crashes
-    - Resource usage tracking
-    - Error collection
+   - Dev server health checks
+   - Process restart on crashes
+   - Resource usage tracking
+   - Error collection
 
 4. **types.ts** - TypeScript types for container APIs
 
@@ -744,12 +744,12 @@ These tools are used internally by the sandbox service and for local debugging. 
 **Key files:**
 
 1. **template_catalog.json** - Master catalog of all available templates:
-    - React (Vite, CRA)
-    - Next.js
-    - Vue
-    - Svelte
-    - Vanilla JS
-      Each with metadata: name, description, files, dependencies
+   - React (Vite, CRA)
+   - Next.js
+   - Vue
+   - Svelte
+   - Vanilla JS
+     Each with metadata: name, description, files, dependencies
 
 2. **definitions/** - Template definition files (not in repo, generated)
 
@@ -841,10 +841,10 @@ Vibesdk uses **isomorphic-git** to manage version control entirely in the browse
 2. Calls `GitService.commitFiles(files, message)`
 3. Git service stages all files
 4. Creates commit with metadata:
-    - Author: "vibesdk AI Agent"
-    - Committer: same
-    - Message: "Phase X: Feature Y" or "Fix: Bug Z"
-    - Timestamp: current time
+   - Author: "vibesdk AI Agent"
+   - Committer: same
+   - Message: "Phase X: Feature Y" or "Fix: Bug Z"
+   - Timestamp: current time
 5. Stores commit in SQLite
 6. Returns commit SHA
 
@@ -863,9 +863,9 @@ Vibesdk uses **isomorphic-git** to manage version control entirely in the browse
 
 1. Query git log via isomorphic-git
 2. Returns commits with:
-    - SHA, author, message, timestamp
-    - Parent commits
-    - Tree (file snapshot)
+   - SHA, author, message, timestamp
+   - Parent commits
+   - Tree (file snapshot)
 3. Ordered newest first
 
 ### **3. Git Clone Service**
@@ -882,24 +882,24 @@ Vibesdk uses **isomorphic-git** to manage version control entirely in the browse
 
 1. **Create fresh repo** in memory (MemFS)
 2. **Template base commit:**
-    - Write all template files
-    - Commit as "Initial template setup"
-    - This becomes commit #0
+   - Write all template files
+   - Commit as "Initial template setup"
+   - This becomes commit #0
 3. **Import agent's git objects** (skip refs)
 4. **Replay each agent commit:**
-    - Read commit from agent's repo
-    - Extract files from commit tree
-    - Write files to memory repo (template + agent files)
-    - Stage ALL files
-    - Create new commit with:
-        - Same message as original
-        - Same author/committer
-        - Same timestamps
-        - Parent = previous rebased commit
+   - Read commit from agent's repo
+   - Extract files from commit tree
+   - Write files to memory repo (template + agent files)
+   - Stage ALL files
+   - Create new commit with:
+     - Same message as original
+     - Same author/committer
+     - Same timestamps
+     - Parent = previous rebased commit
 5. **Generate packfile:**
-    - Collect ALL git objects
-    - Create git packfile (binary format)
-    - Return via HTTP (git clone protocol)
+   - Collect ALL git objects
+   - Create git packfile (binary format)
+   - Return via HTTP (git clone protocol)
 
 **Result:** Clean linear history starting from template
 
@@ -1043,7 +1043,7 @@ Register callback to be notified after git operations that change files.
 
 ```typescript
 git.setOnFilesChangedCallback(() => {
-	fileManager.syncGeneratedFilesMapFromGit();
+  fileManager.syncGeneratedFilesMapFromGit();
 });
 ```
 
@@ -1158,9 +1158,9 @@ createGitTool(session.agent, logger); // No restrictions
 
 - Marked as **UNTESTED** and **DESTRUCTIVE**
 - Only use when:
-    - User explicitly requests it
-    - Tried everything else
-    - Absolutely certain it's necessary
+  - User explicitly requests it
+  - Tried everything else
+  - Absolutely certain it's necessary
 - Must warn user before using
 - Prefer alternatives: regenerate_file, generate_files
 
@@ -1317,20 +1317,20 @@ Each tool file exports:
 ```typescript
 // Structure in /worker/agents/tools/toolkit/{tool-name}.ts
 export function createToolName(agent: CodingAgentInterface, logger: StructuredLogger) {
-	return {
-		type: 'function',
-		function: {
-			name: 'tool_name',
-			description: 'Brief description (LLM sees this)',
-			parameters: {
-				/* JSON schema */
-			},
-		},
-		implementation: async (args) => {
-			// Tool logic here
-			return result;
-		},
-	};
+  return {
+    type: 'function',
+    function: {
+      name: 'tool_name',
+      description: 'Brief description (LLM sees this)',
+      parameters: {
+        /* JSON schema */
+      },
+    },
+    implementation: async (args) => {
+      // Tool logic here
+      return result;
+    },
+  };
 }
 ```
 
@@ -1386,10 +1386,10 @@ case 'conversation_state': {
 ```typescript
 // Backend sends chunks
 ws.send({
-	type: 'conversation_response',
-	conversationId: 'abc',
-	message: 'chunk',
-	isStreaming: true,
+  type: 'conversation_response',
+  conversationId: 'abc',
+  message: 'chunk',
+  isStreaming: true,
 });
 
 // Frontend updates in place
@@ -1406,11 +1406,11 @@ setMessages((prev) => updateOrAppendMessage(prev, id, content));
 
 ```typescript
 export interface GetFeatureRequest {
-	id: string;
+  id: string;
 }
 
 export interface GetFeatureResponse {
-	feature: Feature;
+  feature: Feature;
 }
 ```
 
@@ -1418,15 +1418,15 @@ export interface GetFeatureResponse {
 
 ```typescript
 export const apiClient = {
-	async getFeature(req: GetFeatureRequest): Promise<GetFeatureResponse> {
-		const response = await fetch('/api/features', {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify(req),
-		});
-		if (!response.ok) throw new ApiError(response);
-		return response.json();
-	},
+  async getFeature(req: GetFeatureRequest): Promise<GetFeatureResponse> {
+    const response = await fetch('/api/features', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(req),
+    });
+    if (!response.ok) throw new ApiError(response);
+    return response.json();
+  },
 };
 ```
 
@@ -1434,11 +1434,11 @@ export const apiClient = {
 
 ```typescript
 export class FeatureService {
-	constructor(private env: Env) {}
+  constructor(private env: Env) {}
 
-	async getFeature(id: string): Promise<Feature> {
-		// Database logic
-	}
+  async getFeature(id: string): Promise<Feature> {
+    // Database logic
+  }
 }
 ```
 
@@ -1446,12 +1446,12 @@ export class FeatureService {
 
 ```typescript
 export const featureController = {
-	async getFeature(c: Context<AppEnv>) {
-		const body = await c.req.json<GetFeatureRequest>();
-		const service = new FeatureService(c.env);
-		const feature = await service.getFeature(body.id);
-		return c.json({ feature });
-	},
+  async getFeature(c: Context<AppEnv>) {
+    const body = await c.req.json<GetFeatureRequest>();
+    const service = new FeatureService(c.env);
+    const feature = await service.getFeature(body.id);
+    return c.json({ feature });
+  },
 };
 ```
 
@@ -1474,30 +1474,30 @@ router.route('/api/features', featureRoutes);
 
 ```typescript
 export function useFeature(params: FeatureParams) {
-	const [data, setData] = useState<FeatureData | null>(null);
-	const [loading, setLoading] = useState(true);
-	const [error, setError] = useState<Error | null>(null);
+  const [data, setData] = useState<FeatureData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<Error | null>(null);
 
-	useEffect(() => {
-		async function fetch() {
-			try {
-				const result = await apiClient.getFeature(params);
-				setData(result);
-			} catch (err) {
-				setError(err);
-			} finally {
-				setLoading(false);
-			}
-		}
-		fetch();
-	}, [params]);
+  useEffect(() => {
+    async function fetch() {
+      try {
+        const result = await apiClient.getFeature(params);
+        setData(result);
+      } catch (err) {
+        setError(err);
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetch();
+  }, [params]);
 
-	const refetch = useCallback(() => {
-		setLoading(true);
-		// ... refetch logic
-	}, [params]);
+  const refetch = useCallback(() => {
+    setLoading(true);
+    // ... refetch logic
+  }, [params]);
 
-	return { data, loading, error, refetch };
+  return { data, loading, error, refetch };
 }
 ```
 
@@ -1507,36 +1507,36 @@ export function useFeature(params: FeatureParams) {
 
 ```typescript
 export function createMyToolDefinition() {
-	return {
-		type: 'function' as const,
-		function: {
-			name: 'my_tool',
-			description: 'Brief description (2-3 lines max)',
-			parameters: {
-				type: 'object',
-				properties: {
-					param: { type: 'string', description: 'Param description' },
-				},
-				required: ['param'],
-			},
-		},
-	};
+  return {
+    type: 'function' as const,
+    function: {
+      name: 'my_tool',
+      description: 'Brief description (2-3 lines max)',
+      parameters: {
+        type: 'object',
+        properties: {
+          param: { type: 'string', description: 'Param description' },
+        },
+        required: ['param'],
+      },
+    },
+  };
 }
 
 export async function myToolImplementation(
-	args: { param: string },
-	context: ToolContext,
-	streamCb?: StreamCallback,
+  args: { param: string },
+  context: ToolContext,
+  streamCb?: StreamCallback,
 ): Promise<ToolResult> {
-	// Check concurrency if needed
-	if (context.agent.isCodeGenerating()) {
-		return { error: 'GENERATION_IN_PROGRESS' };
-	}
+  // Check concurrency if needed
+  if (context.agent.isCodeGenerating()) {
+    return { error: 'GENERATION_IN_PROGRESS' };
+  }
 
-	// Implementation
-	const result = await doWork(args.param);
+  // Implementation
+  const result = await doWork(args.param);
 
-	return { result };
+  return { result };
 }
 ```
 
@@ -1546,10 +1546,10 @@ export async function myToolImplementation(
 import { createMyToolDefinition, myToolImplementation } from './toolkit/my-tool';
 
 export function buildTools(agent: CodingAgentInterface) {
-	return [
-		// ... existing tools
-		createTool(createMyToolDefinition(), myToolImplementation),
-	];
+  return [
+    // ... existing tools
+    createTool(createMyToolDefinition(), myToolImplementation),
+  ];
 }
 ```
 
@@ -1895,16 +1895,16 @@ Orange is the AI interface between users and the development agent. It handles:
 **Two Options for User Requests:**
 
 1. **Immediate Action (deep_debug):**
-    - For active bugs needing instant fixes
-    - Transfers control to autonomous debug agent
-    - Returns transcript after completion
-    - User sees real-time progress
+   - For active bugs needing instant fixes
+   - Transfers control to autonomous debug agent
+   - Returns transcript after completion
+   - User sees real-time progress
 
 2. **Queued Implementation (queue_request):**
-    - For features or non-urgent fixes
-    - Relays to development agent
-    - Implemented in next phase
-    - Tell user: "I'll have that in the next phase or two"
+   - For features or non-urgent fixes
+   - Relays to development agent
+   - Implemented in next phase
+   - Tell user: "I'll have that in the next phase or two"
 
 ### **Available Tools**
 
@@ -1955,16 +1955,16 @@ conversation_response {
 **Two-Tier Storage:**
 
 1. **Running History (Compact):**
-    - Used for LLM context
-    - Size-limited for token efficiency
-    - Can be archived/summarized
-    - Stored in `compact_conversations` table
+   - Used for LLM context
+   - Size-limited for token efficiency
+   - Can be archived/summarized
+   - Stored in `compact_conversations` table
 
 2. **Full History:**
-    - Complete conversation log
-    - Used for UI restoration
-    - Never truncated
-    - Stored in `full_conversations` table
+   - Complete conversation log
+   - Used for UI restoration
+   - Never truncated
+   - Stored in `full_conversations` table
 
 **Compactification:**
 
@@ -2004,48 +2004,48 @@ addConversationMessage(message) {
 ```typescript
 // 1. Define tool schema
 export function createMyToolDefinition() {
-	return {
-		type: 'function' as const,
-		function: {
-			name: 'my_tool',
-			description: 'CONCISE description (2-3 lines max)',
-			parameters: {
-				type: 'object',
-				properties: {
-					param: {
-						type: 'string',
-						description: 'Param description',
-					},
-				},
-				required: ['param'],
-			},
-		},
-	};
+  return {
+    type: 'function' as const,
+    function: {
+      name: 'my_tool',
+      description: 'CONCISE description (2-3 lines max)',
+      parameters: {
+        type: 'object',
+        properties: {
+          param: {
+            type: 'string',
+            description: 'Param description',
+          },
+        },
+        required: ['param'],
+      },
+    },
+  };
 }
 
 // 2. Implement tool logic
 export async function myToolImplementation(
-	args: { param: string },
-	context: ToolContext,
-	streamCb?: StreamCallback,
+  args: { param: string },
+  context: ToolContext,
+  streamCb?: StreamCallback,
 ): Promise<ToolResult> {
-	// Validation
-	if (!args.param) {
-		return { error: 'Missing required parameter' };
-	}
+  // Validation
+  if (!args.param) {
+    return { error: 'Missing required parameter' };
+  }
 
-	// Concurrency checks (if needed)
-	if (context.agent.isCodeGenerating()) {
-		return { error: 'GENERATION_IN_PROGRESS' };
-	}
+  // Concurrency checks (if needed)
+  if (context.agent.isCodeGenerating()) {
+    return { error: 'GENERATION_IN_PROGRESS' };
+  }
 
-	// Execute tool logic
-	const result = await doWork(args.param);
+  // Execute tool logic
+  const result = await doWork(args.param);
 
-	// Stream progress if callback provided
-	streamCb?.('Processing...');
+  // Stream progress if callback provided
+  streamCb?.('Processing...');
 
-	return { result };
+  return { result };
 }
 ```
 
@@ -2058,15 +2058,15 @@ export async function myToolImplementation(
 import { createMyToolDefinition, myToolImplementation } from './toolkit/my-tool';
 
 export function buildTools(
-	agent: CodingAgentInterface,
-	logger: StructuredLogger,
-	toolRenderer: RenderToolCall,
-	streamCb: (chunk: string) => void,
+  agent: CodingAgentInterface,
+  logger: StructuredLogger,
+  toolRenderer: RenderToolCall,
+  streamCb: (chunk: string) => void,
 ): ToolDefinition[] {
-	return [
-		// ... existing tools
-		createTool(createMyToolDefinition(), myToolImplementation),
-	];
+  return [
+    // ... existing tools
+    createTool(createMyToolDefinition(), myToolImplementation),
+  ];
 }
 ```
 
@@ -2074,12 +2074,12 @@ export function buildTools(
 
 ```typescript
 export function buildDebugTools(session: DebugSession, logger: StructuredLogger): ToolDefinition[] {
-	return [
-		createReadFilesTool(session.agent, logger),
-		createRunAnalysisTool(session.agent, logger),
-		createRegenerateFileTool(session.agent, logger),
-		// ... more debug-specific tools
-	];
+  return [
+    createReadFilesTool(session.agent, logger),
+    createRunAnalysisTool(session.agent, logger),
+    createRegenerateFileTool(session.agent, logger),
+    // ... more debug-specific tools
+  ];
 }
 ```
 
@@ -2267,27 +2267,27 @@ userModelConfigs {
 ```typescript
 // File: /worker/database/services/DomainService.ts
 export class DomainService {
-	private db: D1Database;
+  private db: D1Database;
 
-	constructor(env: Env) {
-		this.db = env.DB;
-	}
+  constructor(env: Env) {
+    this.db = env.DB;
+  }
 
-	async getItem(id: string): Promise<Item> {
-		// Use Drizzle ORM for type safety
-		const result = await this.db.select().from(itemsTable).where(eq(itemsTable.id, id)).get();
+  async getItem(id: string): Promise<Item> {
+    // Use Drizzle ORM for type safety
+    const result = await this.db.select().from(itemsTable).where(eq(itemsTable.id, id)).get();
 
-		if (!result) throw new ApiError(404, 'Not found');
-		return result;
-	}
+    if (!result) throw new ApiError(404, 'Not found');
+    return result;
+  }
 
-	async createItem(data: CreateInput): Promise<Item> {
-		// Insert with validation
-		const id = generateId();
-		await this.db.insert(itemsTable).values({ id, ...data });
+  async createItem(data: CreateInput): Promise<Item> {
+    // Insert with validation
+    const id = generateId();
+    await this.db.insert(itemsTable).values({ id, ...data });
 
-		return this.getItem(id);
-	}
+    return this.getItem(id);
+  }
 }
 ```
 
@@ -2333,21 +2333,21 @@ MAX_IMAGES_PER_MESSAGE = 2;
 ```typescript
 // Raw upload from user
 interface ImageAttachment {
-	id: string;
-	filename: string;
-	mimeType: SupportedImageMimeType;
-	base64Data: string; // Without data URL prefix
-	size: number;
-	dimensions?: { width: number; height: number };
+  id: string;
+  filename: string;
+  mimeType: SupportedImageMimeType;
+  base64Data: string; // Without data URL prefix
+  size: number;
+  dimensions?: { width: number; height: number };
 }
 
 // After R2 upload
 interface ProcessedImageAttachment {
-	mimeType: SupportedImageMimeType;
-	base64Data?: string; // Optional, may be cleared after upload
-	r2Key: string; // R2 storage key
-	publicUrl: string; // Public URL
-	hash: string; // Content hash
+  mimeType: SupportedImageMimeType;
+  base64Data?: string; // Optional, may be cleared after upload
+  r2Key: string; // R2 storage key
+  publicUrl: string; // Public URL
+  hash: string; // Content hash
 }
 ```
 
@@ -2422,34 +2422,34 @@ import { CodingAgentInterface } from 'worker/agents/services/implementations/Cod
 import { StructuredLogger } from '../../../logger';
 
 export function createMyNewTool(agent: CodingAgentInterface, logger: StructuredLogger) {
-	return {
-		type: 'function' as const,
-		function: {
-			name: 'my_new_tool',
-			description: 'Clear 2-3 line description. LLM uses this to decide when to call.',
-			parameters: {
-				type: 'object',
-				properties: {
-					input: {
-						type: 'string',
-						description: 'What this parameter does',
-					},
-				},
-				required: ['input'],
-			},
-		},
-		implementation: async (args: { input: string }) => {
-			logger.info('Tool called', { args });
-			// Your logic here
-			return { result: 'success' };
-		},
-	};
+  return {
+    type: 'function' as const,
+    function: {
+      name: 'my_new_tool',
+      description: 'Clear 2-3 line description. LLM uses this to decide when to call.',
+      parameters: {
+        type: 'object',
+        properties: {
+          input: {
+            type: 'string',
+            description: 'What this parameter does',
+          },
+        },
+        required: ['input'],
+      },
+    },
+    implementation: async (args: { input: string }) => {
+      logger.info('Tool called', { args });
+      // Your logic here
+      return { result: 'success' };
+    },
+  };
 }
 ```
 
 3. Register in `/worker/agents/tools/customTools.ts`:
-    - Import: `import { createMyNewTool } from './toolkit/my-new-tool';`
-    - Add to `buildTools()` array (line 44): `createMyNewTool(agent, logger),`
+   - Import: `import { createMyNewTool } from './toolkit/my-new-tool';`
+   - Add to `buildTools()` array (line 44): `createMyNewTool(agent, logger),`
 4. Tool is now available to conversation agent (Orange AI)
 
 ## **Modifying Deep Debugger Behavior**
@@ -2479,8 +2479,8 @@ export function createMyNewTool(agent: CodingAgentInterface, logger: StructuredL
 **Backend:**
 
 1. Add type to `/worker/agents/constants.ts`:
-    - `WebSocketMessageRequests` (client → server)
-    - `WebSocketMessageResponses` (server → client)
+   - `WebSocketMessageRequests` (client → server)
+   - `WebSocketMessageResponses` (server → client)
 2. Handle in `/worker/agents/core/websocket.ts` → `handleWebSocketMessage()`
 3. Send via `sendToConnection(connection, messageType, data)`
 
@@ -2511,17 +2511,17 @@ export function createMyNewTool(agent: CodingAgentInterface, logger: StructuredL
 
 ```typescript
 export class UserService extends BaseService {
-	// Existing methods...
+  // Existing methods...
 
-	async getNewMethod(userId: string): Promise<ResultType> {
-		// Use 'fresh' for user's own data
-		const readDb = this.getReadDb('fresh');
+  async getNewMethod(userId: string): Promise<ResultType> {
+    // Use 'fresh' for user's own data
+    const readDb = this.getReadDb('fresh');
 
-		const result = await readDb.select().from(schema.users).where(eq(schema.users.id, userId));
+    const result = await readDb.select().from(schema.users).where(eq(schema.users.id, userId));
 
-		if (!result) throw new Error('Not found');
-		return result;
-	}
+    if (!result) throw new Error('Not found');
+    return result;
+  }
 }
 ```
 
@@ -2590,12 +2590,12 @@ const data = await userService.getNewMethod(userId);
 **Storage Options:**
 
 1. **Durable Objects** (Primary) - `rateLimitDO.ts`
-    - Bucketed sliding window algorithm
-    - Better consistency than KV
-    - Per-key isolated storage
+   - Bucketed sliding window algorithm
+   - Better consistency than KV
+   - Per-key isolated storage
 2. **KV Store** (Fallback) - `rateLimitKV.ts`
-    - Global edge cache
-    - Eventual consistency
+   - Global edge cache
+   - Eventual consistency
 
 ### **Identifier Strategy**
 
@@ -2624,12 +2624,12 @@ ip:192.168.1.1
 
 ```typescript
 interface DORateLimitConfig {
-	limit: number; // Max requests per period
-	period: number; // Time window in seconds
-	burst?: number; // Burst allowance
-	burstWindow?: number; // Burst time window
-	bucketSize: number; // Bucket size for sliding window
-	dailyLimit?: number; // Optional daily cap
+  limit: number; // Max requests per period
+  period: number; // Time window in seconds
+  burst?: number; // Burst allowance
+  burstWindow?: number; // Burst time window
+  bucketSize: number; // Bucket size for sliding window
+  dailyLimit?: number; // Optional daily cap
 }
 ```
 
@@ -2640,7 +2640,7 @@ interface DORateLimitConfig {
 const allowed = await RateLimitService.enforce(env, request, RateLimitType.API_ENDPOINT, user);
 
 if (!allowed) {
-	throw new RateLimitExceededError('Too many requests');
+  throw new RateLimitExceededError('Too many requests');
 }
 ```
 
@@ -2726,9 +2726,9 @@ All providers extend `BaseOAuthProvider`:
 
 ```typescript
 abstract class BaseOAuthProvider {
-	abstract getAuthorizationUrl(params): string;
-	abstract exchangeCodeForToken(code, verifier): Promise<TokenResponse>;
-	abstract getUserInfo(token): Promise<UserInfo>;
+  abstract getAuthorizationUrl(params): string;
+  abstract exchangeCodeForToken(code, verifier): Promise<TokenResponse>;
+  abstract getUserInfo(token): Promise<UserInfo>;
 }
 ```
 
@@ -2739,9 +2739,9 @@ abstract class BaseOAuthProvider {
 ```typescript
 const provider = OAuthProviderFactory.create('google', env);
 const { url, state, codeVerifier } = await provider.getAuthorizationUrl({
-	redirectUri: 'https://app.com/auth/callback',
-	state: csrfToken,
-	scopes: ['openid', 'email', 'profile'],
+  redirectUri: 'https://app.com/auth/callback',
+  state: csrfToken,
+  scopes: ['openid', 'email', 'profile'],
 });
 
 // Store state + verifier in oauthStates table
@@ -2763,10 +2763,10 @@ const userInfo = await provider.getUserInfo(tokenData.access_token);
 
 // Create or update user
 const user = await authService.findOrCreateOAuthUser({
-	provider: 'google',
-	providerId: userInfo.id,
-	email: userInfo.email,
-	displayName: userInfo.name,
+  provider: 'google',
+  providerId: userInfo.id,
+  email: userInfo.email,
+  displayName: userInfo.name,
 });
 
 // Create session
@@ -2870,9 +2870,9 @@ Views and stars affect app rankings:
 ```typescript
 // Cache generated packfiles for git clone
 await cacheService.set(
-	`git:packfile:${agentId}`,
-	packfileBuffer,
-	3600, // 1 hour TTL
+  `git:packfile:${agentId}`,
+  packfileBuffer,
+  3600, // 1 hour TTL
 );
 ```
 
@@ -2881,9 +2881,9 @@ await cacheService.set(
 ```typescript
 // Cache TypeScript analysis results
 await cacheService.set(
-	`analysis:${fileHash}`,
-	analysisResults,
-	300, // 5 min TTL
+  `analysis:${fileHash}`,
+  analysisResults,
+  300, // 5 min TTL
 );
 ```
 
@@ -2892,9 +2892,9 @@ await cacheService.set(
 ```typescript
 // Cache template file trees
 await cacheService.set(
-	`template:${templateName}`,
-	templateFiles,
-	86400, // 24 hours
+  `template:${templateName}`,
+  templateFiles,
+  86400, // 24 hours
 );
 ```
 
@@ -2928,7 +2928,7 @@ const csrfToken = await crypto.subtle.digest('SHA-256', crypto.getRandomValues(n
 ```typescript
 // In OAuth callback
 if (callbackState !== storedState.state) {
-	throw new SecurityError('CSRF token mismatch');
+  throw new SecurityError('CSRF token mismatch');
 }
 ```
 
@@ -3058,37 +3058,37 @@ async getKeyRotationInfo(): Promise<KeyRotationInfo>
 
 ```typescript
 interface StoreSecretRequest {
-	name: string;
-	secretType: 'api_key' | 'oauth_token' | 'webhook_secret' | 'encryption_key' | 'other';
-	value: string;
-	metadata?: Record<string, unknown>;
-	expiresAt?: number;
+  name: string;
+  secretType: 'api_key' | 'oauth_token' | 'webhook_secret' | 'encryption_key' | 'other';
+  value: string;
+  metadata?: Record<string, unknown>;
+  expiresAt?: number;
 }
 
 interface SecretMetadata {
-	id: string;
-	userId: string;
-	name: string;
-	secretType: string;
-	keyPreview: string;
-	metadata?: Record<string, unknown>;
-	accessCount: number;
-	createdAt: number;
-	updatedAt: number;
-	expiresAt?: number;
+  id: string;
+  userId: string;
+  name: string;
+  secretType: string;
+  keyPreview: string;
+  metadata?: Record<string, unknown>;
+  accessCount: number;
+  createdAt: number;
+  updatedAt: number;
+  expiresAt?: number;
 }
 
 interface SecretWithValue {
-	value: string;
-	metadata: SecretMetadata;
+  value: string;
+  metadata: SecretMetadata;
 }
 
 interface KeyRotationInfo {
-	currentKeyFingerprint: string;
-	lastRotationAt: number;
-	rotationCount: number;
-	totalSecrets: number;
-	secretsRotated: number;
+  currentKeyFingerprint: string;
+  lastRotationAt: number;
+  rotationCount: number;
+  totalSecrets: number;
+  secretsRotated: number;
 }
 ```
 
@@ -3101,21 +3101,21 @@ const store = env.UserSecretsStore.get(id);
 
 // Store secret
 const metadata = await store.storeSecret({
-	name: 'OpenAI API Key',
-	secretType: 'api_key',
-	value: 'sk-...',
-	metadata: { provider: 'openai' },
+  name: 'OpenAI API Key',
+  secretType: 'api_key',
+  value: 'sk-...',
+  metadata: { provider: 'openai' },
 });
 
 if (!metadata) {
-	throw new Error('Failed to store secret');
+  throw new Error('Failed to store secret');
 }
 
 // Retrieve decrypted value
 const secret = await store.getSecretValue(metadata.id);
 
 if (!secret) {
-	throw new Error('Secret not found or expired');
+  throw new Error('Secret not found or expired');
 }
 
 console.log(secret.value); // Decrypted value
@@ -3126,8 +3126,8 @@ const secrets = await store.listSecrets();
 
 // Update secret
 const updated = await store.updateSecret(metadata.id, {
-	name: 'OpenAI API Key (Production)',
-	expiresAt: Date.now() + 86400000, // 24 hours
+  name: 'OpenAI API Key (Production)',
+  expiresAt: Date.now() + 86400000, // 24 hours
 });
 
 // Delete secret
@@ -3251,20 +3251,20 @@ SECRETS_ENCRYPTION_KEY=0123456789abcdef0123456789abcdef0123456789abcdef012345678
 
 ```jsonc
 {
-	"durable_objects": {
-		"bindings": [
-			{
-				"name": "UserSecretsStore",
-				"class_name": "UserSecretsStore",
-			},
-		],
-	},
-	"migrations": [
-		{
-			"tag": "v3",
-			"new_sqlite_classes": ["UserSecretsStore"],
-		},
-	],
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "UserSecretsStore",
+        "class_name": "UserSecretsStore",
+      },
+    ],
+  },
+  "migrations": [
+    {
+      "tag": "v3",
+      "new_sqlite_classes": ["UserSecretsStore"],
+    },
+  ],
 }
 ```
 
@@ -3353,14 +3353,14 @@ const [selectedFile, setSelectedFile] = useState<FileType | null>(null);
 ```typescript
 // /hooks/use-apps.ts
 export function useApps(filters?: AppFilters) {
-	const [apps, setApps] = useState<App[]>([]);
-	const [loading, setLoading] = useState(true);
+  const [apps, setApps] = useState<App[]>([]);
+  const [loading, setLoading] = useState(true);
 
-	useEffect(() => {
-		apiClient.getApps(filters).then(setApps);
-	}, [filters]);
+  useEffect(() => {
+    apiClient.getApps(filters).then(setApps);
+  }, [filters]);
 
-	return { apps, loading, refetch };
+  return { apps, loading, refetch };
 }
 
 // Usage
@@ -3399,38 +3399,38 @@ const { user } = useAuth();
 
 ```typescript
 export function useChat(chatId: string) {
-	// Local state
-	const [messages, setMessages] = useState<ChatMessage[]>([]);
-	const [files, setFiles] = useState<FileType[]>([]);
-	const [isGenerating, setIsGenerating] = useState(false);
+  // Local state
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [files, setFiles] = useState<FileType[]>([]);
+  const [isGenerating, setIsGenerating] = useState(false);
 
-	// WebSocket connection
-	const [websocket, setWebSocket] = useState<WebSocket | null>(null);
+  // WebSocket connection
+  const [websocket, setWebSocket] = useState<WebSocket | null>(null);
 
-	// Message handler
-	useEffect(() => {
-		if (!websocket) return;
+  // Message handler
+  useEffect(() => {
+    if (!websocket) return;
 
-		websocket.onmessage = (event) => {
-			const message = JSON.parse(event.data);
-			handleWebSocketMessage(message, {
-				setMessages,
-				setFiles,
-				setIsGenerating,
-				// ... other setters
-			});
-		};
-	}, [websocket]);
+    websocket.onmessage = (event) => {
+      const message = JSON.parse(event.data);
+      handleWebSocketMessage(message, {
+        setMessages,
+        setFiles,
+        setIsGenerating,
+        // ... other setters
+      });
+    };
+  }, [websocket]);
 
-	return {
-		messages,
-		files,
-		isGenerating,
-		websocket,
-		sendMessage: (text) => {
-			websocket?.send(JSON.stringify({ type: 'USER_MESSAGE', text }));
-		},
-	};
+  return {
+    messages,
+    files,
+    isGenerating,
+    websocket,
+    sendMessage: (text) => {
+      websocket?.send(JSON.stringify({ type: 'USER_MESSAGE', text }));
+    },
+  };
 }
 ```
 
@@ -3442,7 +3442,7 @@ export function useChat(chatId: string) {
 
 ```typescript
 const sortedFiles = useMemo(() => {
-	return files.sort((a, b) => a.path.localeCompare(b.path));
+  return files.sort((a, b) => a.path.localeCompare(b.path));
 }, [files]);
 ```
 
@@ -3450,10 +3450,10 @@ const sortedFiles = useMemo(() => {
 
 ```typescript
 const handleFileClick = useCallback(
-	(fileId: string) => {
-		setSelectedFile(files.find((f) => f.id === fileId));
-	},
-	[files],
+  (fileId: string) => {
+    setSelectedFile(files.find((f) => f.id === fileId));
+  },
+  [files],
 );
 ```
 
@@ -3476,9 +3476,9 @@ export const FileTreeNode = memo(({ file, onSelect }: Props) => {
 import { useVirtualizer } from '@tanstack/react-virtual';
 
 const virtualizer = useVirtualizer({
-	count: apps.length,
-	getScrollElement: () => containerRef.current,
-	estimateSize: () => 200, // Card height
+  count: apps.length,
+  getScrollElement: () => containerRef.current,
+  estimateSize: () => 200, // Card height
 });
 ```
 
@@ -3491,22 +3491,22 @@ const virtualizer = useVirtualizer({
 ```typescript
 // /hooks/use-app.ts
 export function useApp(appId?: string) {
-	const [app, setApp] = useState<App | null>(null);
-	const [loading, setLoading] = useState(true);
-	const [error, setError] = useState<Error | null>(null);
+  const [app, setApp] = useState<App | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<Error | null>(null);
 
-	useEffect(() => {
-		if (!appId) return;
+  useEffect(() => {
+    if (!appId) return;
 
-		setLoading(true);
-		apiClient
-			.getApp(appId)
-			.then(setApp)
-			.catch(setError)
-			.finally(() => setLoading(false));
-	}, [appId]);
+    setLoading(true);
+    apiClient
+      .getApp(appId)
+      .then(setApp)
+      .catch(setError)
+      .finally(() => setLoading(false));
+  }, [appId]);
 
-	return { app, loading, error, refetch };
+  return { app, loading, error, refetch };
 }
 ```
 
@@ -3515,35 +3515,35 @@ export function useApp(appId?: string) {
 ```typescript
 // /hooks/use-apps.ts
 export function useApps(filters?: AppFilters) {
-	const [apps, setApps] = useState<App[]>([]);
-	const [hasMore, setHasMore] = useState(true);
-	const currentPageRef = useRef(1);
-	const isLoadingMoreRef = useRef(false);
+  const [apps, setApps] = useState<App[]>([]);
+  const [hasMore, setHasMore] = useState(true);
+  const currentPageRef = useRef(1);
+  const isLoadingMoreRef = useRef(false);
 
-	const fetchApps = useCallback(
-		async (loadMore = false) => {
-			if (isLoadingMoreRef.current) return;
-			isLoadingMoreRef.current = true;
+  const fetchApps = useCallback(
+    async (loadMore = false) => {
+      if (isLoadingMoreRef.current) return;
+      isLoadingMoreRef.current = true;
 
-			const page = loadMore ? currentPageRef.current + 1 : 1;
-			const result = await apiClient.getApps({ ...filters, page });
+      const page = loadMore ? currentPageRef.current + 1 : 1;
+      const result = await apiClient.getApps({ ...filters, page });
 
-			if (loadMore) {
-				setApps((prev) => [...prev, ...result.apps]);
-			} else {
-				setApps(result.apps);
-			}
+      if (loadMore) {
+        setApps((prev) => [...prev, ...result.apps]);
+      } else {
+        setApps(result.apps);
+      }
 
-			setHasMore(result.hasMore);
-			currentPageRef.current = page;
-			isLoadingMoreRef.current = false;
-		},
-		[filters],
-	);
+      setHasMore(result.hasMore);
+      currentPageRef.current = page;
+      isLoadingMoreRef.current = false;
+    },
+    [filters],
+  );
 
-	const loadMore = () => fetchApps(true);
+  const loadMore = () => fetchApps(true);
 
-	return { apps, hasMore, loadMore };
+  return { apps, hasMore, loadMore };
 }
 ```
 
@@ -3615,24 +3615,24 @@ return (
 const [errors, setErrors] = useState<Record<string, string>>({});
 
 const validate = () => {
-	const newErrors: Record<string, string> = {};
+  const newErrors: Record<string, string> = {};
 
-	if (!formData.title) {
-		newErrors.title = 'Title is required';
-	}
-	if (formData.title.length < 3) {
-		newErrors.title = 'Title must be at least 3 characters';
-	}
+  if (!formData.title) {
+    newErrors.title = 'Title is required';
+  }
+  if (formData.title.length < 3) {
+    newErrors.title = 'Title must be at least 3 characters';
+  }
 
-	setErrors(newErrors);
-	return Object.keys(newErrors).length === 0;
+  setErrors(newErrors);
+  return Object.keys(newErrors).length === 0;
 };
 
 const handleSubmit = async (e: FormEvent) => {
-	e.preventDefault();
-	if (!validate()) return;
+  e.preventDefault();
+  if (!validate()) return;
 
-	await apiClient.createApp(formData);
+  await apiClient.createApp(formData);
 };
 ```
 
@@ -3717,18 +3717,18 @@ export class ErrorBoundary extends Component<Props, State> {
 
 ```typescript
 try {
-	const app = await apiClient.getApp(appId);
-	setApp(app);
+  const app = await apiClient.getApp(appId);
+  setApp(app);
 } catch (error) {
-	if (error instanceof ApiError) {
-		if (error.status === 404) {
-			setError('App not found');
-		} else if (error.status === 403) {
-			setError('Access denied');
-		} else {
-			setError('Something went wrong');
-		}
-	}
+  if (error instanceof ApiError) {
+    if (error.status === 404) {
+      setError('App not found');
+    } else if (error.status === 403) {
+      setError('Access denied');
+    } else {
+      setError('Something went wrong');
+    }
+  }
 }
 ```
 
@@ -4023,71 +4023,71 @@ Each agent has a **sessionId** that maps to a sandbox instance:
 **Step-by-step:**
 
 1. **Pre-deployment Validation**
-    - Check files exist in generatedFilesMap
-    - Verify no generation in progress
-    - Get or create sessionId
+   - Check files exist in generatedFilesMap
+   - Verify no generation in progress
+   - Get or create sessionId
 
 2. **Sandbox Instance Check**
-    - If no sandboxInstanceId: create new instance
-    - If exists: check health status
-    - If unhealthy: reset session, create new instance
+   - If no sandboxInstanceId: create new instance
+   - If exists: check health status
+   - If unhealthy: reset session, create new instance
 
 3. **Create Instance (if needed)**
 
-    ```
-    → createInstance(templateName, projectName, webhookUrl)
-    ← { instanceId, url, status }
-    → Save instanceId to state
-    ```
+   ```
+   → createInstance(templateName, projectName, webhookUrl)
+   ← { instanceId, url, status }
+   → Save instanceId to state
+   ```
 
 4. **File Synchronization**
 
-    ```
-    → Collect all files from generatedFilesMap
-    → Format as { path, content, encoding: 'utf-8' }[]
-    → writeFiles(instanceId, files, "Deploy generated code")
-    ← { success: true, filesWritten: 42 }
-    ```
+   ```
+   → Collect all files from generatedFilesMap
+   → Format as { path, content, encoding: 'utf-8' }[]
+   → writeFiles(instanceId, files, "Deploy generated code")
+   ← { success: true, filesWritten: 42 }
+   ```
 
 5. **Package.json Sync**
 
-    ```
-    → Check if package.json changed
-    → If changed: executeCommands(['npm install'])
-    → Wait for completion (timeout: 60s)
-    → Cache new package.json in state
-    ```
+   ```
+   → Check if package.json changed
+   → If changed: executeCommands(['npm install'])
+   → Wait for completion (timeout: 60s)
+   → Cache new package.json in state
+   ```
 
 6. **Bootstrap Commands (if needed)**
 
-    ```
-    → Execute commandsHistory (previously run user commands)
-    → Validates/filters dangerous commands
-    → Runs: npm install, setup scripts, etc.
-    ```
+   ```
+   → Execute commandsHistory (previously run user commands)
+   → Validates/filters dangerous commands
+   → Runs: npm install, setup scripts, etc.
+   ```
 
 7. **Start Dev Server**
 
-    ```
-    → Already running from instance creation
-    → Or trigger via command if stopped
-    → Monitor startup logs
-    ```
+   ```
+   → Already running from instance creation
+   → Or trigger via command if stopped
+   → Monitor startup logs
+   ```
 
 8. **Health Check Loop**
 
-    ```
-    → setInterval(30s): ping sandbox
-    → Check status endpoint
-    → If unhealthy: log warning, may reset
-    ```
+   ```
+   → setInterval(30s): ping sandbox
+   → Check status endpoint
+   → If unhealthy: log warning, may reset
+   ```
 
 9. **Return Preview URL**
-    ```
-    → Send URL to frontend via WebSocket
-    → User can open in iframe or new tab
-    → App is live and interactive
-    ```
+   ```
+   → Send URL to frontend via WebSocket
+   → User can open in iframe or new tab
+   → App is live and interactive
+   ```
 
 ---
 
@@ -4096,19 +4096,19 @@ Each agent has a **sessionId** that maps to a sandbox instance:
 When files change after initial deploy:
 
 1. **Diff Detection**
-    - Compare file hashes in generatedFilesMap
-    - Only sync changed files
+   - Compare file hashes in generatedFilesMap
+   - Only sync changed files
 
 2. **Partial Sync**
 
-    ```
-    → writeFiles(instanceId, [changedFiles])
-    ← Hot reload triggered automatically
-    ```
+   ```
+   → writeFiles(instanceId, [changedFiles])
+   ← Hot reload triggered automatically
+   ```
 
 3. **No Full Rebuild**
-    - Dev server hot reloads changes
-    - Fast iteration (< 1s typically)
+   - Dev server hot reloads changes
+   - Fast iteration (< 1s typically)
 
 ---
 
@@ -4117,20 +4117,20 @@ When files change after initial deploy:
 **Common errors:**
 
 1. **Timeout (60s)**
-    - Cause: npm install too slow, network issues
-    - Recovery: Reset sessionId, retry with fresh instance
+   - Cause: npm install too slow, network issues
+   - Recovery: Reset sessionId, retry with fresh instance
 
 2. **Instance Not Found**
-    - Cause: Container crashed or evicted
-    - Recovery: Create new instance, redeploy all files
+   - Cause: Container crashed or evicted
+   - Recovery: Create new instance, redeploy all files
 
 3. **Command Execution Failed**
-    - Cause: Invalid package.json, dependency conflicts
-    - Recovery: Show error to user, allow editing
+   - Cause: Invalid package.json, dependency conflicts
+   - Recovery: Show error to user, allow editing
 
 4. **Health Check Failed**
-    - Cause: Dev server crashed, port conflict
-    - Recovery: Reset session on next deploy attempt
+   - Cause: Dev server crashed, port conflict
+   - Recovery: Reset session on next deploy attempt
 
 ---
 
@@ -4574,8 +4574,8 @@ Abstract base class provides common OAuth 2.0 flow with PKCE.
 
 1. Route declares auth level via `setAuthLevel()` middleware
 2. `enforceAuthRequirement()` checks:
-    - Public: pass through
-    - Authenticated/Owner: extract token → validate JWT → fetch user → check ownership if needed
+   - Public: pass through
+   - Authenticated/Owner: extract token → validate JWT → fetch user → check ownership if needed
 3. User injected into request context: `c.set('user', user)`
 4. Route handler executes with authenticated user
 
@@ -4692,38 +4692,38 @@ Provides common database functionality to all domain services:
 
 ```typescript
 abstract class BaseService {
-	protected logger = createLogger(this.constructor.name);
-	protected db: DatabaseService;
-	protected env: Env;
+  protected logger = createLogger(this.constructor.name);
+  protected db: DatabaseService;
+  protected env: Env;
 
-	constructor(env: Env) {
-		this.db = createDatabaseService(env);
-		this.env = env;
-	}
+  constructor(env: Env) {
+    this.db = createDatabaseService(env);
+    this.env = env;
+  }
 
-	// Direct database access (primary)
-	protected get database() {
-		return this.db.db;
-	}
+  // Direct database access (primary)
+  protected get database() {
+    return this.db.db;
+  }
 
-	// Read replica access (optimized latency)
-	protected getReadDb(strategy: 'fast' | 'fresh' = 'fast') {
-		return this.db.getReadDb(strategy);
-	}
+  // Read replica access (optimized latency)
+  protected getReadDb(strategy: 'fast' | 'fresh' = 'fast') {
+    return this.db.getReadDb(strategy);
+  }
 
-	// Build type-safe WHERE conditions
-	protected buildWhereConditions(conditions: (SQL<unknown> | undefined)[]): SQL<unknown> | undefined {
-		const validConditions = conditions.filter((c): c is SQL<unknown> => c !== undefined);
-		if (validConditions.length === 0) return undefined;
-		if (validConditions.length === 1) return validConditions[0];
-		return and(...validConditions);
-	}
+  // Build type-safe WHERE conditions
+  protected buildWhereConditions(conditions: (SQL<unknown> | undefined)[]): SQL<unknown> | undefined {
+    const validConditions = conditions.filter((c): c is SQL<unknown> => c !== undefined);
+    if (validConditions.length === 0) return undefined;
+    if (validConditions.length === 1) return validConditions[0];
+    return and(...validConditions);
+  }
 
-	// Standard error handling
-	protected handleDatabaseError(error: unknown, operation: string, context?: Record<string, unknown>): never {
-		this.logger.error(`Database error in ${operation}`, { error, context });
-		throw error;
-	}
+  // Standard error handling
+  protected handleDatabaseError(error: unknown, operation: string, context?: Record<string, unknown>): never {
+    this.logger.error(`Database error in ${operation}`, { error, context });
+    throw error;
+  }
 }
 ```
 
@@ -4835,20 +4835,20 @@ const users = await db.select().from(schema.users).where(eq(schema.users.email, 
 
 // Select specific columns
 const users = await db
-	.select({
-		id: schema.users.id,
-		email: schema.users.email,
-	})
-	.from(schema.users);
+  .select({
+    id: schema.users.id,
+    email: schema.users.email,
+  })
+  .from(schema.users);
 
 // With JOIN
 const apps = await db
-	.select({
-		app: schema.apps,
-		userName: schema.users.displayName,
-	})
-	.from(schema.apps)
-	.leftJoin(schema.users, eq(schema.apps.userId, schema.users.id));
+  .select({
+    app: schema.apps,
+    userName: schema.users.displayName,
+  })
+  .from(schema.apps)
+  .leftJoin(schema.users, eq(schema.apps.userId, schema.users.id));
 ```
 
 #### **INSERT**
@@ -4878,12 +4878,12 @@ await db
 
 ```typescript
 await db
-	.update(schema.users)
-	.set({
-		displayName: 'New Name',
-		updatedAt: new Date(),
-	})
-	.where(eq(schema.users.id, userId));
+  .update(schema.users)
+  .set({
+    displayName: 'New Name',
+    updatedAt: new Date(),
+  })
+  .where(eq(schema.users.id, userId));
 ```
 
 #### **DELETE**
@@ -4903,19 +4903,19 @@ await db.update(schema.users).set({ deletedAt: new Date() }).where(eq(schema.use
 ```typescript
 // COUNT
 const result = await db
-	.select({ count: sql<number>`COUNT(*)` })
-	.from(schema.apps)
-	.where(eq(schema.apps.visibility, 'public'));
+  .select({ count: sql<number>`COUNT(*)` })
+  .from(schema.apps)
+  .where(eq(schema.apps.visibility, 'public'));
 
 const total = result[0].count;
 
 // SUM, AVG
 const stats = await db
-	.select({
-		totalViews: sql<number>`SUM(${schema.appViews.id})`,
-		avgViews: sql<number>`AVG(view_count)`,
-	})
-	.from(schema.apps);
+  .select({
+    totalViews: sql<number>`SUM(${schema.appViews.id})`,
+    avgViews: sql<number>`AVG(view_count)`,
+  })
+  .from(schema.apps);
 ```
 
 #### **Subqueries**
@@ -4923,14 +4923,14 @@ const stats = await db
 ```typescript
 // Subquery in WHERE
 const apps = await db
-	.select()
-	.from(schema.apps)
-	.where(
-		inArray(
-			schema.apps.id,
-			db.select({ id: schema.favorites.appId }).from(schema.favorites).where(eq(schema.favorites.userId, userId)),
-		),
-	);
+  .select()
+  .from(schema.apps)
+  .where(
+    inArray(
+      schema.apps.id,
+      db.select({ id: schema.favorites.appId }).from(schema.favorites).where(eq(schema.favorites.userId, userId)),
+    ),
+  );
 ```
 
 #### **Conditional WHERE Clauses**
@@ -4940,16 +4940,16 @@ const apps = await db
 const conditions: WhereCondition[] = [];
 
 if (framework) {
-	conditions.push(eq(schema.apps.framework, framework));
+  conditions.push(eq(schema.apps.framework, framework));
 }
 
 if (search) {
-	conditions.push(
-		or(
-			sql`LOWER(${schema.apps.title}) LIKE ${`%${search}%`}`,
-			sql`LOWER(${schema.apps.description}) LIKE ${`%${search}%`}`,
-		),
-	);
+  conditions.push(
+    or(
+      sql`LOWER(${schema.apps.title}) LIKE ${`%${search}%`}`,
+      sql`LOWER(${schema.apps.description}) LIKE ${`%${search}%`}`,
+    ),
+  );
 }
 
 const whereClause = this.buildWhereConditions(conditions);
@@ -5162,8 +5162,8 @@ conversationalResponse: {
 ```typescript
 // In DeploymentManager.ts, enable verbose logging
 this.logger.info('Deployment attempt', {
-	sessionId: this.getSessionId(),
-	filesCount: files.length,
+  sessionId: this.getSessionId(),
+  filesCount: files.length,
 });
 ```
 
@@ -5226,8 +5226,8 @@ logger.info('[TOOL_CALL]', { name: toolDef.function.name, args });
 ```typescript
 // In simpleGeneratorAgent.ts launchStateMachine()
 logger.info('[STATE_TRANSITION]', {
-	from: currentDevState,
-	to: executionResults.currentDevState,
+  from: currentDevState,
+  to: executionResults.currentDevState,
 });
 ```
 
@@ -5297,13 +5297,13 @@ Content-Type: application/json
 
 ```typescript
 export function handleRateLimitError(
-	error: RateLimitExceededError,
-	setMessages: (fn: (prev: ChatMessage[]) => ChatMessage[]) => void,
+  error: RateLimitExceededError,
+  setMessages: (fn: (prev: ChatMessage[]) => ChatMessage[]) => void,
 ) {
-	const retryAfter = error.retryAfter || 60;
-	const message = `Rate limit exceeded. Please wait ${retryAfter} seconds.`;
+  const retryAfter = error.retryAfter || 60;
+  const message = `Rate limit exceeded. Please wait ${retryAfter} seconds.`;
 
-	setMessages((prev) => [...prev, createAIMessage('rate-limit', message)]);
+  setMessages((prev) => [...prev, createAIMessage('rate-limit', message)]);
 }
 ```
 
@@ -5350,10 +5350,10 @@ const EXEMPT_PATHS = ['/health', '/api/health'];
 
 ```typescript
 logger.warn('Rate limit exceeded', {
-	userId: ctx.userId,
-	ip: ctx.ip,
-	path: ctx.path,
-	remaining: 0,
+  userId: ctx.userId,
+  ip: ctx.ip,
+  path: ctx.path,
+  remaining: 0,
 });
 ```
 

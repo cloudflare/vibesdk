@@ -63,13 +63,13 @@ The setup script will ask you for the following information:
 
 1. **Account ID**: Found in your Cloudflare dashboard sidebar
 2. **API Token**: In you Cloudflare dashboard under "My Profile" > "API Tokens", create a token (Using the "Edit Cloudflare Workers" template is recommended) with the following configurations:
-    - Your Account - Workers KV Storage:Edit, Workers Scripts:Edit, Account Settings:Read, Workers Tail:Read, Workers R2 Storage:Edit, Cloudflare Pages:Edit, Workers Builds Configuration:Edit, Workers Agents Configuration:Edit, Workers Observability:Edit, Containers:Edit, D1:Edit, AI Gateway:Read, AI Gateway:Edit, AI Gateway:Run, Cloudchamber:Edit, Browser Rendering:Edit
-    - All zones - Workers Routes:Edit
-    - All users - User Details:Read, Memberships:Read
+   - Your Account - Workers KV Storage:Edit, Workers Scripts:Edit, Account Settings:Read, Workers Tail:Read, Workers R2 Storage:Edit, Cloudflare Pages:Edit, Workers Builds Configuration:Edit, Workers Agents Configuration:Edit, Workers Observability:Edit, Containers:Edit, D1:Edit, AI Gateway:Read, AI Gateway:Edit, AI Gateway:Run, Cloudchamber:Edit, Browser Rendering:Edit
+   - All zones - Workers Routes:Edit
+   - All users - User Details:Read, Memberships:Read
 
-    **If using the `Edit Cloudflare Workers` template, make sure to add the missing permissions above manually.**
+   **If using the `Edit Cloudflare Workers` template, make sure to add the missing permissions above manually.**
 
-    **Important**: Some features like D1 databases and R2 may require a paid Cloudflare plan.
+   **Important**: Some features like D1 databases and R2 may require a paid Cloudflare plan.
 
 ### Domain Configuration
 

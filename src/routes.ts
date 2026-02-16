@@ -12,40 +12,40 @@ import DiscoverPage from './routes/discover';
 import { ProtectedRoute } from './routes/protected-route';
 
 const routes = [
-	{
-		path: '/',
-		Component: App,
-		children: [
-			{
-				index: true,
-				Component: Home,
-			},
-			{
-				path: 'chat/:chatId',
-				Component: Chat,
-			},
-			{
-				path: 'profile',
-				element: React.createElement(ProtectedRoute, { children: React.createElement(Profile) }),
-			},
-			{
-				path: 'settings',
-				element: React.createElement(ProtectedRoute, { children: React.createElement(Settings) }),
-			},
-			{
-				path: 'apps',
-				element: React.createElement(ProtectedRoute, { children: React.createElement(AppsPage) }),
-			},
-			{
-				path: 'app/:id',
-				Component: AppView,
-			},
-			{
-				path: 'discover',
-				Component: DiscoverPage,
-			},
-		],
-	},
+  {
+    path: '/',
+    Component: App,
+    children: [
+      {
+        index: true,
+        Component: Home,
+      },
+      {
+        path: 'chat/:chatId',
+        Component: Chat,
+      },
+      {
+        path: 'profile',
+        element: React.createElement(ProtectedRoute, { children: React.createElement(Profile) }),
+      },
+      {
+        path: 'settings',
+        element: React.createElement(ProtectedRoute, { children: React.createElement(Settings) }),
+      },
+      {
+        path: 'apps',
+        element: React.createElement(ProtectedRoute, { children: React.createElement(AppsPage) }),
+      },
+      {
+        path: 'app/:id',
+        Component: AppView,
+      },
+      {
+        path: 'discover',
+        Component: DiscoverPage,
+      },
+    ],
+  },
 ] satisfies RouteObject[];
 
 export { routes };

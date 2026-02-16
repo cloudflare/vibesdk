@@ -13,11 +13,11 @@ export { featureRegistry } from './core/registry';
 export { FeatureProvider, useFeature } from './core/context';
 
 export type {
-	FeatureModule,
-	FeatureLoader,
-	FeatureContext,
-	PreviewComponentProps,
-	HeaderActionsProps,
+  FeatureModule,
+  FeatureLoader,
+  FeatureContext,
+  PreviewComponentProps,
+  HeaderActionsProps,
 } from './core/types';
 
 /**
@@ -31,17 +31,17 @@ export type {
  * and updated via featureRegistry.updateFromCapabilities().
  */
 function registerBuiltInFeatures(): void {
-	// App feature
-	featureRegistry.register({ ...DEFAULT_FEATURE_DEFINITIONS.app, enabled: true }, () => import('./app'));
+  // App feature
+  featureRegistry.register({ ...DEFAULT_FEATURE_DEFINITIONS.app, enabled: true }, () => import('./app'));
 
-	// Presentation feature - slide presentations
-	featureRegistry.register(
-		{ ...DEFAULT_FEATURE_DEFINITIONS.presentation, enabled: true },
-		() => import('./presentation'),
-	);
+  // Presentation feature - slide presentations
+  featureRegistry.register(
+    { ...DEFAULT_FEATURE_DEFINITIONS.presentation, enabled: true },
+    () => import('./presentation'),
+  );
 
-	// General feature - general-purpose code generation
-	featureRegistry.register({ ...DEFAULT_FEATURE_DEFINITIONS.general, enabled: true }, () => import('./general'));
+  // General feature - general-purpose code generation
+  featureRegistry.register({ ...DEFAULT_FEATURE_DEFINITIONS.general, enabled: true }, () => import('./general'));
 }
 
 // Register features immediately on module load

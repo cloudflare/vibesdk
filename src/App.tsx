@@ -9,22 +9,22 @@ import { ErrorBoundary } from './components/ErrorBoundary';
 import { FeatureProvider } from './features';
 
 export default function App() {
-	return (
-		<ErrorBoundary>
-			<ThemeProvider>
-				<FeatureProvider>
-					<AuthProvider>
-						<VaultProvider>
-							<AuthModalProvider>
-								<AppLayout>
-									<Outlet />
-								</AppLayout>
-								<Toaster richColors position="top-right" />
-							</AuthModalProvider>
-						</VaultProvider>
-					</AuthProvider>
-				</FeatureProvider>
-			</ThemeProvider>
-		</ErrorBoundary>
-	);
+  return (
+    <ErrorBoundary>
+      <ThemeProvider>
+        <FeatureProvider>
+          <AuthProvider>
+            <VaultProvider>
+              <AuthModalProvider>
+                <AppLayout>
+                  <Outlet />
+                </AppLayout>
+                <Toaster richColors position="top-right" />
+              </AuthModalProvider>
+            </VaultProvider>
+          </AuthProvider>
+        </FeatureProvider>
+      </ThemeProvider>
+    </ErrorBoundary>
+  );
 }

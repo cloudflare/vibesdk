@@ -2,12 +2,12 @@ import { TemplateDetails, TemplateFileSchema } from '../../services/sandbox/sand
 import { STRATEGIES, PROMPT_UTILS, generalSystemPromptBuilder } from '../prompts';
 import { executeInference } from '../inferutils/infer';
 import {
-	PhasicBlueprint,
-	AgenticBlueprint,
-	PhasicBlueprintSchema,
-	AgenticBlueprintSchema,
-	TemplateSelection,
-	Blueprint,
+  PhasicBlueprint,
+  AgenticBlueprint,
+  PhasicBlueprintSchema,
+  AgenticBlueprintSchema,
+  TemplateSelection,
+  Blueprint,
 } from '../schemas';
 import { createLogger } from '../../logger';
 import { createSystemMessage, createUserMessage, createMultiModalUserMessage } from '../inferutils/common';
@@ -238,19 +238,19 @@ Preinstalled dependencies:
 </STARTING TEMPLATE>`;
 
 const PROJECT_TYPE_BLUEPRINT_GUIDANCE: Record<ProjectType, string> = {
-	app: '',
-	workflow: `## Workflow Project Context
+  app: '',
+  workflow: `## Workflow Project Context
 - Focus entirely on backend flows running on Cloudflare Workers (no UI/screens)
 - Describe REST endpoints, scheduled jobs, queue consumers, Durable Objects, and data storage bindings in detail
 - User flow should outline request/response shapes and operational safeguards
 - Implementation roadmap must mention testing strategies (unit tests, integration tests) and deployment validation steps.`,
-	presentation: `## Presentation Project Context
+  presentation: `## Presentation Project Context
 - Design a beautiful slide deck with a cohesive narrative arc (intro, problem, solution, showcase, CTA)
 - Produce visually rich slides with precise layout, typography, imagery, and animation guidance
 - User flow should actually be a "story flow" describing slide order, transitions, interactions, and speaker cues
 - Implementation roadmap must reference presentation scaffold / template features (themes, deck index, slide components, animations, print/external export mode)
 - Prioritize static data and storytelling polish; avoid backend complexity entirely.`,
-	general: `## Objective Context
+  general: `## Objective Context
 - Start from scratch; choose the most suitable representation for the request.
 - If the outcome is documentation/specs/notes, prefer Markdown/MDX and do not assume any runtime.
 - If a slide deck is helpful, outline the deck structure and content. Avoid assuming a specific file layout; keep the plan flexible.
@@ -260,27 +260,27 @@ const PROJECT_TYPE_BLUEPRINT_GUIDANCE: Record<ProjectType, string> = {
 const getProjectTypeGuidance = (projectType: ProjectType): string => PROJECT_TYPE_BLUEPRINT_GUIDANCE[projectType] || '';
 
 interface BaseBlueprintGenerationArgs {
-	env: Env;
-	inferenceContext: InferenceContext;
-	query: string;
-	language: string;
-	frameworks: string[];
-	projectType: ProjectType;
-	images?: ProcessedImageAttachment[];
-	stream?: {
-		chunk_size: number;
-		onChunk: (chunk: string) => void;
-	};
+  env: Env;
+  inferenceContext: InferenceContext;
+  query: string;
+  language: string;
+  frameworks: string[];
+  projectType: ProjectType;
+  images?: ProcessedImageAttachment[];
+  stream?: {
+    chunk_size: number;
+    onChunk: (chunk: string) => void;
+  };
 }
 
 export interface PhasicBlueprintGenerationArgs extends BaseBlueprintGenerationArgs {
-	templateDetails: TemplateDetails;
-	templateMetaInfo: TemplateSelection;
+  templateDetails: TemplateDetails;
+  templateMetaInfo: TemplateSelection;
 }
 
 export interface AgenticBlueprintGenerationArgs extends BaseBlueprintGenerationArgs {
-	templateDetails?: TemplateDetails;
-	templateMetaInfo?: TemplateSelection;
+  templateDetails?: TemplateDetails;
+  templateMetaInfo?: TemplateSelection;
 }
 
 /**
@@ -289,90 +289,88 @@ export interface AgenticBlueprintGenerationArgs extends BaseBlueprintGenerationA
 export async function generateBlueprint(args: PhasicBlueprintGenerationArgs): Promise<PhasicBlueprint>;
 export async function generateBlueprint(args: AgenticBlueprintGenerationArgs): Promise<AgenticBlueprint>;
 export async function generateBlueprint(
-	args: PhasicBlueprintGenerationArgs | AgenticBlueprintGenerationArgs,
+  args: PhasicBlueprintGenerationArgs | AgenticBlueprintGenerationArgs,
 ): Promise<Blueprint> {
-	const {
-		env,
-		inferenceContext,
-		query,
-		language,
-		frameworks,
-		templateDetails,
-		templateMetaInfo,
-		images,
-		stream,
-		projectType,
-	} = args;
-	const isAgentic = !templateDetails || !templateMetaInfo;
+  const {
+    env,
+    inferenceContext,
+    query,
+    language,
+    frameworks,
+    templateDetails,
+    templateMetaInfo,
+    images,
+    stream,
+    projectType,
+  } = args;
+  const isAgentic = !templateDetails || !templateMetaInfo;
 
-	try {
-		logger.info(`Generating ${isAgentic ? 'agentic' : 'phasic'} blueprint`, {
-			query,
-			queryLength: query.length,
-			imagesCount: images?.length || 0,
-		});
-		if (templateDetails) logger.info(`Using template: ${templateDetails.name}`);
+  try {
+    logger.info(`Generating ${isAgentic ? 'agentic' : 'phasic'} blueprint`, {
+      query,
+      queryLength: query.length,
+      imagesCount: images?.length || 0,
+    });
+    if (templateDetails) logger.info(`Using template: ${templateDetails.name}`);
 
-		// Select prompt and schema based on behavior type
-		const systemPromptTemplate = isAgentic ? SIMPLE_SYSTEM_PROMPT : PHASIC_SYSTEM_PROMPT;
-		const schema = isAgentic ? AgenticBlueprintSchema : PhasicBlueprintSchema;
+    // Select prompt and schema based on behavior type
+    const systemPromptTemplate = isAgentic ? SIMPLE_SYSTEM_PROMPT : PHASIC_SYSTEM_PROMPT;
+    const schema = isAgentic ? AgenticBlueprintSchema : PhasicBlueprintSchema;
 
-		// Build system prompt with template context (if provided)
-		let systemPrompt = systemPromptTemplate;
-		if (templateDetails) {
-			const filesText = TemplateRegistry.markdown.serialize(
-				{
-					files: getTemplateImportantFiles(templateDetails).filter(
-						(f) => !f.filePath.includes('package.json'),
-					),
-				},
-				z.object({ files: z.array(TemplateFileSchema) }),
-			);
-			const fileTreeText = PROMPT_UTILS.serializeTreeNodes(templateDetails.fileTree);
-			systemPrompt = systemPrompt.replace('{{filesText}}', filesText).replace('{{fileTreeText}}', fileTreeText);
-		}
-		const projectGuidance = getProjectTypeGuidance(projectType);
-		if (projectGuidance) {
-			systemPrompt = `${systemPrompt}\n\n${projectGuidance}`;
-		}
+    // Build system prompt with template context (if provided)
+    let systemPrompt = systemPromptTemplate;
+    if (templateDetails) {
+      const filesText = TemplateRegistry.markdown.serialize(
+        {
+          files: getTemplateImportantFiles(templateDetails).filter((f) => !f.filePath.includes('package.json')),
+        },
+        z.object({ files: z.array(TemplateFileSchema) }),
+      );
+      const fileTreeText = PROMPT_UTILS.serializeTreeNodes(templateDetails.fileTree);
+      systemPrompt = systemPrompt.replace('{{filesText}}', filesText).replace('{{fileTreeText}}', fileTreeText);
+    }
+    const projectGuidance = getProjectTypeGuidance(projectType);
+    if (projectGuidance) {
+      systemPrompt = `${systemPrompt}\n\n${projectGuidance}`;
+    }
 
-		const systemPromptMessage = createSystemMessage(
-			generalSystemPromptBuilder(systemPrompt, {
-				query,
-				templateDetails,
-				frameworks,
-				templateMetaInfo,
-				blueprint: undefined,
-				language,
-				dependencies: templateDetails?.deps,
-			}),
-		);
+    const systemPromptMessage = createSystemMessage(
+      generalSystemPromptBuilder(systemPrompt, {
+        query,
+        templateDetails,
+        frameworks,
+        templateMetaInfo,
+        blueprint: undefined,
+        language,
+        dependencies: templateDetails?.deps,
+      }),
+    );
 
-		const userMessage =
-			images && images.length > 0
-				? createMultiModalUserMessage(`CLIENT REQUEST: "${query}"`, await imagesToBase64(env, images), 'high')
-				: createUserMessage(`CLIENT REQUEST: "${query}"`);
+    const userMessage =
+      images && images.length > 0
+        ? createMultiModalUserMessage(`CLIENT REQUEST: "${query}"`, await imagesToBase64(env, images), 'high')
+        : createUserMessage(`CLIENT REQUEST: "${query}"`);
 
-		const messages = [systemPromptMessage, userMessage];
+    const messages = [systemPromptMessage, userMessage];
 
-		const { object: results } = await executeInference({
-			env,
-			messages,
-			agentActionName: 'blueprint',
-			schema,
-			context: inferenceContext,
-			stream,
-		});
+    const { object: results } = await executeInference({
+      env,
+      messages,
+      agentActionName: 'blueprint',
+      schema,
+      context: inferenceContext,
+      stream,
+    });
 
-		// Filter out PDF files from phasic blueprints
-		if (results && !isAgentic) {
-			const phasicResults = results as PhasicBlueprint;
-			phasicResults.initialPhase.files = phasicResults.initialPhase.files.filter((f) => !f.path.endsWith('.pdf'));
-		}
+    // Filter out PDF files from phasic blueprints
+    if (results && !isAgentic) {
+      const phasicResults = results as PhasicBlueprint;
+      phasicResults.initialPhase.files = phasicResults.initialPhase.files.filter((f) => !f.path.endsWith('.pdf'));
+    }
 
-		return results as PhasicBlueprint | AgenticBlueprint;
-	} catch (error) {
-		logger.error('Error generating blueprint:', error);
-		throw error;
-	}
+    return results as PhasicBlueprint | AgenticBlueprint;
+  } catch (error) {
+    logger.error('Error generating blueprint:', error);
+    throw error;
+  }
 }

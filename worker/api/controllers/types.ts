@@ -9,7 +9,7 @@ import { BaseApiResponse } from '../responses';
  * Ensures controller responses match their expected interface types
  */
 export type ControllerResponse<T> = Response & {
-	__typedData: T; // Phantom type for compile-time checking
+  __typedData: T; // Phantom type for compile-time checking
 };
 
 /**

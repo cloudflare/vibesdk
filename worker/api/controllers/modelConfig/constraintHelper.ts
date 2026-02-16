@@ -3,9 +3,9 @@ import { AgentActionKey, AIModels } from '../../../agents/inferutils/config.type
 import { isValidAIModel } from '../../../agents/inferutils/config.types';
 
 export interface ConstraintValidationResult {
-	valid: boolean;
-	constraintEnabled: boolean;
-	allowedModels?: AIModels[];
+  valid: boolean;
+  constraintEnabled: boolean;
+  allowedModels?: AIModels[];
 }
 
 /**
@@ -17,29 +17,29 @@ export interface ConstraintValidationResult {
  * @returns Validation result with allowed models if constraint violated
  */
 export function validateAgentConstraints(agentAction: AgentActionKey, modelName: string): ConstraintValidationResult {
-	const constraint = AGENT_CONSTRAINTS.get(agentAction);
+  const constraint = AGENT_CONSTRAINTS.get(agentAction);
 
-	// Graceful: No constraint or disabled = always valid
-	if (!constraint || !constraint.enabled) {
-		return { valid: true, constraintEnabled: false };
-	}
+  // Graceful: No constraint or disabled = always valid
+  if (!constraint || !constraint.enabled) {
+    return { valid: true, constraintEnabled: false };
+  }
 
-	// Validate model name is a valid AIModels enum value
-	if (!isValidAIModel(modelName)) {
-		return {
-			valid: false,
-			constraintEnabled: true,
-			allowedModels: Array.from(constraint.allowedModels),
-		};
-	}
+  // Validate model name is a valid AIModels enum value
+  if (!isValidAIModel(modelName)) {
+    return {
+      valid: false,
+      constraintEnabled: true,
+      allowedModels: Array.from(constraint.allowedModels),
+    };
+  }
 
-	const isAllowed = constraint.allowedModels.has(modelName);
+  const isAllowed = constraint.allowedModels.has(modelName);
 
-	return {
-		valid: isAllowed,
-		constraintEnabled: true,
-		allowedModels: isAllowed ? undefined : Array.from(constraint.allowedModels),
-	};
+  return {
+    valid: isAllowed,
+    constraintEnabled: true,
+    allowedModels: isAllowed ? undefined : Array.from(constraint.allowedModels),
+  };
 }
 
 /**
@@ -51,13 +51,13 @@ export function validateAgentConstraints(agentAction: AgentActionKey, modelName:
  * @returns Filtered list of models allowed for this agent action
  */
 export function getFilteredModelsForAgent(agentAction: AgentActionKey, allAvailableModels: AIModels[]): AIModels[] {
-	const constraint = AGENT_CONSTRAINTS.get(agentAction);
+  const constraint = AGENT_CONSTRAINTS.get(agentAction);
 
-	// Graceful: No constraint or disabled = return all
-	if (!constraint || !constraint.enabled) {
-		return allAvailableModels;
-	}
+  // Graceful: No constraint or disabled = return all
+  if (!constraint || !constraint.enabled) {
+    return allAvailableModels;
+  }
 
-	// Filter: intersection of available AND allowed
-	return allAvailableModels.filter((model) => constraint.allowedModels.has(model));
+  // Filter: intersection of available AND allowed
+  return allAvailableModels.filter((model) => constraint.allowedModels.has(model));
 }

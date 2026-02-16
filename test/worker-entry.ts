@@ -6,7 +6,7 @@
 export { UserSecretsStore } from '../worker/services/secrets/UserSecretsStore';
 
 export default {
-	async fetch() {
-		return new Response('Test worker');
-	},
+  async fetch() {
+    return new Response('Test worker');
+  },
 };

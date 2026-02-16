@@ -5,9 +5,9 @@ import { FileOutputType } from '../schemas';
 import { GenerationContext } from '../domain/values/GenerationContext';
 
 export interface FileRegenerationInputs {
-	file: FileOutputType;
-	issues: string[];
-	retryIndex: number;
+  file: FileOutputType;
+  issues: string[];
+  retryIndex: number;
 }
 
 const SYSTEM_PROMPT = `You are an elite autonomous agent specializing in surgical code fixes. Your CRITICAL mandate is to fix the EXACT SPECIFIC reported issues while preserving all existing functionality, interfaces, and patterns.
@@ -101,44 +101,44 @@ useEffect(() => {
 </FIX_PROTOCOL>`;
 
 export class FileRegenerationOperation extends AgentOperation<
-	GenerationContext,
-	FileRegenerationInputs,
-	FileGenerationOutputType
+  GenerationContext,
+  FileRegenerationInputs,
+  FileGenerationOutputType
 > {
-	async execute(
-		inputs: FileRegenerationInputs,
-		options: OperationOptions<GenerationContext>,
-	): Promise<FileGenerationOutputType> {
-		try {
-			// Use realtime code fixer to fix the file with enhanced surgical fix prompts
-			const realtimeCodeFixer = new RealtimeCodeFixer(
-				options.env,
-				options.inferenceContext,
-				false,
-				undefined,
-				'fileRegeneration',
-				SYSTEM_PROMPT,
-				USER_PROMPT,
-			);
-			const fixedFile = await realtimeCodeFixer.run(
-				inputs.file,
-				{
-					previousFiles: options.context.allFiles,
-					query: options.context.query,
-					template: options.context.templateDetails,
-				},
-				undefined,
-				inputs.issues,
-				5,
-			);
+  async execute(
+    inputs: FileRegenerationInputs,
+    options: OperationOptions<GenerationContext>,
+  ): Promise<FileGenerationOutputType> {
+    try {
+      // Use realtime code fixer to fix the file with enhanced surgical fix prompts
+      const realtimeCodeFixer = new RealtimeCodeFixer(
+        options.env,
+        options.inferenceContext,
+        false,
+        undefined,
+        'fileRegeneration',
+        SYSTEM_PROMPT,
+        USER_PROMPT,
+      );
+      const fixedFile = await realtimeCodeFixer.run(
+        inputs.file,
+        {
+          previousFiles: options.context.allFiles,
+          query: options.context.query,
+          template: options.context.templateDetails,
+        },
+        undefined,
+        inputs.issues,
+        5,
+      );
 
-			return {
-				...fixedFile,
-				format: 'full_content',
-			};
-		} catch (error) {
-			options.logger.error(`Error fixing file ${inputs.file.filePath}:`, error);
-			throw error;
-		}
-	}
+      return {
+        ...fixedFile,
+        format: 'full_content',
+      };
+    } catch (error) {
+      options.logger.error(`Error fixing file ${inputs.file.filePath}:`, error);
+      throw error;
+    }
+  }
 }

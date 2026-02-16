@@ -36,10 +36,10 @@ vibesdk is an AI-powered full-stack application generation platform built on Clo
 
 - Entry point: `worker/index.ts` (7860 lines)
 - Agent system: `worker/agents/` (88 files)
-    - Core: SimpleCodeGeneratorAgent (Durable Object, 2800+ lines)
-    - Operations: PhaseGeneration, PhaseImplementation, UserConversationProcessor
-    - Tools: tools for LLM (read-files, run-analysis, regenerate-file, etc.)
-    - Git: isomorphic-git with SQLite filesystem
+  - Core: SimpleCodeGeneratorAgent (Durable Object, 2800+ lines)
+  - Operations: PhaseGeneration, PhaseImplementation, UserConversationProcessor
+  - Tools: tools for LLM (read-files, run-analysis, regenerate-file, etc.)
+  - Git: isomorphic-git with SQLite filesystem
 - Database: `worker/database/` (Drizzle ORM, D1)
 - Services: `worker/services/` (sandbox, code-fixer, oauth, rate-limit, secrets)
 - API: `worker/api/` (routes, controllers, handlers)
