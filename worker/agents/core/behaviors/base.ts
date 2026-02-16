@@ -718,8 +718,11 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
     }
 
     async fetchAllIssues(resetIssues: boolean = false): Promise<AllIssues> {
+        const templateDetails = this.getTemplateDetails();
+        const isBrowserOnly = templateDetails?.renderMode === 'browser';
+
         // For browser-rendered projects (no sandbox), only run static analysis
-        if (!this.state.sandboxInstanceId) {
+        if (isBrowserOnly) {
             const staticAnalysis = await this.runStaticAnalysisCode();
             this.logger.info("Fetched issues (browser-rendered):", JSON.stringify({ runtimeErrors: [], staticAnalysis }));
             return { runtimeErrors: [], staticAnalysis };
