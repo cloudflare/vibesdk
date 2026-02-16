@@ -119,9 +119,23 @@ and provide a preview url for the application.
         }
     },
 
-    serializeStaticAnalysis(staticAnalysis: StaticAnalysisResponse): string {
-        const lintOutput = staticAnalysis.lint?.rawOutput || 'No linting issues detected';
-        const typecheckOutput = staticAnalysis.typecheck?.rawOutput || 'No type checking issues detected';
+    serializeStaticAnalysis(staticAnalysis: StaticAnalysisResponse, maxIssues = 20): string {
+        const formatIssues = (issues: typeof staticAnalysis.lint.issues): string => {
+            if (issues.length === 0) {
+                return 'No issues detected';
+            }
+            const limitedIssues = issues.slice(0, maxIssues);
+            const formatted = limitedIssues.map(issue => 
+                `- [${issue.severity}] ${issue.filePath}:${issue.line}:${issue.column} - ${issue.message} (${issue.ruleId})`
+            ).join('\n');
+            if (issues.length > maxIssues) {
+                return `${formatted}\n... and ${issues.length - maxIssues} more issues (truncated)`;
+            }
+            return formatted;
+        };
+
+        const lintOutput = staticAnalysis.lint.rawOutput || formatIssues(staticAnalysis.lint.issues);
+        const typecheckOutput = staticAnalysis.typecheck.rawOutput || formatIssues(staticAnalysis.typecheck.issues);
         
         return `**LINT ANALYSIS:**
 ${lintOutput}
