@@ -3,43 +3,39 @@ import type { FileType } from '@/api-types';
 export type ContentType = 'markdown' | null;
 
 interface ContentBundle {
-    type: ContentType;
-    files: FileType[];
+	type: ContentType;
+	files: FileType[];
 }
 
 export interface ContentDetectionResult {
-    Contents: Record<string, ContentBundle>;
+	Contents: Record<string, ContentBundle>;
 }
 
 /**
  * Detect if files contain documentation
  */
 export function detectContentType(files: FileType[]): ContentDetectionResult {
-    const result: ContentDetectionResult = {
-        Contents: {}
-    };
-    
-    for (const file of files) {
-        if (isMarkdownFile(file)) {
-            result.Contents[file.filePath] = {
-                type: 'markdown',
-                files: [file]
-            };
-        }
-    }
+	const result: ContentDetectionResult = {
+		Contents: {},
+	};
 
-    return result;
+	for (const file of files) {
+		if (isMarkdownFile(file)) {
+			result.Contents[file.filePath] = {
+				type: 'markdown',
+				files: [file],
+			};
+		}
+	}
+
+	return result;
 }
 
 /**
  * Check if a file path represents a markdown file
  */
 export function isMarkdownPath(path: string): boolean {
-	return (
-		path.endsWith('.md') ||
-		path.endsWith('.mdx') ||
-		path.endsWith('.markdown')
-	);
+	return path.endsWith('.md') || path.endsWith('.mdx') || path.endsWith('.markdown');
 }
 
 /**
@@ -53,12 +49,7 @@ export function isMarkdownFile(file: FileType): boolean {
  * Check if a file path represents documentation (markdown, txt, or in docs/ directory)
  */
 export function isDocumentationPath(path: string): boolean {
-	return (
-		isMarkdownPath(path) ||
-		path.endsWith('.txt') ||
-		path.startsWith('docs/') ||
-		path.includes('/docs/')
-	);
+	return isMarkdownPath(path) || path.endsWith('.txt') || path.startsWith('docs/') || path.includes('/docs/');
 }
 
 /**
@@ -76,6 +67,6 @@ export function getContentTypeLabel(type: ContentType): string {
 		case 'markdown':
 			return 'Documentation';
 		default:
-            return 'unknown';
+			return 'unknown';
 	}
 }

@@ -58,11 +58,7 @@ export interface WranglerConfig {
  * Asset configuration for Worker deployment
  */
 export interface AssetConfig {
-	html_handling?:
-		| 'auto-trailing-slash'
-		| 'drop-trailing-slash'
-		| 'force-trailing-slash'
-		| 'none';
+	html_handling?: 'auto-trailing-slash' | 'drop-trailing-slash' | 'force-trailing-slash' | 'none';
 	not_found_handling?: 'single-page-application' | '404-page' | 'none';
 	serve_directly?: boolean;
 	run_worker_first?: string[];

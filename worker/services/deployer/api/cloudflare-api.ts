@@ -48,9 +48,7 @@ export class CloudflareAPI {
 
 		if (!response.ok) {
 			const error = await response.text();
-			throw new Error(
-				`Failed to create asset upload session: ${response.status} - ${error}`,
-			);
+			throw new Error(`Failed to create asset upload session: ${response.status} - ${error}`);
 		}
 
 		const data = (await response.json()) as any;
@@ -81,9 +79,7 @@ export class CloudflareAPI {
 
 			// Get MIME type based on file path
 			const filePath = hashToPath.get(hash);
-			const mimeType = filePath
-				? getMimeType(filePath)
-				: 'application/octet-stream';
+			const mimeType = filePath ? getMimeType(filePath) : 'application/octet-stream';
 
 			// Create a Blob with the base64 string and proper MIME type
 			// This ensures Content-Type is preserved when serving assets
@@ -101,9 +97,7 @@ export class CloudflareAPI {
 
 		if (!response.ok) {
 			const error = await response.text();
-			throw new Error(
-				`Failed to upload assets: ${response.status} - ${error}`,
-			);
+			throw new Error(`Failed to upload assets: ${response.status} - ${error}`);
 		}
 
 		// Status 201 indicates all files uploaded, returns completion token
@@ -153,10 +147,7 @@ export class CloudflareAPI {
 
 		// Add any additional modules (e.g., from Vite build)
 		if (additionalModules) {
-			for (const [
-				moduleName,
-				moduleContent,
-			] of additionalModules.entries()) {
+			for (const [moduleName, moduleContent] of additionalModules.entries()) {
 				const moduleBlob = new Blob([moduleContent], {
 					type: 'application/javascript+module',
 				});
@@ -179,15 +170,10 @@ export class CloudflareAPI {
 			// Check if error is about migrations for existing DO classes
 			if (errorObj.errors?.[0]?.code === 10074) {
 				const errorMessage = errorObj.errors[0].message;
-				const existingClassMatch =
-					errorMessage.match(/class '([^']+)'/);
-				const existingClass = existingClassMatch
-					? existingClassMatch[1]
-					: null;
+				const existingClassMatch = errorMessage.match(/class '([^']+)'/);
+				const existingClass = existingClassMatch ? existingClassMatch[1] : null;
 
-				console.log(
-					`\n⚠️  Durable Object class '${existingClass}' already exists`,
-				);
+				console.log(`\n⚠️  Durable Object class '${existingClass}' already exists`);
 
 				// Filter out the existing class from migrations
 				if (metadataWithExports.migrations && existingClass) {
@@ -195,19 +181,14 @@ export class CloudflareAPI {
 
 					// Remove the existing class from new_classes and new_sqlite_classes
 					if (migrations.new_classes) {
-						migrations.new_classes = migrations.new_classes.filter(
-							(c: string) => c !== existingClass,
-						);
-						if (migrations.new_classes.length === 0)
-							delete migrations.new_classes;
+						migrations.new_classes = migrations.new_classes.filter((c: string) => c !== existingClass);
+						if (migrations.new_classes.length === 0) delete migrations.new_classes;
 					}
 					if (migrations.new_sqlite_classes) {
-						migrations.new_sqlite_classes =
-							migrations.new_sqlite_classes.filter(
-								(c: string) => c !== existingClass,
-							);
-						if (migrations.new_sqlite_classes.length === 0)
-							delete migrations.new_sqlite_classes;
+						migrations.new_sqlite_classes = migrations.new_sqlite_classes.filter(
+							(c: string) => c !== existingClass,
+						);
+						if (migrations.new_sqlite_classes.length === 0) delete migrations.new_sqlite_classes;
 					}
 
 					// If no migrations left, remove the field entirely
@@ -218,37 +199,23 @@ export class CloudflareAPI {
 						!migrations.deleted_classes
 					) {
 						delete metadataWithExports.migrations;
-						console.log(
-							'📝 All Durable Objects already exist, deploying without migrations',
-						);
+						console.log('📝 All Durable Objects already exist, deploying without migrations');
 					} else {
-						console.log(
-							`📝 Retrying with migrations for new classes only`,
-						);
+						console.log(`📝 Retrying with migrations for new classes only`);
 					}
 				}
 
 				// Retry deployment with filtered migrations
 				const retryFormData = new FormData();
-				retryFormData.append(
-					'metadata',
-					JSON.stringify(metadataWithExports),
-				);
+				retryFormData.append('metadata', JSON.stringify(metadataWithExports));
 				retryFormData.append('index.js', workerBlob, 'index.js');
 
 				if (additionalModules) {
-					for (const [
-						moduleName,
-						moduleContent,
-					] of additionalModules.entries()) {
+					for (const [moduleName, moduleContent] of additionalModules.entries()) {
 						const moduleBlob = new Blob([moduleContent], {
 							type: 'application/javascript+module',
 						});
-						retryFormData.append(
-							moduleName,
-							moduleBlob,
-							moduleName,
-						);
+						retryFormData.append(moduleName, moduleBlob, moduleName);
 					}
 				}
 
@@ -277,18 +244,14 @@ export class CloudflareAPI {
 						);
 					}
 
-					throw new Error(
-						`Failed to deploy worker: ${retryResponse.status} - ${retryError}`,
-					);
+					throw new Error(`Failed to deploy worker: ${retryResponse.status} - ${retryError}`);
 				}
 
 				console.log('✅ Successfully deployed');
 				return;
 			}
 
-			throw new Error(
-				`Failed to deploy worker: ${response.status} - ${error}`,
-			);
+			throw new Error(`Failed to deploy worker: ${response.status} - ${error}`);
 		}
 
 		console.log(`✅ Worker deployed successfully: ${scriptName}`);
@@ -302,9 +265,7 @@ export class CloudflareAPI {
 			const response = await fetch(workerUrl);
 			const text = await response.text();
 			console.log(`\n📡 Worker Response (${response.status}):`);
-			console.log(
-				text.substring(0, 200) + (text.length > 200 ? '...' : ''),
-			);
+			console.log(text.substring(0, 200) + (text.length > 200 ? '...' : ''));
 		} catch (error) {
 			console.error('❌ Failed to test worker endpoint:', error);
 		}

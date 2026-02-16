@@ -4,16 +4,17 @@ import { ICodingAgent } from 'worker/agents/services/interfaces/ICodingAgent';
 import { generateBlueprint, type AgenticBlueprintGenerationArgs } from 'worker/agents/planning/blueprint';
 import { WebSocketMessageResponses } from '../../constants';
 
-export function createGenerateBlueprintTool(
-	agent: ICodingAgent,
-	logger: StructuredLogger
-) {
+export function createGenerateBlueprintTool(agent: ICodingAgent, logger: StructuredLogger) {
 	return tool({
 		name: 'generate_blueprint',
 		description:
 			'Generate a blueprint using the backend blueprint generator. Produces a plan-based blueprint for agentic behavior and a detailed PRD for phasic. Provide a description/prompt for the project to generate a blueprint.',
 		args: {
-			prompt: t.blueprint().describe('Prompt/user query for building the project. Use this to provide clarifications, additional requirements, or refined specifications based on conversation context.'),
+			prompt: t
+				.blueprint()
+				.describe(
+					'Prompt/user query for building the project. Use this to provide clarifications, additional requirements, or refined specifications based on conversation context.',
+				),
 		},
 		run: async ({ prompt }) => {
 			const { env, inferenceContext, context } = agent.getOperationOptions();
@@ -35,8 +36,8 @@ export function createGenerateBlueprintTool(
 					chunk_size: 256,
 					onChunk: (chunk: string) => {
 						agent.broadcast(WebSocketMessageResponses.BLUEPRINT_CHUNK, { chunk });
-					}
-				}
+					},
+				},
 			};
 			const blueprint = await generateBlueprint(args);
 

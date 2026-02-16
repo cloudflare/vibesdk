@@ -25,10 +25,7 @@ const WS_RETRY_DEFAULTS: NormalizedRetryConfig = {
  *                 Called on initial connect and on each reconnect attempt.
  * @param options - Connection options (retry config, credentials).
  */
-export function createAgentConnection(
-	getUrl: UrlProvider,
-	options: AgentConnectionOptions = {}
-): AgentConnection {
+export function createAgentConnection(getUrl: UrlProvider, options: AgentConnectionOptions = {}): AgentConnection {
 	const emitter = new TypedEmitter<AgentEventMap>();
 	const retryCfg = normalizeRetryConfig(options.retry, WS_RETRY_DEFAULTS);
 
@@ -204,7 +201,7 @@ export function createAgentConnection(
 		if (typeof WebSocket === 'undefined') {
 			emitter.emit('ws:error', {
 				error: new Error(
-					'WebSocket is not available. This SDK requires a runtime with native WebSocket support (Cloudflare Workers, browsers, Bun, or Node.js 22+).'
+					'WebSocket is not available. This SDK requires a runtime with native WebSocket support (Cloudflare Workers, browsers, Bun, or Node.js 22+).',
 				),
 			});
 			return;
@@ -257,7 +254,7 @@ export function createAgentConnection(
 	async function waitFor<K extends keyof AgentEventMap>(
 		event: K,
 		predicate?: (payload: AgentEventMap[K]) => boolean,
-		timeoutMs = 60_000
+		timeoutMs = 60_000,
 	): Promise<AgentEventMap[K]> {
 		return new Promise((resolve, reject) => {
 			const timeout = setTimeout(() => {

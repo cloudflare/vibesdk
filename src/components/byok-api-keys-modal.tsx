@@ -152,8 +152,7 @@ export function ByokApiKeysModal({ isOpen, onClose, onKeyAdded }: ByokApiKeysMod
 				.filter((secret: SecretListItem) => secret.metadata?.provider)
 				.map((secret: SecretListItem) => {
 					const providerKey = secret.metadata?.provider as string;
-					const logo =
-						PROVIDER_LOGOS[providerKey] || (() => <div className="w-4 h-4 bg-gray-300 rounded" />);
+					const logo = PROVIDER_LOGOS[providerKey] || (() => <div className="w-4 h-4 bg-gray-300 rounded" />);
 
 					return {
 						id: secret.id,
@@ -498,7 +497,9 @@ export function ByokApiKeysModal({ isOpen, onClose, onKeyAdded }: ByokApiKeysMod
 													{/* Key Info */}
 													<div className="flex-1 space-y-1">
 														<div className="flex items-center gap-2">
-															<span className="font-medium capitalize">{secret.name}</span>
+															<span className="font-medium capitalize">
+																{secret.name}
+															</span>
 														</div>
 														<div className="flex items-center gap-3 text-xs text-text-tertiary">
 															<div className="flex items-center gap-1">
@@ -535,7 +536,11 @@ export function ByokApiKeysModal({ isOpen, onClose, onKeyAdded }: ByokApiKeysMod
 							Close
 						</Button>
 						{activeTab === 'add' && selectedProvider && (
-							<Button onClick={handleSaveKey} disabled={!apiKey || !isKeyFormatValid || isSaving} className="gap-2">
+							<Button
+								onClick={handleSaveKey}
+								disabled={!apiKey || !isKeyFormatValid || isSaving}
+								className="gap-2"
+							>
 								{isSaving ? (
 									<>
 										<Loader2 className="h-4 w-4 animate-spin" />

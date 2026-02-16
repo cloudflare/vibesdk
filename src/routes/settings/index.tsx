@@ -1,22 +1,7 @@
 import React, { useState } from 'react';
-import {
-	Smartphone,
-	Trash2,
-	Key,
-	Lock,
-	Settings,
-	Copy,
-	Check,
-	Eye,
-	EyeOff,
-} from 'lucide-react';
+import { Smartphone, Trash2, Key, Lock, Settings, Copy, Check, Eye, EyeOff } from 'lucide-react';
 import { ModelConfigTabs } from '@/components/model-config-tabs';
-import type {
-	ModelConfigsData,
-	ModelConfigUpdate,
-	ActiveSessionsData,
-	ApiKeysData,
-} from '@/api-types';
+import type { ModelConfigsData, ModelConfigUpdate, ActiveSessionsData, ApiKeysData } from '@/api-types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
@@ -43,15 +28,7 @@ import {
 	DialogTitle,
 	DialogTrigger,
 } from '@/components/ui/dialog';
-import {
-	Table,
-	TableBody,
-	TableCaption,
-	TableCell,
-	TableHead,
-	TableHeader,
-	TableRow,
-} from '@/components/ui/table';
+import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { toast } from 'sonner';
 import { apiClient } from '@/lib/api-client';
 import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard';
@@ -60,10 +37,10 @@ import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard';
 export default function SettingsPage() {
 	const { user } = useAuth();
 	// Active sessions state
-	const [activeSessions, setActiveSessions] = useState<
-		ActiveSessionsData & { loading: boolean }
-	>({ sessions: [], loading: true });
-
+	const [activeSessions, setActiveSessions] = useState<ActiveSessionsData & { loading: boolean }>({
+		sessions: [],
+		loading: true,
+	});
 
 	// SDK API keys state
 	const [apiKeys, setApiKeys] = useState<ApiKeysData & { loading: boolean }>({
@@ -79,26 +56,16 @@ export default function SettingsPage() {
 		name: string;
 	} | null>(null);
 	const [showCreatedKey, setShowCreatedKey] = useState(true);
-	const [keyToRevoke, setKeyToRevoke] = useState<
-		ApiKeysData['keys'][number] | null
-	>(null);
+	const [keyToRevoke, setKeyToRevoke] = useState<ApiKeysData['keys'][number] | null>(null);
 	const [revokingKey, setRevokingKey] = useState(false);
-	const {
-		copied: copiedCreatedKey,
-		copy: copyCreatedKey,
-		reset: resetCreatedKeyCopy,
-	} = useCopyToClipboard();
+	const { copied: copiedCreatedKey, copy: copyCreatedKey, reset: resetCreatedKeyCopy } = useCopyToClipboard();
 
 	// Model configurations state
-	const [agentConfigs, setAgentConfigs] = useState<
-		Array<{ key: string; name: string; description: string }>
-	>([]);
-	const [modelConfigs, setModelConfigs] = useState<
-		ModelConfigsData['configs']
-	>({} as ModelConfigsData['configs']);
-	const [defaultConfigs, setDefaultConfigs] = useState<
-		ModelConfigsData['defaults']
-	>({} as ModelConfigsData['defaults']);
+	const [agentConfigs, setAgentConfigs] = useState<Array<{ key: string; name: string; description: string }>>([]);
+	const [modelConfigs, setModelConfigs] = useState<ModelConfigsData['configs']>({} as ModelConfigsData['configs']);
+	const [defaultConfigs, setDefaultConfigs] = useState<ModelConfigsData['defaults']>(
+		{} as ModelConfigsData['defaults'],
+	);
 	const [loadingConfigs, setLoadingConfigs] = useState(true);
 	const [savingConfigs, setSavingConfigs] = useState(false);
 	const [testingConfig, setTestingConfig] = useState<string | null>(null);
@@ -180,10 +147,7 @@ export default function SettingsPage() {
 				screenshotAnalysis:
 					'UI/design analysis - Analyzes visual designs and screenshots to understand UI requirements. Requires visual understanding and design interpretation skills.',
 			};
-			return (
-				descriptions[key] ||
-				`AI model configuration for ${formatAgentConfigName(key)}`
-			);
+			return descriptions[key] || `AI model configuration for ${formatAgentConfigName(key)}`;
 		},
 		[formatAgentConfigName],
 	);
@@ -198,9 +162,7 @@ export default function SettingsPage() {
 				setModelConfigs(response.data.configs || {});
 				setDefaultConfigs(response.data.defaults || {});
 			} else {
-				throw new Error(
-					response.error?.message || 'Failed to load model configurations',
-				);
+				throw new Error(response.error?.message || 'Failed to load model configurations');
 			}
 		} catch (error) {
 			console.error('Error loading model configurations:', error);
@@ -211,15 +173,9 @@ export default function SettingsPage() {
 	};
 
 	// Save model configuration
-	const saveModelConfig = async (
-		agentAction: string,
-		config: ModelConfigUpdate,
-	) => {
+	const saveModelConfig = async (agentAction: string, config: ModelConfigUpdate) => {
 		try {
-			const response = await apiClient.updateModelConfig(
-				agentAction,
-				config,
-			);
+			const response = await apiClient.updateModelConfig(agentAction, config);
 
 			if (response.success) {
 				toast.success('Configuration saved successfully');
@@ -232,23 +188,15 @@ export default function SettingsPage() {
 	};
 
 	// Test model configuration
-	const testModelConfig = async (
-		agentAction: string,
-		tempConfig?: ModelConfigUpdate,
-	) => {
+	const testModelConfig = async (agentAction: string, tempConfig?: ModelConfigUpdate) => {
 		try {
 			setTestingConfig(agentAction);
-			const response = await apiClient.testModelConfig(
-				agentAction,
-				tempConfig,
-			);
+			const response = await apiClient.testModelConfig(agentAction, tempConfig);
 
 			if (response.success && response.data) {
 				const result = response.data.testResult;
 				if (result.success) {
-					toast.success(
-						`Test successful! Model: ${result.modelUsed}, Response time: ${result.latencyMs}ms`,
-					);
+					toast.success(`Test successful! Model: ${result.modelUsed}, Response time: ${result.latencyMs}ms`);
 				} else {
 					toast.error(`Test failed: ${result.error}`);
 				}
@@ -278,9 +226,7 @@ export default function SettingsPage() {
 		try {
 			setSavingConfigs(true);
 			const response = await apiClient.resetAllModelConfigs();
-			toast.success(
-				`${response.data?.resetCount} configurations reset to defaults`,
-			);
+			toast.success(`${response.data?.resetCount} configurations reset to defaults`);
 			await loadModelConfigs();
 		} catch (error) {
 			console.error('Error resetting all configurations:', error);
@@ -399,13 +345,11 @@ export default function SettingsPage() {
 			.getModelDefaults()
 			.then((response) => {
 				if (response.success && response.data?.defaults) {
-					const configs = Object.keys(response.data.defaults).map(
-						(key) => ({
-							key,
-							name: formatAgentConfigName(key),
-							description: getAgentConfigDescription(key),
-						}),
-					);
+					const configs = Object.keys(response.data.defaults).map((key) => ({
+						key,
+						name: formatAgentConfigName(key),
+						description: getAgentConfigDescription(key),
+					}));
 					setAgentConfigs(configs);
 				}
 			})
@@ -429,12 +373,8 @@ export default function SettingsPage() {
 				<div className="space-y-8">
 					{/* Page Header */}
 					<div>
-						<h1 className="text-4xl font-bold font-[departureMono] text-red-500">
-							SETTINGS
-						</h1>
-						<p className="text-text-tertiary mt-2">
-							Manage your account settings and preferences
-						</p>
+						<h1 className="text-4xl font-bold font-[departureMono] text-red-500">SETTINGS</h1>
+						<p className="text-text-tertiary mt-2">Manage your account settings and preferences</p>
 					</div>
 
 					{/* Integrations Section */}
@@ -531,31 +471,24 @@ export default function SettingsPage() {
 								{' '}
 								<Settings className="h-5 w-5" />
 								<div>
-									<CardTitle>
-										AI Model Configurations
-									</CardTitle>
+									<CardTitle>AI Model Configurations</CardTitle>
 								</div>
 							</div>
 						</CardHeader>
 						<CardContent className="space-y-6 px-6">
 							{/* Provider API Keys Integration */}
 							<div className="space-y-2 mt-6">
-								<h4 className="font-medium">
-									Provider API Keys
-								</h4>
+								<h4 className="font-medium">Provider API Keys</h4>
 								<p className="text-sm text-text-tertiary">
-									AI provider API keys are managed in the "API
-									Keys & Secrets" section below. Configure
-									your OpenAI, Anthropic, Google AI, and
-									OpenRouter keys there.
+									AI provider API keys are managed in the "API Keys & Secrets" section below.
+									Configure your OpenAI, Anthropic, Google AI, and OpenRouter keys there.
 								</p>
 
 								<Button
 									variant="outline"
 									size="sm"
 									onClick={() => {
-										const secretsSection =
-											document.getElementById('api-keys');
+										const secretsSection = document.getElementById('api-keys');
 										if (secretsSection) {
 											secretsSection.scrollIntoView({
 												behavior: 'smooth',
@@ -565,8 +498,8 @@ export default function SettingsPage() {
 									}}
 									className="gap-2 shrink-0"
 								>
-														<Key className="h-4 w-4" />
-														API Keys
+									<Key className="h-4 w-4" />
+									API Keys
 								</Button>
 							</div>
 
@@ -605,7 +538,8 @@ export default function SettingsPage() {
 								<div className="space-y-1">
 									<h4 className="font-medium text-sm">VibeSDK API Keys</h4>
 									<p className="text-sm text-text-secondary">
-										Use these keys to authenticate external SDK clients. The full key is shown only once when created.
+										Use these keys to authenticate external SDK clients. The full key is shown only
+										once when created.
 									</p>
 								</div>
 
@@ -653,7 +587,8 @@ export default function SettingsPage() {
 
 												<div className="rounded-lg bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 p-3">
 													<p className="text-sm text-amber-800 dark:text-amber-200">
-														<strong>Important:</strong> Treat this like a password. Anyone with this key can act as your VibeSDK account.
+														<strong>Important:</strong> Treat this like a password. Anyone
+														with this key can act as your VibeSDK account.
 													</p>
 												</div>
 											</div>
@@ -675,7 +610,11 @@ export default function SettingsPage() {
 																className="h-7 w-7"
 																onClick={() => setShowCreatedKey(!showCreatedKey)}
 															>
-																{showCreatedKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+																{showCreatedKey ? (
+																	<EyeOff className="h-4 w-4" />
+																) : (
+																	<Eye className="h-4 w-4" />
+																)}
 															</Button>
 															<Button
 																size="icon"
@@ -694,7 +633,9 @@ export default function SettingsPage() {
 												</div>
 
 												<div className="rounded-lg bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 p-3">
-													<p className="text-xs font-medium text-slate-700 dark:text-slate-300 mb-2">SDK usage</p>
+													<p className="text-xs font-medium text-slate-700 dark:text-slate-300 mb-2">
+														SDK usage
+													</p>
 													<code className="text-xs text-slate-600 dark:text-slate-400 block font-mono">
 														VIBESDK_API_KEY={createdKey.keyPreview}
 													</code>
@@ -719,10 +660,7 @@ export default function SettingsPage() {
 													)}
 												</Button>
 											) : (
-												<Button
-													variant="outline"
-													onClick={() => setCreateKeyOpen(false)}
-												>
+												<Button variant="outline" onClick={() => setCreateKeyOpen(false)}>
 													Done
 												</Button>
 											)}
@@ -768,7 +706,9 @@ export default function SettingsPage() {
 											{apiKeys.keys.map((k) => (
 												<TableRow key={k.id}>
 													<TableCell className="font-medium">{k.name}</TableCell>
-													<TableCell className="font-mono text-xs text-text-secondary">{k.keyPreview}</TableCell>
+													<TableCell className="font-mono text-xs text-text-secondary">
+														{k.keyPreview}
+													</TableCell>
 													<TableCell className="text-text-secondary">
 														{k.createdAt ? new Date(k.createdAt).toLocaleDateString() : '—'}
 													</TableCell>
@@ -777,7 +717,10 @@ export default function SettingsPage() {
 													</TableCell>
 													<TableCell>
 														{k.isActive ? (
-															<Badge variant="secondary" className="bg-green-100 text-green-800 dark:bg-green-950 dark:text-green-200">
+															<Badge
+																variant="secondary"
+																className="bg-green-100 text-green-800 dark:bg-green-950 dark:text-green-200"
+															>
 																Active
 															</Badge>
 														) : (
@@ -801,12 +744,17 @@ export default function SettingsPage() {
 										</TableBody>
 									</Table>
 
-									<AlertDialog open={!!keyToRevoke} onOpenChange={(open) => !open && setKeyToRevoke(null)}>
+									<AlertDialog
+										open={!!keyToRevoke}
+										onOpenChange={(open) => !open && setKeyToRevoke(null)}
+									>
 										<AlertDialogContent>
 											<AlertDialogHeader>
 												<AlertDialogTitle>Revoke API key?</AlertDialogTitle>
 												<AlertDialogDescription>
-													This will immediately disable the key <span className="font-mono">{keyToRevoke?.keyPreview}</span>. Any SDK clients using it will stop working.
+													This will immediately disable the key{' '}
+													<span className="font-mono">{keyToRevoke?.keyPreview}</span>. Any
+													SDK clients using it will stop working.
 												</AlertDialogDescription>
 											</AlertDialogHeader>
 											<AlertDialogFooter>
@@ -832,32 +780,22 @@ export default function SettingsPage() {
 							<div className="flex items-center gap-3 border-b w-full py-3 text-text-primary">
 								<Lock className="h-5 w-5" />
 								<div>
-									<CardTitle className="text-lg">
-										Security
-									</CardTitle>
+									<CardTitle className="text-lg">Security</CardTitle>
 								</div>
 							</div>
 						</CardHeader>
 						<CardContent className="space-y-3 mt-2 px-6">
 							{/* Connected Accounts */}
 							<div className="space-y-2">
-								<h4 className="font-medium">
-									Connected Accounts
-								</h4>
+								<h4 className="font-medium">Connected Accounts</h4>
 								<div className="flex items-center justify-between">
 									<div className="flex items-center gap-3">
 										<div className="h-5 w-5 rounded-full bg-bg-3 flex items-center justify-center">
-											{user?.provider === 'google'
-												? '🇬'
-												: '🐙'}
+											{user?.provider === 'google' ? '🇬' : '🐙'}
 										</div>
 										<div>
-											<p className="text-sm font-medium capitalize">
-												{user?.provider}
-											</p>
-											<p className="text-sm text-text-tertiary">
-												{user?.email}
-											</p>
+											<p className="text-sm font-medium capitalize">{user?.provider}</p>
+											<p className="text-sm text-text-tertiary">{user?.email}</p>
 										</div>
 									</div>
 									<Badge variant="secondary">Connected</Badge>
@@ -872,29 +810,20 @@ export default function SettingsPage() {
 								{activeSessions.loading ? (
 									<div className="flex items-center gap-3">
 										<Settings className="h-5 w-5 animate-spin text-text-tertiary" />
-										<span className="text-sm text-text-tertiary">
-											Loading active sessions...
-										</span>
+										<span className="text-sm text-text-tertiary">Loading active sessions...</span>
 									</div>
 								) : (
 									activeSessions.sessions.map((session) => (
-										<div
-											key={session.id}
-											className="flex items-center justify-between"
-										>
+										<div key={session.id} className="flex items-center justify-between">
 											<div className="flex items-center gap-3">
 												<Smartphone className="h-5 w-5 text-text-tertiary" />
 												<div>
 													<p className="font-medium text-sm">
-														{session.isCurrent
-															? 'Current Session'
-															: 'Other Session'}
+														{session.isCurrent ? 'Current Session' : 'Other Session'}
 													</p>
 													<p className="text-sm text-text-tertiary">
 														{session.ipAddress} •{' '}
-														{new Date(
-															session.lastActivity,
-														).toLocaleDateString()}
+														{new Date(session.lastActivity).toLocaleDateString()}
 													</p>
 												</div>
 											</div>
@@ -905,11 +834,7 @@ export default function SettingsPage() {
 													<Button
 														variant="outline"
 														size="sm"
-														onClick={() =>
-															handleRevokeSession(
-																session.id,
-															)
-														}
+														onClick={() => handleRevokeSession(session.id)}
 														className="text-destructive hover:text-destructive"
 													>
 														Revoke
@@ -924,9 +849,7 @@ export default function SettingsPage() {
 					</Card>
 
 					<div className="space-y-4 p-3">
-						<h4 className="font-medium text-destructive">
-							Danger Zone
-						</h4>
+						<h4 className="font-medium text-destructive">Danger Zone</h4>
 
 						<div className="flex items-center justify-between">
 							<div>
@@ -937,30 +860,21 @@ export default function SettingsPage() {
 							</div>
 							<AlertDialog>
 								<AlertDialogTrigger asChild>
-									<Button
-										variant="destructive"
-										className="gap-2"
-									>
+									<Button variant="destructive" className="gap-2">
 										<Trash2 className="h-4 w-4" />
 										Delete Account
 									</Button>
 								</AlertDialogTrigger>
 								<AlertDialogContent>
 									<AlertDialogHeader>
-										<AlertDialogTitle>
-											Are you absolutely sure?
-										</AlertDialogTitle>
+										<AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
 										<AlertDialogDescription>
-											This action cannot be undone. This
-											will permanently delete your account
-											and remove all your data from our
-											servers.
+											This action cannot be undone. This will permanently delete your account and
+											remove all your data from our servers.
 										</AlertDialogDescription>
 									</AlertDialogHeader>
 									<AlertDialogFooter>
-										<AlertDialogCancel>
-											Cancel
-										</AlertDialogCancel>
+										<AlertDialogCancel>Cancel</AlertDialogCancel>
 										<AlertDialogAction
 											onClick={handleDeleteAccount}
 											className="bg-destructive text-destructive-foreground hover:bg-destructive/90"

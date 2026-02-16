@@ -16,7 +16,7 @@ describe('createAgentConnection', () => {
 	it('routes message types into sugar events', async () => {
 		const conn = createAgentConnection(async () => {
 			const resp = await fetch(`${server.url}/api/ws-ticket`, { method: 'POST' });
-			const { data } = await resp.json() as { data: { ticket: string } };
+			const { data } = (await resp.json()) as { data: { ticket: string } };
 			return `${server.wsUrl}?ticket=${data.ticket}`;
 		});
 
@@ -48,7 +48,7 @@ describe('createAgentConnection', () => {
 
 		const conn = createAgentConnection(async () => {
 			const resp = await fetch(`${server.url}/api/ws-ticket`, { method: 'POST' });
-			const { data } = await resp.json() as { data: { ticket: string } };
+			const { data } = (await resp.json()) as { data: { ticket: string } };
 			return `${server.wsUrl}?ticket=${data.ticket}`;
 		});
 
@@ -71,7 +71,7 @@ describe('createAgentConnection', () => {
 	it('sends messages to server', async () => {
 		const conn = createAgentConnection(async () => {
 			const resp = await fetch(`${server.url}/api/ws-ticket`, { method: 'POST' });
-			const { data } = await resp.json() as { data: { ticket: string } };
+			const { data } = (await resp.json()) as { data: { ticket: string } };
 			return `${server.wsUrl}?ticket=${data.ticket}`;
 		});
 
@@ -99,10 +99,13 @@ describe('createAgentConnection', () => {
 	it('emits error event on invalid ticket', async () => {
 		let errorCount = 0;
 
-		const conn = createAgentConnection(async () => {
-			// Return invalid ticket
-			return `${server.wsUrl}?ticket=invalid-ticket`;
-		}, { retry: { enabled: false } });
+		const conn = createAgentConnection(
+			async () => {
+				// Return invalid ticket
+				return `${server.wsUrl}?ticket=invalid-ticket`;
+			},
+			{ retry: { enabled: false } },
+		);
 
 		conn.on('ws:error', () => {
 			errorCount += 1;

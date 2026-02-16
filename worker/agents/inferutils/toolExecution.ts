@@ -23,7 +23,7 @@ export interface ExecutionPlan {
  */
 export function buildExecutionPlan(
 	toolCalls: ChatCompletionMessageFunctionToolCall[],
-	toolDefinitions: Map<string, ToolDefinition>
+	toolDefinitions: Map<string, ToolDefinition>,
 ): ExecutionPlan {
 	// Parse arguments and get resource access for each tool call
 	const toolCallResources = new Map<string, ResourceAccess>();
@@ -100,9 +100,7 @@ export function buildExecutionPlan(
 
 		// Handle circular dependencies
 		if (group.length === 0) {
-			console.warn(
-				'[TOOL_EXECUTION] Circular dependency detected, falling back to sequential'
-			);
+			console.warn('[TOOL_EXECUTION] Circular dependency detected, falling back to sequential');
 
 			// Add first unexecuted tool to break cycle
 			for (const call of toolCalls) {
@@ -125,7 +123,7 @@ export function buildExecutionPlan(
  */
 async function executeSingleTool(
 	toolCall: ChatCompletionMessageFunctionToolCall,
-	toolDefinition: ToolDefinition<any, any>
+	toolDefinition: ToolDefinition<any, any>,
 ): Promise<ToolCallResult> {
 	try {
 		const args = toolCall.function.arguments ? JSON.parse(toolCall.function.arguments) : {};
@@ -150,8 +148,7 @@ async function executeSingleTool(
 		}
 
 		// Return error result for other failures
-		const errorMessage =
-			error instanceof Error ? error.message : 'Unknown error occurred';
+		const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
 
 		return {
 			id: toolCall.id,
@@ -180,12 +177,10 @@ async function executeSingleTool(
  */
 export async function executeToolCallsWithDependencies(
 	toolCalls: ChatCompletionMessageFunctionToolCall[],
-	toolDefinitions: ToolDefinition<any, any>[]
+	toolDefinitions: ToolDefinition<any, any>[],
 ): Promise<ToolCallResult[]> {
 	// Build tool definition map for fast lookup
-	const toolDefMap = new Map(
-		toolDefinitions.map((td) => [td.name, td])
-	);
+	const toolDefMap = new Map(toolDefinitions.map((td) => [td.name, td]));
 
 	// Build execution plan
 	const plan = buildExecutionPlan(toolCalls, toolDefMap);
@@ -202,9 +197,7 @@ export async function executeToolCallsWithDependencies(
 	const allResults: ToolCallResult[] = [];
 
 	for (const [groupIndex, group] of plan.parallelGroups.entries()) {
-		console.log(
-			`[TOOL_EXECUTION] Executing group ${groupIndex + 1}/${plan.parallelGroups.length}`
-		);
+		console.log(`[TOOL_EXECUTION] Executing group ${groupIndex + 1}/${plan.parallelGroups.length}`);
 
 		// Execute all tools in group in parallel
 		const groupResults = await Promise.all(
@@ -218,11 +211,11 @@ export async function executeToolCallsWithDependencies(
 				const result = await executeSingleTool(toolCall, toolDef);
 
 				console.log(
-					`[TOOL_EXECUTION] ${toolCall.function.name} completed ${result.result && typeof result.result === 'object' && result.result !== null && 'error' in result.result ? '(with error)' : 'successfully'}`
+					`[TOOL_EXECUTION] ${toolCall.function.name} completed ${result.result && typeof result.result === 'object' && result.result !== null && 'error' in result.result ? '(with error)' : 'successfully'}`,
 				);
 
 				return result;
-			})
+			}),
 		);
 
 		allResults.push(...groupResults);

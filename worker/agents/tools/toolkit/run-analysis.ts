@@ -5,14 +5,10 @@ import { StaticAnalysisResponse } from 'worker/services/sandbox/sandboxTypes';
 
 export type RunAnalysisResult = StaticAnalysisResponse;
 
-export function createRunAnalysisTool(
-	agent: ICodingAgent,
-	logger: StructuredLogger
-) {
+export function createRunAnalysisTool(agent: ICodingAgent, logger: StructuredLogger) {
 	return tool({
 		name: 'run_analysis',
-		description:
-			'Run static analysis (lint + typecheck), optionally scoped to given files.',
+		description: 'Run static analysis (lint + typecheck), optionally scoped to given files.',
 		args: {
 			files: t.analysis.files().describe('Optional array of files to analyze'),
 		},

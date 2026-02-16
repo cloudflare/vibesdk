@@ -3,13 +3,7 @@ import { Info, Settings } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import {
-	Dialog,
-	DialogContent,
-	DialogDescription,
-	DialogHeader,
-	DialogTitle,
-} from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { getModelDisplayName, getProviderInfo, categorizeAgent } from '@/utils/model-helpers';
 import { WORKFLOW_TABS } from '@/lib/constants/workflow-tabs';
 import type { AgentDisplayConfig, ModelConfigsInfo } from '@/api-types';
@@ -148,12 +142,7 @@ export function ModelConfigInfo({ configs, onRequestConfigs, loading }: ModelCon
 					) : !configs ? (
 						<div className="text-center py-8 text-text-tertiary">
 							<p>No configuration data available.</p>
-							<Button
-								variant="outline"
-								size="sm"
-								onClick={onRequestConfigs}
-								className="mt-4"
-							>
+							<Button variant="outline" size="sm" onClick={onRequestConfigs} className="mt-4">
 								Retry
 							</Button>
 						</div>
@@ -193,7 +182,8 @@ export function ModelConfigInfo({ configs, onRequestConfigs, loading }: ModelCon
 									<TabsContent key={tab.id} value={tab.id} className="mt-6">
 										<div className="space-y-4">
 											<div className="text-sm text-text-tertiary">
-												{tab.description} • {agents.length} agent{agents.length !== 1 ? 's' : ''}
+												{tab.description} • {agents.length} agent
+												{agents.length !== 1 ? 's' : ''}
 												{getCustomizedCountForTab(tab.id) > 0 && (
 													<span className="ml-2 text-text-primary font-medium">
 														({getCustomizedCountForTab(tab.id)} customized)
@@ -202,7 +192,9 @@ export function ModelConfigInfo({ configs, onRequestConfigs, loading }: ModelCon
 											</div>
 
 											{agents.length === 0 ? (
-												<div className="text-center py-8 text-text-tertiary">No agents in this category.</div>
+												<div className="text-center py-8 text-text-tertiary">
+													No agents in this category.
+												</div>
 											) : (
 												<div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
 													{agents.map((agent) => (

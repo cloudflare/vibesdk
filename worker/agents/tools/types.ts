@@ -149,7 +149,7 @@ function buildTool<TArgs, TResult>(
 	implementation: (args: TArgs) => Promise<TResult>,
 	resources: (args: TArgs) => Resources,
 	onStart?: (toolCall: ChatCompletionMessageFunctionToolCall, args: TArgs) => Promise<void>,
-	onComplete?: (toolCall: ChatCompletionMessageFunctionToolCall, args: TArgs, result: TResult) => Promise<void>
+	onComplete?: (toolCall: ChatCompletionMessageFunctionToolCall, args: TArgs, result: TResult) => Promise<void>,
 ): ToolDefinition<TArgs, TResult> {
 	return {
 		name,
@@ -199,7 +199,7 @@ export function tool<TArgs extends Record<string, unknown>, TResult>(config: {
 		config.run,
 		extractResources,
 		config.onStart,
-		config.onComplete
+		config.onComplete,
 	);
 }
 

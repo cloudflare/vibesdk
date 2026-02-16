@@ -25,7 +25,12 @@ export function getProviderInfo(modelValue?: string): ProviderInfo {
 	if (modelValue.includes('[openrouter]')) {
 		return { name: 'OpenRouter', color: 'bg-pink-100 text-pink-800 dark:bg-pink-900/20 dark:text-pink-400' };
 	}
-	if (modelValue.includes('openai/') || modelValue.includes('gpt') || modelValue.includes('o3') || modelValue.includes('o4')) {
+	if (
+		modelValue.includes('openai/') ||
+		modelValue.includes('gpt') ||
+		modelValue.includes('o3') ||
+		modelValue.includes('o4')
+	) {
 		return { name: 'OpenAI', color: 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400' };
 	}
 	if (modelValue.includes('anthropic/') || modelValue.includes('claude')) {
@@ -45,27 +50,27 @@ export function categorizeAgent(agentKey: string): string {
 	// Specific agent mappings first (highest priority)
 	const specificMappings: Record<string, string> = {
 		// Quick Start - Most commonly used
-		'templateSelection': 'quickstart',
-		'conversationalResponse': 'quickstart',
-		'blueprint': 'quickstart',
+		templateSelection: 'quickstart',
+		conversationalResponse: 'quickstart',
+		blueprint: 'quickstart',
 
 		// Planning - Project planning and setup
-		'phaseGeneration': 'planning',
-		'projectSetup': 'planning',
+		phaseGeneration: 'planning',
+		projectSetup: 'planning',
 
 		// Coding - Development and implementation
-		'phaseImplementation': 'coding',
-		'firstPhaseImplementation': 'coding',
-		'fileRegeneration': 'coding',
+		phaseImplementation: 'coding',
+		firstPhaseImplementation: 'coding',
+		fileRegeneration: 'coding',
 
 		// Debugging - Code fixing and review
-		'realtimeCodeFixer': 'debugging',
-		'fastCodeFixer': 'debugging',
-		'codeReview': 'debugging',
-		'deepDebugger': 'debugging',
+		realtimeCodeFixer: 'debugging',
+		fastCodeFixer: 'debugging',
+		codeReview: 'debugging',
+		deepDebugger: 'debugging',
 
 		// Advanced
-		'screenshotAnalysis': 'advanced',
+		screenshotAnalysis: 'advanced',
 	};
 
 	// Check specific mappings first

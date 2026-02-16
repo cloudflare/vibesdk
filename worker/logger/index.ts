@@ -40,15 +40,9 @@ export const Logger = {
  * Method decorator for automatic logging (simplified)
  */
 export function LogMethod(component?: string) {
-	return function (
-		target: unknown,
-		propertyKey: string,
-		descriptor: PropertyDescriptor,
-	) {
+	return function (target: unknown, propertyKey: string, descriptor: PropertyDescriptor) {
 		const originalMethod = descriptor.value;
-		const className =
-			(target as Record<string, unknown>)?.constructor?.name ||
-			'UnknownClass';
+		const className = (target as Record<string, unknown>)?.constructor?.name || 'UnknownClass';
 		const methodName = propertyKey;
 		const loggerComponent = component || className;
 
@@ -96,10 +90,7 @@ export function LogMethod(component?: string) {
 export function WithLogger(component?: string) {
 	return function <T extends new (...args: any[]) => object>(constructor: T) {
 		return class extends constructor {
-			logger = createObjectLogger(
-				this,
-				component || constructor.name,
-			);
+			logger = createObjectLogger(this, component || constructor.name);
 			constructor(...args: any[]) {
 				super(...args);
 			}

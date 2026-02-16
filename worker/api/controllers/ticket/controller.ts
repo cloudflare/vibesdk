@@ -28,7 +28,7 @@ async function verifyOwnership(
 	user: AuthUser,
 	resourceType: TicketResourceType,
 	resourceId: string,
-	env: Env
+	env: Env,
 ): Promise<boolean> {
 	switch (resourceType) {
 		case 'agent':
@@ -38,10 +38,7 @@ async function verifyOwnership(
 	}
 }
 
-function resolveResourceId(
-	body: CreateTicketRequest,
-	userId: string
-): { resourceId: string } | { error: string } {
+function resolveResourceId(body: CreateTicketRequest, userId: string): { resourceId: string } | { error: string } {
 	if (body.resourceType === 'vault') {
 		return { resourceId: userId };
 	}
@@ -66,7 +63,7 @@ export class TicketController extends BaseController {
 		request: Request,
 		env: Env,
 		_ctx: ExecutionContext,
-		context: RouteContext
+		context: RouteContext,
 	): Promise<Response> {
 		const user = context.user;
 		if (!user) {
@@ -76,7 +73,7 @@ export class TicketController extends BaseController {
 		// Parse and validate request
 		let body: CreateTicketRequest;
 		try {
-			body = await request.json() as CreateTicketRequest;
+			body = (await request.json()) as CreateTicketRequest;
 		} catch {
 			return this.createErrorResponse('Invalid JSON body', 400);
 		}
@@ -93,8 +90,12 @@ export class TicketController extends BaseController {
 		const { resourceId } = resolved;
 
 		// Verify ownership
-		if (!await verifyOwnership(user, body.resourceType, resourceId, env)) {
-			this.logger.warn('Ticket creation denied', { userId: user.id, resourceType: body.resourceType, resourceId });
+		if (!(await verifyOwnership(user, body.resourceType, resourceId, env))) {
+			this.logger.warn('Ticket creation denied', {
+				userId: user.id,
+				resourceType: body.resourceType,
+				resourceId,
+			});
 			return this.createErrorResponse('Access denied', 403);
 		}
 

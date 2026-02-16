@@ -9,13 +9,13 @@ import { CodeSerializerType } from '../utils/codeSerializers';
 import { PhasicGenerationContext } from '../domain/values/GenerationContext';
 
 export interface FastCodeFixerInputs {
-    query: string;
-    issues: CodeIssue[];
-    allFiles: FileOutputType[];
-    allPhases?: PhaseConceptType[];
+	query: string;
+	issues: CodeIssue[];
+	allFiles: FileOutputType[];
+	allPhases?: PhaseConceptType[];
 }
 
-const SYSTEM_PROMPT = `You are a Senior Software Engineer at Cloudflare's Incident Response Team specializing in rapid bug fixes. Your task is to analyze identified code issues and generate complete fixed files using the SCOF format.`
+const SYSTEM_PROMPT = `You are a Senior Software Engineer at Cloudflare's Incident Response Team specializing in rapid bug fixes. Your task is to analyze identified code issues and generate complete fixed files using the SCOF format.`;
 const USER_PROMPT = `
 ================================
 Here is the codebase of the project:
@@ -61,49 +61,61 @@ Analyze each reported issue and generate complete file contents with fixes appli
 - No TODO comments or placeholders
 - Focus on runtime errors, infinite loops, and import issues
 - Maintain original file structure and interfaces
-`
+`;
 
-const userPromptFormatter = (query: string, issues: CodeIssue[], allFiles: FileOutputType[], _allPhases?: PhaseConceptType[]) => {
-    const prompt = PROMPT_UTILS.replaceTemplateVariables(USER_PROMPT, {
-        query,
-        issues: issues.length > 0 ? JSON.stringify(issues, null, 2) : 'No specific issues reported - perform general code review',
-        codebase: PROMPT_UTILS.serializeFiles(allFiles, CodeSerializerType.SIMPLE)
-    });
-    return PROMPT_UTILS.verifyPrompt(prompt);
-}
+const userPromptFormatter = (
+	query: string,
+	issues: CodeIssue[],
+	allFiles: FileOutputType[],
+	_allPhases?: PhaseConceptType[],
+) => {
+	const prompt = PROMPT_UTILS.replaceTemplateVariables(USER_PROMPT, {
+		query,
+		issues:
+			issues.length > 0
+				? JSON.stringify(issues, null, 2)
+				: 'No specific issues reported - perform general code review',
+		codebase: PROMPT_UTILS.serializeFiles(allFiles, CodeSerializerType.SIMPLE),
+	});
+	return PROMPT_UTILS.verifyPrompt(prompt);
+};
 
-export class FastCodeFixerOperation extends AgentOperation<PhasicGenerationContext, FastCodeFixerInputs, FileOutputType[]> {
-    async execute(
-        inputs: FastCodeFixerInputs,
-        options: OperationOptions<PhasicGenerationContext>
-    ): Promise<FileOutputType[]> {
-        const { query, issues, allFiles, allPhases } = inputs;
-        const { env, logger } = options;
-        
-        logger.info(`Fixing issues for ${allFiles.length} files`);
+export class FastCodeFixerOperation extends AgentOperation<
+	PhasicGenerationContext,
+	FastCodeFixerInputs,
+	FileOutputType[]
+> {
+	async execute(
+		inputs: FastCodeFixerInputs,
+		options: OperationOptions<PhasicGenerationContext>,
+	): Promise<FileOutputType[]> {
+		const { query, issues, allFiles, allPhases } = inputs;
+		const { env, logger } = options;
 
-        const userPrompt = userPromptFormatter(query, issues, allFiles, allPhases);
-        const systemPrompt = SYSTEM_PROMPT;
-        const codeGenerationFormat = new SCOFFormat();
+		logger.info(`Fixing issues for ${allFiles.length} files`);
 
-        const messages = [
-            createSystemMessage(systemPrompt),
-            createUserMessage(userPrompt + codeGenerationFormat.formatInstructions())
-        ];
+		const userPrompt = userPromptFormatter(query, issues, allFiles, allPhases);
+		const systemPrompt = SYSTEM_PROMPT;
+		const codeGenerationFormat = new SCOFFormat();
 
-        const result = await executeInference({
-            env: env,
-            messages,
-            agentActionName: "fastCodeFixer",
-            context: options.inferenceContext,
-        });
+		const messages = [
+			createSystemMessage(systemPrompt),
+			createUserMessage(userPrompt + codeGenerationFormat.formatInstructions()),
+		];
 
-        if (!result || !result.string) {
-            logger.error('Fast code fixer returned no result after all retries');
-            return [];
-        }
+		const result = await executeInference({
+			env: env,
+			messages,
+			agentActionName: 'fastCodeFixer',
+			context: options.inferenceContext,
+		});
 
-        const files = codeGenerationFormat.deserialize(result.string);
-        return files;
-    }
+		if (!result || !result.string) {
+			logger.error('Fast code fixer returned no result after all retries');
+			return [];
+		}
+
+		const files = codeGenerationFormat.deserialize(result.string);
+		return files;
+	}
 }

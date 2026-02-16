@@ -11,17 +11,17 @@ import { GenerationContext } from '../domain/values/GenerationContext';
 import { FileState } from '../core/state';
 
 export interface SimpleCodeGenerationInputs {
-    phaseName: string;
-    phaseDescription: string;
-    requirements: string[];
-    files: FileConceptType[];
-    fileGeneratingCallback?: (filePath: string, filePurpose: string) => void;
-    fileChunkGeneratedCallback?: (filePath: string, chunk: string, format: 'full_content' | 'unified_diff') => void;
-    fileClosedCallback?: (file: FileOutputType, message: string) => void;
+	phaseName: string;
+	phaseDescription: string;
+	requirements: string[];
+	files: FileConceptType[];
+	fileGeneratingCallback?: (filePath: string, filePurpose: string) => void;
+	fileChunkGeneratedCallback?: (filePath: string, chunk: string, format: 'full_content' | 'unified_diff') => void;
+	fileClosedCallback?: (file: FileOutputType, message: string) => void;
 }
 
 export interface SimpleCodeGenerationOutputs {
-    files: FileOutputType[];
+	files: FileOutputType[];
 }
 
 const SYSTEM_PROMPT = `You are an expert Cloudflare developer specializing in Cloudflare Workers and Workflows.
@@ -91,185 +91,193 @@ All your output will be directly saved in the README.md file.
 Do not provide and markdown fence \`\`\` \`\`\` around the content either! Just pure raw markdown content!`;
 
 const formatRequirements = (requirements: string[]): string => {
-    return requirements.map((req, index) => `${index + 1}. ${req}`).join('\n');
+	return requirements.map((req, index) => `${index + 1}. ${req}`).join('\n');
 };
 
 const formatFiles = (files: FileConceptType[]): string => {
-    return files.map((file, index) => {
-        return `${index + 1}. **${file.path}**
+	return files
+		.map((file, index) => {
+			return `${index + 1}. **${file.path}**
    Purpose: ${file.purpose}
    ${file.changes ? `Changes needed: ${file.changes}` : 'Create new file'}`;
-    }).join('\n\n');
+		})
+		.join('\n\n');
 };
 
 const formatExistingFiles = (allFiles: FileState[]): string => {
-    if (!allFiles || allFiles.length === 0) {
-        return 'No files generated yet. This is the first generation phase.';
-    }
-    
-    // Convert FileState[] to FileOutputType[] format for serializer
-    const filesForSerializer: FileOutputType[] = allFiles.map(file => ({
-        filePath: file.filePath,
-        fileContents: file.fileContents,
-        filePurpose: file.filePurpose || 'Previously generated file'
-    }));
-    
-    return PROMPT_UTILS.serializeFiles(filesForSerializer, CodeSerializerType.SIMPLE);
+	if (!allFiles || allFiles.length === 0) {
+		return 'No files generated yet. This is the first generation phase.';
+	}
+
+	// Convert FileState[] to FileOutputType[] format for serializer
+	const filesForSerializer: FileOutputType[] = allFiles.map((file) => ({
+		filePath: file.filePath,
+		fileContents: file.fileContents,
+		filePurpose: file.filePurpose || 'Previously generated file',
+	}));
+
+	return PROMPT_UTILS.serializeFiles(filesForSerializer, CodeSerializerType.SIMPLE);
 };
 
 export class SimpleCodeGenerationOperation extends AgentOperation<
-    GenerationContext,
-    SimpleCodeGenerationInputs,
-    SimpleCodeGenerationOutputs
+	GenerationContext,
+	SimpleCodeGenerationInputs,
+	SimpleCodeGenerationOutputs
 > {
-    async execute(
-        inputs: SimpleCodeGenerationInputs,
-        options: OperationOptions<GenerationContext>
-    ): Promise<SimpleCodeGenerationOutputs> {
-        const { phaseName, phaseDescription, requirements, files } = inputs;
-        const { env, logger, context, inferenceContext } = options;
+	async execute(
+		inputs: SimpleCodeGenerationInputs,
+		options: OperationOptions<GenerationContext>,
+	): Promise<SimpleCodeGenerationOutputs> {
+		const { phaseName, phaseDescription, requirements, files } = inputs;
+		const { env, logger, context, inferenceContext } = options;
 
-        logger.info('Generating code via simple code generation', {
-            phaseName,
-            phaseDescription,
-            fileCount: files.length,
-            requirementCount: requirements.length,
-            existingFilesCount: context.allFiles.length,
-            hasUserQuery: !!context.query,
-            hasTemplateDetails: !!context.templateDetails
-        });
+		logger.info('Generating code via simple code generation', {
+			phaseName,
+			phaseDescription,
+			fileCount: files.length,
+			requirementCount: requirements.length,
+			existingFilesCount: context.allFiles.length,
+			hasUserQuery: !!context.query,
+			hasTemplateDetails: !!context.templateDetails,
+		});
 
-        // Format existing files for context
-        const existingFilesContext = formatExistingFiles(context.allFiles);
+		// Format existing files for context
+		const existingFilesContext = formatExistingFiles(context.allFiles);
 
-        // Build system message with full context
-        const systemPrompt = PROMPT_UTILS.replaceTemplateVariables(SYSTEM_PROMPT, {
-            userQuery: context.query ? `## Requirements:\n${context.query}` : '',
-        });
+		// Build system message with full context
+		const systemPrompt = PROMPT_UTILS.replaceTemplateVariables(SYSTEM_PROMPT, {
+			userQuery: context.query ? `## Requirements:\n${context.query}` : '',
+		});
 
-        // Build user message with requirements
-        const userPrompt = PROMPT_UTILS.replaceTemplateVariables(USER_PROMPT, {
-            phaseName,
-            phaseDescription,
-            requirements: formatRequirements(requirements),
-            files: formatFiles(files),
-            template: context.templateDetails ? PROMPT_UTILS.serializeTemplate(context.templateDetails) : 'No template information',
-            relevantFiles: existingFilesContext
-        });
+		// Build user message with requirements
+		const userPrompt = PROMPT_UTILS.replaceTemplateVariables(USER_PROMPT, {
+			phaseName,
+			phaseDescription,
+			requirements: formatRequirements(requirements),
+			files: formatFiles(files),
+			template: context.templateDetails
+				? PROMPT_UTILS.serializeTemplate(context.templateDetails)
+				: 'No template information',
+			relevantFiles: existingFilesContext,
+		});
 
-        const codeGenerationFormat = new SCOFFormat();
-        const messages = [
-            createSystemMessage(systemPrompt),
-            createUserMessage(userPrompt + codeGenerationFormat.formatInstructions())
-        ];
+		const codeGenerationFormat = new SCOFFormat();
+		const messages = [
+			createSystemMessage(systemPrompt),
+			createUserMessage(userPrompt + codeGenerationFormat.formatInstructions()),
+		];
 
-        // Initialize streaming state
-        const streamingState: CodeGenerationStreamingState = {
-            accumulator: '',
-            completedFiles: new Map(),
-            parsingState: {} as SCOFParsingState
-        };
+		// Initialize streaming state
+		const streamingState: CodeGenerationStreamingState = {
+			accumulator: '',
+			completedFiles: new Map(),
+			parsingState: {} as SCOFParsingState,
+		};
 
-        const generatedFiles: FileOutputType[] = [];
+		const generatedFiles: FileOutputType[] = [];
 
-        // Execute inference with streaming
-        await executeInference({
-            env,
-            context: inferenceContext,
-            agentActionName: 'fileRegeneration',
-            messages,
-            stream: {
-                chunk_size: 256,
-                onChunk: (chunk: string) => {
-                    codeGenerationFormat.parseStreamingChunks(
-                        chunk,
-                        streamingState,
-                        // File generation started
-                        (filePath: string) => {
-                            logger.info(`Starting generation of file: ${filePath}`);
-                            if (inputs.fileGeneratingCallback) {
-                                const purpose = files.find(f => f.path === filePath)?.purpose || 'Generated file';
-                                inputs.fileGeneratingCallback(filePath, purpose);
-                            }
-                        },
-                        // Stream file content chunks
-                        (filePath: string, fileChunk: string, format: 'full_content' | 'unified_diff') => {
-                            if (inputs.fileChunkGeneratedCallback) {
-                                inputs.fileChunkGeneratedCallback(filePath, fileChunk, format);
-                            }
-                        },
-                        // onFileClose callback
-                        (filePath: string) => {
-                            logger.info(`Completed generation of file: ${filePath}`);
-                            const completedFile = streamingState.completedFiles.get(filePath);
-                            if (!completedFile) {
-                                logger.error(`Completed file not found: ${filePath}`);
-                                return;
-                            }
+		// Execute inference with streaming
+		await executeInference({
+			env,
+			context: inferenceContext,
+			agentActionName: 'fileRegeneration',
+			messages,
+			stream: {
+				chunk_size: 256,
+				onChunk: (chunk: string) => {
+					codeGenerationFormat.parseStreamingChunks(
+						chunk,
+						streamingState,
+						// File generation started
+						(filePath: string) => {
+							logger.info(`Starting generation of file: ${filePath}`);
+							if (inputs.fileGeneratingCallback) {
+								const purpose = files.find((f) => f.path === filePath)?.purpose || 'Generated file';
+								inputs.fileGeneratingCallback(filePath, purpose);
+							}
+						},
+						// Stream file content chunks
+						(filePath: string, fileChunk: string, format: 'full_content' | 'unified_diff') => {
+							if (inputs.fileChunkGeneratedCallback) {
+								inputs.fileChunkGeneratedCallback(filePath, fileChunk, format);
+							}
+						},
+						// onFileClose callback
+						(filePath: string) => {
+							logger.info(`Completed generation of file: ${filePath}`);
+							const completedFile = streamingState.completedFiles.get(filePath);
+							if (!completedFile) {
+								logger.error(`Completed file not found: ${filePath}`);
+								return;
+							}
 
-                            // Process the file contents
-                            const originalContents = context.allFiles.find(f => f.filePath === filePath)?.fileContents || '';
-                            completedFile.fileContents = FileProcessing.processGeneratedFileContents(
-                                completedFile,
-                                originalContents,
-                                logger
-                            );
+							// Process the file contents
+							const originalContents =
+								context.allFiles.find((f) => f.filePath === filePath)?.fileContents || '';
+							completedFile.fileContents = FileProcessing.processGeneratedFileContents(
+								completedFile,
+								originalContents,
+								logger,
+							);
 
-                            const generatedFile: FileOutputType = {
-                                ...completedFile,
-                                filePurpose: files.find(f => f.path === filePath)?.purpose || 'Generated file'
-                            };
+							const generatedFile: FileOutputType = {
+								...completedFile,
+								filePurpose: files.find((f) => f.path === filePath)?.purpose || 'Generated file',
+							};
 
-                            generatedFiles.push(generatedFile);
+							generatedFiles.push(generatedFile);
 
-                            if (inputs.fileClosedCallback) {
-                                inputs.fileClosedCallback(generatedFile, `Completed generation of ${filePath}`);
-                            }
-                        }
-                    );
-                }
-            }
-        });
+							if (inputs.fileClosedCallback) {
+								inputs.fileClosedCallback(generatedFile, `Completed generation of ${filePath}`);
+							}
+						},
+					);
+				},
+			},
+		});
 
-        logger.info('Code generation completed', {
-            fileCount: generatedFiles.length
-        });
+		logger.info('Code generation completed', {
+			fileCount: generatedFiles.length,
+		});
 
-        return {
-            files: generatedFiles
-        };
-    }
+		return {
+			files: generatedFiles,
+		};
+	}
 
-    async generateReadme(options: OperationOptions): Promise<FileOutputType> {
-        const { env, logger, context } = options;
-        logger.info("Generating README.md for the project");
+	async generateReadme(options: OperationOptions): Promise<FileOutputType> {
+		const { env, logger, context } = options;
+		logger.info('Generating README.md for the project');
 
-        try {
-            const readmePrompt = README_GENERATION_PROMPT;
-            const messages = [...getSystemPromptWithProjectContext(SYSTEM_PROMPT, context, CodeSerializerType.SCOF), createUserMessage(readmePrompt)];
+		try {
+			const readmePrompt = README_GENERATION_PROMPT;
+			const messages = [
+				...getSystemPromptWithProjectContext(SYSTEM_PROMPT, context, CodeSerializerType.SCOF),
+				createUserMessage(readmePrompt),
+			];
 
-            const results = await executeInference({
-                env: env,
-                messages,
-                agentActionName: "projectSetup",
-                context: options.inferenceContext,
-            });
+			const results = await executeInference({
+				env: env,
+				messages,
+				agentActionName: 'projectSetup',
+				context: options.inferenceContext,
+			});
 
-            if (!results || !results.string) {
-                logger.error('Failed to generate README.md content');
-                throw new Error('Failed to generate README.md content');
-            }
+			if (!results || !results.string) {
+				logger.error('Failed to generate README.md content');
+				throw new Error('Failed to generate README.md content');
+			}
 
-            logger.info('Generated README.md content successfully');
+			logger.info('Generated README.md content successfully');
 
-            return {
-                filePath: 'README.md',
-                fileContents: results.string,
-                filePurpose: 'Project documentation and setup instructions'
-            };
-        } catch (error) {
-            logger.error("Error generating README:", error);
-            throw error;
-        }
-    }
+			return {
+				filePath: 'README.md',
+				fileContents: results.string,
+				filePurpose: 'Project documentation and setup instructions',
+			};
+		} catch (error) {
+			logger.error('Error generating README:', error);
+			throw error;
+		}
+	}
 }

@@ -17,33 +17,33 @@ export function setupUserSecretsRoutes(app: Hono<AppEnv>): void {
 	vaultRouter.get(
 		'/ws',
 		setAuthLevel(AuthConfig.authenticated, {
-			ticketAuth: { resourceType: 'vault' }
+			ticketAuth: { resourceType: 'vault' },
 		}),
-		adaptController(UserSecretsController, UserSecretsController.handleWebSocketConnection)
+		adaptController(UserSecretsController, UserSecretsController.handleWebSocketConnection),
 	);
 
 	vaultRouter.get(
 		'/status',
 		setAuthLevel(AuthConfig.authenticated),
-		adaptController(UserSecretsController, UserSecretsController.getVaultStatus)
+		adaptController(UserSecretsController, UserSecretsController.getVaultStatus),
 	);
 
 	vaultRouter.get(
 		'/config',
 		setAuthLevel(AuthConfig.authenticated),
-		adaptController(UserSecretsController, UserSecretsController.getVaultConfig)
+		adaptController(UserSecretsController, UserSecretsController.getVaultConfig),
 	);
 
 	vaultRouter.post(
 		'/setup',
 		setAuthLevel(AuthConfig.authenticated),
-		adaptController(UserSecretsController, UserSecretsController.setupVault)
+		adaptController(UserSecretsController, UserSecretsController.setupVault),
 	);
 
 	vaultRouter.post(
 		'/reset',
 		setAuthLevel(AuthConfig.authenticated),
-		adaptController(UserSecretsController, UserSecretsController.resetVault)
+		adaptController(UserSecretsController, UserSecretsController.resetVault),
 	);
 
 	app.route('/api/vault', vaultRouter);

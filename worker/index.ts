@@ -24,12 +24,12 @@ export const DORateLimitStore = BaseDORateLimitStore;
 const logger = createLogger('App');
 
 function setOriginControl(env: Env, request: Request, currentHeaders: Headers): Headers {
-    const origin = request.headers.get('Origin');
-    
-    if (origin && isOriginAllowed(env, origin)) {
-        currentHeaders.set('Access-Control-Allow-Origin', origin);
-    }
-    return currentHeaders;
+	const origin = request.headers.get('Origin');
+
+	if (origin && isOriginAllowed(env, origin)) {
+		currentHeaders.set('Access-Control-Allow-Origin', origin);
+	}
+	return currentHeaders;
 }
 
 /**
@@ -74,24 +74,24 @@ async function handleUserAppRequest(request: Request, env: Env): Promise<Respons
 	const sandboxResponse = await proxyToSandbox(request, env);
 	if (sandboxResponse) {
 		logger.info(`Serving response from sandbox for: ${hostname}`);
-        // If it was a websocket upgrade, we need to return the response as is
-        if (sandboxResponse.headers.get('Upgrade')?.toLowerCase() === 'websocket') {
-            logger.info(`Serving websocket response from sandbox for: ${hostname}`);
-            return sandboxResponse;
-        }
-		
+		// If it was a websocket upgrade, we need to return the response as is
+		if (sandboxResponse.headers.get('Upgrade')?.toLowerCase() === 'websocket') {
+			logger.info(`Serving websocket response from sandbox for: ${hostname}`);
+			return sandboxResponse;
+		}
+
 		// Add headers to identify this as a sandbox response
 		let headers = new Headers(sandboxResponse.headers);
-		
-        if (sandboxResponse.status === 500) {
-            headers.set('X-Preview-Type', 'sandbox-error');
-        } else {
-            headers.set('X-Preview-Type', 'sandbox');
-        }
-        headers = setOriginControl(env, request, headers);
-        headers.append('Vary', 'Origin');
+
+		if (sandboxResponse.status === 500) {
+			headers.set('X-Preview-Type', 'sandbox-error');
+		} else {
+			headers.set('X-Preview-Type', 'sandbox');
+		}
+		headers = setOriginControl(env, request, headers);
+		headers.append('Vary', 'Origin');
 		headers.set('Access-Control-Expose-Headers', 'X-Preview-Type');
-		
+
 		return new Response(sandboxResponse.body, {
 			status: sandboxResponse.status,
 			statusText: sandboxResponse.statusText,
@@ -118,8 +118,8 @@ async function handleUserAppRequest(request: Request, env: Env): Promise<Respons
 		let headers = new Headers(dispatcherResponse.headers);
 
 		headers.set('X-Preview-Type', 'dispatcher');
-        headers = setOriginControl(env, request, headers);
-        headers.append('Vary', 'Origin');
+		headers = setOriginControl(env, request, headers);
+		headers.append('Vary', 'Origin');
 		headers.set('Access-Control-Expose-Headers', 'X-Preview-Type');
 
 		return new Response(dispatcherResponse.body, {
@@ -140,11 +140,11 @@ async function handleUserAppRequest(request: Request, env: Env): Promise<Respons
  */
 const worker = {
 	async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
-        // logger.info(`Received request: ${request.method} ${request.url}`);
+		// logger.info(`Received request: ${request.method} ${request.url}`);
 		// --- Pre-flight Checks ---
 
 		// 1. Critical configuration check: Ensure custom domain is set.
-        const previewDomain = getPreviewDomain(env);
+		const previewDomain = getPreviewDomain(env);
 		if (!previewDomain || previewDomain.trim() === '') {
 			logger.error('FATAL: env.CUSTOM_DOMAIN is not configured in wrangler.toml or the Cloudflare dashboard.');
 			return new Response('Server configuration error: Application domain is not set.', { status: 500 });
@@ -162,11 +162,9 @@ const worker = {
 		// --- Domain-based Routing ---
 
 		// Normalize hostnames for both local development (localhost) and production.
-		const isMainDomainRequest =
-			hostname === env.CUSTOM_DOMAIN || hostname === 'localhost';
+		const isMainDomainRequest = hostname === env.CUSTOM_DOMAIN || hostname === 'localhost';
 		const isSubdomainRequest =
-			hostname.endsWith(`.${previewDomain}`) ||
-			(hostname.endsWith('.localhost') && hostname !== 'localhost');
+			hostname.endsWith(`.${previewDomain}`) || (hostname.endsWith('.localhost') && hostname !== 'localhost');
 
 		// Route 1: Main Platform Request (e.g., build.cloudflare.dev or localhost)
 		if (isMainDomainRequest) {
@@ -182,18 +180,18 @@ const worker = {
 			}
 			// AI Gateway proxy for generated apps
 			if (pathname.startsWith('/api/proxy/openai')) {
-                // Only handle requests from valid origins of the preview domain
-                const origin = request.headers.get('Origin');
-                const previewDomain = getPreviewDomain(env);
+				// Only handle requests from valid origins of the preview domain
+				const origin = request.headers.get('Origin');
+				const previewDomain = getPreviewDomain(env);
 
-                logger.info(`Origin: ${origin}, Preview Domain: ${previewDomain}`);
+				logger.info(`Origin: ${origin}, Preview Domain: ${previewDomain}`);
 
-                return proxyToAiGateway(request, env, ctx);
+				return proxyToAiGateway(request, env, ctx);
 				// if (origin && origin.endsWith(`.${previewDomain}`)) {
-                //     return proxyToAiGateway(request, env, ctx);
-                // }
-                // logger.warn(`Access denied. Invalid origin: ${origin}, preview domain: ${previewDomain}`);
-                // return new Response('Access denied. Invalid origin.', { status: 403 });
+				//     return proxyToAiGateway(request, env, ctx);
+				// }
+				// logger.warn(`Access denied. Invalid origin: ${origin}, preview domain: ${previewDomain}`);
+				// return new Response('Access denied. Invalid origin.', { status: 403 });
 			}
 
 			// Handle all API requests with the main Hono application.

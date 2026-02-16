@@ -47,7 +47,7 @@ export interface TicketAuthenticatable {
 export async function getResourceStub(
 	env: Env,
 	resourceType: TicketResourceType,
-	resourceId: string
+	resourceId: string,
 ): Promise<TicketAuthenticatable> {
 	switch (resourceType) {
 		case 'agent':
@@ -73,10 +73,7 @@ export function hasTicketParam(request: Request): boolean {
 /**
  * Extract ticket from request, returning null if not present or invalid format
  */
-function extractAndValidateTicket(
-	request: Request,
-	resourceType: TicketResourceType
-): string | null {
+function extractAndValidateTicket(request: Request, resourceType: TicketResourceType): string | null {
 	const ticket = new URL(request.url).searchParams.get('ticket');
 	if (!ticket || ticket.length < MIN_TICKET_LENGTH) {
 		return null;
@@ -105,11 +102,7 @@ function parseVaultTicket(ticket: string): string | null {
 /**
  * Resolve the resource ID from ticket and route params
  */
-function resolveResourceId(
-	ticket: string,
-	config: TicketAuthConfig,
-	params: Record<string, string>
-): string | null {
+function resolveResourceId(ticket: string, config: TicketAuthConfig, params: Record<string, string>): string | null {
 	if (config.resourceType === 'vault') {
 		return parseVaultTicket(ticket);
 	}
@@ -133,7 +126,7 @@ export async function authenticateViaTicket(
 	request: Request,
 	env: Env,
 	config: TicketAuthConfig,
-	params: Record<string, string>
+	params: Record<string, string>,
 ): Promise<AuthUserSession | null> {
 	const ticket = extractAndValidateTicket(request, config.resourceType);
 	if (!ticket) {

@@ -18,12 +18,12 @@ export interface AuthUser {
 	displayName?: string;
 	username?: string;
 	avatarUrl?: string;
-    bio?: string;
-    timezone?: string;
-    provider?: string;
-    emailVerified?: boolean;
-    createdAt?: Date;
-    isAnonymous?: boolean;
+	bio?: string;
+	timezone?: string;
+	provider?: string;
+	emailVerified?: boolean;
+	createdAt?: Date;
+	isAnonymous?: boolean;
 }
 
 /**
@@ -34,7 +34,7 @@ export interface AuthSession {
 	email: string;
 	sessionId: string;
 	expiresAt: Date | null;
-};
+}
 
 /**
  * Token payload structure for JWT tokens
@@ -58,20 +58,20 @@ export interface TokenPayload {
 }
 
 export interface AuthUserSession {
-    user: AuthUser;
-    sessionId: string;
+	user: AuthUser;
+	sessionId: string;
 }
 
 /**
  * Authentication result from login/register operations
  */
 export interface AuthResult extends AuthUserSession {
-    expiresAt: Date | null;
+	expiresAt: Date | null;
 	accessToken: string;
 	isNewUser?: boolean;
 	requiresEmailVerification?: boolean;
 	redirectUrl?: string;
-};
+}
 
 /**
  * OAuth provider user information

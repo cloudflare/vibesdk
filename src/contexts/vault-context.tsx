@@ -91,9 +91,9 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
 	});
 	const vaultWsRef = useRef<WebSocket | null>(null);
 	const vmkRef = useRef<CryptoKey | null>(null);
-	const pendingRequestsRef = useRef<Map<string, { resolve: (data: unknown) => void; reject: (error: Error) => void }>>(
-		new Map()
-	);
+	const pendingRequestsRef = useRef<
+		Map<string, { resolve: (data: unknown) => void; reject: (error: Error) => void }>
+	>(new Map());
 
 	const setError = useCallback((error: string | null) => {
 		setState((s) => ({ ...s, error }));
@@ -107,7 +107,7 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
 		(
 			encryptedVMK: Uint8Array<ArrayBuffer>,
 			nonce: Uint8Array<ArrayBuffer>,
-			sessionKey: Uint8Array<ArrayBuffer>
+			sessionKey: Uint8Array<ArrayBuffer>,
 		): Promise<boolean> => {
 			return new Promise((resolve) => {
 				const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -120,7 +120,7 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
 							encryptedVMK: uint8ArrayToBase64(encryptedVMK),
 							nonce: uint8ArrayToBase64(nonce),
 							sessionKey: uint8ArrayToBase64(sessionKey),
-						})
+						}),
 					);
 				};
 
@@ -152,7 +152,7 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
 				setTimeout(() => resolve(false), 10000);
 			});
 		},
-		[]
+		[],
 	);
 
 	const unlockWithDerivedKey = useCallback(
@@ -398,7 +398,6 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
 		}
 	}, [setLoading, setError, unlockWithDerivedKey, user]);
 
-
 	// Unlock with password
 	const unlockWithPassword = useCallback(
 		async (password: string): Promise<{ success: boolean; error?: string }> => {
@@ -446,7 +445,7 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
 				return { success: false, error: message };
 			}
 		},
-		[setLoading, setError, unlockWithDerivedKey]
+		[setLoading, setError, unlockWithDerivedKey],
 	);
 
 	// Unlock with passkey
@@ -512,7 +511,6 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
 			}));
 
 			return { success: true };
-
 		} catch (error) {
 			const message = error instanceof Error ? error.message : 'Unlock failed';
 			setError(message);
@@ -568,7 +566,7 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
 				return { success: false, error: message };
 			}
 		},
-		[setLoading, setError, unlockWithDerivedKey]
+		[setLoading, setError, unlockWithDerivedKey],
 	);
 
 	const lockVault = useCallback(async (): Promise<void> => {
@@ -615,36 +613,33 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
 	}, [refreshStatus, setError, setLoading]);
 
 	// Helper to send WebSocket request and wait for response
-	const sendVaultRequest = useCallback(
-		<T,>(message: Record<string, unknown>): Promise<T> => {
-			return new Promise((resolve, reject) => {
-				if (!vaultWsRef.current || vaultWsRef.current.readyState !== WebSocket.OPEN) {
-					reject(new Error('Vault WebSocket not connected'));
-					return;
-				}
+	const sendVaultRequest = useCallback(<T,>(message: Record<string, unknown>): Promise<T> => {
+		return new Promise((resolve, reject) => {
+			if (!vaultWsRef.current || vaultWsRef.current.readyState !== WebSocket.OPEN) {
+				reject(new Error('Vault WebSocket not connected'));
+				return;
+			}
 
-				const requestId = crypto.randomUUID();
-				const timeout = setTimeout(() => {
-					pendingRequestsRef.current.delete(requestId);
-					reject(new Error('Request timeout'));
-				}, 30000);
+			const requestId = crypto.randomUUID();
+			const timeout = setTimeout(() => {
+				pendingRequestsRef.current.delete(requestId);
+				reject(new Error('Request timeout'));
+			}, 30000);
 
-				pendingRequestsRef.current.set(requestId, {
-					resolve: (data) => {
-						clearTimeout(timeout);
-						resolve(data as T);
-					},
-					reject: (error) => {
-						clearTimeout(timeout);
-						reject(error);
-					},
-				});
-
-				vaultWsRef.current.send(JSON.stringify({ ...message, requestId }));
+			pendingRequestsRef.current.set(requestId, {
+				resolve: (data) => {
+					clearTimeout(timeout);
+					resolve(data as T);
+				},
+				reject: (error) => {
+					clearTimeout(timeout);
+					reject(error);
+				},
 			});
-		},
-		[]
-	);
+
+			vaultWsRef.current.send(JSON.stringify({ ...message, requestId }));
+		});
+	}, []);
 
 	// Encrypt and store a secret
 	const encryptAndStoreSecret = useCallback(
@@ -691,7 +686,7 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
 				return null;
 			}
 		},
-		[setError, sendVaultRequest]
+		[setError, sendVaultRequest],
 	);
 
 	// List secrets (decrypts names client-side)
@@ -722,7 +717,7 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
 				const decryptedName = await decryptWithKey(
 					vmkRef.current,
 					base64ToUint8Array(ciphertext),
-					base64ToUint8Array(nonce)
+					base64ToUint8Array(nonce),
 				);
 				decryptedSecrets.push({
 					id: secret.id,
@@ -765,7 +760,7 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
 				return false;
 			}
 		},
-		[setError, sendVaultRequest]
+		[setError, sendVaultRequest],
 	);
 
 	// Get and decrypt a secret value by ID
@@ -797,7 +792,7 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
 				const value = await decryptWithKey(
 					vmkRef.current,
 					base64ToUint8Array(ciphertext),
-					base64ToUint8Array(nonce)
+					base64ToUint8Array(nonce),
 				);
 				return {
 					value,
@@ -808,7 +803,7 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
 				return null;
 			}
 		},
-		[sendVaultRequest]
+		[sendVaultRequest],
 	);
 
 	// Decrypt a secret value
@@ -824,7 +819,7 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
 				return null;
 			}
 		},
-		[]
+		[],
 	);
 
 	// Decrypt a secret name
@@ -840,7 +835,7 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
 				return null;
 			}
 		},
-		[]
+		[],
 	);
 
 	// Request unlock (called when agent needs vault access)

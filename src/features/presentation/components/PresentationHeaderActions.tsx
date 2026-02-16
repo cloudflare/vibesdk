@@ -6,11 +6,7 @@ import type { HeaderActionsProps } from '../../core/types';
 const SPEAKER_MODE_KEY = 'speakerMode';
 const PREVIEW_MODE_KEY = 'previewMode';
 
-export function PresentationHeaderActions({
-	previewRef,
-	featureState,
-	setFeatureState,
-}: HeaderActionsProps) {
+export function PresentationHeaderActions({ previewRef, featureState, setFeatureState }: HeaderActionsProps) {
 	const speakerMode = featureState[SPEAKER_MODE_KEY] as boolean | undefined;
 	const previewMode = featureState[PREVIEW_MODE_KEY] as boolean | undefined;
 
@@ -43,9 +39,7 @@ export function PresentationHeaderActions({
 
 		// Navigate iframe to print view
 		const currentSrc = iframe.src;
-		const printUrl = currentSrc.includes('?')
-			? `${currentSrc}&print-pdf`
-			: `${currentSrc}?print-pdf`;
+		const printUrl = currentSrc.includes('?') ? `${currentSrc}&print-pdf` : `${currentSrc}?print-pdf`;
 
 		// Open print view in new window for PDF export
 		window.open(printUrl, '_blank');
@@ -69,12 +63,7 @@ export function PresentationHeaderActions({
 				active={previewMode}
 			/>
 
-			<HeaderButton
-				icon={Expand}
-				onClick={handleFullscreen}
-				title="Fullscreen"
-				iconOnly
-			/>
+			<HeaderButton icon={Expand} onClick={handleFullscreen} title="Fullscreen" iconOnly />
 
 			<HeaderDivider />
 

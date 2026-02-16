@@ -195,11 +195,10 @@ export const MonacoEditor = memo<MonacoEditorProps>(function MonacoEditor({
 		}
 	}, [shouldEnableTypeScript]);
 
-
 	useEffect(() => {
 		let configuredTheme = theme;
 		if (theme === 'system') {
-			configuredTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+			configuredTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
 		}
 		editor.current = monaco.editor.create(containerRef.current!, {
 			language: createOptions.language || 'typescript',
@@ -253,11 +252,13 @@ export const MonacoEditor = memo<MonacoEditorProps>(function MonacoEditor({
 
 			model.pushEditOperations(
 				[],
-				[{
-					range: model.getFullModelRange(),
-					text: createOptions.value || ''
-				}],
-				() => null
+				[
+					{
+						range: model.getFullModelRange(),
+						text: createOptions.value || '',
+					},
+				],
+				() => null,
 			);
 
 			if (stickyScroll.current) {
@@ -289,30 +290,18 @@ export const MonacoEditor = memo<MonacoEditorProps>(function MonacoEditor({
 			const endPos = model.getPositionAt(match.index + match[0].length);
 
 			decorations.push({
-				range: new monaco.Range(
-					startPos.lineNumber,
-					startPos.column,
-					endPos.lineNumber,
-					endPos.column,
-				),
+				range: new monaco.Range(startPos.lineNumber, startPos.column, endPos.lineNumber, endPos.column),
 				options: {
 					inlineClassName: 'diffDelete',
 					hoverMessage: {
-						value: replace
-							? `Will be replaced with: ${replace}`
-							: 'Will be deleted',
+						value: replace ? `Will be replaced with: ${replace}` : 'Will be deleted',
 					},
 				},
 			});
 
 			if (replace) {
 				decorations.push({
-					range: new monaco.Range(
-						startPos.lineNumber,
-						startPos.column,
-						endPos.lineNumber,
-						endPos.column,
-					),
+					range: new monaco.Range(startPos.lineNumber, startPos.column, endPos.lineNumber, endPos.column),
 					options: {
 						after: {
 							content: replace,

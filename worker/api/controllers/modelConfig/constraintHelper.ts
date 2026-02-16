@@ -16,10 +16,7 @@ export interface ConstraintValidationResult {
  * @param modelName - The model name to validate
  * @returns Validation result with allowed models if constraint violated
  */
-export function validateAgentConstraints(
-	agentAction: AgentActionKey,
-	modelName: string
-): ConstraintValidationResult {
+export function validateAgentConstraints(agentAction: AgentActionKey, modelName: string): ConstraintValidationResult {
 	const constraint = AGENT_CONSTRAINTS.get(agentAction);
 
 	// Graceful: No constraint or disabled = always valid
@@ -53,10 +50,7 @@ export function validateAgentConstraints(
  * @param allAvailableModels - All models the user has access to
  * @returns Filtered list of models allowed for this agent action
  */
-export function getFilteredModelsForAgent(
-	agentAction: AgentActionKey,
-	allAvailableModels: AIModels[]
-): AIModels[] {
+export function getFilteredModelsForAgent(agentAction: AgentActionKey, allAvailableModels: AIModels[]): AIModels[] {
 	const constraint = AGENT_CONSTRAINTS.get(agentAction);
 
 	// Graceful: No constraint or disabled = return all

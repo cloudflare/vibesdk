@@ -4,7 +4,7 @@ This document contains comprehensive Mermaid diagrams representing the architect
 
 ## Presentation-Ready Architecture Diagram
 
-*Copy-paste this beautiful diagram directly into your slides*
+_Copy-paste this beautiful diagram directly into your slides_
 
 ```mermaid
 graph TB
@@ -14,25 +14,25 @@ graph TB
         Chat["💬 Real-time Chat<br/>WebSocket Connection"]
         Preview["👁️ Live Preview<br/>Sandbox Integration"]
     end
-    
+
     %% API Gateway Layer
     subgraph "🚦 API Gateway Layer"
         APIRouter["🌐 API Router<br/>Hono Framework"]
     end
-    
+
     %% Core Backend Services
     subgraph "🔐 Core Services (Cloudflare Workers)"
         Auth["🔑 Auth Service<br/>JWT + OAuth"]
         AgentController["🎛️ Agent Controller<br/>WebSocket Manager"]
         SandboxService["📦 Sandbox Service<br/>Container Orchestration"]
     end
-    
+
     %% Agent System (Durable Objects)
     subgraph "🤖 Agent System (Durable Objects)"
         CodeGenAgent["⚡ Code Generator Agent<br/>Deterministic State Machine"]
         AgentState["💾 Agent State<br/>Persistent in Durable Object"]
     end
-    
+
     %% AI Operations Pipeline
     subgraph "🧠 AI Operations Pipeline"
         BlueprintGen["📋 Blueprint Generation"]
@@ -41,7 +41,7 @@ graph TB
         CodeReview["🔍 Code Review"]
         CodeFixer["🛠️ Real-time Fixing"]
     end
-    
+
     %% Storage & Infrastructure
     subgraph "☁️ Cloudflare Infrastructure"
         D1["🗄️ D1 Database<br/>User Data + Apps"]
@@ -50,7 +50,7 @@ graph TB
         Containers["🐳 Containers<br/>Sandbox Runtime"]
         AIGateway["🚪 AI Gateway<br/>Multi-Provider Router"]
     end
-    
+
     %% External AI Providers
     subgraph "🤖 AI Providers"
         Gemini["💎 Gemini (Primary)"]
@@ -58,57 +58,57 @@ graph TB
         Claude["🎭 Anthropic Claude"]
         Cerebras["🧪 Cerebras"]
     end
-    
+
     %% External Services
     subgraph "🌍 External Services"
         GitHub["🐙 GitHub API"]
         OAuth["🔐 OAuth Providers"]
     end
-    
+
     %% Request Flow
     UI --> APIRouter
     Chat --> APIRouter
     Preview --> APIRouter
-    
+
     APIRouter --> Auth
-    APIRouter --> AgentController  
+    APIRouter --> AgentController
     APIRouter --> SandboxService
-    
+
     %% Agent Orchestration
     AgentController --> CodeGenAgent
     CodeGenAgent -.-> AgentState
     CodeGenAgent --> SandboxService
-    
+
     %% AI Operations Flow
     CodeGenAgent --> BlueprintGen
     CodeGenAgent --> PhaseGen
     CodeGenAgent --> PhaseImpl
     CodeGenAgent --> CodeReview
     CodeGenAgent --> CodeFixer
-    
+
     %% Data Persistence
     Auth --> D1
     AgentController --> KV
     SandboxService --> R2
     SandboxService --> Containers
     BlueprintGen --> R2
-    
+
     %% AI Gateway Routing
     BlueprintGen --> AIGateway
     PhaseGen --> AIGateway
     PhaseImpl --> AIGateway
     CodeReview --> AIGateway
     CodeFixer --> AIGateway
-    
+
     AIGateway --> Gemini
     AIGateway --> OpenAI
     AIGateway --> Claude
     AIGateway --> Cerebras
-    
+
     %% External Integrations
     Auth --> OAuth
     SandboxService --> GitHub
-    
+
     %% Styling
     classDef frontend fill:#e1f5fe,stroke:#01579b,stroke-width:2px,color:#000
     classDef router fill:#fff8e1,stroke:#f57f17,stroke-width:2px,color:#000
@@ -118,7 +118,7 @@ graph TB
     classDef infra fill:#e8f5e8,stroke:#1b5e20,stroke-width:2px,color:#000
     classDef aiproviders fill:#fce4ec,stroke:#880e4f,stroke-width:2px,color:#000
     classDef external fill:#f1f8e9,stroke:#33691e,stroke-width:2px,color:#000
-    
+
     class UI,Chat,Preview frontend
     class APIRouter router
     class Auth,AgentController,SandboxService backend
@@ -143,19 +143,19 @@ graph TB
         Preview[Live Preview]
         Dashboard[User Dashboard]
     end
-    
+
     subgraph "Cloudflare Workers (Backend)"
         APIRouter[API Router]
         Auth[Auth Service]
         AgentController[Agent Controller]
         SandboxService[Sandbox Service]
-        
+
         subgraph "Agents SDK (Durable Objects)"
             CodeGenAgent[Code Generator Agent]
             AgentState[Agent State & Context]
         end
     end
-    
+
     subgraph "AI Operations"
         BlueprintGen[Blueprint Generation]
         PhaseGen[Phase Generation]
@@ -166,7 +166,7 @@ graph TB
         FileRegen[File Regeneration]
         UserConvProcessor[User Conversation Processor]
     end
-    
+
     subgraph "Cloudflare Infrastructure"
         D1[(D1 Database)]
         KV[KV Storage]
@@ -175,18 +175,18 @@ graph TB
         Workers[Workers Runtime]
         AIGateway[AI Gateway]
     end
-    
+
     subgraph "External Services"
         OpenAI[OpenAI API]
         GitHub[GitHub API]
         OAuth[OAuth Providers]
     end
-    
+
     UI --> APIRouter
     Chat --> APIRouter
     Preview --> APIRouter
     Dashboard --> APIRouter
-    
+
     APIRouter --> Auth
     APIRouter --> AgentController
     APIRouter --> SandboxService
@@ -200,12 +200,12 @@ graph TB
     CodeGenAgent --> FastCodeFixer
     CodeGenAgent --> FileRegen
     CodeGenAgent --> UserConvProcessor
-    
+
     Auth --> D1
     AgentState --> D1
     SandboxService --> Containers
     SandboxService --> R2
-    
+
     BlueprintGen --> AIGateway
     PhaseGen --> AIGateway
     PhaseImpl --> AIGateway
@@ -215,11 +215,11 @@ graph TB
     FileRegen --> AIGateway
     UserConvProcessor --> AIGateway
     AIGateway --> OpenAI
-    
+
     Auth --> OAuth
     SandboxService --> GitHub
     AgentController --> KV
-    
+
     style CodeGenAgent fill:#ff9900
     style AIGateway fill:#ff9900
     style D1 fill:#ff9900
@@ -236,7 +236,7 @@ graph TB
         AgentState[Shared Agent State]
         WebSocket[WebSocket Broadcasting]
     end
-    
+
     subgraph "Specialized AI Operations"
         BlueprintOp[Blueprint Generation<br/>PRD & Template Selection]
         PhaseGen[Phase Generation<br/>Planning & Strategy]
@@ -247,36 +247,36 @@ graph TB
         FileRegen[File Regeneration<br/>Surgical Code Fixes]
         UserConvProcessor[User Conversation Processor<br/>User Feedback Integration]
     end
-    
+
     subgraph "Deterministic Orchestration Logic"
         PhaseManager[Phase Manager]
         UserInputHandler[User Input Handler]
         FileManager[File Content Manager]
         ErrorHandler[Error Recovery System]
     end
-    
+
     subgraph "AI Integration Layer"
         AIGateway[Cloudflare AI Gateway]
         PromptSystem[Dynamic Prompt System]
         StreamingFormat[SCOF Streaming Format]
     end
-    
+
     Agent --> StateMachine
     StateMachine --> PhaseManager
     StateMachine --> UserInputHandler
     StateMachine --> FileManager
     StateMachine --> ErrorHandler
-    
+
     PhaseManager --> BlueprintOp
     PhaseManager --> PhaseGen
     PhaseManager --> PhaseImpl
     PhaseManager --> UserConvProcessor
-    
+
     ErrorHandler --> CodeReview
     ErrorHandler --> RealtimeCodeFixer
     ErrorHandler --> FastCodeFixer
     ErrorHandler --> FileRegen
-    
+
     BlueprintOp --> AIGateway
     PhaseGen --> AIGateway
     PhaseImpl --> AIGateway
@@ -285,13 +285,13 @@ graph TB
     FastCodeFixer --> AIGateway
     FileRegen --> AIGateway
     UserConvProcessor --> AIGateway
-    
+
     AIGateway --> PromptSystem
     AIGateway --> StreamingFormat
-    
+
     Agent --> AgentState
     Agent --> WebSocket
-    
+
     BlueprintOp -.-> AgentState
     PhaseGen -.-> AgentState
     PhaseImpl -.-> AgentState
@@ -300,7 +300,7 @@ graph TB
     FastCodeFixer -.-> AgentState
     FileRegen -.-> AgentState
     UserConvProcessor -.-> AgentState
-    
+
     style Agent fill:#ff9900
     style StateMachine fill:#ffcc66
     style AIGateway fill:#ff9900
@@ -316,11 +316,11 @@ sequenceDiagram
     participant OAuth
     participant D1
     participant JWT
-    
+
     User->>Frontend: Login Request
     Frontend->>AuthController: POST /api/auth/providers
     AuthController->>Frontend: Available auth methods
-    
+
     alt OAuth Flow
         Frontend->>AuthController: POST /api/auth/oauth/github
         AuthController->>OAuth: Redirect to GitHub
@@ -341,9 +341,9 @@ sequenceDiagram
         JWT->>AuthController: Access/Refresh tokens
         AuthController->>Frontend: Set HTTP-only cookies
     end
-    
+
     Frontend->>User: Login success
-    
+
     Note over AuthController,D1: Session stored in D1<br/>JWT tokens in HTTP-only cookies<br/>Automatic token refresh
 ```
 
@@ -355,13 +355,13 @@ graph TD
         UserInput[User Prompt]
         ChatInterface[Chat Interface]
     end
-    
+
     subgraph "Code Generation Phase"
         Agent[Smart Agent]
         CodeGen[Code Generation]
         FileSystem[Generated Files]
     end
-    
+
     subgraph "Sandbox System"
         SandboxSDK[Cloudflare Sandbox SDK]
         Container[Isolated Container]
@@ -370,51 +370,51 @@ graph TD
         TemplateParser[Template Parser]
         ConfigKV[Configuration Storage<br/>KV-based wrangler.jsonc]
     end
-    
+
     subgraph "Quality Assurance"
         RuntimeCheck[Runtime Error Detection]
         StaticAnalysis[Static Analysis]
         CodeFixer[Auto Code Fixing]
     end
-    
+
     subgraph "Deployment Options"
         WorkersDev[workers.dev Deployment]
         DispatchNamespace[Dispatch Namespace]
         GitHubExport[GitHub Export]
     end
-    
+
     subgraph "Cloudflare Resources"
         D1DB[(Auto-provisioned D1)]
         KVStore[Auto-provisioned KV]
         CFWorkers[Cloudflare Workers]
     end
-    
+
     UserInput --> ChatInterface
     ChatInterface --> Agent
     Agent --> CodeGen
     CodeGen --> FileSystem
-    
+
     FileSystem --> SandboxSDK
     SandboxSDK --> Container
     Container --> LivePreview
-    
+
     LivePreview --> RuntimeCheck
     RuntimeCheck --> StaticAnalysis
     StaticAnalysis --> CodeFixer
     CodeFixer --> FileSystem
-    
+
     FileSystem --> ResourceProv
     ResourceProv --> D1DB
     ResourceProv --> KVStore
-    
+
     Container --> TemplateParser
     TemplateParser --> WorkersDev
     TemplateParser --> DispatchNamespace
     TemplateParser --> GitHubExport
-    
+
     WorkersDev --> CFWorkers
     DispatchNamespace --> CFWorkers
-    
+
     style SandboxSDK fill:#ff9900
     style Container fill:#ff9900
     style D1DB fill:#ff9900
@@ -424,7 +424,7 @@ graph TD
 
 ## 5. Database Schema & Relationships
 
-```mermaid
+````mermaid
 erDiagram
     users {
         text id PK
@@ -438,7 +438,7 @@ erDiagram
         timestamp created_at
         timestamp updated_at
     }
-    
+
     sessions {
         text id PK
         text user_id FK
@@ -447,7 +447,7 @@ erDiagram
         timestamp expires_at
         timestamp created_at
     }
-    
+
     teams {
         text id PK
         text name
@@ -457,14 +457,14 @@ erDiagram
         text owner_id FK
         timestamp created_at
     }
-    
+
     team_members {
         text team_id FK
         text user_id FK
         text role
         timestamp joined_at
     }
-    
+
     apps {
         text id PK
         text title
@@ -497,7 +497,7 @@ erDiagram
         timestamp updated_at
         timestamp last_deployed_at
     }
-    
+
     cloudflare_accounts {
         text id PK
         text user_id FK
@@ -507,7 +507,7 @@ erDiagram
         text account_name
         timestamp created_at
     }
-    
+
     github_integrations {
         text id PK
         text user_id FK
@@ -517,7 +517,7 @@ erDiagram
         json repositories
         timestamp created_at
     }
-    
+
     boards {
         text id PK
         text name
@@ -527,7 +527,7 @@ erDiagram
         integer is_public
         timestamp created_at
     }
-    
+
     users ||--o{ sessions : has
     users ||--o{ teams : owns
     users ||--o{ team_members : belongs_to
@@ -574,7 +574,7 @@ journey
       Save to Dashboard: 4: User
       Share with Community: 3: User
       GitHub Export: 4: User
-```
+````
 
 ## 7. Real-time Communication Flow
 
@@ -586,31 +586,31 @@ sequenceDiagram
     participant AIGateway
     participant Sandbox
     participant WebSocket
-    
+
     User->>Frontend: Send message
     Frontend->>Agent: WebSocket message
     Agent->>WebSocket: Broadcast generation_started
     WebSocket->>Frontend: Real-time update
-    
+
     loop Phase Generation
         Agent->>AIGateway: Phase planning request
         AIGateway->>Agent: Streaming response
         Agent->>WebSocket: Broadcast phase_update
         WebSocket->>Frontend: Live phase progress
     end
-    
+
     loop Code Implementation
         Agent->>AIGateway: Code generation request
         AIGateway->>Agent: SCOF streaming format
         Agent->>WebSocket: Broadcast file_generated
         WebSocket->>Frontend: Live file updates
     end
-    
+
     Agent->>Sandbox: Deploy to container
     Sandbox->>Agent: Preview URL ready
     Agent->>WebSocket: Broadcast preview_ready
     WebSocket->>Frontend: Preview available
-    
+
     loop Quality Assurance
         Sandbox->>Agent: Runtime errors detected
         Agent->>AIGateway: Fix generation request
@@ -619,7 +619,7 @@ sequenceDiagram
         Agent->>WebSocket: Broadcast fixes_applied
         WebSocket->>Frontend: Updated preview
     end
-    
+
     User->>Frontend: Deploy to Cloudflare
     Frontend->>Agent: Deploy request
     Agent->>Sandbox: Trigger deployment
@@ -634,17 +634,17 @@ sequenceDiagram
 flowchart TD
     %% User Input
     Input["🗣️ User Prompt<br/>Natural Language Request"]
-    
+
     %% Planning Phase
     subgraph "📋 Planning Phase"
         TemplateSelection["🏷️ Template Selection<br/>Cloudflare Stack Templates"]
         BlueprintGen["🏠 Blueprint Generation<br/>PRD + Architecture Design"]
     end
-    
+
     %% State Machine Controller
     subgraph "🤖 Deterministic State Machine"
         StateMachine["⚙️ Agent State Controller<br/>generateAllFiles()"]
-        
+
         subgraph "🔄 State Transitions"
             PhaseGenerating["📈 PHASE_GENERATING"]
             PhaseImplementing["🚀 PHASE_IMPLEMENTING"]
@@ -653,7 +653,7 @@ flowchart TD
             Idle["✅ IDLE"]
         end
     end
-    
+
     %% Operations Layer
     subgraph "🧠 AI Operations"
         PhaseGenOp["📈 Phase Generation<br/>Development Phases"]
@@ -664,18 +664,18 @@ flowchart TD
         ScreenshotAnalysisOp["📷 Screenshot Analysis<br/>Visual Validation"]
         UserConvOp["💬 User Conversation<br/>Feedback Processing"]
     end
-    
+
     %% Quality Assurance
     subgraph "🔍 Quality Assurance"
         ReviewCycles["🔄 Review Cycles<br/>Up to 5 iterations"]
         IssueCheck{{"⚠️ Issues Found?"}}
         StaticAnalysis["📊 Static Analysis<br/>Code Validation"]
     end
-    
+
     %% External Integration
     subgraph "🤖 AI Gateway"
         AIGateway["🚪 Cloudflare AI Gateway<br/>Multi-Provider Router"]
-        
+
         subgraph "🌐 AI Providers"
             Gemini["💎 Gemini (Primary)"]
             GPT["🧠 GPT-4"]
@@ -683,24 +683,24 @@ flowchart TD
             Cerebras["🧪 Cerebras"]
         end
     end
-    
+
     %% Main Flow
     Input --> TemplateSelection
     TemplateSelection --> BlueprintGen
     BlueprintGen --> StateMachine
-    
+
     %% State Machine Flow
     StateMachine --> PhaseGenerating
     PhaseGenerating --> PhaseImplementing
     PhaseImplementing --> Reviewing
     Reviewing --> Finalizing
     Finalizing --> Idle
-    
+
     %% Operations Execution
     PhaseGenerating --> PhaseGenOp
     PhaseImplementing --> PhaseImplOp
     Reviewing --> CodeReviewOp
-    
+
     %% Quality Control Loop
     CodeReviewOp --> ReviewCycles
     ReviewCycles --> IssueCheck
@@ -709,11 +709,11 @@ flowchart TD
     IssueCheck -->|"❌ No"| StaticAnalysis
     FastCodeFixerOp --> PhaseImplementing
     FileRegenOp --> PhaseImplementing
-    
+
     %% User Interaction
     UserConvOp --> PhaseGenerating
     ScreenshotAnalysisOp --> CodeReviewOp
-    
+
     %% AI Integration
     TemplateSelection --> AIGateway
     BlueprintGen --> AIGateway
@@ -724,12 +724,12 @@ flowchart TD
     FileRegenOp --> AIGateway
     ScreenshotAnalysisOp --> AIGateway
     UserConvOp --> AIGateway
-    
+
     AIGateway --> Gemini
     AIGateway --> GPT
     AIGateway --> Claude
     AIGateway --> Cerebras
-    
+
     %% Enhanced Styling
     classDef planning fill:#e3f2fd,stroke:#1976d2,stroke-width:2px,color:#000
     classDef statemachine fill:#fff3e0,stroke:#f57c00,stroke-width:3px,color:#000
@@ -740,7 +740,7 @@ flowchart TD
     classDef decision fill:#fff8e1,stroke:#f57f17,stroke-width:2px,color:#000
     classDef success fill:#66ff66,stroke:#2e7d32,stroke-width:3px,color:#000
     classDef providers fill:#fce4ec,stroke:#c2185b,stroke-width:2px,color:#000
-    
+
     class Input,TemplateSelection,BlueprintGen planning
     class StateMachine statemachine
     class PhaseGenerating,PhaseImplementing,Reviewing,Finalizing states
@@ -763,7 +763,7 @@ graph TB
         ShadcnUI[shadcn/ui Components]
         ReactRouter[React Router]
     end
-    
+
     subgraph "Backend Layer"
         CFWorkers[Cloudflare Workers]
         AgentsSDK[Cloudflare Agents SDK]
@@ -772,7 +772,7 @@ graph TB
         AuthMiddleware[Auth Middleware]
         BaseController[Base Controller]
     end
-    
+
     subgraph "Data Layer"
         D1[Cloudflare D1 SQLite]
         Drizzle[Drizzle ORM]
@@ -783,33 +783,33 @@ graph TB
         AppService[App Service]
         AuthService[Auth Service]
     end
-    
+
     subgraph "AI & External Services"
         AIGateway[Cloudflare AI Gateway]
         OpenAI[OpenAI GPT-4]
         GitHubAPI[GitHub API]
         OAuth[OAuth Providers]
     end
-    
+
     subgraph "Infrastructure"
         CFContainers[Cloudflare Containers]
         SandboxSDK[Cloudflare Sandbox SDK]
         WebSockets[WebSocket API]
         WorkersAnalytics[Workers Analytics]
     end
-    
+
     React --> CFWorkers
     Vite --> React
     TailwindCSS --> React
     ShadcnUI --> React
     ReactRouter --> React
-    
+
     CFWorkers --> AgentsSDK
     TypeScript --> CFWorkers
     HonoRouter --> CFWorkers
     AuthMiddleware --> CFWorkers
     BaseController --> CFWorkers
-    
+
     CFWorkers --> DatabaseService
     DatabaseService --> Drizzle
     Drizzle --> D1
@@ -818,17 +818,17 @@ graph TB
     DatabaseService --> AuthService
     CFWorkers --> KV
     CFWorkers --> R2
-    
+
     CFWorkers --> AIGateway
     AIGateway --> OpenAI
     CFWorkers --> GitHubAPI
     CFWorkers --> OAuth
-    
+
     CFWorkers --> CFContainers
     CFContainers --> SandboxSDK
     CFWorkers --> WebSockets
     CFWorkers --> WorkersAnalytics
-    
+
     style CFWorkers fill:#ff9900
     style AgentsSDK fill:#ff9900
     style D1 fill:#ff9900

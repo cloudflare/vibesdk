@@ -27,7 +27,9 @@ import { detectPreDeploySafetyFindings, runPreDeploySafetyGate } from './preDepl
 
 type PreDeploySafetyGateArgs = Parameters<typeof runPreDeploySafetyGate>[0];
 
-function makeFile(partial: Partial<FileOutputType> & Pick<FileOutputType, 'filePath' | 'fileContents'>): FileOutputType {
+function makeFile(
+	partial: Partial<FileOutputType> & Pick<FileOutputType, 'filePath' | 'fileContents'>,
+): FileOutputType {
 	return {
 		filePath: partial.filePath,
 		fileContents: partial.fileContents,
@@ -89,7 +91,7 @@ describe('runPreDeploySafetyGate', () => {
 	});
 
 	it('detects selector object literal findings', () => {
-		const findings = detectPreDeploySafetyFindings("const x = useOS(s => ({ a: s.a }));");
+		const findings = detectPreDeploySafetyFindings('const x = useOS(s => ({ a: s.a }));');
 		expect(findings.length).toBeGreaterThan(0);
 	});
 
@@ -101,7 +103,7 @@ describe('runPreDeploySafetyGate', () => {
 		const input = [
 			makeFile({
 				filePath: 'src/App.tsx',
-				fileContents: "const x = useOS(s => ({ a: s.a }));\nexport default function App() { return null }",
+				fileContents: 'const x = useOS(s => ({ a: s.a }));\nexport default function App() { return null }',
 			}),
 		];
 
@@ -116,7 +118,7 @@ describe('runPreDeploySafetyGate', () => {
 			makeFile({
 				filePath: 'src/App.tsx',
 				fileContents:
-					"const { a, b } = useOS(s => ({ a: s.a, b: s.b }));\nexport default function App() { return <div>{a + b}</div> }",
+					'const { a, b } = useOS(s => ({ a: s.a, b: s.b }));\nexport default function App() { return <div>{a + b}</div> }',
 			}),
 		];
 
@@ -163,7 +165,7 @@ describe('runPreDeploySafetyGate', () => {
 		const input = [
 			makeFile({
 				filePath: 'src/App.tsx',
-				fileContents: "const x = useOS(s => ({ a: s.a }));\nexport default function App() { return null }",
+				fileContents: 'const x = useOS(s => ({ a: s.a }));\nexport default function App() { return null }',
 			}),
 		];
 
@@ -180,7 +182,7 @@ describe('runPreDeploySafetyGate', () => {
 		const input = [
 			makeFile({
 				filePath: 'src/App.tsx',
-				fileContents: "const x = useOS(s => ({ a: s.a }));\nexport default function App() { return null }",
+				fileContents: 'const x = useOS(s => ({ a: s.a }));\nexport default function App() { return null }',
 			}),
 		];
 
@@ -197,7 +199,7 @@ describe('runPreDeploySafetyGate', () => {
 		const input = [
 			makeFile({
 				filePath: 'src/App.tsx',
-				fileContents: "const x = useOS(s => ({ a: s.a }));\nexport default function App() { return null }",
+				fileContents: 'const x = useOS(s => ({ a: s.a }));\nexport default function App() { return null }',
 			}),
 		];
 

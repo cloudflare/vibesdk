@@ -8,7 +8,10 @@ import { SUPPORTED_IMAGE_MIME_TYPES, type ImageAttachment } from '@/api-types';
 
 const MAX_WORDS = 4000;
 const countWords = (text: string): number => {
-	return text.trim().split(/\s+/).filter((word) => word.length > 0).length;
+	return text
+		.trim()
+		.split(/\s+/)
+		.filter((word) => word.length > 0).length;
 };
 
 interface ChatInputProps {
@@ -109,12 +112,7 @@ export function ChatInput({
 				: 'Chat with AI...';
 
 	return (
-		<form
-			ref={chatFormRef}
-			onSubmit={onSubmit}
-			className="shrink-0 p-4 pb-5 bg-transparent"
-			{...chatDragHandlers}
-		>
+		<form ref={chatFormRef} onSubmit={onSubmit} className="shrink-0 p-4 pb-5 bg-transparent" {...chatDragHandlers}>
 			<input
 				ref={imageInputRef}
 				type="file"
@@ -132,11 +130,7 @@ export function ChatInput({
 				)}
 				{images.length > 0 && (
 					<div className="mb-2">
-						<ImageAttachmentPreview
-							images={images}
-							onRemove={onRemoveImage}
-							compact
-						/>
+						<ImageAttachmentPreview images={images} onRemove={onRemoveImage} compact />
 					</div>
 				)}
 				<textarea
@@ -155,7 +149,7 @@ export function ChatInput({
 					style={{
 						// Auto-resize based on content
 						height: 'auto',
-						minHeight: '36px'
+						minHeight: '36px',
 					}}
 					ref={(textarea) => {
 						if (textarea) {

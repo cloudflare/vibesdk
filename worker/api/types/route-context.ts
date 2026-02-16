@@ -14,15 +14,15 @@ export interface RouteContext {
 	 */
 	user: AuthUser | null;
 
-    /**
-     * Session ID (null if not authenticated or public route)
-     */
-    sessionId: string | null;
+	/**
+	 * Session ID (null if not authenticated or public route)
+	 */
+	sessionId: string | null;
 
-    /**
-     * Global configurations for the application
-     */
-    config: GlobalConfigurableSettings;
+	/**
+	 * Global configurations for the application
+	 */
+	config: GlobalConfigurableSettings;
 
 	/**
 	 * Path parameters extracted from the route (e.g., :id, :agentId)
@@ -59,4 +59,3 @@ export interface RouteParamConfig {
 	 */
 	optionalParams?: string[];
 }
-

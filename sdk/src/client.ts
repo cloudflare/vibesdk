@@ -99,7 +99,7 @@ export class VibeClient {
 	async connect(agentId: string, options: { credentials?: Credentials } = {}): Promise<BuildSession> {
 		const data = await this.http.fetchJson<ApiResponse<{ websocketUrl: string; agentId: string }>>(
 			`/api/agent/${agentId}/connect`,
-			{ method: 'GET', headers: await this.http.headers() }
+			{ method: 'GET', headers: await this.http.headers() },
 		);
 
 		if (!data.success || !data.data) {
@@ -131,7 +131,10 @@ export class VibeClient {
 			});
 			return this.http.fetchJson<ApiResponse<{ apps: AppListItem[]; pagination?: unknown }>>(
 				`/api/apps/public${qs}`,
-				{ method: 'GET', headers: await this.http.headers() }
+				{
+					method: 'GET',
+					headers: await this.http.headers(),
+				},
 			);
 		},
 

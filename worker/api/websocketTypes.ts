@@ -1,14 +1,19 @@
-import type { CodeReviewOutputType, FileConceptType, FileOutputType } from "../agents/schemas";
-import type { AgentState } from "../agents/core/state";
-import type { ConversationState } from "../agents/inferutils/common";
-import type { CodeIssue, RuntimeError, StaticAnalysisResponse, TemplateDetails } from "../services/sandbox/sandboxTypes";
-import type { CodeFixResult } from "../services/code-fixer";
-import { IssueReport } from "../agents/domain/values/IssueReport";
+import type { CodeReviewOutputType, FileConceptType, FileOutputType } from '../agents/schemas';
+import type { AgentState } from '../agents/core/state';
+import type { ConversationState } from '../agents/inferutils/common';
+import type {
+	CodeIssue,
+	RuntimeError,
+	StaticAnalysisResponse,
+	TemplateDetails,
+} from '../services/sandbox/sandboxTypes';
+import type { CodeFixResult } from '../services/code-fixer';
+import { IssueReport } from '../agents/domain/values/IssueReport';
 import type { RateLimitExceededError } from 'shared/types/errors';
 
 type ErrorMessage = {
-    type: 'error';
-    error: string;
+	type: 'error';
+	error: string;
 };
 
 type StateMessage = {
@@ -17,26 +22,26 @@ type StateMessage = {
 };
 
 type AgentConnectedMessage = {
-    type: 'agent_connected';
-    state: AgentState;
-    templateDetails: TemplateDetails;
-    previewUrl?: string;
+	type: 'agent_connected';
+	state: AgentState;
+	templateDetails: TemplateDetails;
+	previewUrl?: string;
 };
 
 type TemplateUpdatedMessage = {
 	type: 'template_updated';
-    templateDetails: TemplateDetails;
+	templateDetails: TemplateDetails;
 };
 
 type ConversationStateMessage = {
-    type: 'conversation_state';
-    state: ConversationState;
-    deepDebugSession?: { conversationId: string } | null;
+	type: 'conversation_state';
+	state: ConversationState;
+	deepDebugSession?: { conversationId: string } | null;
 };
 
 type RateLimitErrorMessage = {
 	type: 'rate_limit_error';
-    error: RateLimitExceededError;
+	error: RateLimitExceededError;
 };
 
 type GenerationStartedMessage = {
@@ -113,14 +118,14 @@ type CommandExecutedMessage = {
 	type: 'command_executed';
 	message: string;
 	commands: string[];
-    output?: string;
+	output?: string;
 };
 
 type CommandExecutionFailedMessage = {
 	type: 'command_execution_failed';
 	message: string;
 	commands: string[];
-    error?: string;
+	error?: string;
 };
 
 type CodeReviewingMessage = {
@@ -150,9 +155,9 @@ export type CodeFixEdits = {
 };
 
 type StaticAnalysisResults = {
-    type: 'static_analysis_results';
-    staticAnalysis: StaticAnalysisResponse;
-}
+	type: 'static_analysis_results';
+	staticAnalysis: StaticAnalysisResponse;
+};
 
 type PhaseGeneratingMessage = {
 	type: 'phase_generating';
@@ -162,8 +167,8 @@ type PhaseGeneratingMessage = {
 		description: string;
 		files: FileConceptType[];
 	};
-    issues?: IssueReport;
-    userSuggestions?: string[];
+	issues?: IssueReport;
+	userSuggestions?: string[];
 };
 
 type PhaseGeneratedMessage = {
@@ -184,7 +189,7 @@ type PhaseImplementingMessage = {
 		description: string;
 		files: FileConceptType[];
 	};
-    issues?: IssueReport;
+	issues?: IssueReport;
 };
 
 type PhaseImplementedMessage = {
@@ -367,14 +372,14 @@ type BlueprintChunkMessage = {
 type DeterministicCodeFixStartedMessage = {
 	type: 'deterministic_code_fix_started';
 	message: string;
-    issues: CodeIssue[];
+	issues: CodeIssue[];
 };
 
 type DeterministicCodeFixCompletedMessage = {
 	type: 'deterministic_code_fix_completed';
 	message: string;
-    fixResult: CodeFixResult;
-    issues: CodeIssue[];
+	fixResult: CodeFixResult;
+	issues: CodeIssue[];
 };
 
 export type ModelConfigsInfoMessage = {
@@ -385,26 +390,32 @@ export type ModelConfigsInfoMessage = {
 			key: string;
 			name: string;
 			description: string;
-            constraint?: {
-                enabled: boolean;
-                allowedModels: string[];
-            };
+			constraint?: {
+				enabled: boolean;
+				allowedModels: string[];
+			};
 		}>;
-		userConfigs: Record<string, {
-			name?: string;
-			max_tokens?: number;
-			temperature?: number;
-			reasoning_effort?: string;
-			fallbackModel?: string;
-			isUserOverride?: boolean;
-		}>;
-		defaultConfigs: Record<string, {
-			name?: string;
-			max_tokens?: number;
-			temperature?: number;
-			reasoning_effort?: string;
-			fallbackModel?: string;
-		}>;
+		userConfigs: Record<
+			string,
+			{
+				name?: string;
+				max_tokens?: number;
+				temperature?: number;
+				reasoning_effort?: string;
+				fallbackModel?: string;
+				isUserOverride?: boolean;
+			}
+		>;
+		defaultConfigs: Record<
+			string,
+			{
+				name?: string;
+				max_tokens?: number;
+				temperature?: number;
+				reasoning_effort?: string;
+				fallbackModel?: string;
+			}
+		>;
 	};
 };
 
@@ -580,11 +591,11 @@ export type WebSocketMessage =
 	| CodeReviewingMessage
 	| CodeReviewedMessage
 	| CommandExecutingMessage
-    | CommandExecutedMessage
-    | CommandExecutionFailedMessage
+	| CommandExecutedMessage
+	| CommandExecutionFailedMessage
 	| RuntimeErrorFoundMessage
 	| CodeFixEdits
-    | StaticAnalysisResults
+	| StaticAnalysisResults
 	| PhaseGeneratingMessage
 	| PhaseGeneratedMessage
 	| PhaseImplementingMessage
@@ -605,15 +616,15 @@ export type WebSocketMessage =
 	| GitHubExportCompletedMessage
 	| GitHubExportErrorMessage
 	| ErrorMessage
-    | RateLimitErrorMessage
+	| RateLimitErrorMessage
 	| UserSuggestionsProcessingMessage
 	| ConversationResponseMessage
 	| ConversationClearedMessage
-    | ProjectNameUpdatedMessage
-    | BlueprintUpdatedMessage
-    | BlueprintChunkMessage
-    | DeterministicCodeFixStartedMessage
-    | DeterministicCodeFixCompletedMessage
+	| ProjectNameUpdatedMessage
+	| BlueprintUpdatedMessage
+	| BlueprintChunkMessage
+	| DeterministicCodeFixStartedMessage
+	| DeterministicCodeFixCompletedMessage
 	| ModelConfigsInfoMessage
 	| TerminalCommandMessage
 	| TerminalOutputMessage

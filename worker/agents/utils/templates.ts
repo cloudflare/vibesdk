@@ -131,19 +131,21 @@ ${VITE_CONFIG_MINIMAL}
  * Used when starting from-scratch (general mode) or when no template fits.
  */
 export function createScratchTemplateDetails(): TemplateDetails {
-    return {
-        name: 'scratch',
-        description: { selection: 'from-scratch baseline', usage: `No template. Agent will scaffold as needed. **IT IS RECOMMENDED THAT YOU CHOOSE A VALID PRECONFIGURED TEMPLATE IF POSSIBLE** ${SCRATCH_TEMPLATE_INSTRUCTIONS}` },
-        fileTree: { path: '/', type: 'directory', children: [] },
-        allFiles: {},
-        language: 'typescript',
-        deps: {},
-        projectType: 'general',
-        frameworks: [],
-        importantFiles: [],
-        dontTouchFiles: [],
-        redactedFiles: [],
-        disabled: false,
-    };
+	return {
+		name: 'scratch',
+		description: {
+			selection: 'from-scratch baseline',
+			usage: `No template. Agent will scaffold as needed. **IT IS RECOMMENDED THAT YOU CHOOSE A VALID PRECONFIGURED TEMPLATE IF POSSIBLE** ${SCRATCH_TEMPLATE_INSTRUCTIONS}`,
+		},
+		fileTree: { path: '/', type: 'directory', children: [] },
+		allFiles: {},
+		language: 'typescript',
+		deps: {},
+		projectType: 'general',
+		frameworks: [],
+		importantFiles: [],
+		dontTouchFiles: [],
+		redactedFiles: [],
+		disabled: false,
+	};
 }
-

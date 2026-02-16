@@ -15,10 +15,15 @@ export default function AppsPage() {
 	// Derive initial sort from URL or localStorage, fallback to 'recent'
 	const allowedSorts: AppSortOption[] = ['recent', 'popular', 'trending', 'starred'];
 	const sortParam = searchParams.get('sort') as AppSortOption | null;
-	const savedSort = (typeof localStorage !== 'undefined' ? localStorage.getItem('apps.sort') : null) as AppSortOption | null;
-	const initialSort: AppSortOption = (sortParam && allowedSorts.includes(sortParam))
-		? sortParam
-		: (savedSort && allowedSorts.includes(savedSort) ? savedSort : 'recent');
+	const savedSort = (
+		typeof localStorage !== 'undefined' ? localStorage.getItem('apps.sort') : null
+	) as AppSortOption | null;
+	const initialSort: AppSortOption =
+		sortParam && allowedSorts.includes(sortParam)
+			? sortParam
+			: savedSort && allowedSorts.includes(savedSort)
+				? savedSort
+				: 'recent';
 
 	const {
 		// Filter state
@@ -73,9 +78,7 @@ export default function AppsPage() {
 				>
 					{/* Header */}
 					<div className="mb-8">
-						<h1 className="text-6xl font-bold mb-3 font-[departureMono] text-accent">
-							MY APPS
-						</h1>
+						<h1 className="text-6xl font-bold mb-3 font-[departureMono] text-accent">MY APPS</h1>
 						<p className="text-text-tertiary text-lg">
 							{loading
 								? 'Loading...'
@@ -85,12 +88,9 @@ export default function AppsPage() {
 
 					<div className="flex flex-col gap-4">
 						<div className="flex items-center gap-4">
-							<VisibilityFilter
-								value={filterVisibility}
-								onChange={handleVisibilityChange}
-							/>
+							<VisibilityFilter value={filterVisibility} onChange={handleVisibilityChange} />
 						</div>
-						
+
 						<div className="flex items-start gap-4 justify-between">
 							{/* Search and Filters */}
 							<AppFiltersForm
@@ -113,8 +113,10 @@ export default function AppsPage() {
 								onValueChange={(v) => {
 									handleSortChange(v);
 									// Persist to URL and localStorage
-									try { localStorage.setItem('apps.sort', v); } catch {
-                                        console.error('Failed to persist sort to localStorage');
+									try {
+										localStorage.setItem('apps.sort', v);
+									} catch {
+										console.error('Failed to persist sort to localStorage');
 									}
 									const next = new URLSearchParams(searchParams);
 									next.set('sort', v);
@@ -150,8 +152,7 @@ export default function AppsPage() {
 							totalCount === 0
 								? {
 										title: 'No apps yet',
-										description:
-											'Start building your first app with AI assistance.',
+										description: 'Start building your first app with AI assistance.',
 										action: <div></div>,
 									}
 								: undefined

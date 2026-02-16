@@ -28,13 +28,7 @@ import {
 import { MonacoEditor } from '@/components/monaco-editor/monaco-editor';
 import { getFileType } from '@/utils/string';
 import { Button } from '@/components/ui/button';
-import {
-	Card,
-	CardContent,
-	CardDescription,
-	CardHeader,
-	CardTitle,
-} from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '@/contexts/auth-context';
@@ -55,13 +49,7 @@ type AppDetails = AppDetailsData;
 type PendingAction = 'favorite' | 'bookmark' | 'star' | 'fork' | 'remix';
 
 // Supported actions constant for validation
-const SUPPORTED_ACTIONS: PendingAction[] = [
-	'favorite',
-	'bookmark',
-	'star',
-	'fork',
-	'remix',
-];
+const SUPPORTED_ACTIONS: PendingAction[] = ['favorite', 'bookmark', 'star', 'fork', 'remix'];
 
 // Action configuration type for reusability
 interface ActionConfig {
@@ -119,9 +107,7 @@ export default function AppView() {
 				setIsFavorited(appData.userFavorited || false);
 				setIsStarred(appData.userStarred || false);
 			} else {
-				throw new Error(
-					appResponse.error?.message || 'Failed to fetch app details',
-				);
+				throw new Error(appResponse.error?.message || 'Failed to fetch app details');
 			}
 		} catch (err) {
 			console.error('Error fetching app:', err);
@@ -132,9 +118,7 @@ export default function AppView() {
 					setError(`Failed to load app: ${err.message}`);
 				}
 			} else {
-				setError(
-					err instanceof Error ? err.message : 'Failed to load app',
-				);
+				setError(err instanceof Error ? err.message : 'Failed to load app');
 			}
 		} finally {
 			setLoading(false);
@@ -144,7 +128,6 @@ export default function AppView() {
 	useEffect(() => {
 		fetchAppDetails();
 	}, [id, fetchAppDetails]);
-
 
 	// Convert agent files to chat FileType format
 	const files = useMemo<FileType[]>(() => {
@@ -189,11 +172,7 @@ export default function AppView() {
 					if (!app) return;
 					const newState = await toggleFavorite(app.id);
 					setIsFavorited(newState);
-					toast.success(
-						newState
-							? 'Added to bookmarks'
-							: 'Removed from bookmarks',
-					);
+					toast.success(newState ? 'Added to bookmarks' : 'Removed from bookmarks');
 				},
 				errorMessage: 'Failed to update bookmarks',
 			},
@@ -214,9 +193,7 @@ export default function AppView() {
 									}
 								: null,
 						);
-						toast.success(
-							response.data.isStarred ? 'Starred!' : 'Unstarred',
-						);
+						toast.success(response.data.isStarred ? 'Starred!' : 'Unstarred');
 					} else {
 						throw new Error(response.error?.message || 'Failed to star app');
 					}
@@ -283,11 +260,7 @@ export default function AppView() {
 					await config.handler();
 				} catch (error) {
 					console.error(`${config.action} error:`, error);
-					toast.error(
-						error instanceof ApiError
-							? error.message
-							: config.errorMessage,
-					);
+					toast.error(error instanceof ApiError ? error.message : config.errorMessage);
 				}
 			};
 		},
@@ -295,14 +268,8 @@ export default function AppView() {
 	);
 
 	// Create action handlers using the reusable pattern
-	const handleFavorite = useMemo(
-		() => createAuthenticatedHandler('favorite'),
-		[createAuthenticatedHandler],
-	);
-	const handleStar = useMemo(
-		() => createAuthenticatedHandler('star'),
-		[createAuthenticatedHandler],
-	);
+	const handleFavorite = useMemo(() => createAuthenticatedHandler('favorite'), [createAuthenticatedHandler]);
+	const handleStar = useMemo(() => createAuthenticatedHandler('star'), [createAuthenticatedHandler]);
 	// const handleFork = useMemo(
 	// 	() => createAuthenticatedHandler('fork'),
 	// 	[createAuthenticatedHandler],
@@ -328,16 +295,8 @@ export default function AppView() {
 			try {
 				await config.handler();
 			} catch (error) {
-				console.error(
-					'Failed to execute pending action:',
-					action,
-					error,
-				);
-				toast.error(
-					error instanceof ApiError
-						? error.message
-						: config.errorMessage,
-				);
+				console.error('Failed to execute pending action:', action, error);
+				toast.error(error instanceof ApiError ? error.message : config.errorMessage);
 			}
 		},
 		[actionConfigs, app],
@@ -365,14 +324,7 @@ export default function AppView() {
 
 		// Execute the pending action
 		executePendingAction(action);
-	}, [
-		user,
-		app,
-		loading,
-		searchParams,
-		setSearchParams,
-		executePendingAction,
-	]);
+	}, [user, app, loading, searchParams, setSearchParams, executePendingAction]);
 
 	const handleCopyUrl = () => {
 		if (!appUrl) return;
@@ -389,27 +341,24 @@ export default function AppView() {
 		try {
 			setIsDeploying(true);
 			setDeploymentProgress('Connecting to agent...');
-            const response = await apiClient.deployPreview(app.id);
-            if (response.success && response.data) {
-                const data = response.data;
-                if (data.previewURL || data.tunnelURL) {
-                    const newUrl = getPreviewUrl(
-                        data.previewURL,
-                        data.tunnelURL,
-                    );
-                    setApp((prev) =>
-                        prev
-                            ? {
-                                    ...prev,
-                                    cloudflareUrl: newUrl,
-                                    previewUrl: newUrl,
-                                }
-                            : null,
-                    );
-                    setDeploymentProgress('Deployment complete!');
-                }
-            }
-            setIsDeploying(false);
+			const response = await apiClient.deployPreview(app.id);
+			if (response.success && response.data) {
+				const data = response.data;
+				if (data.previewURL || data.tunnelURL) {
+					const newUrl = getPreviewUrl(data.previewURL, data.tunnelURL);
+					setApp((prev) =>
+						prev
+							? {
+									...prev,
+									cloudflareUrl: newUrl,
+									previewUrl: newUrl,
+								}
+							: null,
+					);
+					setDeploymentProgress('Deployment complete!');
+				}
+			}
+			setIsDeploying(false);
 		} catch (error) {
 			console.error('Error starting deployment:', error);
 			setDeploymentProgress('Failed to start deployment');
@@ -426,36 +375,23 @@ export default function AppView() {
 
 		try {
 			setIsUpdatingVisibility(true);
-			const newVisibility =
-				app.visibility === 'private' ? 'public' : 'private';
+			const newVisibility = app.visibility === 'private' ? 'public' : 'private';
 
-			const response = await apiClient.updateAppVisibility(
-				app.id,
-				newVisibility,
-			);
+			const response = await apiClient.updateAppVisibility(app.id, newVisibility);
 
 			if (response.success && response.data) {
 				// Update the app state with new visibility
-				setApp((prev) =>
-					prev ? { ...prev, visibility: newVisibility } : null,
-				);
+				setApp((prev) => (prev ? { ...prev, visibility: newVisibility } : null));
 
 				toast.success(
-					response.data.message ||
-						`App is now ${newVisibility === 'private' ? 'private' : 'public'}`,
+					response.data.message || `App is now ${newVisibility === 'private' ? 'private' : 'public'}`,
 				);
 			} else {
-				throw new Error(
-					response.error?.message || 'Failed to update visibility',
-				);
+				throw new Error(response.error?.message || 'Failed to update visibility');
 			}
 		} catch (error) {
 			console.error('Error updating app visibility:', error);
-			toast.error(
-				error instanceof ApiError
-					? error.message
-					: 'Failed to update visibility',
-			);
+			toast.error(error instanceof ApiError ? error.message : 'Failed to update visibility');
 		} finally {
 			setIsUpdatingVisibility(false);
 		}
@@ -484,7 +420,7 @@ export default function AppView() {
 					// No history available, go to apps page
 					navigate('/apps');
 				}
-            }
+			}
 		} catch (error) {
 			console.error('Error deleting app:', error);
 			toast.error('An unexpected error occurred while deleting the app');
@@ -510,12 +446,9 @@ export default function AppView() {
 				<Card className="max-w-md">
 					<CardContent className="pt-6">
 						<div className="text-center">
-							<h2 className="text-xl font-semibold mb-2">
-								App not found
-							</h2>
+							<h2 className="text-xl font-semibold mb-2">App not found</h2>
 							<p className="text-text-tertiary mb-4">
-								{error ||
-									"The app you're looking for doesn't exist."}
+								{error || "The app you're looking for doesn't exist."}
 							</p>
 							<Button onClick={() => navigate('/apps')}>
 								<ChevronLeft className="mr-2 h-4 w-4" />
@@ -536,10 +469,7 @@ export default function AppView() {
 		<div className="min-h-screen bg-bg-3 flex flex-col">
 			<div className="container mx-auto px-4 pb-6 space-y-6 flex flex-col flex-1">
 				{/* Back button */}
-				<button
-					onClick={() => history.back()}
-					className="gap-2 flex items-center text-text-primary/80"
-				>
+				<button onClick={() => history.back()} className="gap-2 flex items-center text-text-primary/80">
 					<ChevronLeft className="h-4 w-4" />
 					Back
 				</button>
@@ -549,9 +479,7 @@ export default function AppView() {
 					<div className="flex-1">
 						<div className="flex rounded w-fit pb-3 pt-2 flex-col mb-6">
 							<div className="flex items-center gap-3 mb-2">
-								<h1 className="text-4xl font-semibold tracking-tight text-text-primary">
-									{app.title}
-								</h1>
+								<h1 className="text-4xl font-semibold tracking-tight text-text-primary">{app.title}</h1>
 
 								<div className="flex items-center gap-2 border rounded-xl">
 									<Badge variant={'default'}>
@@ -583,16 +511,9 @@ export default function AppView() {
 									variant="outline"
 									size="sm"
 									onClick={handleFavorite}
-									className={cn(
-										'gap-2 text-text-primary',
-									)}
+									className={cn('gap-2 text-text-primary')}
 								>
-									<Bookmark
-										className={cn(
-											'h-4 w-4',
-											isFavorited && 'fill-current',
-										)}
-									/>
+									<Bookmark className={cn('h-4 w-4', isFavorited && 'fill-current')} />
 									{isFavorited ? 'Bookmarked' : 'Bookmark'}
 								</Button>
 
@@ -602,12 +523,7 @@ export default function AppView() {
 									onClick={handleStar}
 									className={cn('gap-2 text-text-primary')}
 								>
-									<Star
-										className={cn(
-											'h-4 w-4',
-											isStarred && 'fill-current',
-										)}
-									/>
+									<Star className={cn('h-4 w-4', isStarred && 'fill-current')} />
 									{isStarred ? 'Starred' : 'Star'}
 								</Button>
 
@@ -629,11 +545,7 @@ export default function AppView() {
 										size="sm"
 										onClick={() => {
 											if (app.githubRepositoryUrl) {
-												window.open(
-													app.githubRepositoryUrl,
-													'_blank',
-													'noopener,noreferrer',
-												);
+												window.open(app.githubRepositoryUrl, '_blank', 'noopener,noreferrer');
 											}
 										}}
 										className={cn('gap-2 text-text-primary')}
@@ -641,8 +553,7 @@ export default function AppView() {
 									>
 										<Github className="h-4 w-4" />
 										View on GitHub
-										{app.githubRepositoryVisibility ===
-											'private' && (
+										{app.githubRepositoryVisibility === 'private' && (
 											<Lock className="h-3 w-3 opacity-70" />
 										)}
 									</Button>
@@ -652,9 +563,7 @@ export default function AppView() {
 									<>
 										<Button
 											size="sm"
-											onClick={() =>
-												navigate(`/chat/${app.id}`)
-											}
+											onClick={() => navigate(`/chat/${app.id}`)}
 											className="gap-2 bg-text-primary text-bg-4 border-bg-4 border"
 										>
 											<Code2 className="h-4 w-4" />
@@ -663,17 +572,14 @@ export default function AppView() {
 										<Button
 											variant="outline"
 											size="sm"
-											onClick={() =>
-												setIsDeleteDialogOpen(true)
-											}
+											onClick={() => setIsDeleteDialogOpen(true)}
 											className="gap-2 text-text-on-brand !border-0 bg-destructive hover:opacity-90 transition-colors"
 										>
 											<Trash2 className="h-4 w-4" />
 											Delete App
 										</Button>
 									</>
-								) 
-                                : (
+								) : (
 									<>
 										{/*
 										<Button
@@ -687,16 +593,11 @@ export default function AppView() {
 										</Button>
 										*/}
 									</>
-								)
-                                }
+								)}
 							</div>
 						</div>
 
-						{app.description && (
-							<p className="text-text-primary my-3 max-w-4xl">
-								{app.description}
-							</p>
-						)}
+						{app.description && <p className="text-text-primary my-3 max-w-4xl">{app.description}</p>}
 
 						<div className="flex flex-wrap items-center gap-4 text-sm text-text-secondary">
 							{app.user && (
@@ -726,47 +627,49 @@ export default function AppView() {
 						</div>
 					</div>
 				</div>
-				<Tabs
-					value={activeTab}
-					onValueChange={setActiveTab}
-					className="flex flex-col flex-1 gap-2"
-				>
+				<Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col flex-1 gap-2">
 					{/* Tab switcher and Git Clone inline */}
 					<div className="flex items-center gap-4">
 						{/* Using proper TabsList and TabsTrigger components */}
 						<TabsList className="inline-flex h-auto w-fit items-center gap-0.5 bg-bg-2 dark:bg-bg-1 rounded-md p-0.5 border border-border-primary/30">
-						<TabsTrigger 
-							value="preview" 
-							className="px-3 py-1.5 rounded text-xs font-medium data-[state=active]:bg-bg-4 dark:data-[state=active]:bg-bg-3 data-[state=active]:text-text-primary data-[state=active]:shadow-sm"
-						>
-							<Eye className={cn(
-								"h-3.5 w-3.5 mr-1.5",
-								activeTab === 'preview' ? 'text-accent' : 'text-accent/60'
-							)} />
-							Preview
-						</TabsTrigger>
-						<TabsTrigger 
-							value="code" 
-							className="px-3 py-1.5 rounded text-xs font-medium data-[state=active]:bg-bg-4 dark:data-[state=active]:bg-bg-3 data-[state=active]:text-text-primary data-[state=active]:shadow-sm"
-						>
-							<Code2 className={cn(
-								"h-3.5 w-3.5 mr-1.5",
-								activeTab === 'code' ? 'text-accent' : 'text-accent/60'
-							)} />
-							Code
-						</TabsTrigger>
-						<TabsTrigger 
-							value="prompt" 
-							className="px-3 py-1.5 rounded text-xs font-medium data-[state=active]:bg-bg-4 dark:data-[state=active]:bg-bg-3 data-[state=active]:text-text-primary data-[state=active]:shadow-sm"
-						>
-							<MessageSquare className={cn(
-								"h-3.5 w-3.5 mr-1.5",
-								activeTab === 'prompt' ? 'text-accent' : 'text-accent/60'
-							)} />
-							Prompt
-						</TabsTrigger>
+							<TabsTrigger
+								value="preview"
+								className="px-3 py-1.5 rounded text-xs font-medium data-[state=active]:bg-bg-4 dark:data-[state=active]:bg-bg-3 data-[state=active]:text-text-primary data-[state=active]:shadow-sm"
+							>
+								<Eye
+									className={cn(
+										'h-3.5 w-3.5 mr-1.5',
+										activeTab === 'preview' ? 'text-accent' : 'text-accent/60',
+									)}
+								/>
+								Preview
+							</TabsTrigger>
+							<TabsTrigger
+								value="code"
+								className="px-3 py-1.5 rounded text-xs font-medium data-[state=active]:bg-bg-4 dark:data-[state=active]:bg-bg-3 data-[state=active]:text-text-primary data-[state=active]:shadow-sm"
+							>
+								<Code2
+									className={cn(
+										'h-3.5 w-3.5 mr-1.5',
+										activeTab === 'code' ? 'text-accent' : 'text-accent/60',
+									)}
+								/>
+								Code
+							</TabsTrigger>
+							<TabsTrigger
+								value="prompt"
+								className="px-3 py-1.5 rounded text-xs font-medium data-[state=active]:bg-bg-4 dark:data-[state=active]:bg-bg-3 data-[state=active]:text-text-primary data-[state=active]:shadow-sm"
+							>
+								<MessageSquare
+									className={cn(
+										'h-3.5 w-3.5 mr-1.5',
+										activeTab === 'prompt' ? 'text-accent' : 'text-accent/60',
+									)}
+								/>
+								Prompt
+							</TabsTrigger>
 						</TabsList>
-						
+
 						{/* Git Clone - Inline with tabs */}
 						<div className="flex-shrink-0">
 							{app.visibility === 'public' ? (
@@ -775,9 +678,7 @@ export default function AppView() {
 									appTitle={app.title}
 								/>
 							) : isOwner ? (
-								<GitClonePrivatePrompt
-									onOpenModal={() => setIsGitCloneModalOpen(true)}
-								/>
+								<GitClonePrivatePrompt onOpenModal={() => setIsGitCloneModalOpen(true)} />
 							) : null}
 						</div>
 					</div>
@@ -786,38 +687,26 @@ export default function AppView() {
 						<Card className="px-2">
 							<CardHeader className="overflow-hidden rounded-t">
 								<div className="flex items-center gap-4 min-w-0">
-									<CardTitle className="text-base flex-shrink-0">
-										Live Preview
-									</CardTitle>
+									<CardTitle className="text-base flex-shrink-0">Live Preview</CardTitle>
 									{/* Preview URL action buttons */}
 									{appUrl && (
 										<div className="ml-auto flex items-center gap-0 flex-shrink-0">
+											<Button variant="ghost" size="sm" onClick={handleCopyUrl} className="gap-2">
+												{urlCopied ? (
+													<>
+														<Check className="h-3 w-3" />
+														Copied!
+													</>
+												) : (
+													<>
+														<Copy className="h-3 w-3" />
+													</>
+												)}
+											</Button>
 											<Button
 												variant="ghost"
 												size="sm"
-												onClick={handleCopyUrl}
-												className="gap-2"
-															>
-																{urlCopied ? (
-																	<>
-																		<Check className="h-3 w-3" />
-																		Copied!
-																	</>
-																) : (
-																	<>
-																		<Copy className="h-3 w-3" />
-																	</>
-																)}
-															</Button>
-											<Button
-												variant="ghost"
-												size="sm"
-												onClick={() =>
-													window.open(
-														appUrl,
-														'_blank',
-													)
-												}
+												onClick={() => window.open(appUrl, '_blank')}
 												className="gap-2"
 											>
 												<ExternalLink className="h-3 w-3" />
@@ -844,8 +733,7 @@ export default function AppView() {
 														Run App
 													</h3>
 													<p className="text-gray-500 mb-6 max-w-md">
-														Run the app to see a
-														live preview.
+														Run the app to see a live preview.
 													</p>
 													{deploymentProgress && (
 														<p className="text-sm text-gray-800 mb-4">
@@ -854,12 +742,8 @@ export default function AppView() {
 													)}
 													<div className="flex gap-3 justify-center">
 														<Button
-															onClick={
-																handlePreviewDeploy
-															}
-															disabled={
-																isDeploying
-															}
+															onClick={handlePreviewDeploy}
+															disabled={isDeploying}
 															className="gap-2"
 														>
 															{isDeploying ? (
@@ -870,8 +754,7 @@ export default function AppView() {
 															) : (
 																<>
 																	<Play className="h-4 w-4" />
-																	Deploy for
-																	Preview
+																	Deploy for Preview
 																</>
 															)}
 														</Button>
@@ -884,8 +767,7 @@ export default function AppView() {
 													className="w-full h-full"
 													style={{
 														backgroundImage: `url("data:image/svg+xml,%3Csvg width='40' height='40' viewBox='0 0 40 40' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23000' fill-opacity='0.1'%3E%3Cpath d='M20 20c0 11.046-8.954 20-20 20V0c11.046 0 20 8.954 20 20z'/%3E%3C/g%3E%3C/svg%3E")`,
-														backgroundSize:
-															'40px 40px',
+														backgroundSize: '40px 40px',
 													}}
 												/>
 											</div>
@@ -911,11 +793,11 @@ export default function AppView() {
 									{activeFile && (
 										<Button
 											variant="ghost"
-																			size="sm"
-																			onClick={() => {
-																			void copyFile(activeFile.fileContents);
-																		}}
-																			className="gap-2"
+											size="sm"
+											onClick={() => {
+												void copyFile(activeFile.fileContents);
+											}}
+											className="gap-2"
 										>
 											<Copy className="h-3 w-3" />
 											Copy File
@@ -936,15 +818,10 @@ export default function AppView() {
 													{files.map((file) => (
 														<button
 															key={file.filePath}
-															onClick={() =>
-																handleFileClick(
-																	file,
-																)
-															}
+															onClick={() => handleFileClick(file)}
 															className={cn(
 																'flex items-center w-full gap-2 py-2 px-3 text-left text-sm transition-colors',
-																activeFile?.filePath ===
-																	file.filePath
+																activeFile?.filePath === file.filePath
 																	? 'bg-blue-100 text-blue-900 border-r-2 border-blue-500'
 																	: 'hover:bg-bg-3 text-text-tertiary hover:text-text-primary',
 															)}
@@ -965,15 +842,11 @@ export default function AppView() {
 															<div className="flex items-center gap-2 flex-1">
 																<Code2 className="h-4 w-4" />
 																<span className="text-sm font-mono">
-																	{
-																		activeFile.filePath
-																	}
+																	{activeFile.filePath}
 																</span>
 																{activeFile.explanation && (
 																	<span className="text-xs text-text-tertiary ml-3">
-																		{
-																			activeFile.explanation
-																		}
+																		{activeFile.explanation}
 																	</span>
 																)}
 															</div>
@@ -984,15 +857,12 @@ export default function AppView() {
 																className="h-full"
 																createOptions={{
 																	value: activeFile.fileContents,
-																	language:
-																		activeFile.language ||
-																		'plaintext',
+																	language: activeFile.language || 'plaintext',
 																	readOnly: true,
 																	minimap: {
 																		enabled: false,
 																	},
-																	lineNumbers:
-																		'on',
+																	lineNumbers: 'on',
 																	scrollBeyondLastLine: false,
 																	fontSize: 13,
 																	theme: 'vibesdk',
@@ -1003,10 +873,7 @@ export default function AppView() {
 													</>
 												) : (
 													<div className="flex-1 flex items-center justify-center">
-														<p className="text-text-tertiary">
-															Select a file to
-															view
-														</p>
+														<p className="text-text-tertiary">Select a file to view</p>
 													</div>
 												)}
 											</div>
@@ -1015,10 +882,9 @@ export default function AppView() {
 								) : (
 									<div className="flex items-center justify-center h-[400px]">
 										<p className="text-muted-foreground">
-											{app?.agentSummary === null 
-												? 'Loading code...' 
-												: 'No code has been generated yet.'
-											}
+											{app?.agentSummary === null
+												? 'Loading code...'
+												: 'No code has been generated yet.'}
 										</p>
 									</div>
 								)}
@@ -1026,16 +892,11 @@ export default function AppView() {
 						</Card>
 					</TabsContent>
 
-					<TabsContent
-						value="prompt"
-						className="flex-1"
-					>
+					<TabsContent value="prompt" className="flex-1">
 						<Card>
 							<CardHeader>
 								<CardTitle>Original Prompt</CardTitle>
-								<CardDescription>
-									The initial prompt used to create this app
-								</CardDescription>
+								<CardDescription>The initial prompt used to create this app</CardDescription>
 							</CardHeader>
 							<CardContent>
 								{app?.agentSummary?.query || app?.originalPrompt ? (
@@ -1053,7 +914,7 @@ export default function AppView() {
 												</p>
 											</div>
 										</div>
-										
+
 										{/* Copy button */}
 										<div className="mt-4 flex justify-end">
 											<Button
@@ -1061,10 +922,9 @@ export default function AppView() {
 												size="sm"
 												onClick={() => {
 													const prompt = app?.agentSummary?.query || app?.originalPrompt;
-																		if (prompt) {
-																			void copyPrompt(prompt);
-																		}
-
+													if (prompt) {
+														void copyPrompt(prompt);
+													}
 												}}
 												className="gap-2"
 											>
@@ -1077,10 +937,7 @@ export default function AppView() {
 									<div className="flex items-center justify-center py-12 text-text-tertiary">
 										<MessageSquare className="h-8 w-8 mr-3" />
 										<p>
-											{app?.agentSummary === null 
-												? 'Loading prompt...' 
-												: 'No prompt available'
-											}
+											{app?.agentSummary === null ? 'Loading prompt...' : 'No prompt available'}
 										</p>
 									</div>
 								)}

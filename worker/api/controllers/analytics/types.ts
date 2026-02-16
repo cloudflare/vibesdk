@@ -3,10 +3,7 @@
  * Type definitions for analytics controller requests and responses
  */
 
-import {
-	UserAnalyticsData,
-	ChatAnalyticsData,
-} from '../../../services/analytics/types';
+import { UserAnalyticsData, ChatAnalyticsData } from '../../../services/analytics/types';
 
 /**
  * User analytics response data

@@ -25,12 +25,9 @@ export function exportMarkdownAsFile(content: string, filename: string): void {
  *
  * See markdown-docs-preview.tsx for the new handlePrint implementation
  */
-export async function exportMarkdownAsPDF(
-	_element: HTMLElement,
-	_filename: string
-): Promise<void> {
+export async function exportMarkdownAsPDF(_element: HTMLElement, _filename: string): Promise<void> {
 	throw new Error(
 		'PDF export has been replaced with browser Print API. ' +
-		'Use window.print() for better results with smaller files and better quality.'
+			'Use window.print() for better results with smaller files and better quality.',
 	);
 }

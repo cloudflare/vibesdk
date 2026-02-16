@@ -20,12 +20,7 @@ export class CacheService {
 	/**
 	 * Store response in cache
 	 */
-	async put(
-		keyOrRequest: string | Request,
-		response: Response,
-		options: CacheOptions,
-	): Promise<void> {
-
+	async put(keyOrRequest: string | Request, response: Response, options: CacheOptions): Promise<void> {
 		// Convert Headers to a plain object
 		const headersObj: Record<string, string> = {};
 		response.headers.forEach((value, key) => {
@@ -38,9 +33,7 @@ export class CacheService {
 			headers: {
 				...headersObj,
 				'Cache-Control': `public, max-age=${options.ttlSeconds}`,
-				...(options.tags
-					? { 'Cache-Tag': options.tags.join(',') }
-					: {}),
+				...(options.tags ? { 'Cache-Tag': options.tags.join(',') } : {}),
 			},
 		});
 

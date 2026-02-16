@@ -4,10 +4,7 @@ import type { FileType } from '@/api-types';
 /**
  * A hook that streams file contents one by one at a specified rate
  */
-export function useFileContentStream(
-	files: FileType[],
-	options: { tps: number; enabled: boolean },
-) {
+export function useFileContentStream(files: FileType[], options: { tps: number; enabled: boolean }) {
 	const [streamedFiles, setStreamedFiles] = useState<FileType[]>([]);
 	const [doneStreaming, setDoneStreaming] = useState(false);
 	const timeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
@@ -54,10 +51,7 @@ export function useFileContentStream(
 			}
 
 			// Calculate next chunk
-			const nextPosition = Math.min(
-				content.length,
-				currentPositionRef.current + chunkSize,
-			);
+			const nextPosition = Math.min(content.length, currentPositionRef.current + chunkSize);
 			const chunk = content.slice(currentPositionRef.current, nextPosition);
 
 			// Update the current file's content

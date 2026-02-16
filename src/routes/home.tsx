@@ -29,12 +29,7 @@ export default function Home() {
 		if (isLoadingCapabilities || !capabilities) return [];
 		return getEnabledFeatures().map((def) => ({
 			id: def.id,
-			label:
-				def.id === 'presentation'
-					? 'Slides'
-					: def.id === 'general'
-						? 'General'
-						: 'App',
+			label: def.id === 'presentation' ? 'Slides' : def.id === 'general' ? 'General' : 'App',
 			description: def.description,
 		}));
 	}, [capabilities, getEnabledFeatures, isLoadingCapabilities]);
@@ -64,20 +59,12 @@ export default function Home() {
 		accept: [...SUPPORTED_IMAGE_MIME_TYPES],
 	});
 
-
-	const placeholderPhrases = useMemo(() => [
-		"todo list app",
-		"F1 fantasy game",
-		"personal finance tracker"
-	], []);
+	const placeholderPhrases = useMemo(() => ['todo list app', 'F1 fantasy game', 'personal finance tracker'], []);
 	const [currentPlaceholderPhraseIndex, setCurrentPlaceholderPhraseIndex] = useState(0);
-	const [currentPlaceholderText, setCurrentPlaceholderText] = useState("");
+	const [currentPlaceholderText, setCurrentPlaceholderText] = useState('');
 	const [isPlaceholderTyping, setIsPlaceholderTyping] = useState(true);
 
-	const {
-		apps,
-		loading,
-	} = usePaginatedApps({
+	const { apps, loading } = usePaginatedApps({
 		type: 'public',
 		defaultSort: 'popular',
 		defaultPeriod: 'week',
@@ -124,8 +111,7 @@ export default function Home() {
 			textareaRef.current.style.height = 'auto';
 			const scrollHeight = textareaRef.current.scrollHeight;
 			const maxHeight = 300; // Maximum height in pixels
-			textareaRef.current.style.height =
-				Math.min(scrollHeight, maxHeight) + 'px';
+			textareaRef.current.style.height = Math.min(scrollHeight, maxHeight) + 'px';
 		}
 	};
 
@@ -172,38 +158,24 @@ export default function Home() {
 			<div className="fixed inset-0 text-accent z-0 opacity-20 pointer-events-none">
 				<svg width="100%" height="100%">
 					<defs>
-						<pattern
-							id=":S2:"
-							viewBox="-6 -6 12 12"
-							patternUnits="userSpaceOnUse"
-							width="12"
-							height="12"
-						>
-							<circle
-								cx="0"
-								cy="0"
-								r="1"
-								fill="currentColor"
-							></circle>
+						<pattern id=":S2:" viewBox="-6 -6 12 12" patternUnits="userSpaceOnUse" width="12" height="12">
+							<circle cx="0" cy="0" r="1" fill="currentColor"></circle>
 						</pattern>
 					</defs>
-					<rect
-						width="100%"
-						height="100%"
-						fill="url(#:S2:)"
-					></rect>
+					<rect width="100%" height="100%" fill="url(#:S2:)"></rect>
 				</svg>
 			</div>
-			
+
 			<LayoutGroup>
 				<div className="rounded-md w-full max-w-2xl overflow-hidden">
 					<motion.div
 						layout
 						transition={{ layout: { duration: 0.5, ease: [0.22, 1, 0.36, 1] } }}
 						className={clsx(
-							"px-6 p-8 flex flex-col items-center z-10",
-							discoverReady ? "mt-48" : "mt-[20vh] sm:mt-[24vh] md:mt-[28vh]"
-						)}>
+							'px-6 p-8 flex flex-col items-center z-10',
+							discoverReady ? 'mt-48' : 'mt-[20vh] sm:mt-[24vh] md:mt-[28vh]',
+						)}
+					>
 						<h1 className="text-shadow-sm text-shadow-red-200 dark:text-shadow-red-900 text-accent font-medium leading-[1.1] tracking-tight text-5xl w-full mb-4 bg-clip-text bg-gradient-to-r from-text-primary to-text-primary/90">
 							What should we build today?
 						</h1>
@@ -217,10 +189,10 @@ export default function Home() {
 							}}
 							className="flex z-10 flex-col w-full min-h-[150px] bg-bg-4 border border-accent/30 dark:border-accent/50 dark:bg-bg-2 rounded-[18px] shadow-textarea p-5 transition-all duration-200"
 						>
-							<div 
+							<div
 								className={clsx(
-									"flex-1 flex flex-col relative",
-									isDragging && "ring-2 ring-accent ring-offset-2 rounded-lg"
+									'flex-1 flex flex-col relative',
+									isDragging && 'ring-2 ring-accent ring-offset-2 rounded-lg',
 								)}
 								{...dragHandlers}
 							>
@@ -250,10 +222,7 @@ export default function Home() {
 								/>
 								{images.length > 0 && (
 									<div className="mt-3">
-										<ImageAttachmentPreview
-											images={images}
-											onRemove={removeImage}
-										/>
+										<ImageAttachmentPreview images={images} onRemove={removeImage} />
 									</div>
 								)}
 							</div>
@@ -273,10 +242,7 @@ export default function Home() {
 								)}
 
 								<div className={clsx('flex items-center gap-2', showModeSelector && 'ml-4')}>
-									<ImageUploadButton
-										onFilesSelected={addImages}
-										disabled={isProcessing}
-									/>
+									<ImageUploadButton onFilesSelected={addImages} disabled={isProcessing} />
 									<button
 										type="submit"
 										disabled={!query.trim()}
@@ -288,7 +254,6 @@ export default function Home() {
 							</div>
 						</form>
 					</motion.div>
-
 				</div>
 
 				<AnimatePresence>
@@ -302,7 +267,9 @@ export default function Home() {
 							<div className="flex items-start gap-2 px-4 py-3 rounded-xl bg-bg-4/50 dark:bg-bg-2/50 border border-accent/20 dark:border-accent/30 shadow-sm">
 								<Info className="size-4 text-accent flex-shrink-0 mt-0.5" />
 								<p className="text-xs text-text-tertiary leading-relaxed">
-									<span className="font-medium text-text-secondary">Images Beta:</span> Images guide app layout and design but may not be replicated exactly. The coding agent cannot access images directly for app assets.
+									<span className="font-medium text-text-secondary">Images Beta:</span> Images guide
+									app layout and design but may not be replicated exactly. The coding agent cannot
+									access images directly for app assets.
 								</p>
 							</div>
 						</motion.div>
@@ -315,21 +282,29 @@ export default function Home() {
 							key="discover-section"
 							layout
 							initial={{ opacity: 0, height: 0 }}
-							animate={{ opacity: 1, height: "auto" }}
+							animate={{ opacity: 1, height: 'auto' }}
 							exit={{ opacity: 0, height: 0 }}
 							transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
 							className={clsx('max-w-6xl mx-auto px-4 z-10', images.length > 0 ? 'mt-10' : 'mt-16 mb-8')}
 						>
-							<div className='flex flex-col items-start'>
-								<h2 className="text-2xl font-medium text-text-secondary/80">Discover Apps built by the community</h2>
-								<div ref={discoverLinkRef} className="text-md font-light mb-4 text-text-tertiary hover:underline underline-offset-4 select-text cursor-pointer" onClick={() => navigate('/discover')} >View All</div>
+							<div className="flex flex-col items-start">
+								<h2 className="text-2xl font-medium text-text-secondary/80">
+									Discover Apps built by the community
+								</h2>
+								<div
+									ref={discoverLinkRef}
+									className="text-md font-light mb-4 text-text-tertiary hover:underline underline-offset-4 select-text cursor-pointer"
+									onClick={() => navigate('/discover')}
+								>
+									View All
+								</div>
 								<motion.div
 									layout
 									transition={{ duration: 0.4 }}
 									className="grid grid-cols-2 xl:grid-cols-3 gap-6"
 								>
 									<AnimatePresence mode="popLayout">
-										{apps.map(app => (
+										{apps.map((app) => (
 											<AppCard
 												key={app.id}
 												app={app}
@@ -352,8 +327,6 @@ export default function Home() {
 		</div>
 	);
 }
-
-
 
 type ArrowProps = {
 	/** Ref to the source element the arrow starts from */
@@ -408,21 +381,17 @@ export const CurvedArrow: React.FC<ArrowProps> = ({
 
 		// Distances to target from each side center
 		const dists = Object.fromEntries(
-			Object.entries(centers).map(([side, p]) => [
-				side,
-				(p.x - endPoint.x) ** 2 + (p.y - endPoint.y) ** 2,
-			])
+			Object.entries(centers).map(([side, p]) => [side, (p.x - endPoint.x) ** 2 + (p.y - endPoint.y) ** 2]),
 		) as Record<keyof typeof centers, number>;
 
-		const bestSide = (Object.entries(dists).sort((a, b) => a[1] - b[1])[0][0] ||
-			"right") as keyof typeof centers;
+		const bestSide = (Object.entries(dists).sort((a, b) => a[1] - b[1])[0][0] || 'right') as keyof typeof centers;
 
 		// Nudge start point slightly outside the element for visual clarity
 		const nudge = (p: Point, side: keyof typeof centers, offset: number) => {
 			switch (side) {
-				case "right":
+				case 'right':
 					return { x: p.x + offset, y: p.y };
-				case "left":
+				case 'left':
 					return { x: p.x - offset, y: p.y };
 			}
 		};
@@ -448,12 +417,12 @@ export const CurvedArrow: React.FC<ArrowProps> = ({
 		const onScroll = () => scheduleCompute();
 		const onResize = () => scheduleCompute();
 
-		window.addEventListener("scroll", onScroll, { passive: true });
-		window.addEventListener("resize", onResize);
+		window.addEventListener('scroll', onScroll, { passive: true });
+		window.addEventListener('resize', onResize);
 
 		// Track source element size changes
 		const el = sourceRef.current;
-		if ("ResizeObserver" in window) {
+		if ('ResizeObserver' in window) {
 			roRef.current = new ResizeObserver(() => scheduleCompute());
 			if (el) roRef.current.observe(el);
 		}
@@ -461,8 +430,8 @@ export const CurvedArrow: React.FC<ArrowProps> = ({
 		scheduleCompute();
 
 		return () => {
-			window.removeEventListener("scroll", onScroll);
-			window.removeEventListener("resize", onResize);
+			window.removeEventListener('scroll', onScroll);
+			window.removeEventListener('resize', onResize);
 			if (rafRef.current != null) cancelAnimationFrame(rafRef.current);
 			if (roRef.current && el) roRef.current.unobserve(el);
 		};
@@ -470,7 +439,7 @@ export const CurvedArrow: React.FC<ArrowProps> = ({
 	}, []);
 
 	const d = useMemo(() => {
-		if (!start || !end) return "";
+		if (!start || !end) return '';
 
 		const dx = end.x - start.x;
 		const dy = end.y - start.y;
@@ -495,24 +464,51 @@ export const CurvedArrow: React.FC<ArrowProps> = ({
 		<svg
 			aria-hidden="true"
 			style={{
-				position: "fixed",
+				position: 'fixed',
 				inset: 0,
-				width: "100vw",
-				height: "100vh",
-				pointerEvents: "none",
-				overflow: "visible",
+				width: '100vw',
+				height: '100vh',
+				pointerEvents: 'none',
+				overflow: 'visible',
 				zIndex: 9999,
-				display: hidden ? "none" : "block",
+				display: hidden ? 'none' : 'block',
 			}}
 		>
 			<defs>
 				<filter id="discover-squiggle" x="-20%" y="-20%" width="140%" height="140%">
 					<feTurbulence type="fractalNoise" baseFrequency="0.8" numOctaves="1" seed="3" result="noise" />
-					<feDisplacementMap in="SourceGraphic" in2="noise" scale="1" xChannelSelector="R" yChannelSelector="G" />
+					<feDisplacementMap
+						in="SourceGraphic"
+						in2="noise"
+						scale="1"
+						xChannelSelector="R"
+						yChannelSelector="G"
+					/>
 				</filter>
-				<marker id="discover-arrowhead" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto" markerUnits="strokeWidth" opacity={0.20}>
-					<path d="M 0 1.2 L 7 4" stroke="var(--color-text-tertiary)" strokeWidth="1.6" strokeLinecap="round" fill="none" />
-					<path d="M 0 6.8 L 7 4" stroke="var(--color-text-tertiary)" strokeWidth="1.2" strokeLinecap="round" fill="none" />
+				<marker
+					id="discover-arrowhead"
+					markerWidth="8"
+					markerHeight="8"
+					refX="7"
+					refY="4"
+					orient="auto"
+					markerUnits="strokeWidth"
+					opacity={0.2}
+				>
+					<path
+						d="M 0 1.2 L 7 4"
+						stroke="var(--color-text-tertiary)"
+						strokeWidth="1.6"
+						strokeLinecap="round"
+						fill="none"
+					/>
+					<path
+						d="M 0 6.8 L 7 4"
+						stroke="var(--color-text-tertiary)"
+						strokeWidth="1.2"
+						strokeLinecap="round"
+						fill="none"
+					/>
 				</marker>
 			</defs>
 
@@ -520,7 +516,7 @@ export const CurvedArrow: React.FC<ArrowProps> = ({
 				d={d}
 				// stroke="var(--color-accent)"
 				stroke="var(--color-text-tertiary)"
-				strokeOpacity={0.20}
+				strokeOpacity={0.2}
 				strokeWidth={1.6}
 				fill="none"
 				strokeLinecap="round"

@@ -2,13 +2,9 @@
  * Supported image MIME types for upload
  * Limited to most common web formats for reliability
  */
-export const SUPPORTED_IMAGE_MIME_TYPES = [
-	'image/png',
-	'image/jpeg',
-	'image/webp',
-] as const;
+export const SUPPORTED_IMAGE_MIME_TYPES = ['image/png', 'image/jpeg', 'image/webp'] as const;
 
-export type SupportedImageMimeType = typeof SUPPORTED_IMAGE_MIME_TYPES[number];
+export type SupportedImageMimeType = (typeof SUPPORTED_IMAGE_MIME_TYPES)[number];
 
 /**
  * Image attachment for user messages
@@ -37,12 +33,12 @@ export interface ProcessedImageAttachment {
 	mimeType: SupportedImageMimeType;
 	/** Base64-encoded image data (without data URL prefix) */
 	base64Data?: string;
-    /** R2 key of the image */
-    r2Key: string;
-    /** URL of the image */
-    publicUrl: string;
-    /** image data hash */
-    hash: string;
+	/** R2 key of the image */
+	r2Key: string;
+	/** URL of the image */
+	publicUrl: string;
+	/** image data hash */
+	hash: string;
 }
 
 /**

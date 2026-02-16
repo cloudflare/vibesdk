@@ -1,15 +1,15 @@
 import { modify, applyEdits } from 'jsonc-parser';
 
 export interface TemplateCustomizationOptions {
-    projectName: string;
-    commandsHistory: string[];
+	projectName: string;
+	commandsHistory: string[];
 }
 
 export interface CustomizedTemplateFiles {
-    'package.json': string;
-    'wrangler.jsonc'?: string;
-    '.bootstrap.js': string;
-    '.gitignore': string;
+	'package.json': string;
+	'wrangler.jsonc'?: string;
+	'.bootstrap.js': string;
+	'.gitignore': string;
 }
 
 /**
@@ -20,75 +20,64 @@ export interface CustomizedTemplateFiles {
  * - Updates .gitignore to exclude bootstrap marker
  */
 export function customizeTemplateFiles(
-    templateFiles: Record<string, string>,
-    options: TemplateCustomizationOptions
+	templateFiles: Record<string, string>,
+	options: TemplateCustomizationOptions,
 ): Partial<CustomizedTemplateFiles> {
-    const customized: Partial<CustomizedTemplateFiles> = {};
-    
-    // 1. Customize package.json
-    if (templateFiles['package.json']) {
-        customized['package.json'] = customizePackageJson(
-            templateFiles['package.json'],
-            options.projectName
-        );
-    }
-    
-    // 2. Customize wrangler.jsonc
-    if (templateFiles['wrangler.jsonc']) {
-        customized['wrangler.jsonc'] = customizeWranglerJsonc(
-            templateFiles['wrangler.jsonc'],
-            options.projectName
-        );
-    }
-    
-    // 3. Generate bootstrap script
-    customized['.bootstrap.js'] = generateBootstrapScript(
-        options.projectName,
-        options.commandsHistory
-    );
-    
-    // 4. Update .gitignore
-    customized['.gitignore'] = updateGitignore(
-        templateFiles['.gitignore'] || ''
-    );
-    
-    return customized;
+	const customized: Partial<CustomizedTemplateFiles> = {};
+
+	// 1. Customize package.json
+	if (templateFiles['package.json']) {
+		customized['package.json'] = customizePackageJson(templateFiles['package.json'], options.projectName);
+	}
+
+	// 2. Customize wrangler.jsonc
+	if (templateFiles['wrangler.jsonc']) {
+		customized['wrangler.jsonc'] = customizeWranglerJsonc(templateFiles['wrangler.jsonc'], options.projectName);
+	}
+
+	// 3. Generate bootstrap script
+	customized['.bootstrap.js'] = generateBootstrapScript(options.projectName, options.commandsHistory);
+
+	// 4. Update .gitignore
+	customized['.gitignore'] = updateGitignore(templateFiles['.gitignore'] || '');
+
+	return customized;
 }
 
 /**
  * Update package.json with project name and prepare script
  */
 export function customizePackageJson(content: string, projectName: string): string {
-    const pkg = JSON.parse(content);
-    pkg.name = projectName;
-    pkg.scripts = pkg.scripts || {};
-    pkg.scripts.prepare = 'bun .bootstrap.js || true';
-    return JSON.stringify(pkg, null, 2);
+	const pkg = JSON.parse(content);
+	pkg.name = projectName;
+	pkg.scripts = pkg.scripts || {};
+	pkg.scripts.prepare = 'bun .bootstrap.js || true';
+	return JSON.stringify(pkg, null, 2);
 }
 
 /**
  * Update wrangler.jsonc with project name (preserves comments)
  */
 function customizeWranglerJsonc(content: string, projectName: string): string {
-    const edits = modify(content, ['name'], projectName, {
-        formattingOptions: {
-            tabSize: 2,
-            insertSpaces: true,
-            eol: '\n'
-        }
-    });
-    return applyEdits(content, edits);
+	const edits = modify(content, ['name'], projectName, {
+		formattingOptions: {
+			tabSize: 2,
+			insertSpaces: true,
+			eol: '\n',
+		},
+	});
+	return applyEdits(content, edits);
 }
 
 /**
  * Generate bootstrap script with proper command escaping
  */
 export function generateBootstrapScript(projectName: string, commands: string[]): string {
-    // Escape strings for safe embedding in JavaScript
-    const safeProjectName = JSON.stringify(projectName);
-    const safeCommands = JSON.stringify(commands, null, 4);
-    
-    return `#!/usr/bin/env bun
+	// Escape strings for safe embedding in JavaScript
+	const safeProjectName = JSON.stringify(projectName);
+	const safeCommands = JSON.stringify(commands, null, 4);
+
+	return `#!/usr/bin/env bun
 /**
  * Auto-generated bootstrap script
  * Runs once after git clone to setup project correctly
@@ -203,24 +192,18 @@ function runSetupCommands() {
  * Update .gitignore to exclude bootstrap marker
  */
 function updateGitignore(content: string): string {
-    if (content.includes('.bootstrap-complete')) {
-        return content;
-    }
-    return content + '\n# Bootstrap marker\n.bootstrap-complete\n';
+	if (content.includes('.bootstrap-complete')) {
+		return content;
+	}
+	return content + '\n# Bootstrap marker\n.bootstrap-complete\n';
 }
 
 /**
  * Generate project name from blueprint or query
  */
-export function generateProjectName(
-    projectName: string,
-    uniqueSuffix: string,
-    maxPrefixLength: number = 20
-): string {
-    let prefix = projectName
-        .toLowerCase()
-        .replace(/[^a-z0-9]/g, '-');
-    
-    prefix = prefix.slice(0, maxPrefixLength);
-    return `${prefix}-${uniqueSuffix}`.toLowerCase();
+export function generateProjectName(projectName: string, uniqueSuffix: string, maxPrefixLength: number = 20): string {
+	let prefix = projectName.toLowerCase().replace(/[^a-z0-9]/g, '-');
+
+	prefix = prefix.slice(0, maxPrefixLength);
+	return `${prefix}-${uniqueSuffix}`.toLowerCase();
 }

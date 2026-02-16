@@ -13,5 +13,5 @@ export type UserStatsData = UserStats;
  * Response data for getUserActivity
  */
 export interface UserActivityData {
-    activities: UserActivity[];
+	activities: UserActivity[];
 }

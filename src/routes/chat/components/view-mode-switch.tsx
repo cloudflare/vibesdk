@@ -19,7 +19,7 @@ export function ViewModeSwitch({
 	previewUrl,
 	projectType,
 }: {
-	view: 'preview' | 'editor' | 'docs' | 'blueprint' | 'presentation'
+	view: 'preview' | 'editor' | 'docs' | 'blueprint' | 'presentation';
 	onChange: (mode: 'preview' | 'editor' | 'docs' | 'blueprint' | 'presentation') => void;
 	previewAvailable: boolean;
 	showTooltip: boolean;
@@ -33,7 +33,7 @@ export function ViewModeSwitch({
 	// Get the preview view definition to find the icon
 	const featureModule = projectType ? featureRegistry.getModule(projectType) : null;
 	const views = featureModule?.getViews() ?? [];
-	const previewView = views.find(v => v.id === 'preview');
+	const previewView = views.find((v) => v.id === 'preview');
 	const iconName = previewView?.iconName;
 	const PreviewIcon = (iconName && ICON_MAP[iconName]) || Eye;
 

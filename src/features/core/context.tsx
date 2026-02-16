@@ -2,15 +2,7 @@
  * Feature Context Provider
  */
 
-import {
-	createContext,
-	useState,
-	useEffect,
-	useCallback,
-	useMemo,
-	useContext,
-	type ReactNode,
-} from 'react';
+import { createContext, useState, useEffect, useCallback, useMemo, useContext, type ReactNode } from 'react';
 import { featureRegistry } from './registry';
 import { apiClient } from '@/lib/api-client';
 import type {

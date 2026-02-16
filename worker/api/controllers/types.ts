@@ -2,15 +2,14 @@
  * Base Controller Types
  */
 
-import { BaseApiResponse } from "../responses";
-
+import { BaseApiResponse } from '../responses';
 
 /**
  * Typed response wrapper for controller methods
  * Ensures controller responses match their expected interface types
  */
 export type ControllerResponse<T> = Response & {
-    __typedData: T; // Phantom type for compile-time checking
+	__typedData: T; // Phantom type for compile-time checking
 };
 
 /**

@@ -112,10 +112,7 @@ export function AuthButton({ className }: AuthButtonProps) {
 					className="relative rounded-full hover:ring-2 hover:ring-primary/20 transition-all"
 				>
 					<Avatar className="h-8 w-8">
-						<AvatarImage
-							src={user.avatarUrl}
-							alt={user.displayName || user.email}
-						/>
+						<AvatarImage src={user.avatarUrl} alt={user.displayName || user.email} />
 						<AvatarFallback className="bg-text-secondary/10 text-text-primary font-semibold">
 							{getInitials()}
 						</AvatarFallback>
@@ -137,32 +134,22 @@ export function AuthButton({ className }: AuthButtonProps) {
 						<DropdownMenuLabel className="p-0">
 							<div className="flex items-start gap-3 p-4">
 								<Avatar className="h-12 w-12">
-									<AvatarImage
-										src={user.avatarUrl}
-										alt={user.displayName || user.email}
-									/>
+									<AvatarImage src={user.avatarUrl} alt={user.displayName || user.email} />
 									<AvatarFallback className="bg-text-secondary/10 text-text-primary font-semibold text-lg">
 										{getInitials()}
 									</AvatarFallback>
 								</Avatar>
 								<div className="flex flex-col gap-1 flex-1 text-text-primary">
 									<div className="flex items-center gap-2">
-										<span className="text-sm font-semibold">
-											{user.displayName || 'User'}
-										</span>
+										<span className="text-sm font-semibold">{user.displayName || 'User'}</span>
 									</div>
-									<span className="text-xs text-text-tertiary">
-										{user.email}
-									</span>
+									<span className="text-xs text-text-tertiary">{user.email}</span>
 								</div>
 							</div>
 						</DropdownMenuLabel>
 
 						<DropdownMenuGroup>
-							<DropdownMenuItem
-								onClick={() => navigate('/settings')}
-								className="cursor-pointer"
-							>
+							<DropdownMenuItem onClick={() => navigate('/settings')} className="cursor-pointer">
 								<Settings className="mr-1 h-4 w-4" />
 								Settings
 							</DropdownMenuItem>

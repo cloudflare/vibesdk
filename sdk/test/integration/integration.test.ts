@@ -9,7 +9,7 @@ function requireEnv(name: string, altName?: string): string {
 	const v = process.env[name] ?? (altName ? process.env[altName] : undefined);
 	if (!v) {
 		throw new Error(
-			`Missing ${name}. Create an API key in Settings -> API Keys and run: ${name}=<key> bun run test:integration`
+			`Missing ${name}. Create an API key in Settings -> API Keys and run: ${name}=<key> bun run test:integration`,
 		);
 	}
 	return v;
@@ -34,7 +34,7 @@ describeIntegration('SDK integration', () => {
 	const apiKey = requireEnv('VIBESDK_API_KEY', 'VIBESDK_INTEGRATION_API_KEY');
 	const baseUrl = getEnv(
 		'VIBESDK_BASE_URL',
-		getEnv('VIBESDK_INTEGRATION_BASE_URL', 'https://build.cloudflare.dev')
+		getEnv('VIBESDK_INTEGRATION_BASE_URL', 'https://build.cloudflare.dev'),
 	) as string;
 
 	const log = (msg: string) => console.log(`[bun] ${msg}`);
@@ -77,6 +77,6 @@ describeIntegration('SDK integration', () => {
 			const failedSteps = result.steps.filter((s) => !s.success);
 			expect(failedSteps.length).toBe(0);
 		},
-		FULL_BUILD_TIMEOUT
+		FULL_BUILD_TIMEOUT,
 	);
 });

@@ -15,39 +15,39 @@ export type Visibility = 'private' | 'public';
  * Standard pagination interface used across all services
  */
 export interface PaginationInfo {
-    limit: number;
-    offset: number;
-    total: number;
-    hasMore: boolean;
+	limit: number;
+	offset: number;
+	total: number;
+	hasMore: boolean;
 }
 
 /**
  * Enhanced app data with user and social statistics
  */
 export interface EnhancedAppData extends schema.App {
-    userName: string | null;
-    userAvatar: string | null;
-    starCount: number;
-    userStarred: boolean;
-    userFavorited: boolean;
-    viewCount?: number;
-    forkCount?: number;
-    likeCount?: number;
+	userName: string | null;
+	userAvatar: string | null;
+	starCount: number;
+	userStarred: boolean;
+	userFavorited: boolean;
+	viewCount?: number;
+	forkCount?: number;
+	likeCount?: number;
 }
 
 /**
  * App with favorite status for user-specific queries
  */
 export interface AppWithFavoriteStatus extends schema.App {
-    isFavorite: boolean;
-    updatedAtFormatted: string;
+	isFavorite: boolean;
+	updatedAtFormatted: string;
 }
 
 /**
  * Favorite toggle operation result
  */
 export interface FavoriteToggleResult {
-    isFavorite: boolean;
+	isFavorite: boolean;
 }
 
 // ========================================
@@ -58,8 +58,8 @@ export interface FavoriteToggleResult {
  * Generic paginated result wrapper
  */
 export interface PaginatedResult<T> {
-    data: T[];
-    pagination: PaginationInfo;
+	data: T[];
+	pagination: PaginationInfo;
 }
 
 /**
@@ -90,63 +90,63 @@ export type SortOrder = 'asc' | 'desc';
  * Base app query options with common filters and pagination
  */
 export interface BaseAppQueryOptions extends PaginationParams {
-    framework?: string;
-    search?: string;
-    sort?: AppSortOption;
-    order?: SortOrder;
-    period?: TimePeriod;
+	framework?: string;
+	search?: string;
+	sort?: AppSortOption;
+	order?: SortOrder;
+	period?: TimePeriod;
 }
 
 /**
  * User app query options with user-specific filters
  */
 export interface AppQueryOptions extends BaseAppQueryOptions {
-    status?: 'generating' | 'completed';
-    visibility?: Visibility;
+	status?: 'generating' | 'completed';
+	visibility?: Visibility;
 }
 
 /**
  * Public app query options with user context for favorites/interactions
  */
 export interface PublicAppQueryOptions extends BaseAppQueryOptions {
-    userId?: string; // For user-specific data like favorites
+	userId?: string; // For user-specific data like favorites
 }
 
 /**
  * App ownership verification result
  */
 export interface OwnershipResult {
-    exists: boolean;
-    isOwner: boolean;
-    visibility?: 'private' | 'public' | null;
+	exists: boolean;
+	isOwner: boolean;
+	visibility?: 'private' | 'public' | null;
 }
 
 /**
  * App visibility update operation result
  */
 export interface AppVisibilityUpdateResult {
-    success: boolean;
-    error?: string;
-    app?: Pick<schema.App, 'id' | 'title' | 'visibility' | 'updatedAt'>;
+	success: boolean;
+	error?: string;
+	app?: Pick<schema.App, 'id' | 'title' | 'visibility' | 'updatedAt'>;
 }
 
 /**
  * Simple app creation data
  */
 export interface SimpleAppCreation {
-    userId: string;
-    title: string;
-    description?: string;
-    framework?: string;
-    visibility?: Visibility;
+	userId: string;
+	title: string;
+	description?: string;
+	framework?: string;
+	visibility?: Visibility;
 }
 
 /**
  * App for forking - includes permission check result
  */
 export interface AppForForkResult {
-    app: schema.App | null;
-    canFork: boolean;
+	app: schema.App | null;
+	canFork: boolean;
 }
 
 // ========================================
@@ -157,23 +157,23 @@ export interface AppForForkResult {
  * User statistics with all metrics
  */
 export interface UserStats {
-    appCount: number;
-    publicAppCount: number;
-    favoriteCount: number;
-    totalLikesReceived: number;
-    totalViewsReceived: number;
-    streakDays: number;
-    achievements: string[];
+	appCount: number;
+	publicAppCount: number;
+	favoriteCount: number;
+	totalLikesReceived: number;
+	totalViewsReceived: number;
+	streakDays: number;
+	achievements: string[];
 }
 
 /**
  * User activity timeline entry
  */
 export interface UserActivity {
-    type: 'created' | 'updated' | 'favorited';
-    title: string;
-    timestamp: Date | null;
-    metadata: Record<string, unknown>;
+	type: 'created' | 'updated' | 'favorited';
+	title: string;
+	timestamp: Date | null;
+	metadata: Record<string, unknown>;
 }
 
 // ========================================
@@ -184,41 +184,41 @@ export interface UserActivity {
  * Batch app statistics for multiple apps
  */
 export interface BatchAppStats {
-    [appId: string]: AppStats;
+	[appId: string]: AppStats;
 }
 
 /**
  * Team statistics
  */
 export interface TeamStats {
-    memberCount: number;
-    appCount: number;
+	memberCount: number;
+	appCount: number;
 }
 
 /**
  * Board statistics
  */
 export interface BoardStats {
-    memberCount: number;
-    appCount: number;
+	memberCount: number;
+	appCount: number;
 }
 
 /**
  * Individual app statistics
  */
 export interface AppStats {
-    viewCount: number;
-    forkCount: number;
-    likeCount: number;
+	viewCount: number;
+	forkCount: number;
+	likeCount: number;
 }
 
 /**
  * Model configuration with user override metadata
  */
 export interface UserModelConfigWithMetadata extends ModelConfig {
-    // User override metadata
-    isUserOverride: boolean;
-    userConfigId?: string;
+	// User override metadata
+	isUserOverride: boolean;
+	userConfigId?: string;
 }
 
 // ========================================
@@ -229,31 +229,31 @@ export interface UserModelConfigWithMetadata extends ModelConfig {
  * Model test result
  */
 export interface TestResult {
-    success: boolean;
-    error?: string;
-    model?: string;
-    latencyMs?: number;
+	success: boolean;
+	error?: string;
+	model?: string;
+	latencyMs?: number;
 }
 
 /**
  * Model test request parameters
  */
 export interface ModelTestRequest {
-    modelConfig: ModelConfig;
-    userApiKeys?: Record<string, string>;
-    testPrompt?: string;
+	modelConfig: ModelConfig;
+	userApiKeys?: Record<string, string>;
+	testPrompt?: string;
 }
 
 /**
  * Complete model test result with metadata
  */
 export interface ModelTestResult {
-    success: boolean;
-    error?: string;
-    responsePreview?: string;
-    latencyMs: number;
-    modelUsed: string;
-    timestamp?: Date;
+	success: boolean;
+	error?: string;
+	responsePreview?: string;
+	latencyMs: number;
+	modelUsed: string;
+	timestamp?: Date;
 }
 
 // ========================================
@@ -264,39 +264,39 @@ export interface ModelTestResult {
  * Structured error for database operations
  */
 export interface DatabaseError {
-    code: string;
-    message: string;
-    details?: Record<string, unknown>;
+	code: string;
+	message: string;
+	details?: Record<string, unknown>;
 }
 
 /**
  * Operation result wrapper with error handling
  */
 export interface OperationResult<T> {
-    success: boolean;
-    data?: T;
-    error?: DatabaseError;
+	success: boolean;
+	data?: T;
+	error?: DatabaseError;
 }
 
 /**
  * Error object with optional nested error
  */
 export interface ErrorWithMessage {
-    message?: string;
-    error?: {
-        message?: string;
-    };
+	message?: string;
+	error?: {
+		message?: string;
+	};
 }
 
 /**
  * Type guard to check if error is an object with message
  */
 export function isErrorWithMessage(error: unknown): error is ErrorWithMessage {
-    return (
-        typeof error === 'object' &&
-        error !== null &&
-        ('message' in error || ('error' in error && typeof (error as Record<string, unknown>).error === 'object'))
-    );
+	return (
+		typeof error === 'object' &&
+		error !== null &&
+		('message' in error || ('error' in error && typeof (error as Record<string, unknown>).error === 'object'))
+	);
 }
 
 // ========================================
@@ -307,7 +307,7 @@ export function isErrorWithMessage(error: unknown): error is ErrorWithMessage {
  * Health check result
  */
 export interface HealthStatusResult {
-    healthy: boolean;
-    timestamp: string;
-    details?: Record<string, unknown>;
+	healthy: boolean;
+	timestamp: string;
+	details?: Record<string, unknown>;
 }

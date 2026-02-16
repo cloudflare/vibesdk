@@ -1,25 +1,13 @@
 import { BaseProjectState } from '../state';
-import {
-	ProjectType,
-	ExportResult,
-	ExportOptions,
-	DeployResult,
-	DeployOptions,
-} from '../types';
+import { ProjectType, ExportResult, ExportOptions, DeployResult, DeployOptions } from '../types';
 import { AgentComponent } from '../AgentComponent';
 import type { AgentInfrastructure } from '../AgentCore';
 import { WebSocketMessageResponses } from '../../constants';
 import { AppService } from '../../../database/services/AppService';
 import { GitHubService } from '../../../services/github';
-import {
-	getAdditionalExportStrategy,
-	type AdditionalExportStrategy,
-	type ExportContext,
-} from './strategies';
+import { getAdditionalExportStrategy, type AdditionalExportStrategy, type ExportContext } from './strategies';
 
-export class ProjectObjective<
-	TState extends BaseProjectState = BaseProjectState,
-> extends AgentComponent<TState> {
+export class ProjectObjective<TState extends BaseProjectState = BaseProjectState> extends AgentComponent<TState> {
 	private projectType: ProjectType;
 	private additionalExportStrategy: AdditionalExportStrategy | null;
 
@@ -29,10 +17,7 @@ export class ProjectObjective<
 		expiresAt: number;
 	} | null = null;
 
-	constructor(
-		infrastructure: AgentInfrastructure<TState>,
-		projectType: ProjectType,
-	) {
+	constructor(infrastructure: AgentInfrastructure<TState>, projectType: ProjectType) {
 		super(infrastructure);
 		this.projectType = projectType;
 		this.additionalExportStrategy = getAdditionalExportStrategy(projectType);
@@ -77,12 +62,10 @@ export class ProjectObjective<
 			const result = await this.deploymentManager.deployToCloudflare({
 				target,
 				callbacks: {
-					onStarted: (data) =>
-						this.broadcast(WebSocketMessageResponses.CLOUDFLARE_DEPLOYMENT_STARTED, data),
+					onStarted: (data) => this.broadcast(WebSocketMessageResponses.CLOUDFLARE_DEPLOYMENT_STARTED, data),
 					onCompleted: (data) =>
 						this.broadcast(WebSocketMessageResponses.CLOUDFLARE_DEPLOYMENT_COMPLETED, data),
-					onError: (data) =>
-						this.broadcast(WebSocketMessageResponses.CLOUDFLARE_DEPLOYMENT_ERROR, data),
+					onError: (data) => this.broadcast(WebSocketMessageResponses.CLOUDFLARE_DEPLOYMENT_ERROR, data),
 				},
 			});
 
@@ -151,8 +134,7 @@ export class ProjectObjective<
 				progress: 20,
 			});
 
-			const { gitObjects, query, templateDetails } =
-				await this.infrastructure.exportGitObjects();
+			const { gitObjects, query, templateDetails } = await this.infrastructure.exportGitObjects();
 
 			this.logger.info('Git objects exported', {
 				objectCount: gitObjects.length,

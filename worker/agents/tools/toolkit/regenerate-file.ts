@@ -2,18 +2,12 @@ import { tool, t, ErrorResult } from '../types';
 import { StructuredLogger } from '../../../logger';
 import { ICodingAgent } from 'worker/agents/services/interfaces/ICodingAgent';
 
-export type RegenerateFileResult =
-	| { path: string; diff: string }
-	| ErrorResult;
+export type RegenerateFileResult = { path: string; diff: string } | ErrorResult;
 
-export function createRegenerateFileTool(
-	agent: ICodingAgent,
-	logger: StructuredLogger,
-) {
+export function createRegenerateFileTool(agent: ICodingAgent, logger: StructuredLogger) {
 	return tool({
 		name: 'regenerate_file',
-		description:
-			`Autonomous AI agent that applies surgical fixes to code files. Takes file path and array of specific issues to fix. Returns diff showing changes made.
+		description: `Autonomous AI agent that applies surgical fixes to code files. Takes file path and array of specific issues to fix. Returns diff showing changes made.
 
 CRITICAL: Provide detailed, specific issues - not vague descriptions. See system prompt for full usage guide. These would be implemented by an independent LLM AI agent`,
 		args: {

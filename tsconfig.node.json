@@ -2,12 +2,8 @@
 	"compilerOptions": {
 		"baseUrl": ".",
 		"paths": {
-            "shared/*": [
-              "./shared/*"
-            ],
-            "worker/*": [
-              "./worker/*"
-            ]
+			"shared/*": ["./shared/*"],
+			"worker/*": ["./worker/*"]
 		},
 		"tsBuildInfoFile": "./node_modules/.tmp/tsconfig.node.tsbuildinfo",
 		"target": "ES2022",

@@ -25,24 +25,10 @@ export function BaseHeaderActions({
 }: BaseHeaderActionsProps) {
 	return (
 		<>
-			<ModelConfigInfo
-				configs={modelConfigs}
-				onRequestConfigs={onRequestConfigs}
-				loading={loadingConfigs}
-			/>
-			<HeaderButton
-				icon={GitBranch}
-				label="Clone"
-				onClick={onGitCloneClick}
-				title="Clone to local machine"
-			/>
+			<ModelConfigInfo configs={modelConfigs} onRequestConfigs={onRequestConfigs} loading={loadingConfigs} />
+			<HeaderButton icon={GitBranch} label="Clone" onClick={onGitCloneClick} title="Clone to local machine" />
 			{isGitHubExportReady && (
-				<HeaderButton
-					icon={Github}
-					label="GitHub"
-					onClick={onGitHubExportClick}
-					title="Export to GitHub"
-				/>
+				<HeaderButton icon={Github} label="GitHub" onClick={onGitHubExportClick} title="Export to GitHub" />
 			)}
 			<HeaderButton
 				icon={Expand}

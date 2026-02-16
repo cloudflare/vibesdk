@@ -2,10 +2,7 @@ import { tool } from '../types';
 import { StructuredLogger } from '../../../logger';
 import { ICodingAgent } from 'worker/agents/services/interfaces/ICodingAgent';
 
-export function createWaitForDebugTool(
-	agent: ICodingAgent,
-	logger: StructuredLogger
-) {
+export function createWaitForDebugTool(agent: ICodingAgent, logger: StructuredLogger) {
 	return tool({
 		name: 'wait_for_debug',
 		description:

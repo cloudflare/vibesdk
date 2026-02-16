@@ -9,10 +9,7 @@ function getEnv(name: string, fallback?: string): string | undefined {
 }
 
 const apiKey = getEnv('VIBESDK_API_KEY', getEnv('VIBESDK_INTEGRATION_API_KEY'));
-const baseUrl = getEnv(
-	'VIBESDK_BASE_URL',
-	getEnv('VIBESDK_INTEGRATION_BASE_URL', 'https://build.cloudflare.dev')
-);
+const baseUrl = getEnv('VIBESDK_BASE_URL', getEnv('VIBESDK_INTEGRATION_BASE_URL', 'https://build.cloudflare.dev'));
 
 const describeWorker = apiKey ? describe : describe.skip;
 
@@ -69,16 +66,7 @@ describeWorker('SDK Worker Integration', () => {
 
 		// Spawn wrangler dev with explicit config to avoid picking up root wrangler.jsonc
 		wranglerProcess = spawn({
-			cmd: [
-				'bunx',
-				'wrangler',
-				'dev',
-				'--config',
-				'wrangler.toml',
-				'--port',
-				String(WORKER_PORT),
-				'--local',
-			],
+			cmd: ['bunx', 'wrangler', 'dev', '--config', 'wrangler.toml', '--port', String(WORKER_PORT), '--local'],
 			cwd: workerDir,
 			env: {
 				...process.env,
@@ -163,6 +151,6 @@ describeWorker('SDK Worker Integration', () => {
 			const failedSteps = result.steps.filter((s) => !s.success);
 			expect(failedSteps.length).toBe(0);
 		},
-		FULL_BUILD_TIMEOUT
+		FULL_BUILD_TIMEOUT,
 	);
 });

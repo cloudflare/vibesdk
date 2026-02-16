@@ -6,12 +6,7 @@
 
 import { lazy, type ComponentType } from 'react';
 import type { FeatureDefinition, ProjectType } from '@/api-types';
-import type {
-	FeatureModule,
-	FeatureLoader,
-	PreviewComponentProps,
-	HeaderActionsProps,
-} from './types';
+import type { FeatureModule, FeatureLoader, PreviewComponentProps, HeaderActionsProps } from './types';
 
 interface RegisteredFeature {
 	definition: FeatureDefinition;
@@ -45,8 +40,7 @@ class FeatureRegistry {
 			const existing = this.features.get(def.id);
 			if (!existing) continue;
 
-			const hadCustomHeaderActions =
-				existing.definition.capabilities.hasCustomHeaderActions;
+			const hadCustomHeaderActions = existing.definition.capabilities.hasCustomHeaderActions;
 			existing.definition = def;
 
 			if (hadCustomHeaderActions !== def.capabilities.hasCustomHeaderActions) {

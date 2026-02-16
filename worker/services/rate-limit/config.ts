@@ -34,15 +34,11 @@ export interface DORateLimitConfig extends RateLimitConfigBase {
 	dailyLimit?: number; // optional rolling 24h limit
 }
 
-export type LLMCallsRateLimitConfig = (DORateLimitConfig) & {
+export type LLMCallsRateLimitConfig = DORateLimitConfig & {
 	excludeBYOKUsers: boolean;
 };
 
-export type RateLimitConfig =
-	| RLRateLimitConfig
-	| KVRateLimitConfig
-	| DORateLimitConfig
-	| LLMCallsRateLimitConfig;
+export type RateLimitConfig = RLRateLimitConfig | KVRateLimitConfig | DORateLimitConfig | LLMCallsRateLimitConfig;
 
 export enum RateLimitType {
 	API_RATE_LIMIT = 'apiRateLimit',
@@ -73,7 +69,7 @@ export const DEFAULT_RATE_LIMIT_SETTINGS: RateLimitSettings = {
 		enabled: true,
 		store: RateLimitStore.DURABLE_OBJECT,
 		limit: 10,
-        dailyLimit: 10,
+		dailyLimit: 10,
 		period: 4 * 60 * 60, // 4 hour
 	},
 	llmCalls: {
@@ -81,7 +77,7 @@ export const DEFAULT_RATE_LIMIT_SETTINGS: RateLimitSettings = {
 		store: RateLimitStore.DURABLE_OBJECT,
 		limit: 500,
 		period: 2 * 60 * 60, // 2 hour
-        dailyLimit: 1700,
+		dailyLimit: 1700,
 		excludeBYOKUsers: true,
 	},
 };

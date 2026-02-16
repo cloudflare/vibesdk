@@ -41,17 +41,15 @@ export default defineConfig({
 		alias: {
 			debug: 'debug/src/browser',
 			'@': path.resolve(__dirname, './src'),
-			'shared': path.resolve(__dirname, './shared'),
-			'worker': path.resolve(__dirname, './worker'),
+			shared: path.resolve(__dirname, './shared'),
+			worker: path.resolve(__dirname, './worker'),
 		},
 	},
 
 	// Configure for Prisma + Cloudflare Workers compatibility
 	define: {
 		// Ensure proper module definitions for Cloudflare Workers context
-		'process.env.NODE_ENV': JSON.stringify(
-			process.env.NODE_ENV || 'development',
-		),
+		'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV || 'development'),
 		global: 'globalThis',
 		// '__filename': '""',
 		// '__dirname': '""',

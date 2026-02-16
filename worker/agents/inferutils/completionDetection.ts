@@ -16,14 +16,10 @@ export class CompletionDetector {
 	 * @param executedToolCalls - Array of tool call results from execution
 	 * @returns CompletionSignal if completion tool was called, undefined otherwise
 	 */
-	detectCompletion(
-		executedToolCalls: ToolCallResult[]
-	): CompletionSignal | undefined {
+	detectCompletion(executedToolCalls: ToolCallResult[]): CompletionSignal | undefined {
 		for (const call of executedToolCalls) {
 			if (this.completionToolNames.includes(call.name)) {
-				console.log(
-					`[COMPLETION_DETECTOR] Completion signal detected from tool: ${call.name}`
-				);
+				console.log(`[COMPLETION_DETECTOR] Completion signal detected from tool: ${call.name}`);
 
 				// Extract summary from tool result if available
 				let summary: string | undefined;

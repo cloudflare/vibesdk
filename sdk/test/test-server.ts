@@ -28,10 +28,10 @@ let clientIdCounter = 0;
 
 /**
  * Start a test server that simulates the agent protocol.
- * 
+ *
  * HTTP endpoints:
  * - POST /api/ws-ticket - Returns a ticket for WebSocket auth
- * 
+ *
  * WebSocket:
  * - Accepts connections at /ws?ticket=<ticket>
  * - Validates ticket before accepting
@@ -94,14 +94,16 @@ export function startTestServer(options: TestServerOptions = {}): TestServer {
 			open(ws: TestClient) {
 				clients.add(ws);
 				// Send agent_connected message on connection
-				ws.send(JSON.stringify({
-					type: 'agent_connected',
-					state: {
-						behaviorType: 'phasic',
-						projectType: 'app',
-					},
-					templateDetails: {},
-				}));
+				ws.send(
+					JSON.stringify({
+						type: 'agent_connected',
+						state: {
+							behaviorType: 'phasic',
+							projectType: 'app',
+						},
+						templateDetails: {},
+					}),
+				);
 			},
 
 			message(ws: TestClient, message: string | Buffer) {
@@ -146,11 +148,7 @@ export function startTestServer(options: TestServerOptions = {}): TestServer {
 /**
  * Wait for the server to have at least N connected clients.
  */
-export async function waitForClients(
-	server: TestServer,
-	count: number,
-	timeoutMs = 5000
-): Promise<void> {
+export async function waitForClients(server: TestServer, count: number, timeoutMs = 5000): Promise<void> {
 	const start = Date.now();
 	while (server.clients().length < count) {
 		if (Date.now() - start > timeoutMs) {
@@ -163,11 +161,7 @@ export async function waitForClients(
 /**
  * Wait for the server to receive at least N messages.
  */
-export async function waitForMessages(
-	server: TestServer,
-	count: number,
-	timeoutMs = 5000
-): Promise<void> {
+export async function waitForMessages(server: TestServer, count: number, timeoutMs = 5000): Promise<void> {
 	const start = Date.now();
 	while (server.received().length < count) {
 		if (Date.now() - start > timeoutMs) {

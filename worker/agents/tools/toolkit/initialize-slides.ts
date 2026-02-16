@@ -3,13 +3,11 @@ import { StructuredLogger } from '../../../logger';
 import { ICodingAgent } from 'worker/agents/services/interfaces/ICodingAgent';
 import { z } from 'zod';
 
-export function createInitializeSlidesTool(
-	agent: ICodingAgent,
-	logger: StructuredLogger
-) {
+export function createInitializeSlidesTool(agent: ICodingAgent, logger: StructuredLogger) {
 	return tool({
 		name: 'initialize_slides',
-		description: 'Initialize a presentation template inside the current workspace and deploy a live preview. Use only if the user wants a slide deck.',
+		description:
+			'Initialize a presentation template inside the current workspace and deploy a live preview. Use only if the user wants a slide deck.',
 		args: {
 			theme: type(z.string().optional(), () => ({
 				files: { mode: 'write', paths: [] },
@@ -23,8 +21,9 @@ export function createInitializeSlidesTool(
 			logger.info('Imported presentation template', { templateName, filesImported });
 
 			const deployMsg = await agent.deployPreview(true, !!force_preview);
-			return { message: `Slides initialized with template '${templateName}', files: ${filesImported}. ${deployMsg}` };
+			return {
+				message: `Slides initialized with template '${templateName}', files: ${filesImported}. ${deployMsg}`,
+			};
 		},
 	});
 }
-

@@ -2,16 +2,21 @@ import { describe, expect, it } from 'bun:test';
 
 import { WorkspaceStore } from '../src/workspace';
 
-const minimalState = (files: Record<string, string>) => ({
-	generatedFilesMap: Object.fromEntries(
-		Object.entries(files).map(([filePath, fileContents]) => [filePath, { filePath, fileContents }]),
-	),
-} as any);
+const minimalState = (files: Record<string, string>) =>
+	({
+		generatedFilesMap: Object.fromEntries(
+			Object.entries(files).map(([filePath, fileContents]) => [filePath, { filePath, fileContents }]),
+		),
+	}) as any;
 
 describe('WorkspaceStore', () => {
 	it('applies agent_connected state snapshot', () => {
 		const ws = new WorkspaceStore();
-		ws.applyWsMessage({ type: 'agent_connected', state: minimalState({ 'a.txt': 'hi' }), templateDetails: {} } as any);
+		ws.applyWsMessage({
+			type: 'agent_connected',
+			state: minimalState({ 'a.txt': 'hi' }),
+			templateDetails: {},
+		} as any);
 		expect(ws.read('a.txt')).toBe('hi');
 	});
 

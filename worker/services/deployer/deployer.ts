@@ -1,11 +1,6 @@
 import { createObjectLogger } from '../../logger';
 import { CloudflareAPI } from './api/cloudflare-api';
-import {
-	AssetManifest,
-	WorkerMetadata,
-	WorkerBinding,
-	WranglerConfig,
-} from './types';
+import { AssetManifest, WorkerMetadata, WorkerBinding, WranglerConfig } from './types';
 import { mergeMigrations, extractDurableObjectClasses } from './utils/index';
 
 const logger = createObjectLogger('WorkerDeployer');
@@ -48,11 +43,7 @@ export class WorkerDeployer {
 
 		// Step 1: Create asset upload session
 		logger.info('\n📤 Creating asset upload session...');
-		const uploadSession = await this.api.createAssetUploadSession(
-			scriptName,
-			assetsManifest,
-			dispatchNamespace,
-		);
+		const uploadSession = await this.api.createAssetUploadSession(scriptName, assetsManifest, dispatchNamespace);
 		logger.info(`✅ Upload session created with JWT token`);
 
 		// Build maps for hash -> path and hash -> content
@@ -73,23 +64,14 @@ export class WorkerDeployer {
 
 		if (uploadSession.buckets && uploadSession.buckets.length > 0) {
 			const totalFiles = uploadSession.buckets.flat().length;
-			logger.info(
-				`\n📁 Uploading ${totalFiles} assets in ${uploadSession.buckets.length} batch(es)...`,
-			);
+			logger.info(`\n📁 Uploading ${totalFiles} assets in ${uploadSession.buckets.length} batch(es)...`);
 
 			for (let i = 0; i < uploadSession.buckets.length; i++) {
 				const bucket = uploadSession.buckets[i];
-				logger.info(
-					`  Batch ${i + 1}/${uploadSession.buckets.length}: ${bucket.length} file(s)`,
-				);
+				logger.info(`  Batch ${i + 1}/${uploadSession.buckets.length}: ${bucket.length} file(s)`);
 
 				// Upload batch and get completion token (on last batch)
-				const token = await this.api.uploadAssetBatch(
-					uploadSession.jwt,
-					bucket,
-					hashToContent,
-					hashToPath,
-				);
+				const token = await this.api.uploadAssetBatch(uploadSession.jwt, bucket, hashToContent, hashToPath);
 
 				if (token) {
 					completionToken = token;
@@ -114,8 +96,8 @@ export class WorkerDeployer {
 						| '404-page'
 						| 'none'
 						| undefined,
-                    run_worker_first: assetsConfig?.run_worker_first,
-                    binding: assetsConfig?.binding,
+					run_worker_first: assetsConfig?.run_worker_first,
+					binding: assetsConfig?.binding,
 				},
 			},
 			bindings: bindings || [],
@@ -139,9 +121,7 @@ export class WorkerDeployer {
 
 		// Extract Durable Object class names from bindings
 		const durableObjectClasses = bindings
-			?.filter(
-				(b) => b.type === 'durable_object_namespace' && b.class_name,
-			)
+			?.filter((b) => b.type === 'durable_object_namespace' && b.class_name)
 			.map((b) => b.class_name as string);
 
 		await this.api.deployWorker(
@@ -200,9 +180,7 @@ export class WorkerDeployer {
 
 		// Extract Durable Object class names from bindings
 		const durableObjectClasses = bindings
-			?.filter(
-				(b) => b.type === 'durable_object_namespace' && b.class_name,
-			)
+			?.filter((b) => b.type === 'durable_object_namespace' && b.class_name)
 			.map((b) => b.class_name as string);
 
 		await this.api.deployWorker(

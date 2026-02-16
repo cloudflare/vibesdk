@@ -5,9 +5,7 @@
 export async function calculateFileHash(content: ArrayBuffer): Promise<string> {
 	const hashBuffer = await crypto.subtle.digest('SHA-256', content);
 	const hashArray = Array.from(new Uint8Array(hashBuffer));
-	const hashHex = hashArray
-		.map((b) => b.toString(16).padStart(2, '0'))
-		.join('');
+	const hashHex = hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
 	return hashHex.substring(0, 32);
 }
 
@@ -122,17 +120,13 @@ export function mergeMigrations(migrations: any[] | undefined): any | null {
 			mergedMigration.new_classes.push(...migration.new_classes);
 		}
 		if (migration.new_sqlite_classes) {
-			mergedMigration.new_sqlite_classes.push(
-				...migration.new_sqlite_classes,
-			);
+			mergedMigration.new_sqlite_classes.push(...migration.new_sqlite_classes);
 		}
 	}
 
 	// Remove empty arrays
-	if (mergedMigration.new_classes.length === 0)
-		delete mergedMigration.new_classes;
-	if (mergedMigration.new_sqlite_classes.length === 0)
-		delete mergedMigration.new_sqlite_classes;
+	if (mergedMigration.new_classes.length === 0) delete mergedMigration.new_classes;
+	if (mergedMigration.new_sqlite_classes.length === 0) delete mergedMigration.new_sqlite_classes;
 
 	// Return null if no migrations to apply
 	if (!mergedMigration.new_classes && !mergedMigration.new_sqlite_classes) {
@@ -148,20 +142,14 @@ export function mergeMigrations(migrations: any[] | undefined): any | null {
 export function extractDurableObjectClasses(mergedMigration: any): string[] {
 	if (!mergedMigration) return [];
 
-	return [
-		...(mergedMigration.new_classes || []),
-		...(mergedMigration.new_sqlite_classes || []),
-	];
+	return [...(mergedMigration.new_classes || []), ...(mergedMigration.new_sqlite_classes || [])];
 }
 
 /**
  * Build worker bindings from Wrangler configuration
  * DRY implementation to avoid code duplication
  */
-export function buildWorkerBindings(
-	config: any,
-	hasAssets: boolean = false,
-): any[] {
+export function buildWorkerBindings(config: any, hasAssets: boolean = false): any[] {
 	const bindings: any[] = [];
 
 	// Add asset binding if assets are present

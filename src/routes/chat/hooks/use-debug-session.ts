@@ -13,29 +13,23 @@ interface DebugSessionInfo {
  * Custom hook to extract and manage debug session state
  * Reuses existing message/toolEvent infrastructure
  */
-export function useDebugSession(
-	messages: ChatMessage[]
-): DebugSessionInfo | null {
+export function useDebugSession(messages: ChatMessage[]): DebugSessionInfo | null {
 	const [elapsedSeconds, setElapsedSeconds] = useState(0);
 	const startTimeRef = useRef<number | null>(null);
 
 	// Find the message containing deep_debug tool event
 	const debugMessage = useMemo(() => {
-		return messages.find(msg =>
-			msg.ui?.toolEvents?.some(event => event.name === 'deep_debug')
-		);
+		return messages.find((msg) => msg.ui?.toolEvents?.some((event) => event.name === 'deep_debug'));
 	}, [messages]);
 
 	// Extract debug event info
 	const debugInfo = useMemo(() => {
 		if (!debugMessage) return null;
 
-		const debugEvent = debugMessage.ui?.toolEvents?.find(e => e.name === 'deep_debug');
+		const debugEvent = debugMessage.ui?.toolEvents?.find((e) => e.name === 'deep_debug');
 		if (!debugEvent) return null;
 
-		const toolCallCount = debugMessage.ui?.toolEvents?.filter(
-			e => e.name !== 'deep_debug'
-		).length || 0;
+		const toolCallCount = debugMessage.ui?.toolEvents?.filter((e) => e.name !== 'deep_debug').length || 0;
 
 		return {
 			message: debugMessage,

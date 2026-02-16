@@ -3,12 +3,7 @@ import { PreviewIframe } from '@/routes/chat/components/preview-iframe';
 import clsx from 'clsx';
 import { useState, useRef, useMemo } from 'react';
 import { HEADER_STYLES } from '@/routes/chat/components/view-header-styles';
-import {
-	usePresentationFiles,
-	usePresentationSync,
-	useIframeMessaging,
-	useThumbnailObserver,
-} from '../hooks';
+import { usePresentationFiles, usePresentationSync, useIframeMessaging, useThumbnailObserver } from '../hooks';
 import type { PreviewComponentProps } from '../../core/types';
 
 // Feature state keys (shared with PresentationHeaderActions)
@@ -76,12 +71,12 @@ export function PresentationPreview({
 				ref={sidebarScrollRef}
 				className="shrink-0 w-[260px] lg:w-[280px] xl:w-[300px] bg-bg-3 border-r border-border-primary h-full overflow-y-auto"
 			>
-				<div className={`${HEADER_STYLES.padding} ${HEADER_STYLES.container} flex items-center gap-2 ${HEADER_STYLES.textBase} font-semibold`}>
+				<div
+					className={`${HEADER_STYLES.padding} ${HEADER_STYLES.container} flex items-center gap-2 ${HEADER_STYLES.textBase} font-semibold`}
+				>
 					<Presentation className="size-4 text-accent" />
 					<span>Slides</span>
-					<span className="ml-auto text-xs font-mono text-text-50/50">
-						{slideFiles.length}
-					</span>
+					<span className="ml-auto text-xs font-mono text-text-50/50">{slideFiles.length}</span>
 				</div>
 				<div className="flex flex-col p-4 gap-3">
 					{slideFiles.map((slide) => (
@@ -150,9 +145,7 @@ export function PresentationPreview({
 									<div className="absolute inset-0 bg-accent/20 backdrop-blur-sm flex items-center justify-center z-20">
 										<div className="flex flex-col items-center gap-2">
 											<div className="size-4 border-2 border-text-on-brand/30 border-t-text-on-brand rounded-full animate-spin" />
-											<span className="text-xs font-medium text-text-on-brand">
-												Updating...
-											</span>
+											<span className="text-xs font-medium text-text-on-brand">Updating...</span>
 										</div>
 									</div>
 								)}
@@ -166,9 +159,7 @@ export function PresentationPreview({
 
 							{/* Slide filename */}
 							<div className="px-3 py-1.5 bg-bg-2 border-t border-border-primary">
-								<p className="text-xs font-mono text-text-50/60 truncate">
-									{slide.fileName}
-								</p>
+								<p className="text-xs font-mono text-text-50/60 truncate">{slide.fileName}</p>
 							</div>
 						</button>
 					))}
@@ -184,9 +175,7 @@ export function PresentationPreview({
 							<div className="px-3 py-2 bg-bg-2 border-b border-text/10">
 								<div className="flex items-center gap-2">
 									<Presentation className="size-4 text-accent" />
-									<span className="text-sm font-medium text-text-primary">
-										Current Slide
-									</span>
+									<span className="text-sm font-medium text-text-primary">Current Slide</span>
 								</div>
 							</div>
 							<div className="flex-1 min-h-0">
@@ -208,18 +197,14 @@ export function PresentationPreview({
 								<div className="px-3 py-2 bg-bg-2 border-b border-text/10">
 									<div className="flex items-center gap-2">
 										<Presentation className="size-4 text-text-primary/50" />
-										<span className="text-sm font-medium text-text-primary/70">
-											Next Slide
-										</span>
+										<span className="text-sm font-medium text-text-primary/70">Next Slide</span>
 									</div>
 								</div>
 								<div className="flex-1 min-h-0 bg-bg-3 flex items-center justify-center">
 									<div className="text-text-primary/50 text-sm text-center p-4">
 										Next slide preview
 										<br />
-										<span className="text-xs">
-											(requires Reveal.js integration)
-										</span>
+										<span className="text-xs">(requires Reveal.js integration)</span>
 									</div>
 								</div>
 							</div>
@@ -227,14 +212,10 @@ export function PresentationPreview({
 							{/* Speaker Notes */}
 							<div className="flex-1 flex flex-col border border-text/10 rounded-lg overflow-hidden">
 								<div className="px-3 py-2 bg-bg-2 border-b border-text/10">
-									<span className="text-sm font-medium text-text-primary/70">
-										Speaker Notes
-									</span>
+									<span className="text-sm font-medium text-text-primary/70">Speaker Notes</span>
 								</div>
 								<div className="flex-1 min-h-0 bg-bg-3 p-3 overflow-y-auto">
-									<p className="text-sm text-text-primary/50">
-										Speaker notes will appear here
-									</p>
+									<p className="text-sm text-text-primary/50">Speaker notes will appear here</p>
 								</div>
 							</div>
 						</div>
@@ -246,9 +227,7 @@ export function PresentationPreview({
 							<div className="px-3 py-2 bg-bg-2 border-b border-text/10">
 								<div className="flex items-center gap-2">
 									<Presentation className="size-4 text-accent" />
-									<span className="text-sm font-medium text-text-primary">
-										Current
-									</span>
+									<span className="text-sm font-medium text-text-primary">Current</span>
 								</div>
 							</div>
 							<div className="flex-1 min-h-0">
@@ -269,18 +248,14 @@ export function PresentationPreview({
 							<div className="px-3 py-2 bg-bg-2 border-b border-text/10">
 								<div className="flex items-center gap-2">
 									<Presentation className="size-4 text-text-primary/50" />
-									<span className="text-sm font-medium text-text-primary/70">
-										Next
-									</span>
+									<span className="text-sm font-medium text-text-primary/70">Next</span>
 								</div>
 							</div>
 							<div className="flex-1 min-h-0 bg-bg-3 flex items-center justify-center">
 								<div className="text-text-primary/50 text-sm text-center p-4">
 									Next slide preview
 									<br />
-									<span className="text-xs">
-										(requires Reveal.js integration)
-									</span>
+									<span className="text-xs">(requires Reveal.js integration)</span>
 								</div>
 							</div>
 						</div>

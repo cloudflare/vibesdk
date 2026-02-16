@@ -2,9 +2,7 @@ import type { ProjectType } from '../../types';
 import type { AdditionalExportStrategy } from './types';
 import { PresentationExportStrategy } from './presentation';
 
-export function getAdditionalExportStrategy(
-	projectType: ProjectType,
-): AdditionalExportStrategy | null {
+export function getAdditionalExportStrategy(projectType: ProjectType): AdditionalExportStrategy | null {
 	switch (projectType) {
 		case 'presentation':
 			return new PresentationExportStrategy();

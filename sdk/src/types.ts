@@ -148,10 +148,7 @@ export type AgentWsClientMessage =
 
 export type AgentWebSocketMessage = AgentWsServerMessage | AgentWsClientMessage;
 
-export type WsMessageOf<TType extends AgentWsServerMessage['type']> = Extract<
-	AgentWsServerMessage,
-	{ type: TType }
->;
+export type WsMessageOf<TType extends AgentWsServerMessage['type']> = Extract<AgentWsServerMessage, { type: TType }>;
 
 export type AgentEventMap = {
 	'ws:open': undefined;
@@ -172,18 +169,12 @@ export type AgentEventMap = {
 		| 'phase_validated'
 	>;
 	file: WsMessageOf<
-		| 'file_chunk_generated'
-		| 'file_generated'
-		| 'file_generating'
-		| 'file_regenerating'
-		| 'file_regenerated'
+		'file_chunk_generated' | 'file_generated' | 'file_generating' | 'file_regenerating' | 'file_regenerated'
 	>;
 	generation: WsMessageOf<'generation_started' | 'generation_complete' | 'generation_stopped' | 'generation_resumed'>;
 	preview: WsMessageOf<'deployment_completed' | 'deployment_started' | 'deployment_failed'>;
 	cloudflare: WsMessageOf<
-		| 'cloudflare_deployment_started'
-		| 'cloudflare_deployment_completed'
-		| 'cloudflare_deployment_error'
+		'cloudflare_deployment_started' | 'cloudflare_deployment_completed' | 'cloudflare_deployment_error'
 	>;
 	error: { error: string };
 
@@ -219,7 +210,7 @@ export type AgentConnection = {
 	waitFor: <K extends keyof AgentEventMap>(
 		event: K,
 		predicate?: (payload: AgentEventMap[K]) => boolean,
-		timeoutMs?: number
+		timeoutMs?: number,
 	) => Promise<AgentEventMap[K]>;
 };
 

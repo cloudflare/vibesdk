@@ -22,7 +22,7 @@ const LOG_LEVELS: Record<LogLevel, number> = {
  * Scrubbing disabled: pass-through
  */
 function scrubCredentials(data: unknown): unknown {
-    return data;
+	return data;
 }
 
 export class StructuredLogger {
@@ -31,11 +31,7 @@ export class StructuredLogger {
 	private readonly config: LoggerConfig;
 	private additionalFields: Record<string, unknown> = {};
 
-	constructor(
-		component: string,
-		objectContext?: ObjectContext,
-		config?: LoggerConfig,
-	) {
+	constructor(component: string, objectContext?: ObjectContext, config?: LoggerConfig) {
 		this.component = component;
 		this.objectContext = objectContext ? { ...objectContext } : undefined;
 		this.config = { ...DEFAULT_CONFIG, ...config };
@@ -76,10 +72,7 @@ export class StructuredLogger {
 	/**
 	 * Create a child logger with extended context
 	 */
-	child(
-		childContext: Partial<ObjectContext>,
-		component?: string,
-	): StructuredLogger {
+	child(childContext: Partial<ObjectContext>, component?: string): StructuredLogger {
 		const newComponent = component || this.component;
 		const mergedContext: ObjectContext = {
 			type: childContext.type || 'ChildLogger',
@@ -87,11 +80,7 @@ export class StructuredLogger {
 			...childContext,
 		};
 
-		const childLogger = new StructuredLogger(
-			newComponent,
-			mergedContext,
-			this.config,
-		);
+		const childLogger = new StructuredLogger(newComponent, mergedContext, this.config);
 		childLogger.setFields(this.additionalFields);
 		return childLogger;
 	}
@@ -108,12 +97,7 @@ export class StructuredLogger {
 	/**
 	 * Core logging method - builds structured JSON and outputs via console
 	 */
-	private log(
-		level: LogLevel,
-		message: string,
-		data?: Record<string, unknown>,
-		error?: Error,
-	): void {
+	private log(level: LogLevel, message: string, data?: Record<string, unknown>, error?: Error): void {
 		if (!this.shouldLog(level)) return;
 
 		const logEntry: LogEntry = {
@@ -165,25 +149,25 @@ export class StructuredLogger {
 	 */
 	private safeStringify(obj: unknown): string {
 		const seen = new WeakSet();
-		
+
 		return JSON.stringify(obj, (_key, value) => {
 			// Handle undefined, functions, symbols
 			if (value === undefined || typeof value === 'function' || typeof value === 'symbol') {
 				return undefined;
 			}
-			
+
 			// Handle BigInt
 			if (typeof value === 'bigint') {
 				return value.toString();
 			}
-			
+
 			// Handle circular references
 			if (typeof value === 'object' && value !== null) {
 				if (seen.has(value)) {
 					return '[Circular]';
 				}
 				seen.add(value);
-				
+
 				// Handle Error objects specially to preserve stack traces
 				if (value instanceof Error) {
 					return {
@@ -191,19 +175,22 @@ export class StructuredLogger {
 						message: value.message,
 						stack: value.stack,
 						// Include any additional properties
-						...Object.getOwnPropertyNames(value).reduce((acc, prop) => {
-							if (!['name', 'message', 'stack'].includes(prop)) {
-								const descriptor = Object.getOwnPropertyDescriptor(value, prop);
-								if (descriptor && descriptor.enumerable) {
-									acc[prop] = (value as any)[prop];
+						...Object.getOwnPropertyNames(value).reduce(
+							(acc, prop) => {
+								if (!['name', 'message', 'stack'].includes(prop)) {
+									const descriptor = Object.getOwnPropertyDescriptor(value, prop);
+									if (descriptor && descriptor.enumerable) {
+										acc[prop] = (value as any)[prop];
+									}
 								}
-							}
-							return acc;
-						}, {} as Record<string, unknown>)
+								return acc;
+							},
+							{} as Record<string, unknown>,
+						),
 					};
 				}
 			}
-			
+
 			return value;
 		});
 	}
@@ -222,15 +209,7 @@ export class StructuredLogger {
 			const prefix = `${logEntry.time} ${level.toUpperCase()} ${logEntry.component}${objectInfo}`;
 
 			// Extract additional data excluding base fields
-			const {
-				level: _,
-				time,
-				component,
-				msg,
-				object,
-				error,
-				...additionalData
-			} = logEntry;
+			const { level: _, time, component, msg, object, error, ...additionalData } = logEntry;
 			const hasAdditionalData = Object.keys(additionalData).length > 0;
 
 			if (hasAdditionalData || error) {
@@ -254,8 +233,7 @@ export class StructuredLogger {
 						time: logEntry.time,
 						component: logEntry.component,
 						msg: '[LOG_STRINGIFY_FAILED]',
-						stringifyError:
-							e instanceof Error ? { name: e.name, message: e.message } : String(e),
+						stringifyError: e instanceof Error ? { name: e.name, message: e.message } : String(e),
 					}),
 				);
 			}
@@ -265,9 +243,7 @@ export class StructuredLogger {
 	/**
 	 * Get appropriate console method for log level
 	 */
-	private getConsoleMethod(
-		level: LogLevel,
-	): 'debug' | 'log' | 'warn' | 'error' {
+	private getConsoleMethod(level: LogLevel): 'debug' | 'log' | 'warn' | 'error' {
 		switch (level) {
 			case 'debug':
 				return 'debug';
@@ -290,12 +266,7 @@ export class StructuredLogger {
 
 		if (args.length === 1) {
 			const arg = args[0];
-			if (
-				arg &&
-				typeof arg === 'object' &&
-				!Array.isArray(arg) &&
-				!(arg instanceof Error)
-			) {
+			if (arg && typeof arg === 'object' && !Array.isArray(arg) && !(arg instanceof Error)) {
 				return arg as Record<string, unknown>;
 			}
 			return { data: arg };
@@ -304,12 +275,7 @@ export class StructuredLogger {
 		// Multiple arguments
 		const result: Record<string, unknown> = {};
 		args.forEach((arg, index) => {
-			if (
-				arg &&
-				typeof arg === 'object' &&
-				!Array.isArray(arg) &&
-				!(arg instanceof Error)
-			) {
+			if (arg && typeof arg === 'object' && !Array.isArray(arg) && !(arg instanceof Error)) {
 				Object.assign(result, arg as Record<string, unknown>);
 			} else {
 				result[`arg${index}`] = arg;
@@ -377,7 +343,7 @@ export class StructuredLogger {
 
 	error(message: string, ...args: unknown[]): void {
 		const { data, error } = this.processArgsWithError(args);
-        Sentry.captureException(error || new Error(message), { extra: data });
+		Sentry.captureException(error || new Error(message), { extra: data });
 		this.log('error', message, data, error);
 	}
 
@@ -393,21 +359,14 @@ export class StructuredLogger {
 /**
  * Create a basic structured logger
  */
-export function createLogger(
-	component: string,
-	config?: LoggerConfig,
-): StructuredLogger {
+export function createLogger(component: string, config?: LoggerConfig): StructuredLogger {
 	return new StructuredLogger(component, undefined, config);
 }
 
 /**
  * Create logger with object context
  */
-export function createObjectLogger(
-	obj: unknown,
-	component?: string,
-	config?: LoggerConfig,
-): StructuredLogger {
+export function createObjectLogger(obj: unknown, component?: string, config?: LoggerConfig): StructuredLogger {
 	const componentName = component || getObjectType(obj) || 'UnknownComponent';
 
 	// Create basic object context without complex probing
@@ -418,11 +377,7 @@ export function createObjectLogger(
 	// Try to get ID safely
 	if (obj && typeof obj === 'object') {
 		const objWithId = obj as Record<string, unknown>;
-		if (
-			objWithId.id &&
-			(typeof objWithId.id === 'string' ||
-				typeof objWithId.id === 'number')
-		) {
+		if (objWithId.id && (typeof objWithId.id === 'string' || typeof objWithId.id === 'number')) {
 			objectContext.id = String(objWithId.id);
 		}
 	}
@@ -443,7 +398,6 @@ function getObjectType(obj: unknown): string | undefined {
 		return undefined;
 	}
 }
-
 
 /**
  * Logger factory for global configuration

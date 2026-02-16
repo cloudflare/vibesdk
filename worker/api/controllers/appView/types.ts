@@ -10,9 +10,9 @@ import { EnhancedAppData } from '../../../database/types';
  * Generated code file structure
  */
 export interface GeneratedCodeFile {
-    filePath: string;
-    fileContents: string;
-    explanation?: string;
+	filePath: string;
+	fileContents: string;
+	explanation?: string;
 }
 
 /**
@@ -20,32 +20,32 @@ export interface GeneratedCodeFile {
  * Adds only fields unique to app view response, uses EnhancedAppData stats directly
  */
 export interface AppDetailsData extends EnhancedAppData {
-    cloudflareUrl: string | null;
-    previewUrl: string | null;
-    user: {
-        id: string;
-        displayName: string;
-        avatarUrl: string | null;
-    };
-    agentSummary: AgentSummary | null;
+	cloudflareUrl: string | null;
+	previewUrl: string | null;
+	user: {
+		id: string;
+		displayName: string;
+		avatarUrl: string | null;
+	};
+	agentSummary: AgentSummary | null;
 }
 
 /**
  * Response data for toggleAppStar
  */
 export interface AppStarToggleData {
-    isStarred: boolean;
-    starCount: number;
+	isStarred: boolean;
+	starCount: number;
 }
 
 /**
  * Response data for git clone token generation
  */
 export interface GitCloneTokenData {
-    token: string;
-    expiresIn: number;
-    expiresAt: string;
-    cloneUrl: string;
+	token: string;
+	expiresIn: number;
+	expiresAt: string;
+	cloneUrl: string;
 }
 
 // /**

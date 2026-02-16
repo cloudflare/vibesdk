@@ -37,7 +37,7 @@ interface VaultSession {
 
 export class UserSecretsStore extends DurableObject<Env> {
 	private session: VaultSession | null = null;
-	
+
 	/** Ticket manager for WebSocket authentication */
 	private ticketManager = new WsTicketManager();
 
@@ -101,10 +101,7 @@ export class UserSecretsStore extends DurableObject<Env> {
 		ws.close(1011, 'WebSocket error');
 	}
 
-	private handleSessionInit(
-		ws: WebSocket,
-		data: { encryptedVMK: string; nonce: string; sessionKey: string }
-	): void {
+	private handleSessionInit(ws: WebSocket, data: { encryptedVMK: string; nonce: string; sessionKey: string }): void {
 		this.clearSession();
 
 		const now = Date.now();
@@ -135,7 +132,7 @@ export class UserSecretsStore extends DurableObject<Env> {
 			secretType: 'secret';
 			encryptedNameForStorage: string;
 			metadata?: SecretMetadata; // Plaintext metadata
-		}
+		},
 	): void {
 		// Validate session
 		const sessionCheck = this.validateAndRefreshSession();
@@ -158,7 +155,7 @@ export class UserSecretsStore extends DurableObject<Env> {
 			// Validate storage limits
 			const limitError = this.validateStorageLimits(
 				encryptedValueParts.ciphertext,
-				encryptedNameParts.ciphertext
+				encryptedNameParts.ciphertext,
 			);
 			if (limitError) {
 				this.sendWs(ws, {
@@ -269,9 +266,7 @@ export class UserSecretsStore extends DurableObject<Env> {
 
 			// Return encrypted value (client decrypts with VMK) and plaintext metadata
 			const encryptedValue =
-				this.uint8ArrayToBase64(secret.encryptedValue) +
-				':' +
-				this.uint8ArrayToBase64(secret.valueNonce);
+				this.uint8ArrayToBase64(secret.encryptedValue) + ':' + this.uint8ArrayToBase64(secret.valueNonce);
 
 			this.sendWs(ws, {
 				type: 'vault_secret_value',
@@ -331,7 +326,7 @@ export class UserSecretsStore extends DurableObject<Env> {
 			encryptedValue?: string;
 			encryptedName?: string;
 			metadata?: SecretMetadata;
-		}
+		},
 	): void {
 		// Validate session
 		const sessionCheck = this.validateAndRefreshSession();
@@ -606,7 +601,7 @@ export class UserSecretsStore extends DurableObject<Env> {
 			new Uint8Array(request.verificationBlob),
 			new Uint8Array(request.verificationNonce),
 			now,
-			now
+			now,
 		);
 
 		return true;
@@ -651,16 +646,13 @@ export class UserSecretsStore extends DurableObject<Env> {
 			request.metadata ? JSON.stringify(request.metadata) : null,
 			request.secretType,
 			now,
-			now
+			now,
 		);
 		return id;
 	}
 
 	getSecret(secretId: string): EncryptedSecret | null {
-		const result = this.ctx.storage.sql.exec(
-			`SELECT * FROM secrets WHERE id = ? AND is_deleted = 0`,
-			secretId
-		);
+		const result = this.ctx.storage.sql.exec(`SELECT * FROM secrets WHERE id = ? AND is_deleted = 0`, secretId);
 		const rows = result.toArray();
 
 		if (rows.length === 0) return null;
@@ -696,7 +688,7 @@ export class UserSecretsStore extends DurableObject<Env> {
 			RETURNING id
 		`,
 			Date.now(),
-			secretId
+			secretId,
 		);
 		return result.toArray().length > 0;
 	}
@@ -710,7 +702,7 @@ export class UserSecretsStore extends DurableObject<Env> {
 			`SELECT id, encrypted_name, name_nonce, metadata, secret_type, created_at, updated_at
 			 FROM secrets
 			 WHERE is_deleted = 0
-			 ORDER BY created_at DESC`
+			 ORDER BY created_at DESC`,
 		);
 
 		return result
@@ -739,7 +731,7 @@ export class UserSecretsStore extends DurableObject<Env> {
 			encryptedName?: ArrayBuffer;
 			nameNonce?: ArrayBuffer;
 			metadata?: SecretMetadata;
-		}
+		},
 	): boolean {
 		const fields: string[] = [];
 		const values: unknown[] = [];
@@ -766,7 +758,7 @@ export class UserSecretsStore extends DurableObject<Env> {
 
 		const result = this.ctx.storage.sql.exec(
 			`UPDATE secrets SET ${fields.join(', ')} WHERE id = ? AND is_deleted = 0 RETURNING id`,
-			...values
+			...values,
 		);
 		return result.toArray().length > 0;
 	}
@@ -801,7 +793,7 @@ export class UserSecretsStore extends DurableObject<Env> {
 		`,
 			new Uint8Array(encrypted),
 			new Uint8Array(nonce),
-			Date.now()
+			Date.now(),
 		);
 		return result.toArray().length > 0;
 	}
@@ -874,7 +866,7 @@ export class UserSecretsStore extends DurableObject<Env> {
 			const vmk = await this.decryptVMK(
 				new Uint8Array(this.session.encryptedVMK),
 				new Uint8Array(this.session.nonce),
-				this.session.sk
+				this.session.sk,
 			);
 			const value = await this.decryptSecretValue(secret.encryptedValue, secret.valueNonce, vmk);
 			return { success: true, value };

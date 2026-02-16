@@ -26,7 +26,7 @@ function parseTableDefinition(content: string, tableName: string): TableInfo | n
 	// Match: declare const tableName: import("drizzle-orm/sqlite-core").SQLiteTableWithColumns<{
 	const tableRegex = new RegExp(
 		`declare const ${tableName}:\\s*import\\("drizzle-orm/sqlite-core"\\)\\.SQLiteTableWithColumns<\\{[^}]*columns:\\s*\\{`,
-		's'
+		's',
 	);
 
 	const tableMatch = content.match(tableRegex);
@@ -85,12 +85,12 @@ function generateExpandedType(tableInfo: TableInfo, serializeDates = false): str
 	const fields = Object.entries(tableInfo.columns)
 		.map(([name, col]) => {
 			let dataType = col.dataType;
-			
+
 			// Convert Date to string for serialized types
 			if (serializeDates && dataType === 'Date') {
 				dataType = 'string';
 			}
-			
+
 			const type = col.notNull ? dataType : `${dataType} | null`;
 			return `\t${name}: ${type};`;
 		})
@@ -128,18 +128,18 @@ function findInferSelectReferences(content: string): Map<string, string[]> {
 function expandSerializedTypes(content: string): string {
 	// Find patterns like: type Foo = Serialized<Bar>;
 	// where Bar is one of our expanded types
-	
+
 	for (const [typeName, tableInfo] of expandedTypes) {
 		// Match: Serialized<TypeName>
 		const serializedRegex = new RegExp(`Serialized<${typeName}>`, 'g');
-		
+
 		if (serializedRegex.test(content)) {
 			const serializedExpanded = generateExpandedType(tableInfo, true);
 			content = content.replace(serializedRegex, serializedExpanded);
 			console.log(`  Expanded Serialized<${typeName}>`);
 		}
 	}
-	
+
 	return content;
 }
 
@@ -175,7 +175,7 @@ function main() {
 			if (content.includes(oldDecl)) {
 				content = content.replace(oldDecl, newDecl);
 				console.log(`    Replaced: ${typeName}`);
-				
+
 				// Store for Serialized expansion
 				expandedTypes.set(typeName, tableInfo);
 			}

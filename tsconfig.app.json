@@ -25,16 +25,10 @@
 		"noUncheckedSideEffectImports": true,
 		"baseUrl": ".",
 		"paths": {
-		  "@/*": [
-			"./src/*"
-		  ],
-          "shared/*": [
-            "./shared/*"
-          ],
-          "worker/*": [
-            "./worker/*"
-          ]
+			"@/*": ["./src/*"],
+			"shared/*": ["./shared/*"],
+			"worker/*": ["./worker/*"]
 		}
 	},
-	"include": ["src", "shared"],
+	"include": ["src", "shared"]
 }

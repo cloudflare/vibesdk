@@ -35,10 +35,7 @@ export class SecretsClient {
 	private resolveUnlock: (() => void) | null = null;
 	private rejectUnlock: ((err: Error) => void) | null = null;
 
-	constructor(
-		vaultStub: UserSecretsStoreStub,
-		broadcaster: (type: string, data: Record<string, unknown>) => void
-	) {
+	constructor(vaultStub: UserSecretsStoreStub, broadcaster: (type: string, data: Record<string, unknown>) => void) {
 		this.vaultStub = vaultStub;
 		this.broadcaster = broadcaster;
 	}

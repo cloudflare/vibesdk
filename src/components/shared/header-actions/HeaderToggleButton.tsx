@@ -9,13 +9,7 @@ interface HeaderToggleButtonProps {
 	active?: boolean;
 }
 
-export function HeaderToggleButton({
-	icon: Icon,
-	label,
-	onClick,
-	title,
-	active = false,
-}: HeaderToggleButtonProps) {
+export function HeaderToggleButton({ icon: Icon, label, onClick, title, active = false }: HeaderToggleButtonProps) {
 	return (
 		<button
 			className={clsx(

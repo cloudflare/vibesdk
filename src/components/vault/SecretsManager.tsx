@@ -13,13 +13,7 @@ import {
 	AlertDialogHeader,
 	AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import {
-	Dialog,
-	DialogContent,
-	DialogDescription,
-	DialogHeader,
-	DialogTitle,
-} from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Key, Lock, Trash2, Plus, Loader2, RefreshCw, Shield, ShieldOff, Eye } from 'lucide-react';
 import { AddSecretModal } from './AddSecretModal';
 import { VaultUnlockModal } from './VaultUnlockModal';
@@ -296,7 +290,10 @@ export function SecretsManager({ className, compact = false, id }: Props) {
 											</div>
 											{!compact && (
 												<p className="text-xs text-muted-foreground">
-													Added {formatDistanceToNow(new Date(secret.createdAt), { addSuffix: true })}
+													Added{' '}
+													{formatDistanceToNow(new Date(secret.createdAt), {
+														addSuffix: true,
+													})}
 												</p>
 											)}
 										</div>
@@ -326,11 +323,7 @@ export function SecretsManager({ className, compact = false, id }: Props) {
 				)}
 			</CardContent>
 
-			<AddSecretModal
-				open={showAddModal}
-				onOpenChange={setShowAddModal}
-				onSecretAdded={handleSecretAdded}
-			/>
+			<AddSecretModal open={showAddModal} onOpenChange={setShowAddModal} onSecretAdded={handleSecretAdded} />
 
 			<AlertDialog open={resetConfirmOpen} onOpenChange={setResetConfirmOpen}>
 				<AlertDialogContent>

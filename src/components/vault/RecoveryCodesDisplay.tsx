@@ -11,12 +11,7 @@ interface Props {
 	variant?: 'card' | 'inline';
 }
 
-export function RecoveryCodesDisplay({
-	codes,
-	onConfirm,
-	showWarning = true,
-	variant = 'card',
-}: Props) {
+export function RecoveryCodesDisplay({ codes, onConfirm, showWarning = true, variant = 'card' }: Props) {
 	const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
 	const [allCopied, setAllCopied] = useState(false);
 	const [confirmed, setConfirmed] = useState(false);
@@ -78,7 +73,7 @@ export function RecoveryCodesDisplay({
 							'p-3 rounded-md border font-mono text-sm',
 							'bg-muted/50 hover:bg-muted transition-colors',
 							'flex items-center justify-between gap-2',
-							'focus:outline-none focus:ring-2 focus:ring-primary'
+							'focus:outline-none focus:ring-2 focus:ring-primary',
 						)}
 					>
 						<span className="text-muted-foreground text-xs">{index + 1}.</span>

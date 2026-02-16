@@ -8,19 +8,17 @@
 		"bindings": [
 			{
 				"class_name": "UserSecretsStore",
-				"name": "UserSecretsStore"
-			}
-		]
+				"name": "UserSecretsStore",
+			},
+		],
 	},
 	"migrations": [
 		{
-			"new_sqlite_classes": [
-				"UserSecretsStore"
-			],
-			"tag": "v1"
-		}
+			"new_sqlite_classes": ["UserSecretsStore"],
+			"tag": "v1",
+		},
 	],
 	"vars": {
-		"SECRETS_ENCRYPTION_KEY": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
-	}
+		"SECRETS_ENCRYPTION_KEY": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+	},
 }

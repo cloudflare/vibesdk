@@ -1,11 +1,4 @@
-import {
-	useCallback,
-	useEffect,
-	useMemo,
-	useRef,
-	useState,
-	type FormEvent,
-} from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { useParams, useSearchParams, useNavigate } from 'react-router';
 import { AnimatePresence, motion } from 'framer-motion';
 import { LoaderCircle, MoreHorizontal, RotateCcw } from 'lucide-react';
@@ -15,7 +8,14 @@ import { PhaseTimeline } from './components/phase-timeline';
 import { type DebugMessage } from './components/debug-panel';
 import { DeploymentControls } from './components/deployment-controls';
 import { useChat } from './hooks/use-chat';
-import { type ModelConfigsInfo, type BlueprintType, type PhasicBlueprint, SUPPORTED_IMAGE_MIME_TYPES, type ProjectType, type FileType } from '@/api-types';
+import {
+	type ModelConfigsInfo,
+	type BlueprintType,
+	type PhasicBlueprint,
+	SUPPORTED_IMAGE_MIME_TYPES,
+	type ProjectType,
+	type FileType,
+} from '@/api-types';
 import { featureRegistry } from '@/features';
 import { useFileContentStream } from './hooks/use-file-content-stream';
 import { logger } from '@/utils/logger';
@@ -26,7 +26,12 @@ import { useAutoScroll } from '@/hooks/use-auto-scroll';
 import { useImageUpload } from '@/hooks/use-image-upload';
 import { useDragDrop } from '@/hooks/use-drag-drop';
 import { Button } from '@/components/ui/button';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import {
+	DropdownMenu,
+	DropdownMenuContent,
+	DropdownMenuItem,
+	DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { sendWebSocketMessage } from './utils/websocket-helpers';
 import { detectContentType, isDocumentationPath, isMarkdownFile } from './utils/content-detector';
 import { mergeFiles } from '@/utils/file-helpers';
@@ -186,9 +191,11 @@ export default function Chat() {
 		if (!websocket) return;
 
 		setLoadingConfigs(true);
-		websocket.send(JSON.stringify({
-			type: 'get_model_configs'
-		}));
+		websocket.send(
+			JSON.stringify({
+				type: 'get_model_configs',
+			}),
+		);
 	}, [websocket]);
 
 	// Listen for model config info WebSocket messages
@@ -278,23 +285,20 @@ export default function Chat() {
 	const imageInputRef = useRef<HTMLInputElement>(null);
 
 	// Fake stream bootstrap files
-	const { streamedFiles: streamedBootstrapFiles } =
-		useFileContentStream(bootstrapFiles, {
-			tps: 600,
-			enabled: isBootstrapping,
-		});
+	const { streamedFiles: streamedBootstrapFiles } = useFileContentStream(bootstrapFiles, {
+		tps: 600,
+		enabled: isBootstrapping,
+	});
 
 	// Merge streamed bootstrap files with generated files
 	const allFiles = useMemo(() => {
 		let result: FileType[];
 
 		if (templateDetails?.allFiles) {
-			const templateFiles = Object.entries(templateDetails.allFiles).map(
-				([filePath, fileContents]) => ({
-					filePath,
-					fileContents,
-				})
-			);
+			const templateFiles = Object.entries(templateDetails.allFiles).map(([filePath, fileContents]) => ({
+				filePath,
+				fileContents,
+			}));
 			result = mergeFiles(templateFiles, files);
 		} else {
 			result = files;
@@ -352,11 +356,7 @@ export default function Chat() {
 	// }, [websocket, setTerminalLogs]);
 
 	const generatingCount = useMemo(
-		() =>
-			files.reduce(
-				(count, file) => (file.isGenerating ? count + 1 : count),
-				0,
-			),
+		() => files.reduce((count, file) => (file.isGenerating ? count + 1 : count), 0),
 		[files],
 	);
 
@@ -379,26 +379,15 @@ export default function Chat() {
 			return generatingFile;
 		}
 		if (!hasSwitchedFile.current && isBootstrapping) {
-			return streamedBootstrapFiles.find(
-				(file) => file.filePath === activeFilePath,
-			);
+			return streamedBootstrapFiles.find((file) => file.filePath === activeFilePath);
 		}
 		return (
 			files.find((file) => file.filePath === activeFilePath) ??
-			streamedBootstrapFiles.find(
-				(file) => file.filePath === activeFilePath,
-			) ??
+			streamedBootstrapFiles.find((file) => file.filePath === activeFilePath) ??
 			// Fallback to allFiles for template files that were merged in
 			allFiles.find((file) => file.filePath === activeFilePath)
 		);
-	}, [
-		activeFilePath,
-		generatingFile,
-		files,
-		streamedBootstrapFiles,
-		isBootstrapping,
-		allFiles,
-	]);
+	}, [activeFilePath, generatingFile, files, streamedBootstrapFiles, isBootstrapping, allFiles]);
 
 	const isPhase1Complete = useMemo(() => {
 		return phaseTimeline.length > 0 && phaseTimeline[0].status === 'completed';
@@ -414,7 +403,7 @@ export default function Chat() {
 	// Detect if agentic mode is showing static content (docs, markdown)
 	const isStaticContent = useMemo(() => {
 		if (behaviorType !== 'agentic' || files.length === 0) return false;
-		return files.every(file => isDocumentationPath(file.filePath.toLowerCase()));
+		return files.every((file) => isDocumentationPath(file.filePath.toLowerCase()));
 	}, [behaviorType, files]);
 
 	// Detect content type (documentation detection - works in any projectType)
@@ -422,9 +411,9 @@ export default function Chat() {
 		return detectContentType(files);
 	}, [files]);
 
-    const hasDocumentation = useMemo(() => {
-        return Object.values(contentDetection.Contents).some(bundle => bundle.type === 'markdown');
-    }, [contentDetection]);
+	const hasDocumentation = useMemo(() => {
+		return Object.values(contentDetection.Contents).some((bundle) => bundle.type === 'markdown');
+	}, [contentDetection]);
 
 	// Preview available based on projectType and content
 	const previewAvailable = useMemo(() => {
@@ -463,7 +452,7 @@ export default function Chat() {
 		if (hasSeenPreview.current) return;
 
 		const markdownFiles = files.filter(isMarkdownFile);
-		const isGeneratingMarkdown = markdownFiles.some(f => f.isGenerating);
+		const isGeneratingMarkdown = markdownFiles.some((f) => f.isGenerating);
 		const newMarkdownAdded = markdownFiles.length > prevMarkdownCountRef.current;
 
 		// Auto-switch to docs ONLY when NEW markdown is being generated
@@ -499,7 +488,17 @@ export default function Chat() {
 
 		// Update ref for next comparison
 		prevMarkdownCountRef.current = markdownFiles.length;
-	}, [previewUrl, isPhase1Complete, isStaticContent, files, activeFilePath, behaviorType, hasDocumentation, projectType, urlChatId]);
+	}, [
+		previewUrl,
+		isPhase1Complete,
+		isStaticContent,
+		files,
+		activeFilePath,
+		behaviorType,
+		hasDocumentation,
+		projectType,
+		urlChatId,
+	]);
 
 	useEffect(() => {
 		if (chatId) {
@@ -518,18 +517,9 @@ export default function Chat() {
 	}, [edit, files]);
 
 	useEffect(() => {
-		if (
-			isBootstrapping &&
-			streamedBootstrapFiles.length > 0 &&
-			!hasSwitchedFile.current
-		) {
+		if (isBootstrapping && streamedBootstrapFiles.length > 0 && !hasSwitchedFile.current) {
 			setActiveFilePath(streamedBootstrapFiles.at(-1)!.filePath);
-		} else if (
-			view === 'editor' &&
-			!activeFile &&
-			files.length > 0 &&
-			!hasSwitchedFile.current
-		) {
+		} else if (view === 'editor' && !activeFile && files.length > 0 && !hasSwitchedFile.current) {
 			setActiveFilePath(files.at(-1)!.filePath);
 		}
 	}, [view, activeFile, files, isBootstrapping, streamedBootstrapFiles]);
@@ -545,15 +535,11 @@ export default function Chat() {
 	useEffect(() => {
 		if (view !== 'blueprint' && isGeneratingBlueprint) {
 			setView('blueprint');
-		} else if (
-			!hasSwitchedFile.current &&
-			view === 'blueprint' &&
-			!isGeneratingBlueprint
-		) {
+		} else if (!hasSwitchedFile.current && view === 'blueprint' && !isGeneratingBlueprint) {
 			setView('editor');
 		}
 	}, [isGeneratingBlueprint, view]);
-    
+
 	const isRunning = useMemo(() => {
 		return (
 			isBootstrapping || isGeneratingBlueprint // || codeGenState === 'active'
@@ -562,9 +548,7 @@ export default function Chat() {
 
 	// Check if chat input should be disabled (before blueprint completion, or during debugging)
 	const isChatDisabled = useMemo(() => {
-		const blueprintStage = projectStages.find(
-			(stage) => stage.id === 'blueprint',
-		);
+		const blueprintStage = projectStages.find((stage) => stage.id === 'blueprint');
 		const blueprintNotCompleted = !blueprintStage || blueprintStage.status !== 'completed';
 
 		return blueprintNotCompleted || isDebugging;
@@ -608,12 +592,10 @@ export default function Chat() {
 
 	const [progress, total] = useMemo((): [number, number] => {
 		// Calculate phase progress instead of file progress
-		const completedPhases = phaseTimeline.filter(p => p.status === 'completed').length;
+		const completedPhases = phaseTimeline.filter((p) => p.status === 'completed').length;
 
 		// Get predicted phase count from blueprint, fallback to current phase count
-		const predictedPhaseCount = isPhasicBlueprint(blueprint)
-			? blueprint.implementationRoadmap.length
-			: 0;
+		const predictedPhaseCount = isPhasicBlueprint(blueprint) ? blueprint.implementationRoadmap.length : 0;
 		const totalPhases = Math.max(predictedPhaseCount, phaseTimeline.length, 1);
 
 		return [completedPhases, totalPhases];
@@ -652,13 +634,13 @@ export default function Chat() {
 					layout="position"
 					className="flex-1 shrink-0 flex flex-col basis-0 max-w-lg relative z-10 h-full min-h-0"
 				>
-					<div 
-					className={clsx(
-						'flex-1 overflow-y-auto min-h-0 chat-messages-scroll',
-						isDebugging && 'animate-debug-pulse'
-					)} 
-					ref={messagesContainerRef}
-				>
+					<div
+						className={clsx(
+							'flex-1 overflow-y-auto min-h-0 chat-messages-scroll',
+							isDebugging && 'animate-debug-pulse',
+						)}
+						ref={messagesContainerRef}
+					>
 						<div className="pt-5 px-4 pb-4 text-sm flex flex-col gap-5">
 							{appLoading ? (
 								<div className="flex items-center gap-2 text-text-tertiary">
@@ -668,55 +650,53 @@ export default function Chat() {
 							) : (
 								<>
 									{(appTitle || chatId) && (
-								<div className="flex items-center justify-between mb-2">
-									<div className="text-lg font-semibold">{appTitle}</div>
-								</div>
-							)}
-									<UserMessage
-										message={query ?? displayQuery}
-									/>
+										<div className="flex items-center justify-between mb-2">
+											<div className="text-lg font-semibold">{appTitle}</div>
+										</div>
+									)}
+									<UserMessage message={query ?? displayQuery} />
 								</>
 							)}
 
 							{mainMessage && (
-							<div className="relative">
-								<AIMessage
-									message={mainMessage.content}
-									isThinking={mainMessage.ui?.isThinking}
-									toolEvents={mainMessage.ui?.toolEvents}
-								/>
-								{chatId && (
-									<div className="absolute right-1 top-1">
-										<DropdownMenu>
-											<DropdownMenuTrigger asChild>
-												<Button
-													variant="ghost"
-													size="icon"
-													className="hover:bg-bg-3/80 cursor-pointer"
-												>
-													<MoreHorizontal className="h-4 w-4" />
-													<span className="sr-only">Chat actions</span>
-												</Button>
-											</DropdownMenuTrigger>
-											<DropdownMenuContent align="end" className="w-56">
-												<DropdownMenuItem
+								<div className="relative">
+									<AIMessage
+										message={mainMessage.content}
+										isThinking={mainMessage.ui?.isThinking}
+										toolEvents={mainMessage.ui?.toolEvents}
+									/>
+									{chatId && (
+										<div className="absolute right-1 top-1">
+											<DropdownMenu>
+												<DropdownMenuTrigger asChild>
+													<Button
+														variant="ghost"
+														size="icon"
+														className="hover:bg-bg-3/80 cursor-pointer"
+													>
+														<MoreHorizontal className="h-4 w-4" />
+														<span className="sr-only">Chat actions</span>
+													</Button>
+												</DropdownMenuTrigger>
+												<DropdownMenuContent align="end" className="w-56">
+													<DropdownMenuItem
 														onClick={(e) => {
 															e.preventDefault();
 															setIsResetDialogOpen(true);
 														}}
-												>
-													<RotateCcw className="h-4 w-4 mr-2" />
-													Reset conversation
-												</DropdownMenuItem>
-											</DropdownMenuContent>
-										</DropdownMenu>
-									</div>
-								)}
-							</div>
-						)}
+													>
+														<RotateCcw className="h-4 w-4 mr-2" />
+														Reset conversation
+													</DropdownMenuItem>
+												</DropdownMenuContent>
+											</DropdownMenu>
+										</div>
+									)}
+								</div>
+							)}
 
 							{otherMessages
-								.filter(message => message.role === 'assistant' && message.ui?.isThinking)
+								.filter((message) => message.role === 'assistant' && message.ui?.isThinking)
 								.map((message) => (
 									<div key={message.conversationId} className="mb-4">
 										<AIMessage
@@ -727,12 +707,9 @@ export default function Chat() {
 									</div>
 								))}
 
-							{isThinking && !otherMessages.some(m => m.ui?.isThinking) && (
+							{isThinking && !otherMessages.some((m) => m.ui?.isThinking) && (
 								<div className="mb-4">
-									<AIMessage
-										message="Planning next phase..."
-										isThinking={true}
-									/>
+									<AIMessage message="Planning next phase..." isThinking={true} />
 								</div>
 							)}
 
@@ -783,16 +760,11 @@ export default function Chat() {
 										deploymentError={deploymentError}
 										appId={app?.id || chatId}
 										appVisibility={app?.visibility}
-										isGenerating={
-											isGenerating ||
-											isGeneratingBlueprint
-										}
+										isGenerating={isGenerating || isGeneratingBlueprint}
 										isPaused={isGenerationPaused}
 										onDeploy={handleDeployToCloudflare}
 										onStopGeneration={handleStopGeneration}
-										onResumeGeneration={
-											handleResumeGeneration
-										}
+										onResumeGeneration={handleResumeGeneration}
 										onVisibilityUpdate={(newVisibility) => {
 											// Update app state if needed
 											if (app) {
@@ -804,7 +776,7 @@ export default function Chat() {
 							)}
 
 							{otherMessages
-								.filter(message => !message.ui?.isThinking)
+								.filter((message) => !message.ui?.isThinking)
 								.map((message) => {
 									if (message.role === 'assistant') {
 										return (
@@ -816,37 +788,30 @@ export default function Chat() {
 											/>
 										);
 									}
-									return (
-										<UserMessage
-											key={message.conversationId}
-											message={message.content}
-										/>
-									);
+									return <UserMessage key={message.conversationId} message={message.content} />;
 								})}
-
 						</div>
 					</div>
 
-
-				<ChatInput
-					newMessage={newMessage}
-					onMessageChange={setNewMessage}
-					onSubmit={onNewMessage}
-					images={images}
-					onAddImages={addImages}
-					onRemoveImage={removeImage}
-					isProcessing={isProcessing}
-					isChatDragging={isChatDragging}
-					chatDragHandlers={chatDragHandlers}
-					isChatDisabled={isChatDisabled}
-					isRunning={isRunning}
-					isGenerating={isGenerating}
-					isGeneratingBlueprint={isGeneratingBlueprint}
-					isDebugging={isDebugging}
-					websocket={websocket}
-					chatFormRef={chatFormRef}
-					imageInputRef={imageInputRef}
-				/>
+					<ChatInput
+						newMessage={newMessage}
+						onMessageChange={setNewMessage}
+						onSubmit={onNewMessage}
+						images={images}
+						onAddImages={addImages}
+						onRemoveImage={removeImage}
+						isProcessing={isProcessing}
+						isChatDragging={isChatDragging}
+						chatDragHandlers={chatDragHandlers}
+						isChatDisabled={isChatDisabled}
+						isRunning={isRunning}
+						isGenerating={isGenerating}
+						isGeneratingBlueprint={isGeneratingBlueprint}
+						isDebugging={isDebugging}
+						websocket={websocket}
+						chatFormRef={chatFormRef}
+						imageInputRef={imageInputRef}
+					/>
 				</motion.div>
 
 				<AnimatePresence mode="wait">

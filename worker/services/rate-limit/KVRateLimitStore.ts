@@ -9,7 +9,7 @@ export class KVRateLimitStore {
 		kv: KVNamespace,
 		key: string,
 		config: KVRateLimitConfig,
-		incrementBy: number = 1
+		incrementBy: number = 1,
 	): Promise<RateLimitResult> {
 		const now = Date.now();
 
@@ -21,16 +21,14 @@ export class KVRateLimitStore {
 
 		try {
 			const mainBuckets = this.generateBucketKeys(key, now, mainWindow, bucketSize);
-			const burstBuckets = config.burst
-				? this.generateBucketKeys(key, now, burstWindow, bucketSize)
-				: [];
+			const burstBuckets = config.burst ? this.generateBucketKeys(key, now, burstWindow, bucketSize) : [];
 
 			const allBucketKeys = [...new Set([...mainBuckets, ...burstBuckets])];
 			const bucketResults = await Promise.all(
 				allBucketKeys.map(async (bucketKey) => {
 					const value = await kv.get(bucketKey);
 					return { key: bucketKey, count: value ? parseInt(value, 10) || 0 : 0 };
-				})
+				}),
 			);
 
 			const bucketMap = new Map(bucketResults.map((r) => [r.key, r.count]));
@@ -44,7 +42,7 @@ export class KVRateLimitStore {
 					remainingLimit: 0,
 					exceededLimit: 'main',
 					limitValue: config.limit,
-					periodSeconds: config.period
+					periodSeconds: config.period,
 				};
 			}
 
@@ -54,7 +52,7 @@ export class KVRateLimitStore {
 					remainingLimit: 0,
 					exceededLimit: 'burst',
 					limitValue: config.burst,
-					periodSeconds: config.burstWindow
+					periodSeconds: config.burstWindow,
 				};
 			}
 
@@ -74,11 +72,7 @@ export class KVRateLimitStore {
 		}
 	}
 
-	static async getRemainingLimit(
-		kv: KVNamespace,
-		key: string,
-		config: KVRateLimitConfig
-	): Promise<number> {
+	static async getRemainingLimit(kv: KVNamespace, key: string, config: KVRateLimitConfig): Promise<number> {
 		const now = Date.now();
 		const bucketSize = (config.bucketSize ?? 10) * 1000; // ms
 		const mainWindow = config.period * 1000; // ms
@@ -88,7 +82,7 @@ export class KVRateLimitStore {
 			mainBuckets.map(async (bucketKey) => {
 				const value = await kv.get(bucketKey);
 				return value ? parseInt(value, 10) || 0 : 0;
-			})
+			}),
 		);
 		const mainCount = counts.reduce((sum, c) => sum + c, 0);
 		return Math.max(0, config.limit - mainCount);
@@ -110,7 +104,7 @@ export class KVRateLimitStore {
 		bucketKey: string,
 		ttlSeconds: number,
 		maxRetries: number = 3,
-        incrementBy: number = 1
+		incrementBy: number = 1,
 	): Promise<void> {
 		for (let attempt = 0; attempt < maxRetries; attempt++) {
 			try {

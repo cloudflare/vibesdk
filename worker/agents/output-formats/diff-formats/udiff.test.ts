@@ -2,13 +2,13 @@ import { describe, it, expect } from 'vitest';
 import { applyDiff } from './udiff';
 
 describe('applyUnifiedDiff', () => {
-  const applyUnifiedDiff = applyDiff; // Alias for compatibility
-  it('should apply a simple addition', () => {
-    const original = `line 1
+	const applyUnifiedDiff = applyDiff; // Alias for compatibility
+	it('should apply a simple addition', () => {
+		const original = `line 1
 line 2
 line 3`;
 
-    const diff = `--- a/file.txt
+		const diff = `--- a/file.txt
 +++ b/file.txt
 @@ -1,3 +1,4 @@
  line 1
@@ -16,22 +16,22 @@ line 3`;
 +inserted line
  line 3`;
 
-    const expected = `line 1
+		const expected = `line 1
 line 2
 inserted line
 line 3`;
 
-    const result = applyUnifiedDiff(original, diff);
-    expect(result).toBe(expected);
-  });
+		const result = applyUnifiedDiff(original, diff);
+		expect(result).toBe(expected);
+	});
 
-  it('should apply a simple deletion', () => {
-    const original = `line 1
+	it('should apply a simple deletion', () => {
+		const original = `line 1
 line 2
 line 3
 line 4`;
 
-    const diff = `--- a/file.txt
+		const diff = `--- a/file.txt
 +++ b/file.txt
 @@ -1,4 +1,3 @@
  line 1
@@ -39,20 +39,20 @@ line 4`;
  line 3
  line 4`;
 
-    const expected = `line 1
+		const expected = `line 1
 line 3
 line 4`;
 
-    const result = applyUnifiedDiff(original, diff);
-    expect(result).toBe(expected);
-  });
+		const result = applyUnifiedDiff(original, diff);
+		expect(result).toBe(expected);
+	});
 
-  it('should apply a modification', () => {
-    const original = `function hello() {
+	it('should apply a modification', () => {
+		const original = `function hello() {
   console.log('Hello');
 }`;
 
-    const diff = `--- a/file.js
+		const diff = `--- a/file.js
 +++ b/file.js
 @@ -1,3 +1,3 @@
  function hello() {
@@ -60,16 +60,16 @@ line 4`;
 +  console.log('Hello World');
  }`;
 
-    const expected = `function hello() {
+		const expected = `function hello() {
   console.log('Hello World');
 }`;
 
-    const result = applyUnifiedDiff(original, diff);
-    expect(result).toBe(expected);
-  });
+		const result = applyUnifiedDiff(original, diff);
+		expect(result).toBe(expected);
+	});
 
-  it('should apply multiple hunks', () => {
-    const original = `function a() {
+	it('should apply multiple hunks', () => {
+		const original = `function a() {
   return 1;
 }
 
@@ -81,7 +81,7 @@ function c() {
   return 3;
 }`;
 
-    const diff = `--- a/file.js
+		const diff = `--- a/file.js
 +++ b/file.js
 @@ -1,3 +1,3 @@
  function a() {
@@ -95,7 +95,7 @@ function c() {
 +  return 30;
  }`;
 
-    const expected = `function a() {
+		const expected = `function a() {
   return 10;
 }
 
@@ -107,15 +107,15 @@ function c() {
   return 30;
 }`;
 
-    const result = applyUnifiedDiff(original, diff);
-    expect(result).toBe(expected);
-  });
+		const result = applyUnifiedDiff(original, diff);
+		expect(result).toBe(expected);
+	});
 
-  it.skip('should handle additions at the beginning', () => {
-    const original = `first line
+	it.skip('should handle additions at the beginning', () => {
+		const original = `first line
 second line`;
 
-    const diff = `--- a/file.txt
+		const diff = `--- a/file.txt
 +++ b/file.txt
 @@ -0,0 +1,2 @@
 +new first line
@@ -124,20 +124,20 @@ second line`;
  first line
  second line`;
 
-    const expected = `new first line
+		const expected = `new first line
 new second line
 first line
 second line`;
 
-    const result = applyUnifiedDiff(original, diff);
-    expect(result).toBe(expected);
-  });
+		const result = applyUnifiedDiff(original, diff);
+		expect(result).toBe(expected);
+	});
 
-  it('should handle additions at the end', () => {
-    const original = `first line
+	it('should handle additions at the end', () => {
+		const original = `first line
 second line`;
 
-    const diff = `--- a/file.txt
+		const diff = `--- a/file.txt
 +++ b/file.txt
 @@ -1,2 +1,4 @@
  first line
@@ -145,41 +145,41 @@ second line`;
 +third line
 +fourth line`;
 
-    const expected = `first line
+		const expected = `first line
 second line
 third line
 fourth line`;
 
-    const result = applyUnifiedDiff(original, diff);
-    expect(result).toBe(expected);
-  });
+		const result = applyUnifiedDiff(original, diff);
+		expect(result).toBe(expected);
+	});
 
-  it('should handle empty original file', () => {
-    const original = '';
+	it('should handle empty original file', () => {
+		const original = '';
 
-    const diff = `--- a/file.txt
+		const diff = `--- a/file.txt
 +++ b/file.txt
 @@ -0,0 +1,3 @@
 +line 1
 +line 2
 +line 3`;
 
-    // Note: Implementation adds a leading newline for empty files
-    const expected = `
+		// Note: Implementation adds a leading newline for empty files
+		const expected = `
 line 1
 line 2
 line 3`;
 
-    const result = applyUnifiedDiff(original, diff);
-    expect(result).toBe(expected);
-  });
+		const result = applyUnifiedDiff(original, diff);
+		expect(result).toBe(expected);
+	});
 
-  it('should handle complete file replacement', () => {
-    const original = `old content
+	it('should handle complete file replacement', () => {
+		const original = `old content
 that will be
 completely replaced`;
 
-    const diff = `--- a/file.txt
+		const diff = `--- a/file.txt
 +++ b/file.txt
 @@ -1,3 +1,2 @@
 -old content
@@ -188,20 +188,20 @@ completely replaced`;
 +brand new content
 +with different structure`;
 
-    const expected = `brand new content
+		const expected = `brand new content
 with different structure`;
 
-    const result = applyUnifiedDiff(original, diff);
-    expect(result).toBe(expected);
-  });
+		const result = applyUnifiedDiff(original, diff);
+		expect(result).toBe(expected);
+	});
 
-  it('should preserve whitespace and indentation', () => {
-    const original = `def function():
+	it('should preserve whitespace and indentation', () => {
+		const original = `def function():
     if True:
         print("indented")
     return None`;
 
-    const diff = `--- a/file.py
+		const diff = `--- a/file.py
 +++ b/file.py
 @@ -1,4 +1,5 @@
  def function():
@@ -210,20 +210,20 @@ with different structure`;
 +        print("another indented line")
      return None`;
 
-    const expected = `def function():
+		const expected = `def function():
     if True:
         print("indented")
         print("another indented line")
     return None`;
 
-    const result = applyUnifiedDiff(original, diff);
-    expect(result).toBe(expected);
-  });
+		const result = applyUnifiedDiff(original, diff);
+		expect(result).toBe(expected);
+	});
 
-  it('should handle Windows line endings', () => {
-    const original = 'line 1\r\nline 2\r\nline 3';
+	it('should handle Windows line endings', () => {
+		const original = 'line 1\r\nline 2\r\nline 3';
 
-    const diff = `--- a/file.txt
+		const diff = `--- a/file.txt
 +++ b/file.txt
 @@ -1,3 +1,3 @@
  line 1
@@ -231,14 +231,14 @@ with different structure`;
 +modified line 2
  line 3`;
 
-    const expected = 'line 1\r\nmodified line 2\r\nline 3';
+		const expected = 'line 1\r\nmodified line 2\r\nline 3';
 
-    const result = applyUnifiedDiff(original, diff);
-    expect(result).toBe(expected);
-  });
+		const result = applyUnifiedDiff(original, diff);
+		expect(result).toBe(expected);
+	});
 
-  it('should handle context lines correctly', () => {
-    const original = `a
+	it('should handle context lines correctly', () => {
+		const original = `a
 b
 c
 d
@@ -246,7 +246,7 @@ e
 f
 g`;
 
-    const diff = `--- a/file.txt
+		const diff = `--- a/file.txt
 +++ b/file.txt
 @@ -2,5 +2,5 @@ a
  b
@@ -256,7 +256,7 @@ g`;
  e
  f`;
 
-    const expected = `a
+		const expected = `a
 b
 c
 D modified
@@ -264,34 +264,34 @@ e
 f
 g`;
 
-    const result = applyUnifiedDiff(original, diff);
-    expect(result).toBe(expected);
-  });
+		const result = applyUnifiedDiff(original, diff);
+		expect(result).toBe(expected);
+	});
 
-  it('should throw error for invalid diff format', () => {
-    const original = 'some content';
-    const invalidDiff = 'this is not a valid diff';
+	it('should throw error for invalid diff format', () => {
+		const original = 'some content';
+		const invalidDiff = 'this is not a valid diff';
 
-    // Resilient parser returns original content for invalid diffs
-    // Note: Implementation adds a trailing newline (standard file convention)
-    const result = applyUnifiedDiff(original, invalidDiff);
-    expect(result).toBe(original + '\n');
-  });
+		// Resilient parser returns original content for invalid diffs
+		// Note: Implementation adds a trailing newline (standard file convention)
+		const result = applyUnifiedDiff(original, invalidDiff);
+		expect(result).toBe(original + '\n');
+	});
 
-  it('should handle diffs with no changes', () => {
-    const original = `unchanged content
+	it('should handle diffs with no changes', () => {
+		const original = `unchanged content
 stays the same`;
 
-    const diff = `--- a/file.txt
+		const diff = `--- a/file.txt
 +++ b/file.txt`;
 
-    // Note: Implementation adds a trailing newline
-    const result = applyUnifiedDiff(original, diff);
-    expect(result).toBe(original + '\n');
-  });
+		// Note: Implementation adds a trailing newline
+		const result = applyUnifiedDiff(original, diff);
+		expect(result).toBe(original + '\n');
+	});
 
-  it('should apply complex real-world diff', () => {
-    const original = `export class MyClass {
+	it('should apply complex real-world diff', () => {
+		const original = `export class MyClass {
   constructor() {
     this.value = 0;
   }
@@ -305,7 +305,7 @@ stays the same`;
   }
 }`;
 
-    const diff = `--- a/myclass.js
+		const diff = `--- a/myclass.js
 +++ b/myclass.js
 @@ -1,8 +1,12 @@
  export class MyClass {
@@ -331,7 +331,7 @@ stays the same`;
 +  }
  }`;
 
-    const expected = `export class MyClass {
+		const expected = `export class MyClass {
   constructor(initialValue = 0) {
     this.value = initialValue;
     this.history = [initialValue];
@@ -351,7 +351,7 @@ stays the same`;
   }
 }`;
 
-    const result = applyUnifiedDiff(original, diff);
-    expect(result).toBe(expected);
-  });
+		const result = applyUnifiedDiff(original, diff);
+		expect(result).toBe(expected);
+	});
 });

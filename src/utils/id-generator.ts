@@ -4,9 +4,9 @@
  */
 
 export function generateId(): string {
-    return crypto.randomUUID();
+	return crypto.randomUUID();
 }
 
 export function generateShortId(): string {
-    return crypto.randomUUID().replace(/-/g, '').substring(0, 16);
+	return crypto.randomUUID().replace(/-/g, '').substring(0, 16);
 }

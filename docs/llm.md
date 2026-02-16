@@ -1,10 +1,11 @@
 # LLM Developer Guide for vibesdk
 
 > **📋 Meta-Instruction for AI Assistants:**
-> 
+>
 > This document contains comprehensive architectural knowledge for **vibesdk** - an AI-powered full-stack app generation platform built on Cloudflare Workers with React.
 >
 > **Your Responsibilities:**
+>
 > 1. **Read this entire document** before making ANY changes
 > 2. **Follow ALL rules and patterns** documented here
 > 3. **Update this document** whenever you discover new patterns or find inaccuracies
@@ -18,44 +19,46 @@
 ### **Git System Refactor - CLI Semantics Alignment**
 
 **Changes Made:**
+
 1. **GitVersionControl Class (`/worker/agents/git/git.ts`):**
-   - Added `reset(ref, options)` - Aligns with `git reset --hard` (moves HEAD, no new commit)
-   - Removed `revert()` - Was creating incorrect "revert commits"
-   - Removed `restoreCommit()` - Functionality merged into internal helpers
-   - Removed `inferPurposeFromPath()` - No longer needed
-   - Added `setOnFilesChangedCallback()` - Callback mechanism for FileManager sync
-   - Added `getAllFilesFromHead()` - Simple HEAD file read for syncing
+    - Added `reset(ref, options)` - Aligns with `git reset --hard` (moves HEAD, no new commit)
+    - Removed `revert()` - Was creating incorrect "revert commits"
+    - Removed `restoreCommit()` - Functionality merged into internal helpers
+    - Removed `inferPurposeFromPath()` - No longer needed
+    - Added `setOnFilesChangedCallback()` - Callback mechanism for FileManager sync
+    - Added `getAllFilesFromHead()` - Simple HEAD file read for syncing
 
 2. **FileManager Auto-Sync (`/worker/agents/services/implementations/FileManager.ts`):**
-   - Self-contained synchronization via callback registration
-   - Auto-registers with GitVersionControl during construction
-   - Syncs `generatedFilesMap` from git HEAD after operations
-   - Preserves file purposes across syncs
-   - No external changes required - fully transparent
+    - Self-contained synchronization via callback registration
+    - Auto-registers with GitVersionControl during construction
+    - Syncs `generatedFilesMap` from git HEAD after operations
+    - Preserves file purposes across syncs
+    - No external changes required - fully transparent
 
 3. **Git Tool with Access Control (`/worker/agents/tools/toolkit/git.ts`):**
-   - Parameterized tool creation: `createGitTool(agent, logger, options?)`
-   - Dynamic command filtering via `excludeCommands` parameter
-   - **User conversations:** Get safe version (commit, log, show only)
-   - **Deep debugger:** Gets full version (includes reset with warnings)
-   - Type-safe enum generation based on context
+    - Parameterized tool creation: `createGitTool(agent, logger, options?)`
+    - Dynamic command filtering via `excludeCommands` parameter
+    - **User conversations:** Get safe version (commit, log, show only)
+    - **Deep debugger:** Gets full version (includes reset with warnings)
+    - Type-safe enum generation based on context
 
 4. **Deep Debugger Prompt Updates (`/worker/agents/assistants/codeDebugger.ts`):**
-   - Updated git command documentation
-   - Added strong warnings about reset being UNTESTED and DESTRUCTIVE
-   - Clear guidance: only use reset when absolutely necessary
-   - Documented proper git semantics (reset vs checkout)
+    - Updated git command documentation
+    - Added strong warnings about reset being UNTESTED and DESTRUCTIVE
+    - Clear guidance: only use reset when absolutely necessary
+    - Documented proper git semantics (reset vs checkout)
 
 5. **User Conversation Updates (`/worker/agents/operations/UserConversationProcessor.ts`):**
-   - Added git tool to help documentation
-   - Noted reset unavailable for safety
+    - Added git tool to help documentation
+    - Noted reset unavailable for safety
 
 6. **Commit Message Enhancement (`/worker/agents/core/simpleGeneratorAgent.ts`):**
-   - Phase commits now include description in body
-   - Format: `feat: Phase Name\n\nPhase description`
-   - Provides better context in git history
+    - Phase commits now include description in body
+    - Format: `feat: Phase Name\n\nPhase description`
+    - Provides better context in git history
 
 **Benefits:**
+
 - ✅ Git commands now match actual git CLI behavior
 - ✅ FileManager stays in sync automatically via callbacks
 - ✅ Context-aware tool access (safe for users, full for debugger)
@@ -71,12 +74,14 @@
 ### **Running Locally**
 
 **Prerequisites:**
+
 - Node.js 18+
 - Cloudflare account (for D1, Durable Objects)
 - API keys: OpenAI, Anthropic, Google AI Studio
 
 **Environment Variables:**
 Create `.dev.vars` in project root:
+
 ```bash
 # LLM Providers
 OPENAI_API_KEY=sk-...
@@ -100,6 +105,7 @@ SANDBOX_SERVICE_TOKEN=...
 ```
 
 **Setup:**
+
 ```bash
 # Install dependencies
 npm install
@@ -117,21 +123,23 @@ npm run dev:worker # Backend (Wrangler)
 **Task: Change LLM model for an operation**
 
 **File:** `/worker/agents/inferutils/config.ts`
+
 ```typescript
 export const AGENT_CONFIG = {
-  blueprint: {
-    name: GEMINI_2_5_PRO,  // Change this
-    reasoning_effort: 'medium',
-    max_tokens: 64000,
-    temperature: 0.7
-  },
-  // ... other operations
+	blueprint: {
+		name: GEMINI_2_5_PRO, // Change this
+		reasoning_effort: 'medium',
+		max_tokens: 64000,
+		temperature: 0.7,
+	},
+	// ... other operations
 };
 ```
 
 **Task: Modify system prompt for conversation agent**
 
 **File:** `/worker/agents/operations/UserConversationProcessor.ts`
+
 - Line ~50: System prompt starts
 - Defines Orange AI personality, tool usage rules, behavior
 
@@ -142,16 +150,18 @@ See "Getting Started - Common Tasks" section below (line 1605)
 **Task: Debug Durable Object state**
 
 **In code:**
+
 ```typescript
 // In simpleGeneratorAgent.ts
-this.logger().info('Current state', { 
-  devState: this.state.currentDevState,
-  filesCount: Object.keys(this.state.generatedFilesMap).length,
-  currentPhase: this.state.currentPhase
+this.logger().info('Current state', {
+	devState: this.state.currentDevState,
+	filesCount: Object.keys(this.state.generatedFilesMap).length,
+	currentPhase: this.state.currentPhase,
 });
 ```
 
 **Via Cloudflare dashboard:**
+
 1. Go to Workers & Pages → Durable Objects
 2. Find your DO instance
 3. View SQLite database directly
@@ -161,12 +171,14 @@ this.logger().info('Current state', {
 ## 🎯 Core Principles & Non-Negotiable Rules
 
 ### **1. Strict Type Safety**
+
 - ❌ **NEVER use `any` type** - find or create proper types
 - ✅ All frontend types imported from `@/api-types` (which re-exports from worker) or `shared/types/`
 - ✅ Search codebase for existing types before creating new ones
 - ✅ Extend/compose existing types rather than duplicating
 
 **Type Import Pattern:**
+
 ```typescript
 // ✅ CORRECT - Single source of truth
 import { BlueprintType, WebSocketMessage } from '@/api-types';
@@ -176,23 +188,27 @@ import { BlueprintType } from 'worker/agents/schemas';
 ```
 
 ### **2. DRY Principle**
+
 - Search for similar functionality before implementing
 - Extract reusable utilities, hooks, and components
 - Never copy-paste code - refactor into shared functions
 
 ### **3. Follow Existing Patterns**
+
 - **Frontend APIs:** All defined in `/src/lib/api-client.ts`
 - **Backend Routes:** Controllers in `worker/api/controllers/`, routes in `worker/api/routes/`
 - **Database Services:** In `worker/database/services/`
 - **Types:** Shared types in `shared/types/`, API types in `src/api-types.ts`
 
 ### **4. File Naming Conventions**
+
 - **React Components:** `PascalCase.tsx`
 - **Utilities/Hooks:** `kebab-case.ts`
 - **Backend Services:** `PascalCase.ts`
 - Match the naming style of surrounding files
 
 ### **5. Code Quality Standards**
+
 - ✅ Production-ready code only - no TODOs or placeholders
 - ✅ Proper TypeScript types with no implicit any
 - ✅ Clean, maintainable code
@@ -201,6 +217,7 @@ import { BlueprintType } from 'worker/agents/schemas';
 - ❌ No emojis in code (only in markdown docs)
 
 ### **6. Comments Style**
+
 ```typescript
 // ✅ GOOD - Explains code's purpose
 // Calculate exponential backoff with max cap
@@ -215,6 +232,7 @@ const delay = Math.min(Math.pow(2, attempt) * 1000, 30000);
 ## 🏗️ Project Architecture
 
 ### **Tech Stack**
+
 - **Frontend:** React 18, TypeScript, Vite, TailwindCSS, React Router v7
 - **Backend:** Cloudflare Workers, Durable Objects, D1 (SQLite)
 - **AI/LLM:** OpenAI, Anthropic, Google AI Studio (Gemini)
@@ -547,12 +565,14 @@ const delay = Math.min(Math.pow(2, attempt) * 1000, 30000);
 ### **Core Component:** `/src/routes/chat/chat.tsx`
 
 **Layout:**
+
 - **Left Panel (40%):** Chat messages, phase timeline, deployment controls, chat input
 - **Right Panel (60%):** Editor view, Preview iframe, or Blueprint markdown
 
 ### **State Management:** `/src/routes/chat/hooks/use-chat.ts`
 
 This hook manages all chat state:
+
 ```typescript
 {
   files: FileType[]              // Generated files
@@ -570,6 +590,7 @@ This hook manages all chat state:
 **Location:** `/src/routes/chat/utils/handle-websocket-message.ts`
 
 **Critical Messages:**
+
 - `agent_connected` - Restore full state on connect
 - `conversation_state` - Load chat history with deduplication
 - `file_generating` / `file_generated` - File generation progress
@@ -583,6 +604,7 @@ This hook manages all chat state:
 **Component:** `/src/routes/chat/components/phase-timeline.tsx`
 
 **Status States:**
+
 - `generating` - Active (orange spinner)
 - `validating` - Code review (blue spinner)
 - `completed` - Success (green checkmark)
@@ -594,6 +616,7 @@ This hook manages all chat state:
 **Problem:** Tool execution causes duplicate AI messages
 
 **Solution:** Multi-layer approach
+
 1. Backend skips redundant LLM calls (empty tool results)
 2. Frontend utilities (`deduplicate-messages.ts`) for live and restored messages
 3. System prompt teaches LLM not to repeat
@@ -608,16 +631,17 @@ Each chat session is a Durable Object instance:
 
 ```typescript
 class SimpleCodeGeneratorAgent implements DurableObject {
-  // Persisted in SQLite
-  private state: CodeGenState;
-  
-  // In-memory only (ephemeral)
-  private currentAbortController?: AbortController;
-  private deepDebugPromise: Promise<any> | null = null;
+	// Persisted in SQLite
+	private state: CodeGenState;
+
+	// In-memory only (ephemeral)
+	private currentAbortController?: AbortController;
+	private deepDebugPromise: Promise<any> | null = null;
 }
 ```
 
 **Key Concepts:**
+
 - **Persistent State:** Stored in SQLite (blueprint, files, history)
 - **Ephemeral State:** In-memory (abort controllers, active promises)
 - **Lifecycle:** Created on-demand, evicted after inactivity
@@ -659,6 +683,7 @@ The blueprint is the complete PRD generated from user's prompt. Contains:
 9. **Initial Phase:** First phase to implement with file list
 
 **Generation process:**
+
 1. User submits query
 2. Template selection (LLM picks React/Vue/Next/etc.)
 3. Blueprint generation (large LLM call with full context)
@@ -667,6 +692,7 @@ The blueprint is the complete PRD generated from user's prompt. Contains:
 6. User can iterate or approve
 
 **Key principles:**
+
 - Blueprint is source of truth for entire project
 - Modified via `alter_blueprint` tool
 - Pitfalls guide prevent common mistakes
@@ -685,22 +711,22 @@ The blueprint is the complete PRD generated from user's prompt. Contains:
 **Key files:**
 
 1. **cli-tools.ts** - Command-line interface for container operations:
-   - File synchronization
-   - Command execution in sandbox
-   - Log retrieval
-   - Static analysis
-   - Runtime error monitoring
+    - File synchronization
+    - Command execution in sandbox
+    - Log retrieval
+    - Static analysis
+    - Runtime error monitoring
 
 2. **storage.ts** - Persistent storage management:
-   - Key-value store for container state
-   - File system operations
-   - Cache management
+    - Key-value store for container state
+    - File system operations
+    - Cache management
 
 3. **process-monitor.ts** - Process lifecycle monitoring:
-   - Dev server health checks
-   - Process restart on crashes
-   - Resource usage tracking
-   - Error collection
+    - Dev server health checks
+    - Process restart on crashes
+    - Resource usage tracking
+    - Error collection
 
 4. **types.ts** - TypeScript types for container APIs
 
@@ -718,12 +744,12 @@ These tools are used internally by the sandbox service and for local debugging. 
 **Key files:**
 
 1. **template_catalog.json** - Master catalog of all available templates:
-   - React (Vite, CRA)
-   - Next.js
-   - Vue
-   - Svelte
-   - Vanilla JS
-   Each with metadata: name, description, files, dependencies
+    - React (Vite, CRA)
+    - Next.js
+    - Vue
+    - Svelte
+    - Vanilla JS
+      Each with metadata: name, description, files, dependencies
 
 2. **definitions/** - Template definition files (not in repo, generated)
 
@@ -736,12 +762,14 @@ These tools are used internally by the sandbox service and for local debugging. 
 6. **reference/** - Reference implementations
 
 **How templates work:**
+
 1. Agent selects template based on user's requirements (React, Vue, etc.)
 2. Template provides base files (package.json, tsconfig, etc.)
 3. Agent generates additional files on top of template
 4. All files deployed to sandbox for preview
 
 **Adding new templates:**
+
 1. Create template definition in `definitions/`
 2. Run `python generate_template_catalog.py`
 3. Test locally with agent
@@ -758,6 +786,7 @@ These tools are used internally by the sandbox service and for local debugging. 
 Vibesdk uses **isomorphic-git** to manage version control entirely in the browser/Worker environment - no git binary required.
 
 **Key features:**
+
 - Git operations in SQLite (no filesystem needed)
 - Full commit history tracking
 - Git clone protocol support (clone generated repos)
@@ -803,38 +832,44 @@ Vibesdk uses **isomorphic-git** to manage version control entirely in the browse
 ## Core Operations
 
 ### **1. File Commits**
+
 **When:** After each phase implementation, after fixes
 
 **Flow:**
+
 1. Agent tracks file changes (new/modified)
 2. Calls `GitService.commitFiles(files, message)`
 3. Git service stages all files
 4. Creates commit with metadata:
-   - Author: "vibesdk AI Agent"
-   - Committer: same
-   - Message: "Phase X: Feature Y" or "Fix: Bug Z"
-   - Timestamp: current time
+    - Author: "vibesdk AI Agent"
+    - Committer: same
+    - Message: "Phase X: Feature Y" or "Fix: Bug Z"
+    - Timestamp: current time
 5. Stores commit in SQLite
 6. Returns commit SHA
 
 **Example messages:**
+
 - "Phase 1: Initial project setup"
 - "Phase 2: Add user authentication"
 - "Fix: Resolve type errors in UserStore"
 - "Update: Improve button styling"
 
 ### **2. Commit History**
+
 **Used by:** Git clone service, UI display
 
 **Flow:**
+
 1. Query git log via isomorphic-git
 2. Returns commits with:
-   - SHA, author, message, timestamp
-   - Parent commits
-   - Tree (file snapshot)
+    - SHA, author, message, timestamp
+    - Parent commits
+    - Tree (file snapshot)
 3. Ordered newest first
 
 ### **3. Git Clone Service**
+
 **Purpose:** Allow users to clone their generated repos locally
 
 **Location:** `/worker/agents/git/git-clone-service.ts`
@@ -844,36 +879,39 @@ Vibesdk uses **isomorphic-git** to manage version control entirely in the browse
 **Solution:** Rebase agent commits on top of template
 
 **Process:**
+
 1. **Create fresh repo** in memory (MemFS)
 2. **Template base commit:**
-   - Write all template files
-   - Commit as "Initial template setup"
-   - This becomes commit #0
+    - Write all template files
+    - Commit as "Initial template setup"
+    - This becomes commit #0
 3. **Import agent's git objects** (skip refs)
 4. **Replay each agent commit:**
-   - Read commit from agent's repo
-   - Extract files from commit tree
-   - Write files to memory repo (template + agent files)
-   - Stage ALL files
-   - Create new commit with:
-     - Same message as original
-     - Same author/committer
-     - Same timestamps
-     - Parent = previous rebased commit
+    - Read commit from agent's repo
+    - Extract files from commit tree
+    - Write files to memory repo (template + agent files)
+    - Stage ALL files
+    - Create new commit with:
+        - Same message as original
+        - Same author/committer
+        - Same timestamps
+        - Parent = previous rebased commit
 5. **Generate packfile:**
-   - Collect ALL git objects
-   - Create git packfile (binary format)
-   - Return via HTTP (git clone protocol)
+    - Collect ALL git objects
+    - Create git packfile (binary format)
+    - Return via HTTP (git clone protocol)
 
 **Result:** Clean linear history starting from template
 
 ### **4. Git Clone Protocol**
 
 **Endpoints:**
+
 - `GET /git/{agentId}/info/refs?service=git-upload-pack` - Returns refs (branches/tags)
 - `POST /git/{agentId}/git-upload-pack` - Returns packfile for clone
 
 **Usage:**
+
 ```bash
 git clone https://vibesdk.com/git/{agentId}
 ```
@@ -893,12 +931,14 @@ User gets complete repository with:
 **Purpose:** Make SQLite look like a filesystem to isomorphic-git
 
 **Implementation:**
+
 - Implements Node.js `fs` API (readFile, writeFile, readdir, stat, etc.)
 - Stores files as blobs in SQLite
 - Handles directory structures
 - Supports git object storage format
 
 **Why SQLite?**
+
 - Durable Objects have SQLite built-in
 - Persistent across DO hibernation
 - Fast for git operations
@@ -913,6 +953,7 @@ User gets complete repository with:
 **Purpose:** Ephemeral in-memory filesystem for clone service
 
 **Usage:**
+
 - Git clone service builds repo in memory
 - Fast (no disk I/O)
 - Garbage collected after request completes
@@ -932,6 +973,7 @@ When cloning, the following are preserved:
 ✅ **Template files** - Base template in all commits
 
 ❌ **NOT preserved:**
+
 - Original commit SHAs (rebased, so new SHAs)
 - Agent's internal refs (branches reset)
 
@@ -942,6 +984,7 @@ When cloning, the following are preserved:
 **Coverage:** 140 tests passing
 
 **Test areas:**
+
 - Basic git workflow (init, add, commit, log)
 - Template rebasing with multiple commits
 - Packfile generation
@@ -962,6 +1005,7 @@ The `GitVersionControl` class wraps isomorphic-git with Git CLI-aligned semantic
 ### **Key Methods**
 
 #### **1. commit(files, message)**
+
 Standard git commit - stages and commits files.
 
 ```typescript
@@ -969,6 +1013,7 @@ await git.commit([], 'feat: Add authentication');
 ```
 
 #### **2. reset(ref, options?)**
+
 **Aligns with:** `git reset --hard <commit>`
 
 ```typescript
@@ -978,27 +1023,32 @@ await git.reset('abc123', { hard: true });
 ```
 
 **Behavior:**
+
 - Moves HEAD to specified commit
 - Updates working directory (hard: true by default)
 - **Does NOT create a new commit**
 - Triggers `onFilesChangedCallback`
 
 #### **3. log(limit?)**
+
 Query commit history - standard git log.
 
 #### **4. show(oid)**
+
 Show commit details - files changed in commit.
 
 #### **5. setOnFilesChangedCallback(callback)**
+
 Register callback to be notified after git operations that change files.
 
 ```typescript
 git.setOnFilesChangedCallback(() => {
-  fileManager.syncGeneratedFilesMapFromGit();
+	fileManager.syncGeneratedFilesMapFromGit();
 });
 ```
 
 #### **6. getAllFilesFromHead()**
+
 Get all files from HEAD commit for syncing.
 
 ```typescript
@@ -1023,10 +1073,10 @@ constructor(stateManager, getTemplateDetailsFunc, git) {
 private async syncGeneratedFilesMapFromGit(): Promise<void> {
   // Get all files from HEAD commit
   const gitFiles = await this.git.getAllFilesFromHead();
-  
+
   // Preserve existing file purposes
   const oldMap = this.stateManager.getState().generatedFilesMap;
-  
+
   // Build new map
   const newMap = {};
   for (const file of gitFiles) {
@@ -1036,13 +1086,14 @@ private async syncGeneratedFilesMapFromGit(): Promise<void> {
       lastDiff: ''
     };
   }
-  
+
   // Update state
   this.stateManager.setState({ generatedFilesMap: newMap });
 }
 ```
 
 **Flow:**
+
 1. FileManager constructed → Registers callback with git
 2. User performs operations → Dual-write continues (map + git)
 3. User calls git reset/checkout → Git modifies files
@@ -1067,12 +1118,12 @@ export function createGitTool(
   const allowedCommands = options?.excludeCommands
     ? allCommands.filter(cmd => !options.excludeCommands!.includes(cmd))
     : allCommands;
-  
+
   // Dynamic enum and description based on allowed commands
   return {
     function: {
       enum: allowedCommands,
-      description: hasReset 
+      description: hasReset
         ? "... WARNING: reset is destructive!"
         : "...",
     }
@@ -1082,31 +1133,34 @@ export function createGitTool(
 
 #### **Access by Context**
 
-| Context | Available Commands | File | Notes |
-|---------|-------------------|------|-------|
-| **User Conversations** | commit, log, show | `/worker/agents/tools/customTools.ts` (line 56) | ✅ Safe - no destructive ops |
-| **Deep Debugger** | commit, log, show, reset | `/worker/agents/tools/customTools.ts` (line 71) | ⚠️ Full access with warnings |
+| Context                | Available Commands       | File                                            | Notes                        |
+| ---------------------- | ------------------------ | ----------------------------------------------- | ---------------------------- |
+| **User Conversations** | commit, log, show        | `/worker/agents/tools/customTools.ts` (line 56) | ✅ Safe - no destructive ops |
+| **Deep Debugger**      | commit, log, show, reset | `/worker/agents/tools/customTools.ts` (line 71) | ⚠️ Full access with warnings |
 
 **User Conversations:**
+
 ```typescript
 // Safe version - no reset
-createGitTool(agent, logger, { excludeCommands: ['reset'] })
+createGitTool(agent, logger, { excludeCommands: ['reset'] });
 ```
 
 **Deep Debugger:**
+
 ```typescript
 // Full access - includes reset
-createGitTool(session.agent, logger) // No restrictions
+createGitTool(session.agent, logger); // No restrictions
 ```
 
 #### **Reset Command - Safety**
 
 **Deep debugger prompt warnings:**
+
 - Marked as **UNTESTED** and **DESTRUCTIVE**
 - Only use when:
-  - User explicitly requests it
-  - Tried everything else
-  - Absolutely certain it's necessary
+    - User explicitly requests it
+    - Tried everything else
+    - Absolutely certain it's necessary
 - Must warn user before using
 - Prefer alternatives: regenerate_file, generate_files
 
@@ -1117,7 +1171,7 @@ createGitTool(session.agent, logger) // No restrictions
 ✅ **Context-aware** - Different access in different contexts  
 ✅ **Flexible** - Easy to add more restrictions  
 ✅ **Safe default** - Users can't accidentally reset commits  
-✅ **Git CLI semantics** - Aligns with actual git behavior  
+✅ **Git CLI semantics** - Aligns with actual git behavior
 
 ### **Removed Methods**
 
@@ -1130,21 +1184,25 @@ createGitTool(session.agent, logger) // No restrictions
 ### **Why These Limits?**
 
 **MAX_PHASES = 12:**
+
 - Prevents infinite generation loops
 - Forces focused, efficient implementation
 - Keeps projects manageable
 
 **MAX_TOOL_CALLING_DEPTH = 7:**
+
 - Prevents infinite recursion
 - Typically need 2-3 levels max
 - Safety against runaway LLM behavior
 
 **MAX_IMAGES_PER_MESSAGE = 2:**
+
 - Balance between utility and cost
 - Vision API costs are high
 - Usually 1-2 images sufficient for context
 
 **MAX_LLM_MESSAGES = 200:**
+
 - Prevents conversation from growing unbounded
 - Compactification kicks in before this
 - Typical session has 20-50 messages
@@ -1204,15 +1262,15 @@ createGitTool(session.agent, logger) // No restrictions
 
 ### **State Transitions**
 
-| From | To | Trigger |
-|------|----|---------|
-| IDLE | PHASE_GENERATING | User starts generation / Resume after queue |
-| PHASE_GENERATING | PHASE_IMPLEMENTING | Phase plan ready |
-| PHASE_IMPLEMENTING | REVIEWING | Files generated, deployed |
-| REVIEWING | IDLE | Review complete (not looping back to PHASE_GENERATING) |
-| FINALIZING | REVIEWING | After final fixes, review again |
-| PHASE_IMPLEMENTING | FINALIZING | Last phase, no more phases needed |
-| ANY | IDLE | User stops generation |
+| From               | To                 | Trigger                                                |
+| ------------------ | ------------------ | ------------------------------------------------------ |
+| IDLE               | PHASE_GENERATING   | User starts generation / Resume after queue            |
+| PHASE_GENERATING   | PHASE_IMPLEMENTING | Phase plan ready                                       |
+| PHASE_IMPLEMENTING | REVIEWING          | Files generated, deployed                              |
+| REVIEWING          | IDLE               | Review complete (not looping back to PHASE_GENERATING) |
+| FINALIZING         | REVIEWING          | After final fixes, review again                        |
+| PHASE_IMPLEMENTING | FINALIZING         | Last phase, no more phases needed                      |
+| ANY                | IDLE               | User stops generation                                  |
 
 ### **State Persistence**
 
@@ -1226,17 +1284,21 @@ createGitTool(session.agent, logger) // No restrictions
 ## 🧠 Deep Debugger
 
 ### **System Prompt & Configuration**
+
 **File:** `/worker/agents/assistants/codeDebugger.ts`
+
 - System prompt defines behavior, diagnostic priorities, action-oriented instructions
 - Model: Gemini 2.5 Pro (reasoning_effort: high, 32k tokens, temperature: 0.2)
 - Max tool depth: 7 recursive calls
 
 ### **Available Tools**
+
 **Tool Registry:** `/worker/agents/tools/customTools.ts` → `buildDebugTools()` function (lines 59-87)
 
 **Tool Definitions Location:** `/worker/agents/tools/toolkit/`
 
 Each tool is a separate file:
+
 1. **read-files.ts** - Read source code
 2. **run-analysis.ts** - TypeScript static analysis (tsc --noEmit)
 3. **get-runtime-errors.ts** - Fetch runtime errors from sandbox
@@ -1249,26 +1311,31 @@ Each tool is a separate file:
 10. **git.ts** - Version control (commit, log, show, reset)
 
 ### **How Tools Work**
+
 Each tool file exports:
+
 ```typescript
 // Structure in /worker/agents/tools/toolkit/{tool-name}.ts
 export function createToolName(agent: CodingAgentInterface, logger: StructuredLogger) {
-  return {
-    type: 'function',
-    function: {
-      name: 'tool_name',
-      description: 'Brief description (LLM sees this)',
-      parameters: { /* JSON schema */ }
-    },
-    implementation: async (args) => {
-      // Tool logic here
-      return result;
-    }
-  };
+	return {
+		type: 'function',
+		function: {
+			name: 'tool_name',
+			description: 'Brief description (LLM sees this)',
+			parameters: {
+				/* JSON schema */
+			},
+		},
+		implementation: async (args) => {
+			// Tool logic here
+			return result;
+		},
+	};
 }
 ```
 
 ### **To Add a New Tool:**
+
 1. Create `/worker/agents/tools/toolkit/my-tool.ts`
 2. Export `createMyTool(agent, logger)` function
 3. Import in `/worker/agents/tools/customTools.ts`
@@ -1276,6 +1343,7 @@ export function createToolName(agent: CodingAgentInterface, logger: StructuredLo
 5. Tool automatically available to LLM
 
 ### **Diagnostic Priority (in system prompt)**
+
 1. **run_analysis** first (fast, no user interaction needed)
 2. **get_runtime_errors** second (focused errors)
 3. **get_logs** last resort (verbose, cumulative)
@@ -1289,6 +1357,7 @@ export function createToolName(agent: CodingAgentInterface, logger: StructuredLo
 ## 🔌 WebSocket Communication
 
 ### **Connection Flow**
+
 1. User visits `/chat/:chatId`
 2. Frontend calls `apiClient.connectToAgent(chatId)`
 3. API returns `websocketUrl`
@@ -1297,6 +1366,7 @@ export function createToolName(agent: CodingAgentInterface, logger: StructuredLo
 6. Frontend restores UI
 
 ### **State Restoration**
+
 ```typescript
 case 'agent_connected': {
   // Backend sends snapshot
@@ -1312,17 +1382,18 @@ case 'conversation_state': {
 ```
 
 ### **Streaming Pattern**
+
 ```typescript
 // Backend sends chunks
 ws.send({
-  type: 'conversation_response',
-  conversationId: 'abc',
-  message: 'chunk',
-  isStreaming: true,
+	type: 'conversation_response',
+	conversationId: 'abc',
+	message: 'chunk',
+	isStreaming: true,
 });
 
 // Frontend updates in place
-setMessages(prev => updateOrAppendMessage(prev, id, content));
+setMessages((prev) => updateOrAppendMessage(prev, id, content));
 ```
 
 ---
@@ -1332,61 +1403,67 @@ setMessages(prev => updateOrAppendMessage(prev, id, content));
 ### **Adding New API Endpoint**
 
 **1. Define types (`src/api-types.ts`):**
+
 ```typescript
 export interface GetFeatureRequest {
-  id: string;
+	id: string;
 }
 
 export interface GetFeatureResponse {
-  feature: Feature;
+	feature: Feature;
 }
 ```
 
 **2. Add to API client (`src/lib/api-client.ts`):**
+
 ```typescript
 export const apiClient = {
-  async getFeature(req: GetFeatureRequest): Promise<GetFeatureResponse> {
-    const response = await fetch('/api/features', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(req),
-    });
-    if (!response.ok) throw new ApiError(response);
-    return response.json();
-  },
+	async getFeature(req: GetFeatureRequest): Promise<GetFeatureResponse> {
+		const response = await fetch('/api/features', {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify(req),
+		});
+		if (!response.ok) throw new ApiError(response);
+		return response.json();
+	},
 };
 ```
 
 **3. Create service (`worker/database/services/FeatureService.ts`):**
+
 ```typescript
 export class FeatureService {
-  constructor(private env: Env) {}
-  
-  async getFeature(id: string): Promise<Feature> {
-    // Database logic
-  }
+	constructor(private env: Env) {}
+
+	async getFeature(id: string): Promise<Feature> {
+		// Database logic
+	}
 }
 ```
 
 **4. Create controller (`worker/api/controllers/feature/controller.ts`):**
+
 ```typescript
 export const featureController = {
-  async getFeature(c: Context<AppEnv>) {
-    const body = await c.req.json<GetFeatureRequest>();
-    const service = new FeatureService(c.env);
-    const feature = await service.getFeature(body.id);
-    return c.json({ feature });
-  },
+	async getFeature(c: Context<AppEnv>) {
+		const body = await c.req.json<GetFeatureRequest>();
+		const service = new FeatureService(c.env);
+		const feature = await service.getFeature(body.id);
+		return c.json({ feature });
+	},
 };
 ```
 
 **5. Add route (`worker/api/routes/feature-routes.ts`):**
+
 ```typescript
 export const featureRoutes = new Hono<AppEnv>();
 featureRoutes.post('/', featureController.getFeature);
 ```
 
 **6. Register in main router (`worker/api/routes/index.ts`):**
+
 ```typescript
 router.route('/api/features', featureRoutes);
 ```
@@ -1394,82 +1471,85 @@ router.route('/api/features', featureRoutes);
 ### **Creating Custom Hook**
 
 **Pattern:** `/src/hooks/use-{feature}.ts`
+
 ```typescript
 export function useFeature(params: FeatureParams) {
-  const [data, setData] = useState<FeatureData | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<Error | null>(null);
-  
-  useEffect(() => {
-    async function fetch() {
-      try {
-        const result = await apiClient.getFeature(params);
-        setData(result);
-      } catch (err) {
-        setError(err);
-      } finally {
-        setLoading(false);
-      }
-    }
-    fetch();
-  }, [params]);
-  
-  const refetch = useCallback(() => {
-    setLoading(true);
-    // ... refetch logic
-  }, [params]);
-  
-  return { data, loading, error, refetch };
+	const [data, setData] = useState<FeatureData | null>(null);
+	const [loading, setLoading] = useState(true);
+	const [error, setError] = useState<Error | null>(null);
+
+	useEffect(() => {
+		async function fetch() {
+			try {
+				const result = await apiClient.getFeature(params);
+				setData(result);
+			} catch (err) {
+				setError(err);
+			} finally {
+				setLoading(false);
+			}
+		}
+		fetch();
+	}, [params]);
+
+	const refetch = useCallback(() => {
+		setLoading(true);
+		// ... refetch logic
+	}, [params]);
+
+	return { data, loading, error, refetch };
 }
 ```
 
 ### **Adding LLM Tool**
 
 **1. Create tool file (`worker/agents/tools/toolkit/my-tool.ts`):**
+
 ```typescript
 export function createMyToolDefinition() {
-  return {
-    type: 'function' as const,
-    function: {
-      name: 'my_tool',
-      description: 'Brief description (2-3 lines max)',
-      parameters: {
-        type: 'object',
-        properties: {
-          param: { type: 'string', description: 'Param description' },
-        },
-        required: ['param'],
-      },
-    },
-  };
+	return {
+		type: 'function' as const,
+		function: {
+			name: 'my_tool',
+			description: 'Brief description (2-3 lines max)',
+			parameters: {
+				type: 'object',
+				properties: {
+					param: { type: 'string', description: 'Param description' },
+				},
+				required: ['param'],
+			},
+		},
+	};
 }
 
 export async function myToolImplementation(
-  args: { param: string },
-  context: ToolContext,
-  streamCb?: StreamCallback
+	args: { param: string },
+	context: ToolContext,
+	streamCb?: StreamCallback,
 ): Promise<ToolResult> {
-  // Check concurrency if needed
-  if (context.agent.isCodeGenerating()) {
-    return { error: 'GENERATION_IN_PROGRESS' };
-  }
-  
-  // Implementation
-  const result = await doWork(args.param);
-  
-  return { result };
+	// Check concurrency if needed
+	if (context.agent.isCodeGenerating()) {
+		return { error: 'GENERATION_IN_PROGRESS' };
+	}
+
+	// Implementation
+	const result = await doWork(args.param);
+
+	return { result };
 }
 ```
 
 **2. Register tool (`worker/agents/tools/customTools.ts`):**
+
 ```typescript
 import { createMyToolDefinition, myToolImplementation } from './toolkit/my-tool';
 
 export function buildTools(agent: CodingAgentInterface) {
-  return [
-    // ... existing tools
-    createTool(createMyToolDefinition(), myToolImplementation),
-  ];
+	return [
+		// ... existing tools
+		createTool(createMyToolDefinition(), myToolImplementation),
+	];
 }
 ```
 
@@ -1478,11 +1558,13 @@ export function buildTools(agent: CodingAgentInterface) {
 ## 🧪 Testing Patterns
 
 ### **Frontend Tests**
+
 - Component tests in `__tests__/` directories
 - Integration tests for hooks
 - E2E tests with Playwright (if applicable)
 
 ### **Backend Tests**
+
 - Unit tests for services
 - Integration tests for API endpoints
 - Tool execution tests
@@ -1492,12 +1574,14 @@ export function buildTools(agent: CodingAgentInterface) {
 ## 📝 Documentation Standards
 
 ### **Code Comments**
+
 - Explain WHY, not WHAT (code should be self-documenting)
 - Keep comments brief and to the point
 - Update comments when code changes
 - No emojis in code comments
 
 ### **Type Documentation**
+
 ```typescript
 // ✅ GOOD
 /**
@@ -1520,12 +1604,14 @@ export interface FileType { ... }
 ## 🔍 Debugging Guide
 
 ### **Frontend Debugging**
+
 - Use React DevTools for component state
 - Check browser console for errors
 - Monitor WebSocket messages in Network tab
 - Use Debug Panel in chat interface
 
 ### **Backend Debugging**
+
 - Check Cloudflare Workers logs
 - Use `wrangler tail` for live logs
 - Add strategic console.log with prefixes: `[TOOL_CALL_DEBUG]`, `[WS_DEBUG]`
@@ -1534,16 +1620,19 @@ export interface FileType { ... }
 ### **Common Issues**
 
 **Empty Deep Debug Transcript:**
+
 - Check `max_tokens` is sufficient (32000+)
 - Verify tool calls are completing
 - Check for abort signals
 
 **Duplicate Messages:**
+
 - Verify deduplication utilities are used
 - Check backend history management
 - Ensure tool results aren't causing re-calls
 
 **WebSocket Disconnects:**
+
 - Check retry logic in `use-chat.ts`
 - Verify DO isn't being evicted prematurely
 - Check for abort controller issues
@@ -1553,17 +1642,20 @@ export interface FileType { ... }
 ## 📦 Deployment
 
 ### **Frontend**
+
 - Built with Vite
 - Deployed as static assets
 - Served by Cloudflare Pages or Workers
 
 ### **Backend**
+
 - Deployed via Wrangler
 - Durable Objects for stateful agents
 - D1 for persistent database
 - KV for caching (if used)
 
 ### **Database Migrations**
+
 ```bash
 # Generate migration
 npm run db:generate
@@ -1582,6 +1674,7 @@ npm run db:migrate:remote
 ### **Keep This Document Updated**
 
 When you:
+
 - Add new features or components
 - Discover undocumented patterns
 - Find inaccuracies or outdated info
@@ -1589,6 +1682,7 @@ When you:
 - Identify new best practices
 
 **Update sections:**
+
 - Add to relevant section
 - Create new section if needed
 - Mark outdated info with ⚠️ and correction
@@ -1596,7 +1690,9 @@ When you:
 - Keep it concise but complete
 
 ### **Document Structure**
+
 This guide is organized by:
+
 1. Core principles (rules that never change)
 2. Architecture (how things are structured)
 3. Patterns (how to implement features)
@@ -1691,6 +1787,7 @@ WebSocketMessageResponses:
 ### **WebSocket Message Flow Examples**
 
 #### **1. Code Generation Flow:**
+
 ```
 User clicks "Generate" button
   ↓
@@ -1716,6 +1813,7 @@ Backend: generation_complete
 ```
 
 #### **2. User Conversation Flow:**
+
 ```
 User types message → clicks send
   ↓
@@ -1731,12 +1829,13 @@ Backend: conversation_response { isStreaming: false } (final)
 ```
 
 #### **3. Abort Generation Flow:**
+
 ```
 User clicks abort button
   ↓
 Frontend: STOP_GENERATION
   ↓
-Backend: 
+Backend:
   - Calls agent.cancelCurrentInference()
   - Aborts active AbortController
   - Sets shouldBeGenerating = false
@@ -1756,15 +1855,18 @@ Frontend:
 **Purpose:** Persistent intent to generate code, survives page refreshes.
 
 **When set to `true`:**
+
 - User clicks "Generate" button
 - User resumes generation
 
 **When set to `false`:**
+
 - User clicks "Stop" button
 - Generation completes successfully
 - Generation fails permanently
 
 **Why it matters:**
+
 - On page refresh, if `shouldBeGenerating=true` and no active generation → restart
 - Prevents abandoned generation sessions
 - Used by frontend to show "generating" vs "cancelled" phases
@@ -1774,7 +1876,9 @@ Frontend:
 ## 🤖 Conversational AI System ("Orange")
 
 ### **Purpose**
+
 Orange is the AI interface between users and the development agent. It handles:
+
 - User questions and discussions
 - Feature/bug requests (via `queue_request` tool)
 - Immediate debugging (via `deep_debug` tool)
@@ -1783,6 +1887,7 @@ Orange is the AI interface between users and the development agent. It handles:
 ### **System Prompt Philosophy**
 
 **CRITICAL:** Orange speaks AS IF it's the developer:
+
 - ✅ "I'll add that feature"
 - ✅ "I'm fixing that bug"
 - ❌ NEVER: "The team will...", "The agent will..."
@@ -1790,16 +1895,16 @@ Orange is the AI interface between users and the development agent. It handles:
 **Two Options for User Requests:**
 
 1. **Immediate Action (deep_debug):**
-   - For active bugs needing instant fixes
-   - Transfers control to autonomous debug agent
-   - Returns transcript after completion
-   - User sees real-time progress
+    - For active bugs needing instant fixes
+    - Transfers control to autonomous debug agent
+    - Returns transcript after completion
+    - User sees real-time progress
 
 2. **Queued Implementation (queue_request):**
-   - For features or non-urgent fixes
-   - Relays to development agent
-   - Implemented in next phase
-   - Tell user: "I'll have that in the next phase or two"
+    - For features or non-urgent fixes
+    - Relays to development agent
+    - Implemented in next phase
+    - Tell user: "I'll have that in the next phase or two"
 
 ### **Available Tools**
 
@@ -1825,6 +1930,7 @@ Orange is the AI interface between users and the development agent. It handles:
 ### **Tool Call Rendering**
 
 **Pattern:**
+
 ```typescript
 // Tool calls appear as expandable UI in chat messages
 conversation_response {
@@ -1838,6 +1944,7 @@ conversation_response {
 ```
 
 **Frontend displays:**
+
 - Tool name with icon
 - Status indicator (spinner/check/alert)
 - Expandable arguments
@@ -1848,18 +1955,19 @@ conversation_response {
 **Two-Tier Storage:**
 
 1. **Running History (Compact):**
-   - Used for LLM context
-   - Size-limited for token efficiency
-   - Can be archived/summarized
-   - Stored in `compact_conversations` table
+    - Used for LLM context
+    - Size-limited for token efficiency
+    - Can be archived/summarized
+    - Stored in `compact_conversations` table
 
 2. **Full History:**
-   - Complete conversation log
-   - Used for UI restoration
-   - Never truncated
-   - Stored in `full_conversations` table
+    - Complete conversation log
+    - Used for UI restoration
+    - Never truncated
+    - Stored in `full_conversations` table
 
 **Compactification:**
+
 ```typescript
 COMPACTIFICATION_CONFIG:
 - MAX_TURNS: 40 conversation turns
@@ -1869,6 +1977,7 @@ COMPACTIFICATION_CONFIG:
 ```
 
 **Update Pattern:**
+
 ```typescript
 addConversationMessage(message) {
   // Update or append to both histories
@@ -1895,83 +2004,82 @@ addConversationMessage(message) {
 ```typescript
 // 1. Define tool schema
 export function createMyToolDefinition() {
-  return {
-    type: 'function' as const,
-    function: {
-      name: 'my_tool',
-      description: 'CONCISE description (2-3 lines max)',
-      parameters: {
-        type: 'object',
-        properties: {
-          param: { 
-            type: 'string', 
-            description: 'Param description' 
-          }
-        },
-        required: ['param'],
-      },
-    },
-  };
+	return {
+		type: 'function' as const,
+		function: {
+			name: 'my_tool',
+			description: 'CONCISE description (2-3 lines max)',
+			parameters: {
+				type: 'object',
+				properties: {
+					param: {
+						type: 'string',
+						description: 'Param description',
+					},
+				},
+				required: ['param'],
+			},
+		},
+	};
 }
 
 // 2. Implement tool logic
 export async function myToolImplementation(
-  args: { param: string },
-  context: ToolContext,
-  streamCb?: StreamCallback
+	args: { param: string },
+	context: ToolContext,
+	streamCb?: StreamCallback,
 ): Promise<ToolResult> {
-  // Validation
-  if (!args.param) {
-    return { error: 'Missing required parameter' };
-  }
-  
-  // Concurrency checks (if needed)
-  if (context.agent.isCodeGenerating()) {
-    return { error: 'GENERATION_IN_PROGRESS' };
-  }
-  
-  // Execute tool logic
-  const result = await doWork(args.param);
-  
-  // Stream progress if callback provided
-  streamCb?.('Processing...');
-  
-  return { result };
+	// Validation
+	if (!args.param) {
+		return { error: 'Missing required parameter' };
+	}
+
+	// Concurrency checks (if needed)
+	if (context.agent.isCodeGenerating()) {
+		return { error: 'GENERATION_IN_PROGRESS' };
+	}
+
+	// Execute tool logic
+	const result = await doWork(args.param);
+
+	// Stream progress if callback provided
+	streamCb?.('Processing...');
+
+	return { result };
 }
 ```
 
 ### **Tool Registration**
 
 **For Conversation Tools:**
+
 ```typescript
 // File: /worker/agents/tools/customTools.ts
 import { createMyToolDefinition, myToolImplementation } from './toolkit/my-tool';
 
 export function buildTools(
-  agent: CodingAgentInterface,
-  logger: StructuredLogger,
-  toolRenderer: RenderToolCall,
-  streamCb: (chunk: string) => void
+	agent: CodingAgentInterface,
+	logger: StructuredLogger,
+	toolRenderer: RenderToolCall,
+	streamCb: (chunk: string) => void,
 ): ToolDefinition[] {
-  return [
-    // ... existing tools
-    createTool(createMyToolDefinition(), myToolImplementation),
-  ];
+	return [
+		// ... existing tools
+		createTool(createMyToolDefinition(), myToolImplementation),
+	];
 }
 ```
 
 **For Debug Tools:**
+
 ```typescript
-export function buildDebugTools(
-  session: DebugSession,
-  logger: StructuredLogger
-): ToolDefinition[] {
-  return [
-    createReadFilesTool(session.agent, logger),
-    createRunAnalysisTool(session.agent, logger),
-    createRegenerateFileTool(session.agent, logger),
-    // ... more debug-specific tools
-  ];
+export function buildDebugTools(session: DebugSession, logger: StructuredLogger): ToolDefinition[] {
+	return [
+		createReadFilesTool(session.agent, logger),
+		createRunAnalysisTool(session.agent, logger),
+		createRegenerateFileTool(session.agent, logger),
+		// ... more debug-specific tools
+	];
 }
 ```
 
@@ -1981,20 +2089,20 @@ export function buildDebugTools(
 const tool = {
   function: {...},
   implementation: async (args) => {...},
-  
+
   // Optional hooks for UI feedback
   onStart: (args) => {
-    toolRenderer({ 
-      name: 'my_tool', 
-      status: 'start', 
-      args 
+    toolRenderer({
+      name: 'my_tool',
+      status: 'start',
+      args
     });
   },
-  
+
   onComplete: (args, result) => {
-    toolRenderer({ 
-      name: 'my_tool', 
-      status: 'success', 
+    toolRenderer({
+      name: 'my_tool',
+      status: 'success',
       args,
       result: JSON.stringify(result)
     });
@@ -2011,6 +2119,7 @@ const tool = {
 **Location:** `/worker/database/schema.ts`
 
 #### **1. Users Table**
+
 ```typescript
 users {
   id: text (PK)
@@ -2021,78 +2130,80 @@ users {
   provider: 'github' | 'google' | 'email'
   providerId: text
   passwordHash: text (for email provider)
-  
+
   // Security
   emailVerified: boolean
   failedLoginAttempts: number
   lockedUntil: timestamp
-  
+
   // Preferences
   theme: 'light' | 'dark' | 'system'
   timezone: text
-  
+
   // Status
   isActive: boolean
   isSuspended: boolean
-  
+
   // Timestamps
   createdAt, updatedAt, lastActiveAt, deletedAt
 }
 ```
 
 #### **2. Apps Table**
+
 ```typescript
 apps {
   id: text (PK)
   title: text
   description: text
   iconUrl: text
-  
+
   // Generation
   originalPrompt: text
   finalPrompt: text
   framework: text
-  
+
   // Ownership
   userId: text (FK → users, nullable for anonymous)
   sessionToken: text (for anonymous)
-  
+
   // Visibility
   visibility: 'private' | 'public'
   status: 'generating' | 'completed'
-  
+
   // Deployment
   deploymentId: text
   githubRepositoryUrl: text
-  
+
   // Metadata
   isArchived: boolean
   isFeatured: boolean
   version: number
   parentAppId: text (for forks)
   screenshotUrl: text
-  
+
   // Timestamps
   createdAt, updatedAt, lastDeployedAt
 }
 ```
 
 #### **3. Sessions Table**
+
 ```typescript
 sessions {
   id: text (PK)
   userId: text (FK → users)
-  
+
   // Session data
   deviceInfo: text
   userAgent: text
   ipAddress: text
-  
+
   // Security
   isRevoked: boolean
   accessTokenHash: text
   refreshTokenHash: text
-  
+
   // Timing
   expiresAt: timestamp
   createdAt: timestamp
@@ -2101,13 +2212,14 @@ sessions {
 ```
 
 #### **4. Stars & Favorites**
+
 ```typescript
 stars {
   id: text (PK)
   userId: text (FK → users)
   appId: text (FK → apps)
   starredAt: timestamp
-  
+
   // Unique constraint on (userId, appId)
 }
 
@@ -2116,12 +2228,13 @@ favorites {
   userId: text (FK → users)
   appId: text (FK → apps)
   createdAt: timestamp
-  
+
   // Unique constraint on (userId, appId)
 }
 ```
 
 #### **5. Analytics Tables**
+
 ```typescript
 appViews {
   id: text (PK)
@@ -2129,7 +2242,7 @@ appViews {
   userId: text (FK → users, nullable)
   sessionId: text
   viewedAt: timestamp
-  
+
   // Indexes for fast counting
 }
 
@@ -2137,14 +2250,14 @@ userModelConfigs {
   id: text (PK)
   userId: text (FK → users)
   agentActionName: text
-  
+
   // Model overrides
   modelName: text
   maxTokens: number
   temperature: number
   reasoningEffort: 'low' | 'medium' | 'high'
   fallbackModel: text
-  
+
   // Unique per user+action
 }
 ```
@@ -2154,33 +2267,27 @@ userModelConfigs {
 ```typescript
 // File: /worker/database/services/DomainService.ts
 export class DomainService {
-  private db: D1Database;
-  
-  constructor(env: Env) {
-    this.db = env.DB;
-  }
-  
-  async getItem(id: string): Promise<Item> {
-    // Use Drizzle ORM for type safety
-    const result = await this.db
-      .select()
-      .from(itemsTable)
-      .where(eq(itemsTable.id, id))
-      .get();
-    
-    if (!result) throw new ApiError(404, 'Not found');
-    return result;
-  }
-  
-  async createItem(data: CreateInput): Promise<Item> {
-    // Insert with validation
-    const id = generateId();
-    await this.db
-      .insert(itemsTable)
-      .values({ id, ...data });
-    
-    return this.getItem(id);
-  }
+	private db: D1Database;
+
+	constructor(env: Env) {
+		this.db = env.DB;
+	}
+
+	async getItem(id: string): Promise<Item> {
+		// Use Drizzle ORM for type safety
+		const result = await this.db.select().from(itemsTable).where(eq(itemsTable.id, id)).get();
+
+		if (!result) throw new ApiError(404, 'Not found');
+		return result;
+	}
+
+	async createItem(data: CreateInput): Promise<Item> {
+		// Insert with validation
+		const id = generateId();
+		await this.db.insert(itemsTable).values({ id, ...data });
+
+		return this.getItem(id);
+	}
 }
 ```
 
@@ -2193,11 +2300,7 @@ export class DomainService {
 **Location:** `/worker/types/image-attachment.ts`
 
 ```typescript
-SUPPORTED_IMAGE_MIME_TYPES = [
-  'image/png',
-  'image/jpeg',
-  'image/webp',
-]
+SUPPORTED_IMAGE_MIME_TYPES = ['image/png', 'image/jpeg', 'image/webp'];
 
 MAX_IMAGE_SIZE_BYTES = 10 * 1024 * 1024; // 10MB
 MAX_IMAGES_PER_MESSAGE = 2;
@@ -2230,21 +2333,21 @@ MAX_IMAGES_PER_MESSAGE = 2;
 ```typescript
 // Raw upload from user
 interface ImageAttachment {
-  id: string;
-  filename: string;
-  mimeType: SupportedImageMimeType;
-  base64Data: string; // Without data URL prefix
-  size: number;
-  dimensions?: { width: number; height: number };
+	id: string;
+	filename: string;
+	mimeType: SupportedImageMimeType;
+	base64Data: string; // Without data URL prefix
+	size: number;
+	dimensions?: { width: number; height: number };
 }
 
 // After R2 upload
 interface ProcessedImageAttachment {
-  mimeType: SupportedImageMimeType;
-  base64Data?: string; // Optional, may be cleared after upload
-  r2Key: string; // R2 storage key
-  publicUrl: string; // Public URL
-  hash: string; // Content hash
+	mimeType: SupportedImageMimeType;
+	base64Data?: string; // Optional, may be cleared after upload
+	r2Key: string; // R2 storage key
+	publicUrl: string; // Public URL
+	hash: string; // Content hash
 }
 ```
 
@@ -2274,7 +2377,7 @@ case USER_SUGGESTION:
     sendError(`Maximum ${MAX_IMAGES_PER_MESSAGE} images allowed`);
     return;
   }
-  
+
   for (const image of images) {
     if (image.size > MAX_IMAGE_SIZE_BYTES) {
       sendError(`Image exceeds ${MAX_IMAGE_SIZE_BYTES / 1024 / 1024}MB`);
@@ -2292,6 +2395,7 @@ case USER_SUGGESTION:
 **Purpose:** Protect actions requiring authentication (star, fork, etc.)
 
 **Flow:**
+
 1. User clicks protected action (not authenticated)
 2. Guard shows auth modal
 3. User logs in via GitHub/Google OAuth
@@ -2309,40 +2413,43 @@ case USER_SUGGESTION:
 ## **Adding a New LLM Tool**
 
 **Steps:**
+
 1. Create tool file: `/worker/agents/tools/toolkit/my-new-tool.ts`
 2. Structure:
+
 ```typescript
 import { CodingAgentInterface } from 'worker/agents/services/implementations/CodingAgent';
 import { StructuredLogger } from '../../../logger';
 
 export function createMyNewTool(agent: CodingAgentInterface, logger: StructuredLogger) {
-  return {
-    type: 'function' as const,
-    function: {
-      name: 'my_new_tool',
-      description: 'Clear 2-3 line description. LLM uses this to decide when to call.',
-      parameters: {
-        type: 'object',
-        properties: {
-          input: {
-            type: 'string',
-            description: 'What this parameter does'
-          }
-        },
-        required: ['input']
-      }
-    },
-    implementation: async (args: { input: string }) => {
-      logger.info('Tool called', { args });
-      // Your logic here
-      return { result: 'success' };
-    }
-  };
+	return {
+		type: 'function' as const,
+		function: {
+			name: 'my_new_tool',
+			description: 'Clear 2-3 line description. LLM uses this to decide when to call.',
+			parameters: {
+				type: 'object',
+				properties: {
+					input: {
+						type: 'string',
+						description: 'What this parameter does',
+					},
+				},
+				required: ['input'],
+			},
+		},
+		implementation: async (args: { input: string }) => {
+			logger.info('Tool called', { args });
+			// Your logic here
+			return { result: 'success' };
+		},
+	};
 }
 ```
+
 3. Register in `/worker/agents/tools/customTools.ts`:
-   - Import: `import { createMyNewTool } from './toolkit/my-new-tool';`
-   - Add to `buildTools()` array (line 44): `createMyNewTool(agent, logger),`
+    - Import: `import { createMyNewTool } from './toolkit/my-new-tool';`
+    - Add to `buildTools()` array (line 44): `createMyNewTool(agent, logger),`
 4. Tool is now available to conversation agent (Orange AI)
 
 ## **Modifying Deep Debugger Behavior**
@@ -2350,6 +2457,7 @@ export function createMyNewTool(agent: CodingAgentInterface, logger: StructuredL
 **File:** `/worker/agents/assistants/codeDebugger.ts`
 
 **System prompt sections:**
+
 - **Identity** (lines 11-25): Who the debugger is
 - **Available Tools** (lines 27-70): Tool descriptions (keep concise!)
 - **Required Workflow** (lines 72-80): Step-by-step process
@@ -2360,6 +2468,7 @@ export function createMyNewTool(agent: CodingAgentInterface, logger: StructuredL
 **To change tool priority:** Edit "Diagnostic Priority" section
 
 **To add tool to debugger:**
+
 1. Create tool in `/worker/agents/tools/toolkit/`
 2. Import in `customTools.ts`
 3. Add to `buildDebugTools()` function (line 59)
@@ -2368,13 +2477,15 @@ export function createMyNewTool(agent: CodingAgentInterface, logger: StructuredL
 ## **Adding a New WebSocket Message Type**
 
 **Backend:**
+
 1. Add type to `/worker/agents/constants.ts`:
-   - `WebSocketMessageRequests` (client → server)
-   - `WebSocketMessageResponses` (server → client)
+    - `WebSocketMessageRequests` (client → server)
+    - `WebSocketMessageResponses` (server → client)
 2. Handle in `/worker/agents/core/websocket.ts` → `handleWebSocketMessage()`
 3. Send via `sendToConnection(connection, messageType, data)`
 
 **Frontend:**
+
 1. Add type to `/src/api-types.ts` → `WebSocketMessage` union
 2. Handle in `/src/routes/chat/utils/handle-websocket-message.ts`
 3. Update state in handler
@@ -2382,6 +2493,7 @@ export function createMyNewTool(agent: CodingAgentInterface, logger: StructuredL
 ## **Modifying Database Schema**
 
 **Steps:**
+
 1. Edit `/worker/database/schema.ts`
 2. Generate migration: `npm run db:generate`
 3. Review SQL in `/migrations/{number}_*.sql`
@@ -2399,24 +2511,22 @@ export function createMyNewTool(agent: CodingAgentInterface, logger: StructuredL
 
 ```typescript
 export class UserService extends BaseService {
-  // Existing methods...
-  
-  async getNewMethod(userId: string): Promise<ResultType> {
-    // Use 'fresh' for user's own data
-    const readDb = this.getReadDb('fresh');
-    
-    const result = await readDb
-      .select()
-      .from(schema.users)
-      .where(eq(schema.users.id, userId));
-      
-    if (!result) throw new Error('Not found');
-    return result;
-  }
+	// Existing methods...
+
+	async getNewMethod(userId: string): Promise<ResultType> {
+		// Use 'fresh' for user's own data
+		const readDb = this.getReadDb('fresh');
+
+		const result = await readDb.select().from(schema.users).where(eq(schema.users.id, userId));
+
+		if (!result) throw new Error('Not found');
+		return result;
+	}
 }
 ```
 
 **Call from controller:**
+
 ```typescript
 const userService = new UserService(c.env);
 const data = await userService.getNewMethod(userId);
@@ -2427,8 +2537,9 @@ const data = await userService.getNewMethod(userId);
 **Current state:** Check `agent.state.currentDevState`
 
 **States:** Defined in `/worker/agents/core/state.ts` → `CurrentDevState` enum
+
 - `IDLE` (0): No generation
-- `PHASE_GENERATING` (1): Planning next phase  
+- `PHASE_GENERATING` (1): Planning next phase
 - `PHASE_IMPLEMENTING` (2): Generating files
 - `REVIEWING` (3): Code review
 - `FINALIZING` (4): Final touches
@@ -2436,6 +2547,7 @@ const data = await userService.getNewMethod(userId);
 **State machine logic:** `/worker/agents/core/simpleGeneratorAgent.ts` → `launchStateMachine()` (line 856)
 
 **Operations:**
+
 - Phase Generation: `/worker/agents/operations/PhaseGeneration.ts`
 - Phase Implementation: `/worker/agents/operations/PhaseImplementation.ts`
 - Code Review: `/worker/agents/operations/PostPhaseCodeFixer.ts`
@@ -2445,23 +2557,23 @@ const data = await userService.getNewMethod(userId);
 
 **"Where is X implemented?"**
 
-| Feature | Primary Location |
-|---------|------------------|
-| Agent state machine | `/worker/agents/core/simpleGeneratorAgent.ts` → `launchStateMachine()` |
-| Blueprint generation | `/worker/agents/operations/PhaseGeneration.ts` → system prompt |
-| File generation | `/worker/agents/operations/PhaseImplementation.ts` |
-| Chat messages | `/worker/agents/operations/UserConversationProcessor.ts` |
-| Deep debugging | `/worker/agents/assistants/codeDebugger.ts` |
-| Sandbox deployment | `/worker/agents/services/implementations/DeploymentManager.ts` |
-| Git operations | `/worker/agents/services/implementations/GitService.ts` |
-| WebSocket handling | `/worker/agents/core/websocket.ts` → `handleWebSocketMessage()` |
-| Database queries | `/worker/database/services/{Domain}Service.ts` |
-| API routes | `/worker/api/routes/*.ts` |
-| API controllers | `/worker/api/controllers/{domain}/controller.ts` |
-| Frontend API calls | `/src/lib/api-client.ts` (ALL calls in one place) |
-| Chat UI state | `/src/routes/chat/hooks/use-chat.ts` |
-| Phase timeline UI | `/src/routes/chat/components/phase-timeline.tsx` |
-| Auth guards | `/src/hooks/useAuthGuard.ts` |
+| Feature              | Primary Location                                                       |
+| -------------------- | ---------------------------------------------------------------------- |
+| Agent state machine  | `/worker/agents/core/simpleGeneratorAgent.ts` → `launchStateMachine()` |
+| Blueprint generation | `/worker/agents/operations/PhaseGeneration.ts` → system prompt         |
+| File generation      | `/worker/agents/operations/PhaseImplementation.ts`                     |
+| Chat messages        | `/worker/agents/operations/UserConversationProcessor.ts`               |
+| Deep debugging       | `/worker/agents/assistants/codeDebugger.ts`                            |
+| Sandbox deployment   | `/worker/agents/services/implementations/DeploymentManager.ts`         |
+| Git operations       | `/worker/agents/services/implementations/GitService.ts`                |
+| WebSocket handling   | `/worker/agents/core/websocket.ts` → `handleWebSocketMessage()`        |
+| Database queries     | `/worker/database/services/{Domain}Service.ts`                         |
+| API routes           | `/worker/api/routes/*.ts`                                              |
+| API controllers      | `/worker/api/controllers/{domain}/controller.ts`                       |
+| Frontend API calls   | `/src/lib/api-client.ts` (ALL calls in one place)                      |
+| Chat UI state        | `/src/routes/chat/hooks/use-chat.ts`                                   |
+| Phase timeline UI    | `/src/routes/chat/components/phase-timeline.tsx`                       |
+| Auth guards          | `/src/hooks/useAuthGuard.ts`                                           |
 
 ---
 
@@ -2476,13 +2588,14 @@ const data = await userService.getNewMethod(userId);
 ### **Architecture**
 
 **Storage Options:**
+
 1. **Durable Objects** (Primary) - `rateLimitDO.ts`
-   - Bucketed sliding window algorithm
-   - Better consistency than KV
-   - Per-key isolated storage
+    - Bucketed sliding window algorithm
+    - Better consistency than KV
+    - Per-key isolated storage
 2. **KV Store** (Fallback) - `rateLimitKV.ts`
-   - Global edge cache
-   - Eventual consistency
+    - Global edge cache
+    - Eventual consistency
 
 ### **Identifier Strategy**
 
@@ -2511,12 +2624,12 @@ ip:192.168.1.1
 
 ```typescript
 interface DORateLimitConfig {
-  limit: number;        // Max requests per period
-  period: number;       // Time window in seconds
-  burst?: number;       // Burst allowance
-  burstWindow?: number; // Burst time window
-  bucketSize: number;   // Bucket size for sliding window
-  dailyLimit?: number;  // Optional daily cap
+	limit: number; // Max requests per period
+	period: number; // Time window in seconds
+	burst?: number; // Burst allowance
+	burstWindow?: number; // Burst time window
+	bucketSize: number; // Bucket size for sliding window
+	dailyLimit?: number; // Optional daily cap
 }
 ```
 
@@ -2524,21 +2637,17 @@ interface DORateLimitConfig {
 
 ```typescript
 // In API route
-const allowed = await RateLimitService.enforce(
-  env,
-  request,
-  RateLimitType.API_ENDPOINT,
-  user
-);
+const allowed = await RateLimitService.enforce(env, request, RateLimitType.API_ENDPOINT, user);
 
 if (!allowed) {
-  throw new RateLimitExceededError('Too many requests');
+	throw new RateLimitExceededError('Too many requests');
 }
 ```
 
 ### **LLM Model-Specific Rates**
 
 Different models have different rate increments:
+
 - GPT-4o: 10 units
 - GPT-4o-mini: 1 unit
 - Claude Sonnet: 15 units
@@ -2558,6 +2667,7 @@ Different models have different rate increments:
 ### **Key Operations**
 
 **1. Create Repository**
+
 ```typescript
 static async createUserRepository(options: {
   token: string;           // User's GitHub PAT
@@ -2569,6 +2679,7 @@ static async createUserRepository(options: {
 ```
 
 **2. Push Generated Code**
+
 ```typescript
 static async pushCodeToRepository({
   token,
@@ -2582,12 +2693,14 @@ static async pushCodeToRepository({
 ```
 
 **Process:**
+
 1. Build git repo with `GitCloneService` (rebases on template)
 2. Push all commits to GitHub via Octokit
 3. Add README with app description + Cloudflare deploy button
 4. Return repository URL
 
 **3. Add Deploy to Cloudflare Button**
+
 ```typescript
 static async addCloudflareDeployButton({
   token,
@@ -2613,21 +2726,22 @@ All providers extend `BaseOAuthProvider`:
 
 ```typescript
 abstract class BaseOAuthProvider {
-  abstract getAuthorizationUrl(params): string;
-  abstract exchangeCodeForToken(code, verifier): Promise<TokenResponse>;
-  abstract getUserInfo(token): Promise<UserInfo>;
+	abstract getAuthorizationUrl(params): string;
+	abstract exchangeCodeForToken(code, verifier): Promise<TokenResponse>;
+	abstract getUserInfo(token): Promise<UserInfo>;
 }
 ```
 
 ### **OAuth Flow**
 
 **Step 1: Generate Auth URL**
+
 ```typescript
 const provider = OAuthProviderFactory.create('google', env);
 const { url, state, codeVerifier } = await provider.getAuthorizationUrl({
-  redirectUri: 'https://app.com/auth/callback',
-  state: csrfToken,
-  scopes: ['openid', 'email', 'profile']
+	redirectUri: 'https://app.com/auth/callback',
+	state: csrfToken,
+	scopes: ['openid', 'email', 'profile'],
 });
 
 // Store state + verifier in oauthStates table
@@ -2635,26 +2749,24 @@ const { url, state, codeVerifier } = await provider.getAuthorizationUrl({
 ```
 
 **Step 2: Handle Callback**
+
 ```typescript
 // Verify state (CSRF protection)
 const storedState = await db.getOAuthState(state);
 if (!storedState || storedState.used) throw new Error('Invalid state');
 
 // Exchange code for token
-const tokenData = await provider.exchangeCodeForToken(
-  code,
-  storedState.codeVerifier
-);
+const tokenData = await provider.exchangeCodeForToken(code, storedState.codeVerifier);
 
 // Get user info
 const userInfo = await provider.getUserInfo(tokenData.access_token);
 
 // Create or update user
 const user = await authService.findOrCreateOAuthUser({
-  provider: 'google',
-  providerId: userInfo.id,
-  email: userInfo.email,
-  displayName: userInfo.name
+	provider: 'google',
+	providerId: userInfo.id,
+	email: userInfo.email,
+	displayName: userInfo.name,
 });
 
 // Create session
@@ -2662,6 +2774,7 @@ const session = await sessionService.createSession(user);
 ```
 
 **Step 3: Cleanup**
+
 ```typescript
 // Mark state as used
 await db.markOAuthStateUsed(state);
@@ -2675,6 +2788,7 @@ await db.cleanupExpiredOAuthStates();
 **Purpose:** Prevent authorization code interception
 
 **Flow:**
+
 1. Generate random `codeVerifier` (128 chars)
 2. Create `codeChallenge` = SHA256(codeVerifier)
 3. Send challenge in auth URL
@@ -2683,10 +2797,12 @@ await db.cleanupExpiredOAuthStates();
 6. Provider verifies: SHA256(verifier) == challenge
 
 **Google Implementation:**
+
 - Uses `code_challenge_method=S256`
 - Requires `openid` scope
 
 **GitHub Implementation:**
+
 - Standard OAuth 2.0 (no PKCE)
 - Uses `state` for CSRF only
 
@@ -2705,31 +2821,37 @@ await db.cleanupExpiredOAuthStates();
 **Key Operations:**
 
 **1. Track View**
+
 ```typescript
 await analyticsService.trackView(appId, userId, ipAddress);
 ```
+
 - Creates view record
 - Deduplicates by IP (1 view per IP per day)
 - Updates app.viewsCount
 
 **2. Star App**
+
 ```typescript
 const result = await analyticsService.toggleStar(appId, userId);
 // result: { starred: true } or { starred: false }
 ```
+
 - Adds/removes star
 - Updates app.starsCount
 - Returns new state
 
 **3. Get Activity Stats**
+
 ```typescript
-const stats = await analyticsService.getUserActivity(userId, days = 30);
+const stats = await analyticsService.getUserActivity(userId, (days = 30));
 // Returns: appsCreated, totalViews, totalStars, recentActivity[]
 ```
 
 ### **Ranking Impact**
 
 Views and stars affect app rankings:
+
 - **Popular**: `(views × 1) + (stars × 3)` DESC
 - **Trending**: `(recent_activity × 1000000 + recency_bonus)` DESC
 
@@ -2744,38 +2866,42 @@ Views and stars affect app rankings:
 ### **Cache Strategies**
 
 **1. Git Packfile Cache**
+
 ```typescript
 // Cache generated packfiles for git clone
 await cacheService.set(
-  `git:packfile:${agentId}`,
-  packfileBuffer,
-  3600 // 1 hour TTL
+	`git:packfile:${agentId}`,
+	packfileBuffer,
+	3600, // 1 hour TTL
 );
 ```
 
 **2. Static Analysis Cache**
+
 ```typescript
 // Cache TypeScript analysis results
 await cacheService.set(
-  `analysis:${fileHash}`,
-  analysisResults,
-  300 // 5 min TTL
+	`analysis:${fileHash}`,
+	analysisResults,
+	300, // 5 min TTL
 );
 ```
 
 **3. Template Cache**
+
 ```typescript
 // Cache template file trees
 await cacheService.set(
-  `template:${templateName}`,
-  templateFiles,
-  86400 // 24 hours
+	`template:${templateName}`,
+	templateFiles,
+	86400, // 24 hours
 );
 ```
 
 ### **Implementation**
 
 Uses Cloudflare Cache API:
+
 ```typescript
 const cache = caches.default;
 await cache.put(request, response);
@@ -2794,10 +2920,7 @@ const cached = await cache.match(request);
 
 ```typescript
 // Generate token for OAuth state
-const csrfToken = await crypto.subtle.digest(
-  'SHA-256',
-  crypto.getRandomValues(new Uint8Array(32))
-);
+const csrfToken = await crypto.subtle.digest('SHA-256', crypto.getRandomValues(new Uint8Array(32)));
 ```
 
 ### **Validation**
@@ -2805,13 +2928,14 @@ const csrfToken = await crypto.subtle.digest(
 ```typescript
 // In OAuth callback
 if (callbackState !== storedState.state) {
-  throw new SecurityError('CSRF token mismatch');
+	throw new SecurityError('CSRF token mismatch');
 }
 ```
 
 ### **Storage**
 
 CSRF tokens stored in `oauthStates` table:
+
 - `state` column = CSRF token
 - `expiresAt` = 10 minutes
 - `used` flag prevents replay
@@ -2827,12 +2951,14 @@ CSRF tokens stored in `oauthStates` table:
 ### **Architecture**
 
 **Storage:** Durable Object with SQLite backend
+
 - One DO instance per user (userId as DO ID)
 - XChaCha20-Poly1305 encryption (AEAD)
 - Hierarchical key derivation: MEK → UMK → DEK
 - Key rotation metadata tracking
 
 **Core Components:**
+
 1. **UserSecretsStore** (`UserSecretsStore.ts`) - Main DO class
 2. **KeyDerivation** (`KeyDerivation.ts`) - PBKDF2-based key derivation
 3. **EncryptionService** (`EncryptionService.ts`) - XChaCha20-Poly1305 encryption
@@ -2841,6 +2967,7 @@ CSRF tokens stored in `oauthStates` table:
 ### **Key Features**
 
 **1. Hierarchical Key Derivation**
+
 ```
 Master Encryption Key (MEK) [from env.SECRETS_ENCRYPTION_KEY]
     ↓ PBKDF2 with userId salt
@@ -2850,18 +2977,21 @@ Data Encryption Key (DEK) - unique per secret
 ```
 
 **2. Encryption**
+
 - Algorithm: XChaCha20-Poly1305 (AEAD)
 - Unique salt per secret (16 bytes)
 - Unique nonce per encryption (24 bytes)
 - Authentication tag for integrity verification
 
 **3. Key Rotation**
+
 - Tracks master key fingerprint (SHA-256)
 - Detects key changes automatically
 - Re-encrypts all secrets with new key
 - Maintains rotation statistics
 
 **4. Security Features**
+
 - Access counting (tracks how many times secret accessed)
 - Secret expiration timestamps
 - Soft deletion (90-day retention)
@@ -2870,6 +3000,7 @@ Data Encryption Key (DEK) - unique per secret
 ### **Database Schema**
 
 **Tables:**
+
 ```sql
 -- Main secrets table
 CREATE TABLE secrets (
@@ -2927,37 +3058,37 @@ async getKeyRotationInfo(): Promise<KeyRotationInfo>
 
 ```typescript
 interface StoreSecretRequest {
-    name: string;
-    secretType: 'api_key' | 'oauth_token' | 'webhook_secret' | 'encryption_key' | 'other';
-    value: string;
-    metadata?: Record<string, unknown>;
-    expiresAt?: number;
+	name: string;
+	secretType: 'api_key' | 'oauth_token' | 'webhook_secret' | 'encryption_key' | 'other';
+	value: string;
+	metadata?: Record<string, unknown>;
+	expiresAt?: number;
 }
 
 interface SecretMetadata {
-    id: string;
-    userId: string;
-    name: string;
-    secretType: string;
-    keyPreview: string;
-    metadata?: Record<string, unknown>;
-    accessCount: number;
-    createdAt: number;
-    updatedAt: number;
-    expiresAt?: number;
+	id: string;
+	userId: string;
+	name: string;
+	secretType: string;
+	keyPreview: string;
+	metadata?: Record<string, unknown>;
+	accessCount: number;
+	createdAt: number;
+	updatedAt: number;
+	expiresAt?: number;
 }
 
 interface SecretWithValue {
-    value: string;
-    metadata: SecretMetadata;
+	value: string;
+	metadata: SecretMetadata;
 }
 
 interface KeyRotationInfo {
-    currentKeyFingerprint: string;
-    lastRotationAt: number;
-    rotationCount: number;
-    totalSecrets: number;
-    secretsRotated: number;
+	currentKeyFingerprint: string;
+	lastRotationAt: number;
+	rotationCount: number;
+	totalSecrets: number;
+	secretsRotated: number;
 }
 ```
 
@@ -2970,21 +3101,21 @@ const store = env.UserSecretsStore.get(id);
 
 // Store secret
 const metadata = await store.storeSecret({
-    name: 'OpenAI API Key',
-    secretType: 'api_key',
-    value: 'sk-...',
-    metadata: { provider: 'openai' }
+	name: 'OpenAI API Key',
+	secretType: 'api_key',
+	value: 'sk-...',
+	metadata: { provider: 'openai' },
 });
 
 if (!metadata) {
-    throw new Error('Failed to store secret');
+	throw new Error('Failed to store secret');
 }
 
 // Retrieve decrypted value
 const secret = await store.getSecretValue(metadata.id);
 
 if (!secret) {
-    throw new Error('Secret not found or expired');
+	throw new Error('Secret not found or expired');
 }
 
 console.log(secret.value); // Decrypted value
@@ -2995,8 +3126,8 @@ const secrets = await store.listSecrets();
 
 // Update secret
 const updated = await store.updateSecret(metadata.id, {
-    name: 'OpenAI API Key (Production)',
-    expiresAt: Date.now() + 86400000 // 24 hours
+	name: 'OpenAI API Key (Production)',
+	expiresAt: Date.now() + 86400000, // 24 hours
 });
 
 // Delete secret
@@ -3017,17 +3148,17 @@ static async getSecretValue(
 ): Promise<ControllerResponse<ApiResponse<UserSecretValueData>>> {
     const user = context.user!;
     const secretId = context.pathParams.secretId;
-    
+
     const stub = this.getUserSecretsStub(env, user.id);
     const result = await stub.getSecretValue(secretId);
-    
+
     if (!result) {
         return UserSecretsController.createErrorResponse(
             'Secret not found or has expired',
             404
         );
     }
-    
+
     return UserSecretsController.createSuccessResponse(result);
 }
 ```
@@ -3035,25 +3166,27 @@ static async getSecretValue(
 ### **Key Rotation Process**
 
 **Automatic Detection:**
+
 1. On DO initialization, checks current master key fingerprint
 2. Compares with stored fingerprint in database
 3. If different, triggers key rotation
 
 **Re-encryption:**
+
 ```typescript
 async performKeyRotation() {
     // 1. Fetch all active secrets
     const secrets = this.ctx.storage.sql.exec(`
         SELECT * FROM secrets WHERE is_active = 1
     `);
-    
+
     // 2. Decrypt with old key, encrypt with new key
     for (const secret of secrets) {
         const decrypted = await this.decrypt(secret.encrypted_value, ...);
         const encrypted = await this.encrypt(decrypted);
         // 3. Update in database atomically
     }
-    
+
     // 4. Update rotation metadata
 }
 ```
@@ -3061,6 +3194,7 @@ async performKeyRotation() {
 ### **Security Considerations**
 
 **✅ Good Practices:**
+
 - Master key stored in Worker environment variable
 - Unique salt per secret
 - AEAD encryption with integrity verification
@@ -3069,6 +3203,7 @@ async performKeyRotation() {
 - Access tracking for audit
 
 **⚠️ Important Notes:**
+
 - DO RPC methods return `null`/`boolean` instead of throwing exceptions
 - Master key must be 64 hex characters (32 bytes)
 - Expired secrets automatically filtered from results
@@ -3079,11 +3214,13 @@ async performKeyRotation() {
 **Location:** `/test/worker/services/secrets/`
 
 Comprehensive test suite with **90+ tests** (3 test files):
+
 - **KeyDerivation.test.ts** - 17 unit tests for key derivation
 - **EncryptionService.test.ts** - 18 unit tests for encryption/decryption
 - **UserSecretsStore.test.ts** - 55+ E2E tests for full DO lifecycle
 
 **Run tests:**
+
 ```bash
 npm test test/worker/services/secrets
 # Or with Bun:
@@ -3091,6 +3228,7 @@ bun run test:bun test/worker/services/secrets
 ```
 
 **Test Coverage:**
+
 - CRUD operations
 - Encryption/decryption
 - Key rotation
@@ -3103,28 +3241,30 @@ bun run test:bun test/worker/services/secrets
 ### **Configuration**
 
 **Environment Variables:**
+
 ```bash
 # Required: 64 hex characters (32 bytes)
 SECRETS_ENCRYPTION_KEY=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
 ```
 
 **Wrangler Configuration:**
+
 ```jsonc
 {
-  "durable_objects": {
-    "bindings": [
-      {
-        "name": "UserSecretsStore",
-        "class_name": "UserSecretsStore"
-      }
-    ]
-  },
-  "migrations": [
-    {
-      "tag": "v3",
-      "new_sqlite_classes": ["UserSecretsStore"]
-    }
-  ]
+	"durable_objects": {
+		"bindings": [
+			{
+				"name": "UserSecretsStore",
+				"class_name": "UserSecretsStore",
+			},
+		],
+	},
+	"migrations": [
+		{
+			"tag": "v3",
+			"new_sqlite_classes": ["UserSecretsStore"],
+		},
+	],
 }
 ```
 
@@ -3137,6 +3277,7 @@ SECRETS_ENCRYPTION_KEY=0123456789abcdef0123456789abcdef0123456789abcdef012345678
 ### **Atomic Design Structure**
 
 **Hierarchy:**
+
 ```
 1. Primitives (ui/) - shadcn/ui base components
    ↓
@@ -3183,7 +3324,7 @@ export function AppCard({ app }: { app: App }) {
 // 3. Feature: /routes/apps/apps-list.tsx
 export function AppsList() {
   const { apps } = useApps();
-  
+
   return (
     <div>
       {apps.map(app => <AppCard key={app.id} app={app} />)}
@@ -3212,14 +3353,14 @@ const [selectedFile, setSelectedFile] = useState<FileType | null>(null);
 ```typescript
 // /hooks/use-apps.ts
 export function useApps(filters?: AppFilters) {
-  const [apps, setApps] = useState<App[]>([]);
-  const [loading, setLoading] = useState(true);
-  
-  useEffect(() => {
-    apiClient.getApps(filters).then(setApps);
-  }, [filters]);
-  
-  return { apps, loading, refetch };
+	const [apps, setApps] = useState<App[]>([]);
+	const [loading, setLoading] = useState(true);
+
+	useEffect(() => {
+		apiClient.getApps(filters).then(setApps);
+	}, [filters]);
+
+	return { apps, loading, refetch };
 }
 
 // Usage
@@ -3236,7 +3377,7 @@ const AuthContext = createContext<AuthContextType>(null!);
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState<User | null>(null);
-  
+
   return (
     <AuthContext.Provider value={{ user, setUser }}>
       {children}
@@ -3255,40 +3396,41 @@ const { user } = useAuth();
 **Location:** `/src/routes/chat/hooks/use-chat.ts`
 
 **Pattern:**
+
 ```typescript
 export function useChat(chatId: string) {
-  // Local state
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [files, setFiles] = useState<FileType[]>([]);
-  const [isGenerating, setIsGenerating] = useState(false);
-  
-  // WebSocket connection
-  const [websocket, setWebSocket] = useState<WebSocket | null>(null);
-  
-  // Message handler
-  useEffect(() => {
-    if (!websocket) return;
-    
-    websocket.onmessage = (event) => {
-      const message = JSON.parse(event.data);
-      handleWebSocketMessage(message, {
-        setMessages,
-        setFiles,
-        setIsGenerating,
-        // ... other setters
-      });
-    };
-  }, [websocket]);
-  
-  return {
-    messages,
-    files,
-    isGenerating,
-    websocket,
-    sendMessage: (text) => {
-      websocket?.send(JSON.stringify({ type: 'USER_MESSAGE', text }));
-    }
-  };
+	// Local state
+	const [messages, setMessages] = useState<ChatMessage[]>([]);
+	const [files, setFiles] = useState<FileType[]>([]);
+	const [isGenerating, setIsGenerating] = useState(false);
+
+	// WebSocket connection
+	const [websocket, setWebSocket] = useState<WebSocket | null>(null);
+
+	// Message handler
+	useEffect(() => {
+		if (!websocket) return;
+
+		websocket.onmessage = (event) => {
+			const message = JSON.parse(event.data);
+			handleWebSocketMessage(message, {
+				setMessages,
+				setFiles,
+				setIsGenerating,
+				// ... other setters
+			});
+		};
+	}, [websocket]);
+
+	return {
+		messages,
+		files,
+		isGenerating,
+		websocket,
+		sendMessage: (text) => {
+			websocket?.send(JSON.stringify({ type: 'USER_MESSAGE', text }));
+		},
+	};
 }
 ```
 
@@ -3300,16 +3442,19 @@ export function useChat(chatId: string) {
 
 ```typescript
 const sortedFiles = useMemo(() => {
-  return files.sort((a, b) => a.path.localeCompare(b.path));
+	return files.sort((a, b) => a.path.localeCompare(b.path));
 }, [files]);
 ```
 
 ### **2. useCallback for Event Handlers**
 
 ```typescript
-const handleFileClick = useCallback((fileId: string) => {
-  setSelectedFile(files.find(f => f.id === fileId));
-}, [files]);
+const handleFileClick = useCallback(
+	(fileId: string) => {
+		setSelectedFile(files.find((f) => f.id === fileId));
+	},
+	[files],
+);
 ```
 
 ### **3. React.memo for Pure Components**
@@ -3331,9 +3476,9 @@ export const FileTreeNode = memo(({ file, onSelect }: Props) => {
 import { useVirtualizer } from '@tanstack/react-virtual';
 
 const virtualizer = useVirtualizer({
-  count: apps.length,
-  getScrollElement: () => containerRef.current,
-  estimateSize: () => 200, // Card height
+	count: apps.length,
+	getScrollElement: () => containerRef.current,
+	estimateSize: () => 200, // Card height
 });
 ```
 
@@ -3346,21 +3491,22 @@ const virtualizer = useVirtualizer({
 ```typescript
 // /hooks/use-app.ts
 export function useApp(appId?: string) {
-  const [app, setApp] = useState<App | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<Error | null>(null);
-  
-  useEffect(() => {
-    if (!appId) return;
-    
-    setLoading(true);
-    apiClient.getApp(appId)
-      .then(setApp)
-      .catch(setError)
-      .finally(() => setLoading(false));
-  }, [appId]);
-  
-  return { app, loading, error, refetch };
+	const [app, setApp] = useState<App | null>(null);
+	const [loading, setLoading] = useState(true);
+	const [error, setError] = useState<Error | null>(null);
+
+	useEffect(() => {
+		if (!appId) return;
+
+		setLoading(true);
+		apiClient
+			.getApp(appId)
+			.then(setApp)
+			.catch(setError)
+			.finally(() => setLoading(false));
+	}, [appId]);
+
+	return { app, loading, error, refetch };
 }
 ```
 
@@ -3369,32 +3515,35 @@ export function useApp(appId?: string) {
 ```typescript
 // /hooks/use-apps.ts
 export function useApps(filters?: AppFilters) {
-  const [apps, setApps] = useState<App[]>([]);
-  const [hasMore, setHasMore] = useState(true);
-  const currentPageRef = useRef(1);
-  const isLoadingMoreRef = useRef(false);
-  
-  const fetchApps = useCallback(async (loadMore = false) => {
-    if (isLoadingMoreRef.current) return;
-    isLoadingMoreRef.current = true;
-    
-    const page = loadMore ? currentPageRef.current + 1 : 1;
-    const result = await apiClient.getApps({ ...filters, page });
-    
-    if (loadMore) {
-      setApps(prev => [...prev, ...result.apps]);
-    } else {
-      setApps(result.apps);
-    }
-    
-    setHasMore(result.hasMore);
-    currentPageRef.current = page;
-    isLoadingMoreRef.current = false;
-  }, [filters]);
-  
-  const loadMore = () => fetchApps(true);
-  
-  return { apps, hasMore, loadMore };
+	const [apps, setApps] = useState<App[]>([]);
+	const [hasMore, setHasMore] = useState(true);
+	const currentPageRef = useRef(1);
+	const isLoadingMoreRef = useRef(false);
+
+	const fetchApps = useCallback(
+		async (loadMore = false) => {
+			if (isLoadingMoreRef.current) return;
+			isLoadingMoreRef.current = true;
+
+			const page = loadMore ? currentPageRef.current + 1 : 1;
+			const result = await apiClient.getApps({ ...filters, page });
+
+			if (loadMore) {
+				setApps((prev) => [...prev, ...result.apps]);
+			} else {
+				setApps(result.apps);
+			}
+
+			setHasMore(result.hasMore);
+			currentPageRef.current = page;
+			isLoadingMoreRef.current = false;
+		},
+		[filters],
+	);
+
+	const loadMore = () => fetchApps(true);
+
+	return { apps, hasMore, loadMore };
 }
 ```
 
@@ -3412,11 +3561,11 @@ useEffect(() => {
       loadMore();
     }
   });
-  
+
   if (sentinelRef.current) {
     observerRef.current.observe(sentinelRef.current);
   }
-  
+
   return () => observerRef.current?.disconnect();
 }, [hasMore, loadMore]);
 
@@ -3466,24 +3615,24 @@ return (
 const [errors, setErrors] = useState<Record<string, string>>({});
 
 const validate = () => {
-  const newErrors: Record<string, string> = {};
-  
-  if (!formData.title) {
-    newErrors.title = 'Title is required';
-  }
-  if (formData.title.length < 3) {
-    newErrors.title = 'Title must be at least 3 characters';
-  }
-  
-  setErrors(newErrors);
-  return Object.keys(newErrors).length === 0;
+	const newErrors: Record<string, string> = {};
+
+	if (!formData.title) {
+		newErrors.title = 'Title is required';
+	}
+	if (formData.title.length < 3) {
+		newErrors.title = 'Title must be at least 3 characters';
+	}
+
+	setErrors(newErrors);
+	return Object.keys(newErrors).length === 0;
 };
 
 const handleSubmit = async (e: FormEvent) => {
-  e.preventDefault();
-  if (!validate()) return;
-  
-  await apiClient.createApp(formData);
+	e.preventDefault();
+	if (!validate()) return;
+
+	await apiClient.createApp(formData);
 };
 ```
 
@@ -3499,7 +3648,7 @@ const [isOpen, setIsOpen] = useState(false);
 return (
   <>
     <Button onClick={() => setIsOpen(true)}>Open Modal</Button>
-    
+
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogContent>
         <DialogHeader>
@@ -3524,7 +3673,7 @@ return (
         Edit
       </Button>
     ))}
-    
+
     {selectedApp && (
       <EditAppModal
         app={selectedApp}
@@ -3545,16 +3694,16 @@ return (
 // /components/ErrorBoundary.tsx
 export class ErrorBoundary extends Component<Props, State> {
   state = { hasError: false, error: null };
-  
+
   static getDerivedStateFromError(error: Error) {
     return { hasError: true, error };
   }
-  
+
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     console.error('Error caught by boundary:', error, errorInfo);
     // Send to Sentry
   }
-  
+
   render() {
     if (this.state.hasError) {
       return <ErrorFallback error={this.state.error} />;
@@ -3568,18 +3717,18 @@ export class ErrorBoundary extends Component<Props, State> {
 
 ```typescript
 try {
-  const app = await apiClient.getApp(appId);
-  setApp(app);
+	const app = await apiClient.getApp(appId);
+	setApp(app);
 } catch (error) {
-  if (error instanceof ApiError) {
-    if (error.status === 404) {
-      setError('App not found');
-    } else if (error.status === 403) {
-      setError('Access denied');
-    } else {
-      setError('Something went wrong');
-    }
-  }
+	if (error instanceof ApiError) {
+		if (error.status === 404) {
+			setError('App not found');
+		} else if (error.status === 403) {
+			setError('Access denied');
+		} else {
+			setError('Something went wrong');
+		}
+	}
 }
 ```
 
@@ -3592,6 +3741,7 @@ try {
 **SimpleCodeGeneratorAgent** is the brain of vibesdk - a Durable Object that orchestrates entire app generation lifecycle.
 
 **Key responsibilities:**
+
 - Blueprint generation from user prompts
 - Phase-by-phase code generation
 - File management and versioning
@@ -3604,24 +3754,30 @@ try {
 ## Agent Operations (State Machine)
 
 ### **1. Blueprint Generation**
+
 **Trigger:** User submits initial prompt
 **Flow:**
+
 1. LLM analyzes prompt → generates complete PRD (Blueprint)
 2. Blueprint includes: project structure, phases, tech stack, UI design, color palette
 3. Saved to state, shown to user for confirmation
 4. User can iterate or approve
 
-### **2. Phase Generation** 
+### **2. Phase Generation**
+
 **Trigger:** User starts generation or requests new feature
 **Flow:**
+
 1. Agent determines next phase from blueprint
 2. Uses PhaseGeneration operation to plan files
 3. Updates currentDevState = PHASE_GENERATING
 4. Generates phase concept (files to create, purposes)
 
 ### **3. Phase Implementation**
+
 **Trigger:** Phase concept ready
 **Flow:**
+
 1. PhaseImplementation operation generates all files for phase
 2. Uses LLM with file generation tools
 3. Tracks progress per-file
@@ -3630,8 +3786,10 @@ try {
 6. Sets currentDevState = PHASE_IMPLEMENTING
 
 ### **4. Code Review & Fixing**
+
 **Trigger:** Phase complete, auto-triggered or user-requested
 **Flow:**
+
 1. PostPhaseCodeFixer runs TypeScript static analysis
 2. Identifies type errors, missing imports, etc.
 3. Automatically fixes common issues (TS2304, TS2307, etc.)
@@ -3639,8 +3797,10 @@ try {
 5. Updates files in generatedFilesMap
 
 ### **5. Deployment to Sandbox**
+
 **Trigger:** Files ready, user clicks preview
 **Flow:**
+
 1. DeploymentManager.deployToSandbox()
 2. Syncs all files to remote sandbox container
 3. Executes install commands (npm install, etc.)
@@ -3649,8 +3809,10 @@ try {
 6. Monitors health with periodic checks
 
 ### **6. User Conversation**
+
 **Trigger:** User sends message during generation
 **Flow:**
+
 1. UserConversationProcessor handles chat
 2. Queues feature requests if generating
 3. Processes immediately if idle
@@ -3658,8 +3820,10 @@ try {
 5. Streams responses via WebSocket
 
 ### **7. Deep Debugging**
+
 **Trigger:** User reports bug or runtime error
 **Flow:**
+
 1. Agent checks not currently generating (conflict prevention)
 2. DeepCodeDebugger assistant spawned
 3. Has access to: read files, static analysis, runtime errors, logs, regenerate files
@@ -3681,6 +3845,7 @@ Agent delegates specific responsibilities to service classes:
 4. **CodingAgent (Proxy)** - Exposes agent methods to tools (runs in DO context)
 
 **Why services?**
+
 - Separation of concerns
 - Testability
 - Code reuse
@@ -3742,9 +3907,11 @@ Sandboxes are **ephemeral containers** that run user's generated apps in isolate
 ## Sandbox Operations
 
 ### **1. Instance Creation**
+
 **Method:** `createInstance(templateName, projectName, webhookUrl?, envVars?)`
 
 **Flow:**
+
 1. Agent calls with template (react-vite, nextjs, etc.)
 2. Sandbox service spins up container
 3. Clones template from git
@@ -3754,9 +3921,11 @@ Sandboxes are **ephemeral containers** that run user's generated apps in isolate
 **Response:** `{ instanceId, url, status: 'ready' }`
 
 ### **2. File Synchronization**
+
 **Method:** `writeFiles(instanceId, files, commitMessage?)`
 
 **Flow:**
+
 1. Agent sends array of files: `[{ path, content, encoding }]`
 2. Sandbox writes to container filesystem
 3. Triggers hot reload if dev server running
@@ -3765,9 +3934,11 @@ Sandboxes are **ephemeral containers** that run user's generated apps in isolate
 **Used for:** Initial deployment, incremental updates, fixes
 
 ### **3. Command Execution**
+
 **Method:** `executeCommands(instanceId, commands, timeout?)`
 
 **Flow:**
+
 1. Agent sends shell commands (npm install, npm run build, etc.)
 2. Sandbox executes in container
 3. Returns stdout, stderr, exit code
@@ -3776,9 +3947,11 @@ Sandboxes are **ephemeral containers** that run user's generated apps in isolate
 **Security:** Commands validated/filtered before execution to prevent dangerous operations
 
 ### **4. Static Analysis**
+
 **Method:** `getStaticAnalysis(instanceId)`
 
 **Flow:**
+
 1. Sandbox runs TypeScript compiler (tsc --noEmit)
 2. Collects all errors with file/line/column
 3. Returns structured error list
@@ -3786,9 +3959,11 @@ Sandboxes are **ephemeral containers** that run user's generated apps in isolate
 **Used by:** PostPhaseCodeFixer, deep debugger
 
 ### **5. Runtime Error Monitoring**
+
 **Method:** `getRuntimeErrors(instanceId)`
 
 **Flow:**
+
 1. Sandbox monitors browser console errors
 2. Collects stack traces, error messages
 3. Deduplicates and categorizes
@@ -3797,9 +3972,11 @@ Sandboxes are **ephemeral containers** that run user's generated apps in isolate
 **Triggers:** Websocket webhook to agent when errors occur
 
 ### **6. Log Retrieval**
+
 **Method:** `getLogs(instanceId, lines?, filter?)`
 
 **Flow:**
+
 1. Returns recent console output from container
 2. Includes dev server logs, build output, console.log statements
 3. Filtered by pattern if provided
@@ -3807,9 +3984,11 @@ Sandboxes are **ephemeral containers** that run user's generated apps in isolate
 **Note:** Logs only appear when user interacts with app
 
 ### **7. Instance Shutdown**
+
 **Method:** `shutdownInstance(instanceId)`
 
 **Flow:**
+
 1. Stops dev server
 2. Destroys container
 3. Frees resources
@@ -3828,6 +4007,7 @@ Each agent has a **sessionId** that maps to a sandbox instance:
 - **Cached client:** DeploymentManager caches sandbox client per session
 
 **Health Checks:**
+
 - Periodic ping to sandbox every 30s
 - If unhealthy, resets sessionId
 - Forces redeployment on next attempt
@@ -3843,65 +4023,71 @@ Each agent has a **sessionId** that maps to a sandbox instance:
 **Step-by-step:**
 
 1. **Pre-deployment Validation**
-   - Check files exist in generatedFilesMap
-   - Verify no generation in progress
-   - Get or create sessionId
+    - Check files exist in generatedFilesMap
+    - Verify no generation in progress
+    - Get or create sessionId
 
 2. **Sandbox Instance Check**
-   - If no sandboxInstanceId: create new instance
-   - If exists: check health status
-   - If unhealthy: reset session, create new instance
+    - If no sandboxInstanceId: create new instance
+    - If exists: check health status
+    - If unhealthy: reset session, create new instance
 
 3. **Create Instance (if needed)**
-   ```
-   → createInstance(templateName, projectName, webhookUrl)
-   ← { instanceId, url, status }
-   → Save instanceId to state
-   ```
+
+    ```
+    → createInstance(templateName, projectName, webhookUrl)
+    ← { instanceId, url, status }
+    → Save instanceId to state
+    ```
 
 4. **File Synchronization**
-   ```
-   → Collect all files from generatedFilesMap
-   → Format as { path, content, encoding: 'utf-8' }[]
-   → writeFiles(instanceId, files, "Deploy generated code")
-   ← { success: true, filesWritten: 42 }
-   ```
+
+    ```
+    → Collect all files from generatedFilesMap
+    → Format as { path, content, encoding: 'utf-8' }[]
+    → writeFiles(instanceId, files, "Deploy generated code")
+    ← { success: true, filesWritten: 42 }
+    ```
 
 5. **Package.json Sync**
-   ```
-   → Check if package.json changed
-   → If changed: executeCommands(['npm install'])
-   → Wait for completion (timeout: 60s)
-   → Cache new package.json in state
-   ```
+
+    ```
+    → Check if package.json changed
+    → If changed: executeCommands(['npm install'])
+    → Wait for completion (timeout: 60s)
+    → Cache new package.json in state
+    ```
 
 6. **Bootstrap Commands (if needed)**
-   ```
-   → Execute commandsHistory (previously run user commands)
-   → Validates/filters dangerous commands
-   → Runs: npm install, setup scripts, etc.
-   ```
+
+    ```
+    → Execute commandsHistory (previously run user commands)
+    → Validates/filters dangerous commands
+    → Runs: npm install, setup scripts, etc.
+    ```
 
 7. **Start Dev Server**
-   ```
-   → Already running from instance creation
-   → Or trigger via command if stopped
-   → Monitor startup logs
-   ```
+
+    ```
+    → Already running from instance creation
+    → Or trigger via command if stopped
+    → Monitor startup logs
+    ```
 
 8. **Health Check Loop**
-   ```
-   → setInterval(30s): ping sandbox
-   → Check status endpoint
-   → If unhealthy: log warning, may reset
-   ```
+
+    ```
+    → setInterval(30s): ping sandbox
+    → Check status endpoint
+    → If unhealthy: log warning, may reset
+    ```
 
 9. **Return Preview URL**
-   ```
-   → Send URL to frontend via WebSocket
-   → User can open in iframe or new tab
-   → App is live and interactive
-   ```
+    ```
+    → Send URL to frontend via WebSocket
+    → User can open in iframe or new tab
+    → App is live and interactive
+    ```
 
 ---
 
@@ -3910,18 +4096,19 @@ Each agent has a **sessionId** that maps to a sandbox instance:
 When files change after initial deploy:
 
 1. **Diff Detection**
-   - Compare file hashes in generatedFilesMap
-   - Only sync changed files
+    - Compare file hashes in generatedFilesMap
+    - Only sync changed files
 
 2. **Partial Sync**
-   ```
-   → writeFiles(instanceId, [changedFiles])
-   ← Hot reload triggered automatically
-   ```
+
+    ```
+    → writeFiles(instanceId, [changedFiles])
+    ← Hot reload triggered automatically
+    ```
 
 3. **No Full Rebuild**
-   - Dev server hot reloads changes
-   - Fast iteration (< 1s typically)
+    - Dev server hot reloads changes
+    - Fast iteration (< 1s typically)
 
 ---
 
@@ -3930,20 +4117,20 @@ When files change after initial deploy:
 **Common errors:**
 
 1. **Timeout (60s)**
-   - Cause: npm install too slow, network issues
-   - Recovery: Reset sessionId, retry with fresh instance
+    - Cause: npm install too slow, network issues
+    - Recovery: Reset sessionId, retry with fresh instance
 
 2. **Instance Not Found**
-   - Cause: Container crashed or evicted
-   - Recovery: Create new instance, redeploy all files
+    - Cause: Container crashed or evicted
+    - Recovery: Create new instance, redeploy all files
 
 3. **Command Execution Failed**
-   - Cause: Invalid package.json, dependency conflicts
-   - Recovery: Show error to user, allow editing
+    - Cause: Invalid package.json, dependency conflicts
+    - Recovery: Show error to user, allow editing
 
 4. **Health Check Failed**
-   - Cause: Dev server crashed, port conflict
-   - Recovery: Reset session on next deploy attempt
+    - Cause: Dev server crashed, port conflict
+    - Recovery: Reset session on next deploy attempt
 
 ---
 
@@ -3956,6 +4143,7 @@ When files change after initial deploy:
 Centralized inference engine that all operations use to call LLMs.
 
 **Key features:**
+
 - Multi-provider support (OpenAI, Anthropic via Cloudflare AI Gateway)
 - Streaming responses
 - Tool calling with recursive execution
@@ -4012,8 +4200,9 @@ Operation (PhaseImplementation, UserConversationProcessor, etc.)
 5. **Gemini 2.5 Pro** - Highest quality, deep debugging
 
 **Selection by operation:**
+
 - Blueprint generation: GPT-4o
-- Phase planning: GPT-4o  
+- Phase planning: GPT-4o
 - File generation: GPT-4o
 - Conversation: GPT-4o-mini
 - Deep debugging: Gemini 2.5 Pro (reasoning_effort: high)
@@ -4024,11 +4213,13 @@ Operation (PhaseImplementation, UserConversationProcessor, etc.)
 ## Streaming
 
 **When enabled:**
+
 - User conversation responses
 - Deep debugger output
 - Real-time code generation feedback
 
 **How it works:**
+
 1. LLM sends Server-Sent Events (SSE)
 2. `infer()` yields chunks via async generator
 3. Operation accumulates + forwards to WebSocket
@@ -4054,11 +4245,13 @@ Operation (PhaseImplementation, UserConversationProcessor, etc.)
 ## Retry Logic
 
 **Triggers retry:**
+
 - Rate limit errors (429)
 - Network timeouts
 - Temporary API failures (5xx)
 
 **Does NOT retry:**
+
 - Cancelled operations (AbortError)
 - Invalid API key (401)
 - Malformed requests (400)
@@ -4099,6 +4292,7 @@ No retry, immediate propagation
 The auth system implements a **comprehensive JWT-based authentication** with **OAuth 2.0 social login** (Google, GitHub), **session management**, **API keys**, and **security auditing**. All auth operations are centralized through services that interact with D1 database.
 
 **Core Components:**
+
 1. **AuthService** - Main authentication orchestrator
 2. **SessionService** - JWT session management with D1 persistence
 3. **JWTUtils** - Token creation, verification, signing
@@ -4168,6 +4362,7 @@ The auth system implements a **comprehensive JWT-based authentication** with **O
 Stores user identity, OAuth provider info, preferences, and security settings.
 
 **Key fields:**
+
 - Identity: id, email, username, displayName, avatarUrl
 - OAuth: provider (github/google/email), providerId, emailVerified
 - Security: passwordHash (email provider only), failedLoginAttempts, lockedUntil
@@ -4181,6 +4376,7 @@ Stores user identity, OAuth provider info, preferences, and security settings.
 Manages JWT sessions with device tracking and revocation support.
 
 **Key fields:**
+
 - Session ID, userId (FK to users)
 - Device tracking: deviceInfo, userAgent, ipAddress
 - Token hashes: accessTokenHash, refreshTokenHash (SHA-256)
@@ -4194,6 +4390,7 @@ Manages JWT sessions with device tracking and revocation support.
 Temporary storage for OAuth flow state tokens (CSRF protection).
 
 **Key fields:**
+
 - state (unique CSRF token), provider (google/github)
 - codeVerifier (PKCE), redirectUri
 - isUsed (one-time use), expiresAt (10 minutes)
@@ -4205,6 +4402,7 @@ Temporary storage for OAuth flow state tokens (CSRF protection).
 Stores hashed API keys for programmatic access.
 
 **Key fields:**
+
 - name, keyHash (SHA-256), keyPreview
 - scopes (JSON array), isActive
 - Usage: lastUsed, requestCount
@@ -4261,6 +4459,7 @@ Handles all authentication operations (login, register, OAuth) and delegates ses
 ### **OAuth Flow**
 
 **Step 1: getOAuthAuthorizationUrl()**
+
 1. Cleanup expired OAuth states
 2. Validate redirect URL (same-origin only)
 3. Generate CSRF state token + PKCE code verifier
@@ -4269,6 +4468,7 @@ Handles all authentication operations (login, register, OAuth) and delegates ses
 6. Return URL to redirect user to provider
 
 **Step 2: handleOAuthCallback()**
+
 1. Verify state token (not used, not expired)
 2. Mark state as used
 3. Exchange code for tokens using PKCE verifier
@@ -4296,6 +4496,7 @@ Singleton class for JWT operations using `jose` library.
 **Token payload contains:** userId (sub), email, sessionId, type (access/refresh), iat/exp timestamps
 
 **Key operations:**
+
 - **createAccessToken()** - Sign JWT with HS256, 3-day expiry
 - **verifyToken()** - Verify signature, check expiration, return payload
 - **hashToken()** - SHA-256 hash for database storage (security: prevents token leakage from DB breaches)
@@ -4333,6 +4534,7 @@ Singleton class for JWT operations using `jose` library.
 Abstract base class provides common OAuth 2.0 flow with PKCE.
 
 **PKCE Flow:**
+
 1. Generate code_verifier (random 32 bytes)
 2. Hash to create code_challenge (SHA-256)
 3. Send challenge in authorization URL
@@ -4343,12 +4545,14 @@ Abstract base class provides common OAuth 2.0 flow with PKCE.
 **Purpose:** Prevents authorization code interception attacks
 
 ### **Google OAuth**
+
 - Scopes: openid, email, profile
 - Fetches user info from Google API
 - Returns: id, email, name, picture, verified_email
 - Env vars: GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET
 
 ### **GitHub OAuth**
+
 - Scopes: read:user, user:email (minimal, no repo access)
 - Special handling: Email not always in /user endpoint, fetches from /user/emails if needed
 - Returns: id, email (primary verified), name, avatar_url
@@ -4361,15 +4565,17 @@ Abstract base class provides common OAuth 2.0 flow with PKCE.
 **Location:** `/worker/middleware/auth/routeAuth.ts`
 
 **Three auth levels:**
+
 1. **public** - No auth required
 2. **authenticated** - Requires valid JWT
 3. **owner-only** - Requires ownership of resource (e.g., user can only edit their own apps)
 
 **Flow:**
+
 1. Route declares auth level via `setAuthLevel()` middleware
 2. `enforceAuthRequirement()` checks:
-   - Public: pass through
-   - Authenticated/Owner: extract token → validate JWT → fetch user → check ownership if needed
+    - Public: pass through
+    - Authenticated/Owner: extract token → validate JWT → fetch user → check ownership if needed
 3. User injected into request context: `c.set('user', user)`
 4. Route handler executes with authenticated user
 
@@ -4380,20 +4586,24 @@ Abstract base class provides common OAuth 2.0 flow with PKCE.
 ## Security Features
 
 ### **Password Security**
+
 - **Hashing:** bcrypt with 12 rounds (~250ms, intentionally slow to prevent brute force)
 - **Validation:** Min 8 chars, mixed case, numbers, special chars, not common password, no sequential patterns (12345)
 - **Strength scoring:** 0-4 scale
 
 ### **Rate Limiting**
+
 - User-configurable limits (default: 100 requests/min)
 - Separate limits for auth endpoints
 - Tracked per user/IP in Durable Objects or KV
 
 ### **CSRF Protection**
+
 - OAuth state tokens: cryptographically random, 10-min expiry, one-time use
 - Verified on callback to prevent cross-site request forgery
 
 ### **Session Security**
+
 - Tokens hashed (SHA-256) in database
 - 3-day expiry by default
 - Device + IP tracking
@@ -4401,6 +4611,7 @@ Abstract base class provides common OAuth 2.0 flow with PKCE.
 - Force logout feature for security incidents
 
 ### **Audit Logging**
+
 - All auth attempts logged to `authAttempts` table
 - Includes: IP, user agent, timestamp, success/failure
 - Used for security analysis and anomaly detection
@@ -4414,6 +4625,7 @@ Abstract base class provides common OAuth 2.0 flow with PKCE.
 The database layer uses **Cloudflare D1** (SQLite) with **Drizzle ORM** for type-safe queries. All database operations are abstracted through service classes that extend `BaseService`.
 
 **Key Technologies:**
+
 - **D1 Database:** Serverless SQLite on Cloudflare's edge
 - **Drizzle ORM:** Type-safe SQL query builder
 - **D1 Sessions API:** Read replicas for lower latency
@@ -4469,6 +4681,7 @@ The database layer uses **Cloudflare D1** (SQLite) with **Drizzle ORM** for type
 ### **Purpose**
 
 Provides common database functionality to all domain services:
+
 - Database connection management
 - Read replica access (D1 Sessions API)
 - Type-safe where condition building
@@ -4479,46 +4692,38 @@ Provides common database functionality to all domain services:
 
 ```typescript
 abstract class BaseService {
-  protected logger = createLogger(this.constructor.name);
-  protected db: DatabaseService;
-  protected env: Env;
-  
-  constructor(env: Env) {
-    this.db = createDatabaseService(env);
-    this.env = env;
-  }
-  
-  // Direct database access (primary)
-  protected get database() {
-    return this.db.db;
-  }
-  
-  // Read replica access (optimized latency)
-  protected getReadDb(strategy: 'fast' | 'fresh' = 'fast') {
-    return this.db.getReadDb(strategy);
-  }
-  
-  // Build type-safe WHERE conditions
-  protected buildWhereConditions(
-    conditions: (SQL<unknown> | undefined)[]
-  ): SQL<unknown> | undefined {
-    const validConditions = conditions.filter(
-      (c): c is SQL<unknown> => c !== undefined
-    );
-    if (validConditions.length === 0) return undefined;
-    if (validConditions.length === 1) return validConditions[0];
-    return and(...validConditions);
-  }
-  
-  // Standard error handling
-  protected handleDatabaseError(
-    error: unknown,
-    operation: string,
-    context?: Record<string, unknown>
-  ): never {
-    this.logger.error(`Database error in ${operation}`, { error, context });
-    throw error;
-  }
+	protected logger = createLogger(this.constructor.name);
+	protected db: DatabaseService;
+	protected env: Env;
+
+	constructor(env: Env) {
+		this.db = createDatabaseService(env);
+		this.env = env;
+	}
+
+	// Direct database access (primary)
+	protected get database() {
+		return this.db.db;
+	}
+
+	// Read replica access (optimized latency)
+	protected getReadDb(strategy: 'fast' | 'fresh' = 'fast') {
+		return this.db.getReadDb(strategy);
+	}
+
+	// Build type-safe WHERE conditions
+	protected buildWhereConditions(conditions: (SQL<unknown> | undefined)[]): SQL<unknown> | undefined {
+		const validConditions = conditions.filter((c): c is SQL<unknown> => c !== undefined);
+		if (validConditions.length === 0) return undefined;
+		if (validConditions.length === 1) return validConditions[0];
+		return and(...validConditions);
+	}
+
+	// Standard error handling
+	protected handleDatabaseError(error: unknown, operation: string, context?: Record<string, unknown>): never {
+		this.logger.error(`Database error in ${operation}`, { error, context });
+		throw error;
+	}
 }
 ```
 
@@ -4553,6 +4758,7 @@ class DatabaseService {
 #### **'fast' Strategy (Default)**
 
 **Use for:**
+
 - Public app listings
 - Public app details
 - Analytics and stats
@@ -4560,16 +4766,18 @@ class DatabaseService {
 - Any read-only public data
 
 **Benefits:**
+
 - **Lowest latency** (served from nearest replica)
 - Suitable for data that can tolerate slight staleness (few seconds)
 - Most queries should use this
 
 **Example:**
+
 ```typescript
 // Public apps - use fast replicas
 async getPublicApps(options: PublicAppQueryOptions) {
   const readDb = this.getReadDb('fast');  // ← Use fast strategy
-  
+
   const apps = await readDb
     .select()
     .from(schema.apps)
@@ -4580,6 +4788,7 @@ async getPublicApps(options: PublicAppQueryOptions) {
 #### **'fresh' Strategy**
 
 **Use for:**
+
 - User's own data (own apps, favorites)
 - Immediately after writes (read-after-write)
 - Auth/session validation
@@ -4587,15 +4796,17 @@ async getPublicApps(options: PublicAppQueryOptions) {
 - Any data where staleness is unacceptable
 
 **Benefits:**
+
 - **Latest data** from primary or recent replica
 - Ensures user sees their own changes immediately
 
 **Example:**
+
 ```typescript
 // User's own apps - use fresh data
 async getUserApps(userId: string) {
   const readDb = this.getReadDb('fresh');  // ← Use fresh strategy
-  
+
   const apps = await readDb
     .select()
     .from(schema.apps)
@@ -4620,27 +4831,24 @@ async getUserApps(userId: string) {
 
 ```typescript
 // Simple select
-const users = await db
-  .select()
-  .from(schema.users)
-  .where(eq(schema.users.email, email));
+const users = await db.select().from(schema.users).where(eq(schema.users.email, email));
 
 // Select specific columns
 const users = await db
-  .select({
-    id: schema.users.id,
-    email: schema.users.email
-  })
-  .from(schema.users);
+	.select({
+		id: schema.users.id,
+		email: schema.users.email,
+	})
+	.from(schema.users);
 
 // With JOIN
 const apps = await db
-  .select({
-    app: schema.apps,
-    userName: schema.users.displayName
-  })
-  .from(schema.apps)
-  .leftJoin(schema.users, eq(schema.apps.userId, schema.users.id));
+	.select({
+		app: schema.apps,
+		userName: schema.users.displayName,
+	})
+	.from(schema.apps)
+	.leftJoin(schema.users, eq(schema.apps.userId, schema.users.id));
 ```
 
 #### **INSERT**
@@ -4670,27 +4878,22 @@ await db
 
 ```typescript
 await db
-  .update(schema.users)
-  .set({ 
-    displayName: 'New Name',
-    updatedAt: new Date()
-  })
-  .where(eq(schema.users.id, userId));
+	.update(schema.users)
+	.set({
+		displayName: 'New Name',
+		updatedAt: new Date(),
+	})
+	.where(eq(schema.users.id, userId));
 ```
 
 #### **DELETE**
 
 ```typescript
 // Hard delete
-await db
-  .delete(schema.sessions)
-  .where(eq(schema.sessions.id, sessionId));
+await db.delete(schema.sessions).where(eq(schema.sessions.id, sessionId));
 
 // Soft delete (preferred)
-await db
-  .update(schema.users)
-  .set({ deletedAt: new Date() })
-  .where(eq(schema.users.id, userId));
+await db.update(schema.users).set({ deletedAt: new Date() }).where(eq(schema.users.id, userId));
 ```
 
 ### **Complex Queries**
@@ -4700,19 +4903,19 @@ await db
 ```typescript
 // COUNT
 const result = await db
-  .select({ count: sql<number>`COUNT(*)` })
-  .from(schema.apps)
-  .where(eq(schema.apps.visibility, 'public'));
+	.select({ count: sql<number>`COUNT(*)` })
+	.from(schema.apps)
+	.where(eq(schema.apps.visibility, 'public'));
 
 const total = result[0].count;
 
 // SUM, AVG
 const stats = await db
-  .select({
-    totalViews: sql<number>`SUM(${schema.appViews.id})`,
-    avgViews: sql<number>`AVG(view_count)`
-  })
-  .from(schema.apps);
+	.select({
+		totalViews: sql<number>`SUM(${schema.appViews.id})`,
+		avgViews: sql<number>`AVG(view_count)`,
+	})
+	.from(schema.apps);
 ```
 
 #### **Subqueries**
@@ -4720,16 +4923,14 @@ const stats = await db
 ```typescript
 // Subquery in WHERE
 const apps = await db
-  .select()
-  .from(schema.apps)
-  .where(
-    inArray(
-      schema.apps.id,
-      db.select({ id: schema.favorites.appId })
-        .from(schema.favorites)
-        .where(eq(schema.favorites.userId, userId))
-    )
-  );
+	.select()
+	.from(schema.apps)
+	.where(
+		inArray(
+			schema.apps.id,
+			db.select({ id: schema.favorites.appId }).from(schema.favorites).where(eq(schema.favorites.userId, userId)),
+		),
+	);
 ```
 
 #### **Conditional WHERE Clauses**
@@ -4739,24 +4940,21 @@ const apps = await db
 const conditions: WhereCondition[] = [];
 
 if (framework) {
-  conditions.push(eq(schema.apps.framework, framework));
+	conditions.push(eq(schema.apps.framework, framework));
 }
 
 if (search) {
-  conditions.push(
-    or(
-      sql`LOWER(${schema.apps.title}) LIKE ${`%${search}%`}`,
-      sql`LOWER(${schema.apps.description}) LIKE ${`%${search}%`}`
-    )
-  );
+	conditions.push(
+		or(
+			sql`LOWER(${schema.apps.title}) LIKE ${`%${search}%`}`,
+			sql`LOWER(${schema.apps.description}) LIKE ${`%${search}%`}`,
+		),
+	);
 }
 
 const whereClause = this.buildWhereConditions(conditions);
 
-const apps = await db
-  .select()
-  .from(schema.apps)
-  .where(whereClause);
+const apps = await db.select().from(schema.apps).where(whereClause);
 ```
 
 ---
@@ -4785,8 +4983,9 @@ Each extends BaseService, uses Drizzle ORM, follows standard CRUD patterns.
 **Key methods:** createApp, getPublicApps (paginated with filters), getUserAppsWithFavorites, toggleAppStar, updateDeploymentId, updateGitHubRepository, updateAppScreenshot
 
 **Ranking algorithms:**
+
 - **Popular:** (views × 1 + stars × 3) DESC
-- **Trending:** (recent_activity × 1000000 + recency_bonus) DESC  
+- **Trending:** (recent_activity × 1000000 + recency_bonus) DESC
 - **Recent:** updatedAt DESC
 - **Starred:** COUNT(stars) DESC
 
@@ -4799,6 +4998,7 @@ Each extends BaseService, uses Drizzle ORM, follows standard CRUD patterns.
 **Location:** `/migrations/` (SQL files + meta snapshots)
 
 **Commands:**
+
 - `npm run db:generate` - Generate migration from schema changes
 - `npm run db:migrate:local` - Apply to local D1
 - `npm run db:migrate:remote` - Apply to production D1
@@ -4811,6 +5011,7 @@ Each extends BaseService, uses Drizzle ORM, follows standard CRUD patterns.
 ## 📚 Key Files Reference
 
 ### **Frontend Core Files**
+
 - `/src/api-types.ts` - ALL shared API types (single source of truth)
 - `/src/lib/api-client.ts` - ALL API calls defined here
 - `/src/routes/chat/chat.tsx` - Main chat interface (1208 lines)
@@ -4823,6 +5024,7 @@ Each extends BaseService, uses Drizzle ORM, follows standard CRUD patterns.
 - `/src/hooks/use-image-upload.ts` - Image upload handling
 
 ### **Backend Core Files**
+
 - `/worker/agents/core/simpleGeneratorAgent.ts` - Base agent DO class
 - `/worker/agents/core/state.ts` - CodeGenState interface
 - `/worker/agents/core/websocket.ts` - WebSocket message handler (250 lines)
@@ -4837,6 +5039,7 @@ Each extends BaseService, uses Drizzle ORM, follows standard CRUD patterns.
 - `/worker/database/schema.ts` - Database schema (618 lines)
 
 ### **Configuration Files**
+
 - `/worker/agents/inferutils/config.ts` - LLM model configs
 - `/wrangler.jsonc` - Cloudflare Workers config
 - `/vite.config.ts` - Frontend build config
@@ -4871,6 +5074,7 @@ Before submitting any change, verify:
 **Cause:** Import path incorrect or module not installed
 
 **Fix:**
+
 1. Check import path matches file location
 2. For workspace imports, use `worker/...` not `../../../...`
 3. Run `npm install` if package missing
@@ -4879,12 +5083,14 @@ Before submitting any change, verify:
 ### **Issue: Durable Object not receiving WebSocket messages**
 
 **Check:**
+
 1. Message type in constants: `/worker/agents/constants.ts`
 2. Handler in `/worker/agents/core/websocket.ts` → `handleWebSocketMessage()`
 3. Frontend sending correct type (check browser console)
 4. WebSocket connection established (check `agent_connected` received)
 
 **Debug:**
+
 ```typescript
 // Add to websocket.ts handleWebSocketMessage()
 logger.info('Received WebSocket message', { type: message.type, data: message });
@@ -4893,12 +5099,14 @@ logger.info('Received WebSocket message', { type: message.type, data: message })
 ### **Issue: LLM not calling tools**
 
 **Common causes:**
+
 1. Tool description unclear → LLM doesn't know when to use it
 2. Tool not registered in `buildTools()` or `buildDebugTools()`
 3. Parameter schema too complex → simplify
 4. System prompt doesn't mention tool
 
 **Fix:**
+
 - Keep tool description to 2-3 clear lines
 - Make parameters simple (prefer strings over complex objects)
 - Add tool to relevant system prompt
@@ -4908,6 +5116,7 @@ logger.info('Received WebSocket message', { type: message.type, data: message })
 **Cause:** Using read replica for data that needs to be fresh
 
 **Fix:**
+
 ```typescript
 // WRONG - uses fast replica
 const readDb = this.getReadDb('fast');
@@ -4922,12 +5131,14 @@ const result = await this.database.select()...
 ### **Issue: "Rate limit exceeded" during development**
 
 **Quick fix:**
+
 ```typescript
 // In UserConversationProcessor.ts or codeDebugger.ts
 // Temporarily increase max_tokens or reduce frequency
 ```
 
 **Better fix:** Use cheaper model for testing
+
 ```typescript
 // In config.ts
 conversationalResponse: {
@@ -4939,6 +5150,7 @@ conversationalResponse: {
 ### **Issue: Type errors after schema change**
 
 **Steps:**
+
 1. Regenerate Drizzle types: `npm run db:generate`
 2. Restart TypeScript server in IDE
 3. Check migration applied: `npm run db:migrate:local`
@@ -4946,15 +5158,17 @@ conversationalResponse: {
 ### **Issue: Sandbox deployment failing**
 
 **Check logs:**
+
 ```typescript
 // In DeploymentManager.ts, enable verbose logging
-this.logger.info('Deployment attempt', { 
-  sessionId: this.getSessionId(),
-  filesCount: files.length 
+this.logger.info('Deployment attempt', {
+	sessionId: this.getSessionId(),
+	filesCount: files.length,
 });
 ```
 
 **Common causes:**
+
 1. Sandbox service unreachable
 2. Invalid template name
 3. sessionId mismatch (check `agent.state.sessionId`)
@@ -4963,11 +5177,13 @@ this.logger.info('Deployment attempt', {
 ### **Issue: Agent state not persisting**
 
 **Verify:**
+
 1. Check DO storage: Cloudflare dashboard → Durable Objects
 2. Ensure `setState()` called after changes
 3. Check for exceptions in state serialization
 
 **Test:**
+
 ```typescript
 const currentState = this.getState();
 this.logger().info('State before save', { currentState });
@@ -4978,11 +5194,13 @@ this.logger().info('State after save', { newState });
 ### **Where to Look for Logs**
 
 **Local development:**
+
 - Frontend: Browser console
 - Worker: Terminal where `npm run dev:worker` is running
 - Durable Objects: Same terminal, prefixed with DO ID
 
 **Production:**
+
 - Cloudflare dashboard → Workers & Pages → Logs
 - Real-time logs via `wrangler tail`
 - Sentry (if configured)
@@ -4990,23 +5208,26 @@ this.logger().info('State after save', { newState });
 ### **Useful Debug Snippets**
 
 **Log all WebSocket messages:**
+
 ```typescript
 // In websocket.ts
 logger.info('[WS_IN]', { type: message.type, keys: Object.keys(message) });
 ```
 
 **Log all tool calls:**
+
 ```typescript
 // In customTools.ts executeToolWithDefinition()
 logger.info('[TOOL_CALL]', { name: toolDef.function.name, args });
 ```
 
 **Log state transitions:**
+
 ```typescript
 // In simpleGeneratorAgent.ts launchStateMachine()
-logger.info('[STATE_TRANSITION]', { 
-  from: currentDevState, 
-  to: executionResults.currentDevState 
+logger.info('[STATE_TRANSITION]', {
+	from: currentDevState,
+	to: executionResults.currentDevState,
 });
 ```
 
@@ -5027,6 +5248,7 @@ Rate limiting protects API endpoints from abuse using token bucket algorithm wit
 **Middleware:** Applied to all API routes except health checks
 
 **Strategy:**
+
 - **Token bucket algorithm** - Tokens refill over time
 - **Per-user basis** - Keyed by userId (authenticated) or IP (anonymous)
 - **Durable Object storage** - Distributed rate limit state
@@ -5036,11 +5258,11 @@ Rate limiting protects API endpoints from abuse using token bucket algorithm wit
 
 ## Rate Limits
 
-| User Type | Requests | Window | Burst |
-|-----------|----------|--------|-------|
-| **Authenticated** | 100 | 1 minute | 150 |
-| **Anonymous** | 20 | 1 minute | 30 |
-| **API Keys** | 300 | 1 minute | 400 |
+| User Type         | Requests | Window   | Burst |
+| ----------------- | -------- | -------- | ----- |
+| **Authenticated** | 100      | 1 minute | 150   |
+| **Anonymous**     | 20       | 1 minute | 30    |
+| **API Keys**      | 300      | 1 minute | 400   |
 
 **Burst:** Maximum requests in short burst before throttling
 
@@ -5055,6 +5277,7 @@ X-RateLimit-Reset: 1698765432
 ```
 
 **On rate limit exceeded:**
+
 ```http
 HTTP/1.1 429 Too Many Requests
 Retry-After: 42
@@ -5074,20 +5297,18 @@ Content-Type: application/json
 
 ```typescript
 export function handleRateLimitError(
-  error: RateLimitExceededError,
-  setMessages: (fn: (prev: ChatMessage[]) => ChatMessage[]) => void
+	error: RateLimitExceededError,
+	setMessages: (fn: (prev: ChatMessage[]) => ChatMessage[]) => void,
 ) {
-  const retryAfter = error.retryAfter || 60;
-  const message = `Rate limit exceeded. Please wait ${retryAfter} seconds.`;
-  
-  setMessages(prev => [
-    ...prev,
-    createAIMessage('rate-limit', message)
-  ]);
+	const retryAfter = error.retryAfter || 60;
+	const message = `Rate limit exceeded. Please wait ${retryAfter} seconds.`;
+
+	setMessages((prev) => [...prev, createAIMessage('rate-limit', message)]);
 }
 ```
 
 **Usage:**
+
 ```typescript
 catch (error) {
   if (error instanceof RateLimitExceededError) {
@@ -5103,11 +5324,13 @@ catch (error) {
 ## Bypassing for Internal Tools
 
 Some endpoints bypass rate limiting:
+
 - Health checks (`/health`, `/api/health`)
 - WebSocket connections (rate limited separately)
 - Internal service-to-service calls (authenticated with service tokens)
 
 **Configuration:**
+
 ```typescript
 // In rate-limiter.ts
 const EXEMPT_PATHS = ['/health', '/api/health'];
@@ -5118,17 +5341,19 @@ const EXEMPT_PATHS = ['/health', '/api/health'];
 ## Monitoring
 
 **Cloudflare Analytics:**
+
 - 429 response rate
 - Peak request times
 - Top rate-limited IPs
 
 **Custom Logs:**
+
 ```typescript
 logger.warn('Rate limit exceeded', {
-  userId: ctx.userId,
-  ip: ctx.ip,
-  path: ctx.path,
-  remaining: 0
+	userId: ctx.userId,
+	ip: ctx.ip,
+	path: ctx.path,
+	remaining: 0,
 });
 ```
 
@@ -5136,4 +5361,3 @@ logger.warn('Rate limit exceeded', {
 
 **Last Updated:** 2024-10-31  
 **Maintainers:** All AI assistants working on this project
-

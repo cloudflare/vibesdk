@@ -2,10 +2,7 @@ import { AIModels } from '../../../agents/inferutils/config.types';
 import type { UserProviderStatus, ModelsByProvider } from './types';
 import { getBYOKTemplates } from '../../../types/secretsTemplates';
 
-export async function getUserProviderStatus(
-	_userId: string,
-	_env: Env,
-): Promise<UserProviderStatus[]> {
+export async function getUserProviderStatus(_userId: string, _env: Env): Promise<UserProviderStatus[]> {
 	try {
 		const byokTemplates = getBYOKTemplates();
 
@@ -19,17 +16,13 @@ export async function getUserProviderStatus(
 	}
 }
 
-export function getByokModels(
-	providerStatuses: UserProviderStatus[],
-): ModelsByProvider {
+export function getByokModels(providerStatuses: UserProviderStatus[]): ModelsByProvider {
 	const modelsByProvider: ModelsByProvider = {};
 
 	providerStatuses
 		.filter((status) => status.hasValidKey)
 		.forEach((status) => {
-			const providerModels = Object.values(AIModels).filter((model) =>
-				model.startsWith(`${status.provider}/`),
-			);
+			const providerModels = Object.values(AIModels).filter((model) => model.startsWith(`${status.provider}/`));
 
 			if (providerModels.length > 0) {
 				modelsByProvider[status.provider] = providerModels;
@@ -40,20 +33,14 @@ export function getByokModels(
 }
 
 export function getPlatformEnabledProviders(env: Env): string[] {
-    const platformModelProviders = env.PLATFORM_MODEL_PROVIDERS;
-    if (platformModelProviders) {
-        const providers = platformModelProviders.split(',').map(p => p.trim());
-        return providers;
-    }
+	const platformModelProviders = env.PLATFORM_MODEL_PROVIDERS;
+	if (platformModelProviders) {
+		const providers = platformModelProviders.split(',').map((p) => p.trim());
+		return providers;
+	}
 	const enabledProviders: string[] = [];
 
-	const providerList = [
-		'anthropic',
-		'openai',
-		'google-ai-studio',
-		'cerebras',
-		'groq',
-	];
+	const providerList = ['anthropic', 'openai', 'google-ai-studio', 'cerebras', 'groq'];
 
 	for (const provider of providerList) {
 		const providerKeyString = provider.toUpperCase().replaceAll('-', '_');
@@ -91,9 +78,7 @@ export function validateModelAccessForEnvironment(
 	const provider = getProviderFromModel(model);
 
 	const hasPlatformKey = getPlatformEnabledProviders(env).includes(provider);
-	const hasUserKey = userProviderStatus.some(
-		(status) => status.provider === provider && status.hasValidKey,
-	);
+	const hasUserKey = userProviderStatus.some((status) => status.provider === provider && status.hasValidKey);
 
 	return hasPlatformKey || hasUserKey;
 }

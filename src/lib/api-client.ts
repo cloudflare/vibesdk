@@ -4,7 +4,7 @@
  * Features 401 response interception to trigger authentication modals
  */
 
-import type{
+import type {
 	ApiResponse,
 	AppsListData,
 	PublicAppsData,
@@ -58,11 +58,7 @@ import type{
 	VaultConfigResponse,
 	VaultStatusResponse,
 } from '@/api-types';
-import {
-	RateLimitExceededError,
-	SecurityError,
-	SecurityErrorType,
-} from '@/api-types';
+import { RateLimitExceededError, SecurityError, SecurityErrorType } from '@/api-types';
 import { toast } from 'sonner';
 
 /**
@@ -191,14 +187,14 @@ class ApiClient {
 				method: 'GET',
 				credentials: 'include',
 			});
-			
+
 			if (response.ok) {
 				const data: ApiResponse<CsrfTokenResponseData> = await response.json();
 				if (data.data?.token) {
 					const expiresIn = data.data.expiresIn || 7200; // Default 2 hours
 					this.csrfTokenInfo = {
 						token: data.data.token,
-						expiresAt: Date.now() + (expiresIn * 1000)
+						expiresAt: Date.now() + expiresIn * 1000,
 					};
 					return true;
 				}
@@ -218,7 +214,6 @@ class ApiClient {
 		await this.fetchCsrfToken();
 	}
 
-
 	/**
 	 * Check if CSRF token is expired
 	 */
@@ -234,12 +229,12 @@ class ApiClient {
 		if (!['POST', 'PUT', 'DELETE', 'PATCH'].includes(method.toUpperCase())) {
 			return true;
 		}
-		
+
 		// Fetch new token if none exists or current one is expired
 		if (!this.csrfTokenInfo || this.isCSRFTokenExpired()) {
 			return await this.fetchCsrfToken();
 		}
-		
+
 		return true;
 	}
 
@@ -247,14 +242,8 @@ class ApiClient {
 	 * Ensure session token exists for anonymous users
 	 */
 	private ensureSessionToken(): void {
-		if (
-			!localStorage.getItem('anonymous_session_token') &&
-			!document.cookie.includes('session=')
-		) {
-			localStorage.setItem(
-				'anonymous_session_token',
-				crypto.randomUUID(),
-			);
+		if (!localStorage.getItem('anonymous_session_token') && !document.cookie.includes('session=')) {
+			localStorage.setItem('anonymous_session_token', crypto.randomUUID());
 		}
 	}
 
@@ -288,16 +277,11 @@ class ApiClient {
 	private async request<T>(
 		endpoint: string,
 		options: RequestOptions = {},
-        noToast: boolean = false,
+		noToast: boolean = false,
 	): Promise<ApiResponse<T>> {
 		const { data } = await this.requestRaw<T>(endpoint, options, false, noToast);
 		if (!data) {
-			throw new ApiError(
-				500,
-				'Internal Error',
-				'Unexpected null response data',
-				endpoint,
-			);
+			throw new ApiError(500, 'Internal Error', 'Unexpected null response data', endpoint);
 		}
 		return data;
 	}
@@ -306,17 +290,12 @@ class ApiClient {
 		endpoint: string,
 		options: RequestOptions = {},
 		isRetry: boolean = false,
-        noToast: boolean = false,
+		noToast: boolean = false,
 	): Promise<{ response: Response; data: ApiResponse<T> | null }> {
 		this.ensureSessionToken();
-		
-		if (!await this.ensureCsrfToken(options.method || 'GET')) {
-			throw new ApiError(
-				500,
-				'Internal Error',
-				'Failed to obtain CSRF token',
-				endpoint,
-			);
+
+		if (!(await this.ensureCsrfToken(options.method || 'GET'))) {
+			throw new ApiError(500, 'Internal Error', 'Failed to obtain CSRF token', endpoint);
 		}
 
 		const url = `${this.baseUrl}${endpoint}`;
@@ -331,78 +310,70 @@ class ApiClient {
 		};
 
 		if (options.body) {
-			config.body =
-				typeof options.body === 'string'
-					? options.body
-					: JSON.stringify(options.body);
+			config.body = typeof options.body === 'string' ? options.body : JSON.stringify(options.body);
 		}
 
 		try {
 			const response = await fetch(url, config);
-			
+
 			// For streaming responses, skip JSON parsing if response is ok
 			if (options.skipJsonParsing && response.ok) {
 				return { response, data: null };
 			}
-			
-			const data = await response.json() as ApiResponse<T>;
+
+			const data = (await response.json()) as ApiResponse<T>;
 
 			if (!response.ok) {
-                if (
-                    response.status === 401 &&
-                    globalAuthModalTrigger &&
-                    this.shouldTriggerAuthModal(endpoint)
-                ) {
-                    const authContext = this.getAuthContextForEndpoint(endpoint);
-                    globalAuthModalTrigger(authContext);
-                }
+				if (response.status === 401 && globalAuthModalTrigger && this.shouldTriggerAuthModal(endpoint)) {
+					const authContext = this.getAuthContextForEndpoint(endpoint);
+					globalAuthModalTrigger(authContext);
+				}
 
-                const errorData = data.error;
-                if (errorData && errorData.type) {
-                       // Send a toast notification for typed errors
-                    if (!noToast) {
-                        toast.error(errorData.message);
-                    }
-                    switch (errorData.type) {
-                        case SecurityErrorType.CSRF_VIOLATION:
-                            // Handle CSRF failures with retry
-                            if (response.status === 403 && !isRetry) {
-                                // Clear expired token and retry with fresh one
-                                this.csrfTokenInfo = null;
-                                return this.requestRaw(endpoint, options, true);
-                            }
-                            break;
-                        case SecurityErrorType.RATE_LIMITED:
-                            // Handle rate limiting
-                            console.log('Rate limited', errorData);
-                            throw RateLimitExceededError.fromRateLimitError(errorData as unknown as RateLimitError);
-                        default:
-                            // Security error
-                            throw new SecurityError(errorData.type, errorData.message);
-                        }
-                    }
-                    console.log("Came here");
+				const errorData = data.error;
+				if (errorData && errorData.type) {
+					// Send a toast notification for typed errors
+					if (!noToast) {
+						toast.error(errorData.message);
+					}
+					switch (errorData.type) {
+						case SecurityErrorType.CSRF_VIOLATION:
+							// Handle CSRF failures with retry
+							if (response.status === 403 && !isRetry) {
+								// Clear expired token and retry with fresh one
+								this.csrfTokenInfo = null;
+								return this.requestRaw(endpoint, options, true);
+							}
+							break;
+						case SecurityErrorType.RATE_LIMITED:
+							// Handle rate limiting
+							console.log('Rate limited', errorData);
+							throw RateLimitExceededError.fromRateLimitError(errorData as unknown as RateLimitError);
+						default:
+							// Security error
+							throw new SecurityError(errorData.type, errorData.message);
+					}
+				}
+				console.log('Came here');
 
-                    throw new ApiError(
-                        response.status,
-                        response.statusText,
-                        data.error?.message || data.message || 'Request failed',
-                        endpoint,
-                    );
+				throw new ApiError(
+					response.status,
+					response.statusText,
+					data.error?.message || data.message || 'Request failed',
+					endpoint,
+				);
 			}
 
-		    return { response, data };
+			return { response, data };
 		} catch (error) {
-            console.error(error);
-			if (error instanceof ApiError || error instanceof RateLimitExceededError || error instanceof SecurityError) {
+			console.error(error);
+			if (
+				error instanceof ApiError ||
+				error instanceof RateLimitExceededError ||
+				error instanceof SecurityError
+			) {
 				throw error;
 			}
-			throw new ApiError(
-				0,
-				'Network Error',
-				error instanceof Error ? error.message : 'Unknown error',
-				endpoint,
-			);
+			throw new ApiError(0, 'Network Error', error instanceof Error ? error.message : 'Unknown error', endpoint);
 		}
 	}
 
@@ -453,9 +424,7 @@ class ApiClient {
 	/**
 	 * Get public apps feed with pagination
 	 */
-	async getPublicApps(
-		params?: PublicAppsParams,
-	): Promise<ApiResponse<PublicAppsData>> {
+	async getPublicApps(params?: PublicAppsParams): Promise<ApiResponse<PublicAppsData>> {
 		const queryParams = new URLSearchParams();
 		if (params?.page) queryParams.set('page', params.page.toString());
 		if (params?.limit) queryParams.set('limit', params.limit.toString());
@@ -473,10 +442,7 @@ class ApiClient {
 	/**
 	 * Create a new app
 	 */
-	async createApp(data: {
-		title: string;
-		description?: string;
-	}): Promise<ApiResponse<CreateAppData>> {
+	async createApp(data: { title: string; description?: string }): Promise<ApiResponse<CreateAppData>> {
 		return this.request<CreateAppData>('/api/apps', {
 			method: 'POST',
 			body: data,
@@ -486,9 +452,7 @@ class ApiClient {
 	/**
 	 * Toggle favorite status of an app
 	 */
-	async toggleFavorite(
-		appId: string,
-	): Promise<ApiResponse<FavoriteToggleData>> {
+	async toggleFavorite(appId: string): Promise<ApiResponse<FavoriteToggleData>> {
 		return this.request<FavoriteToggleData>(`/api/apps/${appId}/favorite`, {
 			method: 'POST',
 		});
@@ -501,13 +465,10 @@ class ApiClient {
 		appId: string,
 		visibility: App['visibility'],
 	): Promise<ApiResponse<UpdateAppVisibilityData>> {
-		return this.request<UpdateAppVisibilityData>(
-			`/api/apps/${appId}/visibility`,
-			{
-				method: 'PUT',
-				body: { visibility },
-			},
-		);
+		return this.request<UpdateAppVisibilityData>(`/api/apps/${appId}/visibility`, {
+			method: 'PUT',
+			body: { visibility },
+		});
 	}
 
 	/**
@@ -533,9 +494,7 @@ class ApiClient {
 	/**
 	 * Toggle star status of an app (different from favorite)
 	 */
-	async toggleAppStar(
-		appId: string,
-	): Promise<ApiResponse<AppStarToggleData>> {
+	async toggleAppStar(appId: string): Promise<ApiResponse<AppStarToggleData>> {
 		return this.request<AppStarToggleData>(`/api/apps/${appId}/star`, {
 			method: 'POST',
 		});
@@ -544,9 +503,7 @@ class ApiClient {
 	/**
 	 * Generate a short-lived token for git clone (private repos only)
 	 */
-	async generateGitCloneToken(
-		appId: string,
-	): Promise<ApiResponse<GitCloneTokenData>> {
+	async generateGitCloneToken(appId: string): Promise<ApiResponse<GitCloneTokenData>> {
 		return this.request<GitCloneTokenData>(`/api/apps/${appId}/git/token`, {
 			method: 'POST',
 		});
@@ -555,7 +512,7 @@ class ApiClient {
 	// /**
 	//  * Fork an app
 	//  */
-    // DISABLED: Has been disabled for initial alpha release, for security reasons
+	// DISABLED: Has been disabled for initial alpha release, for security reasons
 	// async forkApp(appId: string): Promise<ApiResponse<ForkAppData>> {
 	// 	return this.request<ForkAppData>(`/api/apps/${appId}/fork`, {
 	// 		method: 'POST',
@@ -569,9 +526,7 @@ class ApiClient {
 	/**
 	 * Get user apps with pagination
 	 */
-	async getUserAppsWithPagination(
-		params?: UserAppsParams,
-	): Promise<ApiResponse<UserAppsData>> {
+	async getUserAppsWithPagination(params?: UserAppsParams): Promise<ApiResponse<UserAppsData>> {
 		const queryParams = new URLSearchParams();
 		if (params?.page) queryParams.set('page', params.page.toString());
 		if (params?.limit) queryParams.set('limit', params.limit.toString());
@@ -580,8 +535,7 @@ class ApiClient {
 		if (params?.period) queryParams.set('period', params.period);
 		if (params?.framework) queryParams.set('framework', params.framework);
 		if (params?.search) queryParams.set('search', params.search);
-		if (params?.visibility)
-			queryParams.set('visibility', params.visibility);
+		if (params?.visibility) queryParams.set('visibility', params.visibility);
 		if (params?.status) queryParams.set('status', params.status);
 		if (params?.teamId) queryParams.set('teamId', params.teamId);
 
@@ -601,24 +555,24 @@ class ApiClient {
 				false,
 				true,
 			);
-			
+
 			// Check if response is ok
 			if (!response.ok) {
 				// Parse error response if available
 				const errorMessage = data?.error?.message || `Agent creation failed with status: ${response.status}`;
 				throw new Error(errorMessage);
 			}
-			
+
 			return {
 				success: true,
-				stream: response
+				stream: response,
 			};
 		} catch (error) {
 			// Handle any network or parsing errors
 			const errorMessage = error instanceof Error ? error.message : 'Failed to create agent session';
 			toast.error(errorMessage);
-			
-            throw new Error(errorMessage);
+
+			throw new Error(errorMessage);
 		}
 	}
 
@@ -663,27 +617,17 @@ class ApiClient {
 	/**
 	 * Get user analytics (AI Gateway costs and usage)
 	 */
-	async getUserAnalytics(
-		userId: string,
-		days?: number,
-	): Promise<ApiResponse<UserAnalyticsResponseData>> {
+	async getUserAnalytics(userId: string, days?: number): Promise<ApiResponse<UserAnalyticsResponseData>> {
 		const queryParams = days ? `?days=${days}` : '';
-		return this.request<UserAnalyticsResponseData>(
-			`/api/user/${userId}/analytics${queryParams}`,
-		);
+		return this.request<UserAnalyticsResponseData>(`/api/user/${userId}/analytics${queryParams}`);
 	}
 
 	/**
 	 * Get agent analytics (AI Gateway costs and usage for specific app/chat)
 	 */
-	async getAgentAnalytics(
-		agentId: string,
-		days?: number,
-	): Promise<ApiResponse<AgentAnalyticsResponseData>> {
+	async getAgentAnalytics(agentId: string, days?: number): Promise<ApiResponse<AgentAnalyticsResponseData>> {
 		const queryParams = days ? `?days=${days}` : '';
-		return this.request<AgentAnalyticsResponseData>(
-			`/api/agent/${agentId}/analytics${queryParams}`,
-		);
+		return this.request<AgentAnalyticsResponseData>(`/api/agent/${agentId}/analytics${queryParams}`);
 	}
 
 	// ===============================
@@ -713,60 +657,42 @@ class ApiClient {
 	 * Get BYOK templates for dynamic provider configuration
 	 */
 	async getBYOKTemplates(): Promise<ApiResponse<SecretTemplatesData>> {
-		return this.request<SecretTemplatesData>(
-			'/api/secrets/templates?category=byok',
-		);
+		return this.request<SecretTemplatesData>('/api/secrets/templates?category=byok');
 	}
 
 	/**
 	 * Reset model configuration to default
 	 */
-	async resetModelConfig(
-		agentAction: string,
-	): Promise<ApiResponse<ModelConfigResetData>> {
-		return this.request<ModelConfigResetData>(
-			`/api/model-configs/${agentAction}`,
-			{
-				method: 'DELETE',
-			},
-		);
+	async resetModelConfig(agentAction: string): Promise<ApiResponse<ModelConfigResetData>> {
+		return this.request<ModelConfigResetData>(`/api/model-configs/${agentAction}`, {
+			method: 'DELETE',
+		});
 	}
 
 	/**
 	 * Reset all model configurations to defaults
 	 */
 	async resetAllModelConfigs(): Promise<ApiResponse<ModelConfigResetData>> {
-		return this.request<ModelConfigResetData>(
-			'/api/model-configs/reset-all',
-			{
-				method: 'POST',
-			},
-		);
+		return this.request<ModelConfigResetData>('/api/model-configs/reset-all', {
+			method: 'POST',
+		});
 	}
 
 	/**
 	 * Get specific model configuration
 	 */
-	async getModelConfig(
-		actionKey: string,
-	): Promise<ApiResponse<ModelConfigData>> {
+	async getModelConfig(actionKey: string): Promise<ApiResponse<ModelConfigData>> {
 		return this.request<ModelConfigData>(`/api/model-configs/${actionKey}`);
 	}
 
 	/**
 	 * Update model configuration
 	 */
-	async updateModelConfig(
-		actionKey: string,
-		config: ModelConfigUpdate,
-	): Promise<ApiResponse<ModelConfigUpdateData>> {
-		return this.request<ModelConfigUpdateData>(
-			`/api/model-configs/${actionKey}`,
-			{
-				method: 'PUT',
-				body: config,
-			},
-		);
+	async updateModelConfig(actionKey: string, config: ModelConfigUpdate): Promise<ApiResponse<ModelConfigUpdateData>> {
+		return this.request<ModelConfigUpdateData>(`/api/model-configs/${actionKey}`, {
+			method: 'PUT',
+			body: config,
+		});
 	}
 
 	/**
@@ -790,35 +716,25 @@ class ApiClient {
 	 * Reset all model configurations
 	 */
 	async resetAllConfigs(): Promise<ApiResponse<ModelConfigResetData>> {
-		return this.request<ModelConfigResetData>(
-			'/api/model-configs/reset-all',
-			{
-				method: 'POST',
-			},
-		);
+		return this.request<ModelConfigResetData>('/api/model-configs/reset-all', {
+			method: 'POST',
+		});
 	}
 
 	/**
 	 * Get default model configurations
 	 */
 	async getModelDefaults(): Promise<ApiResponse<ModelConfigDefaultsData>> {
-		return this.request<ModelConfigDefaultsData>(
-			'/api/model-configs/defaults',
-		);
+		return this.request<ModelConfigDefaultsData>('/api/model-configs/defaults');
 	}
 
 	/**
 	 * Delete model configuration
 	 */
-	async deleteModelConfig(
-		actionKey: string,
-	): Promise<ApiResponse<ModelConfigDeleteData>> {
-		return this.request<ModelConfigDeleteData>(
-			`/api/model-configs/${actionKey}`,
-			{
-				method: 'DELETE',
-			},
-		);
+	async deleteModelConfig(actionKey: string): Promise<ApiResponse<ModelConfigDeleteData>> {
+		return this.request<ModelConfigDeleteData>(`/api/model-configs/${actionKey}`, {
+			method: 'DELETE',
+		});
 	}
 
 	// ===============================
@@ -835,9 +751,7 @@ class ApiClient {
 	/**
 	 * Create a new custom model provider
 	 */
-	async createModelProvider(
-		data: CreateProviderRequest,
-	): Promise<ApiResponse<ModelProviderCreateData>> {
+	async createModelProvider(data: CreateProviderRequest): Promise<ApiResponse<ModelProviderCreateData>> {
 		return this.request<ModelProviderCreateData>('/api/user/providers', {
 			method: 'POST',
 			body: data,
@@ -851,35 +765,25 @@ class ApiClient {
 		providerId: string,
 		data: UpdateProviderRequest,
 	): Promise<ApiResponse<ModelProviderUpdateData>> {
-		return this.request<ModelProviderUpdateData>(
-			`/api/user/providers/${providerId}`,
-			{
-				method: 'PUT',
-				body: data,
-			},
-		);
+		return this.request<ModelProviderUpdateData>(`/api/user/providers/${providerId}`, {
+			method: 'PUT',
+			body: data,
+		});
 	}
 
 	/**
 	 * Delete a model provider
 	 */
-	async deleteModelProvider(
-		providerId: string,
-	): Promise<ApiResponse<ModelProviderDeleteData>> {
-		return this.request<ModelProviderDeleteData>(
-			`/api/user/providers/${providerId}`,
-			{
-				method: 'DELETE',
-			},
-		);
+	async deleteModelProvider(providerId: string): Promise<ApiResponse<ModelProviderDeleteData>> {
+		return this.request<ModelProviderDeleteData>(`/api/user/providers/${providerId}`, {
+			method: 'DELETE',
+		});
 	}
 
 	/**
 	 * Test a model provider connection
 	 */
-	async testModelProvider(
-		data: TestProviderRequest,
-	): Promise<ApiResponse<ModelProviderTestData>> {
+	async testModelProvider(data: TestProviderRequest): Promise<ApiResponse<ModelProviderTestData>> {
 		return this.request<ModelProviderTestData>('/api/user/providers/test', {
 			method: 'POST',
 			body: data,
@@ -950,14 +854,16 @@ class ApiClient {
 		description?: string;
 		isPrivate?: boolean;
 		agentId: string;
-	}): Promise<ApiResponse<{ 
-		authUrl?: string;
-		success?: boolean;
-		repositoryUrl?: string;
-		skippedOAuth?: boolean;
-		alreadyExists?: boolean;
-		existingRepositoryUrl?: string;
-	}>> {
+	}): Promise<
+		ApiResponse<{
+			authUrl?: string;
+			success?: boolean;
+			repositoryUrl?: string;
+			skippedOAuth?: boolean;
+			alreadyExists?: boolean;
+			existingRepositoryUrl?: string;
+		}>
+	> {
 		return this.request('/api/github-app/export', {
 			method: 'POST',
 			body: data,
@@ -967,20 +873,19 @@ class ApiClient {
 	/**
 	 * Check remote repository status
 	 */
-	async checkRemoteStatus(data: {
-		repositoryUrl: string;
-		agentId: string;
-	}): Promise<ApiResponse<{
-		compatible: boolean;
-		behindBy: number;
-		aheadBy: number;
-		divergedCommits: Array<{
-			sha: string;
-			message: string;
-			author: string;
-			date: string;
-		}>;
-	}>> {
+	async checkRemoteStatus(data: { repositoryUrl: string; agentId: string }): Promise<
+		ApiResponse<{
+			compatible: boolean;
+			behindBy: number;
+			aheadBy: number;
+			divergedCommits: Array<{
+				sha: string;
+				message: string;
+				author: string;
+				date: string;
+			}>;
+		}>
+	> {
 		return this.request('/api/github-app/check-remote', {
 			method: 'POST',
 			body: data,
@@ -993,23 +898,15 @@ class ApiClient {
 	/**
 	 * Connect to existing agent
 	 */
-	async connectToAgent(
-		agentId: string,
-	): Promise<ApiResponse<AgentConnectionData>> {
-		return this.request<AgentConnectionData>(
-			`/api/agent/${agentId}/connect`,
-		);
+	async connectToAgent(agentId: string): Promise<ApiResponse<AgentConnectionData>> {
+		return this.request<AgentConnectionData>(`/api/agent/${agentId}/connect`);
 	}
 
 	/**
 	 * Deploy preview
 	 */
-	async deployPreview(
-		agentId: string,
-	): Promise<ApiResponse<AgentPreviewResponse>> {
-		return this.request<AgentPreviewResponse>(
-			`/api/agent/${agentId}/preview`,
-		);
+	async deployPreview(agentId: string): Promise<ApiResponse<AgentPreviewResponse>> {
+		return this.request<AgentPreviewResponse>(`/api/agent/${agentId}/preview`);
 	}
 
 	// ===============================
@@ -1026,15 +923,10 @@ class ApiClient {
 	/**
 	 * Revoke a specific session
 	 */
-	async revokeSession(
-		sessionId: string,
-	): Promise<ApiResponse<{ message: string }>> {
-		return this.request<{ message: string }>(
-			`/api/auth/sessions/${sessionId}`,
-			{
-				method: 'DELETE',
-			},
-		);
+	async revokeSession(sessionId: string): Promise<ApiResponse<{ message: string }>> {
+		return this.request<{ message: string }>(`/api/auth/sessions/${sessionId}`, {
+			method: 'DELETE',
+		});
 	}
 
 	// ===============================
@@ -1051,9 +943,7 @@ class ApiClient {
 	/**
 	 * Create a new API key
 	 */
-	async createApiKey(data: {
-		name: string;
-	}): Promise<
+	async createApiKey(data: { name: string }): Promise<
 		ApiResponse<{
 			key: string;
 			keyPreview: string;
@@ -1075,15 +965,10 @@ class ApiClient {
 	/**
 	 * Revoke an API key
 	 */
-	async revokeApiKey(
-		keyId: string,
-	): Promise<ApiResponse<{ message: string }>> {
-		return this.request<{ message: string }>(
-			`/api/auth/api-keys/${keyId}`,
-			{
-				method: 'DELETE',
-			},
-		);
+	async revokeApiKey(keyId: string): Promise<ApiResponse<{ message: string }>> {
+		return this.request<{ message: string }>(`/api/auth/api-keys/${keyId}`, {
+			method: 'DELETE',
+		});
 	}
 
 	// ===============================
@@ -1093,10 +978,7 @@ class ApiClient {
 	/**
 	 * Login with email and password
 	 */
-	async loginWithEmail(credentials: {
-		email: string;
-		password: string;
-	}): Promise<ApiResponse<LoginResponseData>> {
+	async loginWithEmail(credentials: { email: string; password: string }): Promise<ApiResponse<LoginResponseData>> {
 		return this.request<LoginResponseData>('/api/auth/login', {
 			method: 'POST',
 			body: credentials,
@@ -1120,10 +1002,7 @@ class ApiClient {
 	/**
 	 * Verify email with OTP
 	 */
-	async verifyEmail(data: {
-		email: string;
-		otp: string;
-	}): Promise<ApiResponse<LoginResponseData>> {
+	async verifyEmail(data: { email: string; otp: string }): Promise<ApiResponse<LoginResponseData>> {
 		return this.request<LoginResponseData>('/api/auth/verify-email', {
 			method: 'POST',
 			body: data,
@@ -1133,16 +1012,11 @@ class ApiClient {
 	/**
 	 * Resend verification OTP
 	 */
-	async resendVerificationOtp(
-		email: string,
-	): Promise<ApiResponse<{ message: string }>> {
-		return this.request<{ message: string }>(
-			'/api/auth/resend-verification',
-			{
-				method: 'POST',
-				body: { email },
-			},
-		);
+	async resendVerificationOtp(email: string): Promise<ApiResponse<{ message: string }>> {
+		return this.request<{ message: string }>('/api/auth/resend-verification', {
+			method: 'POST',
+			body: { email },
+		});
 	}
 
 	/**
@@ -1179,10 +1053,7 @@ class ApiClient {
 	 * Initiate OAuth flow (redirects to provider)
 	 */
 	initiateOAuth(provider: OAuthProvider, redirectUrl?: string): void {
-		const oauthUrl = new URL(
-			`/api/auth/oauth/${provider}`,
-			window.location.origin,
-		);
+		const oauthUrl = new URL(`/api/auth/oauth/${provider}`, window.location.origin);
 		if (redirectUrl) {
 			oauthUrl.searchParams.set('redirect_url', redirectUrl);
 		}

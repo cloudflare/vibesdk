@@ -58,7 +58,7 @@ function pathsOverlap(paths1: string[], paths2: string[]): boolean {
 
 	// Check for exact path overlap
 	const set1 = new Set(paths1);
-	return paths2.some(p => set1.has(p));
+	return paths2.some((p) => set1.has(p));
 }
 
 /**

@@ -2,10 +2,7 @@ import { tool } from '../types';
 import { StructuredLogger } from '../../../logger';
 import { ICodingAgent } from 'worker/agents/services/interfaces/ICodingAgent';
 
-export function createWaitForGenerationTool(
-	agent: ICodingAgent,
-	logger: StructuredLogger
-) {
+export function createWaitForGenerationTool(agent: ICodingAgent, logger: StructuredLogger) {
 	return tool({
 		name: 'wait_for_generation',
 		description:

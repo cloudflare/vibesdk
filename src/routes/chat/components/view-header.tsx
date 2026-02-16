@@ -20,7 +20,7 @@ export function ViewHeader({
 	onViewChange,
 	previewAvailable,
 	showTooltip,
-    hasDocumentation,
+	hasDocumentation,
 	previewUrl,
 	centerContent,
 	rightActions,
@@ -39,12 +39,8 @@ export function ViewHeader({
 					projectType={projectType}
 				/>
 			</div>
-			<div className="flex items-center justify-center">
-				{centerContent}
-			</div>
-			<div className="flex items-center justify-end">
-				{rightActions}
-			</div>
+			<div className="flex items-center justify-center">{centerContent}</div>
+			<div className="flex items-center justify-end">{rightActions}</div>
 		</div>
 	);
 }

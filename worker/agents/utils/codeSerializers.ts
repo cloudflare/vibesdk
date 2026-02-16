@@ -9,29 +9,29 @@ export enum CodeSerializerType {
 export type CodeSerializer = (files: FileOutputType[]) => string;
 
 function detectLanguage(filePath: string): string {
-    const extension = filePath.split('.').pop() ?? '';
-    switch (extension) {
-        case 'js':
-            return 'javascript';
-        case 'ts':
-            return 'typescript';
-        case 'tsx':
-            return 'typescript';
-        case 'jsx':
-            return 'javascript';
-        case 'json':
-            return 'json';
-        case 'html':
-            return 'html';
-        case 'css':
-            return 'css';
-        case 'md':
-            return 'markdown';
-        case 'sh':
-            return 'shell';
-        default:
-            return '';
-    }
+	const extension = filePath.split('.').pop() ?? '';
+	switch (extension) {
+		case 'js':
+			return 'javascript';
+		case 'ts':
+			return 'typescript';
+		case 'tsx':
+			return 'typescript';
+		case 'jsx':
+			return 'javascript';
+		case 'json':
+			return 'json';
+		case 'html':
+			return 'html';
+		case 'css':
+			return 'css';
+		case 'md':
+			return 'markdown';
+		case 'sh':
+			return 'shell';
+		default:
+			return '';
+	}
 }
 
 function simpleSerializer(files: FileOutputType[]): string {

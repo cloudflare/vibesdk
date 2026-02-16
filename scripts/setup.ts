@@ -24,7 +24,7 @@ interface SetupConfig {
 	setupRemote?: boolean;
 	prodDomain?: string;
 	prodVars?: Record<string, string>;
-	customProviderKeys?: Array<{key: string, provider: string}>;
+	customProviderKeys?: Array<{ key: string; provider: string }>;
 }
 
 interface ResourceInfo {
@@ -96,7 +96,10 @@ class SetupManager {
 
 			this.displayFinalReport(report, resources);
 		} catch (error) {
-			console.error('\n❌ Setup encountered a critical error:', error instanceof Error ? error.message : String(error));
+			console.error(
+				'\n❌ Setup encountered a critical error:',
+				error instanceof Error ? error.message : String(error),
+			);
 			console.error('\n💡 Troubleshooting:');
 			console.error('   1. Verify your Cloudflare API token has the required permissions');
 			console.error('   2. Check your account has access to the required Cloudflare services');
@@ -229,9 +232,7 @@ class SetupManager {
 
 	private maskSensitiveValue(question: string, value: string): string {
 		const sensitivePatterns = ['TOKEN', 'SECRET', 'KEY', 'PASSWORD'];
-		const isSensitive = sensitivePatterns.some(pattern =>
-			question.toUpperCase().includes(pattern)
-		);
+		const isSensitive = sensitivePatterns.some((pattern) => question.toUpperCase().includes(pattern));
 
 		if (isSensitive && value.length > 8) {
 			return `${value.substring(0, 4)}...${value.substring(value.length - 4)}`;
@@ -246,7 +247,7 @@ class SetupManager {
 		// Get Cloudflare account ID
 		const accountId = await this.promptWithDefault(
 			'Enter your Cloudflare Account ID: ',
-			this.existingConfig.CLOUDFLARE_ACCOUNT_ID
+			this.existingConfig.CLOUDFLARE_ACCOUNT_ID,
 		);
 		if (!accountId) {
 			throw new Error('Account ID is required');
@@ -255,7 +256,7 @@ class SetupManager {
 		// Get API token
 		const apiToken = await this.promptWithDefault(
 			'Enter your Cloudflare API Token: ',
-			this.existingConfig.CLOUDFLARE_API_TOKEN
+			this.existingConfig.CLOUDFLARE_API_TOKEN,
 		);
 		if (!apiToken) {
 			throw new Error('API Token is required');
@@ -272,14 +273,15 @@ class SetupManager {
 		let prodDomain: string | undefined;
 
 		// Check if we already have a production domain configured
-		const existingProdDomain = this.existingConfig.CUSTOM_DOMAIN &&
-			this.existingConfig.CUSTOM_DOMAIN !== 'localhost:5173' ?
-			this.existingConfig.CUSTOM_DOMAIN : undefined;
+		const existingProdDomain =
+			this.existingConfig.CUSTOM_DOMAIN && this.existingConfig.CUSTOM_DOMAIN !== 'localhost:5173'
+				? this.existingConfig.CUSTOM_DOMAIN
+				: undefined;
 
 		while (true) {
 			customDomain = await this.promptWithDefault(
 				'Enter your custom domain (or press Enter to skip): ',
-				existingProdDomain || this.existingConfig.CUSTOM_DOMAIN
+				existingProdDomain || this.existingConfig.CUSTOM_DOMAIN,
 			);
 
 			if (!customDomain || customDomain.trim() === '' || customDomain === 'localhost:5173') {
@@ -324,13 +326,15 @@ class SetupManager {
 
 		// AI Gateway configuration
 		console.log('\n🤖 AI Gateway Configuration');
-		const useAIGatewayChoice = await this.prompt('Use Cloudflare AI Gateway? [STRONGLY RECOMMENDED for developer experience] (Y/n): ');
+		const useAIGatewayChoice = await this.prompt(
+			'Use Cloudflare AI Gateway? [STRONGLY RECOMMENDED for developer experience] (Y/n): ',
+		);
 		const useAIGateway = useAIGatewayChoice.toLowerCase() !== 'n';
 
 		let aiGatewayUrl: string | undefined;
 		const devVars: Record<string, string> = {};
 		const providedProviders: string[] = [];
-		let customProviderKeys: Array<{key: string, provider: string}> = [];
+		let customProviderKeys: Array<{ key: string; provider: string }> = [];
 
 		if (useAIGateway) {
 			console.log('✅ AI Gateway enabled - will auto-configure CLOUDFLARE_AI_GATEWAY_TOKEN');
@@ -345,14 +349,13 @@ class SetupManager {
 			const defaultUrl = existingUrl || suggestedUrl;
 
 			if (!existingUrl) {
-				console.log(`\n💡 AI Gateway URL format: https://gateway.ai.cloudflare.com/v1/<account_id>/<gateway_name>/`);
+				console.log(
+					`\n💡 AI Gateway URL format: https://gateway.ai.cloudflare.com/v1/<account_id>/<gateway_name>/`,
+				);
 				console.log(`   Suggested: ${suggestedUrl}`);
 			}
 
-			aiGatewayUrl = await this.promptWithDefault(
-				'Enter AI Gateway URL: ',
-				defaultUrl
-			);
+			aiGatewayUrl = await this.promptWithDefault('Enter AI Gateway URL: ', defaultUrl);
 
 			if (!aiGatewayUrl || aiGatewayUrl.trim() === '') {
 				throw new Error('AI Gateway URL is required when AI Gateway is enabled');
@@ -376,7 +379,10 @@ class SetupManager {
 		console.log('   6. Custom provider\n');
 
 		const providerChoice = await this.prompt('Select providers (comma-separated numbers, e.g., 1,2,3): ');
-		const selectedProviders = providerChoice.split(',').map(n => parseInt(n.trim())).filter(n => n >= 1 && n <= 6);
+		const selectedProviders = providerChoice
+			.split(',')
+			.map((n) => parseInt(n.trim()))
+			.filter((n) => n >= 1 && n <= 6);
 
 		if (selectedProviders.length === 0) {
 			console.log('⚠️  No providers selected - you MUST configure at least one provider!');
@@ -390,7 +396,7 @@ class SetupManager {
 			2: { name: 'Anthropic', key: 'ANTHROPIC_API_KEY', provider: 'anthropic' },
 			3: { name: 'Google AI Studio', key: 'GOOGLE_AI_STUDIO_API_KEY', provider: 'google-ai-studio' },
 			4: { name: 'Cerebras', key: 'CEREBRAS_API_KEY', provider: 'cerebras' },
-			5: { name: 'OpenRouter', key: 'OPENROUTER_API_KEY', provider: 'openrouter' }
+			5: { name: 'OpenRouter', key: 'OPENROUTER_API_KEY', provider: 'openrouter' },
 		};
 
 		console.log('\n🔑 API Key Configuration');
@@ -411,7 +417,10 @@ class SetupManager {
 				const provider = providerMap[choice as keyof typeof providerMap];
 				if (provider) {
 					const existing = this.existingConfig[provider.key];
-					const value = await this.promptWithDefault(`${provider.name} API Key (${provider.key}): `, existing);
+					const value = await this.promptWithDefault(
+						`${provider.name} API Key (${provider.key}): `,
+						existing,
+					);
 					if (value) {
 						devVars[provider.key] = value;
 						providedProviders.push(provider.provider);
@@ -424,7 +433,9 @@ class SetupManager {
 		const hasGemini = selectedProviders.includes(3);
 		if (!hasGemini) {
 			console.log('\n⚠️  IMPORTANT: You selected providers other than Google AI Studio (Gemini).');
-			console.log('   You MUST edit worker/agents/inferutils/config.ts to change the default model configurations');
+			console.log(
+				'   You MUST edit worker/agents/inferutils/config.ts to change the default model configurations',
+			);
 			console.log('   from Gemini models to your selected providers!\n');
 		}
 
@@ -441,7 +452,7 @@ class SetupManager {
 			'GITHUB_CLIENT_ID',
 			'GITHUB_CLIENT_SECRET',
 			'GITHUB_EXPORTER_CLIENT_ID',
-			'GITHUB_EXPORTER_CLIENT_SECRET'
+			'GITHUB_EXPORTER_CLIENT_SECRET',
 		];
 
 		for (const varName of otherVars) {
@@ -487,7 +498,7 @@ class SetupManager {
 			setupRemote,
 			prodDomain,
 			prodVars,
-			customProviderKeys
+			customProviderKeys,
 		};
 
 		console.log('\n✅ Configuration collected successfully\n');
@@ -514,7 +525,9 @@ class SetupManager {
 			const account = await this.cloudflare.accounts.get({ account_id: this.config.accountId });
 			console.log(`✅ Connected to account: ${account.name}`);
 		} catch (error) {
-			throw new Error(`Failed to validate Cloudflare credentials: ${error instanceof Error ? error.message : String(error)}`);
+			throw new Error(
+				`Failed to validate Cloudflare credentials: ${error instanceof Error ? error.message : String(error)}`,
+			);
 		}
 	}
 
@@ -527,7 +540,7 @@ class SetupManager {
 			d1Databases: [],
 			r2Buckets: [],
 			dispatchNamespaces: [],
-			zones: []
+			zones: [],
 		};
 
 		await this.processKVNamespaces(wranglerConfig, resources);
@@ -558,7 +571,7 @@ class SetupManager {
 						name: kvInfo.title,
 						id: kvInfo.id,
 						binding: kv.binding,
-						accessible: true
+						accessible: true,
 					});
 				} catch (error) {
 					this.handleResourceError('KV namespace', kv.binding, error);
@@ -581,10 +594,15 @@ class SetupManager {
 						name: dbInfo.name,
 						id: dbInfo.uuid,
 						binding: db.binding,
-						accessible: true
+						accessible: true,
 					});
 				} catch (error) {
-					this.handleResourceError('D1 database', db.database_name, error, 'D1 Database not accessible (likely requires paid plan)');
+					this.handleResourceError(
+						'D1 database',
+						db.database_name,
+						error,
+						'D1 Database not accessible (likely requires paid plan)',
+					);
 					resources.d1Databases.push(this.createLocalResource(db.binding, 'local', db.database_name));
 				}
 			}
@@ -602,7 +620,12 @@ class SetupManager {
 					await this.ensureR2Bucket(bucket.bucket_name, bucket.binding);
 					resources.r2Buckets.push({ name: bucket.bucket_name, binding: bucket.binding, accessible: true });
 				} catch (error) {
-					this.handleResourceError('R2 bucket', bucket.bucket_name, error, 'R2 Bucket not accessible (likely requires paid plan)');
+					this.handleResourceError(
+						'R2 bucket',
+						bucket.bucket_name,
+						error,
+						'R2 Bucket not accessible (likely requires paid plan)',
+					);
 					resources.r2Buckets.push({ name: bucket.bucket_name, binding: bucket.binding, accessible: false });
 				}
 			}
@@ -614,14 +637,31 @@ class SetupManager {
 
 		for (const dispatch of wranglerConfig.dispatch_namespaces) {
 			if (!this.config.useRemoteBindings) {
-				resources.dispatchNamespaces.push({ name: dispatch.namespace, binding: dispatch.binding, accessible: false });
+				resources.dispatchNamespaces.push({
+					name: dispatch.namespace,
+					binding: dispatch.binding,
+					accessible: false,
+				});
 			} else {
 				try {
 					await this.ensureDispatchNamespace(dispatch.namespace, dispatch.binding);
-					resources.dispatchNamespaces.push({ name: dispatch.namespace, binding: dispatch.binding, accessible: true });
+					resources.dispatchNamespaces.push({
+						name: dispatch.namespace,
+						binding: dispatch.binding,
+						accessible: true,
+					});
 				} catch (error) {
-					this.handleResourceError('dispatch namespace', dispatch.namespace, error, 'Dispatch Namespace not accessible (requires Workers for Platforms)');
-					resources.dispatchNamespaces.push({ name: dispatch.namespace, binding: dispatch.binding, accessible: false });
+					this.handleResourceError(
+						'dispatch namespace',
+						dispatch.namespace,
+						error,
+						'Dispatch Namespace not accessible (requires Workers for Platforms)',
+					);
+					resources.dispatchNamespaces.push({
+						name: dispatch.namespace,
+						binding: dispatch.binding,
+						accessible: false,
+					});
 				}
 			}
 		}
@@ -629,9 +669,12 @@ class SetupManager {
 
 	private async processCustomDomain(resources: ResourceInfo): Promise<void> {
 		// Check production domain first (priority for zone detection)
-		const domainToCheck = this.config.setupRemote && this.config.prodDomain
-			? this.config.prodDomain
-			: (this.config.customDomain !== 'localhost:5173' ? this.config.customDomain : null);
+		const domainToCheck =
+			this.config.setupRemote && this.config.prodDomain
+				? this.config.prodDomain
+				: this.config.customDomain !== 'localhost:5173'
+					? this.config.customDomain
+					: null;
 
 		if (domainToCheck) {
 			try {
@@ -640,7 +683,9 @@ class SetupManager {
 					resources.zones.push({ name: zoneInfo.zoneName!, id: zoneInfo.zoneId });
 				}
 			} catch (error) {
-				console.warn(`⚠️  Domain validation failed for ${domainToCheck}: ${error instanceof Error ? error.message : String(error)}`);
+				console.warn(
+					`⚠️  Domain validation failed for ${domainToCheck}: ${error instanceof Error ? error.message : String(error)}`,
+				);
 			}
 		}
 	}
@@ -651,7 +696,12 @@ class SetupManager {
 		return { name: resourceName, id, binding, accessible: false };
 	}
 
-	private handleResourceError(resourceType: string, resourceName: string, error: unknown, specificMessage?: string): void {
+	private handleResourceError(
+		resourceType: string,
+		resourceName: string,
+		error: unknown,
+		specificMessage?: string,
+	): void {
 		const errorMsg = `Failed to setup ${resourceType} ${resourceName}: ${error instanceof Error ? error.message : String(error)}`;
 		console.warn(`⚠️  ${errorMsg} - will use local-only mode`);
 
@@ -670,10 +720,10 @@ class SetupManager {
 				`https://api.cloudflare.com/client/v4/accounts/${this.config.accountId}/storage/kv/namespaces`,
 				{
 					headers: {
-						'Authorization': `Bearer ${this.config.apiToken}`,
+						Authorization: `Bearer ${this.config.apiToken}`,
 						'Content-Type': 'application/json',
 					},
-				}
+				},
 			);
 
 			if (response.ok) {
@@ -694,11 +744,11 @@ class SetupManager {
 				{
 					method: 'POST',
 					headers: {
-						'Authorization': `Bearer ${this.config.apiToken}`,
+						Authorization: `Bearer ${this.config.apiToken}`,
 						'Content-Type': 'application/json',
 					},
 					body: JSON.stringify({ title: namespaceName }),
-				}
+				},
 			);
 
 			if (createResponse.ok) {
@@ -710,16 +760,17 @@ class SetupManager {
 			}
 
 			throw new Error(`Failed to create KV namespace: ${createResponse.statusText}`);
-
 		} catch (error) {
-			throw new Error(`Failed to ensure KV namespace ${namespaceName}: ${error instanceof Error ? error.message : String(error)}`);
+			throw new Error(
+				`Failed to ensure KV namespace ${namespaceName}: ${error instanceof Error ? error.message : String(error)}`,
+			);
 		}
 	}
 
 	private async ensureD1Database(dbName: string, binding: string): Promise<{ uuid: string; name: string }> {
 		const baseUrl = `https://api.cloudflare.com/client/v4/accounts/${this.config.accountId}/d1/database`;
 		const headers = {
-			'Authorization': `Bearer ${this.config.apiToken}`,
+			Authorization: `Bearer ${this.config.apiToken}`,
 			'Content-Type': 'application/json',
 		};
 
@@ -785,8 +836,7 @@ class SetupManager {
 			// Handle wrangler CLI errors gracefully
 			const stderr = error instanceof Error && 'stderr' in error ? (error as any).stderr?.toString() : '';
 
-			if (stderr.includes('You do not have access to dispatch namespaces') ||
-				stderr.includes('not available')) {
+			if (stderr.includes('You do not have access to dispatch namespaces') || stderr.includes('not available')) {
 				throw new Error('Dispatch namespaces not available on this account plan');
 			}
 
@@ -796,13 +846,13 @@ class SetupManager {
 
 	private async ensureR2Bucket(bucketName: string, binding: string): Promise<void> {
 		const headers = {
-			'Authorization': `Bearer ${this.config.apiToken}`,
+			Authorization: `Bearer ${this.config.apiToken}`,
 			'Content-Type': 'application/json',
 		};
 
 		const checkResponse = await fetch(
 			`https://api.cloudflare.com/client/v4/accounts/${this.config.accountId}/r2/buckets/${bucketName}`,
-			{ headers }
+			{ headers },
 		);
 
 		if (checkResponse.ok) {
@@ -823,7 +873,7 @@ class SetupManager {
 				method: 'POST',
 				headers,
 				body: JSON.stringify({ name: bucketName }),
-			}
+			},
 		);
 
 		const data = await createResponse.json();
@@ -872,7 +922,7 @@ class SetupManager {
 				try {
 					aiGatewayToken = await this.ensureAIGatewayToken();
 					tokenCreated = !!aiGatewayToken;
-					
+
 					if (aiGatewayToken) {
 						this.config.devVars.CLOUDFLARE_AI_GATEWAY_TOKEN = aiGatewayToken;
 						console.log('✅ Created and using specialized AI Gateway token');
@@ -934,7 +984,9 @@ class SetupManager {
 				authentication: !!aiGatewayToken,
 			});
 
-			console.log(`✅ Successfully created AI Gateway: ${gatewayName} (authentication: ${aiGatewayToken ? 'enabled' : 'disabled'})`);
+			console.log(
+				`✅ Successfully created AI Gateway: ${gatewayName} (authentication: ${aiGatewayToken ? 'enabled' : 'disabled'})`,
+			);
 			resources.aiGateway = { name: gatewayName, exists: true, tokenCreated, tokenError };
 		} catch (error) {
 			const errorMessage = error instanceof Error ? error.message : String(error);
@@ -968,9 +1020,12 @@ class SetupManager {
 
 			// Step 2: Check what AI Gateway permission groups exist (doesn't require special permissions)
 			try {
-				const permGroupsResponse = await fetch('https://api.cloudflare.com/client/v4/user/tokens/permission_groups?name=AI%20Gateway', {
-					headers: { Authorization: `Bearer ${this.config.apiToken}` },
-				});
+				const permGroupsResponse = await fetch(
+					'https://api.cloudflare.com/client/v4/user/tokens/permission_groups?name=AI%20Gateway',
+					{
+						headers: { Authorization: `Bearer ${this.config.apiToken}` },
+					},
+				);
 
 				if (permGroupsResponse.ok) {
 					const permData = await permGroupsResponse.json();
@@ -989,9 +1044,12 @@ class SetupManager {
 			// Step 3: Test AI Gateway Read permission by listing gateways
 			// Note: We can only test Read permission without side effects
 			// Edit permission will be tested at runtime when actually creating the gateway
-			const testResponse = await fetch(`https://api.cloudflare.com/client/v4/accounts/${this.config.accountId}/ai-gateway/gateways`, {
-				headers: { Authorization: `Bearer ${this.config.apiToken}` },
-			});
+			const testResponse = await fetch(
+				`https://api.cloudflare.com/client/v4/accounts/${this.config.accountId}/ai-gateway/gateways`,
+				{
+					headers: { Authorization: `Bearer ${this.config.apiToken}` },
+				},
+			);
 
 			if (testResponse.ok) {
 				console.log('✅ Token has AI Gateway Read permission');
@@ -1017,9 +1075,10 @@ class SetupManager {
 			console.warn(`⚠️  AI Gateway permission test failed with status ${testResponse.status}`);
 			console.warn('   Assuming no AI Gateway permissions');
 			return { hasAIGatewayAccess: false, tokenInfo: verifyData.result };
-
 		} catch (error) {
-			console.warn(`⚠️  Token permission check failed: ${error instanceof Error ? error.message : String(error)}`);
+			console.warn(
+				`⚠️  Token permission check failed: ${error instanceof Error ? error.message : String(error)}`,
+			);
 			return { hasAIGatewayAccess: false };
 		}
 	}
@@ -1043,17 +1102,19 @@ class SetupManager {
 				},
 				body: JSON.stringify({
 					name: `AI Gateway Token - ${new Date().toISOString().split('T')[0]}`,
-					policies: [{
-						effect: 'allow',
-						resources: { [`com.cloudflare.api.account.${this.config.accountId}`]: '*' },
-						permission_groups: [
-							{ name: 'AI Gateway Read' },
-							{ name: 'AI Gateway Edit' },
-							{ name: 'AI Gateway Run' },
-							{ name: 'Workers AI Read' },
-							{ name: 'Workers AI Edit' },
-						],
-					}],
+					policies: [
+						{
+							effect: 'allow',
+							resources: { [`com.cloudflare.api.account.${this.config.accountId}`]: '*' },
+							permission_groups: [
+								{ name: 'AI Gateway Read' },
+								{ name: 'AI Gateway Edit' },
+								{ name: 'AI Gateway Run' },
+								{ name: 'Workers AI Read' },
+								{ name: 'Workers AI Edit' },
+							],
+						},
+					],
 					condition: { request_ip: { in: [], not_in: [] } },
 					expires_on: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
 				}),
@@ -1061,7 +1122,9 @@ class SetupManager {
 
 			if (!tokenResponse.ok) {
 				const errorData = await tokenResponse.json().catch(() => ({ errors: [{ message: 'Unknown error' }] }));
-				throw new Error(`API token creation failed: ${errorData.errors?.[0]?.message || tokenResponse.statusText}`);
+				throw new Error(
+					`API token creation failed: ${errorData.errors?.[0]?.message || tokenResponse.statusText}`,
+				);
 			}
 
 			const tokenData = await tokenResponse.json();
@@ -1079,7 +1142,9 @@ class SetupManager {
 
 			throw new Error('Token creation succeeded but no token returned');
 		} catch (error) {
-			console.warn(`⚠️  Could not create AI Gateway token: ${error instanceof Error ? error.message : String(error)}`);
+			console.warn(
+				`⚠️  Could not create AI Gateway token: ${error instanceof Error ? error.message : String(error)}`,
+			);
 			return null;
 		}
 	}
@@ -1088,7 +1153,9 @@ class SetupManager {
 		return this.aiGatewayCloudflare || this.cloudflare;
 	}
 
-	private async detectZoneForDomain(customDomain: string): Promise<{ zoneName: string | null; zoneId: string | null }> {
+	private async detectZoneForDomain(
+		customDomain: string,
+	): Promise<{ zoneName: string | null; zoneId: string | null }> {
 		console.log(`🔍 Detecting zone for domain: ${customDomain}`);
 
 		// Extract possible zone names
@@ -1105,7 +1172,7 @@ class SetupManager {
 			try {
 				const zones = await this.cloudflare.zones.list({
 					account: { id: this.config.accountId },
-					name: zoneName
+					name: zoneName,
 				});
 
 				if (zones.result && zones.result.length > 0) {
@@ -1133,15 +1200,43 @@ class SetupManager {
 	}
 
 	private static readonly FALLBACK_WORKER_VARS = new Set([
-		'TEMPLATES_REPOSITORY', 'ALLOWED_EMAIL', 'DISPATCH_NAMESPACE', 'CLOUDFLARE_AI_GATEWAY', 'ENABLE_READ_REPLICAS',
-		'ANTHROPIC_API_KEY', 'OPENAI_API_KEY', 'GOOGLE_AI_STUDIO_API_KEY', 'OPENROUTER_API_KEY', 'CEREBRAS_API_KEY', 'GROQ_API_KEY',
-		'SANDBOX_SERVICE_API_KEY', 'SANDBOX_SERVICE_TYPE', 'SANDBOX_SERVICE_URL',
-		'CLOUDFLARE_API_TOKEN', 'CLOUDFLARE_ACCOUNT_ID', 'CLOUDFLARE_AI_GATEWAY_URL', 'CLOUDFLARE_AI_GATEWAY_TOKEN',
-		'SERPAPI_KEY', 'GOOGLE_CLIENT_SECRET', 'GOOGLE_CLIENT_ID', 'GITHUB_CLIENT_ID', 'GITHUB_CLIENT_SECRET',
-		'JWT_SECRET', 'ENTROPY_KEY', 'ENVIRONMENT', 'SECRETS_ENCRYPTION_KEY',
-		'MAX_SANDBOX_INSTANCES', 'SANDBOX_INSTANCE_TYPE', 'CUSTOM_DOMAIN', 'CUSTOM_PREVIEW_DOMAIN',
-		'ALLOCATION_STRATEGY', 'GITHUB_EXPORTER_CLIENT_ID', 'GITHUB_EXPORTER_CLIENT_SECRET',
-		'CF_ACCESS_ID', 'CF_ACCESS_SECRET', 'SENTRY_DSN'
+		'TEMPLATES_REPOSITORY',
+		'ALLOWED_EMAIL',
+		'DISPATCH_NAMESPACE',
+		'CLOUDFLARE_AI_GATEWAY',
+		'ENABLE_READ_REPLICAS',
+		'ANTHROPIC_API_KEY',
+		'OPENAI_API_KEY',
+		'GOOGLE_AI_STUDIO_API_KEY',
+		'OPENROUTER_API_KEY',
+		'CEREBRAS_API_KEY',
+		'GROQ_API_KEY',
+		'SANDBOX_SERVICE_API_KEY',
+		'SANDBOX_SERVICE_TYPE',
+		'SANDBOX_SERVICE_URL',
+		'CLOUDFLARE_API_TOKEN',
+		'CLOUDFLARE_ACCOUNT_ID',
+		'CLOUDFLARE_AI_GATEWAY_URL',
+		'CLOUDFLARE_AI_GATEWAY_TOKEN',
+		'SERPAPI_KEY',
+		'GOOGLE_CLIENT_SECRET',
+		'GOOGLE_CLIENT_ID',
+		'GITHUB_CLIENT_ID',
+		'GITHUB_CLIENT_SECRET',
+		'JWT_SECRET',
+		'ENTROPY_KEY',
+		'ENVIRONMENT',
+		'SECRETS_ENCRYPTION_KEY',
+		'MAX_SANDBOX_INSTANCES',
+		'SANDBOX_INSTANCE_TYPE',
+		'CUSTOM_DOMAIN',
+		'CUSTOM_PREVIEW_DOMAIN',
+		'ALLOCATION_STRATEGY',
+		'GITHUB_EXPORTER_CLIENT_ID',
+		'GITHUB_EXPORTER_CLIENT_SECRET',
+		'CF_ACCESS_ID',
+		'CF_ACCESS_SECRET',
+		'SENTRY_DSN',
 	]);
 
 	private parseWorkerConfiguration(): Set<string> {
@@ -1170,7 +1265,9 @@ class SetupManager {
 
 			return SetupManager.FALLBACK_WORKER_VARS;
 		} catch (error) {
-			console.warn(`⚠️  Could not parse worker-configuration.d.ts: ${error instanceof Error ? error.message : String(error)}`);
+			console.warn(
+				`⚠️  Could not parse worker-configuration.d.ts: ${error instanceof Error ? error.message : String(error)}`,
+			);
 			return SetupManager.FALLBACK_WORKER_VARS;
 		}
 	}
@@ -1187,7 +1284,7 @@ class SetupManager {
 		const existingVars = new Map<string, string>();
 		if (existsSync(devVarsPath)) {
 			const existingContent = readFileSync(devVarsPath, 'utf-8');
-			existingContent.split('\n').forEach(line => {
+			existingContent.split('\n').forEach((line) => {
 				const trimmed = line.trim();
 				if (trimmed && !trimmed.startsWith('#')) {
 					const [key, ...valueParts] = trimmed.split('=');
@@ -1201,12 +1298,25 @@ class SetupManager {
 
 		// Variables that the setup script should manage (subset of all managed vars)
 		const setupManagedVars = new Set([
-			'CUSTOM_DOMAIN', 'ENVIRONMENT', 'CLOUDFLARE_API_TOKEN', 'CLOUDFLARE_ACCOUNT_ID',
-			'CLOUDFLARE_AI_GATEWAY_TOKEN', 'CLOUDFLARE_AI_GATEWAY_URL',
-			'ANTHROPIC_API_KEY', 'OPENAI_API_KEY', 'GOOGLE_AI_STUDIO_API_KEY', 'OPENROUTER_API_KEY', 'GROQ_API_KEY',
-			'GOOGLE_CLIENT_ID', 'GOOGLE_CLIENT_SECRET', 'GITHUB_CLIENT_ID', 'GITHUB_CLIENT_SECRET',
-			'GITHUB_EXPORTER_CLIENT_ID', 'GITHUB_EXPORTER_CLIENT_SECRET',
-			'JWT_SECRET', 'WEBHOOK_SECRET'
+			'CUSTOM_DOMAIN',
+			'ENVIRONMENT',
+			'CLOUDFLARE_API_TOKEN',
+			'CLOUDFLARE_ACCOUNT_ID',
+			'CLOUDFLARE_AI_GATEWAY_TOKEN',
+			'CLOUDFLARE_AI_GATEWAY_URL',
+			'ANTHROPIC_API_KEY',
+			'OPENAI_API_KEY',
+			'GOOGLE_AI_STUDIO_API_KEY',
+			'OPENROUTER_API_KEY',
+			'GROQ_API_KEY',
+			'GOOGLE_CLIENT_ID',
+			'GOOGLE_CLIENT_SECRET',
+			'GITHUB_CLIENT_ID',
+			'GITHUB_CLIENT_SECRET',
+			'GITHUB_EXPORTER_CLIENT_ID',
+			'GITHUB_EXPORTER_CLIENT_SECRET',
+			'JWT_SECRET',
+			'WEBHOOK_SECRET',
 		]);
 
 		// Collect unmanaged variables to preserve (anything not in worker config or setup managed)
@@ -1219,7 +1329,7 @@ class SetupManager {
 
 		// For variables in worker config but not setup managed, preserve existing values
 		const workerConfigVarsToPreserve = new Map<string, string>();
-		managedVars.forEach(varName => {
+		managedVars.forEach((varName) => {
 			if (!setupManagedVars.has(varName) && existingVars.has(varName)) {
 				workerConfigVarsToPreserve.set(varName, existingVars.get(varName)!);
 			}
@@ -1239,7 +1349,7 @@ class SetupManager {
 
 		// AI Gateway Configuration
 		content += '# AI Gateway Configuration\n';
-        content += `CLOUDFLARE_AI_GATEWAY_TOKEN="${this.config.devVars?.CLOUDFLARE_AI_GATEWAY_TOKEN}"\n`;
+		content += `CLOUDFLARE_AI_GATEWAY_TOKEN="${this.config.devVars?.CLOUDFLARE_AI_GATEWAY_TOKEN}"\n`;
 		if (this.config.aiGatewayUrl) {
 			content += `CLOUDFLARE_AI_GATEWAY_URL="${this.config.aiGatewayUrl}"\n`;
 		}
@@ -1247,7 +1357,13 @@ class SetupManager {
 
 		// Provider specific secrets
 		content += '# Provider specific secrets\n';
-		const providerVars = ['ANTHROPIC_API_KEY', 'OPENAI_API_KEY', 'GOOGLE_AI_STUDIO_API_KEY', 'OPENROUTER_API_KEY', 'GROQ_API_KEY'];
+		const providerVars = [
+			'ANTHROPIC_API_KEY',
+			'OPENAI_API_KEY',
+			'GOOGLE_AI_STUDIO_API_KEY',
+			'OPENROUTER_API_KEY',
+			'GROQ_API_KEY',
+		];
 		for (const varName of providerVars) {
 			if (this.config.devVars[varName]) {
 				content += `${varName}="${this.config.devVars[varName]}"\n`;
@@ -1288,16 +1404,18 @@ class SetupManager {
 		if (workerConfigVarsToPreserve.size > 0) {
 			content += '\n# Worker configuration variables (preserved)\n';
 			// Sort variables by name for consistent output
-			const sortedWorkerVars = Array.from(workerConfigVarsToPreserve.entries()).sort(([a], [b]) => a.localeCompare(b));
+			const sortedWorkerVars = Array.from(workerConfigVarsToPreserve.entries()).sort(([a], [b]) =>
+				a.localeCompare(b),
+			);
 			for (const [key, value] of sortedWorkerVars) {
 				content += `${key}="${value}"\n`;
 			}
 		}
 
 		// Additional worker config variables not yet set (as commented placeholders)
-		const unsetWorkerVars = Array.from(managedVars).filter(varName =>
-			!setupManagedVars.has(varName) && !workerConfigVarsToPreserve.has(varName)
-		).sort();
+		const unsetWorkerVars = Array.from(managedVars)
+			.filter((varName) => !setupManagedVars.has(varName) && !workerConfigVarsToPreserve.has(varName))
+			.sort();
 
 		if (unsetWorkerVars.length > 0) {
 			content += '\n# Additional worker configuration variables (uncomment and set as needed)\n';
@@ -1340,12 +1458,25 @@ class SetupManager {
 		const managedVars = this.parseWorkerConfiguration();
 
 		const setupManagedVars = new Set([
-			'CUSTOM_DOMAIN', 'ENVIRONMENT', 'CLOUDFLARE_API_TOKEN', 'CLOUDFLARE_ACCOUNT_ID',
-			'CLOUDFLARE_AI_GATEWAY_TOKEN', 'CLOUDFLARE_AI_GATEWAY_URL',
-			'ANTHROPIC_API_KEY', 'OPENAI_API_KEY', 'GOOGLE_AI_STUDIO_API_KEY', 'OPENROUTER_API_KEY', 'GROQ_API_KEY',
-			'GOOGLE_CLIENT_ID', 'GOOGLE_CLIENT_SECRET', 'GITHUB_CLIENT_ID', 'GITHUB_CLIENT_SECRET',
-			'GITHUB_EXPORTER_CLIENT_ID', 'GITHUB_EXPORTER_CLIENT_SECRET',
-			'JWT_SECRET', 'WEBHOOK_SECRET'
+			'CUSTOM_DOMAIN',
+			'ENVIRONMENT',
+			'CLOUDFLARE_API_TOKEN',
+			'CLOUDFLARE_ACCOUNT_ID',
+			'CLOUDFLARE_AI_GATEWAY_TOKEN',
+			'CLOUDFLARE_AI_GATEWAY_URL',
+			'ANTHROPIC_API_KEY',
+			'OPENAI_API_KEY',
+			'GOOGLE_AI_STUDIO_API_KEY',
+			'OPENROUTER_API_KEY',
+			'GROQ_API_KEY',
+			'GOOGLE_CLIENT_ID',
+			'GOOGLE_CLIENT_SECRET',
+			'GITHUB_CLIENT_ID',
+			'GITHUB_CLIENT_SECRET',
+			'GITHUB_EXPORTER_CLIENT_ID',
+			'GITHUB_EXPORTER_CLIENT_SECRET',
+			'JWT_SECRET',
+			'WEBHOOK_SECRET',
 			// Note: USE_TUNNEL_FOR_PREVIEW is intentionally excluded - it's dev-only
 		]);
 
@@ -1363,7 +1494,7 @@ class SetupManager {
 
 		// AI Gateway Configuration
 		content += '# AI Gateway Configuration\n';
-        content += `CLOUDFLARE_AI_GATEWAY_TOKEN="${this.config.prodVars?.CLOUDFLARE_AI_GATEWAY_TOKEN}"\n`;
+		content += `CLOUDFLARE_AI_GATEWAY_TOKEN="${this.config.prodVars?.CLOUDFLARE_AI_GATEWAY_TOKEN}"\n`;
 		if (this.config.aiGatewayUrl) {
 			content += `CLOUDFLARE_AI_GATEWAY_URL="${this.config.aiGatewayUrl}"\n`;
 		}
@@ -1371,7 +1502,13 @@ class SetupManager {
 
 		// Provider specific secrets
 		content += '# Provider specific secrets\n';
-		const providerVars = ['ANTHROPIC_API_KEY', 'OPENAI_API_KEY', 'GOOGLE_AI_STUDIO_API_KEY', 'OPENROUTER_API_KEY', 'GROQ_API_KEY'];
+		const providerVars = [
+			'ANTHROPIC_API_KEY',
+			'OPENAI_API_KEY',
+			'GOOGLE_AI_STUDIO_API_KEY',
+			'OPENROUTER_API_KEY',
+			'GROQ_API_KEY',
+		];
 		for (const varName of providerVars) {
 			if (this.config.prodVars[varName]) {
 				content += `${varName}="${this.config.prodVars[varName]}"\n`;
@@ -1425,14 +1562,14 @@ class SetupManager {
 					return {
 						...ns,
 						id: kv.id,
-						remote: kv.accessible  // Set remote based on accessibility
+						remote: kv.accessible, // Set remote based on accessibility
 					};
 				}
 				return ns;
 			});
 
 			const edits = modify(updatedContent, kvPath, updatedKvNamespaces, {
-				formattingOptions: { insertSpaces: true, tabSize: 4 }
+				formattingOptions: { insertSpaces: true, tabSize: 4 },
 			});
 			updatedContent = applyEdits(updatedContent, edits);
 		}
@@ -1446,14 +1583,14 @@ class SetupManager {
 					return {
 						...database,
 						database_id: db.id,
-						remote: db.accessible  // Set remote based on accessibility
+						remote: db.accessible, // Set remote based on accessibility
 					};
 				}
 				return database;
 			});
 
 			const edits = modify(updatedContent, dbPath, updatedDatabases, {
-				formattingOptions: { insertSpaces: true, tabSize: 4 }
+				formattingOptions: { insertSpaces: true, tabSize: 4 },
 			});
 			updatedContent = applyEdits(updatedContent, edits);
 		}
@@ -1464,18 +1601,18 @@ class SetupManager {
 			const r2Path = ['r2_buckets'];
 			const r2Buckets = wranglerConfig.r2_buckets || [];
 			const updatedR2Buckets = r2Buckets.map((bucket: any) => {
-				const matchingResource = resources.r2Buckets.find(r => r.binding === bucket.binding);
+				const matchingResource = resources.r2Buckets.find((r) => r.binding === bucket.binding);
 				if (matchingResource) {
 					return {
 						...bucket,
-						remote: matchingResource.accessible  // Set remote based on accessibility
+						remote: matchingResource.accessible, // Set remote based on accessibility
 					};
 				}
 				return bucket;
 			});
 
 			const r2Edits = modify(updatedContent, r2Path, updatedR2Buckets, {
-				formattingOptions: { insertSpaces: true, tabSize: 4 }
+				formattingOptions: { insertSpaces: true, tabSize: 4 },
 			});
 			updatedContent = applyEdits(updatedContent, r2Edits);
 		}
@@ -1485,32 +1622,35 @@ class SetupManager {
 			const dispatchPath = ['dispatch_namespaces'];
 			const dispatchNamespaces = wranglerConfig.dispatch_namespaces || [];
 			const updatedDispatchNamespaces = dispatchNamespaces.map((dispatch: any) => {
-				const matchingResource = resources.dispatchNamespaces.find(r => r.binding === dispatch.binding);
+				const matchingResource = resources.dispatchNamespaces.find((r) => r.binding === dispatch.binding);
 				if (matchingResource) {
 					return {
 						...dispatch,
-						remote: matchingResource.accessible  // Set remote based on accessibility
+						remote: matchingResource.accessible, // Set remote based on accessibility
 					};
 				}
 				return dispatch;
 			});
 
 			const dispatchEdits = modify(updatedContent, dispatchPath, updatedDispatchNamespaces, {
-				formattingOptions: { insertSpaces: true, tabSize: 4 }
+				formattingOptions: { insertSpaces: true, tabSize: 4 },
 			});
 			updatedContent = applyEdits(updatedContent, dispatchEdits);
 		}
 
 		// Determine which domain to use in wrangler.jsonc
 		// Priority: Production domain > Custom local domain (if not localhost) > Don't set at all
-		const wranglerDomain = this.config.setupRemote && this.config.prodDomain
-			? this.config.prodDomain
-			: (this.config.customDomain !== 'localhost:5173' ? this.config.customDomain : null);
+		const wranglerDomain =
+			this.config.setupRemote && this.config.prodDomain
+				? this.config.prodDomain
+				: this.config.customDomain !== 'localhost:5173'
+					? this.config.customDomain
+					: null;
 
 		if (wranglerDomain) {
 			// Update CUSTOM_DOMAIN in vars with production or custom domain
 			const varsEdits = modify(updatedContent, ['vars', 'CUSTOM_DOMAIN'], wranglerDomain, {
-				formattingOptions: { insertSpaces: true, tabSize: 4 }
+				formattingOptions: { insertSpaces: true, tabSize: 4 },
 			});
 			updatedContent = applyEdits(updatedContent, varsEdits);
 
@@ -1519,28 +1659,28 @@ class SetupManager {
 			const routes = [
 				{
 					pattern: wranglerDomain,
-					custom_domain: true
+					custom_domain: true,
 				},
 				{
 					pattern: `*${wranglerDomain}/*`,
 					custom_domain: false,
-					...(zone ? { zone_id: zone.id } : {})
-				}
+					...(zone ? { zone_id: zone.id } : {}),
+				},
 			];
 
 			const routesEdits = modify(updatedContent, ['routes'], routes, {
-				formattingOptions: { insertSpaces: true, tabSize: 4 }
+				formattingOptions: { insertSpaces: true, tabSize: 4 },
 			});
 			updatedContent = applyEdits(updatedContent, routesEdits);
 
 			// Set workers_dev = false and preview_urls = false for custom domain
 			const workersDevEdits = modify(updatedContent, ['workers_dev'], false, {
-				formattingOptions: { insertSpaces: true, tabSize: 4 }
+				formattingOptions: { insertSpaces: true, tabSize: 4 },
 			});
 			updatedContent = applyEdits(updatedContent, workersDevEdits);
 
 			const previewUrlsEdits = modify(updatedContent, ['preview_urls'], false, {
-				formattingOptions: { insertSpaces: true, tabSize: 4 }
+				formattingOptions: { insertSpaces: true, tabSize: 4 },
 			});
 			updatedContent = applyEdits(updatedContent, previewUrlsEdits);
 
@@ -1559,24 +1699,24 @@ class SetupManager {
 		} else {
 			// For localhost-only development, remove routes and enable workers.dev
 			const routesEdits = modify(updatedContent, ['routes'], undefined, {
-				formattingOptions: { insertSpaces: true, tabSize: 4 }
+				formattingOptions: { insertSpaces: true, tabSize: 4 },
 			});
 			updatedContent = applyEdits(updatedContent, routesEdits);
 
 			// Don't set CUSTOM_DOMAIN for localhost (keep it unset or remove it)
 			const varsEdits = modify(updatedContent, ['vars', 'CUSTOM_DOMAIN'], 'localhost:5173', {
-				formattingOptions: { insertSpaces: true, tabSize: 4 }
+				formattingOptions: { insertSpaces: true, tabSize: 4 },
 			});
 			updatedContent = applyEdits(updatedContent, varsEdits);
 
 			// Set workers_dev = true and preview_urls = true for localhost development
 			const workersDevEdits = modify(updatedContent, ['workers_dev'], true, {
-				formattingOptions: { insertSpaces: true, tabSize: 4 }
+				formattingOptions: { insertSpaces: true, tabSize: 4 },
 			});
 			updatedContent = applyEdits(updatedContent, workersDevEdits);
 
 			const previewUrlsEdits = modify(updatedContent, ['preview_urls'], true, {
-				formattingOptions: { insertSpaces: true, tabSize: 4 }
+				formattingOptions: { insertSpaces: true, tabSize: 4 },
 			});
 			updatedContent = applyEdits(updatedContent, previewUrlsEdits);
 
@@ -1605,10 +1745,7 @@ class SetupManager {
 		const remoteBindingsRegex = /experimental:\s*{\s*remoteBindings:\s*(true|false)\s*}/;
 
 		if (remoteBindingsRegex.test(content)) {
-			content = content.replace(
-				remoteBindingsRegex,
-				`experimental: { remoteBindings: ${remoteBindingsValue} }`
-			);
+			content = content.replace(remoteBindingsRegex, `experimental: { remoteBindings: ${remoteBindingsValue} }`);
 			console.log(`✅ Updated vite.config.ts remoteBindings to: ${remoteBindingsValue}`);
 		} else {
 			console.warn('⚠️  Could not find remoteBindings setting in vite.config.ts');
@@ -1627,22 +1764,22 @@ class SetupManager {
 		const resourcesCreated: string[] = [];
 
 		// Check for created resources
-		resources.kvNamespaces.forEach(kv => {
+		resources.kvNamespaces.forEach((kv) => {
 			const status = kv.accessible ? '✅' : '🏠 (local-only)';
 			resourcesCreated.push(`KV Namespace: ${kv.name} (${kv.binding}) ${status}`);
 		});
 
-		resources.d1Databases.forEach(db => {
+		resources.d1Databases.forEach((db) => {
 			const status = db.accessible ? '✅' : '🏠 (local-only)';
 			resourcesCreated.push(`D1 Database: ${db.name} (${db.binding}) ${status}`);
 		});
 
-		resources.r2Buckets.forEach(bucket => {
+		resources.r2Buckets.forEach((bucket) => {
 			const status = bucket.accessible ? '✅' : '🏠 (local-only)';
 			resourcesCreated.push(`R2 Bucket: ${bucket.name} (${bucket.binding}) ${status}`);
 		});
 
-		resources.dispatchNamespaces.forEach(dispatch => {
+		resources.dispatchNamespaces.forEach((dispatch) => {
 			const status = dispatch.accessible ? '✅' : '🏠 (local-only)';
 			resourcesCreated.push(`Dispatch Namespace: ${dispatch.name} (${dispatch.binding}) ${status}`);
 		});
@@ -1676,7 +1813,7 @@ class SetupManager {
 			const account = await this.cloudflare.accounts.get({ account_id: this.config.accountId });
 			accountInfo = {
 				plan: 'Free', // This would need to be determined from actual account data
-				features: ['Workers', 'KV', 'D1', 'R2'] // Simplified feature list
+				features: ['Workers', 'KV', 'D1', 'R2'], // Simplified feature list
 			};
 		} catch (error) {
 			issues.push('Could not retrieve account information');
@@ -1691,7 +1828,7 @@ class SetupManager {
 			issues,
 			suggestions,
 			resourcesCreated,
-			accountInfo
+			accountInfo,
 		};
 	}
 
@@ -1707,7 +1844,7 @@ class SetupManager {
 		// Resources Created
 		if (report.resourcesCreated.length > 0) {
 			console.log('📦 Resources Created/Validated:');
-			report.resourcesCreated.forEach(resource => {
+			report.resourcesCreated.forEach((resource) => {
 				console.log(`   ✅ ${resource}`);
 			});
 			console.log('');
@@ -1716,7 +1853,7 @@ class SetupManager {
 		// Issues
 		if (report.issues.length > 0) {
 			console.log('❌ Issues Found:');
-			report.issues.forEach(issue => {
+			report.issues.forEach((issue) => {
 				console.log(`   • ${issue}`);
 			});
 			console.log('');
@@ -1725,7 +1862,7 @@ class SetupManager {
 		// Suggestions
 		if (report.suggestions.length > 0) {
 			console.log('💡 Suggestions:');
-			report.suggestions.forEach(suggestion => {
+			report.suggestions.forEach((suggestion) => {
 				console.log(`   • ${suggestion}`);
 			});
 			console.log('');
@@ -1753,10 +1890,10 @@ class SetupManager {
 
 		// Additional setup information
 		const hasGoogleAI = Object.keys(this.config.devVars).includes('GOOGLE_AI_STUDIO_API_KEY');
-		const hasOAuth = ['GOOGLE_CLIENT_ID', 'GITHUB_CLIENT_ID', 'GITHUB_EXPORTER_CLIENT_ID'].some(key =>
-			Object.keys(this.config.devVars).includes(key)
+		const hasOAuth = ['GOOGLE_CLIENT_ID', 'GITHUB_CLIENT_ID', 'GITHUB_EXPORTER_CLIENT_ID'].some((key) =>
+			Object.keys(this.config.devVars).includes(key),
 		);
-		const hasRemoteR2 = resources.r2Buckets.some(bucket => bucket.accessible);
+		const hasRemoteR2 = resources.r2Buckets.some((bucket) => bucket.accessible);
 		const isARM64 = process.arch === 'arm64';
 
 		if (!hasGoogleAI || hasOAuth || !hasRemoteR2 || isARM64) {
@@ -1831,27 +1968,33 @@ class SetupManager {
 				const lastApiKeyLine = lastApiKeyMatch[lastApiKeyMatch.length - 1];
 				const insertPoint = content.indexOf(lastApiKeyLine) + lastApiKeyLine.length;
 
-				const newKeys = keysToAdd.map(key => `\n\t\t${key}: string;`).join('');
+				const newKeys = keysToAdd.map((key) => `\n\t\t${key}: string;`).join('');
 				content = content.slice(0, insertPoint) + newKeys + content.slice(insertPoint);
 			}
 
 			// Also update the NodeJS.ProcessEnv extends part
-			const processEnvMatch = content.match(/interface ProcessEnv extends StringifyValues<Pick<Cloudflare\.Env, "(.*?)">>/);
+			const processEnvMatch = content.match(
+				/interface ProcessEnv extends StringifyValues<Pick<Cloudflare\.Env, "(.*?)">>/,
+			);
 			if (processEnvMatch) {
 				const existingKeys = processEnvMatch[1];
-				const missingKeys = keysToAdd.filter(key => !existingKeys.includes(key));
+				const missingKeys = keysToAdd.filter((key) => !existingKeys.includes(key));
 
 				if (missingKeys.length > 0) {
 					const updatedKeys = existingKeys + ' | "' + missingKeys.join('" | "') + '"';
-					content = content.replace(processEnvMatch[0], processEnvMatch[0].replace(existingKeys, updatedKeys));
+					content = content.replace(
+						processEnvMatch[0],
+						processEnvMatch[0].replace(existingKeys, updatedKeys),
+					);
 				}
 			}
 
 			writeFileSync(workerConfigPath, content, 'utf-8');
 			console.log(`✅ Added ${keysToAdd.length} custom provider key(s) to worker configuration`);
-
 		} catch (error) {
-			console.warn(`⚠️  Could not update worker configuration: ${error instanceof Error ? error.message : String(error)}`);
+			console.warn(
+				`⚠️  Could not update worker configuration: ${error instanceof Error ? error.message : String(error)}`,
+			);
 		}
 	}
 
@@ -1882,7 +2025,7 @@ class SetupManager {
 
 			// Split content into lines for processing
 			const lines = content.split('\n');
-			const updatedLines = lines.map(line => {
+			const updatedLines = lines.map((line) => {
 				// Look for FROM statements that don't already have --platform
 				const fromMatch = line.match(/^(\s*FROM\s+)(?!.*--platform=)(.*)/);
 				if (fromMatch) {
@@ -1902,13 +2045,14 @@ class SetupManager {
 				console.log('   • The --platform=linux/arm64 flags are for local development only');
 				console.log('   • These flags will be automatically removed during deployment');
 				console.log('   • Do NOT commit these changes to production repositories');
-
 			} else {
 				console.log('✅ SandboxDockerfile already contains ARM64 platform flags');
 			}
-
 		} catch (error) {
-			console.error('❌ Failed to patch SandboxDockerfile:', error instanceof Error ? error.message : String(error));
+			console.error(
+				'❌ Failed to patch SandboxDockerfile:',
+				error instanceof Error ? error.message : String(error),
+			);
 			console.error('   You may need to manually add --platform=linux/arm64 to FROM statements');
 		}
 	}
@@ -1919,9 +2063,7 @@ class SetupManager {
 
 		// Check if we have R2 bucket configured
 		const wranglerConfig = this.parseWranglerConfig();
-		const templatesBucket = wranglerConfig.r2_buckets?.find(
-			(bucket: any) => bucket.binding === 'TEMPLATES_BUCKET'
-		);
+		const templatesBucket = wranglerConfig.r2_buckets?.find((bucket: any) => bucket.binding === 'TEMPLATES_BUCKET');
 
 		if (!templatesBucket) {
 			console.log('ℹ️  No TEMPLATES_BUCKET found in wrangler.jsonc - skipping templates deployment');
@@ -1936,7 +2078,7 @@ class SetupManager {
 		}
 
 		const templatesDir = join(PROJECT_ROOT, 'templates');
-		const hasRemoteR2 = resources.r2Buckets.some(bucket => bucket.accessible);
+		const hasRemoteR2 = resources.r2Buckets.some((bucket) => bucket.accessible);
 
 		try {
 			console.log(`📥 Setting up templates from: ${templatesRepo}`);
@@ -2021,7 +2163,10 @@ class SetupManager {
 					console.log('✅ Templates deployed successfully to remote R2');
 					console.log('🎯 Templates ready for both local development and production!');
 				} catch (remoteError) {
-					console.warn('⚠️  Remote R2 deployment failed:', remoteError instanceof Error ? remoteError.message : String(remoteError));
+					console.warn(
+						'⚠️  Remote R2 deployment failed:',
+						remoteError instanceof Error ? remoteError.message : String(remoteError),
+					);
 					console.warn('   Local R2 deployment successful - development can continue');
 					console.warn('   Remote deployment can be done manually later or on next setup run');
 				}
@@ -2029,7 +2174,6 @@ class SetupManager {
 				console.log('📝 Note: Templates deployed to local R2 for development');
 				console.log('   For production deployment, ensure remote R2 access is available');
 			}
-
 		} catch (error) {
 			// Don't fail the entire setup if templates fail
 			console.error('❌ Templates deployment failed:', error instanceof Error ? error.message : String(error));
@@ -2052,20 +2196,20 @@ class SetupManager {
 		console.log('\n🗄️  Database Setup');
 		console.log('------------------\n');
 
-		const hasRemoteD1 = resources.d1Databases.some(db => db.accessible);
+		const hasRemoteD1 = resources.d1Databases.some((db) => db.accessible);
 
 		try {
 			console.log('📊 Generating database schema...');
 			execSync(`${this.packageManager} run db:generate`, {
 				stdio: 'inherit',
-				cwd: PROJECT_ROOT
+				cwd: PROJECT_ROOT,
 			});
 			console.log('✅ Database schema generated successfully');
 
 			console.log('\n🔄 Running local database migrations...');
 			execSync(`${this.packageManager} run db:migrate:local`, {
 				stdio: 'inherit',
-				cwd: PROJECT_ROOT
+				cwd: PROJECT_ROOT,
 			});
 			console.log('✅ Local database migrations completed successfully');
 
@@ -2075,11 +2219,14 @@ class SetupManager {
 				try {
 					execSync(`${this.packageManager} run db:migrate:remote`, {
 						stdio: 'inherit',
-						cwd: PROJECT_ROOT
+						cwd: PROJECT_ROOT,
 					});
 					console.log('✅ Remote database migrations completed successfully');
 				} catch (remoteError) {
-					console.error('⚠️  Remote database migration failed:', remoteError instanceof Error ? remoteError.message : String(remoteError));
+					console.error(
+						'⚠️  Remote database migration failed:',
+						remoteError instanceof Error ? remoteError.message : String(remoteError),
+					);
 					console.error('   Local database is ready, but remote database may need manual migration');
 					console.error(`   Run manually: ${this.packageManager} run db:migrate:remote`);
 				}

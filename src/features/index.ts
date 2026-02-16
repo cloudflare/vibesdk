@@ -32,10 +32,7 @@ export type {
  */
 function registerBuiltInFeatures(): void {
 	// App feature
-	featureRegistry.register(
-		{ ...DEFAULT_FEATURE_DEFINITIONS.app, enabled: true },
-		() => import('./app'),
-	);
+	featureRegistry.register({ ...DEFAULT_FEATURE_DEFINITIONS.app, enabled: true }, () => import('./app'));
 
 	// Presentation feature - slide presentations
 	featureRegistry.register(
@@ -43,12 +40,8 @@ function registerBuiltInFeatures(): void {
 		() => import('./presentation'),
 	);
 
-
 	// General feature - general-purpose code generation
-	featureRegistry.register(
-		{ ...DEFAULT_FEATURE_DEFINITIONS.general, enabled: true },
-		() => import('./general'),
-	);
+	featureRegistry.register({ ...DEFAULT_FEATURE_DEFINITIONS.general, enabled: true }, () => import('./general'));
 }
 
 // Register features immediately on module load

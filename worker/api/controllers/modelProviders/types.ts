@@ -8,50 +8,50 @@ import type { ApiResponse } from '../types';
 
 // Response data types
 export interface ModelProvidersListData {
-    providers: UserModelProvider[];
+	providers: UserModelProvider[];
 }
 
 export interface ModelProviderData {
-    provider: UserModelProvider;
+	provider: UserModelProvider;
 }
 
 export interface ModelProviderCreateData {
-    provider: UserModelProvider;
+	provider: UserModelProvider;
 }
 
 export interface ModelProviderUpdateData {
-    provider: UserModelProvider;
+	provider: UserModelProvider;
 }
 
 export interface ModelProviderDeleteData {
-    success: boolean;
-    providerId: string;
+	success: boolean;
+	providerId: string;
 }
 
 export interface ModelProviderTestData {
-    success: boolean;
-    error?: string;
-    responseTime?: number;
+	success: boolean;
+	error?: string;
+	responseTime?: number;
 }
 
 // Request input types
 export interface CreateProviderRequest {
-    name: string;
-    baseUrl: string;
-    apiKey: string;
+	name: string;
+	baseUrl: string;
+	apiKey: string;
 }
 
 export interface UpdateProviderRequest {
-    name?: string;
-    baseUrl?: string;
-    apiKey?: string;
-    isActive?: boolean;
+	name?: string;
+	baseUrl?: string;
+	apiKey?: string;
+	isActive?: boolean;
 }
 
 export interface TestProviderRequest {
-    providerId?: string; // If testing existing provider
-    baseUrl?: string;    // If testing new provider config
-    apiKey?: string;     // If testing new provider config
+	providerId?: string; // If testing existing provider
+	baseUrl?: string; // If testing new provider config
+	apiKey?: string; // If testing new provider config
 }
 
 // API response types

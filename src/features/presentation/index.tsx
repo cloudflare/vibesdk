@@ -42,9 +42,11 @@ function filterDemoSlides(files: FileType[], templateDetails?: TemplateDetails |
 	return files
 		.filter((file) => {
 			// Exclude demo-slide*.json files
-			if (file.filePath.startsWith(slideDirPrefix) &&
+			if (
+				file.filePath.startsWith(slideDirPrefix) &&
 				file.filePath.includes('/demo-slide') &&
-				file.filePath.endsWith('.json')) {
+				file.filePath.endsWith('.json')
+			) {
 				return false;
 			}
 			return true;
@@ -55,9 +57,7 @@ function filterDemoSlides(files: FileType[], templateDetails?: TemplateDetails |
 				try {
 					const manifest = JSON.parse(file.fileContents);
 					if (Array.isArray(manifest.slides)) {
-						const filtered = manifest.slides.filter(
-							(name: string) => !name.startsWith('demo-slide')
-						);
+						const filtered = manifest.slides.filter((name: string) => !name.startsWith('demo-slide'));
 						if (filtered.length !== manifest.slides.length) {
 							return {
 								...file,

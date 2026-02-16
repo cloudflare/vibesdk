@@ -1,111 +1,107 @@
 @import 'tailwindcss';
-@import "tw-animate-css";
+@import 'tw-animate-css';
 
-@font-face{
-  font-family: "departureMono";
-  src:  url('./assets/fonts/DepartureMono-Regular.woff') 
+@font-face {
+	font-family: 'departureMono';
+	src: url('./assets/fonts/DepartureMono-Regular.woff');
 }
 
 /* Subtle chat edge throb effect */
 @keyframes chat-edge-throb {
-  0%, 100% {
-    box-shadow:
-      0 0 0 0 rgba(246, 130, 31, 0.10),
-      inset 0 0 0 1px rgba(246, 130, 31, 0.16);
-  }
-  50% {
-    box-shadow:
-      0 0 0 6px rgba(255, 61, 0, 0.08),
-      inset 0 0 0 2px rgba(255, 61, 0, 0.22);
-  }
+	0%,
+	100% {
+		box-shadow:
+			0 0 0 0 rgba(246, 130, 31, 0.1),
+			inset 0 0 0 1px rgba(246, 130, 31, 0.16);
+	}
+	50% {
+		box-shadow:
+			0 0 0 6px rgba(255, 61, 0, 0.08),
+			inset 0 0 0 2px rgba(255, 61, 0, 0.22);
+	}
 }
 
 .chat-edge-throb {
-  animation: chat-edge-throb 1.6s ease-in-out infinite;
-  border-radius: 0.75rem; /* rounded-xl */
+	animation: chat-edge-throb 1.6s ease-in-out infinite;
+	border-radius: 0.75rem; /* rounded-xl */
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .chat-edge-throb { animation: none; }
+	.chat-edge-throb {
+		animation: none;
+	}
 }
 
 /* Debug mode pulsing effect - red edges */
 @keyframes debug-pulse {
-  0%, 100% {
-    box-shadow:
-      inset 4px 0 12px rgba(239, 68, 68, 0.1),
-      inset -4px 0 12px rgba(239, 68, 68, 0.1);
-  }
-  50% {
-    box-shadow:
-      inset 4px 0 20px rgba(239, 68, 68, 0.2),
-      inset -4px 0 20px rgba(239, 68, 68, 0.2);
-  }
+	0%,
+	100% {
+		box-shadow:
+			inset 4px 0 12px rgba(239, 68, 68, 0.1),
+			inset -4px 0 12px rgba(239, 68, 68, 0.1);
+	}
+	50% {
+		box-shadow:
+			inset 4px 0 20px rgba(239, 68, 68, 0.2),
+			inset -4px 0 20px rgba(239, 68, 68, 0.2);
+	}
 }
 
 .animate-debug-pulse {
-  animation: debug-pulse 2s ease-in-out infinite;
+	animation: debug-pulse 2s ease-in-out infinite;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .animate-debug-pulse { animation: none; }
+	.animate-debug-pulse {
+		animation: none;
+	}
 }
 
 /* Custom scrollbar for debug bubble */
 .custom-scrollbar::-webkit-scrollbar {
-  width: 6px;
+	width: 6px;
 }
 
 .custom-scrollbar::-webkit-scrollbar-track {
-  background: rgba(0, 0, 0, 0.05);
-  border-radius: 3px;
+	background: rgba(0, 0, 0, 0.05);
+	border-radius: 3px;
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb {
-  background: rgba(239, 68, 68, 0.3);
-  border-radius: 3px;
+	background: rgba(239, 68, 68, 0.3);
+	border-radius: 3px;
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: rgba(239, 68, 68, 0.5);
+	background: rgba(239, 68, 68, 0.5);
 }
 
 .dark .custom-scrollbar::-webkit-scrollbar-track {
-  background: rgba(255, 255, 255, 0.05);
+	background: rgba(255, 255, 255, 0.05);
 }
 
 .dark .custom-scrollbar::-webkit-scrollbar-thumb {
-  background: rgba(239, 68, 68, 0.4);
+	background: rgba(239, 68, 68, 0.4);
 }
 
 .dark .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: rgba(239, 68, 68, 0.6);
+	background: rgba(239, 68, 68, 0.6);
 }
 
 @custom-variant dark (&:is(.dark *));
 @plugin '@tailwindcss/typography';
 @theme inline {
-	--radius-sm:
-		calc(var(--radius) - 4px);
-	--radius-md:
-		calc(var(--radius) - 2px);
-	--radius-lg:
-		var(--radius);
-	--radius-xl:
-		calc(var(--radius) + 4px);
-	--color-accent:
-		var(--build-accent-color);
-	--color-destructive:
-		var(--destructive);
-	--color-input:
-		var(--input);
-	--color-ring:
-		var(--ring);
+	--radius-sm: calc(var(--radius) - 4px);
+	--radius-md: calc(var(--radius) - 2px);
+	--radius-lg: var(--radius);
+	--radius-xl: calc(var(--radius) + 4px);
+	--color-accent: var(--build-accent-color);
+	--color-destructive: var(--destructive);
+	--color-input: var(--input);
+	--color-ring: var(--ring);
 	--shadow-textarea:
-		6px 6px 13px 0px rgba(0, 0, 0, 0.04),
-		24px 24px 24px 0px rgba(0, 0, 0, 0.03),
-		53px 53px 32px 0px rgba(0, 0, 0, 0.02),
-		0px 0px 0px 1px rgba(217, 217, 217, 0.2);
+		6px 6px 13px 0px rgba(0, 0, 0, 0.04), 24px 24px 24px 0px rgba(0, 0, 0, 0.03),
+		53px 53px 32px 0px rgba(0, 0, 0, 0.02), 0px 0px 0px 1px rgba(217, 217, 217, 0.2);
 	--color-bg-1: var(--build-chat-colors-bg-1);
 	--color-bg-2: var(--build-chat-colors-bg-2);
 	--color-bg-3: var(--build-chat-colors-bg-3);
@@ -123,26 +119,18 @@
 	--color-text-tertiary: var(--build-chat-colors-text-tertiary);
 
 	--shadow-textarea:
-		6px 6px 13px 0px rgba(0, 0, 0, 0.04),
-		24px 24px 24px 0px rgba(0, 0, 0, 0.03),
-		53px 53px 32px 0px rgba(0, 0, 0, 0.02),
-		0px 0px 0px 1px rgba(217, 217, 217, 0.2);
+		6px 6px 13px 0px rgba(0, 0, 0, 0.04), 24px 24px 24px 0px rgba(0, 0, 0, 0.03),
+		53px 53px 32px 0px rgba(0, 0, 0, 0.02), 0px 0px 0px 1px rgba(217, 217, 217, 0.2);
 	--animate-typing-dot: typing-dot 1.2s ease-in-out infinite;
 	--animate-shake: shake 1s ease-in-out;
 }
 
-
 :root {
-	--radius:
-		0.625rem;
-	--destructive:
-		oklch(0.577 0.245 27.325);
-	--border:
-		oklch(0.922 0 0);
-	--input:
-		oklch(0.922 0 0);
-	--ring:
-		oklch(0.708 0 0);
+	--radius: 0.625rem;
+	--destructive: oklch(0.577 0.245 27.325);
+	--border: oklch(0.922 0 0);
+	--input: oklch(0.922 0 0);
+	--ring: oklch(0.708 0 0);
 	--build-accent-color: #ff3d00;
 	--build-chat-colors-bg-1: #e7e7e7;
 	--build-chat-colors-bg-2: #f6f6f6;
@@ -162,12 +150,9 @@
 }
 
 .dark {
-	--destructive:
-		#ef4444; /* Error red */
-	--border:
-		#393939; /* Primary border color */
-	--input:
-		#292929; /* Input background */
+	--destructive: #ef4444; /* Error red */
+	--border: #393939; /* Primary border color */
+	--input: #292929; /* Input background */
 
 	--build-chat-colors-bg-1: #151515;
 	--build-chat-colors-bg-2: #1f2020;
@@ -185,25 +170,21 @@
 	--build-chat-colors-text-tertiary: #bcb9b9;
 
 	--shadow-dialog:
-		0px 18px 60px 0px rgba(6, 6, 5, 0.1),
-		3px 3px 13px 0px rgba(0, 0, 0, 0.04), -3px 3px 13px 0px rgba(0, 0, 0, 0.04),
-		24px 24px 24px 0px rgba(0, 0, 0, 0.03),
-		-24px 24px 24px 0px rgba(0, 0, 0, 0.03),
-		53px 53px 32px 0px rgba(0, 0, 0, 0.02),
+		0px 18px 60px 0px rgba(6, 6, 5, 0.1), 3px 3px 13px 0px rgba(0, 0, 0, 0.04),
+		-3px 3px 13px 0px rgba(0, 0, 0, 0.04), 24px 24px 24px 0px rgba(0, 0, 0, 0.03),
+		-24px 24px 24px 0px rgba(0, 0, 0, 0.03), 53px 53px 32px 0px rgba(0, 0, 0, 0.02),
 		0px 0px 0px 1px rgba(217, 217, 217, 0.2);
 	--shadow-elevation:
-		6px 6px 13px 0px rgba(0, 0, 0, 0.2),
-		24px 24px 24px 0px rgba(0, 0, 0, 0.17),
-		53px 53px 32px 0px rgba(0, 0, 0, 0.12),
-		0px 0px 0px 1px rgba(217, 217, 217, 0.1);
+		6px 6px 13px 0px rgba(0, 0, 0, 0.2), 24px 24px 24px 0px rgba(0, 0, 0, 0.17),
+		53px 53px 32px 0px rgba(0, 0, 0, 0.12), 0px 0px 0px 1px rgba(217, 217, 217, 0.1);
 }
 
 @layer base {
 	* {
 		@apply border-border-primary outline-ring/50;
 	}
-  	body {
-    	@apply bg-bg-3 text-text-primary h-full;
+	body {
+		@apply bg-bg-3 text-text-primary h-full;
 	}
 	button {
 		@apply cursor-pointer;
@@ -215,29 +196,23 @@
 
 @theme {
 	--font-sans:
-		'Inter', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji',
-		'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
+		'Inter', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol',
+		'Noto Color Emoji';
 
 	--color-brand: #0092b8;
 	--color-text: #000;
 	--color-text-on-brand: #fff;
 
 	--shadow-dialog:
-		0px 18px 60px 0px rgba(6, 6, 5, 0.1),
-		3px 3px 13px 0px rgba(0, 0, 0, 0.04), -3px 3px 13px 0px rgba(0, 0, 0, 0.04),
-		24px 24px 24px 0px rgba(0, 0, 0, 0.03),
-		-24px 24px 24px 0px rgba(0, 0, 0, 0.03),
-		53px 53px 32px 0px rgba(0, 0, 0, 0.02),
+		0px 18px 60px 0px rgba(6, 6, 5, 0.1), 3px 3px 13px 0px rgba(0, 0, 0, 0.04),
+		-3px 3px 13px 0px rgba(0, 0, 0, 0.04), 24px 24px 24px 0px rgba(0, 0, 0, 0.03),
+		-24px 24px 24px 0px rgba(0, 0, 0, 0.03), 53px 53px 32px 0px rgba(0, 0, 0, 0.02),
 		0px 0px 0px 1px rgba(217, 217, 217, 0.2);
 	--shadow-elevation:
-		6px 6px 13px 0px rgba(0, 0, 0, 0.04),
-		24px 24px 24px 0px rgba(0, 0, 0, 0.03),
-		53px 53px 32px 0px rgba(0, 0, 0, 0.02),
-		0px 0px 0px 1px rgba(217, 217, 217, 0.2);
-	--shadow-soft-layered:
-		3px 3px 13px 0px rgba(0, 0, 0, 0.04), 24px 24px 24px 0px rgba(0, 0, 0, 0.03);
+		6px 6px 13px 0px rgba(0, 0, 0, 0.04), 24px 24px 24px 0px rgba(0, 0, 0, 0.03),
+		53px 53px 32px 0px rgba(0, 0, 0, 0.02), 0px 0px 0px 1px rgba(217, 217, 217, 0.2);
+	--shadow-soft-layered: 3px 3px 13px 0px rgba(0, 0, 0, 0.04), 24px 24px 24px 0px rgba(0, 0, 0, 0.03);
 }
-
 
 /* Hack from https://stackoverflow.com/a/71876526 */
 .monaco-editor {
@@ -313,7 +288,11 @@
 		radial-gradient(circle at 80% 20%, rgba(139, 92, 246, 0.15) 0%, transparent 50%),
 		radial-gradient(circle at 40% 40%, rgba(59, 130, 246, 0.1) 0%, transparent 40%),
 		linear-gradient(135deg, #0a0e1a 0%, #0f172a 25%, #1e293b 50%, #0f172a 75%, #0a0e1a 100%);
-	background-size: 100% 100%, 100% 100%, 100% 100%, 400% 400%;
+	background-size:
+		100% 100%,
+		100% 100%,
+		100% 100%,
+		400% 400%;
 }
 
 .a-tag a {
@@ -392,9 +371,9 @@
 
 /* Hide scrollbar but keep scroll behavior */
 .no-scrollbar {
--ms-overflow-style: none; /* IE and Edge */
-scrollbar-width: none; /* Firefox */
+	-ms-overflow-style: none; /* IE and Edge */
+	scrollbar-width: none; /* Firefox */
 }
 .no-scrollbar::-webkit-scrollbar {
-display: none; /* Chrome, Safari, Opera */
+	display: none; /* Chrome, Safari, Opera */
 }

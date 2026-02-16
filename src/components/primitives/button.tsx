@@ -4,12 +4,7 @@ type ButtonProps = React.ComponentProps<'button'> & {
 	variant?: 'primary' | 'secondary';
 };
 
-export function Button({
-	variant = 'secondary',
-	children,
-	className,
-	...props
-}: ButtonProps) {
+export function Button({ variant = 'secondary', children, className, ...props }: ButtonProps) {
 	return (
 		<button
 			className={clsx(

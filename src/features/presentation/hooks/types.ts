@@ -26,10 +26,10 @@ export interface PresentationTimestamps {
 }
 
 export interface PresentationState {
-    currentSlideIndex: number;
-    setCurrentSlideIndex: (index: number) => void;
-    timestamps: PresentationTimestamps;
-    generatingSlides: Set<string>;
-    failedIframes: Set<number>;
-    setFailedIframes: React.Dispatch<React.SetStateAction<Set<number>>>;
+	currentSlideIndex: number;
+	setCurrentSlideIndex: (index: number) => void;
+	timestamps: PresentationTimestamps;
+	generatingSlides: Set<string>;
+	failedIframes: Set<number>;
+	setFailedIframes: React.Dispatch<React.SetStateAction<Set<number>>>;
 }

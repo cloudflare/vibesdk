@@ -62,4 +62,3 @@ export type {
 	WebSocketMessage,
 	WebSocketMessageData,
 } from './protocol';
-

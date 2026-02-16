@@ -2,14 +2,10 @@ import { tool, t } from '../types';
 import { StructuredLogger } from '../../../logger';
 import { ICodingAgent } from 'worker/agents/services/interfaces/ICodingAgent';
 
-export function createGetRuntimeErrorsTool(
-	agent: ICodingAgent,
-	logger: StructuredLogger
-) {
+export function createGetRuntimeErrorsTool(agent: ICodingAgent, logger: StructuredLogger) {
 	return tool({
 		name: 'get_runtime_errors',
-		description:
-			`Fetch latest runtime errors from the sandbox error storage. These are errors captured by the runtime error detection system.
+		description: `Fetch latest runtime errors from the sandbox error storage. These are errors captured by the runtime error detection system.
 
 **IMPORTANT CHARACTERISTICS:**
 - Runtime errors are USER-INTERACTION DRIVEN - they only appear when users interact with the app
@@ -40,7 +36,7 @@ export function createGetRuntimeErrorsTool(
 				const errors = await agent.fetchRuntimeErrors(true);
 
 				return {
-					errors: errors || []
+					errors: errors || [],
 				};
 			} catch (error) {
 				return {

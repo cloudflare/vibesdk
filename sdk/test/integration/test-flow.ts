@@ -37,7 +37,7 @@ export async function runStep<T>(
 	name: string,
 	fn: () => Promise<T>,
 	extractDetails?: (result: T) => Record<string, unknown>,
-	log?: (message: string) => void
+	log?: (message: string) => void,
 ): Promise<{ result: T | null; stepResult: StepResult }> {
 	const start = Date.now();
 	log?.(`Starting: ${name}`);
@@ -78,7 +78,7 @@ export async function testAuth(config: TestConfig): Promise<FullTestResult> {
 			'create_client',
 			async () => new PhasicClient({ baseUrl, apiKey }),
 			undefined,
-			log
+			log,
 		);
 		steps.push(clientStep);
 		if (!client) {
@@ -96,7 +96,7 @@ export async function testAuth(config: TestConfig): Promise<FullTestResult> {
 				return { status: resp.status };
 			},
 			(r) => r,
-			log
+			log,
 		);
 		steps.push(authStep);
 
@@ -109,7 +109,7 @@ export async function testAuth(config: TestConfig): Promise<FullTestResult> {
 				return { appCount: result.data.apps.length };
 			},
 			(r) => r,
-			log
+			log,
 		);
 		steps.push(tokenStep);
 
@@ -147,7 +147,7 @@ export async function testFullBuild(config: TestConfig): Promise<FullTestResult>
 			'create_client',
 			async () => new PhasicClient({ baseUrl, apiKey }),
 			undefined,
-			log
+			log,
 		);
 		steps.push(clientStep);
 		if (!client) {
@@ -169,7 +169,7 @@ export async function testFullBuild(config: TestConfig): Promise<FullTestResult>
 				projectType: s.projectType,
 				websocketUrl: s.websocketUrl,
 			}),
-			log
+			log,
 		);
 		steps.push(buildStep);
 		if (!buildSession) {
@@ -222,7 +222,7 @@ export async function testFullBuild(config: TestConfig): Promise<FullTestResult>
 				return { connection: session!.state.get().connection };
 			},
 			(r) => r,
-			log
+			log,
 		);
 		steps.push(wsConnectStep);
 		if (!wsConnectStep.success) {
@@ -244,7 +244,7 @@ export async function testFullBuild(config: TestConfig): Promise<FullTestResult>
 				return { type: msg.type, totalFiles: msg.totalFiles };
 			},
 			(r) => r,
-			log
+			log,
 		);
 		steps.push(genStartStep);
 		if (!genStartStep.success) {
@@ -267,7 +267,7 @@ export async function testFullBuild(config: TestConfig): Promise<FullTestResult>
 				return { type: msg.type, phaseName: phase?.name };
 			},
 			(r) => r,
-			log
+			log,
 		);
 		steps.push(implStartStep);
 
@@ -299,7 +299,7 @@ export async function testFullBuild(config: TestConfig): Promise<FullTestResult>
 				return { fileCount: session!.files.listPaths().length, files: session!.files.listPaths().slice(0, 5) };
 			},
 			(r) => r,
-			log
+			log,
 		);
 		steps.push(filesStep);
 
@@ -312,7 +312,7 @@ export async function testFullBuild(config: TestConfig): Promise<FullTestResult>
 				return { type: msg.type, phaseName: phase?.name };
 			},
 			(r) => r,
-			log
+			log,
 		);
 		steps.push(implDoneStep);
 
@@ -328,7 +328,7 @@ export async function testFullBuild(config: TestConfig): Promise<FullTestResult>
 				return { files: files.length, previewUrl: state.previewUrl };
 			},
 			(r) => r,
-			log
+			log,
 		);
 		steps.push(deployableStep);
 		if (!deployableStep.success) {
@@ -357,7 +357,7 @@ export async function testFullBuild(config: TestConfig): Promise<FullTestResult>
 				return { previewURL: msg.previewURL, source: 'requested_deployment' };
 			},
 			(r) => r,
-			log
+			log,
 		);
 		steps.push(deployStep);
 

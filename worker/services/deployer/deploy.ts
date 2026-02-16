@@ -1,14 +1,6 @@
 import { WorkerDeployer } from './deployer';
-import {
-	WorkerBinding,
-	DeployConfig,
-	DispatchDeployConfig,
-	WranglerConfig,
-} from './types';
-import {
-	validateConfig,
-	buildWorkerBindings,
-} from './utils/index';
+import { WorkerBinding, DeployConfig, DispatchDeployConfig, WranglerConfig } from './types';
+import { validateConfig, buildWorkerBindings } from './utils/index';
 import { parse } from 'jsonc-parser';
 
 /**
@@ -59,10 +51,7 @@ export async function deployWorker(
 	assetsConfig?: WranglerConfig['assets'],
 	dispatchNamespace?: string,
 ): Promise<void> {
-	const deployer = new WorkerDeployer(
-		deployConfig.accountId,
-		deployConfig.apiToken,
-	);
+	const deployer = new WorkerDeployer(deployConfig.accountId, deployConfig.apiToken);
 
 	if (deployConfig.assets && fileContents) {
 		await deployer.deployWithAssets(

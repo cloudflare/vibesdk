@@ -13,10 +13,15 @@ export default function DiscoverPage() {
 	// Derive initial sort from URL or localStorage, fallback to 'popular'
 	const allowedSorts: AppSortOption[] = ['recent', 'popular', 'trending', 'starred'];
 	const sortParam = searchParams.get('sort') as AppSortOption | null;
-	const savedSort = (typeof localStorage !== 'undefined' ? localStorage.getItem('discover.sort') : null) as AppSortOption | null;
-	const initialSort: AppSortOption = (sortParam && allowedSorts.includes(sortParam))
-		? sortParam
-		: (savedSort && allowedSorts.includes(savedSort) ? savedSort : 'popular');
+	const savedSort = (
+		typeof localStorage !== 'undefined' ? localStorage.getItem('discover.sort') : null
+	) as AppSortOption | null;
+	const initialSort: AppSortOption =
+		sortParam && allowedSorts.includes(sortParam)
+			? sortParam
+			: savedSort && allowedSorts.includes(savedSort)
+				? savedSort
+				: 'popular';
 
 	const {
 		// Filter state
@@ -62,12 +67,8 @@ export default function DiscoverPage() {
 				>
 					{/* Header */}
 					<div className="mb-8">
-						<h1 className="text-6xl font-bold mb-3 font-[departureMono] text-accent">
-							DISCOVER
-						</h1>
-						<p className="text-text-tertiary text-lg">
-							Explore apps built by the community
-						</p>
+						<h1 className="text-6xl font-bold mb-3 font-[departureMono] text-accent">DISCOVER</h1>
+						<p className="text-text-tertiary text-lg">Explore apps built by the community</p>
 					</div>
 
 					<div className="flex items-start gap-4 justify-between">
@@ -83,23 +84,25 @@ export default function DiscoverPage() {
 							onFrameworkChange={handleFrameworkChange}
 							onPeriodChange={handlePeriodChange}
 							sortBy={sortBy}
-					/>
+						/>
 
 						{/* Sort Tabs */}
-					<AppSortTabs
-						value={sortBy}
-						onValueChange={(v) => {
-							handleSortChange(v);
-							// Persist to URL and localStorage
-							try { localStorage.setItem('discover.sort', v); } catch {
-								console.error('Failed to persist sort to localStorage');
-							}
-							const next = new URLSearchParams(searchParams);
-							next.set('sort', v);
-							setSearchParams(next, { replace: true });
-						}}
-						availableSorts={['recent', 'popular', 'trending', 'starred']}
-					/>
+						<AppSortTabs
+							value={sortBy}
+							onValueChange={(v) => {
+								handleSortChange(v);
+								// Persist to URL and localStorage
+								try {
+									localStorage.setItem('discover.sort', v);
+								} catch {
+									console.error('Failed to persist sort to localStorage');
+								}
+								const next = new URLSearchParams(searchParams);
+								next.set('sort', v);
+								setSearchParams(next, { replace: true });
+							}}
+							availableSorts={['recent', 'popular', 'trending', 'starred']}
+						/>
 					</div>
 
 					{/* Unified App List */}

@@ -16,7 +16,7 @@ type ControllerMethod<T extends BaseController> = (
 	request: Request,
 	env: Env,
 	ctx: ExecutionContext,
-	context: RouteContext
+	context: RouteContext,
 ) => Promise<Response>;
 
 /**
@@ -25,7 +25,7 @@ type ControllerMethod<T extends BaseController> = (
  */
 export function withCache<T extends BaseController>(
 	method: ControllerMethod<T>,
-	options: CacheOptions
+	options: CacheOptions,
 ): ControllerMethod<T> {
 	const cacheService = new CacheService();
 
@@ -34,7 +34,7 @@ export function withCache<T extends BaseController>(
 		request: Request,
 		env: Env,
 		ctx: ExecutionContext,
-		context: RouteContext
+		context: RouteContext,
 	): Promise<Response> {
 		// Try to get user for cache key differentiation
 		let userId = context?.user?.id;
@@ -53,10 +53,9 @@ export function withCache<T extends BaseController>(
 		const cacheKeyOrRequest = request;
 
 		// Use cache wrapper
-		return cacheService.withCache(
-			cacheKeyOrRequest,
-			() => method.call(this, request, env, ctx, context),
-			{ ttlSeconds: options.ttlSeconds, tags: options.tags }
-		);
+		return cacheService.withCache(cacheKeyOrRequest, () => method.call(this, request, env, ctx, context), {
+			ttlSeconds: options.ttlSeconds,
+			tags: options.tags,
+		});
 	};
 }

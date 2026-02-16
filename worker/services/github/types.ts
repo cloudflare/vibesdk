@@ -14,56 +14,56 @@ export type GitHubUser = RestEndpointMethodTypes['users']['getByUsername']['resp
 // Use Octokit's built-in installation type
 export type GitHubInstallation = RestEndpointMethodTypes['apps']['getInstallation']['response']['data'];
 
-// Use Octokit's built-in app token type  
+// Use Octokit's built-in app token type
 export type GitHubAppToken = RestEndpointMethodTypes['apps']['createInstallationAccessToken']['response']['data'];
 
 // OAuth token response (not covered by Octokit types)
 export interface GitHubUserAccessToken {
-    access_token: string;
-    token_type: string;
-    scope: string;
-    refresh_token?: string;
-    expires_in?: number;
+	access_token: string;
+	token_type: string;
+	scope: string;
+	refresh_token?: string;
+	expires_in?: number;
 }
 
 // Service-specific options interface
 export interface CreateRepositoryOptions {
-    name: string;
-    description?: string;
-    private: boolean;
-    auto_init?: boolean;
-    token: string;
+	name: string;
+	description?: string;
+	private: boolean;
+	auto_init?: boolean;
+	token: string;
 }
 
 // Service result interfaces
 export interface CreateRepositoryResult {
-    success: boolean;
-    repository?: GitHubRepository;
-    error?: string;
-    alreadyExists?: boolean;
-    repositoryName?: string;
+	success: boolean;
+	repository?: GitHubRepository;
+	error?: string;
+	alreadyExists?: boolean;
+	repositoryName?: string;
 }
 
 export interface GitHubTokenResult {
-    success: boolean;
-    token?: string;
-    expires_at?: string;
-    error?: string;
+	success: boolean;
+	token?: string;
+	expires_at?: string;
+	error?: string;
 }
 
 export interface GitHubExportOptions {
-    repositoryName: string;
-    description?: string;
-    isPrivate: boolean;
-    installationId?: number;
+	repositoryName: string;
+	description?: string;
+	isPrivate: boolean;
+	installationId?: number;
 }
 
 export interface GitHubExportResult {
-    success: boolean;
-    repositoryUrl?: string;
-    cloneUrl?: string;
-    token?: string;
-    error?: string;
+	success: boolean;
+	repositoryUrl?: string;
+	cloneUrl?: string;
+	token?: string;
+	error?: string;
 }
 
 // Note: GitHubPushRequest and GitHubPushResponse are defined in sandboxTypes.ts
@@ -72,18 +72,18 @@ export interface GitHubExportResult {
 export type GitHubTokenType = 'installation' | 'user_access' | 'oauth';
 
 export interface GitHubServiceConfig {
-    clientId?: string;
-    clientSecret?: string;
+	clientId?: string;
+	clientSecret?: string;
 }
 
 export class GitHubServiceError extends Error {
-    constructor(
-        message: string,
-        public readonly code: string,
-        public readonly statusCode?: number,
-        public readonly originalError?: unknown
-    ) {
-        super(message);
-        this.name = 'GitHubServiceError';
-    }
+	constructor(
+		message: string,
+		public readonly code: string,
+		public readonly statusCode?: number,
+		public readonly originalError?: unknown,
+	) {
+		super(message);
+		this.name = 'GitHubServiceError';
+	}
 }

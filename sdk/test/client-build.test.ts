@@ -40,7 +40,12 @@ describe('VibeClient.build', () => {
 				expect(parsedBody.credentials).toEqual(credentials);
 
 				const ndjson =
-					JSON.stringify({ agentId: 'a1', websocketUrl: 'ws://x/ws', behaviorType: 'phasic', projectType: 'app' }) +
+					JSON.stringify({
+						agentId: 'a1',
+						websocketUrl: 'ws://x/ws',
+						behaviorType: 'phasic',
+						projectType: 'app',
+					}) +
 					'\n' +
 					JSON.stringify({ chunk: 'blueprint chunk' }) +
 					'\n';

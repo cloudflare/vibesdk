@@ -1,5 +1,5 @@
 export interface PlatformStatusData {
-    globalUserMessage: string;
-    changeLogs: string;
-    hasActiveMessage: boolean;
+	globalUserMessage: string;
+	changeLogs: string;
+	hasActiveMessage: boolean;
 }

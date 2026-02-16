@@ -5,10 +5,7 @@ import { ExecuteCommandsResponse } from 'worker/services/sandbox/sandboxTypes';
 
 export type ExecCommandsResult = ExecuteCommandsResponse | { error: string };
 
-export function createExecCommandsTool(
-	agent: ICodingAgent,
-	logger: StructuredLogger
-) {
+export function createExecCommandsTool(agent: ICodingAgent, logger: StructuredLogger) {
 	return tool({
 		name: 'exec_commands',
 		description:
@@ -30,7 +27,7 @@ export function createExecCommandsTool(
 					timeout: timeoutValue,
 				});
 				const output = await agent.execCommands(commands, shouldSave, timeout);
-				
+
 				// Truncate output to max 1000 characters per result
 				const MAX_OUTPUT_LENGTH = 1000;
 				const truncatedOutput = {

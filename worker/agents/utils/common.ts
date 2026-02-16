@@ -1,5 +1,5 @@
-import { downloadR2Image, imageToBase64 } from "../../utils/images";
-import { ConversationMessage, mapImagesInMultiModalMessage } from "../inferutils/common";
+import { downloadR2Image, imageToBase64 } from '../../utils/images';
+import { ConversationMessage, mapImagesInMultiModalMessage } from '../inferutils/common';
 
 export function extractCommands(rawOutput: string, onlyInstallCommands: boolean = false): string[] {
 	const commands: string[] = [];
@@ -19,15 +19,12 @@ export function extractCommands(rawOutput: string, onlyInstallCommands: boolean 
 		const blockCommands = blockContent
 			.split('\n')
 			.map((line) => line.trim())
-			.filter(
-				(line) =>
-					line && !line.startsWith('#') && !line.startsWith('//'),
-			)
+			.filter((line) => line && !line.startsWith('#') && !line.startsWith('//'))
 			.map((line) => {
 				// Remove shell prompts like $ or >
 				return line.replace(/^[$>]\s*/, '');
 			})
-			.filter((line) => { 
+			.filter((line) => {
 				// Filter by install commands if onlyInstallCommands is true
 				return !onlyInstallCommands || isInstallCommand(line);
 			});
@@ -51,9 +48,7 @@ export function extractCommands(rawOutput: string, onlyInstallCommands: boolean 
 	let commandPatterns;
 	if (onlyInstallCommands) {
 		// Only include package manager install/add commands
-		commandPatterns = [
-			/(?:^|\s)((?:npm|yarn|pnpm|bun)\s+(?:install|add)(?:\s+[^\n]+)?)/gm,
-		];
+		commandPatterns = [/(?:^|\s)((?:npm|yarn|pnpm|bun)\s+(?:install|add)(?:\s+[^\n]+)?)/gm];
 	} else {
 		// Include all command patterns
 		commandPatterns = [
@@ -91,7 +86,7 @@ export function extractCommands(rawOutput: string, onlyInstallCommands: boolean 
 	let filteredCommands = [...new Set(commands)];
 	if (onlyInstallCommands) {
 		// Filter to only keep package manager install/add commands
-		filteredCommands = filteredCommands.filter(command => {
+		filteredCommands = filteredCommands.filter((command) => {
 			return /^(?:npm|yarn|pnpm|bun)\s+(?:install|add)(?:\s|$)/.test(command);
 		});
 	}
@@ -115,9 +110,9 @@ const BOOTSTRAP_COMMAND_PATTERN = /^(?:npm|yarn|pnpm|bun)\s+(add|install|remove|
 /**
  * Check if a command is valid for bootstrap script.
  * WHITELIST approach: Only allows package management commands with specific package names.
- * 
+ *
  * @returns true if command is valid for bootstrap, false otherwise
- * 
+ *
  * Valid examples:
  * - "bun add react"
  * - "npm install lodash@^4.17.21"
@@ -125,7 +120,7 @@ const BOOTSTRAP_COMMAND_PATTERN = /^(?:npm|yarn|pnpm|bun)\s+(add|install|remove|
  * - "bun remove @types/node"
  * - "npm update react-dom@~18.2.0"
  * - "npm install package@>=1.0.0"
- * 
+ *
  * Invalid (rejected):
  * - File operations: "rm -rf src/file.tsx", "mv file.txt", "cp -r dir"
  * - Plain installs: "bun install", "npm install"
@@ -147,7 +142,7 @@ export function isBootstrapRuntimeCommand(command: string): boolean {
 /**
  * Extract package operation key for deduplication.
  * Assumes command has already been validated by isValidBootstrapCommand.
- * 
+ *
  * @example
  * getPackageOperationKey("bun add react") -> "add:react"
  * getPackageOperationKey("npm install lodash@^4.0.0") -> "install:lodash@^4.0.0"
@@ -156,7 +151,7 @@ export function isBootstrapRuntimeCommand(command: string): boolean {
 export function getPackageOperationKey(command: string): string | null {
 	const match = command.trim().match(BOOTSTRAP_COMMAND_PATTERN);
 	if (!match) return null;
-	
+
 	const [, action, pkg] = match;
 	return `${action}:${pkg}`;
 }
@@ -164,19 +159,19 @@ export function getPackageOperationKey(command: string): string | null {
 /**
  * Validate and clean bootstrap commands in a single pass.
  * Validates, deduplicates, and limits size.
- * 
+ *
  * @param commands - Raw command list
  * @param maxCommands - Maximum number of commands to keep (defaults to MAX_BOOTSTRAP_COMMANDS)
  * @returns Cleaned command list with metadata about what was removed
  */
 export function validateAndCleanBootstrapCommands(
 	commands: string[],
-	maxCommands: number = MAX_BOOTSTRAP_COMMANDS
+	maxCommands: number = MAX_BOOTSTRAP_COMMANDS,
 ): { validCommands: string[]; invalidCommands: string[]; deduplicated: number } {
 	const seen = new Map<string, string>();
 	const invalidCommands: string[] = [];
 	let totalValid = 0;
-	
+
 	// validate + deduplicate
 	for (const cmd of commands) {
 		const key = getPackageOperationKey(cmd);
@@ -187,16 +182,16 @@ export function validateAndCleanBootstrapCommands(
 			invalidCommands.push(cmd);
 		}
 	}
-	
+
 	// Extract deduplicated commands and apply size limit (keep most recent)
 	const deduplicated = Array.from(seen.values());
 	const validCommands = deduplicated.slice(-maxCommands);
 	const deduplicatedCount = totalValid - deduplicated.length;
-	
+
 	return {
 		validCommands,
 		invalidCommands,
-		deduplicated: deduplicatedCount
+		deduplicated: deduplicatedCount,
 	};
 }
 
@@ -220,23 +215,28 @@ export function looksLikeCommand(text: string): boolean {
 	return commandIndicators.some((pattern) => pattern.test(text));
 }
 
-export async function prepareMessagesForInference(env: Env, messages: ConversationMessage[]) : Promise<ConversationMessage[]> {
-    // For each multimodal image, convert the image to base64 data url
-    const processedMessages = await Promise.all(messages.map(m => {
-        return mapImagesInMultiModalMessage(structuredClone(m), async (c) => {
-            const url = c.image_url.url;
-            if (url.includes('base64,')) {
-                return c;
-            }
-            const image = await downloadR2Image(env, url);
-            return {
-                ...c,
-                image_url: {
-                    ...c.image_url,
-                    url: await imageToBase64(env, image)
-                },
-            };
-        });
-    }));
-    return processedMessages;
+export async function prepareMessagesForInference(
+	env: Env,
+	messages: ConversationMessage[],
+): Promise<ConversationMessage[]> {
+	// For each multimodal image, convert the image to base64 data url
+	const processedMessages = await Promise.all(
+		messages.map((m) => {
+			return mapImagesInMultiModalMessage(structuredClone(m), async (c) => {
+				const url = c.image_url.url;
+				if (url.includes('base64,')) {
+					return c;
+				}
+				const image = await downloadR2Image(env, url);
+				return {
+					...c,
+					image_url: {
+						...c.image_url,
+						url: await imageToBase64(env, image),
+					},
+				};
+			});
+		}),
+	);
+	return processedMessages;
 }

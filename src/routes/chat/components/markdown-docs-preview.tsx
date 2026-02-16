@@ -14,21 +14,14 @@ interface MarkdownDocsPreviewProps {
 	isGenerating: boolean;
 }
 
-export function MarkdownDocsPreview({
-	files,
-	isGenerating: _isGenerating,
-}: MarkdownDocsPreviewProps) {
+export function MarkdownDocsPreview({ files, isGenerating: _isGenerating }: MarkdownDocsPreviewProps) {
 	// Prioritize README as default, otherwise first file
 	const defaultFile = useMemo(() => {
-		const readmeFile = files.find((f) =>
-			f.filePath.toLowerCase().includes('readme')
-		);
+		const readmeFile = files.find((f) => f.filePath.toLowerCase().includes('readme'));
 		return readmeFile || files[0];
 	}, [files]);
 
-	const [activeFilePath, setActiveFilePath] = useState<string>(
-		defaultFile?.filePath || ''
-	);
+	const [activeFilePath, setActiveFilePath] = useState<string>(defaultFile?.filePath || '');
 
 	// Update active file if default changes
 	useEffect(() => {
@@ -95,11 +88,7 @@ export function MarkdownDocsPreview({
 	return (
 		<div className="flex-1 flex overflow-hidden">
 			{/* Sidebar */}
-			<DocsSidebar
-				files={files}
-				activeFile={activeFilePath}
-				onFileSelect={handleFileSelect}
-			/>
+			<DocsSidebar files={files} activeFile={activeFilePath} onFileSelect={handleFileSelect} />
 
 			{/* Main content area */}
 			<div className="flex-1 flex flex-col overflow-hidden">
@@ -154,15 +143,9 @@ export function MarkdownDocsPreview({
 									remarkPlugins={[remarkGfm]}
 									rehypePlugins={[[rehypeExternalLinks, { target: '_blank' }]]}
 									components={{
-										h1: ({ node, ...props }) => (
-											<h1 id={createId(props.children)} {...props} />
-										),
-										h2: ({ node, ...props }) => (
-											<h2 id={createId(props.children)} {...props} />
-										),
-										h3: ({ node, ...props }) => (
-											<h3 id={createId(props.children)} {...props} />
-										),
+										h1: ({ node, ...props }) => <h1 id={createId(props.children)} {...props} />,
+										h2: ({ node, ...props }) => <h2 id={createId(props.children)} {...props} />,
+										h3: ({ node, ...props }) => <h3 id={createId(props.children)} {...props} />,
 									}}
 								>
 									{markdownContent}

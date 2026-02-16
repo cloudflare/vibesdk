@@ -1,4 +1,4 @@
-import { RateLimitType } from "./config";
+import { RateLimitType } from './config';
 export interface RateLimitError {
 	message: string;
 	limitType: RateLimitType;

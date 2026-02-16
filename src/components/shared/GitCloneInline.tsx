@@ -37,9 +37,7 @@ export function GitCloneCommand({ cloneUrl, appTitle }: GitCloneCommandProps) {
 			<code className="flex-1 text-xs font-mono text-text-secondary truncate select-all min-w-0">
 				{fullCommand}
 			</code>
-			{copied && (
-				<Check className="size-3 text-green-400 flex-shrink-0" />
-			)}
+			{copied && <Check className="size-3 text-green-400 flex-shrink-0" />}
 		</div>
 	);
 }
@@ -56,12 +54,8 @@ export function GitClonePrivatePrompt({ onOpenModal }: GitClonePrivatePromptProp
 		>
 			<Lock className="size-3 text-brand-primary flex-shrink-0" />
 			<div className="flex-1 min-w-0 flex items-center gap-1.5">
-				<span className="text-xs font-medium text-text-primary truncate">
-					Clone with authentication
-				</span>
-				<span className="text-xs text-text-tertiary truncate hidden lg:inline">
-					· Generate token
-				</span>
+				<span className="text-xs font-medium text-text-primary truncate">Clone with authentication</span>
+				<span className="text-xs text-text-tertiary truncate hidden lg:inline">· Generate token</span>
 			</div>
 			<ArrowRight className="size-3 text-text-tertiary group-hover:text-brand-primary transition-colors flex-shrink-0" />
 		</button>

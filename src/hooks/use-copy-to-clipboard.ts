@@ -24,14 +24,8 @@ interface UseCopyToClipboardReturn {
 /**
  * Hook for copying text to clipboard
  */
-export function useCopyToClipboard(
-	options: UseCopyToClipboardOptions = {}
-): UseCopyToClipboardReturn {
-	const {
-		duration = COPY_FEEDBACK_DURATION,
-		successMessage,
-		errorMessage = 'Failed to copy',
-	} = options;
+export function useCopyToClipboard(options: UseCopyToClipboardOptions = {}): UseCopyToClipboardReturn {
+	const { duration = COPY_FEEDBACK_DURATION, successMessage, errorMessage = 'Failed to copy' } = options;
 
 	const [copied, setCopied] = useState(false);
 	const timeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -81,7 +75,7 @@ export function useCopyToClipboard(
 				return false;
 			}
 		},
-		[duration, successMessage, errorMessage]
+		[duration, successMessage, errorMessage],
 	);
 
 	return { copied, copy, reset };

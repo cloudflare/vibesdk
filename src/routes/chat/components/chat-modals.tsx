@@ -53,11 +53,7 @@ export function ChatModals({
 	return (
 		<>
 			{/* Debug Panel */}
-			<DebugPanel
-				messages={debugMessages}
-				onClear={onClearDebugMessages}
-				chatSessionId={chatId}
-			/>
+			<DebugPanel messages={debugMessages} onClear={onClearDebugMessages} chatSessionId={chatId} />
 
 			<AlertDialog open={isResetDialogOpen} onOpenChange={onResetDialogChange}>
 				<AlertDialogContent className="sm:max-w-[425px]">
@@ -69,7 +65,10 @@ export function ChatModals({
 					</AlertDialogHeader>
 					<AlertDialogFooter>
 						<AlertDialogCancel>Cancel</AlertDialogCancel>
-						<AlertDialogAction onClick={onResetConversation} className="bg-bg-2 hover:bg-bg-2/80 text-text-primary">
+						<AlertDialogAction
+							onClick={onResetConversation}
+							className="bg-bg-2 hover:bg-bg-2/80 text-text-primary"
+						>
 							Reset
 						</AlertDialogAction>
 					</AlertDialogFooter>

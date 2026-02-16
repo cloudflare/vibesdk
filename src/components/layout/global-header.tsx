@@ -32,7 +32,7 @@ export function GlobalHeader() {
 				initial={{ y: -10, opacity: 0 }}
 				animate={{ y: 0, opacity: 1 }}
 				transition={{ duration: 0.2, ease: 'easeOut' }}
-				className={clsx("sticky top-0 z-50", pathname !== "/" && "bg-bg-3")}
+				className={clsx('sticky top-0 z-50', pathname !== '/' && 'bg-bg-3')}
 			>
 				<div className="relative">
 					{/* Subtle gradient accent */}
@@ -49,7 +49,7 @@ export function GlobalHeader() {
 									stiffness: 400,
 									damping: 17,
 								}}
-								className='flex items-center'
+								className="flex items-center"
 							>
 								<SidebarTrigger className="h-8 w-8 text-text-primary rounded-md hover:bg-orange-50/40 transition-colors duration-200" />
 								<CloudflareLogo
@@ -69,7 +69,9 @@ export function GlobalHeader() {
 										aria-label="Platform updates"
 									>
 										<AlertCircle className="h-4 w-4 text-accent" />
-										<span className="truncate max-w-[46ch] md:max-w-[60ch]">{status.globalUserMessage}</span>
+										<span className="truncate max-w-[46ch] md:max-w-[60ch]">
+											{status.globalUserMessage}
+										</span>
 										<ChevronRight className="ml-1 h-4 w-4 text-accent" />
 									</button>
 								)}
@@ -77,8 +79,6 @@ export function GlobalHeader() {
 						) : (
 							<div></div>
 						)}
-
-
 
 						{/* Right section */}
 						<motion.div
@@ -89,11 +89,24 @@ export function GlobalHeader() {
 						>
 							<div className="gap-6 flex flex-col justify-between border px-3 bg-bg-4 dark:bg-bg-2 rounded-md py-1.5 border-accent/50 dark:border-accent/50 !border-t-transparent rounded-t-none ml-2 md:ml-6 -mt-2">
 								<div className="flex w-full gap-2 items-center">
-									<div className='text-text-primary/80 mr-4 text-lg font-medium'>Deploy your own vibe-coding platform</div>
-									<div className="flex font-semibold gap-2 items-center bg-accent dark:bg-accent text-white rounded px-2 hover:opacity-80 cursor-pointer" onClick={() => window.open("https://deploy.workers.cloudflare.com/?url=https://github.com/cloudflare/vibesdk", "_blank")}>
-										Deploy <CloudflareLogo className='w-5 h-5' color1='#fff' />
+									<div className="text-text-primary/80 mr-4 text-lg font-medium">
+										Deploy your own vibe-coding platform
 									</div>
-									<div className="flex font-semibold items-center bg-text-primary text-bg-4 rounded gap-1 px-2 hover:opacity-80 cursor-pointer" onClick={() => window.open("https://github.com/cloudflare/vibesdk", "_blank")} >
+									<div
+										className="flex font-semibold gap-2 items-center bg-accent dark:bg-accent text-white rounded px-2 hover:opacity-80 cursor-pointer"
+										onClick={() =>
+											window.open(
+												'https://deploy.workers.cloudflare.com/?url=https://github.com/cloudflare/vibesdk',
+												'_blank',
+											)
+										}
+									>
+										Deploy <CloudflareLogo className="w-5 h-5" color1="#fff" />
+									</div>
+									<div
+										className="flex font-semibold items-center bg-text-primary text-bg-4 rounded gap-1 px-2 hover:opacity-80 cursor-pointer"
+										onClick={() => window.open('https://github.com/cloudflare/vibesdk', '_blank')}
+									>
 										Fork <GithubIcon className="size-4" />
 									</div>
 								</div>

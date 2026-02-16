@@ -99,7 +99,7 @@ export const CLEANUP_INTERVAL_MS = 60 * 60 * 1000;
 
 // Storage limits
 export const STORAGE_LIMITS = {
-	MAX_SECRET_VALUE_SIZE: 50 * 1024,    // 50 KB
+	MAX_SECRET_VALUE_SIZE: 50 * 1024, // 50 KB
 	MAX_SECRET_NAME_LENGTH: 200,
-	MAX_METADATA_SIZE: 10 * 1024,        // 10 KB
+	MAX_METADATA_SIZE: 10 * 1024, // 10 KB
 } as const;

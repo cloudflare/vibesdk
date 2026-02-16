@@ -14,6 +14,6 @@ export function setupTicketRoutes(app: Hono<AppEnv>): void {
 	app.post(
 		'/api/ws-ticket',
 		setAuthLevel(AuthConfig.authenticated),
-		adaptController(TicketController, TicketController.createTicket)
+		adaptController(TicketController, TicketController.createTicket),
 	);
 }

@@ -35,12 +35,10 @@ export class LoopDetector {
 		const now = Date.now();
 		const WINDOW_MS = 2 * 60 * 1000;
 
-		this.state.recentCalls = this.state.recentCalls.filter(
-			(call) => now - call.timestamp < WINDOW_MS
-		);
+		this.state.recentCalls = this.state.recentCalls.filter((call) => now - call.timestamp < WINDOW_MS);
 
 		const matchingCalls = this.state.recentCalls.filter(
-			(call) => call.toolName === toolName && call.args === argsStr
+			(call) => call.toolName === toolName && call.args === argsStr,
 		);
 
 		this.state.recentCalls.push({
@@ -78,7 +76,7 @@ export class LoopDetector {
 			let hash = 0;
 			let pow = 1;
 			for (let i = 0; i < len; i++) {
-				hash = (hash + (str.charCodeAt(start + i) * pow) % MOD) % MOD;
+				hash = (hash + ((str.charCodeAt(start + i) * pow) % MOD)) % MOD;
 				pow = (pow * BASE) % MOD;
 			}
 			return hash;
@@ -101,7 +99,7 @@ export class LoopDetector {
 			if (textLength < probeLen * 2) continue;
 
 			const hashMap = new Map<number, number>();
-			
+
 			// Precompute BASE^(probeLen-1) mod MOD
 			let basePow = 1;
 			for (let i = 0; i < probeLen - 1; i++) {
@@ -119,11 +117,11 @@ export class LoopDetector {
 				currentHash = (currentHash - oldChar + MOD) % MOD;
 				currentHash = (currentHash * invBase) % MOD;
 				const newChar = recentText.charCodeAt(i + probeLen - 1);
-				currentHash = (currentHash + (newChar * basePow) % MOD) % MOD;
+				currentHash = (currentHash + ((newChar * basePow) % MOD)) % MOD;
 
 				if (hashMap.has(currentHash)) {
 					const prevPos = hashMap.get(currentHash)!;
-					
+
 					// Found a matching probe; the distance gives a candidate loop period.
 					if (areEqual(recentText, prevPos, i, probeLen)) {
 						const period = i - prevPos;
@@ -133,13 +131,13 @@ export class LoopDetector {
 						if (recentText.length >= period * 2) {
 							const suffixBlock1 = recentText.slice(-2 * period, -period);
 							const suffixBlock2 = recentText.slice(-period);
-							
+
 							if (suffixBlock1 === suffixBlock2) {
 								let requiredReps = 2;
 								if (period < 5) requiredReps = 10;
 								else if (period < 20) requiredReps = 5;
 								else if (period < 50) requiredReps = 3;
-								
+
 								let repCount = 2;
 								let checkEnd = recentText.length - 2 * period;
 								while (checkEnd >= period) {
@@ -151,7 +149,7 @@ export class LoopDetector {
 										break;
 									}
 								}
-								
+
 								if (repCount >= requiredReps) {
 									return true;
 								}
@@ -159,7 +157,7 @@ export class LoopDetector {
 						}
 					}
 				}
-				
+
 				// Track latest position for this hash to prefer recent, shorter periods.
 				hashMap.set(currentHash, i);
 			}
@@ -201,10 +199,13 @@ export class LoopDetector {
 		try {
 			const sortedArgs = Object.keys(args)
 				.sort()
-				.reduce((acc, key) => {
-					acc[key] = args[key];
-					return acc;
-				}, {} as Record<string, unknown>);
+				.reduce(
+					(acc, key) => {
+						acc[key] = args[key];
+						return acc;
+					},
+					{} as Record<string, unknown>,
+				);
 
 			return JSON.stringify(sortedArgs);
 		} catch (error) {

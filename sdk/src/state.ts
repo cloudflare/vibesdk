@@ -1,5 +1,14 @@
 import { TypedEmitter } from './emitter';
-import type { AgentWsServerMessage, WsMessageOf, PhaseInfo, PhaseFile, BehaviorType, ProjectType, PhaseTimelineEvent, PhaseTimelineChangeType } from './types';
+import type {
+	AgentWsServerMessage,
+	WsMessageOf,
+	PhaseInfo,
+	PhaseFile,
+	BehaviorType,
+	ProjectType,
+	PhaseTimelineEvent,
+	PhaseTimelineChangeType,
+} from './types';
 import type { AgentState } from './protocol';
 
 export type ConnectionState = 'disconnected' | 'connecting' | 'connected';
@@ -98,24 +107,26 @@ function extractPhaseInfo(msg: unknown): { name?: string; description?: string }
 	};
 }
 
-function extractPhaseFiles(
-	msg: unknown,
-): { path: string; purpose: string }[] | undefined {
+function extractPhaseFiles(msg: unknown): { path: string; purpose: string }[] | undefined {
 	const phase = (msg as { phase?: { files?: { path: string; purpose: string }[] } } | undefined)?.phase;
 	return phase?.files;
 }
 
-function isPhasicState(state: AgentState): state is AgentState & { generatedPhases: Array<{ name: string; description: string; files: { path: string; purpose: string }[]; completed: boolean }> } {
+function isPhasicState(state: AgentState): state is AgentState & {
+	generatedPhases: Array<{
+		name: string;
+		description: string;
+		files: { path: string; purpose: string }[];
+		completed: boolean;
+	}>;
+} {
 	return state.behaviorType === 'phasic' && 'generatedPhases' in state;
 }
 
 /**
  * Build phase timeline from agent state (used on agent_connected).
  */
-function buildPhaseTimelineFromState(
-	state: AgentState,
-	generatedFilesMap: Record<string, unknown>,
-): PhaseInfo[] {
+function buildPhaseTimelineFromState(state: AgentState, generatedFilesMap: Record<string, unknown>): PhaseInfo[] {
 	if (!isPhasicState(state)) return [];
 
 	const isActivelyGenerating = state.shouldBeGenerating === true;
@@ -248,9 +259,7 @@ export class SessionStateStore {
 				const prev = this.state.generation;
 
 				// Update file status in phases
-				const phasesWithCompleted = filePath
-					? this.updateFileStatus(filePath, 'completed')
-					: this.state.phases;
+				const phasesWithCompleted = filePath ? this.updateFileStatus(filePath, 'completed') : this.state.phases;
 
 				if (prev.status === 'running' || prev.status === 'stopped') {
 					this.setState({
@@ -438,9 +447,7 @@ export class SessionStateStore {
 	private updateFileStatus(filePath: string, status: PhaseFile['status']): PhaseInfo[] {
 		return this.state.phases.map((phase) => ({
 			...phase,
-			files: phase.files.map((f) =>
-				f.path === filePath ? { ...f, status } : f,
-			),
+			files: phase.files.map((f) => (f.path === filePath ? { ...f, status } : f)),
 		}));
 	}
 

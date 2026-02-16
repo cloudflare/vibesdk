@@ -59,10 +59,7 @@ export function FileTreeItem({
 				style={{ paddingLeft: `${level * 12 + 12}px` }}
 			>
 				<ChevronRight
-					className={clsx(
-						'size-3 transition-transform duration-200 ease-in-out',
-						isExpanded && 'rotate-90',
-					)}
+					className={clsx('size-3 transition-transform duration-200 ease-in-out', isExpanded && 'rotate-90')}
 				/>
 				<span className="flex-1 text-left truncate">{item.name}</span>
 			</button>
@@ -137,12 +134,7 @@ export function FileExplorer({
 			</div>
 			<div className="flex flex-col">
 				{fileTree.map((item) => (
-					<FileTreeItem
-						key={item.filePath}
-						item={item}
-						currentFile={currentFile}
-						onFileClick={onFileClick}
-					/>
+					<FileTreeItem key={item.filePath} item={item} currentFile={currentFile} onFileClick={onFileClick} />
 				))}
 			</div>
 		</div>

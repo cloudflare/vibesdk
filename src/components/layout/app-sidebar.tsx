@@ -33,12 +33,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { useAuth } from '@/contexts/auth-context';
 import { useNavigate } from 'react-router';
 import { cn } from '@/lib/utils';
-import {
-	Tooltip,
-	TooltipContent,
-	TooltipProvider,
-	TooltipTrigger,
-} from '@/components/ui/tooltip';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { formatDistanceToNow, isValid } from 'date-fns';
 import { AppActionsDropdown } from '@/components/shared/AppActionsDropdown';
 
@@ -110,20 +105,14 @@ function AppMenuItem({
 
 							<div className="relative flex-1 min-w-0 overflow-hidden">
 								<span className="font-medium flex justify-start  items-center  gap-2 text-text-primary/80 whitespace-nowrap">
-									<span className="text-ellipsis w-fit overflow-hidden">
-										{app.title}{' '}
-									</span>
-									<div className="flex-shrink-0 min-w-6">
-										{getVisibilityIcon(app.visibility)}
-									</div>
+									<span className="text-ellipsis w-fit overflow-hidden">{app.title} </span>
+									<div className="flex-shrink-0 min-w-6">{getVisibilityIcon(app.visibility)}</div>
 								</span>
 
 								<div className="absolute inset-y-0 right-0 w-4 bg-gradient-to-l from-bg-2 to-transparent pointer-events-none" />
 							</div>
 						</div>
-						<p className="text-xs text-text-tertiary truncate">
-							{formatTimestamp()}
-						</p>
+						<p className="text-xs text-text-tertiary truncate">{formatTimestamp()}</p>
 					</div>
 				</a>
 			</SidebarMenuButton>
@@ -150,10 +139,7 @@ export function AppSidebar() {
 	const { user } = useAuth();
 	const navigate = useNavigate();
 	const [searchQuery, setSearchQuery] = React.useState('');
-	const [expandedGroups, setExpandedGroups] = React.useState<string[]>([
-		'apps',
-		'boards',
-	]);
+	const [expandedGroups, setExpandedGroups] = React.useState<string[]>(['apps', 'boards']);
 	const { state, setOpen } = useSidebar();
 	const isCollapsed = state === 'collapsed';
 
@@ -168,9 +154,7 @@ export function AppSidebar() {
 	const searchResults = React.useMemo(() => {
 		if (!searchQuery.trim()) return [];
 
-		return allApps.filter((app) =>
-			app.title.toLowerCase().includes(searchQuery.toLowerCase().trim()),
-		);
+		return allApps.filter((app) => app.title.toLowerCase().includes(searchQuery.toLowerCase().trim()));
 	}, [allApps, searchQuery]);
 
 	const isSearching = searchQuery.trim().length > 0;
@@ -189,34 +173,20 @@ export function AppSidebar() {
 	};
 
 	const toggleGroup = (group: string) => {
-		setExpandedGroups((prev) =>
-			prev.includes(group)
-				? prev.filter((g) => g !== group)
-				: [...prev, group],
-		);
+		setExpandedGroups((prev) => (prev.includes(group) ? prev.filter((g) => g !== group) : [...prev, group]));
 	};
 
 	if (!user) return;
 
 	return (
 		<>
-			<Sidebar
-				collapsible="icon"
-				className={cn(
-					'bg-bg-2 transition-all duration-300 ease-in-out',
-				)}
-			>
+			<Sidebar collapsible="icon" className={cn('bg-bg-2 transition-all duration-300 ease-in-out')}>
 				<SidebarContent className="mt-2">
 					{/* Build Button */}
 					<SidebarGroup>
 						<SidebarGroupContent>
-	
 							{location.pathname !== '/' && (
-								<div
-									className={cn(
-										isCollapsed ? ' pr-2' : 'px-1',
-									)}
-								>
+								<div className={cn(isCollapsed ? ' pr-2' : 'px-1')}>
 									<TooltipProvider delayDuration={0}>
 										<Tooltip>
 											<TooltipTrigger asChild>
@@ -237,9 +207,7 @@ export function AppSidebar() {
 												>
 													<Plus className="h-4 w-4 text-neutral-50" />
 													{!isCollapsed && (
-														<span className="font-medium text-neutral-50">
-															New build
-														</span>
+														<span className="font-medium text-neutral-50">New build</span>
 													)}
 												</button>
 											</TooltipTrigger>
@@ -264,11 +232,7 @@ export function AppSidebar() {
 											<Input
 												placeholder="Search apps..."
 												value={searchQuery}
-												onChange={(e) =>
-													setSearchQuery(
-														e.target.value,
-													)
-												}
+												onChange={(e) => setSearchQuery(e.target.value)}
 												className="h-10 w-full pl-8 placeholder:text-primary/40"
 											/>
 										</div>
@@ -284,62 +248,31 @@ export function AppSidebar() {
 																</div>
 															</div>
 														</SidebarMenuItem>
-													) : searchResults.length >
-													  0 ? (
+													) : searchResults.length > 0 ? (
 														<>
 															<SidebarMenuItem>
 																<div className="px-2 py-1 text-xs text-text-tertiary">
-																	Found{' '}
-																	{
-																		searchResults.length
-																	}{' '}
-																	app
-																	{searchResults.length !==
-																	1
-																		? 's'
-																		: ''}
+																	Found {searchResults.length} app
+																	{searchResults.length !== 1 ? 's' : ''}
 																</div>
 															</SidebarMenuItem>
-															{searchResults.map(
-																(app) => (
-																	<AppMenuItem
-																		key={
-																			app.id
-																		}
-																		app={
-																			app
-																		}
-																		onClick={(
-																			id,
-																		) =>
-																			navigate(
-																				`/app/${id}`,
-																			)
-																		}
-																		variant="recent"
-																		showActions={
-																			true
-																		}
-																		isCollapsed={
-																			isCollapsed
-																		}
-																		getVisibilityIcon={
-																			getVisibilityIcon
-																		}
-																	/>
-																),
-															)}
+															{searchResults.map((app) => (
+																<AppMenuItem
+																	key={app.id}
+																	app={app}
+																	onClick={(id) => navigate(`/app/${id}`)}
+																	variant="recent"
+																	showActions={true}
+																	isCollapsed={isCollapsed}
+																	getVisibilityIcon={getVisibilityIcon}
+																/>
+															))}
 														</>
 													) : (
 														<SidebarMenuItem>
 															<div className="flex items-center justify-center py-4">
 																<div className="text-sm text-text-tertiary">
-																	No apps
-																	found for "
-																	{
-																		searchQuery
-																	}
-																	"
+																	No apps found for "{searchQuery}"
 																</div>
 															</div>
 														</SidebarMenuItem>
@@ -352,37 +285,24 @@ export function AppSidebar() {
 														<AppMenuItem
 															key={app.id}
 															app={app}
-															onClick={(id) =>
-																navigate(
-																	`/app/${id}`,
-																)
-															}
+															onClick={(id) => navigate(`/app/${id}`)}
 															variant="recent"
 															showActions={true}
-															isCollapsed={
-																isCollapsed
-															}
-															getVisibilityIcon={
-																getVisibilityIcon
-															}
+															isCollapsed={isCollapsed}
+															getVisibilityIcon={getVisibilityIcon}
 														/>
 													))}
 													{moreAvailable && (
 														<SidebarMenuItem>
 															<SidebarMenuButton
-																onClick={() =>
-																	navigate(
-																		'/apps',
-																	)
-																}
+																onClick={() => navigate('/apps')}
 																tooltip="View all apps"
 																className="text-text-tertiary hover:text-text-primary view-all-button"
 															>
 																<ChevronRight className="h-4 w-4" />
 																{!isCollapsed && (
 																	<span className="font-medium text-text-primary/80">
-																		View all
-																		apps →
+																		View all apps →
 																	</span>
 																)}
 															</SidebarMenuButton>
@@ -399,17 +319,15 @@ export function AppSidebar() {
 							{favoriteApps.length > 0 && (
 								<>
 									<SidebarSeparator />
-									<SidebarGroup className='mt-4'>
+									<SidebarGroup className="mt-4">
 										<SidebarGroupLabel
 											className={cn(
 												'flex items-center gap-2 text-md text-text-primary',
-												isCollapsed &&
-													'justify-center px-0',
+												isCollapsed && 'justify-center px-0',
 											)}
 										>
 											{!isCollapsed && 'Bookmarked'}
 											<Bookmark className="h-5 w-5 fill-yellow-500 text-yellow-500" />
-											
 										</SidebarGroupLabel>
 										<SidebarGroupContent>
 											<SidebarMenu>
@@ -417,18 +335,10 @@ export function AppSidebar() {
 													<AppMenuItem
 														key={app.id}
 														app={app}
-														onClick={(id) =>
-															navigate(
-																`/app/${id}`,
-															)
-														}
+														onClick={(id) => navigate(`/app/${id}`)}
 														showActions={true}
-														isCollapsed={
-															isCollapsed
-														}
-														getVisibilityIcon={
-															getVisibilityIcon
-														}
+														isCollapsed={isCollapsed}
+														getVisibilityIcon={getVisibilityIcon}
 													/>
 												))}
 											</SidebarMenu>
@@ -445,26 +355,17 @@ export function AppSidebar() {
 										<SidebarGroupLabel
 											className={cn(
 												'flex items-center cursor-pointer hover:text-text-primary transition-colors',
-												isCollapsed
-													? 'justify-center px-0'
-													: 'justify-between',
+												isCollapsed ? 'justify-center px-0' : 'justify-between',
 											)}
-											onClick={() =>
-												toggleGroup('boards')
-											}
+											onClick={() => toggleGroup('boards')}
 										>
 											{isCollapsed ? (
-												<TooltipProvider
-													delayDuration={0}
-												>
+												<TooltipProvider delayDuration={0}>
 													<Tooltip>
 														<TooltipTrigger>
 															<Users className="h-4 w-4" />
 														</TooltipTrigger>
-														<TooltipContent
-															side="right"
-															className="ml-2"
-														>
+														<TooltipContent side="right" className="ml-2">
 															My Boards
 														</TooltipContent>
 													</Tooltip>
@@ -478,9 +379,7 @@ export function AppSidebar() {
 													<ChevronRight
 														className={cn(
 															'h-4 w-4 transition-transform',
-															expandedGroups.includes(
-																'boards',
-															) && 'rotate-90',
+															expandedGroups.includes('boards') && 'rotate-90',
 														)}
 													/>
 												</>
@@ -490,18 +389,10 @@ export function AppSidebar() {
 											<SidebarGroupContent>
 												<SidebarMenu>
 													{boards.map((board) => (
-														<SidebarMenuItem
-															key={board.id}
-														>
+														<SidebarMenuItem key={board.id}>
 															<SidebarMenuButton
-																onClick={() =>
-																	navigate(
-																		`/boards/${board.slug}`,
-																	)
-																}
-																tooltip={
-																	board.name
-																}
+																onClick={() => navigate(`/boards/${board.slug}`)}
+																tooltip={board.name}
 																className="board-item-button"
 															>
 																<div
@@ -518,20 +409,11 @@ export function AppSidebar() {
 																{!isCollapsed && (
 																	<div className="flex-1 min-w-0">
 																		<p className="text-sm font-medium truncate">
-																			{
-																				board.name
-																			}
+																			{board.name}
 																		</p>
 																		<p className="text-xs text-text-tertiary truncate">
-																			{
-																				board.memberCount
-																			}{' '}
-																			members
-																			•{' '}
-																			{
-																				board.appCount
-																			}{' '}
-																			apps
+																			{board.memberCount} members •{' '}
+																			{board.appCount} apps
 																		</p>
 																	</div>
 																)}
@@ -540,19 +422,14 @@ export function AppSidebar() {
 													))}
 													<SidebarMenuItem>
 														<SidebarMenuButton
-															onClick={() =>
-																navigate(
-																	'/boards',
-																)
-															}
+															onClick={() => navigate('/boards')}
 															tooltip="Browse all boards"
 															className="text-text-tertiary hover:text-text-primary view-all-button"
 														>
 															<Plus className="h-4 w-4" />
 															{!isCollapsed && (
 																<span className="font-medium text-text-primary/80 ml-2">
-																	Browse all
-																	boards
+																	Browse all boards
 																</span>
 															)}
 														</SidebarMenuButton>

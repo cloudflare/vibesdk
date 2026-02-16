@@ -8,13 +8,7 @@ interface HeaderButtonProps {
 	iconOnly?: boolean;
 }
 
-export function HeaderButton({
-	icon: Icon,
-	label,
-	onClick,
-	title,
-	iconOnly = false,
-}: HeaderButtonProps) {
+export function HeaderButton({ icon: Icon, label, onClick, title, iconOnly = false }: HeaderButtonProps) {
 	if (iconOnly) {
 		return (
 			<button

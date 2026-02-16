@@ -33,7 +33,7 @@ export type Message = {
 	content: MessageContent;
 	name?: string; // Optional name field required for function messages
 	tool_calls?: ToolCall[];
-    tool_call_id?: string;  // For role = tool
+	tool_call_id?: string; // For role = tool
 };
 
 export interface ConversationMessage extends Message {
@@ -41,12 +41,12 @@ export interface ConversationMessage extends Message {
 }
 
 export interface ConversationState {
-    // Conversation Session ID
-    id: string;
-    // Running history of messages
-    runningHistory: ConversationMessage[];
-    // Full history of messages
-    fullHistory: ConversationMessage[];
+	// Conversation Session ID
+	id: string;
+	// Running history of messages
+	runningHistory: ConversationMessage[];
+	// Full history of messages
+	fullHistory: ConversationMessage[];
 }
 
 /**
@@ -91,7 +91,7 @@ export function createMultiModalUserMessage(
 	content: (TextContent | ImageContent)[];
 } {
 	const urls = Array.isArray(imageUrls) ? imageUrls : [imageUrls];
-	
+
 	return {
 		role: 'user' as MessageRole,
 		content: [
@@ -99,7 +99,7 @@ export function createMultiModalUserMessage(
 				type: 'text',
 				text,
 			},
-			...urls.map(url => ({
+			...urls.map((url) => ({
 				type: 'image_url' as const,
 				image_url: {
 					url,
@@ -110,19 +110,23 @@ export function createMultiModalUserMessage(
 	};
 }
 
-export async function mapImagesInMultiModalMessage(message: ConversationMessage, fn: (content: ImageContent) => Promise<ImageContent>) {
-    // Check if message is of type multi-modal
-    if (message.content && Array.isArray(message.content)) {
-        message.content = await Promise.all(message.content.map(c => {
-                if (c.type === 'image_url') {
-                    return fn(c);
-                }
-                return c;
-            })
-        )
-    }
+export async function mapImagesInMultiModalMessage(
+	message: ConversationMessage,
+	fn: (content: ImageContent) => Promise<ImageContent>,
+) {
+	// Check if message is of type multi-modal
+	if (message.content && Array.isArray(message.content)) {
+		message.content = await Promise.all(
+			message.content.map((c) => {
+				if (c.type === 'image_url') {
+					return fn(c);
+				}
+				return c;
+			}),
+		);
+	}
 
-    return message;
+	return message;
 }
 
 /**

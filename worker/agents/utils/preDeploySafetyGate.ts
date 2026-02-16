@@ -20,10 +20,7 @@ function logSafetyGateError(context: string, error: unknown, extra?: Record<stri
 		const payload = {
 			context,
 			...extra,
-			error:
-				error instanceof Error
-					? { message: error.message, stack: error.stack }
-					: { message: String(error) },
+			error: error instanceof Error ? { message: error.message, stack: error.stack } : { message: String(error) },
 		};
 		console.error('[preDeploySafetyGate]', payload);
 	} catch {
@@ -80,7 +77,8 @@ function isUseLikeHookCallee(callee: t.Expression | t.V8IntrinsicIdentifier): ca
 
 function isUseEffectCallee(callee: t.Expression | t.V8IntrinsicIdentifier): boolean {
 	if (t.isIdentifier(callee) && callee.name === 'useEffect') return true;
-	if (t.isMemberExpression(callee) && t.isIdentifier(callee.property) && callee.property.name === 'useEffect') return true;
+	if (t.isMemberExpression(callee) && t.isIdentifier(callee.property) && callee.property.name === 'useEffect')
+		return true;
 	return false;
 }
 
@@ -140,7 +138,7 @@ function collectSafetyFindings(ast: t.File): SafetyFinding[] {
 			if (moduleLevelFunctionDepth === 0) {
 				findings.push({
 					message:
-						"JSX element at module level. Store component references instead of JSX instances: use { Icon: Component } not { icon: <Component /> }. Module-level JSX causes memory leaks and render issues.",
+						'JSX element at module level. Store component references instead of JSX instances: use { Icon: Component } not { icon: <Component /> }. Module-level JSX causes memory leaks and render issues.',
 					...getNodeLoc(path.node),
 				});
 			}
@@ -165,7 +163,10 @@ function collectSafetyFindings(ast: t.File): SafetyFinding[] {
 							const member = ret.callee;
 							const prop = member.property;
 
-							if (t.isIdentifier(prop) && ['map', 'filter', 'reduce', 'sort', 'slice', 'concat'].includes(prop.name)) {
+							if (
+								t.isIdentifier(prop) &&
+								['map', 'filter', 'reduce', 'sort', 'slice', 'concat'].includes(prop.name)
+							) {
 								findings.push({
 									message:
 										"Potential external-store selector instability: a 'use*' hook selector returns an allocated array via map/filter/reduce/sort/etc. Select the raw stable collection from the hook and derive with useMemo outside the selector.",
@@ -217,7 +218,6 @@ function collectSafetyFindings(ast: t.File): SafetyFinding[] {
 
 	return findings;
 }
-
 
 function functionBodyContainsSetState(fn: t.ArrowFunctionExpression | t.FunctionExpression): boolean {
 	try {
@@ -280,7 +280,8 @@ function tryDeterministicSplitObjectSelectorDestructuring(code: string): { code:
 
 		const hookName = d.init.callee.name;
 		const selectorArg = d.init.arguments[0];
-		if (!selectorArg || (!t.isArrowFunctionExpression(selectorArg) && !t.isFunctionExpression(selectorArg))) return null;
+		if (!selectorArg || (!t.isArrowFunctionExpression(selectorArg) && !t.isFunctionExpression(selectorArg)))
+			return null;
 
 		const ret = getReturnExpression(selectorArg);
 		if (!ret || !t.isObjectExpression(ret)) return null;
@@ -321,7 +322,7 @@ function tryDeterministicSplitObjectSelectorDestructuring(code: string): { code:
 							t.arrowFunctionExpression(
 								[t.identifier(param.name)],
 								t.memberExpression(t.identifier(param.name), t.identifier(memberProp)),
-							)
+							),
 						]),
 					),
 				]),
@@ -420,7 +421,7 @@ export async function runPreDeploySafetyGate(args: {
 						file,
 						{ query: args.query, template: args.template },
 						// args.phase,
-                        undefined,
+						undefined,
 						issuesText,
 						3,
 					);

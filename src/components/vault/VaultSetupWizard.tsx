@@ -155,9 +155,7 @@ export function VaultSetupWizard({ open, onComplete, onCancel }: Props) {
 							className={cn(
 								'rounded-lg border p-4 text-left transition-colors',
 								'focus:outline-none focus:ring-2 focus:ring-primary',
-								method === 'passkey'
-									? 'border-primary bg-muted/40'
-									: 'hover:bg-muted/30'
+								method === 'passkey' ? 'border-primary bg-muted/40' : 'hover:bg-muted/30',
 							)}
 						>
 							<div className="flex items-start gap-3">
@@ -178,7 +176,7 @@ export function VaultSetupWizard({ open, onComplete, onCancel }: Props) {
 						className={cn(
 							'rounded-lg border p-4 text-left transition-colors',
 							'focus:outline-none focus:ring-2 focus:ring-primary',
-							method === 'password' ? 'border-primary bg-muted/40' : 'hover:bg-muted/30'
+							method === 'password' ? 'border-primary bg-muted/40' : 'hover:bg-muted/30',
 						)}
 					>
 						<div className="flex items-start gap-3">
@@ -217,9 +215,7 @@ export function VaultSetupWizard({ open, onComplete, onCancel }: Props) {
 								onKeyDown={(e) => e.key === 'Enter' && handleCreate()}
 							/>
 						</div>
-						{passwordError && (
-							<div className="text-sm text-destructive">{passwordError}</div>
-						)}
+						{passwordError && <div className="text-sm text-destructive">{passwordError}</div>}
 					</div>
 				)}
 
@@ -245,11 +241,7 @@ export function VaultSetupWizard({ open, onComplete, onCancel }: Props) {
 						<div />
 					)}
 
-					<Button
-						onClick={handleCreate}
-						disabled={!canCreate || isCreating}
-						className="min-w-32"
-					>
+					<Button onClick={handleCreate} disabled={!canCreate || isCreating} className="min-w-32">
 						{isCreating ? (
 							<>
 								<Loader2 className="h-4 w-4 mr-2 animate-spin" />

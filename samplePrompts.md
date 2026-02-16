@@ -4,11 +4,11 @@ Build a game where I see a map with circles on cities. Each city is a cloudflare
 
 Build a drag and drop flow based editor for configuring dynamic routing to ai models. i should be able to add model nodes, conditional nodes, rate limit nodes to build my routing graph
 
-Create a file manager dashboard with a sidebar for navigation, a main area for file display, 
+Create a file manager dashboard with a sidebar for navigation, a main area for file display,
 a toolbar for actions. The sidebar should allow users to navigate between folders in a natural way.
-The main area should show files and folders in a grid or list view. 
+The main area should show files and folders in a grid or list view.
 The toolbar should have buttons for creating, deleting, and renaming files and folders.
-I should also be able to open, close, edit the files as well as upload and download files. 
+I should also be able to open, close, edit the files as well as upload and download files.
 The design should be clean and modern, with a focus on usability.
 
 Please build a tool/dashboard for me for evaluating various LLM models and comparing their performances side by side - in terms of latency and token generation speed (assume 1 token ~ 4 chars or 0.75 words). I should be able to add custom model names, set custom baseUrl and apiKey per model etc from UI itself.

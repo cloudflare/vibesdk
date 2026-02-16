@@ -105,7 +105,7 @@ export function validatePassword(
 	}
 
 	const result = passwordSchema.safeParse(password);
-	
+
 	const requirements = {
 		minLength: password.length >= 8,
 		hasLowercase: /[a-z]/.test(password),
@@ -136,7 +136,7 @@ export function validatePassword(
 	if (!result.success) {
 		return {
 			valid: false,
-			errors: result.error.errors.map(e => e.message),
+			errors: result.error.errors.map((e) => e.message),
 			score,
 			requirements,
 			suggestions: suggestions.length > 0 ? suggestions : undefined,
@@ -189,9 +189,7 @@ export function validateUsername(
 	}
 
 	// Format validation
-	const validPattern = allowSpecialChars
-		? /^[a-zA-Z0-9_.-]+$/
-		: /^[a-zA-Z0-9_]+$/;
+	const validPattern = allowSpecialChars ? /^[a-zA-Z0-9_.-]+$/ : /^[a-zA-Z0-9_]+$/;
 
 	if (!validPattern.test(username)) {
 		return {
@@ -221,14 +219,9 @@ export function validateUsername(
 /**
  * Batch validation utility
  */
-export interface ValidationField<
-	T extends readonly unknown[] = readonly unknown[],
-> {
+export interface ValidationField<T extends readonly unknown[] = readonly unknown[]> {
 	value: string;
-	validator: (
-		value: string,
-		...args: T
-	) => { valid: boolean; error?: string };
+	validator: (value: string, ...args: T) => { valid: boolean; error?: string };
 	validatorArgs?: T;
 	fieldName: string;
 }

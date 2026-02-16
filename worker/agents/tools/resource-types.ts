@@ -12,25 +12,17 @@ export interface Type<T> {
 
 type ResourceResolver<T> = (value: T) => Resources;
 
-function buildType<T>(
-	schema: z.ZodTypeAny,
-	resources: ResourceResolver<T>
-): Type<T> {
+function buildType<T>(schema: z.ZodTypeAny, resources: ResourceResolver<T>): Type<T> {
 	return {
 		schema,
 		resources,
 		describe: (desc) => buildType(schema.describe(desc), resources),
-		optional: () => buildType(schema.optional(), (value) =>
-			value === undefined ? {} : resources(value)
-		),
+		optional: () => buildType(schema.optional(), (value) => (value === undefined ? {} : resources(value))),
 		default: (defaultValue) => buildType(schema.default(defaultValue), resources),
 	};
 }
 
-export function type<S extends z.ZodTypeAny>(
-	schema: S,
-	resources: ResourceResolver<z.output<S>>
-): Type<z.output<S>> {
+export function type<S extends z.ZodTypeAny>(schema: S, resources: ResourceResolver<z.output<S>>): Type<z.output<S>> {
 	return buildType(schema, resources);
 }
 
@@ -60,17 +52,13 @@ export const t = {
 	enum: primitive.enum,
 
 	file: {
-		read: () =>
-			type(z.string(), (path) => ({ files: { mode: 'read', paths: [path] } })),
-		write: () =>
-			type(z.string(), (path) => ({ files: { mode: 'write', paths: [path] } })),
+		read: () => type(z.string(), (path) => ({ files: { mode: 'read', paths: [path] } })),
+		write: () => type(z.string(), (path) => ({ files: { mode: 'write', paths: [path] } })),
 	},
 
 	files: {
-		read: () =>
-			type(z.array(z.string()), (paths) => ({ files: { mode: 'read', paths } })),
-		write: () =>
-			type(z.array(z.string()), (paths) => ({ files: { mode: 'write', paths } })),
+		read: () => type(z.array(z.string()), (paths) => ({ files: { mode: 'read', paths } })),
+		write: () => type(z.array(z.string()), (paths) => ({ files: { mode: 'write', paths } })),
 	},
 
 	generation: () =>
@@ -78,24 +66,26 @@ export const t = {
 			z.array(
 				z.object({
 					path: z.string().describe('Relative file path from project root'),
-					description: z.string().describe('Brief description of what this file should do and its purpose in the project'),
-				})
+					description: z
+						.string()
+						.describe('Brief description of what this file should do and its purpose in the project'),
+				}),
 			),
-			(specs) => ({ files: { mode: 'write', paths: specs.map((s) => s.path) } })
+			(specs) => ({ files: { mode: 'write', paths: specs.map((s) => s.path) } }),
 		),
 
-	commands: () =>
-		type(z.array(z.string()), () => ({ sandbox: { operation: 'exec' } })),
+	commands: () => type(z.array(z.string()), () => ({ sandbox: { operation: 'exec' } })),
 
 	analysis: {
 		files: () => type(z.array(z.string()).optional(), () => ({ sandbox: { operation: 'analysis' } })),
 	},
 
 	deployment: {
-		force: () => type(z.boolean().optional(), () => ({
-			sandbox: { operation: 'deploy' },
-			files: { mode: 'read', paths: [] },
-		})),
+		force: () =>
+			type(z.boolean().optional(), () => ({
+				sandbox: { operation: 'deploy' },
+				files: { mode: 'read', paths: [] },
+			})),
 	},
 
 	logs: {
@@ -104,8 +94,7 @@ export const t = {
 		maxLines: () => type(z.number().optional(), () => ({ sandbox: { operation: 'read' } })),
 	},
 
-	runtimeErrors: () =>
-		type(z.literal(true).optional(), () => ({ sandbox: { operation: 'read' } })),
+	runtimeErrors: () => type(z.literal(true).optional(), () => ({ sandbox: { operation: 'read' } })),
 
 	blueprint: () => type(z.string(), () => ({ blueprint: true })),
 };

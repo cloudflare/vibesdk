@@ -36,7 +36,9 @@
 		"knip:fix": "knip --fix",
 		"knip:production": "knip --production",
 		"knip:dependencies": "knip --dependencies",
-		"knip:exports": "knip --exports"
+		"knip:exports": "knip --exports",
+		"format": "prettier --write .",
+		"format:check": "prettier --check ."
 	},
 	"dependencies": {
 		"@ashishkumar472/cf-git": "1.0.5",
@@ -171,7 +173,7 @@
 	},
 	"prettier": {
 		"singleQuote": true,
-		"useTabs": true
+		"printWidth": 120
 	},
 	"overrides": {
 		"vite": "npm:rolldown-vite@latest",

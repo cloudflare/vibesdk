@@ -10,10 +10,7 @@ export type GenerateFilesResult =
 	  }
 	| { error: string };
 
-export function createGenerateFilesTool(
-	agent: ICodingAgent,
-	logger: StructuredLogger
-) {
+export function createGenerateFilesTool(agent: ICodingAgent, logger: StructuredLogger) {
 	return tool({
 		name: 'generate_files',
 		description: `Generate new files or completely rewrite existing files using the full phase implementation system.
@@ -32,10 +29,20 @@ The system will:
 
 Provide detailed, specific requirements. The more detail, the better the results.`,
 		args: {
-			phase_name: t.string().describe('Short, descriptive name for what you\'re generating (e.g., "Add data export utilities")'),
+			phase_name: t
+				.string()
+				.describe('Short, descriptive name for what you\'re generating (e.g., "Add data export utilities")'),
 			phase_description: t.string().describe('Brief description of what these files should accomplish'),
-			requirements: t.array(t.string()).describe('Array of specific, detailed requirements. Be explicit about function signatures, types, implementation details.'),
-			files: t.generation().describe('Array of file specifications. Each object MUST have: path (string - relative file path), description (string - brief description of what the file does)'),
+			requirements: t
+				.array(t.string())
+				.describe(
+					'Array of specific, detailed requirements. Be explicit about function signatures, types, implementation details.',
+				),
+			files: t
+				.generation()
+				.describe(
+					'Array of file specifications. Each object MUST have: path (string - relative file path), description (string - brief description of what the file does)',
+				),
 		},
 		run: async ({ phase_name, phase_description, requirements, files }) => {
 			try {

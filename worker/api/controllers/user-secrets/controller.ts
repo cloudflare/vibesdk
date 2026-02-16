@@ -72,7 +72,7 @@ export class UserSecretsController extends BaseController {
 		request: Request,
 		env: Env,
 		_ctx: ExecutionContext,
-		context: RouteContext
+		context: RouteContext,
 	): Promise<Response> {
 		const userId = context.user!.id;
 		this.logger.info('Vault WebSocket connection request', { userId });
@@ -99,7 +99,7 @@ export class UserSecretsController extends BaseController {
 		_request: Request,
 		env: Env,
 		_ctx: ExecutionContext,
-		context: RouteContext
+		context: RouteContext,
 	): Promise<ControllerResponse<ApiResponse<VaultStatusData>>> {
 		try {
 			const stub = this.getVaultStub(env, context.user!.id);
@@ -118,7 +118,7 @@ export class UserSecretsController extends BaseController {
 		_request: Request,
 		env: Env,
 		_ctx: ExecutionContext,
-		context: RouteContext
+		context: RouteContext,
 	): Promise<ControllerResponse<ApiResponse<VaultConfigData>>> {
 		try {
 			const stub = this.getVaultStub(env, context.user!.id);
@@ -132,12 +132,13 @@ export class UserSecretsController extends BaseController {
 				config.kdfSalt.length !== 32 ||
 				config.verificationBlob.length === 0 ||
 				config.verificationNonce.length === 0 ||
-				(config.kdfAlgorithm === 'webauthn-prf' && (!config.prfCredentialId || !config.prfSalt || config.prfSalt.length !== 32));
+				(config.kdfAlgorithm === 'webauthn-prf' &&
+					(!config.prfCredentialId || !config.prfSalt || config.prfSalt.length !== 32));
 
 			if (isInvalidConfig) {
 				return this.createErrorResponse<VaultConfigData>(
 					'Vault configuration invalid. Reset your vault and set it up again.',
-					500
+					500,
 				);
 			}
 
@@ -167,7 +168,7 @@ export class UserSecretsController extends BaseController {
 		request: Request,
 		env: Env,
 		_ctx: ExecutionContext,
-		context: RouteContext
+		context: RouteContext,
 	): Promise<ControllerResponse<ApiResponse<VaultSetupData>>> {
 		try {
 			const bodyResult = await this.parseJsonBody<SetupVaultBody>(request);
@@ -197,7 +198,11 @@ export class UserSecretsController extends BaseController {
 				verificationBlob = this.base64ToArrayBuffer(trimmedVerificationBlob);
 				verificationNonce = this.base64ToArrayBuffer(trimmedVerificationNonce);
 
-				if (kdfSalt.byteLength !== 32 || verificationBlob.byteLength === 0 || verificationNonce.byteLength === 0) {
+				if (
+					kdfSalt.byteLength !== 32 ||
+					verificationBlob.byteLength === 0 ||
+					verificationNonce.byteLength === 0
+				) {
 					return this.createErrorResponse<VaultSetupData>('Invalid vault setup payload', 400);
 				}
 
@@ -205,7 +210,10 @@ export class UserSecretsController extends BaseController {
 					const trimmedPrfSalt = body.prfSalt?.trim();
 					const trimmedCredentialId = body.prfCredentialId?.trim();
 					if (!trimmedCredentialId || !trimmedPrfSalt) {
-						return this.createErrorResponse<VaultSetupData>('Passkey vault requires PRF configuration', 400);
+						return this.createErrorResponse<VaultSetupData>(
+							'Passkey vault requires PRF configuration',
+							400,
+						);
 					}
 					prfSalt = this.base64ToArrayBuffer(trimmedPrfSalt);
 					if (prfSalt.byteLength !== 32) {
@@ -262,7 +270,7 @@ export class UserSecretsController extends BaseController {
 		_request: Request,
 		env: Env,
 		_ctx: ExecutionContext,
-		context: RouteContext
+		context: RouteContext,
 	): Promise<ControllerResponse<ApiResponse<{ success: boolean }>>> {
 		try {
 			const stub = this.getVaultStub(env, context.user!.id);

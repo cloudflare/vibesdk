@@ -9,7 +9,7 @@ import { z } from 'zod';
 import { AgentOperation, OperationOptions } from './common';
 
 export interface GuardRailsInput {
-    userInput: string;
+userInput: string;
 }
 
 const SYSTEM_PROMPT = ``;
@@ -17,29 +17,29 @@ const SYSTEM_PROMPT = ``;
 const USER_PROMPT = ``;
 
 const userPromptFormatter = (issues: IssueReport, context: string) => {
-    const prompt = USER_PROMPT
-        .replaceAll('{{issues}}', issuesPromptFormatter(issues))
-        .replaceAll('{{context}}', context);
-    return PROMPT_UTILS.verifyPrompt(prompt);
+const prompt = USER_PROMPT
+.replaceAll('{{issues}}', issuesPromptFormatter(issues))
+.replaceAll('{{context}}', context);
+return PROMPT_UTILS.verifyPrompt(prompt);
 }
 
 export class GuardRailsOperation extends AgentOperation<GuardRailsInput, GuardRailsOutputType> {
-    async execute(
-        inputs: GuardRailsInput,
-        options: OperationOptions
-    ): Promise<GuardRailsOutputType> {
-        const { userInput } = inputs;
-        const { env, logger, context } = options;
-        try {
-            const { object: reviewResult } = await executeInference({
-                env: env,
-                messages,
-                schema: CodeReviewOutput,
-                agentActionName: "codeReview",
-                context: options.inferenceContext,
-                reasoning_effort: issues.runtimeErrors.length || issues.staticAnalysis.lint.issues.length || issues.staticAnalysis.typecheck.issues.length > 0 ? undefined : 'low',
-                // format: 'markdown'
-            });
+async execute(
+inputs: GuardRailsInput,
+options: OperationOptions
+): Promise<GuardRailsOutputType> {
+const { userInput } = inputs;
+const { env, logger, context } = options;
+try {
+const { object: reviewResult } = await executeInference({
+env: env,
+messages,
+schema: CodeReviewOutput,
+agentActionName: "codeReview",
+context: options.inferenceContext,
+reasoning_effort: issues.runtimeErrors.length || issues.staticAnalysis.lint.issues.length || issues.staticAnalysis.typecheck.issues.length > 0 ? undefined : 'low',
+// format: 'markdown'
+});
 
             if (!reviewResult) {
                 throw new Error("Failed to get code review result");
@@ -50,4 +50,5 @@ export class GuardRailsOperation extends AgentOperation<GuardRailsInput, GuardRa
             throw error;
         }
     }
+
 }

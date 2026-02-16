@@ -116,28 +116,24 @@ export class BuildSession {
 			this.state.get().phases.find((p) => p.status !== 'completed' && p.status !== 'cancelled'),
 
 		/** Get all completed phases. */
-		completed: (): PhaseInfo[] =>
-			this.state.get().phases.filter((p) => p.status === 'completed'),
+		completed: (): PhaseInfo[] => this.state.get().phases.filter((p) => p.status === 'completed'),
 
 		/** Get a phase by its id (e.g., "phase-0"). */
-		get: (id: string): PhaseInfo | undefined =>
-			this.state.get().phases.find((p) => p.id === id),
+		get: (id: string): PhaseInfo | undefined => this.state.get().phases.find((p) => p.id === id),
 
 		/** Get the total count of phases. */
 		count: (): number => this.state.get().phases.length,
 
 		/** Check if all phases are completed. */
 		allCompleted: (): boolean =>
-			this.state.get().phases.length > 0 &&
-			this.state.get().phases.every((p) => p.status === 'completed'),
+			this.state.get().phases.length > 0 && this.state.get().phases.every((p) => p.status === 'completed'),
 
 		/**
 		 * Subscribe to phase timeline changes.
 		 * Fires when a phase is added or when a phase's status/files change.
 		 * @returns Unsubscribe function.
 		 */
-		onChange: (cb: (event: PhaseTimelineEvent) => void): (() => void) =>
-			this.state.onPhaseChange(cb),
+		onChange: (cb: (event: PhaseTimelineEvent) => void): (() => void) => this.state.onPhaseChange(cb),
 	};
 
 	readonly wait = {
@@ -151,7 +147,7 @@ export class BuildSession {
 
 	constructor(
 		start: BuildStartEvent,
-		private init: BuildSessionInit
+		private init: BuildSessionInit,
 	) {
 		this.agentId = start.agentId;
 		this.websocketUrl = start.websocketUrl;
@@ -266,7 +262,7 @@ export class BuildSession {
 
 	private async waitForWsMessage(
 		predicate: (msg: AgentWsServerMessage) => boolean,
-		timeoutMs: number
+		timeoutMs: number,
 	): Promise<AgentWsServerMessage> {
 		this.assertConnected();
 		return await this.connection!.waitFor('ws:message', predicate, timeoutMs);
@@ -281,10 +277,7 @@ export class BuildSession {
 	}
 
 	async waitForPhase(options: WaitForPhaseOptions): Promise<WsMessageOf<PhaseEventType>> {
-		return await this.waitForMessageType(
-			options.type,
-			options.timeoutMs ?? this.getDefaultTimeoutMs(),
-		);
+		return await this.waitForMessageType(options.type, options.timeoutMs ?? this.getDefaultTimeoutMs());
 	}
 
 	async waitForDeployable(options: WaitOptions = {}): Promise<SessionDeployable> {
@@ -323,8 +316,7 @@ export class BuildSession {
 	): Promise<WsMessageOf<'cloudflare_deployment_completed'>> {
 		const timeoutMs = options.timeoutMs ?? this.getDefaultTimeoutMs();
 		const msg = await this.waitForWsMessage(
-			(m) =>
-				m.type === 'cloudflare_deployment_completed' || m.type === 'cloudflare_deployment_error',
+			(m) => m.type === 'cloudflare_deployment_completed' || m.type === 'cloudflare_deployment_error',
 			timeoutMs,
 		);
 		if (msg.type === 'cloudflare_deployment_error') {
@@ -352,7 +344,7 @@ export class BuildSession {
 
 	onMessageType<TType extends AgentWsServerMessage['type']>(
 		type: TType,
-		cb: (message: WsMessageOf<TType>) => void
+		cb: (message: WsMessageOf<TType>) => void,
 	): () => void {
 		this.assertConnected();
 		return this.connection!.on('ws:message', (msg) => {
@@ -362,7 +354,7 @@ export class BuildSession {
 
 	async waitForMessageType<TType extends AgentWsServerMessage['type']>(
 		type: TType,
-		timeoutMs?: number
+		timeoutMs?: number,
 	): Promise<WsMessageOf<TType>> {
 		this.assertConnected();
 		return (await this.connection!.waitFor(

@@ -12,15 +12,15 @@ import { defineConfig } from 'drizzle-kit';
 // }
 
 export default defineConfig({
-  schema: './worker/database/schema.ts',
-  out: './migrations',
-  dialect: 'sqlite',
-  driver: 'd1-http',
-//   dbCredentials: {
-//     accountId: process.env.CLOUDFLARE_ACCOUNT_ID!,
-//     token: process.env.CLOUDFLARE_D1_TOKEN!,
-//     databaseId: process.env.CLOUDFLARE_D1_ID!,
-//   },
-  verbose: true,
-  strict: true,
+	schema: './worker/database/schema.ts',
+	out: './migrations',
+	dialect: 'sqlite',
+	driver: 'd1-http',
+	//   dbCredentials: {
+	//     accountId: process.env.CLOUDFLARE_ACCOUNT_ID!,
+	//     token: process.env.CLOUDFLARE_D1_TOKEN!,
+	//     databaseId: process.env.CLOUDFLARE_D1_ID!,
+	//   },
+	verbose: true,
+	strict: true,
 });

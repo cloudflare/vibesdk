@@ -7,7 +7,4 @@ export type {
 	PlatformCapabilitiesConfig,
 } from './types';
 
-export {
-	DEFAULT_FEATURE_DEFINITIONS,
-	getBehaviorTypeForProject,
-} from './types';
+export { DEFAULT_FEATURE_DEFINITIONS, getBehaviorTypeForProject } from './types';

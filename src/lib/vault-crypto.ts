@@ -29,10 +29,7 @@ export interface VaultSession {
 /**
  * Derives VMK from password using Argon2id.
  */
-export async function deriveVMKFromPassword(
-	password: string,
-	salt: Uint8Array<ArrayBuffer>,
-): Promise<CryptoKey> {
+export async function deriveVMKFromPassword(password: string, salt: Uint8Array<ArrayBuffer>): Promise<CryptoKey> {
 	const hash = await argon2id({
 		password,
 		salt,
@@ -59,17 +56,8 @@ export async function deriveVMKFromPassword(
 /**
  * Derives VMK from WebAuthn PRF output using HKDF-SHA256.
  */
-export async function deriveVMKFromPRF(
-	prfOutput: ArrayBuffer,
-	salt: Uint8Array<ArrayBuffer>,
-): Promise<CryptoKey> {
-	const keyMaterial = await crypto.subtle.importKey(
-		'raw',
-		prfOutput,
-		'HKDF',
-		false,
-		['deriveKey'],
-	);
+export async function deriveVMKFromPRF(prfOutput: ArrayBuffer, salt: Uint8Array<ArrayBuffer>): Promise<CryptoKey> {
+	const keyMaterial = await crypto.subtle.importKey('raw', prfOutput, 'HKDF', false, ['deriveKey']);
 
 	return crypto.subtle.deriveKey(
 		{
@@ -88,10 +76,7 @@ export async function deriveVMKFromPRF(
 /**
  * Derives VMK from recovery code using Argon2id.
  */
-export async function deriveVMKFromRecoveryCode(
-	code: string,
-	salt: Uint8Array<ArrayBuffer>,
-): Promise<CryptoKey> {
+export async function deriveVMKFromRecoveryCode(code: string, salt: Uint8Array<ArrayBuffer>): Promise<CryptoKey> {
 	const normalized = code.toUpperCase().replace(/-/g, '');
 	return deriveVMKFromPassword(normalized, salt);
 }
@@ -110,23 +95,13 @@ export async function encryptVMKForSession(
 	vmk: CryptoKey,
 	sessionKey: Uint8Array<ArrayBuffer>,
 ): Promise<EncryptedData> {
-	const sk = await crypto.subtle.importKey(
-		'raw',
-		sessionKey,
-		{ name: 'AES-GCM', length: 256 },
-		false,
-		['encrypt'],
-	);
+	const sk = await crypto.subtle.importKey('raw', sessionKey, { name: 'AES-GCM', length: 256 }, false, ['encrypt']);
 
 	// Export VMK to encrypt it
 	const vmkRaw = await crypto.subtle.exportKey('raw', vmk);
 	const nonce = crypto.getRandomValues(new Uint8Array(12));
 
-	const ciphertext = await crypto.subtle.encrypt(
-		{ name: 'AES-GCM', iv: nonce },
-		sk,
-		vmkRaw,
-	);
+	const ciphertext = await crypto.subtle.encrypt({ name: 'AES-GCM', iv: nonce }, sk, vmkRaw);
 
 	return {
 		ciphertext: new Uint8Array(ciphertext),
@@ -138,10 +113,7 @@ export async function encryptVMKForSession(
  * Stores session credentials in sessionStorage.
  */
 export function storeSession(session: VaultSession): void {
-	sessionStorage.setItem(
-		SESSION_KEY_STORAGE,
-		uint8ArrayToBase64(session.sessionKey),
-	);
+	sessionStorage.setItem(SESSION_KEY_STORAGE, uint8ArrayToBase64(session.sessionKey));
 }
 
 /**
@@ -166,18 +138,11 @@ export function clearSession(): void {
 /**
  * Encrypts plaintext with AES-256-GCM.
  */
-export async function encryptWithKey(
-	key: CryptoKey,
-	plaintext: string,
-): Promise<EncryptedData> {
+export async function encryptWithKey(key: CryptoKey, plaintext: string): Promise<EncryptedData> {
 	const nonce = crypto.getRandomValues(new Uint8Array(12));
 	const data = new TextEncoder().encode(plaintext);
 
-	const ciphertext = await crypto.subtle.encrypt(
-		{ name: 'AES-GCM', iv: nonce },
-		key,
-		data,
-	);
+	const ciphertext = await crypto.subtle.encrypt({ name: 'AES-GCM', iv: nonce }, key, data);
 
 	return {
 		ciphertext: new Uint8Array(ciphertext),
@@ -193,11 +158,7 @@ export async function decryptWithKey(
 	ciphertext: Uint8Array<ArrayBuffer>,
 	nonce: Uint8Array<ArrayBuffer>,
 ): Promise<string> {
-	const plaintext = await crypto.subtle.decrypt(
-		{ name: 'AES-GCM', iv: nonce },
-		key,
-		ciphertext,
-	);
+	const plaintext = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: nonce }, key, ciphertext);
 
 	return new TextDecoder().decode(plaintext);
 }
@@ -262,19 +223,14 @@ export function generateRecoveryCodes(count = 8): string[] {
 /**
  * Encrypts recovery codes with VMK.
  */
-export async function encryptRecoveryCodes(
-	vmk: CryptoKey,
-	codes: string[],
-): Promise<EncryptedData> {
+export async function encryptRecoveryCodes(vmk: CryptoKey, codes: string[]): Promise<EncryptedData> {
 	return encryptWithKey(vmk, JSON.stringify(codes));
 }
 
 /**
  * Creates verification blob for password/key validation.
  */
-export async function createVerificationBlob(
-	vmk: CryptoKey,
-): Promise<EncryptedData> {
+export async function createVerificationBlob(vmk: CryptoKey): Promise<EncryptedData> {
 	return encryptWithKey(vmk, 'vault-v1');
 }
 
@@ -321,10 +277,7 @@ export function base64ToUint8Array(str: string): Uint8Array<ArrayBuffer> {
 
 // URL-safe base64 for headers
 export function uint8ArrayToBase64Url(arr: Uint8Array<ArrayBuffer>): string {
-	return uint8ArrayToBase64(arr)
-		.replace(/\+/g, '-')
-		.replace(/\//g, '_')
-		.replace(/=/g, '');
+	return uint8ArrayToBase64(arr).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
 }
 
 export function base64UrlToUint8Array(str: string): Uint8Array<ArrayBuffer> {

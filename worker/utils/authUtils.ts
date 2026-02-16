@@ -2,7 +2,7 @@
  * Centralized Authentication Utilities
  */
 
-import type {  AuthUser } from '../types/auth-types';
+import type { AuthUser } from '../types/auth-types';
 import type { User } from '../database/schema';
 import { createLogger } from '../logger';
 
@@ -10,17 +10,16 @@ const logger = createLogger('AuthUtils');
 
 /**
  * Extract sessionId from cookie
-*/
+ */
 export function extractSessionId(request: Request): string | null {
-    const cookieHeader = request.headers.get('Cookie');
-       if (!cookieHeader) {
-               return null;
-       }
+	const cookieHeader = request.headers.get('Cookie');
+	if (!cookieHeader) {
+		return null;
+	}
 
-       const cookies = parseCookies(cookieHeader);
-       return cookies['sessionId'];
+	const cookies = parseCookies(cookieHeader);
+	return cookies['sessionId'];
 }
-
 
 /**
  * Token extraction priorities and methods
@@ -53,9 +52,7 @@ export function extractToken(request: Request): string | null {
  * Extract JWT token from request with extraction method metadata
  * Useful for security logging and analysis
  */
-export function extractTokenWithMetadata(
-	request: Request,
-): TokenExtractionResult {
+export function extractTokenWithMetadata(request: Request): TokenExtractionResult {
 	// Priority 1: Authorization header (most secure)
 	const authHeader = request.headers.get('Authorization');
 	if (authHeader?.startsWith('Bearer ')) {
@@ -88,8 +85,7 @@ export function extractTokenWithMetadata(
 
 	// Priority 3: Query parameter (for WebSocket connections and special cases)
 	const url = new URL(request.url);
-	const queryToken =
-		url.searchParams.get('token') || url.searchParams.get('access_token');
+	const queryToken = url.searchParams.get('token') || url.searchParams.get('access_token');
 	if (queryToken && queryToken.length > 0) {
 		return {
 			token: queryToken,
@@ -172,7 +168,7 @@ export function createSecureCookie(options: CookieOptions): string {
 	if (secure) parts.push('Secure');
 	if (sameSite) parts.push(`SameSite=${sameSite}`);
 
-    parts.push('HttpOnly');
+	parts.push('HttpOnly');
 
 	return parts.join('; ');
 }
@@ -251,13 +247,11 @@ export function extractRequestMetadata(request: Request): RequestMetadata {
  */
 export interface SessionResponse {
 	user: AuthUser;
-    sessionId: string;
-    expiresAt: Date | null;
+	sessionId: string;
+	expiresAt: Date | null;
 }
 
-export function mapUserResponse(
-	user: (Partial<User> & { id: string; email: string }) | AuthUser,
-): AuthUser {
+export function mapUserResponse(user: (Partial<User> & { id: string; email: string }) | AuthUser): AuthUser {
 	// Handle AuthUser type - already in correct format
 	if ('isAnonymous' in user) {
 		return user as AuthUser;
@@ -278,13 +272,9 @@ export function mapUserResponse(
 	};
 }
 
-export function formatAuthResponse(
-	user: AuthUser,
-	sessionId: string,
-	expiresAt: Date | null,
-): SessionResponse {
+export function formatAuthResponse(user: AuthUser, sessionId: string, expiresAt: Date | null): SessionResponse {
 	const response: SessionResponse = { user, sessionId, expiresAt };
-    
+
 	return response;
 }
 
@@ -304,16 +294,16 @@ export function validateRedirectUrl(redirectUrl: string, request: Request): stri
 			logger.warn('Redirect URL rejected: different origin', {
 				redirectUrl,
 				requestOrigin: requestUrl.origin,
-				redirectOrigin: redirectUrlObj.origin
+				redirectOrigin: redirectUrlObj.origin,
 			});
 			return null;
 		}
 
 		const forbiddenPaths = ['/api/auth/', '/logout', '/api/github-exporter/'];
-		if (forbiddenPaths.some(path => redirectUrlObj.pathname.startsWith(path))) {
+		if (forbiddenPaths.some((path) => redirectUrlObj.pathname.startsWith(path))) {
 			logger.warn('Redirect URL rejected: forbidden path', {
 				redirectUrl,
-				pathname: redirectUrlObj.pathname
+				pathname: redirectUrlObj.pathname,
 			});
 			return null;
 		}
@@ -324,4 +314,3 @@ export function validateRedirectUrl(redirectUrl: string, request: Request): stri
 		return null;
 	}
 }
-

@@ -4,15 +4,8 @@ import { Button } from '@/components/ui/button';
 import { VaultUnlockModal } from './VaultUnlockModal';
 import { VaultSetupWizard } from './VaultSetupWizard';
 import { Lock, Unlock, ShieldOff, Loader2 } from 'lucide-react';
-import {
-	Tooltip,
-	TooltipContent,
-	TooltipTrigger,
-} from '@/components/ui/tooltip';
-import {
-	Dialog,
-	DialogContent,
-} from '@/components/ui/dialog';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { Dialog, DialogContent } from '@/components/ui/dialog';
 
 export function VaultStatusIndicator() {
 	const { state, lockVault } = useVault();

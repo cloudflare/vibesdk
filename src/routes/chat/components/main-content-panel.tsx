@@ -13,7 +13,14 @@ import { PreviewHeaderActions } from './preview-header-actions';
 import { EditorHeaderActions } from './editor-header-actions';
 import { Copy } from './copy';
 import { featureRegistry } from '@/features';
-import type { FileType, BlueprintType, BehaviorType, ModelConfigsInfo, TemplateDetails, ProjectType } from '@/api-types';
+import type {
+	FileType,
+	BlueprintType,
+	BehaviorType,
+	ModelConfigsInfo,
+	TemplateDetails,
+	ProjectType,
+} from '@/api-types';
 import type { ContentDetectionResult } from '../utils/content-detector';
 import type { GitHubExportHook } from '@/hooks/use-github-export';
 import type { Edit } from '../hooks/use-chat';
@@ -107,7 +114,7 @@ export function MainContentPanel(props: MainContentPanelProps) {
 	// Feature-specific state management
 	const [featureState, setFeatureStateInternal] = useState<Record<string, unknown>>({});
 	const setFeatureState = useCallback((key: string, value: unknown) => {
-		setFeatureStateInternal(prev => ({ ...prev, [key]: value }));
+		setFeatureStateInternal((prev) => ({ ...prev, [key]: value }));
 	}, []);
 
 	const commonHeaderProps = {
@@ -124,7 +131,7 @@ export function MainContentPanel(props: MainContentPanelProps) {
 		centerContent: ReactNode,
 		viewContent: ReactNode,
 		rightActions?: ReactNode,
-		headerOverrides?: Partial<typeof commonHeaderProps>
+		headerOverrides?: Partial<typeof commonHeaderProps>,
 	) => (
 		<ViewContainer>
 			<ViewHeader
@@ -141,17 +148,14 @@ export function MainContentPanel(props: MainContentPanelProps) {
 		if (!hasDocumentation) return null;
 
 		const markdownFiles = Object.values(contentDetection.Contents)
-			.filter(bundle => bundle.type === 'markdown')
-			.flatMap(bundle => bundle.files);
+			.filter((bundle) => bundle.type === 'markdown')
+			.flatMap((bundle) => bundle.files);
 
 		if (markdownFiles.length === 0) return null;
 
 		return renderViewWithHeader(
 			<span className="text-sm font-mono text-text-50/70">Documentation</span>,
-			<MarkdownDocsPreview
-				files={markdownFiles}
-				isGenerating={isGenerating || isGeneratingBlueprint}
-			/>
+			<MarkdownDocsPreview files={markdownFiles} isGenerating={isGenerating || isGeneratingBlueprint} />,
 		);
 	};
 
@@ -188,7 +192,9 @@ export function MainContentPanel(props: MainContentPanelProps) {
 					files={allFiles}
 					activeFile={activeFile}
 					currentView={view}
-					onViewChange={(v) => onViewChange(v as 'preview' | 'editor' | 'docs' | 'blueprint' | 'presentation')}
+					onViewChange={(v) =>
+						onViewChange(v as 'preview' | 'editor' | 'docs' | 'blueprint' | 'presentation')
+					}
 					templateDetails={templateDetails}
 					modelConfigs={modelConfigs}
 					blueprint={blueprint}
@@ -228,7 +234,9 @@ export function MainContentPanel(props: MainContentPanelProps) {
 					files={allFiles}
 					activeFile={activeFile}
 					currentView={view}
-					onViewChange={(v) => onViewChange(v as 'preview' | 'editor' | 'docs' | 'blueprint' | 'presentation')}
+					onViewChange={(v) =>
+						onViewChange(v as 'preview' | 'editor' | 'docs' | 'blueprint' | 'presentation')
+					}
 					templateDetails={templateDetails}
 					modelConfigs={modelConfigs}
 					blueprint={blueprint}
@@ -260,9 +268,7 @@ export function MainContentPanel(props: MainContentPanelProps) {
 
 		return renderViewWithHeader(
 			<div className="flex items-center gap-2">
-				<span className="text-sm font-mono text-text-50/70">
-					{previewTitle}
-				</span>
+				<span className="text-sm font-mono text-text-50/70">{previewTitle}</span>
 				<Copy text={previewUrl} />
 				{showManualRefresh && (
 					<button
@@ -275,7 +281,7 @@ export function MainContentPanel(props: MainContentPanelProps) {
 				)}
 			</div>,
 			previewContent,
-			headerActions
+			headerActions,
 		);
 	};
 
@@ -287,12 +293,9 @@ export function MainContentPanel(props: MainContentPanelProps) {
 			</div>,
 			<div className="flex-1 overflow-y-auto bg-bg-3">
 				<div className="py-12 mx-auto">
-					<Blueprint
-						blueprint={blueprint ?? ({} as BlueprintType)}
-						className="w-full max-w-2xl mx-auto"
-					/>
+					<Blueprint blueprint={blueprint ?? ({} as BlueprintType)} className="w-full max-w-2xl mx-auto" />
 				</div>
-			</div>
+			</div>,
 		);
 
 	const renderEditorView = () => {
@@ -304,11 +307,7 @@ export function MainContentPanel(props: MainContentPanelProps) {
 				</div>,
 				<div className="flex-1 relative">
 					<div className="absolute inset-0 flex" ref={editorRef}>
-						<FileExplorer
-							files={allFiles}
-							currentFile={undefined}
-							onFileClick={onFileClick}
-						/>
+						<FileExplorer files={allFiles} currentFile={undefined} onFileClick={onFileClick} />
 						<div className="flex-1 flex items-center justify-center bg-bg-3">
 							<span className="text-text-50/50 text-sm">No file selected</span>
 						</div>
@@ -322,7 +321,7 @@ export function MainContentPanel(props: MainContentPanelProps) {
 					isGitHubExportReady={isGitHubExportReady}
 					onGitHubExportClick={githubExport.openModal}
 					editorRef={editorRef}
-				/>
+				/>,
 			);
 		}
 
@@ -333,11 +332,7 @@ export function MainContentPanel(props: MainContentPanelProps) {
 			</div>,
 			<div className="flex-1 relative">
 				<div className="absolute inset-0 flex" ref={editorRef}>
-					<FileExplorer
-						files={allFiles}
-						currentFile={activeFile}
-						onFileClick={onFileClick}
-					/>
+					<FileExplorer files={allFiles} currentFile={activeFile} onFileClick={onFileClick} />
 					<div className="flex-1">
 						<MonacoEditor
 							className="h-full"
@@ -366,7 +361,7 @@ export function MainContentPanel(props: MainContentPanelProps) {
 				isGitHubExportReady={isGitHubExportReady}
 				onGitHubExportClick={githubExport.openModal}
 				editorRef={editorRef}
-			/>
+			/>,
 		);
 	};
 

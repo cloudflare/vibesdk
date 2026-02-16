@@ -3,14 +3,14 @@ import type { Hono } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 import type { AppEnv } from '../types/appenv';
 
-export function sentryOptions(env: Env) : Sentry.CloudflareOptions {
-    const transportOptions: Sentry.CloudflareOptions['transportOptions'] = {};
-    if (env.CF_ACCESS_ID && env.CF_ACCESS_SECRET) {
-        transportOptions.headers = {
-            'CF-Access-Client-Id': env.CF_ACCESS_ID,
-            'CF-Access-Client-Secret': env.CF_ACCESS_SECRET,
-        };
-    }
+export function sentryOptions(env: Env): Sentry.CloudflareOptions {
+	const transportOptions: Sentry.CloudflareOptions['transportOptions'] = {};
+	if (env.CF_ACCESS_ID && env.CF_ACCESS_SECRET) {
+		transportOptions.headers = {
+			'CF-Access-Client-Id': env.CF_ACCESS_ID,
+			'CF-Access-Client-Secret': env.CF_ACCESS_SECRET,
+		};
+	}
 	return {
 		dsn: env.SENTRY_DSN,
 		release: env.CF_VERSION_METADATA.id,
@@ -18,11 +18,11 @@ export function sentryOptions(env: Env) : Sentry.CloudflareOptions {
 		enableLogs: true,
 		sendDefaultPii: true,
 		tracesSampleRate: 1.0,
-        transportOptions,
-        allowUrls: [
-            // Only capture errors from our API endpoints
-            new RegExp(`^https://${env.CUSTOM_DOMAIN.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}/api/.*$`)
-        ]
+		transportOptions,
+		allowUrls: [
+			// Only capture errors from our API endpoints
+			new RegExp(`^https://${env.CUSTOM_DOMAIN.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}/api/.*$`),
+		],
 	};
 }
 
@@ -45,7 +45,7 @@ export function initHonoSentry(app: Hono<AppEnv>): void {
 			const cfRay = c.req.header('cf-ray');
 			if (cfRay) Sentry.setTag('cf_ray', cfRay);
 		} catch {
-            console.error('Failed to set Sentry context');
+			console.error('Failed to set Sentry context');
 		}
 		return next();
 	});
@@ -62,38 +62,38 @@ export type SecurityEventType =
 export type SecuritySeverity = 'debug' | 'info' | 'warning' | 'error' | 'fatal';
 
 export interface SecurityEventOptions {
-    level?: SecuritySeverity;
-    error?: unknown;
+	level?: SecuritySeverity;
+	error?: unknown;
 }
 
 export function captureSecurityEvent(
-    type: SecurityEventType,
-    data: Record<string, unknown> = {},
-    options: SecurityEventOptions = {},
+	type: SecurityEventType,
+	data: Record<string, unknown> = {},
+	options: SecurityEventOptions = {},
 ): void {
-    try {
-        const level: SecuritySeverity = options.level ?? 'warning';
-        Sentry.withScope((scope) => {
-            scope.setTag('security_event', type);
-            scope.setContext('security', data);
-            scope.setLevel(level);
-            Sentry.addBreadcrumb({
-                category: 'security',
-                level,
-                data: { type, ...data },
-            });
-            if (options.error !== undefined) {
-                Sentry.captureException(options.error, { level, extra: data });
-            } else {
-                Sentry.captureMessage(`[security] ${type}`, level);
-            }
-        });
-    } catch {
-        // no-op: telemetry must not break the app
-        console.error('Failed to capture security event');
-    }
+	try {
+		const level: SecuritySeverity = options.level ?? 'warning';
+		Sentry.withScope((scope) => {
+			scope.setTag('security_event', type);
+			scope.setContext('security', data);
+			scope.setLevel(level);
+			Sentry.addBreadcrumb({
+				category: 'security',
+				level,
+				data: { type, ...data },
+			});
+			if (options.error !== undefined) {
+				Sentry.captureException(options.error, { level, extra: data });
+			} else {
+				Sentry.captureMessage(`[security] ${type}`, level);
+			}
+		});
+	} catch {
+		// no-op: telemetry must not break the app
+		console.error('Failed to capture security event');
+	}
 }
 
 export function captureException(error: Error): void {
-    Sentry.captureException(error);
+	Sentry.captureException(error);
 }

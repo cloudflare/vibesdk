@@ -25,8 +25,7 @@ export function getTemplatesData(): SecretTemplate[] {
 			provider: 'stripe',
 			icon: '💳',
 			description: 'Stripe secret key for payment processing',
-			instructions:
-				'Go to Stripe Dashboard → Developers → API keys → Secret key',
+			instructions: 'Go to Stripe Dashboard → Developers → API keys → Secret key',
 			placeholder: 'sk_test_... or sk_live_...',
 			validation: '^sk_(test_|live_)[a-zA-Z0-9]{48,}$',
 			required: false,
@@ -39,8 +38,7 @@ export function getTemplatesData(): SecretTemplate[] {
 			provider: 'stripe',
 			icon: '💳',
 			description: 'Stripe publishable key for frontend integration',
-			instructions:
-				'Go to Stripe Dashboard → Developers → API keys → Publishable key',
+			instructions: 'Go to Stripe Dashboard → Developers → API keys → Publishable key',
 			placeholder: 'pk_test_... or pk_live_...',
 			validation: '^pk_(test_|live_)[a-zA-Z0-9]{48,}$',
 			required: false,
@@ -55,8 +53,7 @@ export function getTemplatesData(): SecretTemplate[] {
 			provider: 'openai',
 			icon: '🤖',
 			description: 'OpenAI API key for GPT and other AI models',
-			instructions:
-				'Go to OpenAI Platform → API keys → Create new secret key',
+			instructions: 'Go to OpenAI Platform → API keys → Create new secret key',
 			placeholder: 'sk-...',
 			validation: '^sk-[a-zA-Z0-9]{48,}$',
 			required: false,
@@ -109,10 +106,8 @@ export function getTemplatesData(): SecretTemplate[] {
 			envVarName: 'OPENAI_API_KEY_BYOK',
 			provider: 'openai',
 			icon: '🤖',
-			description:
-				'Use your OpenAI API key for GPT models via Cloudflare AI Gateway',
-			instructions:
-				'Go to OpenAI Platform → API Keys → Create new secret key',
+			description: 'Use your OpenAI API key for GPT models via Cloudflare AI Gateway',
+			instructions: 'Go to OpenAI Platform → API Keys → Create new secret key',
 			placeholder: 'sk-proj-... or sk-...',
 			validation: '^sk-.{10,}$',
 			required: false,
@@ -124,8 +119,7 @@ export function getTemplatesData(): SecretTemplate[] {
 			envVarName: 'ANTHROPIC_API_KEY_BYOK',
 			provider: 'anthropic',
 			icon: '🧠',
-			description:
-				'Use your Anthropic API key for Claude models via Cloudflare AI Gateway',
+			description: 'Use your Anthropic API key for Claude models via Cloudflare AI Gateway',
 			instructions: 'Go to Anthropic Console → API Keys → Create Key',
 			placeholder: 'sk-ant-api03-...',
 			validation: '^sk-ant-.{10,}$',
@@ -138,8 +132,7 @@ export function getTemplatesData(): SecretTemplate[] {
 			envVarName: 'GOOGLE_AI_STUDIO_API_KEY_BYOK',
 			provider: 'google-ai-studio',
 			icon: '🔷',
-			description:
-				'Use your Google AI API key for Gemini models via Cloudflare AI Gateway',
+			description: 'Use your Google AI API key for Gemini models via Cloudflare AI Gateway',
 			instructions: 'Go to Google AI Studio → Get API Key',
 			placeholder: 'AIzaSy...',
 			validation: '^AIza.{20,}$',
@@ -152,8 +145,7 @@ export function getTemplatesData(): SecretTemplate[] {
 			envVarName: 'CEREBRAS_API_KEY_BYOK',
 			provider: 'cerebras',
 			icon: '🧮',
-			description:
-				'Use your Cerebras API key for high-performance inference via Cloudflare AI Gateway',
+			description: 'Use your Cerebras API key for high-performance inference via Cloudflare AI Gateway',
 			instructions: 'Go to Cerebras Platform → API Keys → Create new key',
 			placeholder: 'csk-... or any format',
 			validation: '^.{10,}$',
@@ -169,8 +161,7 @@ export function getTemplatesData(): SecretTemplate[] {
 			provider: 'github',
 			icon: '🐙',
 			description: 'GitHub token for repository operations',
-			instructions:
-				'Go to GitHub → Settings → Developer settings → Personal access tokens → Generate new token',
+			instructions: 'Go to GitHub → Settings → Developer settings → Personal access tokens → Generate new token',
 			placeholder: 'ghp_... or github_pat_...',
 			validation: '^(ghp_[a-zA-Z0-9]{36}|github_pat_[a-zA-Z0-9_]{80,})$',
 			required: false,
@@ -198,8 +189,7 @@ export function getTemplatesData(): SecretTemplate[] {
 			provider: 'supabase',
 			icon: '🗄️',
 			description: 'Supabase project URL',
-			instructions:
-				'Go to Supabase Dashboard → Settings → API → Project URL',
+			instructions: 'Go to Supabase Dashboard → Settings → API → Project URL',
 			placeholder: 'https://xxx.supabase.co',
 			validation: '^https://[a-z0-9]+\\.supabase\\.co$',
 			required: false,
@@ -212,8 +202,7 @@ export function getTemplatesData(): SecretTemplate[] {
 			provider: 'supabase',
 			icon: '🗄️',
 			description: 'Supabase anonymous/public key',
-			instructions:
-				'Go to Supabase Dashboard → Settings → API → anon public key',
+			instructions: 'Go to Supabase Dashboard → Settings → API → anon public key',
 			placeholder: 'eyJ...',
 			validation: '^eyJ[a-zA-Z0-9_-]+\\.[a-zA-Z0-9_-]+\\.[a-zA-Z0-9_-]+$',
 			required: false,
@@ -228,7 +217,5 @@ export function getTemplatesData(): SecretTemplate[] {
  * Get BYOK templates dynamically
  */
 export function getBYOKTemplates(): SecretTemplate[] {
-	return getTemplatesData().filter(
-		(template) => template.category === 'byok',
-	);
+	return getTemplatesData().filter((template) => template.category === 'byok');
 }

@@ -49,9 +49,7 @@ export function ImageAttachmentPreview({
 						)}
 						{!compact && (
 							<div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-bg-1/90 to-transparent p-1">
-								<p className="text-[10px] text-text-secondary truncate">
-									{image.filename}
-								</p>
+								<p className="text-[10px] text-text-secondary truncate">{image.filename}</p>
 							</div>
 						)}
 					</motion.div>

@@ -7,7 +7,7 @@
  *   Metadata (parent_path, is_dir, size, mtime) lives on chunk_index 0.
  */
 
-import { concatBuffers, rowDataToBytes, toBuffer,  } from '../../utils/encoding';
+import { concatBuffers, rowDataToBytes, toBuffer } from '../../utils/encoding';
 
 export type SqlValue = string | number | boolean | null | ArrayBuffer;
 
@@ -125,10 +125,7 @@ export class SqliteFS {
 	// Read
 	// ==========================================
 
-	async readFile(
-		path: string,
-		options?: { encoding?: 'utf8' }
-	): Promise<Uint8Array | string> {
+	async readFile(path: string, options?: { encoding?: 'utf8' }): Promise<Uint8Array | string> {
 		const normalized = normalizePath(path);
 
 		// Metadata check on chunk 0
@@ -136,20 +133,10 @@ export class SqliteFS {
             SELECT is_dir FROM git_objects WHERE path = ${normalized} AND chunk_index = 0
         `;
 		if (!meta[0]) {
-			throw makeErrno(
-				`ENOENT: no such file or directory, open '${path}'`,
-				'ENOENT',
-				-2,
-				path
-			);
+			throw makeErrno(`ENOENT: no such file or directory, open '${path}'`, 'ENOENT', -2, path);
 		}
 		if (meta[0].is_dir) {
-			throw makeErrno(
-				`EISDIR: illegal operation on a directory, read '${path}'`,
-				'EISDIR',
-				-21,
-				path
-			);
+			throw makeErrno(`EISDIR: illegal operation on a directory, read '${path}'`, 'EISDIR', -21, path);
 		}
 
 		// Read all chunks, ordered
@@ -160,9 +147,7 @@ export class SqliteFS {
 		const chunks = rows.map((r) => rowDataToBytes(r.data));
 		const result = concatBuffers(chunks);
 
-		return options?.encoding === 'utf8'
-			? new TextDecoder().decode(result)
-			: result;
+		return options?.encoding === 'utf8' ? new TextDecoder().decode(result) : result;
 	}
 
 	// ==========================================
@@ -173,20 +158,14 @@ export class SqliteFS {
 		const normalized = normalizePath(path);
 		if (!normalized) throw new Error('Cannot write to root');
 
-		const bytes =
-			typeof data === 'string' ? new TextEncoder().encode(data) : data;
+		const bytes = typeof data === 'string' ? new TextEncoder().encode(data) : data;
 
 		// Guard: can't overwrite a directory
 		const existing = this.sql<{ is_dir: number }>`
             SELECT is_dir FROM git_objects WHERE path = ${normalized} AND chunk_index = 0
         `;
 		if (existing[0]?.is_dir === 1) {
-			throw makeErrno(
-				`EISDIR: illegal operation on a directory, open '${path}'`,
-				'EISDIR',
-				-21,
-				path
-			);
+			throw makeErrno(`EISDIR: illegal operation on a directory, open '${path}'`, 'EISDIR', -21, path);
 		}
 
 		// Ensure parent directories exist
@@ -235,20 +214,10 @@ export class SqliteFS {
             SELECT is_dir FROM git_objects WHERE path = ${normalized} AND chunk_index = 0
         `;
 		if (!existing[0]) {
-			throw makeErrno(
-				`ENOENT: no such file or directory, unlink '${path}'`,
-				'ENOENT',
-				-2,
-				path
-			);
+			throw makeErrno(`ENOENT: no such file or directory, unlink '${path}'`, 'ENOENT', -2, path);
 		}
 		if (existing[0].is_dir === 1) {
-			throw makeErrno(
-				`EPERM: operation not permitted, unlink '${path}'`,
-				'EPERM',
-				-1,
-				path
-			);
+			throw makeErrno(`EPERM: operation not permitted, unlink '${path}'`, 'EPERM', -1, path);
 		}
 
 		// Removes all chunks
@@ -266,20 +235,10 @@ export class SqliteFS {
             SELECT is_dir FROM git_objects WHERE path = ${normalized} AND chunk_index = 0
         `;
 		if (!dirCheck[0]) {
-			throw makeErrno(
-				`ENOENT: no such file or directory, scandir '${path}'`,
-				'ENOENT',
-				-2,
-				path
-			);
+			throw makeErrno(`ENOENT: no such file or directory, scandir '${path}'`, 'ENOENT', -2, path);
 		}
 		if (!dirCheck[0].is_dir) {
-			throw makeErrno(
-				`ENOTDIR: not a directory, scandir '${path}'`,
-				'ENOTDIR',
-				-20,
-				path
-			);
+			throw makeErrno(`ENOTDIR: not a directory, scandir '${path}'`, 'ENOTDIR', -20, path);
 		}
 
 		const rows = this.sql<{ path: string }>`
@@ -306,12 +265,7 @@ export class SqliteFS {
                 SELECT is_dir FROM git_objects WHERE path = ${parentPath} AND chunk_index = 0
             `;
 			if (!parent[0] || parent[0].is_dir !== 1) {
-				throw makeErrno(
-					`ENOENT: no such file or directory, mkdir '${path}'`,
-					'ENOENT',
-					-2,
-					path
-				);
+				throw makeErrno(`ENOENT: no such file or directory, mkdir '${path}'`, 'ENOENT', -2, path);
 			}
 		}
 
@@ -320,12 +274,7 @@ export class SqliteFS {
         `;
 		if (existing[0]) {
 			if (existing[0].is_dir === 1) return; // already exists
-			throw makeErrno(
-				`EEXIST: file already exists, mkdir '${path}'`,
-				'EEXIST',
-				-17,
-				path
-			);
+			throw makeErrno(`EEXIST: file already exists, mkdir '${path}'`, 'EEXIST', -17, path);
 		}
 
 		const parentPath = parts.length > 1 ? parts.slice(0, -1).join('/') : '';
@@ -342,32 +291,17 @@ export class SqliteFS {
             SELECT is_dir FROM git_objects WHERE path = ${normalized} AND chunk_index = 0
         `;
 		if (!existing[0]) {
-			throw makeErrno(
-				`ENOENT: no such file or directory, rmdir '${path}'`,
-				'ENOENT',
-				-2,
-				path
-			);
+			throw makeErrno(`ENOENT: no such file or directory, rmdir '${path}'`, 'ENOENT', -2, path);
 		}
 		if (existing[0].is_dir !== 1) {
-			throw makeErrno(
-				`ENOTDIR: not a directory, rmdir '${path}'`,
-				'ENOTDIR',
-				-20,
-				path
-			);
+			throw makeErrno(`ENOTDIR: not a directory, rmdir '${path}'`, 'ENOTDIR', -20, path);
 		}
 
 		const children = this.sql<{ path: string }>`
             SELECT path FROM git_objects WHERE parent_path = ${normalized} AND chunk_index = 0 LIMIT 1
         `;
 		if (children.length > 0) {
-			throw makeErrno(
-				`ENOTEMPTY: directory not empty, rmdir '${path}'`,
-				'ENOTEMPTY',
-				-39,
-				path
-			);
+			throw makeErrno(`ENOTEMPTY: directory not empty, rmdir '${path}'`, 'ENOTEMPTY', -39, path);
 		}
 
 		void this.sql`DELETE FROM git_objects WHERE path = ${normalized}`;
@@ -402,17 +336,12 @@ export class SqliteFS {
 		}>`SELECT data, mtime, is_dir, size FROM git_objects WHERE path = ${normalized} AND chunk_index = 0`;
 
 		if (!result[0]) {
-			throw makeErrno(
-				`ENOENT: no such file or directory, stat '${path}'`,
-				'ENOENT',
-				-2,
-				path
-			);
+			throw makeErrno(`ENOENT: no such file or directory, stat '${path}'`, 'ENOENT', -2, path);
 		}
 
 		const row = result[0];
 		const isDir = row.is_dir === 1;
-        
+
 		let size = row.size;
 		// Resolve size: stored size for new writes, computed for legacy data
 		if (!isDir && size === 0 && row.data != null) {
@@ -424,7 +353,7 @@ export class SqliteFS {
 				size = Math.floor((row.data.length * 3) / 4) - padding;
 			}
 		}
-        
+
 		return {
 			type: isDir ? 'dir' : 'file',
 			mode: isDir ? 0o040755 : 0o100644,
@@ -474,7 +403,14 @@ export class SqliteFS {
 		const newParts = newNorm.split('/');
 		const newParent = newParts.length > 1 ? newParts.slice(0, -1).join('/') : '';
 
-		const rows = this.sql<{ data: ArrayBuffer | null; chunk_index: number; parent_path: string; is_dir: number; size: number; mtime: number }>`
+		const rows = this.sql<{
+			data: ArrayBuffer | null;
+			chunk_index: number;
+			parent_path: string;
+			is_dir: number;
+			size: number;
+			mtime: number;
+		}>`
 			SELECT data, chunk_index, parent_path, is_dir, size, mtime FROM git_objects WHERE path = ${oldNorm} ORDER BY chunk_index ASC
 		`;
 
@@ -483,7 +419,7 @@ export class SqliteFS {
 				`ENOENT: no such file or directory, rename '${oldPath}' -> '${newPath}'`,
 				'ENOENT',
 				-2,
-				oldPath
+				oldPath,
 			);
 		}
 
@@ -590,9 +526,7 @@ export class SqliteFS {
 		return {
 			totalObjects: stats[0]?.total_files ?? 0,
 			totalBytes: stats[0]?.total_bytes ?? 0,
-			largestObject: largest[0]
-				? { path: largest[0].path, size: largest[0].total_size }
-				: null,
+			largestObject: largest[0] ? { path: largest[0].path, size: largest[0].total_size } : null,
 		};
 	}
 }

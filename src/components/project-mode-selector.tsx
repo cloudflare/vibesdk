@@ -41,9 +41,7 @@ export function ProjectModeSelector({
 							className={
 								`relative px-3 py-1.5 text-sm font-normal transition-all duration-200 ease-out ` +
 								(disabled ? 'opacity-50 cursor-not-allowed ' : 'cursor-pointer ') +
-								(isSelected
-									? 'text-text-primary'
-									: 'text-text-primary/40 hover:text-text-primary/70')
+								(isSelected ? 'text-text-primary' : 'text-text-primary/40 hover:text-text-primary/70')
 							}
 						>
 							{mode.label}
@@ -57,13 +55,10 @@ export function ProjectModeSelector({
 								</div>
 							)}
 						</button>
-						{index < modes.length - 1 && (
-							<div className="w-1 h-1 rounded-full bg-text-primary/10" />
-						)}
+						{index < modes.length - 1 && <div className="w-1 h-1 rounded-full bg-text-primary/10" />}
 					</div>
 				);
 			})}
 		</div>
 	);
 }
-

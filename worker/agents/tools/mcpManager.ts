@@ -27,9 +27,7 @@ export class MCPManager {
 		logger.info('Initializing MCP manager...');
 		for (const serverConfig of MCP_SERVERS) {
 			try {
-				const transport = new SSEClientTransport(
-					new URL(serverConfig.sseUrl),
-				);
+				const transport = new SSEClientTransport(new URL(serverConfig.sseUrl));
 
 				const client = new Client(
 					{
@@ -40,9 +38,9 @@ export class MCPManager {
 						capabilities: {},
 					},
 				);
-                logger.info(`Connecting to MCP server ${serverConfig.name}, ${serverConfig.sseUrl}`);
-				await client.connect(transport, {timeout: 500, maxTotalTimeout: 500});
-                logger.info(`Connected to MCP server ${serverConfig.name}`);
+				logger.info(`Connecting to MCP server ${serverConfig.name}, ${serverConfig.sseUrl}`);
+				await client.connect(transport, { timeout: 500, maxTotalTimeout: 500 });
+				logger.info(`Connected to MCP server ${serverConfig.name}`);
 				this.clients.set(serverConfig.name, client);
 
 				const toolsResult = await client.listTools();
@@ -57,17 +55,12 @@ export class MCPManager {
 					`Connected to MCP server ${serverConfig.name}, found ${toolsResult?.tools?.length || 0} tools`,
 				);
 			} catch (error) {
-				logger.error(
-					`Failed to connect to MCP server ${serverConfig.name}:`,
-					error,
-				);
+				logger.error(`Failed to connect to MCP server ${serverConfig.name}:`, error);
 			}
 		}
 
 		this.initialized = true;
-		logger.info(
-			`MCP manager initialized with ${this.clients.size} active connections`,
-		);
+		logger.info(`MCP manager initialized with ${this.clients.size} active connections`);
 	}
 
 	async getToolDefinitions() {
@@ -102,10 +95,7 @@ export class MCPManager {
 		return allTools;
 	}
 
-	async executeTool(
-		toolName: string,
-		args: Record<string, unknown>,
-	): Promise<string> {
+	async executeTool(toolName: string, args: Record<string, unknown>): Promise<string> {
 		await this.initialize();
 
 		const serverName = this.toolMap.get(toolName);

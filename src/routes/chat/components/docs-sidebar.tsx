@@ -18,9 +18,7 @@ interface FileNode {
 }
 
 export function DocsSidebar({ files, activeFile, onFileSelect }: DocsSidebarProps) {
-	const [expandedFolders, setExpandedFolders] = useState<Set<string>>(
-		new Set(['docs', 'documentation', '.'])
-	);
+	const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set(['docs', 'documentation', '.']));
 
 	// Build file tree from flat list
 	const fileTree = buildFileTree(files);
@@ -96,10 +94,7 @@ function TreeNode({
 					style={{ paddingLeft: `${depth * 12 + 12}px` }}
 				>
 					<ChevronRight
-						className={clsx(
-							'size-3 transition-transform flex-shrink-0',
-							isExpanded && 'rotate-90'
-						)}
+						className={clsx('size-3 transition-transform flex-shrink-0', isExpanded && 'rotate-90')}
 					/>
 					{isExpanded ? (
 						<FolderOpen className="size-4 flex-shrink-0 text-accent" />
@@ -134,15 +129,13 @@ function TreeNode({
 				'w-full flex items-center gap-2 px-3 py-1.5 transition-colors text-sm',
 				isActive
 					? 'bg-accent/10 text-accent border-l-2 border-accent'
-					: 'hover:bg-bg-3 text-text-secondary hover:text-text-primary border-l-2 border-transparent'
+					: 'hover:bg-bg-3 text-text-secondary hover:text-text-primary border-l-2 border-transparent',
 			)}
 			style={{ paddingLeft: `${depth * 12 + 12}px` }}
 		>
 			<FileText className="size-4 flex-shrink-0" />
 			<span className="truncate flex-1 text-left">{node.name}</span>
-			{isGenerating && (
-				<Loader className="size-3 animate-spin text-accent flex-shrink-0" />
-			)}
+			{isGenerating && <Loader className="size-3 animate-spin text-accent flex-shrink-0" />}
 		</button>
 	);
 }
@@ -170,9 +163,7 @@ function buildFileTree(files: FileType[]): FileNode[] {
 			const part = parts[i];
 			const path = parts.slice(0, i + 1).join('/');
 
-			let childNode = currentNode.children?.find(
-				(n) => n.name === part && n.isDirectory
-			);
+			let childNode = currentNode.children?.find((n) => n.name === part && n.isDirectory);
 
 			if (!childNode) {
 				childNode = {

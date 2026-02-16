@@ -8,24 +8,28 @@ type CompletionResult = {
 };
 
 export function createMarkGenerationCompleteTool(
-    agent: ICodingAgent,
-	logger: StructuredLogger
+	agent: ICodingAgent,
+	logger: StructuredLogger,
 ): ToolDefinition<{ summary: string; filesGenerated: number }, CompletionResult> {
 	return tool({
 		name: 'mark_generation_complete',
 		description: `Signal that initial project generation is complete and ready for the user to review and get feedback. After calling this tool, control would be handed over to the user.`,
 		args: {
-			summary: t.string().describe('Brief summary of what was built (2-3 sentences max). Describe the key features and functionality implemented.'),
+			summary: t
+				.string()
+				.describe(
+					'Brief summary of what was built (2-3 sentences max). Describe the key features and functionality implemented.',
+				),
 			filesGenerated: t.number().describe('Total count of files generated during this build session'),
 		},
 		run: async ({ summary, filesGenerated }) => {
 			logger.info('Generation marked complete', {
 				summary,
 				filesGenerated,
-				timestamp: new Date().toISOString()
+				timestamp: new Date().toISOString(),
 			});
-            
-            agent.setMVPGenerated();
+
+			agent.setMVPGenerated();
 
 			return {
 				acknowledged: true as const,
@@ -36,7 +40,7 @@ export function createMarkGenerationCompleteTool(
 }
 
 export function createMarkDebuggingCompleteTool(
-	logger: StructuredLogger
+	logger: StructuredLogger,
 ): ToolDefinition<{ summary: string; issuesFixed: number }, CompletionResult> {
 	return tool({
 		name: 'mark_debugging_complete',
@@ -50,14 +54,18 @@ DO NOT call this tool if you are still investigating issues or in the process of
 
 Once you call this tool, make NO further tool calls. The system will stop immediately.`,
 		args: {
-			summary: t.string().describe('Brief summary of what was fixed (2-3 sentences max). Describe the issues resolved and verification performed.'),
+			summary: t
+				.string()
+				.describe(
+					'Brief summary of what was fixed (2-3 sentences max). Describe the issues resolved and verification performed.',
+				),
 			issuesFixed: t.number().describe('Count of issues successfully resolved'),
 		},
 		run: async ({ summary, issuesFixed }) => {
 			logger.info('Debugging marked complete', {
 				summary,
 				issuesFixed,
-				timestamp: new Date().toISOString()
+				timestamp: new Date().toISOString(),
 			});
 
 			return {
