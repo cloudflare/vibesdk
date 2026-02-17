@@ -414,7 +414,12 @@ export class PhasicCodingBehavior extends BaseCodingBehavior<PhasicState> implem
 
             const phasesCounter = this.decrementPhasesCounter();
 
-            if ((phaseConcept.lastPhase || phasesCounter <= 0) && this.state.pendingUserInputs.length === 0) return {currentDevState: CurrentDevState.FINALIZING};
+            // Determine last phase deterministically based on roadmap completion, not LLM output
+            const completedPhasesCount = this.state.generatedPhases.filter(p => p.completed).length;
+            const roadmapLength = this.state.blueprint.implementationRoadmap?.length ?? 0;
+            const isRoadmapComplete = roadmapLength > 0 && completedPhasesCount >= roadmapLength;
+
+            if ((isRoadmapComplete || phasesCounter <= 0) && this.state.pendingUserInputs.length === 0) return {currentDevState: CurrentDevState.FINALIZING};
             return {currentDevState: CurrentDevState.PHASE_GENERATING};
         } catch (error) {
             this.logger.error("Error implementing phase", error);
