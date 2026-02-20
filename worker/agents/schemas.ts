@@ -114,6 +114,19 @@ export const PhasicBlueprintSchema = SimpleBlueprintSchema.extend({
     initialPhase: PhaseConceptSchema.describe('The first phase to be implemented, in **STRICT** accordance with <PHASE GENERATION STRATEGY>'),
 });
 
+export const LitePhasicBlueprintSchema = SimpleBlueprintSchema.extend({
+    detailedDescription: z.string().describe('2-3 sentence description of what the application does and how it works'),
+    views: z.array(z.object({
+        name: z.string().describe('Name of the view'),
+        description: z.string().describe('One-sentence description of the view'),
+    })).describe('Views of the application'),
+    userFlow: z.string().describe('Concise description of UI layout, design, and user journey in one paragraph'),
+    dataFlow: z.string().describe('Brief description of how data flows through the application'),
+    pitfalls: z.array(z.string()).describe('Max 5 domain-specific pitfalls, one line each'),
+    frameworks: z.array(z.string()).describe('Essential frameworks and dependencies (apart from template), major versions only'),
+    initialPhase: PhaseConceptSchema.describe('The first phase to be implemented, in **STRICT** accordance with <PHASE GENERATION STRATEGY>'),
+});
+
 export const AgenticBlueprintSchema = SimpleBlueprintSchema.extend({
     plan: z.array(z.string()).describe('Step by step plan for implementing the project'),
 });
@@ -139,6 +152,7 @@ export const ScreenshotAnalysisSchema = z.object({
 
 export type TemplateSelection = z.infer<typeof TemplateSelectionSchema>;
 export type PhasicBlueprint = z.infer<typeof PhasicBlueprintSchema>;
+export type LitePhasicBlueprint = z.infer<typeof LitePhasicBlueprintSchema>;
 export type AgenticBlueprint = z.infer<typeof AgenticBlueprintSchema>;
 export type FileConceptType = z.infer<typeof FileConceptSchema>;
 export type PhaseConceptType = z.infer<typeof PhaseConceptSchema>;
