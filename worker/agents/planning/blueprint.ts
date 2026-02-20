@@ -1,7 +1,7 @@
 import { TemplateDetails, TemplateFileSchema } from '../../services/sandbox/sandboxTypes'; // Import the type
 import { STRATEGIES, PROMPT_UTILS, generalSystemPromptBuilder } from '../prompts';
 import { executeInference } from '../inferutils/infer';
-import { PhasicBlueprint, AgenticBlueprint, PhasicBlueprintSchema, AgenticBlueprintSchema, TemplateSelection, Blueprint } from '../schemas';
+import { PhasicBlueprint, LitePhasicBlueprint, AgenticBlueprint, PhasicBlueprintSchema, LitePhasicBlueprintSchema, AgenticBlueprintSchema, TemplateSelection, Blueprint } from '../schemas';
 import { createLogger } from '../../logger';
 import { createSystemMessage, createUserMessage, createMultiModalUserMessage } from '../inferutils/common';
 import { InferenceContext } from '../inferutils/config.types';
@@ -230,6 +230,78 @@ Preinstalled dependencies:
 {{dependencies}}
 </STARTING TEMPLATE>`;
 
+const LITE_PHASIC_SYSTEM_PROMPT = `<ROLE>
+    You are a Senior Software Architect at Cloudflare specializing in rapid prototyping.
+</ROLE>
+
+<TASK>
+    Create a concise, information-dense blueprint for a web application. Keep the total blueprint under 800 words.
+    The project is built on Cloudflare Workers, seeded from a starting template.
+    Be creative but practical. Keep complexity proportional to the request.
+</TASK>
+
+<GOAL>
+    - A professional project name
+    - A brief description
+    - A simple color palette (2-3 colors)
+    - Essential frameworks needed beyond the template
+    - A concise UI/UX description and user flow
+    - Key pitfalls to avoid (max 5)
+    - The initial implementation phase with file list
+    Build upon the provided template. Use existing components and patterns.
+</GOAL>
+
+<INSTRUCTIONS>
+    ${PROMPT_UTILS.UI_NON_NEGOTIABLES_V3}
+
+    ## Frameworks & Dependencies
+    - Choose libraries that work out-of-the-box without API keys
+    - Keep simple applications simple: 1-2 files with minimal abstraction
+    - Build upon the template's existing dependencies
+
+    ## Visual Assets
+    Use external image URLs (unsplash.com, placehold.co), canvas, inline SVG, or icon libraries.
+    Never reference .png/.jpg/.svg/.gif files in the phase file list.
+</INSTRUCTIONS>
+
+${STRATEGIES.FRONTEND_FIRST_PLANNING}
+
+<STARTING TEMPLATE>
+{{template}}
+
+<TEMPLATE_CORE_FILES>
+{{filesText}}
+</TEMPLATE_CORE_FILES>
+
+<TEMPLATE_FILE_TREE>
+{{fileTreeText}}
+</TEMPLATE_FILE_TREE>
+
+Preinstalled dependencies:
+{{dependencies}}
+</STARTING TEMPLATE>`;
+
+/**
+ * Convert a LitePhasicBlueprint to a full PhasicBlueprint by filling defaults for omitted fields.
+ */
+function liteToPhasicBlueprint(lite: LitePhasicBlueprint): PhasicBlueprint {
+    return {
+        ...lite,
+        detailedDescription: lite.detailedDescription,
+        views: lite.views,
+        userFlow: {
+            uiLayout: lite.userFlow,
+            uiDesign: '',
+            userJourney: '',
+        },
+        dataFlow: lite.dataFlow,
+        architecture: { dataFlow: lite.dataFlow },
+        pitfalls: lite.pitfalls,
+        implementationRoadmap: [],
+        initialPhase: lite.initialPhase,
+    };
+}
+
 const PROJECT_TYPE_BLUEPRINT_GUIDANCE: Record<ProjectType, string> = {
     app: '',
     workflow: `## Workflow Project Context
@@ -292,9 +364,14 @@ export async function generateBlueprint(
         logger.info(`Generating ${isAgentic ? 'agentic' : 'phasic'} blueprint`, { query, queryLength: query.length, imagesCount: images?.length || 0 });
         if (templateDetails) logger.info(`Using template: ${templateDetails.name}`);
 
-        // Select prompt and schema based on behavior type
-        const systemPromptTemplate = isAgentic ? SIMPLE_SYSTEM_PROMPT : PHASIC_SYSTEM_PROMPT;
-        const schema = isAgentic ? AgenticBlueprintSchema : PhasicBlueprintSchema;
+        // Select prompt and schema based on behavior type and template
+        const isLiteTemplate = !isAgentic && templateDetails?.name?.includes('minimal');
+        const systemPromptTemplate = isAgentic
+            ? SIMPLE_SYSTEM_PROMPT
+            : isLiteTemplate ? LITE_PHASIC_SYSTEM_PROMPT : PHASIC_SYSTEM_PROMPT;
+        const schema = isAgentic
+            ? AgenticBlueprintSchema
+            : isLiteTemplate ? LitePhasicBlueprintSchema : PhasicBlueprintSchema;
         
         // Build system prompt with template context (if provided)
         let systemPrompt = systemPromptTemplate;
@@ -345,6 +422,11 @@ export async function generateBlueprint(
 
         // Filter out PDF files from phasic blueprints
         if (results && !isAgentic) {
+            if (isLiteTemplate) {
+                const liteResults = results as LitePhasicBlueprint;
+                liteResults.initialPhase.files = liteResults.initialPhase.files.filter(f => !f.path.endsWith('.pdf'));
+                return liteToPhasicBlueprint(liteResults);
+            }
             const phasicResults = results as PhasicBlueprint;
             phasicResults.initialPhase.files = phasicResults.initialPhase.files.filter(f => !f.path.endsWith('.pdf'));
         }
