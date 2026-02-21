@@ -2113,7 +2113,12 @@ async function main() {
 	await setup.setup();
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+// Run if this is the main module (supports both direct execution and tsx)
+const isMainModule = import.meta.url.endsWith('setup.ts') ||
+	import.meta.url === `file://${process.argv[1]}` ||
+	process.argv[1]?.endsWith('setup.ts');
+
+if (isMainModule) {
 	main().catch((error) => {
 		console.error('Setup failed:', error);
 		process.exit(1);
