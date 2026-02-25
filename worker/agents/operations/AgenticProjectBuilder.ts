@@ -58,6 +58,7 @@ export interface AgenticBuilderSession extends ToolSession {
     fileSummaries: string;
     hasFiles: boolean;
     hasPlan: boolean;
+    renderMode?: 'sandbox' | 'browser';
 }
 
 /**
@@ -157,8 +158,10 @@ export class AgenticProjectBuilderOperation extends AgentOperationWithTools<
         const hasMD = filesIndex?.some(f => /\.(md|mdx)$/i.test(f.filePath)) || false;
         const hasPlan = isAgenticBlueprint(blueprint) && blueprint.plan.length > 0;
         const hasTemplate = !!selectedTemplate;
+        const renderMode = context.templateDetails?.renderMode;
         const isPresentationProject = projectType === 'presentation';
-        const needsSandbox = !isPresentationProject && (hasTSX || projectType === 'app');
+        const isBrowserRendered = !isPresentationProject && renderMode === 'browser';
+        const needsSandbox = !isPresentationProject && !isBrowserRendered && (hasTSX || projectType === 'app');
 
         const dynamicHints = [
             !hasPlan
@@ -170,7 +173,13 @@ export class AgenticProjectBuilderOperation extends AgentOperationWithTools<
             isPresentationProject && !hasTemplate
                 ? '- Presentation project detected: Use init_suitable_template() to select presentation template, then create stunning slides with unique design.'
                 : '',
-            hasTSX && !isPresentationProject
+            isBrowserRendered && !hasTemplate
+                ? '- Browser-rendered project without template: Use init_suitable_template() to get the minimal browser template.'
+                : '',
+            isBrowserRendered
+                ? '- Browser-rendered mode: deploy_preview serves files directly to browser. No run_analysis, get_runtime_errors, get_logs, or exec_commands available.'
+                : '',
+            hasTSX && !isPresentationProject && !isBrowserRendered
                 ? '- UI detected: Use deploy_preview to verify runtime; then run_analysis for quick feedback.'
                 : '',
             isPresentationProject
@@ -193,6 +202,7 @@ export class AgenticProjectBuilderOperation extends AgentOperationWithTools<
             fileSummaries,
             hasFiles,
             hasPlan,
+            renderMode,
         };
     }
 
@@ -213,7 +223,7 @@ export class AgenticProjectBuilderOperation extends AgentOperationWithTools<
             });
         }
 
-        let systemPrompt = getSystemPrompt(inputs.projectType, session.dynamicHints);
+        let systemPrompt = getSystemPrompt(inputs.projectType, session.dynamicHints, session.renderMode);
 
         if (historyMessages.length > 0) {
             systemPrompt += `\n\n# Conversation History\nYou are being provided with the full conversation history from your previous interactions. Review it to understand context and avoid repeating work.`;
@@ -242,6 +252,9 @@ export class AgenticProjectBuilderOperation extends AgentOperationWithTools<
         const toolRenderer = callbacks.toolRenderer;
         const onToolComplete = callbacks.onToolComplete;
 
+        const isBrowserRendered = session.renderMode === 'browser'
+            && inputs.projectType !== 'presentation';
+
         let rawTools : ToolDefinition<any, any>[] = [
             // PRD generation + refinement
             createGenerateBlueprintTool(session.agent, logger),
@@ -251,18 +264,24 @@ export class AgenticProjectBuilderOperation extends AgentOperationWithTools<
             // Build + analysis toolchain
             createGenerateFilesTool(session.agent, logger),
             createRegenerateFileTool(session.agent, logger),
-            createRunAnalysisTool(session.agent, logger),
             // Runtime + deploy
             createDeployPreviewTool(session.agent, logger),
-            createGetRuntimeErrorsTool(session.agent, logger),
-            createGetLogsTool(session.agent, logger),
             // Utilities
-            createExecCommandsTool(session.agent, logger),
             createWaitTool(logger),
             createGitTool(session.agent, logger),
             // WIP: images
             createGenerateImagesTool(session.agent, logger),
         ];
+
+        // Sandbox-only tools — not available for browser-rendered projects
+        if (!isBrowserRendered) {
+            rawTools.push(
+                createRunAnalysisTool(session.agent, logger),
+                createGetRuntimeErrorsTool(session.agent, logger),
+                createGetLogsTool(session.agent, logger),
+                createExecCommandsTool(session.agent, logger),
+            );
+        }
 
         if (!inputs.selectedTemplate || inputs.selectedTemplate === 'scratch') {
             rawTools.push(createInitSuitableTemplateTool(session.agent, logger));

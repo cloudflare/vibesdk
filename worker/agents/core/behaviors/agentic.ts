@@ -10,7 +10,7 @@ import { AgenticProjectBuilderOperation, AgenticProjectBuilderInputs } from '../
 import { buildToolCallRenderer } from '../../operations/UserConversationProcessor';
 import { PhaseGenerationOperation } from '../../operations/PhaseGeneration';
 import { FastCodeFixerOperation } from '../../operations/PostPhaseCodeFixer';
-import { customizeTemplateFiles, generateProjectName } from '../../utils/templateCustomizer';
+import { generateProjectName } from '../../utils/templateCustomizer';
 import { IdGenerator } from '../../utils/idGenerator';
 import { generateNanoId } from '../../../utils/idGenerator';
 import { BaseCodingBehavior, BaseCodingOperations } from './base';
@@ -94,33 +94,7 @@ export class AgenticCodingBehavior extends BaseCodingBehavior<AgenticState> impl
         });
         
         if (templateInfo && templateInfo.templateDetails.name !== 'scratch') {
-            // Customize template files (package.json, wrangler.jsonc, .bootstrap.js, .gitignore)
-            const customizedFiles = customizeTemplateFiles(
-                templateInfo.templateDetails.allFiles,
-                {
-                    projectName,
-                    commandsHistory: [] // Empty initially, will be updated later
-                }
-            );
-            
-            this.logger.info('Customized template files', { 
-                files: Object.keys(customizedFiles) 
-            });
-            
-            // Save customized files to git
-            const filesToSave = Object.entries(customizedFiles).map(([filePath, content]) => ({
-                filePath,
-                fileContents: content,
-                filePurpose: 'Project configuration file'
-            }));
-            
-            await this.fileManager.saveGeneratedFiles(
-                filesToSave,
-                'Initialize project configuration files',
-                true
-            );
-            
-            this.logger.info('Committed customized template files to git');
+            await this.saveTemplateFilesToVFS(templateInfo.templateDetails, projectName);
             this.deployToSandbox();
         }
         this.logger.info(`Agent ${this.getAgentId()} session: ${this.state.sessionId} initialized successfully`);
@@ -356,6 +330,7 @@ export class AgenticCodingBehavior extends BaseCodingBehavior<AgenticState> impl
                 blueprint: this.state.blueprint,
                 filesIndex: Object.values(this.state.generatedFilesMap),
                 projectType: this.state.projectType || 'app',
+                selectedTemplate: this.state.templateName || undefined,
                 operationalMode: this.isMVPGenerated() ? 'followup' : 'initial',
                 conversationHistory,
                 streamCb: (chunk: string) => {
