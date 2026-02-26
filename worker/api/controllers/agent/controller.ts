@@ -176,6 +176,7 @@ export class CodingAgentController extends BaseController {
                 onBlueprintChunk: (chunk: string) => {
                     writer.write({chunk});
                 },
+                preflightQuestions: body.preflightQuestions,
             } as const;
 
             const initArgs = { ...baseInitArgs, templateInfo: { templateDetails, selection } }

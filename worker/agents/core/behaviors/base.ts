@@ -258,6 +258,13 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
         return this.deploymentManager.getClient();
     }
 
+    setPreflightCompleted(value: boolean): void {
+        this.setState({
+            ...this.state,
+            preflightCompleted: value,
+        });
+    }
+
     isCodeGenerating(): boolean {
         return this.generationPromise !== null;
     }

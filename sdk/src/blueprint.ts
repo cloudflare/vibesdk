@@ -12,6 +12,7 @@ export type Blueprint = {
 	views?: Array<{ name: string; description: string }>;
 	plan?: string[];
 	implementationRoadmap?: Array<{ phase: string; description: string }>;
+	preflightAnswers?: Array<{ question: string; answer: string }>;
 };
 
 /**
@@ -49,6 +50,11 @@ export function blueprintToMarkdown(bp: Blueprint): string {
 		lines.push('');
 		lines.push('## Roadmap');
 		for (const p of bp.implementationRoadmap) lines.push(`- **${p.phase}**: ${p.description}`);
+	}
+	if (bp.preflightAnswers?.length) {
+		lines.push('');
+		lines.push('## Preflight Answers');
+		for (const a of bp.preflightAnswers) lines.push(`- **${a.question}**: ${a.answer}`);
 	}
 	return lines.join('\n');
 }

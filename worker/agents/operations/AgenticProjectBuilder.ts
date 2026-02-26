@@ -42,6 +42,8 @@ export interface AgenticProjectBuilderInputs {
     selectedTemplate?: string;
     operationalMode: 'initial' | 'followup';
     conversationHistory?: ConversationMessage[];
+    preflightQuestions?: string;
+    preflightCompleted?: boolean;
     streamCb?: (chunk: string) => void;
     toolRenderer: RenderToolCall;
     onToolComplete?: (message: Message) => Promise<void>;
@@ -59,6 +61,8 @@ export interface AgenticBuilderSession extends ToolSession {
     hasFiles: boolean;
     hasPlan: boolean;
     renderMode?: 'sandbox' | 'browser';
+    preflightQuestions?: string;
+    preflightCompleted?: boolean;
 }
 
 /**
@@ -203,6 +207,8 @@ export class AgenticProjectBuilderOperation extends AgentOperationWithTools<
             hasFiles,
             hasPlan,
             renderMode,
+            preflightQuestions: inputs.preflightQuestions,
+            preflightCompleted: inputs.preflightCompleted,
         };
     }
 
@@ -223,7 +229,14 @@ export class AgenticProjectBuilderOperation extends AgentOperationWithTools<
             });
         }
 
-        let systemPrompt = getSystemPrompt(inputs.projectType, session.dynamicHints, session.renderMode, inputs.operationalMode);
+        let systemPrompt = getSystemPrompt(
+            inputs.projectType,
+            session.dynamicHints,
+            session.renderMode,
+            inputs.operationalMode,
+            session.preflightQuestions,
+            session.preflightCompleted,
+        );
 
         if (historyMessages.length > 0) {
             systemPrompt += `\n\n# Conversation History\nYou are being provided with the full conversation history from your previous interactions. Review it to understand context and avoid repeating work.`;
