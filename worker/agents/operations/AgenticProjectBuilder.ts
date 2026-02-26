@@ -223,7 +223,7 @@ export class AgenticProjectBuilderOperation extends AgentOperationWithTools<
             });
         }
 
-        let systemPrompt = getSystemPrompt(inputs.projectType, session.dynamicHints, session.renderMode);
+        let systemPrompt = getSystemPrompt(inputs.projectType, session.dynamicHints, session.renderMode, inputs.operationalMode);
 
         if (historyMessages.length > 0) {
             systemPrompt += `\n\n# Conversation History\nYou are being provided with the full conversation history from your previous interactions. Review it to understand context and avoid repeating work.`;
@@ -254,6 +254,7 @@ export class AgenticProjectBuilderOperation extends AgentOperationWithTools<
 
         const isBrowserRendered = session.renderMode === 'browser'
             && inputs.projectType !== 'presentation';
+        const isInitialBrowserRendered = isBrowserRendered && inputs.operationalMode === 'initial';
 
         let rawTools : ToolDefinition<any, any>[] = [
             // PRD generation + refinement
@@ -263,7 +264,6 @@ export class AgenticProjectBuilderOperation extends AgentOperationWithTools<
             createVirtualFilesystemTool(session.agent, logger),
             // Build + analysis toolchain
             createGenerateFilesTool(session.agent, logger),
-            createRegenerateFileTool(session.agent, logger),
             // Runtime + deploy
             createDeployPreviewTool(session.agent, logger),
             // Utilities
@@ -272,6 +272,11 @@ export class AgenticProjectBuilderOperation extends AgentOperationWithTools<
             // WIP: images
             createGenerateImagesTool(session.agent, logger),
         ];
+
+        // regenerate_file available for followup browser-rendered and all non-browser projects
+        if (!isInitialBrowserRendered) {
+            rawTools.push(createRegenerateFileTool(session.agent, logger));
+        }
 
         // Sandbox-only tools — not available for browser-rendered projects
         if (!isBrowserRendered) {

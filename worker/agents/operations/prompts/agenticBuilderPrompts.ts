@@ -72,8 +72,8 @@ ${sections.deploymentTools}
 </tools>`;
 };
 
-const getSystemPrompt = (projectType: ProjectType, dynamicHints: string, renderMode?: 'sandbox' | 'browser'): string => {
-    const variant = selectVariant(projectType, renderMode);
+const getSystemPrompt = (projectType: ProjectType, dynamicHints: string, renderMode?: 'sandbox' | 'browser', operationalMode?: 'initial' | 'followup'): string => {
+    const variant = selectVariant(projectType, renderMode, operationalMode);
     const sections = PROMPT_REGISTRY[variant];
     const isPresentationProject = variant === 'presentation';
 

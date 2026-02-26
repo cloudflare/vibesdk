@@ -18,9 +18,12 @@ export interface PromptSections {
 
 export function selectVariant(
 	projectType: ProjectType,
-	renderMode?: 'sandbox' | 'browser'
+	renderMode?: 'sandbox' | 'browser',
+	operationalMode?: 'initial' | 'followup'
 ): PromptVariant {
 	if (projectType === 'presentation') return 'presentation';
-	if (renderMode === 'browser') return 'browser-generate-only';
+	if (renderMode === 'browser') {
+		return operationalMode === 'followup' ? 'browser' : 'browser-generate-only';
+	}
 	return 'interactive';
 }
