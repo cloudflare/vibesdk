@@ -232,7 +232,9 @@ export class AgenticCodingBehavior extends BaseCodingBehavior<AgenticState> impl
         while (!this.isMVPGenerated() || this.state.pendingUserInputs.length > 0) {
             await this.executeGeneration(attempt);
 
-            // During preflight Q&A, wait for user response before next iteration
+            // During preflight Q&A, wait for user response before next iteration.
+            // preflightCompleted is set by alter_blueprint when the AI passes
+            // preflightComplete: true after all questions have been answered.
             if (this.state.preflightQuestions && !this.state.preflightCompleted
                 && !this.isMVPGenerated() && this.state.pendingUserInputs.length === 0) {
                 this.logger.info('Waiting for preflight answer from user');
@@ -327,6 +329,9 @@ export class AgenticCodingBehavior extends BaseCodingBehavior<AgenticState> impl
                 aiConversationId
             );
 
+            // Tools allowed during preflight Q&A (everything else gets aborted)
+            const PREFLIGHT_ALLOWED_TOOLS = new Set(['generate_blueprint', 'alter_blueprint']);
+
             // Create conversation sync callback
             const onToolComplete = async (toolMessage: Message) => {
                 await this.handleMessageCompletion({
@@ -337,6 +342,14 @@ export class AgenticCodingBehavior extends BaseCodingBehavior<AgenticState> impl
                 // If user messages are queued, we throw an abort error, that shall break the tool call chain.
                 if (this.state.pendingUserInputs.length > 0) {
                     throw new AbortError('User messages are queued');
+                }
+
+                // During preflight Q&A, block implementation tools to force the AI
+                // to stop and wait for user answers instead of building prematurely.
+                if (this.state.preflightQuestions && !this.state.preflightCompleted
+                    && toolMessage.name && !PREFLIGHT_ALLOWED_TOOLS.has(toolMessage.name)) {
+                    this.logger.info('Aborting during preflight - blocked tool', { tool: toolMessage.name });
+                    throw new AbortError('Preflight Q&A active - waiting for user response');
                 }
             };
 

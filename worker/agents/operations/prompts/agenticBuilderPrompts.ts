@@ -85,10 +85,11 @@ ${preflightQuestions}
 2. After generating the blueprint, ask the first question immediately.
 3. Wait for the user's answer before asking the next question.
 4. After each answer, call **alter_blueprint** with updated \`preflightAnswers\` containing all Q&A pairs gathered so far.
-5. Once ALL questions have been answered, call **alter_blueprint** one final time with the complete \`preflightAnswers\` array. This signals that preflight is done.
-6. Only THEN proceed with implementation (generate_files, deploy_preview, etc.).
-7. Do NOT skip questions. Do NOT ask questions that have already been answered (check conversation history).
-8. Keep questions concise and conversational. Derive individual questions from the prompt above.
+5. Once ALL questions have been answered, call **alter_blueprint** one final time with the complete \`preflightAnswers\` array AND \`preflightComplete: true\`. This signals that preflight is done.
+6. Do NOT set \`preflightComplete: true\` until every question has been answered by the user.
+7. Only THEN proceed with implementation (generate_files, deploy_preview, etc.).
+8. Do NOT skip questions. Do NOT ask questions that have already been answered (check conversation history).
+9. Keep questions concise and conversational. Derive individual questions from the prompt above.
 </preflight_questions>`;
 };
 
