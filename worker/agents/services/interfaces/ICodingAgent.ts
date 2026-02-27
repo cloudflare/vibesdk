@@ -81,4 +81,6 @@ export interface ICodingAgent {
     get git(): GitVersionControl;
     
     getSandboxServiceClient(): BaseSandboxService;
+
+    setPreflightCompleted(value: boolean): void;
 }

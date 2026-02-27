@@ -16,6 +16,9 @@ export interface CodeGenArgs {
 
     /** Optional ephemeral credentials (BYOK / gateway override) for sdk */
     credentials?: CredentialsPayload;
+
+    /** Optional preflight questions prompt. When provided, the agent asks these questions one-by-one before building and stores answers in the blueprint. */
+    preflightQuestions?: string;
 }
 
 /**

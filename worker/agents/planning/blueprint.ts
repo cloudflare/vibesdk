@@ -370,7 +370,7 @@ export async function generateBlueprint(
             ? SIMPLE_SYSTEM_PROMPT
             : isLiteTemplate ? LITE_PHASIC_SYSTEM_PROMPT : PHASIC_SYSTEM_PROMPT;
         const schema = isAgentic
-            ? AgenticBlueprintSchema
+            ? AgenticBlueprintSchema.omit({ preflightAnswers: true })
             : isLiteTemplate ? LitePhasicBlueprintSchema : PhasicBlueprintSchema;
         
         // Build system prompt with template context (if provided)

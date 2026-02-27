@@ -64,6 +64,10 @@ export interface BaseProjectState {
     // Deep debug
     lastDeepDebugTranscript: string | null;
 
+    // Preflight questions
+    preflightQuestions?: string;
+    preflightCompleted?: boolean;
+
     mvpGenerated: boolean;
     reviewingInitiated: boolean;
 }
