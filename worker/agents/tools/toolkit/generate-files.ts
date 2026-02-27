@@ -16,9 +16,10 @@ export function createGenerateFilesTool(
 ) {
 	return tool({
 		name: 'generate_files',
-		description: `Generate new files or completely rewrite existing files using the full phase implementation system.
+		description: `Generate new files or completely rewrite existing files.
 
 Use this when:
+- Only template files are present
 - File(s) don't exist and need to be created
 - regenerate_file failed (file too broken to patch)
 - Need multiple coordinated files for a feature

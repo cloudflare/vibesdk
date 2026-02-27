@@ -1235,6 +1235,41 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
         }
     }
 
+    /**
+     * Save all template files to the virtual FS with customized configs
+     * (package.json, wrangler.jsonc, .bootstrap.js, .gitignore) merged on top.
+     */
+    protected async saveTemplateFilesToVFS(
+        templateDetails: TemplateDetails,
+        projectName: string
+    ): Promise<void> {
+        const customizedFiles = customizeTemplateFiles(
+            templateDetails.allFiles,
+            { projectName, commandsHistory: this.getBootstrapCommands() }
+        );
+
+        const filesToSaveMap: Record<string, string> = {
+            ...templateDetails.allFiles,
+            ...customizedFiles,
+        };
+
+        const filesToSave = Object.entries(filesToSaveMap).map(([filePath, content]) => ({
+            filePath,
+            fileContents: content,
+            filePurpose: 'Template file'
+        }));
+
+        await this.fileManager.saveGeneratedFiles(
+            filesToSave,
+            'Initialize template files',
+            true
+        );
+
+        this.logger.info('Saved template files to VFS', {
+            count: filesToSave.length,
+        });
+    }
+
     async importTemplate(templateName: string): Promise<{ templateName: string; filesImported: number; files: TemplateFile[] }> {
         this.logger.info(`Importing template into project: ${templateName}`);
 
@@ -1266,6 +1301,9 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
 
         // Get important files for return value
         const importantFiles = getTemplateImportantFiles(templateDetails);
+
+        // Save all template files to VFS so the agent can read/modify them
+        await this.saveTemplateFilesToVFS(templateDetails, this.state.projectName);
 
         // Ensure deployment to sandbox 
         await this.deployToSandbox();

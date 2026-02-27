@@ -15,7 +15,7 @@ import { PhaseImplementationOperation } from '../../operations/PhaseImplementati
 import { FileRegenerationOperation } from '../../operations/FileRegeneration';
 import { PhaseGenerationOperation } from '../../operations/PhaseGeneration';
 import { FastCodeFixerOperation } from '../../operations/PostPhaseCodeFixer';
-import { customizePackageJson, customizeTemplateFiles, generateProjectName } from '../../utils/templateCustomizer';
+import { customizePackageJson, generateProjectName } from '../../utils/templateCustomizer';
 import { generateBlueprint } from '../../planning/blueprint';
 import { RateLimitExceededError } from 'shared/types/errors';
 import {  ImageAttachment, type ProcessedImageAttachment } from '../../../types/image-attachment';
@@ -119,33 +119,7 @@ export class PhasicCodingBehavior extends BaseCodingBehavior<PhasicState> implem
             behaviorType: 'phasic'
         };
         this.setState(nextState);
-        // Customize template files (package.json, wrangler.jsonc, .bootstrap.js, .gitignore)
-        const customizedFiles = customizeTemplateFiles(
-            templateInfo.templateDetails.allFiles,
-            {
-                projectName,
-                commandsHistory: []
-            }
-        );
-        
-        this.logger.info('Customized template files', { 
-            files: Object.keys(customizedFiles) 
-        });
-        
-        // Save customized files to git
-        const filesToSave = Object.entries(customizedFiles).map(([filePath, content]) => ({
-            filePath,
-            fileContents: content,
-            filePurpose: 'Project configuration file'
-        }));
-        
-        await this.fileManager.saveGeneratedFiles(
-            filesToSave,
-            'Initialize project configuration files',
-            true
-        );
-        
-        this.logger.info('Committed customized template files to git');
+        await this.saveTemplateFilesToVFS(templateInfo.templateDetails, projectName);
 
         this.initializeAsync().catch((error: unknown) => {
             this.broadcastError("Initialization failed", error);
