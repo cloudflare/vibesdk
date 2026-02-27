@@ -21,7 +21,8 @@ export function createAlterBlueprintTool(
 		preflightAnswers: z.array(z.object({
 			question: z.string(),
 			answer: z.string(),
-		})).optional().describe('Preflight Q&A pairs. Setting this signals preflight completion.'),
+		})).optional().describe('Preflight Q&A pairs gathered so far.'),
+		preflightComplete: z.boolean().optional().describe('Set to true ONLY when ALL preflight questions have been answered by the user. Do NOT set this until every question is answered.'),
 	});
 
 	const phasicPatchSchema = z.object({
@@ -58,8 +59,7 @@ export function createAlterBlueprintTool(
 			logger.info('Altering blueprint', { keys: Object.keys(patch || {}) });
 			const updated = await agent.updateBlueprint(patch as Partial<Blueprint>);
 
-			// Mark preflight as completed when preflightAnswers are provided
-			if (isAgentic && 'preflightAnswers' in (patch || {}) && (patch as Record<string, unknown>).preflightAnswers) {
+			if (isAgentic && (patch as Record<string, unknown>).preflightComplete === true) {
 				agent.setPreflightCompleted(true);
 				logger.info('Preflight questions completed');
 			}
