@@ -459,18 +459,29 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
             // Clear abort controller after generation completes
             this.clearAbortController();
             
-            const appService = new AppService(this.env);
-            await appService.updateApp(
-                this.getAgentId(),
-                {
-                    status: 'completed',
-                }
-            );
             this.generationPromise = null;
-            this.broadcast(WebSocketMessageResponses.GENERATION_COMPLETE, {
-                message: "Code generation and review process completed.",
-                instanceId: this.state.sandboxInstanceId,
-            });
+
+            // If the build loop exited to wait for preflight input, don't
+            // mark as completed — the loop will resume when the user responds.
+            const pausedForPreflight = this.state.preflightQuestions
+                && !this.state.preflightCompleted
+                && !this.state.mvpGenerated;
+
+            if (pausedForPreflight) {
+                this.logger.info('Build loop paused for preflight Q&A, not marking as completed');
+            } else {
+                const appService = new AppService(this.env);
+                await appService.updateApp(
+                    this.getAgentId(),
+                    {
+                        status: 'completed',
+                    }
+                );
+                this.broadcast(WebSocketMessageResponses.GENERATION_COMPLETE, {
+                    message: "Code generation and review process completed.",
+                    instanceId: this.state.sandboxInstanceId,
+                });
+            }
         }
     }
     
