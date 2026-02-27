@@ -47,8 +47,6 @@ export class AgenticCodingBehavior extends BaseCodingBehavior<AgenticState> impl
     private toolCallCounter: number = 0;
     private readonly COMPACTIFY_CHECK_INTERVAL = 9; // Check compactification every 9 tool calls
 
-    // Preflight wait mechanism
-    private pendingInputResolver: (() => void) | null = null;
 
     /**
      * Initialize the code generator with project blueprint and template
@@ -128,12 +126,6 @@ export class AgenticCodingBehavior extends BaseCodingBehavior<AgenticState> impl
         }
 
         await this.queueUserRequest(userMessage, processedImages);
-
-        // Resolve any pending preflight wait
-        if (this.pendingInputResolver) {
-            this.pendingInputResolver();
-            this.pendingInputResolver = null;
-        }
 
         if (this.isCodeGenerating()) {
             // Code generating - render tool call for UI
@@ -237,20 +229,14 @@ export class AgenticCodingBehavior extends BaseCodingBehavior<AgenticState> impl
             // preflightComplete: true after all questions have been answered.
             if (this.state.preflightQuestions && !this.state.preflightCompleted
                 && !this.isMVPGenerated() && this.state.pendingUserInputs.length === 0) {
-                this.logger.info('Waiting for preflight answer from user');
-                await this.waitForPendingInput();
+                this.logger.info('Pausing build loop - waiting for preflight answer from user');
+                return;
             }
 
             attempt++;
         }
     }
 
-    private waitForPendingInput(): Promise<void> {
-        if (this.state.pendingUserInputs.length > 0) return Promise.resolve();
-        return new Promise(resolve => {
-            this.pendingInputResolver = resolve;
-        });
-    }
     
     /**
      * Execute the project generation
