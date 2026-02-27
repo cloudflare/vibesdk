@@ -72,18 +72,42 @@ ${sections.deploymentTools}
 </tools>`;
 };
 
-const getSystemPrompt = (projectType: ProjectType, dynamicHints: string, renderMode?: 'sandbox' | 'browser', operationalMode?: 'initial' | 'followup'): string => {
+const buildPreflightSection = (preflightQuestions: string): string => {
+    return `<preflight_questions>
+## Preflight Questions (MANDATORY before building)
+
+You MUST ask the user clarifying questions before starting any implementation. The questions to ask are derived from the following prompt:
+
+${preflightQuestions}
+
+### Rules:
+1. **Ask ONE question at a time.** Do NOT ask multiple questions in a single message.
+2. After generating the blueprint, ask the first question immediately.
+3. Wait for the user's answer before asking the next question.
+4. After each answer, call **alter_blueprint** with updated \`preflightAnswers\` containing all Q&A pairs gathered so far.
+5. Once ALL questions have been answered, call **alter_blueprint** one final time with the complete \`preflightAnswers\` array. This signals that preflight is done.
+6. Only THEN proceed with implementation (generate_files, deploy_preview, etc.).
+7. Do NOT skip questions. Do NOT ask questions that have already been answered (check conversation history).
+8. Keep questions concise and conversational. Derive individual questions from the prompt above.
+</preflight_questions>`;
+};
+
+const getSystemPrompt = (projectType: ProjectType, dynamicHints: string, renderMode?: 'sandbox' | 'browser', operationalMode?: 'initial' | 'followup', preflightQuestions?: string, preflightCompleted?: boolean): string => {
     const variant = selectVariant(projectType, renderMode, operationalMode);
     const sections = PROMPT_REGISTRY[variant];
     const isPresentationProject = variant === 'presentation';
 
     const tools = buildToolsSection(sections);
     const contextSpecificGuidance = dynamicHints ? `<dynamic_guidance>\n${dynamicHints}\n</dynamic_guidance>` : '';
+    const preflightSection = preflightQuestions && !preflightCompleted
+        ? buildPreflightSection(preflightQuestions)
+        : '';
 
     return [
         sections.coreIdentity,
         COMMUNICATION_MODE,
         sections.criticalRules,
+        preflightSection,
         sections.architecture,
         sections.workflow,
         tools,

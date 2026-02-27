@@ -18,6 +18,10 @@ export function createAlterBlueprintTool(
 		colorPalette: z.array(z.string()).optional(),
 		frameworks: z.array(z.string()).optional(),
 		plan: z.array(z.string()).optional(),
+		preflightAnswers: z.array(z.object({
+			question: z.string(),
+			answer: z.string(),
+		})).optional().describe('Preflight Q&A pairs. Setting this signals preflight completion.'),
 	});
 
 	const phasicPatchSchema = z.object({
@@ -45,7 +49,7 @@ export function createAlterBlueprintTool(
 	return tool({
 		name: 'alter_blueprint',
 		description: isAgentic
-			? 'Apply a patch to the agentic blueprint (title, description, colorPalette, frameworks, plan, projectName).'
+			? 'Apply a patch to the agentic blueprint (title, description, colorPalette, frameworks, plan, projectName, preflightAnswers).'
 			: 'Apply a patch to the phasic blueprint (title, description, colorPalette, frameworks, views, userFlow, architecture, dataFlow, pitfalls, implementationRoadmap, projectName).',
 		args: {
 			patch: patchType,
@@ -53,6 +57,13 @@ export function createAlterBlueprintTool(
 		run: async ({ patch }) => {
 			logger.info('Altering blueprint', { keys: Object.keys(patch || {}) });
 			const updated = await agent.updateBlueprint(patch as Partial<Blueprint>);
+
+			// Mark preflight as completed when preflightAnswers are provided
+			if (isAgentic && 'preflightAnswers' in (patch || {}) && (patch as Record<string, unknown>).preflightAnswers) {
+				agent.setPreflightCompleted(true);
+				logger.info('Preflight questions completed');
+			}
+
 			return updated;
 		},
 	});
