@@ -47,6 +47,9 @@ export class AgenticCodingBehavior extends BaseCodingBehavior<AgenticState> impl
     private toolCallCounter: number = 0;
     private readonly COMPACTIFY_CHECK_INTERVAL = 9; // Check compactification every 9 tool calls
 
+    // Preflight wait mechanism
+    private pendingInputResolver: (() => void) | null = null;
+
     /**
      * Initialize the code generator with project blueprint and template
      * Sets up services and begins deployment process
@@ -57,7 +60,7 @@ export class AgenticCodingBehavior extends BaseCodingBehavior<AgenticState> impl
     ): Promise<AgenticState> {
         await super.initialize(initArgs);
 
-        const { query, hostname, inferenceContext, templateInfo, sandboxSessionId } = initArgs;
+        const { query, hostname, inferenceContext, templateInfo, sandboxSessionId, preflightQuestions } = initArgs;
 
         const packageJson = templateInfo?.templateDetails?.allFiles['package.json'];
 
@@ -90,7 +93,9 @@ export class AgenticCodingBehavior extends BaseCodingBehavior<AgenticState> impl
             hostname,
             metadata: inferenceContext.metadata,
             projectType: this.projectType,
-            behaviorType: 'agentic'
+            behaviorType: 'agentic',
+            preflightQuestions,
+            preflightCompleted: !preflightQuestions,
         });
         
         if (templateInfo && templateInfo.templateDetails.name !== 'scratch') {
@@ -123,6 +128,12 @@ export class AgenticCodingBehavior extends BaseCodingBehavior<AgenticState> impl
         }
 
         await this.queueUserRequest(userMessage, processedImages);
+
+        // Resolve any pending preflight wait
+        if (this.pendingInputResolver) {
+            this.pendingInputResolver();
+            this.pendingInputResolver = null;
+        }
 
         if (this.isCodeGenerating()) {
             // Code generating - render tool call for UI
@@ -220,8 +231,23 @@ export class AgenticCodingBehavior extends BaseCodingBehavior<AgenticState> impl
         let attempt = 0;
         while (!this.isMVPGenerated() || this.state.pendingUserInputs.length > 0) {
             await this.executeGeneration(attempt);
+
+            // During preflight Q&A, wait for user response before next iteration
+            if (this.state.preflightQuestions && !this.state.preflightCompleted
+                && !this.isMVPGenerated() && this.state.pendingUserInputs.length === 0) {
+                this.logger.info('Waiting for preflight answer from user');
+                await this.waitForPendingInput();
+            }
+
             attempt++;
         }
+    }
+
+    private waitForPendingInput(): Promise<void> {
+        if (this.state.pendingUserInputs.length > 0) return Promise.resolve();
+        return new Promise(resolve => {
+            this.pendingInputResolver = resolve;
+        });
     }
     
     /**
@@ -333,6 +359,8 @@ export class AgenticCodingBehavior extends BaseCodingBehavior<AgenticState> impl
                 selectedTemplate: this.state.templateName || undefined,
                 operationalMode: this.isMVPGenerated() ? 'followup' : 'initial',
                 conversationHistory,
+                preflightQuestions: this.state.preflightQuestions,
+                preflightCompleted: this.state.preflightCompleted,
                 streamCb: (chunk: string) => {
                     this.broadcast(WebSocketMessageResponses.CONVERSATION_RESPONSE, {
                         message: chunk,
