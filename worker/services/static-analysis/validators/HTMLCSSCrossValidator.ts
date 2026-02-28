@@ -71,7 +71,7 @@ export class HTMLCSSCrossValidator implements CrossFileValidator {
 			if (usage.type === 'class' && !definedClasses.has(usage.name)) {
 				if (isLikelyDynamicOrFrameworkClass(usage.name)) continue;
 				issues.push({
-					message: `CSS class "${usage.name}" is used but not defined in any CSS file`,
+					message: `CSS class "${usage.name}" is used but not defined in any CSS file. This is most likely not a framework class.`,
 					filePath: usage.filePath,
 					line: usage.line,
 					column: 0,

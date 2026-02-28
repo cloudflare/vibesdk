@@ -973,6 +973,9 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
                 fileContents = fmFile.fileContents;
                 filePurpose = fmFile.filePurpose || '';
             } else {
+                if (templateDetails?.renderMode === 'browser') {
+                    throw new Error(`File not found in project files: ${path}`);
+                }
                 const { sandboxInstanceId } = this.state;
                 if (!sandboxInstanceId) {
                     throw new Error('No sandbox instance available');
@@ -991,7 +994,7 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
         this.staticAnalysisCache = null;
         // Persist to sandbox instance
         // await this.getSandboxServiceClient().writeFiles(sandboxInstanceId, [{ filePath: regenerated.filePath, fileContents: regenerated.fileContents }], `Deep debugger fix: ${path}`);
-        await this.deploymentManager.deployToSandbox([regenerated])
+        await this.deployToSandbox([regenerated])
         return { path, diff: regenerated.lastDiff };
     }
 
