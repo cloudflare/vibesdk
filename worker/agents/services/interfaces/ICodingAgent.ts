@@ -8,6 +8,7 @@ import { WebSocketMessageType, WebSocketMessageData } from "worker/api/websocket
 import { GitVersionControl } from "worker/agents/git/git";
 import { OperationOptions } from "worker/agents/operations/common";
 import { TemplateFile } from "worker/services/sandbox/sandboxTypes";
+import type { PreflightState } from "worker/agents/core/state";
 
 export interface ICodingAgent {
     getBehavior(): BehaviorType;
@@ -81,4 +82,8 @@ export interface ICodingAgent {
     get git(): GitVersionControl;
     
     getSandboxServiceClient(): BaseSandboxService;
+
+    getPreflightState(): PreflightState | undefined;
+
+    updatePreflightState(state: PreflightState): void;
 }

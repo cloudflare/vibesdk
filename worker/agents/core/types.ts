@@ -46,6 +46,7 @@ interface AgenticAgentInitArgs extends BaseAgentInitArgs {
         templateDetails: TemplateDetails;
         selection: TemplateSelection;
     };
+    preflightQuestions?: string;
 }
 
 /** Generic initialization arguments based on state type */

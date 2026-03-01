@@ -7,7 +7,7 @@ import {
     PhasicBlueprint,
 } from '../../schemas';
 import { ExecuteCommandsResponse, PreviewType, RuntimeError, StaticAnalysisResponse, TemplateDetails, TemplateFile } from '../../../services/sandbox/sandboxTypes';
-import { BaseProjectState, AgenticState, FileState } from '../state';
+import { BaseProjectState, AgenticState, FileState, PreflightState } from '../state';
 import { AllIssues, AgentSummary, AgentInitArgs, BehaviorType, DeploymentTarget, ProjectType } from '../types';
 import { WebSocketMessageResponses } from '../../constants';
 import { ProjectSetupAssistant } from '../../assistants/projectsetup';
@@ -365,6 +365,22 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
 
     getProjectType() {
         return this.state.projectType;
+    }
+
+    getPreflightState(): PreflightState | undefined {
+        if (this.isAgenticState(this.state)) {
+            return this.state.preflightState;
+        }
+        return undefined;
+    }
+
+    updatePreflightState(preflightState: PreflightState): void {
+        if (this.isAgenticState(this.state)) {
+            this.setState({
+                ...this.state,
+                preflightState,
+            });
+        }
     }
 
     async queueUserRequest(request: string, images?: ProcessedImageAttachment[]): Promise<void> {

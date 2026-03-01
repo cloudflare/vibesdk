@@ -32,6 +32,7 @@ import { createExecCommandsTool } from '../tools/toolkit/exec-commands';
 import { createWaitTool } from '../tools/toolkit/wait';
 import { createGitTool } from '../tools/toolkit/git';
 import { createGenerateImagesTool } from '../tools/toolkit/generate-images';
+import { createAskPreflightQuestionTool } from '../tools/toolkit/ask-preflight-question';
 
 export interface AgenticProjectBuilderInputs {
     query: string;
@@ -46,6 +47,7 @@ export interface AgenticProjectBuilderInputs {
     toolRenderer: RenderToolCall;
     onToolComplete?: (message: Message) => Promise<void>;
     onAssistantMessage?: (message: Message) => Promise<void>;
+    preflightQuestions?: string;
 }
 
 export interface AgenticProjectBuilderOutputs {
@@ -59,6 +61,8 @@ export interface AgenticBuilderSession extends ToolSession {
     hasFiles: boolean;
     hasPlan: boolean;
     renderMode: RenderMode;
+    preflightQuestions?: string;
+    preflightQuestionsAsked: number;
 }
 
 /**
@@ -192,6 +196,9 @@ export class AgenticProjectBuilderOperation extends AgentOperationWithTools<
             .filter(Boolean)
             .join('\n');
 
+        const preflightQuestions = inputs.preflightQuestions;
+        const preflightQuestionsAsked = agent.getPreflightState()?.questionsAsked ?? 0;
+
         return {
             agent,
             templateInfo,
@@ -200,6 +207,8 @@ export class AgenticProjectBuilderOperation extends AgentOperationWithTools<
             hasFiles,
             hasPlan,
             renderMode,
+            preflightQuestions,
+            preflightQuestionsAsked,
         };
     }
 
@@ -220,7 +229,7 @@ export class AgenticProjectBuilderOperation extends AgentOperationWithTools<
             });
         }
 
-        let systemPrompt = getSystemPrompt(inputs.projectType, session.renderMode, session.dynamicHints);
+        let systemPrompt = getSystemPrompt(inputs.projectType, session.renderMode, session.dynamicHints, session.preflightQuestions, session.preflightQuestionsAsked);
 
         if (historyMessages.length > 0) {
             systemPrompt += `\n\n# Conversation History\nYou are being provided with the full conversation history from your previous interactions. Review it to understand context and avoid repeating work.`;
@@ -276,6 +285,10 @@ export class AgenticProjectBuilderOperation extends AgentOperationWithTools<
             createGenerateImagesTool(session.agent, logger),
         ];
 
+        if (session.preflightQuestions) {
+            rawTools.push(createAskPreflightQuestionTool(session.agent, logger));
+        }
+
         if (!inputs.selectedTemplate || inputs.selectedTemplate === 'scratch') {
             rawTools.push(createInitSuitableTemplateTool(session.agent, logger));
         }
@@ -301,9 +314,14 @@ export class AgenticProjectBuilderOperation extends AgentOperationWithTools<
             hasPlan,
         });
 
+        const completionSignalNames = ['mark_generation_complete'];
+        if (session.preflightQuestions) {
+            completionSignalNames.push('ask_preflight_question');
+        }
+
         return {
             agentActionName: 'agenticProjectBuilder' as AgentActionKey,
-            completionSignalName: 'mark_generation_complete',
+            completionSignalNames,
             operationalMode: inputs.operationalMode,
             allowWarningInjection: inputs.operationalMode === 'initial',
         };

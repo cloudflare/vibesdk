@@ -57,7 +57,7 @@ export class AgenticCodingBehavior extends BaseCodingBehavior<AgenticState> impl
     ): Promise<AgenticState> {
         await super.initialize(initArgs);
 
-        const { query, hostname, inferenceContext, templateInfo, sandboxSessionId } = initArgs;
+        const { query, hostname, inferenceContext, templateInfo, sandboxSessionId, preflightQuestions } = initArgs;
 
         const packageJson = templateInfo?.templateDetails?.allFiles['package.json'];
 
@@ -90,7 +90,11 @@ export class AgenticCodingBehavior extends BaseCodingBehavior<AgenticState> impl
             hostname,
             metadata: inferenceContext.metadata,
             projectType: this.projectType,
-            behaviorType: 'agentic'
+            behaviorType: 'agentic',
+            preflightQuestions,
+            preflightState: preflightQuestions
+                ? { questionsAsked: 0, isWaitingForAnswer: false }
+                : undefined,
         });
         
         if (templateInfo && templateInfo.templateDetails.name !== 'scratch') {
@@ -149,6 +153,19 @@ export class AgenticCodingBehavior extends BaseCodingBehavior<AgenticState> impl
         }
 
         await this.queueUserRequest(userMessage, processedImages);
+
+        // If waiting for a preflight answer and not currently generating, restart generation
+        if (this.state.preflightState?.isWaitingForAnswer && !this.isCodeGenerating()) {
+            this.logger.info('Preflight answer received, clearing wait state and restarting generation');
+            this.updatePreflightState({
+                ...this.state.preflightState,
+                isWaitingForAnswer: false,
+            });
+            this.generateAllFiles().catch(error => {
+                this.logger.error('Error restarting generation after preflight answer', error);
+            });
+            return;
+        }
 
         if (this.isCodeGenerating()) {
             // Code generating - render tool call for UI
@@ -247,6 +264,12 @@ export class AgenticCodingBehavior extends BaseCodingBehavior<AgenticState> impl
         while (!this.isMVPGenerated() || this.state.pendingUserInputs.length > 0) {
             await this.executeGeneration(attempt);
             attempt++;
+
+            // If a preflight question was just asked, exit the loop and wait for user answer
+            if (this.state.preflightState?.isWaitingForAnswer) {
+                this.logger.info('Preflight question asked, pausing build loop to wait for user answer');
+                break;
+            }
         }
     }
     
@@ -356,6 +379,7 @@ export class AgenticCodingBehavior extends BaseCodingBehavior<AgenticState> impl
                 blueprint: this.state.blueprint,
                 filesIndex: Object.values(this.state.generatedFilesMap),
                 projectType: this.state.projectType || 'app',
+                selectedTemplate: this.state.templateName || undefined,
                 operationalMode: this.isMVPGenerated() ? 'followup' : 'initial',
                 conversationHistory,
                 streamCb: (chunk: string) => {
@@ -368,6 +392,7 @@ export class AgenticCodingBehavior extends BaseCodingBehavior<AgenticState> impl
                 toolRenderer: toolCallRenderer,
                 onToolComplete,
                 onAssistantMessage,
+                preflightQuestions: this.state.preflightQuestions,
             };
 
             // Execute operation

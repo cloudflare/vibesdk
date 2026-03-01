@@ -748,10 +748,50 @@ Sequential after fixes:
 };
 
 // ---------------------------------------------------------------------------
+// Preflight questions prompt section
+// ---------------------------------------------------------------------------
+
+function buildPreflightSection(preflightQuestions: string, questionsAsked: number): string {
+    if (questionsAsked > 0) {
+        return `<preflight_questions>
+**Preflight Questions Phase (In Progress)**
+
+You have already asked ${questionsAsked} question(s). Review the conversation history for previous questions and answers.
+- If you still have unanswered questions (up to 3-4 total), ask the next one using the \`ask_preflight_question\` tool.
+- If all your questions have been answered, proceed to \`generate_blueprint\` incorporating the user's answers into your plan.
+
+Context for questions:
+${preflightQuestions}
+</preflight_questions>`;
+    }
+
+    return `<preflight_questions>
+**Preflight Questions Phase**
+
+Before generating a blueprint or writing any code, you MUST gather requirements from the user by asking clarifying questions.
+
+**Context provided for question generation:**
+${preflightQuestions}
+
+**Instructions:**
+1. Based on the context above, formulate 3-4 targeted questions to ask the user one at a time.
+2. Call the \`ask_preflight_question\` tool with your first question.
+3. After calling the tool, STOP. Do not call any other tools. Do not generate a blueprint. Wait for the user's answer.
+4. Each time you resume after the user answers, review the conversation history, then either ask the next question or (once all questions are answered) proceed to \`generate_blueprint\` with the enriched context.
+
+**Rules:**
+- Ask ONE question at a time using the \`ask_preflight_question\` tool.
+- Do NOT call \`generate_blueprint\`, \`init_suitable_template\`, \`generate_files\`, or any other build tools until all preflight questions are answered.
+- Keep questions concise and specific.
+- After your last question is answered, proceed normally with the build workflow.
+</preflight_questions>`;
+}
+
+// ---------------------------------------------------------------------------
 // Main export
 // ---------------------------------------------------------------------------
 
-const getSystemPrompt = (projectType: ProjectType, renderMode: RenderMode, dynamicHints: string): string => {
+const getSystemPrompt = (projectType: ProjectType, renderMode: RenderMode, dynamicHints: string, preflightQuestions?: string, preflightQuestionsAsked?: number): string => {
     const variant = resolveVariant(projectType, renderMode);
 
     const sections = [
@@ -764,6 +804,7 @@ const getSystemPrompt = (projectType: ProjectType, renderMode: RenderMode, dynam
         DESIGN_REQUIREMENTS[variant],
         variant !== 'presentation' ? buildQualityStandards(variant) : '',
         EXAMPLES[variant],
+        preflightQuestions ? buildPreflightSection(preflightQuestions, preflightQuestionsAsked ?? 0) : '',
         dynamicHints ? `<dynamic_guidance>\n${dynamicHints}\n</dynamic_guidance>` : '',
     ];
 

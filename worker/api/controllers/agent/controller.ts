@@ -178,7 +178,7 @@ export class CodingAgentController extends BaseController {
                 },
             } as const;
 
-            const initArgs = { ...baseInitArgs, templateInfo: { templateDetails, selection } }
+            const initArgs = { ...baseInitArgs, templateInfo: { templateDetails, selection }, preflightQuestions: body.preflightQuestions }
 
             const agentPromise = agentInstance.initialize(initArgs) as Promise<AgentState>;
             agentPromise.then(async (_state: AgentState) => {

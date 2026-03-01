@@ -14,6 +14,9 @@ export interface CodeGenArgs {
     projectType?: ProjectType;
     images?: ImageAttachment[];
 
+    /** Optional preflight questions context to ask the user before building */
+    preflightQuestions?: string;
+
     /** Optional ephemeral credentials (BYOK / gateway override) for sdk */
     credentials?: CredentialsPayload;
 }
