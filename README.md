@@ -499,7 +499,7 @@ Cloudflare VibeSDK implements enterprise-grade security:
 
 - 📖 Check [Cloudflare Workers Docs](https://developers.cloudflare.com/workers/)
 - 💬 Join [Cloudflare Discord](https://discord.gg/cloudflaredev)
-- 🐛 Report issues on [GitHub](https://github.com/your-org/cloudflare-vibecoding-starter-kit/issues)
+- 🐛 Report issues on [GitHub](https://github.com/cloudflare/vibesdk/issues)
 
 ---
 
@@ -526,7 +526,7 @@ Want to contribute to Cloudflare VibeSDK? Here's how:
 ### 💬 **Community**  
 - [Discord](https://discord.gg/cloudflaredev) - Real-time chat and support
 - [Community Forum](https://community.cloudflare.com/) - Technical discussions
-- [GitHub Discussions](https://github.com/your-org/cloudflare-vibecoding-starter-kit/discussions) - Feature requests and ideas
+- [GitHub Discussions](https://github.com/cloudflare/vibesdk/discussions) - Feature requests and ideas
 
 ### 🎓 **Learning Resources**
 - [Workers Learning Path](https://developers.cloudflare.com/learning-paths/workers/) - Master Workers development
