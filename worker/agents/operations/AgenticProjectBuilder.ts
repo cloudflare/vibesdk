@@ -48,6 +48,7 @@ export interface AgenticProjectBuilderInputs {
     onToolComplete?: (message: Message) => Promise<void>;
     onAssistantMessage?: (message: Message) => Promise<void>;
     preflightQuestions?: string;
+    disableGit?: boolean;
 }
 
 export interface AgenticProjectBuilderOutputs {
@@ -63,6 +64,7 @@ export interface AgenticBuilderSession extends ToolSession {
     renderMode: RenderMode;
     preflightQuestions?: string;
     preflightQuestionsAsked: number;
+    disableGit?: boolean;
 }
 
 /**
@@ -209,6 +211,7 @@ export class AgenticProjectBuilderOperation extends AgentOperationWithTools<
             renderMode,
             preflightQuestions,
             preflightQuestionsAsked,
+            disableGit: inputs.disableGit,
         };
     }
 
@@ -229,7 +232,7 @@ export class AgenticProjectBuilderOperation extends AgentOperationWithTools<
             });
         }
 
-        let systemPrompt = getSystemPrompt(inputs.projectType, session.renderMode, session.dynamicHints, session.preflightQuestions, session.preflightQuestionsAsked);
+        let systemPrompt = getSystemPrompt(inputs.projectType, session.renderMode, session.dynamicHints, session.preflightQuestions, session.preflightQuestionsAsked, { disableGit: session.disableGit });
 
         if (historyMessages.length > 0) {
             systemPrompt += `\n\n# Conversation History\nYou are being provided with the full conversation history from your previous interactions. Review it to understand context and avoid repeating work.`;
@@ -280,7 +283,7 @@ export class AgenticProjectBuilderOperation extends AgentOperationWithTools<
             ] : []),
             // Utilities
             createWaitTool(logger),
-            createGitTool(session.agent, logger),
+            ...(!session.disableGit ? [createGitTool(session.agent, logger)] : []),
             // WIP: images
             createGenerateImagesTool(session.agent, logger),
         ];

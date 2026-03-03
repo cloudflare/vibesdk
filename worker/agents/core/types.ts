@@ -47,6 +47,7 @@ interface AgenticAgentInitArgs extends BaseAgentInitArgs {
         selection: TemplateSelection;
     };
     preflightQuestions?: string;
+    disableGit?: boolean;
 }
 
 /** Generic initialization arguments based on state type */

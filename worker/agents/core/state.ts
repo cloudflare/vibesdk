@@ -121,6 +121,7 @@ export interface AgenticState extends BaseProjectState {
     currentPlan: Plan;
     preflightQuestions?: string;
     preflightState?: PreflightState;
+    disableGit?: boolean;
 }
 
 export type AgentState = PhasicState | AgenticState;

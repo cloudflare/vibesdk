@@ -19,6 +19,9 @@ export interface CodeGenArgs {
 
     /** Optional ephemeral credentials (BYOK / gateway override) for sdk */
     credentials?: CredentialsPayload;
+
+    /** Disable git version control tools for this build */
+    disableGit?: boolean;
 }
 
 /**

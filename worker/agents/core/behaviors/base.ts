@@ -1145,9 +1145,9 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
         const response = await this.deployToSandbox([], forceRedeploy, undefined, clearLogs);
         if (response && response.previewURL) {
             this.broadcast(WebSocketMessageResponses.PREVIEW_FORCE_REFRESH, {});
-            return `Deployment successful: ${response.previewURL}`;
+            return 'Deployment successful. The preview is now live.';
         }
-        return `Failed to deploy: ${response?.tunnelURL}`;
+        return 'Deployment failed. Please try again.';
     }
 
     async deployToSandbox(files: FileOutputType[] = [], redeploy: boolean = false, commitMessage?: string, clearLogs: boolean = false): Promise<PreviewType | null> {

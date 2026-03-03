@@ -57,7 +57,7 @@ export class AgenticCodingBehavior extends BaseCodingBehavior<AgenticState> impl
     ): Promise<AgenticState> {
         await super.initialize(initArgs);
 
-        const { query, hostname, inferenceContext, templateInfo, sandboxSessionId, preflightQuestions } = initArgs;
+        const { query, hostname, inferenceContext, templateInfo, sandboxSessionId, preflightQuestions, disableGit } = initArgs;
 
         const packageJson = templateInfo?.templateDetails?.allFiles['package.json'];
 
@@ -95,6 +95,7 @@ export class AgenticCodingBehavior extends BaseCodingBehavior<AgenticState> impl
             preflightState: preflightQuestions
                 ? { questionsAsked: 0, isWaitingForAnswer: false }
                 : undefined,
+            disableGit,
         });
         
         if (templateInfo && templateInfo.templateDetails.name !== 'scratch') {
@@ -321,7 +322,7 @@ export class AgenticCodingBehavior extends BaseCodingBehavior<AgenticState> impl
             let conversationHistory = conversationState.runningHistory;
 
             if (!this.isMVPGenerated()) {
-                if (attempt === 0) {
+                if (attempt === 0 && !this.state.preflightQuestions) {
                     this.broadcast(WebSocketMessageResponses.CONVERSATION_RESPONSE, {
                         message: 'Initializing project builder...',
                         conversationId: aiConversationId,
@@ -393,6 +394,7 @@ export class AgenticCodingBehavior extends BaseCodingBehavior<AgenticState> impl
                 onToolComplete,
                 onAssistantMessage,
                 preflightQuestions: this.state.preflightQuestions,
+                disableGit: this.state.disableGit,
             };
 
             // Execute operation

@@ -226,7 +226,7 @@ Static content (docs, markdown): Skip template selection. Focus on content quali
 </workflow>`,
 };
 
-function buildToolsSection(variant: PromptVariant): string {
+function buildToolsSection(variant: PromptVariant, disableGit: boolean = false): string {
     const parallelHeader = `**Parallel Tool Calling**: Make multiple tool calls in a single turn whenever possible. The system automatically detects dependencies and executes tools in parallel for maximum speed.`;
 
     const presentationParallel = variant === 'presentation' ? `
@@ -351,14 +351,16 @@ ${regenerateAfterEffect[variant]}
 - Parameters: force_redeploy=true (force a full refresh)`,
     };
 
-    const utilitiesSection: Record<PromptVariant, string> = {
-        presentation: `## Utilities
-
+    const gitSection = `
 **git** - Version control operations
 - Operations: commit, log, show
 - Where: Virtual filesystem (isomorphic-git on DO storage)
 - When: After meaningful changes (frequent commits recommended)
-- Messages: Use conventional commit format (feat:, fix:, docs:, etc.)`,
+- Messages: Use conventional commit format (feat:, fix:, docs:, etc.)`;
+
+    const utilitiesSection: Record<PromptVariant, string> = {
+        presentation: `## Utilities
+${gitSection}`,
 
         interactive: `## Utilities
 
@@ -367,20 +369,10 @@ ${regenerateAfterEffect[variant]}
 - Requires: Sandbox must exist (call deploy_preview first)
 - Use: bun add package, custom build scripts
 - Note: Commands run at project root, never use cd
+${gitSection}`,
 
-**git** - Version control operations
-- Operations: commit, log, show
-- Where: Virtual filesystem (isomorphic-git on DO storage)
-- When: After meaningful changes (frequent commits recommended)
-- Messages: Use conventional commit format (feat:, fix:, docs:, etc.)`,
-
-        browser: `## Utilities
-
-**git** - Version control operations
-- Operations: commit, log, show
-- Where: Virtual filesystem (isomorphic-git on DO storage)
-- When: After meaningful changes (frequent commits recommended)
-- Messages: Use conventional commit format (feat:, fix:, docs:, etc.)`,
+        browser: disableGit ? '' : `## Utilities
+${gitSection}`,
     };
 
     const completionSection = `**mark_generation_complete** - Signal initial project completion
@@ -748,6 +740,173 @@ Sequential after fixes:
 };
 
 // ---------------------------------------------------------------------------
+// Git-aware wrapper functions
+// ---------------------------------------------------------------------------
+
+function buildCriticalRules(variant: PromptVariant, disableGit: boolean): string {
+    if (variant !== 'browser' || !disableGit) return CRITICAL_RULES[variant];
+
+    return `<critical_rules>
+1. **Virtual Filesystem + Browser Preview**: Files are stored in persistent Virtual Filesystem (Durable Object storage). deploy_preview pushes them to the browser iframe for live preview — there is no server-side sandbox container.
+
+2. **Template-First Approach**: Always call init_suitable_template() first. AI selects best-matching template from library, providing a working foundation. Skip only for static documentation.
+
+3. **Analyze After Generating**: After generating or regenerating files, always call run_analysis to catch TypeScript and lint errors early. This runs in-memory and does not require a sandbox.
+
+4. **Blueprint Before Building**: Generate structured plan via generate_blueprint before implementation. Defines what to build and guides development phases.
+
+5. **No Server-Side Runtime**: There is no sandbox container. You cannot execute shell commands, fetch server logs, or capture runtime exceptions. Focus on static analysis and correct code generation.
+</critical_rules>`;
+}
+
+function buildArchitecture(variant: PromptVariant, disableGit: boolean): string {
+    if (variant !== 'browser' || !disableGit) return ARCHITECTURE[variant];
+
+    return `<architecture type="browser">
+## Single-Layer System
+
+**Virtual Filesystem** (Your persistent workspace)
+- Lives in Durable Object storage
+- Files are persisted automatically
+
+**Browser Preview** (Where code renders)
+- deploy_preview pushes files directly to the browser iframe
+- No server-side container — rendering happens client-side
+- Preview updates on each deploy_preview call
+
+## File Flow
+\`\`\`
+generate_files / regenerate_file
+  ↓
+Virtual Filesystem (DO storage)
+  ↓
+deploy_preview called
+  ↓
+Files pushed to browser iframe
+  ↓
+Preview available for visual review
+\`\`\`
+
+## Verification
+- Use run_analysis after file changes for TypeScript + lint checking (runs in-memory)
+- No runtime error capture or server logs available — write correct code from the start
+</architecture>`;
+}
+
+function buildWorkflow(variant: PromptVariant, disableGit: boolean): string {
+    if (variant !== 'browser' || !disableGit) return WORKFLOW[variant];
+
+    return `<workflow type="browser">
+1. **Understand Requirements**: Analyze user request → Identify project type
+2. **Select Template** (if needed): Call init_suitable_template() only if template doesn't exist (check virtual_filesystem list first)
+3. **Create Blueprint**: Call generate_blueprint(optionally with prompt parameter for extra context) → Define structure and phased plan
+4. **Build Incrementally**:
+   - Use generate_files for new features (can batch 2-3 files or make parallel calls)
+   - Use regenerate_file for surgical fixes to existing files
+   - **Always call run_analysis after generating or regenerating files** to catch TypeScript and lint errors early (runs in-memory, no sandbox needed)
+   - Call deploy_preview to push files to browser iframe for visual review
+5. **Polish**: Fix all analysis errors before completion → Ensure professional quality
+
+Static content (docs, markdown): Skip template selection. Focus on content quality.
+</workflow>`;
+}
+
+function buildExamples(variant: PromptVariant, disableGit: boolean): string {
+    if (variant !== 'browser' || !disableGit) return EXAMPLES[variant];
+
+    return `<examples>
+## Example 1: Building Todo App (Browser-Rendered)
+
+**User Request**: "Build a todo app with categories"
+
+**Your Actions**:
+\`\`\`
+Thought: Todo app with categories = React app with state management. Browser-rendered project — no sandbox, so rely on run_analysis for verification.
+
+Tool Calls:
+1. init_suitable_template() [MANDATORY]
+   → Returns: template with React, Zustand, TailwindCSS
+
+2. generate_blueprint()
+   → Returns: Blueprint with features (add/edit/delete todos, categories, filters, persistence)
+
+3. virtual_filesystem("list")
+   → Review template structure
+
+4. generate_files([
+     "src/store/todoStore.ts",
+     "src/types/todo.ts"
+   ])
+
+5. run_analysis()
+   → Verify TypeScript + lint — catches errors before proceeding
+
+6. generate_files([
+     "src/components/TodoList.tsx",
+     "src/components/TodoItem.tsx",
+     "src/components/AddTodo.tsx"
+   ])
+
+7. run_analysis()
+   → Verify all new files are error-free
+
+8. deploy_preview()
+   → Pushes files to browser iframe for visual review
+
+9. mark_generation_complete({
+     summary: "Created todo app with categories, filtering, and local storage persistence.",
+     filesGenerated: 8
+   })
+\`\`\`
+
+---
+
+## Example 2: Fixing TypeScript Errors
+
+**Context**: After run_analysis, found 3 TypeScript errors in different files
+
+**Your Actions**:
+\`\`\`
+Thought: Multiple TypeScript errors across different files. Can fix in parallel with regenerate_file.
+
+Tool Calls (parallel):
+1. regenerate_file({
+     path: "src/store/todoStore.ts",
+     issues: [{
+       description: "Type error: Property 'id' does not exist on type 'Todo'. Line 42: todo.id",
+       suggestion: "Add 'id: string' to Todo interface in src/types/todo.ts OR add optional chaining: todo.id?"
+     }]
+   })
+
+2. regenerate_file({
+     path: "src/components/TodoItem.tsx",
+     issues: [{
+       description: "Missing import: 'Trash2' is not defined. Line 18: <Trash2 />",
+       suggestion: "Add: import { Trash2 } from 'lucide-react';"
+     }]
+   })
+
+3. regenerate_file({
+     path: "src/components/AddTodo.tsx",
+     issues: [{
+       description: "Type 'string | undefined' not assignable to type 'string'. Line 25: category assignment",
+       suggestion: "Add null check: category: selectedCategory || 'default'"
+     }]
+   })
+
+Sequential after fixes:
+4. run_analysis()
+   → Verify all errors resolved
+
+5. deploy_preview()
+   → Update browser preview with fixed code
+\`\`\`
+
+**Your Response**: "Fixed all 3 TypeScript errors: added missing import, added null check for category, and fixed type mismatch. Analysis clean!"
+</examples>`;
+}
+
+// ---------------------------------------------------------------------------
 // Preflight questions prompt section
 // ---------------------------------------------------------------------------
 
@@ -791,19 +950,24 @@ ${preflightQuestions}
 // Main export
 // ---------------------------------------------------------------------------
 
-const getSystemPrompt = (projectType: ProjectType, renderMode: RenderMode, dynamicHints: string, preflightQuestions?: string, preflightQuestionsAsked?: number): string => {
+interface SystemPromptOptions {
+    disableGit?: boolean;
+}
+
+const getSystemPrompt = (projectType: ProjectType, renderMode: RenderMode, dynamicHints: string, preflightQuestions?: string, preflightQuestionsAsked?: number, options?: SystemPromptOptions): string => {
     const variant = resolveVariant(projectType, renderMode);
+    const disableGit = options?.disableGit ?? false;
 
     const sections = [
         CORE_IDENTITY[variant],
         COMMUNICATION_MODE,
-        CRITICAL_RULES[variant],
-        ARCHITECTURE[variant],
-        WORKFLOW[variant],
-        buildToolsSection(variant),
+        buildCriticalRules(variant, disableGit),
+        buildArchitecture(variant, disableGit),
+        buildWorkflow(variant, disableGit),
+        buildToolsSection(variant, disableGit),
         DESIGN_REQUIREMENTS[variant],
         variant !== 'presentation' ? buildQualityStandards(variant) : '',
-        EXAMPLES[variant],
+        buildExamples(variant, disableGit),
         preflightQuestions ? buildPreflightSection(preflightQuestions, preflightQuestionsAsked ?? 0) : '',
         dynamicHints ? `<dynamic_guidance>\n${dynamicHints}\n</dynamic_guidance>` : '',
     ];

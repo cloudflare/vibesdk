@@ -52,6 +52,7 @@ export class VibeClient {
 			images: options.images,
 			credentials: options.credentials,
 			preflightQuestions: options.preflightQuestions,
+			disableGit: options.disableGit,
 		};
 
 		const resp = await this.http.fetchRaw('/api/agent', {
