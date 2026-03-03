@@ -2,6 +2,7 @@ import { tool, t } from '../types';
 import { StructuredLogger } from '../../../logger';
 import { ICodingAgent } from 'worker/agents/services/interfaces/ICodingAgent';
 import { WebSocketMessageResponses } from '../../constants';
+import { IdGenerator } from '../../utils/idGenerator';
 
 type PreflightQuestionResult = {
 	questionAsked: string;
@@ -28,10 +29,18 @@ export function createAskPreflightQuestionTool(
 				isWaitingForAnswer: true,
 			});
 
+			const conversationId = IdGenerator.generateConversationId();
+
 			agent.broadcast(WebSocketMessageResponses.CONVERSATION_RESPONSE as 'conversation_response', {
 				message: question,
-				conversationId: `preflight-q-${currentState.questionsAsked + 1}`,
+				conversationId,
 				isStreaming: false,
+			});
+
+			agent.addConversationMessage({
+				role: 'assistant',
+				content: question,
+				conversationId,
 			});
 
 			logger.info('Preflight question asked', {

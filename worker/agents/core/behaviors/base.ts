@@ -8,6 +8,7 @@ import {
 } from '../../schemas';
 import { ExecuteCommandsResponse, PreviewType, RuntimeError, StaticAnalysisResponse, TemplateDetails, TemplateFile } from '../../../services/sandbox/sandboxTypes';
 import { BaseProjectState, AgenticState, FileState, PreflightState } from '../state';
+import { ConversationMessage } from '../../inferutils/common';
 import { AllIssues, AgentSummary, AgentInitArgs, BehaviorType, DeploymentTarget, ProjectType } from '../types';
 import { WebSocketMessageResponses } from '../../constants';
 import { ProjectSetupAssistant } from '../../assistants/projectsetup';
@@ -409,6 +410,10 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
 
     clearConversation(): void {
         this.infrastructure.clearConversation();
+    }
+
+    addConversationMessage(message: ConversationMessage): void {
+        this.infrastructure.addConversationMessage(message);
     }
 
     getGit(): GitVersionControl {
