@@ -1,5 +1,21 @@
 # Changelog
 
+## [1.6.3](https://github.com/ateammgt/ripsdk/compare/v1.6.2...v1.6.3) (2026-03-11)
+
+
+### Bug Fixes
+
+* TypeScript errors and CI workflow updates ([#13](https://github.com/ateammgt/ripsdk/issues/13)) ([6a9cabd](https://github.com/ateammgt/ripsdk/commit/6a9cabd37c48264cef560815c7c1316a223f333e))
+
+## [1.6.2](https://github.com/ateammgt/ripsdk/compare/v1.6.1...v1.6.2) (2026-03-11)
+
+
+### Bug Fixes
+
+* Rename vibesdk to ripsdk in all references ([#7](https://github.com/ateammgt/ripsdk/issues/7)) ([10897c8](https://github.com/ateammgt/ripsdk/commit/10897c852a4dc98f9e88dbe7ee04b0a1f7ddc53c))
+* Replace all vibesdk references with ripsdk ([#9](https://github.com/ateammgt/ripsdk/issues/9)) ([87d9df9](https://github.com/ateammgt/ripsdk/commit/87d9df97d9ac06ada575cb6c227f47ffda76f57e))
+* Replace vibesdk with ripsdk in wrangler configs ([#10](https://github.com/ateammgt/ripsdk/issues/10)) ([ee40a66](https://github.com/ateammgt/ripsdk/commit/ee40a6680f78e647be11746ae6c95298731e0b90))
+
 ## [1.6.1](https://github.com/ateammgt/vibesdk/compare/v1.6.0...v1.6.1) (2026-03-11)
 
 
