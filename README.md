@@ -81,8 +81,11 @@ Before clicking "Deploy to Cloudflare", have these ready:
 - Workers for Platforms subscription
 - Advanced Certificate Manager (needed when you map a first-level subdomain such as `abc.xyz.com` so Cloudflare can issue the required wildcard certificate for preview apps on `*.abc.xyz.com`)
 
-### 🔑 Required API Key
-- **Google Gemini API Key** - Get from [ai.google.dev](https://ai.google.dev)
+### 🔑 Required API Keys
+
+- **Anthropic API Key** - Get from [console.anthropic.com](https://console.anthropic.com)
+- **OpenAI API Key** - Get from [platform.openai.com](https://platform.openai.com)
+- **Or use Cloudflare Workers AI** - Free, no key needed
 
 Once you click "Deploy to Cloudflare", you'll be taken to your Cloudflare dashboard where you can configure your RIP deployment with these variables. 
 
