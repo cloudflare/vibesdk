@@ -1,5 +1,6 @@
 # Dependabot will check for vulnerable dependencies
 version: 2
+enable-beta-ecosystems: true
 updates:
   - package-ecosystem: "npm"
     directory: "/"
