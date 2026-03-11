@@ -1,9 +1,0 @@
-# Dependabot will check for vulnerable dependencies
-version: 2
-updates:
-  - package-ecosystem: "npm"
-    directory: "/"
-    schedule:
-      interval: "weekly"
-    # Limit open PRs to reduce noise
-    open-pull-requests-limit: 3
