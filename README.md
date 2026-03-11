@@ -74,7 +74,7 @@ session.close();
 
 ## 📋 Quick Deploy Checklist
 
-Before clicking "Deploy to Cloudflare", have these ready:
+Have these ready:
 
 ### ✅ Prerequisites
 - Cloudflare Workers Paid Plan
@@ -87,11 +87,7 @@ Before clicking "Deploy to Cloudflare", have these ready:
 - **OpenAI API Key** - Get from [platform.openai.com](https://platform.openai.com)
 - **Or use Cloudflare Workers AI** - Free, no key needed
 
-Once you click "Deploy to Cloudflare", you'll be taken to your Cloudflare dashboard where you can configure your RIP deployment with these variables. 
-
-[![Deploy to Cloudflare Workers](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/ateammgt/ripsdk)
-
-### 🔑 What you'll configure
+### What you'll configure
 
 - `JWT_SECRET` - Secure random string for session management
 - `WEBHOOK_SECRET` - Webhook authentication secret
