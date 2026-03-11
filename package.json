@@ -39,7 +39,6 @@
 		"knip:exports": "knip --exports"
 	},
 	"dependencies": {
-		"acorn": "^8.14.0",
 		"@ashishkumar472/cf-git": "1.0.5",
 		"@babel/generator": "^7.28.5",
 		"@babel/parser": "^7.28.5",
@@ -83,7 +82,8 @@
 		"@types/argon2-browser": "^1.18.4",
 		"@types/mdast": "^4.0.4",
 		"@vitejs/plugin-react": "^5.1.2",
-		"agents": "^0.3.10",
+		"acorn": "^8.14.0",
+		"agents": "^0.7.6",
 		"class-variance-authority": "^0.7.1",
 		"cli-table3": "^0.6.5",
 		"cloudflare": "^4.5.0",
@@ -101,8 +101,8 @@
 		"framer-motion": "^12.23.26",
 		"hash-wasm": "^4.12.0",
 		"hono": "^4.11.0",
-		"htmlparser2": "^10.0.0",
 		"html2canvas-pro": "^1.5.13",
+		"htmlparser2": "^10.0.0",
 		"input-otp": "^1.4.2",
 		"inquirer": "^12.11.1",
 		"jose": "^5.10.0",
@@ -138,7 +138,7 @@
 	},
 	"devDependencies": {
 		"@cloudflare/vite-plugin": "^1.17.1",
-		"@cloudflare/vitest-pool-workers": "^0.8.71",
+		"@cloudflare/vitest-pool-workers": "^0.12.21",
 		"@cloudflare/workers-types": "^4.20251213.0",
 		"@eslint/js": "^9.39.2",
 		"@tailwindcss/typography": "^0.5.19",
@@ -148,7 +148,7 @@
 		"@types/react": "^19.2.7",
 		"@types/react-dom": "^19.2.3",
 		"@vitest/coverage-v8": "^3.2.4",
-		"drizzle-kit": "^0.31.8",
+		"drizzle-kit": "^0.18.1",
 		"eslint": "^9.39.2",
 		"eslint-plugin-react-hooks": "^5.2.0",
 		"eslint-plugin-react-refresh": "^0.4.24",
@@ -169,7 +169,7 @@
 		"typescript-eslint": "^8.49.0",
 		"vite": "npm:rolldown-vite@7.1.13",
 		"vitest": "^3.2.4",
-		"wrangler": "4.59.1"
+		"wrangler": "^4.72.0"
 	},
 	"prettier": {
 		"singleQuote": true,
