@@ -23,30 +23,30 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v1
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
-          bun-version: latest
+          node-version: 22
 
-      - name: Cache Bun install cache
+      - name: Cache node_modules
         uses: actions/cache@v4
         with:
-          path: ~/.bun/install/cache
-          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
+          path: node_modules
+          key: ${{ runner.os }}-npm-${{ hashFiles('package-lock.json') }}
           restore-keys: |
-            ${{ runner.os }}-bun-
+            ${{ runner.os }}-npm-
 
       - name: Install dependencies
-        run: bun install --frozen-lockfile
+        run: npm ci --legacy-peer-deps
 
       - name: Lint
-        run: bun run lint
+        run: npm run lint
 
       - name: Typecheck
-        run: bun run typecheck
+        run: npm run typecheck
 
       - name: Test
-        run: bun run test
+        run: npm run test
 
       - name: Build
-        run: bun run build
+        run: npm run build
