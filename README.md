@@ -1,6 +1,6 @@
 # RIP SDK - Running In Parallel
 
-> **A fork of Cloudflare Vibe SDK** – An open source full-stack AI webapp generator built on Cloudflare's developer platform. Deploy your own instance of RIP, an AI vibe coding platform that you can run and customize yourself.
+> **A fork of Cloudflare Vibe SDK** – An AI-powered coding tool built on Cloudflare's developer platform. Part of the RIP suite of AI applications.
 
 <div align="center">
 
@@ -27,7 +27,7 @@
 
 ## ✨ What is RIP SDK?
 
-RIP SDK is a fork of Cloudflare Vibe SDK, an open source AI vibe coding platform built on Cloudflare's developer platform. If you're building an AI-powered platform for building applications, this is a great example that you can deploy and customize to build the whole platform yourself. Once deployed, users can describe what they want to build in natural language, and the AI agent will create and deploy the application.
+RIP SDK is a fork of Cloudflare Vibe SDK - an AI-powered coding tool built on Cloudflare's developer platform. It's part of a suite of AI applications designed to help developers build faster. Describe what you want to build in natural language, and the AI will create and deploy the application for you.
 
 **🌐 [Experience it live at your-app.workers.dev](https://your-app.workers.dev)** – Try it out before deploying your own instance!
 
