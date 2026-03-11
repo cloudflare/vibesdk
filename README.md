@@ -4,6 +4,8 @@
 
 ---
 
+
+
 ## ✨ What is RIP SDK?
 
 RIP SDK is a fork of Cloudflare Vibe SDK - an AI-powered coding tool built on Cloudflare's developer platform. It's part of a suite of AI applications designed to help developers build faster. Describe what you want to build in natural language, and the AI will create and deploy the application for you.
