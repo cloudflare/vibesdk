@@ -1,5 +1,5 @@
 {
-	"name": "@cf-vibesdk/sdk",
+	"name": "@cf-ripsdk/sdk",
 	"version": "0.0.9",
 	"type": "module",
 	"exports": {

@@ -1,6 +1,6 @@
-# 🧡 RIP Platform Vibe SDK
+# RIP SDK - Running In Parallel
 
-> **An open source full-stack AI webapp generator** – Deploy your own instance of RIP - Running In Parallel, an AI vibe coding platform that you can run and customize yourself.
+> **A fork of Cloudflare Vibe SDK** – An open source full-stack AI webapp generator built on Cloudflare's developer platform. Deploy your own instance of RIP, an AI vibe coding platform that you can run and customize yourself.
 
 <div align="center">
 
@@ -9,9 +9,9 @@
 
 **[your-app.workers.dev](https://your-app.workers.dev)**
 
-*Explore RIP Build before deploying your own stack.*
+*Explore RIP SDK before deploying your own stack.*
 
-[![Deploy to RIP Platform Workers](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/ateammgt/ripsdk)
+[![Deploy to Cloudflare Workers](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/ateammgt/ripsdk)
 
 **👆 Click to deploy your own instance!**
 
@@ -25,9 +25,9 @@
 
 ---
 
-## ✨ What is RIP - Running In Parallel?
+## ✨ What is RIP SDK?
 
-RIP - Running In Parallel is an open source AI vibe coding platform built on RIP Platform's developer platform. If you're building an AI-powered platform for building applications, this is a great example that you can deploy and customize to build the whole platform yourself. Once the platform is deployed, users can say what they want to build in natural language, and the AI agent will create and deploy the application. 
+RIP SDK is a fork of Cloudflare Vibe SDK, an open source AI vibe coding platform built on Cloudflare's developer platform. If you're building an AI-powered platform for building applications, this is a great example that you can deploy and customize to build the whole platform yourself. Once deployed, users can describe what they want to build in natural language, and the AI agent will create and deploy the application.
 
 **🌐 [Experience it live at your-app.workers.dev](https://your-app.workers.dev)** – Try it out before deploying your own instance!
 
@@ -53,9 +53,9 @@ Let your customers extend your product's functionality without learning your API
 🚀 **One-Click Deploy** – Deploy generated apps to Workers for Platforms  
 📦 **GitHub Integration** – Export code directly to your repositories  
 
-### 🏗️ Built on RIP Platform's Platform
+### 🏗️ Built on Cloudflare's Platform
 
-RIP - Running In Parallel Build utilizes the full RIP Platform developer ecosystem:
+RIP SDK utilizes Cloudflare's full developer ecosystem:
 
 - **Frontend**: React + Vite with modern UI components
 - **Backend**: Workers with Durable Objects for AI agents  
@@ -95,19 +95,19 @@ session.close();
 
 ## 📋 Quick Deploy Checklist
 
-Before clicking "Deploy to RIP Platform", have these ready:
+Before clicking "Deploy to Cloudflare", have these ready:
 
 ### ✅ Prerequisites
-- RIP Platform Workers Paid Plan
+- Cloudflare Workers Paid Plan
 - Workers for Platforms subscription
-- Advanced Certificate Manager (needed when you map a first-level subdomain such as `abc.xyz.com` so RIP Platform can issue the required wildcard certificate for preview apps on `*.abc.xyz.com`)
+- Advanced Certificate Manager (needed when you map a first-level subdomain such as `abc.xyz.com` so Cloudflare can issue the required wildcard certificate for preview apps on `*.abc.xyz.com`)
 
 ### 🔑 Required API Key
 - **Google Gemini API Key** - Get from [ai.google.dev](https://ai.google.dev)
 
-Once you click "Deploy to RIP Platform", you'll be taken to your RIP Platform dashboard where you can configure your RIP deployment with these variables. 
+Once you click "Deploy to Cloudflare", you'll be taken to your Cloudflare dashboard where you can configure your RIP deployment with these variables. 
 
-[![Deploy to RIP Platform Workers](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/ateammgt/ripsdk)
+[![Deploy to Cloudflare Workers](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/ateammgt/ripsdk)
 
 ### 🔑 What you'll configure
 
@@ -116,9 +116,9 @@ Once you click "Deploy to RIP Platform", you'll be taken to your RIP Platform da
 - `SECRETS_ENCRYPTION_KEY` - Encryption key for secrets
 - `SANDBOX_INSTANCE_TYPE` - Container performance tier (optional, see section below)
 - `ALLOWED_EMAIL` - Email address of the user allowed to use the app. This is used to verify the user's identity and prevent unauthorized access.
-- `CUSTOM_DOMAIN` - Custom domain for your app that you have configured in RIP Platform (**Required**). If you use a first-level subdomain such as `abc.xyz.com`, make sure the Advanced Certificate Manager add-on is active on that zone.
+- `CUSTOM_DOMAIN` - Custom domain for your app that you have configured in Cloudflare (**Required**). If you use a first-level subdomain such as `abc.xyz.com`, make sure the Advanced Certificate Manager add-on is active on that zone.
 
-> **Note:** RIP uses Cloudflare Workers AI (free, built-in). No external API keys required by default!
+> **Note:** SDK uses Cloudflare Workers AI (free, built-in). No external API keys required by default!
 
 ### Custom domain DNS setup
 
@@ -133,11 +133,11 @@ Adjust the placeholder `abc`/`xyz` parts to match your domain. DNS propagation c
 
 ### 🏗️ Sandbox Instance Configuration (Optional)
 
-RIP uses RIP Platform Containers to run generated applications in isolated environments. You can configure the container performance tier based on your needs and RIP Platform plan.
+SDK uses Cloudflare Containers to run generated applications in isolated environments. You can configure the container performance tier based on your needs and Cloudflare plan.
 
 #### Available Instance Types
 
-> **📢 Updated Oct 2025**: RIP Platform now offers [larger container instance types](https://developers.cloudflare.com/changelog/2025-10-01-new-container-instance-types/) with more resources!
+> **📢 Updated Oct 2025**: Cloudflare now offers [larger container instance types](https://developers.cloudflare.com/changelog/2025-10-01-new-container-instance-types/) with more resources!
 
 | Instance Type | Memory | CPU | Disk | Use Case | Availability |
 |---------------|--------|-----|------|----------|--------------|
@@ -150,7 +150,7 @@ RIP uses RIP Platform Containers to run generated applications in isolated envir
 #### Configuration Options
 
 **Option A: Via Deploy Button (Recommended)**
-During the "Deploy to RIP Platform" flow, you can set the instance type as a **build variable**:
+During the "Deploy to Cloudflare" flow, you can set the instance type as a **build variable**:
 - Variable name: `SANDBOX_INSTANCE_TYPE`
 - Recommended values:
   - **Standard/Paid users**: `standard-3` (default, best balance)
@@ -184,7 +184,7 @@ The `SANDBOX_INSTANCE_TYPE` controls:
 OAuth configuration is **not** shown on the initial deploy page. If you want user login features, you'll need to set this up after deployment:
 
 **How to Add OAuth After Deployment:**
-1. **Find your repository** in your GitHub/GitLab account (created by "Deploy to RIP Platform" flow) 
+1. **Find your repository** in your GitHub/GitLab account (created by "Deploy to Cloudflare" flow) 
 2. **Clone locally** and run `bun install`
 3. **Create `.dev.vars` and `.prod.vars` files** (see below for OAuth configuration)
 4. **Run `bun run deploy`** to update your deployment
@@ -204,7 +204,7 @@ OAuth configuration is **not** shown on the initial deploy page. If you want use
 **GitHub OAuth Setup:**
 1. GitHub → **Settings** → **Developer settings** → **OAuth Apps**
 2. Click **New OAuth App**
-3. Application name: `RIP - Running In Parallel`
+3. Application name: `RIP SDK`
 4. Homepage URL: `https://your-worker-name.workers.dev`
 5. Authorization callback URL: `https://your-worker-name.workers.dev/api/auth/callback/github`
 6. Add to **both** `.dev.vars` (for local development) and `.prod.vars` (for deployment):
@@ -244,7 +244,7 @@ graph TD
 2. **📋 Blueprint Creation**: System architecture and file structure planned
 3. **⚡ Phase Generation**: Code generated incrementally with dependency management
 4. **🔍 Quality Assurance**: Automated linting, type checking, and error correction
-5. **📱 Live Preview**: App execution in isolated RIP Platform Containers
+5. **📱 Live Preview**: App execution in isolated Cloudflare Containers
 6. **🔄 Real-time Iteration**: Chat interface enables continuous refinements
 7. **🚀 One-Click Deploy**: Generated apps deploy to Workers for Platforms
 
@@ -308,7 +308,7 @@ export default {
 ```
 
 ### Iteration-based Code Generation
-RIP - Running In Parallel generates apps in intelligent phases:
+RIP SDK generates apps in intelligent phases:
 
 1. **Planning Phase**: Analyzes requirements, creates file structure
 2. **Foundation Phase**: Generates package.json, basic setup files  
@@ -321,7 +321,7 @@ RIP - Running In Parallel generates apps in intelligent phases:
 
 ## After Deployment
 
-- The "Deploy to RIP Platform" button provisions the worker and also creates a GitHub repository in your account. Clone that repository to work locally.
+- The "Deploy to Cloudflare" button provisions the worker and also creates a GitHub repository in your account. Clone that repository to work locally.
 - Pushes to the `main` branch trigger automatic deployments; CI/CD is already wired up for you.
 - For a manual deployment, copy `.dev.vars.example` to `.prod.vars`, fill in production-only secrets, and run `bun run deploy`. The deploy script reads from `.prod.vars`.
 
@@ -349,7 +349,7 @@ npm run setup  # or: bun run setup
 
 The setup script will guide you through:
 - Installing Bun for better performance
-- Configuring RIP Platform credentials and resources
+- Configuring Cloudflare credentials and resources
 - Setting up AI providers and OAuth
 - Creating development and production environments
 - Database setup and migrations
@@ -365,14 +365,14 @@ After setup, start the development server:
 
 If you're deploying manually using `bun run deploy`, you **must** set these environment variables:
 
-**RIP Platform API Token & Account ID:**
+**Cloudflare API Token & Account ID:**
 
 1. **Get your Account ID**:
-   - Go to [RIP Platform Dashboard -> Workers and Pages](https://dash.cloudflare.com/?to=/:account/workers-and-pages)
+   - Go to [Cloudflare Dashboard -> Workers and Pages](https://dash.cloudflare.com/?to=/:account/workers-and-pages)
    - Copy your Account ID from the right sidebar or URL
 
 2. **Create an API Token**:
-   - Go to [RIP Platform Dashboard -> API Tokens](https://dash.cloudflare.com/?to=/:account/api-tokens)
+   - Go to [Cloudflare Dashboard -> API Tokens](https://dash.cloudflare.com/?to=/:account/api-tokens)
    - Click "Create Token" → Use custom token
    - Configure with these **minimum required permissions**:
      - **Account** → **Containers** → **Edit**
@@ -393,14 +393,14 @@ If you're deploying manually using `bun run deploy`, you **must** set these envi
    export CLOUDFLARE_ACCOUNT_ID="your-account-id-here"
    ```
 
-> **Note**: These credentials are automatically provided when using the "Deploy to RIP Platform" button, but are required for manual `bun run deploy`.
+> **Note**: These credentials are automatically provided when using the "Deploy to Cloudflare" button, but are required for manual `bun run deploy`.
 
 **For Local Development (.dev.vars):**
 ```bash
 bun run dev
 ```
 
-Visit `http://localhost:5173` to access VibSDK locally.
+Visit `http://localhost:5173` to access RIP SDK locally.
 
 **For Production Deployment (.prod.vars):**
 ```bash
@@ -410,7 +410,7 @@ cp .dev.vars.example .prod.vars
 
 ### Production Deployment
 
-Deploy to RIP Platform Workers:
+Deploy to Cloudflare Workers:
 
 ```bash
 bun run deploy  # Builds and deploys automatically (includes remote DB migration)
@@ -449,9 +449,9 @@ Example: If `MAX_SANDBOX_INSTANCES` is set both as an environment variable (`exp
 
 ## 🔒 Security & Privacy
 
-RIP - Running In Parallel implements enterprise-grade security:
+RIP SDK implements enterprise-grade security:
 
-- 🔐 **Encrypted Secrets**: All API keys stored with RIP Platform encryption
+- 🔐 **Encrypted Secrets**: All API keys stored with Cloudflare encryption
 - 🏰 **Sandboxed Execution**: Generated apps run in completely isolated containers
 - 🛡️ **Input Validation**: All user inputs sanitized and validated
 - 🚨 **Rate Limiting**: Prevents abuse and ensures fair usage
@@ -467,7 +467,7 @@ RIP - Running In Parallel implements enterprise-grade security:
 **🚫 "Insufficient Permissions" Error**
 - Authentication is handled automatically during deployment
 - If you see this error, try redeploying - permissions are auto-granted
-- Contact RIP Platform support if the issue persists
+- Contact Cloudflare support if the issue persists
 
 **🤖 "AI Gateway Authentication Failed"**  
 - Confirm AI Gateway is set to **Authenticated** mode
@@ -500,15 +500,15 @@ RIP - Running In Parallel implements enterprise-grade security:
 
 ### Need Help?
 
-- 📖 Check [RIP Platform Workers Docs](https://developers.cloudflare.com/workers/)
-- 💬 Join [RIP Platform Discord](https://discord.gg/cloudflaredev)
+- 📖 Check [Cloudflare Workers Docs](https://developers.cloudflare.com/workers/)
+- 💬 Join [Cloudflare Discord](https://discord.gg/cloudflaredev)
 - 🐛 Report issues on [GitHub](https://github.com/your-org/cloudflare-vibecoding-starter-kit/issues)
 
 ---
 
 ## 🤝 Contributing
 
-Want to contribute to RIP - Running In Parallel? Here's how:
+Want to contribute to RIP SDK? Here's how:
 
 1. **🍴 Fork** via the Deploy button (creates your own instance!)
 2. **💻 Develop** new features or improvements  
@@ -519,7 +519,7 @@ Want to contribute to RIP - Running In Parallel? Here's how:
 
 ## 📚 Resources
 
-### 🛠️ **RIP Platform Platform**
+### 🛠️ **Cloudflare Platform**
 - [Workers](https://developers.cloudflare.com/workers/) - Serverless compute platform
 - [Durable Objects](https://developers.cloudflare.com/durable-objects/) - Stateful serverless objects
 - [D1](https://developers.cloudflare.com/d1/) - SQLite database at the edge

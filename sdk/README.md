@@ -1,6 +1,6 @@
-# @cf-vibesdk/sdk
+# @cf-ripsdk/sdk
 
-Official TypeScript SDK for the VibeSDK platform - build and deploy fullstack apps with AI.
+Official TypeScript SDK for the RIP SDK platform - build and deploy fullstack apps with AI.
 
 ## Compatibility
 
@@ -16,13 +16,13 @@ Works in any JavaScript runtime with native WebSocket support:
 ## Installation
 
 ```bash
-npm install @cf-vibesdk/sdk
+npm install @cf-ripsdk/sdk
 ```
 
 ## Quick Start
 
 ```ts
-import { PhasicClient } from '@cf-vibesdk/sdk';
+import { PhasicClient } from '@cf-ripsdk/sdk';
 
 const client = new PhasicClient({
   baseUrl: 'https://build.cloudflare.dev',
@@ -361,7 +361,7 @@ const client = new PhasicClient({
 ### Blueprint Parsing
 
 ```ts
-import { BlueprintStreamParser, blueprintToMarkdown } from '@cf-vibesdk/sdk';
+import { BlueprintStreamParser, blueprintToMarkdown } from '@cf-ripsdk/sdk';
 
 // Parse streaming blueprint chunks
 const parser = new BlueprintStreamParser();
@@ -376,7 +376,7 @@ const md = blueprintToMarkdown(blueprint);
 ### Timeout Helper
 
 ```ts
-import { withTimeout, TimeoutError } from '@cf-vibesdk/sdk';
+import { withTimeout, TimeoutError } from '@cf-ripsdk/sdk';
 
 try {
   const result = await withTimeout(someAsyncOperation(), 30000, 'Operation timed out');
@@ -431,7 +431,7 @@ import type {
   BehaviorType,
   ProjectType,
   // ... and more
-} from '@cf-vibesdk/sdk';
+} from '@cf-ripsdk/sdk';
 ```
 
 ## Testing
