@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.6.1](https://github.com/ateammgt/vibesdk/compare/v1.6.0...v1.6.1) (2026-03-11)
+
+
+### Bug Fixes
+
+* Resolve vite dependency conflict ([#4](https://github.com/ateammgt/vibesdk/issues/4)) ([46e437f](https://github.com/ateammgt/vibesdk/commit/46e437f065fd55dbbf743c602b89c9565aaf4700))
+* Switch CI from Bun to npm with Node 22 ([#6](https://github.com/ateammgt/vibesdk/issues/6)) ([89f168a](https://github.com/ateammgt/vibesdk/commit/89f168a15df548a17f5ce21a97f305688361e934))
+
 ## [1.6.0](https://github.com/ateammgt/vibesdk/compare/v1.5.0...v1.6.0) (2026-03-11)
 
 
