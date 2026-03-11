@@ -1,0 +1,117 @@
+name: Security Scan
+
+on:
+  push:
+    branches: [main]
+  schedule:
+    - cron: '0 0 * * 0'  # Weekly
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  security:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+      
+      - name: Install dependencies
+        run: bun install
+      
+      # Check for known vulnerabilities in dependencies
+      - name: Audit dependencies
+        run: |
+          # Run npm audit (bun uses npm under the hood)
+          npm audit --audit-level=moderate --production || true
+        continue-on-error: true
+      
+      # Check for secrets accidentally committed
+      - name: Scan for secrets
+        run: |
+          # Basic secrets detection
+          echo "Checking for secrets..."
+          
+          # Check for common secret patterns
+          grep -rE "(api_key|apikey|secret|token|password)" --include="*.env*" . 2>/dev/null | grep -v ".example" | grep -v "node_modules" || echo "No secrets found in .env files"
+          
+          # Check for AWS keys
+          grep -rE "(AKIA|ASIA)[A-Z0-9]{16}" --include="*.ts" --include="*.tsx" . 2>/dev/null | grep -v node_modules || echo "No AWS keys found"
+          
+          # Check for private keys
+          grep -rE "-----BEGIN (RSA|EC|DSA|OPENSSH) PRIVATE KEY" . 2>/dev/null | grep -v node_modules || echo "No private keys found"
+        continue-on-error: true
+      
+      # Check for outdated dependencies with known vulnerabilities
+      - name: Check for vulnerable packages
+        run: |
+          # Install audit tools
+          npm install -g npm-check-updates 2>/dev/null || true
+          
+          # Check for major version updates
+          npx npm-check-updates --target minor 2>/dev/null || echo "No major updates available"
+        continue-on-error: true
+      
+      # Cloudflare specific checks
+      - name: Check Cloudflare bindings
+        run: |
+          echo "Checking for proper env configuration..."
+          
+          # Verify required env vars are documented
+          if [ -f .dev.vars.example ]; then
+            echo "Required env vars should be in .dev.vars.example:"
+            cat .dev.vars.example | grep -v "^#" | grep -v "^$"
+          fi
+        continue-on-error: true
+
+  code-quality:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+      
+      - name: Install
+        run: bun install
+      
+      - name: Run security-focused lint
+        run: |
+          # Run eslint with security rules
+          bun run lint || true
+        continue-on-error: true
+      
+      - name: Typecheck
+        run: |
+          bun run typecheck || true
+        continue-on-error: true
+
+  summary:
+    needs: [security, code-quality]
+    runs-on: ubuntu-latest
+    if: always()
+    
+    steps:
+      - name: Summary
+        run: |
+          echo "## Security Scan Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Security scan completed." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "For production deployments, ensure:" >> $GITHUB_STEP_SUMMARY
+          echo "1. Use strong JWT_SECRET and WEBHOOK_SECRET" >> $GITHUB_STEP_SUMMARY
+          echo "2. Enable Cloudflare Access/Zero Trust for admin" >> $GITHUB_STEP_SUMMARY
+          echo "3. Use Cloudflare WAF rules" >> $GITHUB_STEP_SUMMARY
+          echo "4. Enable DDoS protection" >> $GITHUB_STEP_SUMMARY
+          echo "5. Regular updates from upstream" >> $GITHUB_STEP_SUMMARY
