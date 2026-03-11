@@ -3,8 +3,7 @@ name: CI
 on:
   pull_request:
     branches: [main, nightly]
-  push:
-    branches: [main, nightly]
+    types: [opened, synchronize, reopened]
 
 permissions:
   contents: read
@@ -27,6 +26,9 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
+
+      - name: Add Node.js 24 for future compatibility
+        run: echo "FORCE_JAVASCRIPT_ACTIONS_TO_NODE24=true" >> $GITHUB_ENV
 
       - name: Cache node_modules
         uses: actions/cache@v4
