@@ -111,13 +111,14 @@ Once you click "Deploy to RIP Platform", you'll be taken to your RIP Platform da
 
 ### 🔑 What you'll configure
 
-- `GOOGLE_AI_STUDIO_API_KEY` - Your Google Gemini API key for Gemini models
 - `JWT_SECRET` - Secure random string for session management
 - `WEBHOOK_SECRET` - Webhook authentication secret
 - `SECRETS_ENCRYPTION_KEY` - Encryption key for secrets
 - `SANDBOX_INSTANCE_TYPE` - Container performance tier (optional, see section below)
 - `ALLOWED_EMAIL` - Email address of the user allowed to use the app. This is used to verify the user's identity and prevent unauthorized access.
 - `CUSTOM_DOMAIN` - Custom domain for your app that you have configured in RIP Platform (**Required**). If you use a first-level subdomain such as `abc.xyz.com`, make sure the Advanced Certificate Manager add-on is active on that zone.
+
+> **Note:** RIP uses Cloudflare Workers AI (free, built-in). No external API keys required by default!
 
 ### Custom domain DNS setup
 
@@ -430,9 +431,11 @@ bun run deploy  # Builds and deploys automatically (includes remote DB migration
    ```bash
    wrangler secret put ANTHROPIC_API_KEY
    wrangler secret put OPENAI_API_KEY
-   wrangler secret put GOOGLE_AI_STUDIO_API_KEY
+   # Cloudflare Workers AI is built-in and free - no key needed!
    # ... etc
    ```
+
+> **Note:** Cloudflare Workers AI is built-in and free. Use BYOK for external providers.
 
 #### Environment Variable Priority
 The deployment system follows this priority order:
