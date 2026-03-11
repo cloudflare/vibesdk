@@ -30,4 +30,6 @@ export function setupCodegenRoutes(app: Hono<AppEnv>): void {
     app.get('/api/agent/:agentId/connect', setAuthLevel(AuthConfig.ownerOnly), adaptController(CodingAgentController, CodingAgentController.connectToExistingAgent));
 
     app.get('/api/agent/:agentId/preview', setAuthLevel(AuthConfig.authenticated), adaptController(CodingAgentController, CodingAgentController.deployPreview));
+
+    app.delete('/api/agent/:agentId/preview/cancel', setAuthLevel(AuthConfig.ownerOnly), adaptController(CodingAgentController, CodingAgentController.cancelDeployment));
 }

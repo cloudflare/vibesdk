@@ -12,6 +12,7 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ModelSelector } from '@/components/ui/model-selector';
+import { SwarmToggle, type SwarmConfig } from '@/components/ui/swarm-toggle';
 import { Check } from 'lucide-react';
 import {
   Dialog,
@@ -96,6 +97,14 @@ export function ConfigModal({
     temperature: userConfig?.temperature?.toString() || '',
     reasoningEffort: userConfig?.reasoning_effort || 'default',
     fallbackModel: userConfig?.fallbackModel || 'default'
+  });
+
+  // Swarm state - single agent by default
+  const [swarmConfig, setSwarmConfig] = useState<SwarmConfig>({
+    enabled: false,
+    mode: 'parallel',
+    workerCount: 3,
+    workerModel: 'default'
   });
 
   // UI state
@@ -242,6 +251,15 @@ export function ConfigModal({
       ...(formData.temperature && { temperature: parseFloat(formData.temperature) }),
       ...(formData.reasoningEffort !== 'default' && { reasoningEffort: formData.reasoningEffort }),
       ...(formData.fallbackModel !== 'default' && { fallbackModel: formData.fallbackModel }),
+      // Include swarm config if enabled
+      ...(swarmConfig.enabled && {
+        swarmConfig: {
+          enabled: true,
+          mode: swarmConfig.mode,
+          workerCount: swarmConfig.workerCount,
+          workerModel: swarmConfig.workerModel !== 'default' ? swarmConfig.workerModel : undefined
+        }
+      }),
       isUserOverride: true
     };
   };
@@ -396,6 +414,29 @@ export function ConfigModal({
                 />
               </div>
             </div>
+          </div>
+
+          {/* Swarm Toggle */}
+          <div className="space-y-3">
+            <SwarmToggle
+              value={swarmConfig}
+              onChange={setSwarmConfig}
+            />
+            
+            {/* Worker Model - Only show when swarm is enabled */}
+            {swarmConfig.enabled && (
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 pt-2">
+                <ModelSelector
+                  value={swarmConfig.workerModel}
+                  onValueChange={(value) => setSwarmConfig({...swarmConfig, workerModel: value})}
+                  availableModels={availableModels}
+                  placeholder="Select worker model..."
+                  label="Worker Model"
+                  systemDefault={defaultConfig?.name}
+                  disabled={loadingByok}
+                />
+              </div>
+            )}
           </div>
 
 

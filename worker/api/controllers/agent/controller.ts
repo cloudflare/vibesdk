@@ -380,4 +380,58 @@ export class CodingAgentController extends BaseController {
             return appError;
         }
     }
+
+    static async cancelDeployment(
+        _request: Request,
+        env: Env,
+        _: ExecutionContext,
+        context: RouteContext
+    ): Promise<ControllerResponse<ApiResponse<{ success: boolean }>>> {
+        try {
+            const agentId = context.pathParams.agentId;
+            if (!agentId) {
+                return CodingAgentController.createErrorResponse<{ success: boolean }>('Missing agent ID parameter', 400);
+            }
+
+            const appService = new AppService(env);
+            const appResult = await appService.getAppDetails(agentId);
+
+            if (!appResult) {
+                return CodingAgentController.createErrorResponse<{ success: boolean }>('App not found', 404);
+            }
+
+            // Check ownership
+            const user = context.user;
+            if (!user || user.id !== appResult.userId) {
+                return CodingAgentController.createErrorResponse<{ success: boolean }>('Only the owner can cancel deployment', 403);
+            }
+
+            this.logger.info(`Cancelling deployment for agent: ${agentId}`);
+
+            try {
+                // Get the agent instance
+                const agentInstance = await getAgentStub(env, agentId);
+                
+                // Cancel the deployment via agent behavior
+                const wasCancelled = agentInstance.getBehavior().cancelCurrentInference();
+                
+                // Also reset the deployment state
+                agentInstance.setState({
+                    ...agentInstance.state,
+                    shouldBeGenerating: false
+                });
+
+                this.logger.info('Deployment cancelled', { agentId, wasCancelled });
+
+                return CodingAgentController.createSuccessResponse({ success: true });
+            } catch (error) {
+                this.logger.error('Failed to cancel deployment', { agentId, error });
+                return CodingAgentController.createErrorResponse<{ success: boolean }>('Failed to cancel deployment', 500);
+            }
+        } catch (error) {
+            this.logger.error('Error cancelling deployment', error);
+            const appError = CodingAgentController.handleError(error, 'cancel deployment') as ControllerResponse<ApiResponse<{ success: boolean }>>;
+            return appError;
+        }
+    }
 }

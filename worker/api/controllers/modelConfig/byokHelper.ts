@@ -47,12 +47,19 @@ export function getPlatformEnabledProviders(env: Env): string[] {
     }
 	const enabledProviders: string[] = [];
 
+    // Workers AI is always available (uses native binding, no key needed)
+    enabledProviders.push('workers-ai');
+
+    // Custom BYOK is always available (user provides endpoint)
+    enabledProviders.push('custom');
+
 	const providerList = [
 		'anthropic',
 		'openai',
 		'google-ai-studio',
 		'cerebras',
 		'groq',
+        'cloudflare', // Cloudflare hosted models (universal key)
 	];
 
 	for (const provider of providerList) {
@@ -100,7 +107,17 @@ export function validateModelAccessForEnvironment(
 
 export function getProviderFromModel(model: AIModels | string): string {
 	if (typeof model === 'string' && model.includes('/')) {
+        // Handle Workers AI format: "@cf/meta/llama-3.1-8b-instruct"
+        if (model.startsWith('@cf/')) {
+            return 'workers-ai';
+        }
+        // Handle OpenAI format: "openai/gpt-4"
 		return model.split('/')[0];
 	}
+    // Check for Cloudflare hosted models (no prefix, like "llama-3.1-70b-instruct")
+    if (typeof model === 'string' && 
+        (model.includes('llama-3.1') || model.includes('llama-3') || model.includes('mistral'))) {
+        return 'workers-ai'; // Routes via AI Gateway
+    }
 	return 'cloudflare';
 }

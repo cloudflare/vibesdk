@@ -303,6 +303,28 @@ export async function getConfigurationForModel(
                     baseURL: 'https://api.anthropic.com/v1/',
                     apiKey: env.ANTHROPIC_API_KEY,
                 };
+            case 'workers-ai':
+                // Workers AI - uses native AI binding by default (free)
+                // If user provides CLOUDFLARE_API_KEY, uses REST API for more models
+                // Model IDs: @cf/meta/llama-3.1-8b-instruct (binding) or llama-3.1-405b-instruct-fp8 (REST)
+                if (env.CLOUDFLARE_API_KEY && env.CLOUDFLARE_ACCOUNT_ID) {
+                    // Use REST API with user's credentials
+                    return {
+                        baseURL: `https://api.cloudflare.com/client/v4/accounts/${env.CLOUDFLARE_ACCOUNT_ID}/ai/run/`,
+                        apiKey: env.CLOUDFLARE_API_KEY,
+                    };
+                }
+                // Default: use native binding (workers-ai:// prefix)
+                return {
+                    baseURL: 'workers-ai://',
+                    apiKey: '',
+                };
+            case 'custom':
+                // Custom BYOK - user provides their own endpoint
+                return {
+                    baseURL: env.CUSTOM_AI_ENDPOINT || '',
+                    apiKey: env.CUSTOM_AI_KEY || '',
+                };
             default:
                 providerForcedOverride = modelConfig.provider as AIGatewayProviders;
                 break;
@@ -567,6 +589,12 @@ export async function infer<OutputSchema extends z.AnyZodObject>({
 
         // Remove [*.] from model name
         modelName = modelName.replace(/\[.*?\]/, '');
+
+        // For Workers AI REST API: add @cf/ prefix if not present
+        // For Workers AI binding: keep @cf/ prefix as-is
+        if (baseURL.includes('api.cloudflare.com') && !modelName.startsWith('@cf/')) {
+            modelName = `@cf/${modelName}`;
+        }
 
         const client = new OpenAI({ apiKey, baseURL: baseURL, defaultHeaders });
         const schemaObj =

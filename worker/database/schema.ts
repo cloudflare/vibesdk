@@ -570,3 +570,83 @@ export type NewUserModelProvider = typeof userModelProviders.$inferInsert;
 
 export type Star = typeof stars.$inferSelect;
 export type NewStar = typeof stars.$inferInsert;
+
+// ========================================
+// SWARM AND MULTI-AGENT TABLES
+// ========================================
+
+/**
+ * Agents table - defines custom agents for swarm orchestration
+ */
+export const agents = sqliteTable('agents', {
+    id: text('id').primaryKey(),
+    userId: text('user_id').notNull(),
+    role: text('role').notNull(), // 'Manager', 'Researcher', 'Writer', 'Coder', 'Editor', 'Critic'
+    modelProvider: text('model_provider').notNull(), // 'workers-ai', 'openai', 'anthropic', 'custom', 'google-ai-studio'
+    apiKeyVaultRef: text('api_key_vault_ref'), // Reference to vault-stored key
+    instructions: text('instructions').notNull(),
+    maxTokens: integer('max_tokens'),
+    temperature: real('temperature'),
+    createdAt: integer('created_at', { mode: 'timestamp' }).default(sql`CURRENT_TIMESTAMP`),
+    updatedAt: integer('updated_at', { mode: 'timestamp' }).default(sql`CURRENT_TIMESTAMP`),
+}, (table) => [
+    index('idx_agents_user_id').on(table.userId),
+]);
+
+/**
+ * Swarm sessions table - tracks multi-agent swarm executions
+ */
+export const swarmSessions = sqliteTable('swarm_sessions', {
+    id: text('id').primaryKey(),
+    userId: text('user_id').notNull(),
+    name: text('name').notNull(),
+    managerAgentId: text('manager_agent_id').references(() => agents.id),
+    status: text('status').notNull(), // 'pending', 'running', 'completed', 'cancelled'
+    finalOutput: text('final_output'),
+    maxConcurrent: integer('max_concurrent').default(3),
+    timeoutMs: integer('timeout_ms').default(300000),
+    executionMode: text('execution_mode').default('parallel'), // 'parallel', 'specialized', 'horizontal'
+    createdAt: integer('created_at', { mode: 'timestamp' }).default(sql`CURRENT_TIMESTAMP`),
+    completedAt: integer('completed_at', { mode: 'timestamp' }),
+}, (table) => [
+    index('idx_swarm_sessions_user_id').on(table.userId),
+    index('idx_swarm_sessions_status').on(table.status),
+]);
+
+/**
+ * Swarm agents table - links swarm sessions to worker agents
+ */
+export const swarmAgents = sqliteTable('swarm_agents', {
+    swarmSessionId: text('swarm_session_id').references(() => swarmSessions.id).notNull(),
+    agentId: text('agent_id').references(() => agents.id).notNull(),
+    role: text('role').notNull(), // Role within this swarm
+}, (table) => [
+]);
+
+/**
+ * Agent tasks table - tracks individual task execution within a swarm
+ */
+export const agentTasks = sqliteTable('agent_tasks', {
+    id: text('id').primaryKey(),
+    swarmSessionId: text('swarm_session_id').references(() => swarmSessions.id).notNull(),
+    agentId: text('agent_id').references(() => agents.id).notNull(),
+    description: text('description').notNull(),
+    status: text('status').notNull(), // 'pending', 'running', 'completed', 'failed'
+    output: text('output'),
+    error: text('error'),
+    createdAt: integer('created_at', { mode: 'timestamp' }).default(sql`CURRENT_TIMESTAMP`),
+    completedAt: integer('completed_at', { mode: 'timestamp' }),
+}, (table) => [
+    index('idx_agent_tasks_swarm_id').on(table.swarmSessionId),
+    index('idx_agent_tasks_status').on(table.status),
+]);
+
+// Type exports for swarm tables
+export type Agent = typeof agents.$inferSelect;
+export type NewAgent = typeof agents.$inferInsert;
+export type SwarmSession = typeof swarmSessions.$inferSelect;
+export type NewSwarmSession = typeof swarmSessions.$inferInsert;
+export type SwarmAgent = typeof swarmAgents.$inferSelect;
+export type NewSwarmAgent = typeof swarmAgents.$inferInsert;
+export type AgentTask = typeof agentTasks.$inferSelect;
+export type NewAgentTask = typeof agentTasks.$inferInsert;

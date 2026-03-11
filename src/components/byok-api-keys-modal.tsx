@@ -65,6 +65,9 @@ const PROVIDER_LOGOS: Record<string, React.ComponentType<{ className?: string }>
 	anthropic: AnthropicLogo,
 	'google-ai-studio': GoogleLogo,
 	cerebras: CerebrasLogo,
+	'workers-ai': CloudflareLogo,
+	cloudflare: CloudflareLogo,
+	custom: CloudflareLogo, // Reuse Cloudflare logo for custom
 };
 
 interface BYOKProvider {

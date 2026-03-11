@@ -127,25 +127,40 @@ Selection: "react-game-starter"
 complexity: "simple"
 Reasoning: "Game starter template provides canvas setup, state management, and scoring systems"
 
-**Example 2 - Business Dashboard:**
+**Example 2 - Cloudflare Workers AI App:**
+User: "Build a chat app with AI and persistent storage"
+Templates: ["vite-cfagents-runner", "vite-cf-DO-runner", "vite-cf-DO-v2-runner", "c-code-react-runner"]
+Selection: "vite-cfagents-runner"
+complexity: "medium"
+Reasoning: "CF Agents template provides AI chat with Durable Objects for persistence and MCP integration"
+
+**Example 3 - Durable Objects Backend:**
+User: "Create an API with server-side storage"
+Templates: ["vite-cf-DO-runner", "vite-cf-DO-v2-runner", "c-code-react-runner"]
+Selection: "vite-cf-DO-v2-runner"
+complexity: "medium"
+Reasoning: "DO v2 runner provides multi-entity storage with Durable Objects - ideal for APIs with user data"
+
+**Example 4 - Business Dashboard:**
 User: "Create an analytics dashboard with charts"
 Templates: ["react-dashboard", "nextjs-blog", "vanilla-js"]
 Selection: "react-dashboard"
-complexity: "simple" // Because single page application
+complexity: "simple"
 Reasoning: "Dashboard template includes chart components, grid layouts, and data visualization setup"
 
-**Example 3 - No Perfect Match:**
+**Example 5 - No Perfect Match:**
 User: "Build a recipe sharing app"
 Templates: ["react-social", "vue-blog", "angular-todo"]
 Selection: "react-social"
-complexity: "simple" // Because single page application
+complexity: "simple"
 Reasoning: "Social template provides user interactions, content sharing, and community features closest to recipe sharing needs"
 
 ## SELECTION CRITERIA:
 1. **Feature Alignment** - Templates with similar core functionality
 2. **Tech Stack Match** - Compatible frameworks and dependencies  
 3. **Architecture Fit** - Similar application structure and patterns
-4. **Minimal Modification** - Template requiring least changes
+4. **Cloudflare Workers Priority** - For apps needing persistence, APIs, AI agents, or serverless functions, prioritize Workers templates (vite-cf*, c-code-react-runner)
+5. **Minimal Modification** - Template requiring least changes
 
 ## STYLE GUIDE:
 - **Minimalist Design**: Clean, simple interfaces

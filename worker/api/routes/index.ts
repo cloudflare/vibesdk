@@ -15,6 +15,7 @@ import { setupTicketRoutes } from './ticketRoutes';
 import { Hono } from "hono";
 import { AppEnv } from "../../types/appenv";
 import { setupStatusRoutes } from './statusRoutes';
+import { handleSwarmRoutes } from './swarmRoutes';
 
 export function setupRoutes(app: Hono<AppEnv>): void {
     // Health check route
@@ -69,4 +70,18 @@ export function setupRoutes(app: Hono<AppEnv>): void {
 
     // Screenshot serving routes (public)
     setupScreenshotRoutes(app);
+
+    // Swarm and multi-agent routes
+    app.use('*', async (c, next) => {
+        const userId = c.get('userId');
+        if (!userId) {
+            return c.json({ error: 'Unauthorized' }, 401);
+        }
+        const pathname = new URL(c.req.url).pathname;
+        const response = await handleSwarmRoutes(pathname, c.req.raw, c.env, c.get('executionCtx'), userId);
+        if (response) {
+            return response;
+        }
+        await next();
+    });
 }

@@ -9,33 +9,34 @@ import {
 } from "./config.types";
 import { env } from 'cloudflare:workers';
 
-// Common configs - these are good defaults
+// Default to Workers AI if platform credentials available, otherwise require user config
+const DEFAULT_MODEL = (env.CLOUDFLARE_API_KEY && env.CLOUDFLARE_ACCOUNT_ID) 
+    ? AIModels.WORKERS_AI_LLAMA_3_1_8B 
+    : AIModels.DISABLED;
+
+// Common configs - defaults to Workers AI if CF credentials available
 const COMMON_AGENT_CONFIGS = {
     screenshotAnalysis: {
-        name: AIModels.DISABLED,
+        name: DEFAULT_MODEL,
         reasoning_effort: 'medium' as const,
         max_tokens: 8000,
         temperature: 1,
-        fallbackModel: AIModels.GEMINI_2_5_FLASH,
     },
     realtimeCodeFixer: {
-        name: AIModels.GROK_4_1_FAST_NON_REASONING,
+        name: DEFAULT_MODEL,
         reasoning_effort: 'low' as const,
         max_tokens: 32000,
         temperature: 0.2,
-        fallbackModel: AIModels.GEMINI_2_5_FLASH,
     },
     fastCodeFixer: {
-        name: AIModels.DISABLED,
+        name: DEFAULT_MODEL,
         reasoning_effort: undefined,
         max_tokens: 64000,
         temperature: 0.0,
-        fallbackModel: AIModels.GEMINI_2_5_PRO,
     },
     templateSelection: {
-        name: AIModels.GEMINI_2_5_FLASH_LITE,
+        name: DEFAULT_MODEL,
         max_tokens: 2000,
-        fallbackModel: AIModels.GROK_4_1_FAST_NON_REASONING,
         temperature: 1,
     },
 } as const;
@@ -44,140 +45,129 @@ const SHARED_IMPLEMENTATION_CONFIG = {
     reasoning_effort: 'low' as const,
     max_tokens: 48000,
     temperature: 1,
-    fallbackModel: AIModels.GEMINI_2_5_PRO,
 };
 
 //======================================================================================
-// ATTENTION! Platform config requires specific API keys and Cloudflare AI Gateway setup.
-//======================================================================================
 /* 
-These are the configs used at build.cloudflare.dev 
-You may need to provide API keys for these models in your environment or use 
-Cloudflare AI Gateway unified billing for seamless model access without managing multiple keys.
+Platform config: Uses Workers AI by default if CF credentials available.
+Users can override with their own API keys via BYOK modal.
 */
 const PLATFORM_AGENT_CONFIG: AgentConfig = {
     ...COMMON_AGENT_CONFIGS,
+    templateSelection: {
+        name: DEFAULT_MODEL,
+        max_tokens: 2000,
+        temperature: 1,
+    },
     blueprint: {
-        name: AIModels.GEMINI_3_PRO_PREVIEW,
+        name: DEFAULT_MODEL,
         reasoning_effort: 'high',
         max_tokens: 20000,
-        fallbackModel: AIModels.GEMINI_2_5_FLASH,
         temperature: 1.0,
     },
     projectSetup: {
-        name: AIModels.GROK_4_1_FAST,
+        name: DEFAULT_MODEL,
         reasoning_effort: 'medium',
         max_tokens: 8000,
         temperature: 1,
-        fallbackModel: AIModels.GEMINI_2_5_PRO,
     },
     phaseGeneration: {
-        name: AIModels.GEMINI_3_FLASH_PREVIEW,
+        name: DEFAULT_MODEL,
         reasoning_effort: 'medium',
         max_tokens: 8000,
         temperature: 1,
-        fallbackModel: AIModels.OPENAI_5_MINI,
     },
     firstPhaseImplementation: {
-        name: AIModels.GEMINI_3_FLASH_PREVIEW,
+        name: DEFAULT_MODEL,
         ...SHARED_IMPLEMENTATION_CONFIG,
     },
     phaseImplementation: {
-        name: AIModels.GEMINI_3_FLASH_PREVIEW,
+        name: DEFAULT_MODEL,
         ...SHARED_IMPLEMENTATION_CONFIG,
     },
     conversationalResponse: {
-        name: AIModels.GROK_4_1_FAST,
+        name: DEFAULT_MODEL,
         reasoning_effort: 'low',
         max_tokens: 4000,
         temperature: 1,
-        fallbackModel: AIModels.GEMINI_2_5_FLASH,
     },
     deepDebugger: {
-        name: AIModels.GROK_4_1_FAST,
+        name: DEFAULT_MODEL,
         reasoning_effort: 'high',
         max_tokens: 8000,
         temperature: 1,
-        fallbackModel: AIModels.GEMINI_2_5_PRO,
     },
     fileRegeneration: {
-        name: AIModels.GROK_4_1_FAST_NON_REASONING,
+        name: DEFAULT_MODEL,
         reasoning_effort: 'low',
         max_tokens: 16000,
         temperature: 0.0,
-        fallbackModel: AIModels.GROK_CODE_FAST_1,
     },
     agenticProjectBuilder: {
-        name: AIModels.GEMINI_3_FLASH_PREVIEW,
+        name: DEFAULT_MODEL,
         reasoning_effort: 'medium',
         max_tokens: 8000,
         temperature: 1,
-        fallbackModel: AIModels.GEMINI_2_5_PRO,
     },
 };
 
 //======================================================================================
-// Default Gemini-only config (most likely used in your deployment)
+// Default config - Uses Cloudflare Workers AI (free, no API key needed)
+// Users can swap to Custom BYOK or other providers in settings
 //======================================================================================
-/* These are the default out-of-the box gemini-only models used when PLATFORM_MODEL_PROVIDERS is not set */
+/* Default out-of-the-box config using Workers AI */
 const DEFAULT_AGENT_CONFIG: AgentConfig = {
     ...COMMON_AGENT_CONFIGS,
     templateSelection: {
-        name: AIModels.GEMINI_2_5_FLASH_LITE,
+        name: AIModels.WORKERS_AI_LLAMA_3_1_8B,
         max_tokens: 2000,
-        fallbackModel: AIModels.GEMINI_2_5_FLASH,
         temperature: 0.6,
     },
     blueprint: {
-        name: AIModels.GEMINI_3_FLASH_PREVIEW,
+        name: AIModels.WORKERS_AI_LLAMA_3_1_70B,
         reasoning_effort: 'high',
         max_tokens: 64000,
-        fallbackModel: AIModels.GEMINI_2_5_PRO,
         temperature: 1,
     },
     projectSetup: {
-        name: AIModels.GEMINI_3_FLASH_PREVIEW,
+        name: AIModels.WORKERS_AI_LLAMA_3_1_8B,
         ...SHARED_IMPLEMENTATION_CONFIG,
     },
     phaseGeneration: {
-        name: AIModels.GEMINI_3_FLASH_PREVIEW,
+        name: AIModels.WORKERS_AI_LLAMA_3_1_8B,
         ...SHARED_IMPLEMENTATION_CONFIG,
     },
     firstPhaseImplementation: {
-        name: AIModels.GEMINI_3_FLASH_PREVIEW,
+        name: AIModels.WORKERS_AI_LLAMA_3_1_8B,
         ...SHARED_IMPLEMENTATION_CONFIG,
     },
     phaseImplementation: {
-        name: AIModels.GEMINI_3_FLASH_PREVIEW,
+        name: AIModels.WORKERS_AI_LLAMA_3_1_8B,
         ...SHARED_IMPLEMENTATION_CONFIG,
     },
     conversationalResponse: {
-        name: AIModels.GEMINI_2_5_FLASH,
+        name: AIModels.WORKERS_AI_LLAMA_3_1_8B,
         reasoning_effort: 'low',
         max_tokens: 4000,
         temperature: 0,
-        fallbackModel: AIModels.GEMINI_2_5_PRO,
     },
     deepDebugger: {
-        name: AIModels.GEMINI_3_FLASH_PREVIEW,
+        name: AIModels.WORKERS_AI_LLAMA_3_1_70B,
         reasoning_effort: 'high',
         max_tokens: 8000,
         temperature: 1,
-        fallbackModel: AIModels.GEMINI_2_5_FLASH,
     },
     fileRegeneration: {
-        name: AIModels.GEMINI_3_FLASH_PREVIEW,
+        name: AIModels.WORKERS_AI_LLAMA_3_1_8B,
         reasoning_effort: 'low',
         max_tokens: 32000,
         temperature: 1,
-        fallbackModel: AIModels.GEMINI_2_5_FLASH,
     },
     agenticProjectBuilder: {
-        name: AIModels.GEMINI_3_FLASH_PREVIEW,
+        name: AIModels.WORKERS_AI_LLAMA_3_1_70B,
         reasoning_effort: 'high',
         max_tokens: 8000,
         temperature: 1,
-        fallbackModel: AIModels.GEMINI_2_5_FLASH,
     },
 };
 
@@ -204,7 +194,7 @@ export const AGENT_CONSTRAINTS: Map<AgentActionKey, AgentConstraintConfig> = new
 		enabled: true,
 	}],
 	['projectSetup', {
-		allowedModels: new Set([...RegularModels, AIModels.GEMINI_2_5_PRO]),
+		allowedModels: new Set(RegularModels),
 		enabled: true,
 	}],
 	['conversationalResponse', {

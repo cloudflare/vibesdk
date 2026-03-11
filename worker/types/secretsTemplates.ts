@@ -160,6 +160,68 @@ export function getTemplatesData(): SecretTemplate[] {
 			required: false,
 			category: 'byok',
 		},
+		// Cloudflare Workers AI BYOK - Universal key for all 80+ CF models
+		{
+			id: 'CLOUDFLARE_API_KEY',
+			displayName: 'Cloudflare API Key',
+			envVarName: 'CLOUDFLARE_API_KEY',
+			provider: 'cloudflare',
+			icon: '☁️',
+			description:
+				'Universal Cloudflare API key for all 80+ Workers AI models',
+			instructions:
+				'Go to Cloudflare Dashboard → Profile → API Tokens → Create Custom Token',
+			placeholder: 'Your Cloudflare API token',
+			validation: '^[a-zA-Z0-9_-]{40,}$',
+			required: false,
+			category: 'byok',
+		},
+		{
+			id: 'CLOUDFLARE_ACCOUNT_ID',
+			displayName: 'Cloudflare Account ID',
+			envVarName: 'CLOUDFLARE_ACCOUNT_ID',
+			provider: 'cloudflare',
+			icon: '☁️',
+			description:
+				'Your Cloudflare Account ID (required for Workers AI with API key)',
+			instructions:
+				'Go to Cloudflare Dashboard → Overview → Account ID',
+			placeholder: 'Your Cloudflare Account ID',
+			validation: '^[a-z0-9]{32}$',
+			required: false,
+			category: 'byok',
+		},
+		// Custom BYOK - OpenAI-compatible endpoints
+		{
+			id: 'CUSTOM_AI_KEY',
+			displayName: 'Custom AI (BYOK)',
+			envVarName: 'CUSTOM_AI_KEY',
+			provider: 'custom',
+			icon: '🔧',
+			description:
+				'Use your own AI API key for custom endpoints',
+			instructions:
+				'Enter your custom AI API key',
+			placeholder: 'sk-... or any API key format',
+			validation: '^.{10,}$',
+			required: false,
+			category: 'byok',
+		},
+		{
+			id: 'CUSTOM_AI_ENDPOINT',
+			displayName: 'Custom AI Endpoint',
+			envVarName: 'CUSTOM_AI_ENDPOINT',
+			provider: 'custom',
+			icon: '🔧',
+			description:
+				'Your custom AI API endpoint URL (e.g., vllm, Ollama, LiteLLM)',
+			instructions:
+				'Enter your custom AI endpoint URL',
+			placeholder: 'https://your-ai-endpoint.com/v1/chat/completions',
+			validation: '^https?://.+',
+			required: false,
+			category: 'byok',
+		},
 
 		// Development Tools
 		{

@@ -24,6 +24,7 @@ import {
 	Trash2,
 	Github,
 	GitBranch,
+	X,
 } from 'lucide-react';
 import { MonacoEditor } from '@/components/monaco-editor/monaco-editor';
 import { getFileType } from '@/utils/string';
@@ -415,6 +416,27 @@ export default function AppView() {
 			setDeploymentProgress('Failed to start deployment');
 			setIsDeploying(false);
 			toast.error('Failed to start deployment');
+		}
+	};
+
+	const handleCancelDeployment = async () => {
+		if (!app || !isDeploying) return;
+
+		try {
+			setDeploymentProgress('Cancelling deployment...');
+			const response = await apiClient.cancelDeployment(app.id);
+			if (response.success) {
+				setDeploymentProgress('Deployment cancelled');
+				toast.success('Deployment cancelled');
+			} else {
+				setDeploymentProgress('Failed to cancel');
+				toast.error('Failed to cancel deployment');
+			}
+		} catch (error) {
+			console.error('Error cancelling deployment:', error);
+			setDeploymentProgress('Failed to cancel');
+		} finally {
+			setIsDeploying(false);
 		}
 	};
 
@@ -875,6 +897,20 @@ export default function AppView() {
 																</>
 															)}
 														</Button>
+
+															{isDeploying && (
+																<Button
+																	onClick={
+																		handleCancelDeployment
+																	}
+																	variant="outline"
+																	className="gap-2 text-red-600 hover:text-red-700 hover:bg-red-50"
+																>
+																	<X className="h-4 w-4" />
+																	Cancel
+																</Button>
+															)}
+
 													</div>
 												</div>
 											</div>

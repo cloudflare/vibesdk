@@ -112,6 +112,13 @@ export interface ModelConfigUpdate {
   reasoningEffort?: string | null;
   fallbackModel?: string | null;
   isUserOverride?: boolean;
+  // Swarm configuration
+  swarmConfig?: {
+    enabled: boolean;
+    mode: 'parallel' | 'specialized' | 'horizontal';
+    workerCount: number;
+    workerModel?: string;
+  } | null;
 }
 
 // Secrets API Types

@@ -33,7 +33,150 @@ const MODELS_MASTER = {
             contextSize: 0,
         }
     },
-    // --- Google Models ---
+    // --- Cloudflare Workers AI Models (Default) ---
+    WORKERS_AI_LLAMA_3_1_8B: {
+        id: '@cf/meta/llama-3.1-8b-instruct',
+        config: {
+            name: 'Llama 3.1 8B (Workers AI)',
+            size: ModelSize.LITE,
+            provider: 'workers-ai',
+            creditCost: 0,
+            contextSize: 128000,
+        }
+    },
+    WORKERS_AI_LLAMA_3_1_70B: {
+        id: '@cf/meta/llama-3.1-70b-instruct',
+        config: {
+            name: 'Llama 3.1 70B (Workers AI)',
+            size: ModelSize.LARGE,
+            provider: 'workers-ai',
+            creditCost: 0,
+            contextSize: 128000,
+        }
+    },
+    WORKERS_AI_LLAMA_3_2_1B: {
+        id: '@cf/meta/llama-3.2-1b-instruct',
+        config: {
+            name: 'Llama 3.2 1B (Workers AI)',
+            size: ModelSize.LITE,
+            provider: 'workers-ai',
+            creditCost: 0,
+            contextSize: 128000,
+        }
+    },
+    WORKERS_AI_LLAMA_3_2_11B: {
+        id: '@cf/meta/llama-3.2-11b-vision-instruct',
+        config: {
+            name: 'Llama 3.2 11B Vision (Workers AI)',
+            size: ModelSize.REGULAR,
+            provider: 'workers-ai',
+            creditCost: 0,
+            contextSize: 128000,
+        }
+    },
+    WORKERS_AI_MISTRAL_7B: {
+        id: '@cf/meta/mistral-7b-instruct',
+        config: {
+            name: 'Mistral 7B (Workers AI)',
+            size: ModelSize.REGULAR,
+            provider: 'workers-ai',
+            creditCost: 0,
+            contextSize: 128000,
+        }
+    },
+    WORKERS_AI_PHI_2: {
+        id: '@cf/microsoft/phi-2',
+        config: {
+            name: 'Phi 2 (Workers AI)',
+            size: ModelSize.LITE,
+            provider: 'workers-ai',
+            creditCost: 0,
+            contextSize: 4096,
+        }
+    },
+    WORKERS_AI_LLAMA_3_2_3B: {
+        id: '@cf/meta/llama-3.2-3b-instruct',
+        config: {
+            name: 'Llama 3.2 3B (Workers AI)',
+            size: ModelSize.LITE,
+            provider: 'workers-ai',
+            creditCost: 0,
+            contextSize: 128000,
+        }
+    },
+    WORKERS_AI_QWEN_2_5_CODER: {
+        id: '@cf/qwen/qwen2.5-coder-32b-instruct',
+        config: {
+            name: 'Qwen 2.5 Coder 32B (Workers AI)',
+            size: ModelSize.REGULAR,
+            provider: 'workers-ai',
+            creditCost: 0,
+            contextSize: 131072,
+        }
+    },
+    WORKERS_AI_DEEPSEEK_CHAT: {
+        id: '@cf/deepseek-ai/deepseek-chat',
+        config: {
+            name: 'DeepSeek Chat (Workers AI)',
+            size: ModelSize.REGULAR,
+            provider: 'workers-ai',
+            creditCost: 0,
+            contextSize: 131072,
+        }
+    },
+    WORKERS_AI_DEEPSEEK_CODER: {
+        id: '@cf/deepseek-ai/deepseek-coder-6.7b-base-awq',
+        config: {
+            name: 'DeepSeek Coder 6.7B (Workers AI)',
+            size: ModelSize.LITE,
+            provider: 'workers-ai',
+            creditCost: 0,
+            contextSize: 128000,
+        }
+    },
+    WORKERS_AI_BIGTHINK_STRALIGHT: {
+        id: '@cf/bytedance/bigthink-stralight-deployed',
+        config: {
+            name: 'BigThink StratLight (Workers AI)',
+            size: ModelSize.REGULAR,
+            provider: 'workers-ai',
+            creditCost: 0,
+            contextSize: 32768,
+        }
+    },
+    // --- Cloudflare Hosted Models (with universal key - requires REST API) ---
+    CLOUDFLARE_AI_LLAMA_3_1_405B: {
+        id: 'llama-3.1-405b-instruct-fp8',
+        config: {
+            name: 'Llama 3.1 405B (CF Hosted)',
+            size: ModelSize.LARGE,
+            provider: 'workers-ai', // Uses REST API when CF key provided
+            creditCost: 0,
+            contextSize: 128000,
+        }
+    },
+    CLOUDFLARE_AI_LLAMA_3_1_70B: {
+        id: 'llama-3.1-70b-instruct',
+        config: {
+            name: 'Llama 3.1 70B (CF Hosted)',
+            size: ModelSize.LARGE,
+            provider: 'workers-ai', // Uses REST API when CF key provided
+            creditCost: 0,
+            contextSize: 128000,
+        }
+    },
+    // --- Custom BYOK Models (OpenAI-compatible endpoints) ---
+    CUSTOM_BYOK: {
+        id: 'custom/byok',
+        config: {
+            name: 'Custom BYOK Model',
+            size: ModelSize.REGULAR,
+            provider: 'custom',
+            creditCost: 0,
+            contextSize: 128000,
+        }
+    },
+    // --- Google Models (Optional) ---
     GEMINI_2_5_PRO: {
         id: 'google-ai-studio/gemini-2.5-pro',
         config: {

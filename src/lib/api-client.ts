@@ -1012,6 +1012,18 @@ class ApiClient {
 		);
 	}
 
+	/**
+	 * Cancel a deployment
+	 */
+	async cancelDeployment(
+		agentId: string,
+	): Promise<ApiResponse<{ success: boolean }>> {
+		return this.request<{ success: boolean }>(
+			`/api/agent/${agentId}/preview/cancel`,
+			{ method: 'DELETE' },
+		);
+	}
+
 	// ===============================
 	// Session Management API Methods
 	// ===============================
