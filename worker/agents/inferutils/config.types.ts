@@ -19,6 +19,8 @@ export interface AIModelConfig {
     contextSize: number;
     nonReasoning?: boolean;
     directOverride?: boolean;
+    deprecated?: boolean;
+    deprecatedReason?: string;
 }
 
 // Pricing Baseline: GPT-5 Mini ($0.25/1M Input) = 1.0 Credit
@@ -213,6 +215,98 @@ const MODELS_MASTER = {
             provider: 'workers-ai',
             creditCost: 0,
             contextSize: 131072,
+        }
+    },
+    // --- Deprecated Models (available but may be removed) ---
+    // Add deprecated: true and deprecatedReason when model is sunset
+    WORKERS_AI_GLM_4_7: {
+        id: '@cf/zhipuai/glm-4.7-flash',
+        config: {
+            name: 'GLM-4.7 Flash (Workers AI)',
+            size: ModelSize.REGULAR,
+            provider: 'workers-ai',
+            creditCost: 0,
+            contextSize: 131072,
+        }
+    },
+    WORKERS_AI_QWEN3_EMBEDDING: {
+        id: '@cf/qwen/qwen3-embedding-0.6b',
+        config: {
+            name: 'Qwen3 Embedding 0.6B (Workers AI)',
+            size: ModelSize.LITE,
+            provider: 'workers-ai',
+            creditCost: 0,
+            contextSize: 8192,
+        }
+    },
+    WORKERS_AI_GEMMA_SEA: {
+        id: '@cf/aisingapore/gemma-sea-lion-v4-27b-it',
+        config: {
+            name: 'SEA-LION 27B (Workers AI)',
+            size: ModelSize.LARGE,
+            provider: 'workers-ai',
+            creditCost: 0,
+            contextSize: 32768,
+        }
+    },
+    WORKERS_AI_GRANITE_4: {
+        id: '@cf/ibm/granite-4.0-h-micro',
+        config: {
+            name: 'Granite 4.0 Micro (Workers AI)',
+            size: ModelSize.LITE,
+            provider: 'workers-ai',
+            creditCost: 0,
+            contextSize: 128000,
+        }
+    },
+    // --- Deprecated Models (scheduled for removal) ---
+    // To deprecate: set deprecated: true and add deprecatedReason
+    DEPRECATED_LLAMA_2_7B: {
+        id: '@cf/meta/llama-2-7b-chat-hf',
+        config: {
+            name: 'Llama 2 7B Chat (Deprecated)',
+            size: ModelSize.LITE,
+            provider: 'workers-ai',
+            creditCost: 0,
+            contextSize: 4096,
+            deprecated: true,
+            deprecatedReason: 'Use Llama 3.x instead',
+        }
+    },
+    DEPRECATED_PHI_2: {
+        id: '@cf/microsoft/phi-2',
+        config: {
+            name: 'Phi-2 (Deprecated)',
+            size: ModelSize.LITE,
+            provider: 'workers-ai',
+            creditCost: 0,
+            contextSize: 4096,
+            deprecated: true,
+            deprecatedReason: 'Use Gemma 3 or Phi-4 instead',
+        }
+    },
+    DEPRECATED_MISTRAL_7B_V0_1: {
+        id: '@cf/mistralai/mistral-7b-instruct-v0.1',
+        config: {
+            name: 'Mistral 7B v0.1 (Deprecated)',
+            size: ModelSize.REGULAR,
+            provider: 'workers-ai',
+            creditCost: 0,
+            contextSize: 32768,
+            deprecated: true,
+            deprecatedReason: 'Use Mistral Small 3.1 instead',
+        }
+    },
+    DEPRECATED_FALCON_7B: {
+        id: '@cf/tiiuae/falcon-7b-instruct',
+        config: {
+            name: 'Falcon 7B (Deprecated)',
+            size: ModelSize.REGULAR,
+            provider: 'workers-ai',
+            creditCost: 0,
+            contextSize: 8192,
+            deprecated: true,
+            deprecatedReason: 'Model discontinued by TII',
         }
     },
     // --- Cloudflare Hosted Models (with universal key - requires REST API) ---
@@ -587,6 +681,34 @@ export const RegularModels: AIModels[] = Object.values(MODELS_MASTER)
 
 export const AllModels: AIModels[] = Object.values(MODELS_MASTER)
     .map((entry) => entry.id);
+
+/**
+ * Filter out deprecated models for UI display
+ */
+export const ActiveModels: AIModels[] = Object.values(MODELS_MASTER)
+    .filter((entry) => !entry.config.deprecated)
+    .map((entry) => entry.id);
+
+/**
+ * Get deprecated models (for admin/cleanup purposes)
+ */
+export const DeprecatedModels: AIModels[] = Object.values(MODELS_MASTER)
+    .filter((entry) => entry.config.deprecated)
+    .map((entry) => entry.id);
+
+/**
+ * Check if a model is deprecated
+ */
+export function isModelDeprecated(model: AIModels): boolean {
+    return AI_MODEL_CONFIG[model]?.deprecated ?? false;
+}
+
+/**
+ * Get deprecation reason for a model
+ */
+export function getDeprecationReason(model: AIModels): string | undefined {
+    return AI_MODEL_CONFIG[model]?.deprecatedReason;
+}
 
 export interface AgentConstraintConfig {
     allowedModels: Set<AIModels>;
