@@ -144,6 +144,77 @@ const MODELS_MASTER = {
             contextSize: 32768,
         }
     },
+    // --- New 2025 Models ---
+    WORKERS_AI_LLAMA_4_SCOUT: {
+        id: '@cf/meta/llama-4-scout-17b-16e-instruct',
+        config: {
+            name: 'Llama 4 Scout 17B (Workers AI)',
+            size: ModelSize.REGULAR,
+            provider: 'workers-ai',
+            creditCost: 0,
+            contextSize: 128000,
+        }
+    },
+    WORKERS_AI_LLAMA_3_3_70B: {
+        id: '@cf/meta/llama-3.3-70b-instruct-fp8-fast',
+        config: {
+            name: 'Llama 3.3 70B Fast (Workers AI)',
+            size: ModelSize.LARGE,
+            provider: 'workers-ai',
+            creditCost: 0,
+            contextSize: 128000,
+        }
+    },
+    WORKERS_AI_QWEN3_30B: {
+        id: '@cf/qwen/qwen3-30b-a3b-fp8',
+        config: {
+            name: 'Qwen3 30B MoE (Workers AI)',
+            size: ModelSize.LARGE,
+            provider: 'workers-ai',
+            creditCost: 0,
+            contextSize: 131072,
+        }
+    },
+    WORKERS_AI_DEEPSEEK_R1: {
+        id: '@cf/deepseek-ai/deepseek-r1-distill-qwen-32b',
+        config: {
+            name: 'DeepSeek R1 (Workers AI)',
+            size: ModelSize.LARGE,
+            provider: 'workers-ai',
+            creditCost: 0,
+            contextSize: 131072,
+        }
+    },
+    WORKERS_AI_GEMMA_3: {
+        id: '@cf/google/gemma-3-12b-it',
+        config: {
+            name: 'Gemma 3 12B (Workers AI)',
+            size: ModelSize.REGULAR,
+            provider: 'workers-ai',
+            creditCost: 0,
+            contextSize: 128000,
+        }
+    },
+    WORKERS_AI_MISTRAL_SMALL: {
+        id: '@cf/mistralai/mistral-small-3.1-24b-instruct',
+        config: {
+            name: 'Mistral Small 3.1 24B (Workers AI)',
+            size: ModelSize.REGULAR,
+            provider: 'workers-ai',
+            creditCost: 0,
+            contextSize: 128000,
+        }
+    },
+    WORKERS_AI_QWQ_32B: {
+        id: '@cf/qwen/qwq-32b',
+        config: {
+            name: 'QwQ 32B Reasoning (Workers AI)',
+            size: ModelSize.LARGE,
+            provider: 'workers-ai',
+            creditCost: 0,
+            contextSize: 131072,
+        }
+    },
     // --- Cloudflare Hosted Models (with universal key - requires REST API) ---
     CLOUDFLARE_AI_LLAMA_3_1_405B: {
         id: 'llama-3.1-405b-instruct-fp8',
