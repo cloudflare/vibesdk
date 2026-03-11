@@ -1,5 +1,5 @@
 {
-	"name": "vibesdk-test",
+	"name": "ripsdk-test",
 	"compatibility_date": "2024-12-12",
 	"main": "worker/index.ts",
 	"compatibility_flags": ["nodejs_compat"],
