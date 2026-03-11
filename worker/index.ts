@@ -1,6 +1,7 @@
 import { createLogger } from './logger';
 import { isDispatcherAvailable } from './utils/dispatcherUtils';
 import { createApp } from './app';
+import { fetchCloudflareModels, discoverModelChanges, getModelDiscoverySummary } from './services/model-discovery';
 // import * as Sentry from '@sentry/cloudflare';
 // import { sentryOptions } from './observability/sentry';
 import { DORateLimitStore as BaseDORateLimitStore } from './services/rate-limit/DORateLimitStore';
@@ -22,6 +23,33 @@ export const DORateLimitStore = BaseDORateLimitStore;
 
 // Logger for the main application and handlers
 const logger = createLogger('App');
+
+// Model discovery on startup (async, won't block worker startup)
+let modelDiscoveryRun = false;
+
+async function runModelDiscovery(env: Env): Promise<void> {
+    if (modelDiscoveryRun) return;
+    modelDiscoveryRun = true;
+    
+    try {
+        const availableModels = await fetchCloudflareModels(env);
+        if (availableModels.length > 0) {
+            const changes = discoverModelChanges(availableModels);
+            const summary = getModelDiscoverySummary(changes);
+            logger.info(summary);
+            
+            if (changes.newModels.length > 0) {
+                logger.info(`New models available: ${changes.newModels.map(m => m.id).join(', ')}`);
+            }
+            
+            if (changes.deprecatedModels.length > 0) {
+                logger.warn(`Deprecated models: ${changes.deprecatedModels.map(m => m.id).join(', ')}`);
+            }
+        }
+    } catch (error) {
+        logger.warn('Model discovery failed, using cached model list');
+    }
+}
 
 function setOriginControl(env: Env, request: Request, currentHeaders: Headers): Headers {
     const origin = request.headers.get('Origin');
@@ -141,6 +169,10 @@ async function handleUserAppRequest(request: Request, env: Env): Promise<Respons
 const worker = {
 	async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
         // logger.info(`Received request: ${request.method} ${request.url}`);
+        
+        // --- Model Discovery (run once on startup) ---
+        ctx.waitUntil(runModelDiscovery(env));
+        
 		// --- Pre-flight Checks ---
 
 		// 1. Critical configuration check: Ensure custom domain is set.
