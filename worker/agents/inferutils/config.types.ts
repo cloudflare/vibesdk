@@ -341,87 +341,6 @@ const MODELS_MASTER = {
             contextSize: 128000,
         }
     },
-    // --- Google Models (Optional) ---
-    GEMINI_2_5_PRO: {
-        id: 'google-ai-studio/gemini-2.5-pro',
-        config: {
-            name: 'Gemini 2.5 Pro',
-            size: ModelSize.LARGE,
-            provider: 'google-ai-studio',
-            creditCost: 5,   // $1.25
-            contextSize: 1048576, // 1M Context
-        }
-    },
-    GEMINI_2_5_FLASH: {
-        id: 'google-ai-studio/gemini-2.5-flash',
-        config: {
-            name: 'Gemini 2.5 Flash',
-            size: ModelSize.REGULAR,
-            provider: 'google-ai-studio',
-            creditCost: 1.2, // $0.30
-            contextSize: 1048576, // 1M Context
-        }
-    },
-    GEMINI_2_5_FLASH_LITE: {
-        id: 'google-ai-studio/gemini-2.5-flash-lite',
-        config: {
-            name: 'Gemini 2.5 Flash-Lite',
-            size: ModelSize.LITE,
-            provider: 'google-ai-studio',
-            creditCost: 0.4, // $0.10
-            contextSize: 1048576, // 1M Context
-        }
-    },
-    GEMINI_2_5_FLASH_LATEST: {
-        id: 'google-ai-studio/gemini-2.5-flash-latest',
-        config: {
-            name: 'Gemini 2.5 Flash (Latest)',
-            size: ModelSize.REGULAR,
-            provider: 'google-ai-studio',
-            creditCost: 1.2, // $0.30
-            contextSize: 1048576,
-        }
-    },
-    GEMINI_2_5_FLASH_LITE_LATEST: {
-        id: 'google-ai-studio/gemini-2.5-flash-lite-latest',
-        config: {
-            name: 'Gemini 2.5 Flash-Lite (Latest)',
-            size: ModelSize.LITE,
-            provider: 'google-ai-studio',
-            creditCost: 0.4, // $0.10
-            contextSize: 1048576,
-        }
-    },
-    GEMINI_2_5_PRO_LATEST: {
-        id: 'google-ai-studio/gemini-2.5-pro-latest',
-        config: {
-            name: 'Gemini 2.5 Pro (Latest)',
-            size: ModelSize.LARGE,
-            provider: 'google-ai-studio',
-            creditCost: 5, // $1.25
-            contextSize: 1048576,
-        }
-    },
-    GEMINI_3_PRO_PREVIEW: {
-        id: 'google-ai-studio/gemini-3-pro-preview',
-        config: {
-            name: 'Gemini 3.0 Pro Preview',
-            size: ModelSize.LARGE,
-            provider: 'google-ai-studio',
-            creditCost: 8, // $2.00 (Preview Pricing)
-            contextSize: 1048576,
-        }
-    },
-    GEMINI_3_FLASH_PREVIEW: {
-        id: 'google-ai-studio/gemini-3-flash-preview',
-        config: {
-            name: 'Gemini 3.0 Flash Preview',
-            size: ModelSize.REGULAR,
-            provider: 'google-ai-studio',
-            creditCost: 2, // $0.5
-            contextSize: 1048576, // 1M Context
-        }
-    },
 
     // --- Anthropic Models ---
     CLAUDE_3_7_SONNET_20250219: {
@@ -662,7 +581,7 @@ export type AIModels = typeof AIModels[keyof typeof AIModels];
 
 /**
  * Configuration map for all AI Models.
- * Usage: AI_MODEL_CONFIG[AIModels.GEMINI_2_5_PRO]
+ * Usage: AI_MODEL_CONFIG[AIModels.CLAUDE_3_7_SONNET_20250219]
  */
 export const AI_MODEL_CONFIG: Record<AIModels, AIModelConfig> = Object.fromEntries(
     Object.values(MODELS_MASTER).map((entry) => [entry.id, entry.config])
