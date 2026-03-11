@@ -83,9 +83,7 @@ Have these ready:
 
 ### 🔑 Required API Keys
 
-- **Anthropic API Key** - Get from [console.anthropic.com](https://console.anthropic.com)
-- **OpenAI API Key** - Get from [platform.openai.com](https://platform.openai.com)
-- **Or use Cloudflare Workers AI** - Free, no key needed
+- **Cloudflare Workers AI** - Free, no key needed
 
 ### What you'll configure
 
