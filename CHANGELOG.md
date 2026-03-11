@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.6.3](https://github.com/ateammgt/ripsdk/compare/v1.6.2...v1.6.3) (2026-03-11)
+
+
+### Bug Fixes
+
+* TypeScript errors and CI workflow updates ([#13](https://github.com/ateammgt/ripsdk/issues/13)) ([6a9cabd](https://github.com/ateammgt/ripsdk/commit/6a9cabd37c48264cef560815c7c1316a223f333e))
+
 ## [1.6.2](https://github.com/ateammgt/ripsdk/compare/v1.6.1...v1.6.2) (2026-03-11)
 
 

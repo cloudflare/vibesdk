@@ -1,7 +1,7 @@
 {
 	"name": "ripsdk",
 	"private": true,
-	"version": "1.6.2",
+	"version": "1.6.3",
 	"type": "module",
 	"scripts": {
 		"setup": "tsx scripts/setup.ts",
