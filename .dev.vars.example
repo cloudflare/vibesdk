@@ -14,7 +14,7 @@
 # Provider specific secrets:
 #ANTHROPIC_API_KEY=""
 #OPENAI_API_KEY=""
-GOOGLE_AI_STUDIO_API_KEY=""
+#GOOGLE_AI_STUDIO_API_KEY=""  # Optional - free Workers AI is default
 #OPENROUTER_API_KEY="default" 
 #GROQ_API_KEY="default" 
  

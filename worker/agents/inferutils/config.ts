@@ -9,10 +9,8 @@ import {
 } from "./config.types";
 import { env } from 'cloudflare:workers';
 
-// Default to Workers AI if platform credentials available, otherwise require user config
-const DEFAULT_MODEL = (env.CLOUDFLARE_API_KEY && env.CLOUDFLARE_ACCOUNT_ID) 
-    ? AIModels.WORKERS_AI_LLAMA_3_1_8B 
-    : AIModels.DISABLED;
+// Default to Workers AI (free, no API key needed)
+const DEFAULT_MODEL = AIModels.WORKERS_AI_LLAMA_3_1_8B;
 
 // Common configs - defaults to Workers AI if CF credentials available
 const COMMON_AGENT_CONFIGS = {
