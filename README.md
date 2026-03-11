@@ -11,7 +11,7 @@
 
 *Explore RIP Build before deploying your own stack.*
 
-[![Deploy to RIP Platform Workers](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/ateammgt/vibesdk)
+[![Deploy to RIP Platform Workers](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/ateammgt/ripsdk)
 
 **👆 Click to deploy your own instance!**
 
@@ -21,7 +21,7 @@
 
 ## Star History
 
-[![Star History Chart](https://api.star-history.com/svg?repos=ateammgt/vibesdk&type=Date)](https://www.star-history.com/#ateammgt/vibesdk&Date)
+[![Star History Chart](https://api.star-history.com/svg?repos=ateammgt/ripsdk&type=Date)](https://www.star-history.com/#ateammgt/ripsdk&Date)
 
 ---
 
@@ -107,7 +107,7 @@ Before clicking "Deploy to RIP Platform", have these ready:
 
 Once you click "Deploy to RIP Platform", you'll be taken to your RIP Platform dashboard where you can configure your RIP deployment with these variables. 
 
-[![Deploy to RIP Platform Workers](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/ateammgt/vibesdk)
+[![Deploy to RIP Platform Workers](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/ateammgt/ripsdk)
 
 ### 🔑 What you'll configure
 
@@ -337,7 +337,7 @@ You can run RIP locally by following these steps:
 
 ```bash
 # Clone the repository
-git clone https://github.com/ateammgt/vibesdk.git
+git clone https://github.com/ateammgt/ripsdk.git
 cd rip
 
 # Install dependencies
