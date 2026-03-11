@@ -1,0 +1,16 @@
+# Dependabot - Security updates only, grouped
+version: 2
+updates:
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    # Only security updates (no version bumps)
+    open-pull-requests-limit: 1
+    # Group all security fixes into one PR
+    groups:
+      security-updates:
+        patterns:
+          - "*"
+        update-types:
+          - "security"
