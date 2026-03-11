@@ -315,7 +315,7 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
 			const credential = (await navigator.credentials.create({
 				publicKey: {
 					challenge: crypto.getRandomValues(new Uint8Array(32)),
-					rp: { name: 'vibesdk', id: window.location.hostname },
+					rp: { name: 'rip', id: window.location.hostname },
 					user: {
 						id: new TextEncoder().encode(user?.id || 'user'),
 						name: user?.email || 'user',

@@ -186,7 +186,7 @@ interface PhaseTimelineProps {
 	// Deployment functionality
 	chatId?: string;
 	isDeploying?: boolean;
-	handleDeployToCloudflare?: (instanceId: string) => void;
+	handleDeployToRIP?: (instanceId: string) => void;
 	// Issue tracking and debugging
 	runtimeErrorCount?: number;
 	staticIssueCount?: number;
@@ -275,7 +275,7 @@ export function PhaseTimeline({
 	onViewChange,
 	chatId,
 	isDeploying,
-	handleDeployToCloudflare,
+	handleDeployToRIP,
 	runtimeErrorCount = 0,
 	staticIssueCount = 0,
 	isDebugging = false,
@@ -529,16 +529,16 @@ export function PhaseTimeline({
                                         </span>
                                     </div>
                                 )}
-                                {chatId && handleDeployToCloudflare && (
+                                {chatId && handleDeployToRIP && (
                                     <button
                                         onClick={(e) => {
                                             e.stopPropagation();
-                                            handleDeployToCloudflare(chatId);
+                                            handleDeployToRIP(chatId);
                                         }}
                                         disabled={!!isDeploying}
                                         className="ml-2 flex items-center gap-1.5 px-2.5 py-1 bg-accent hover:bg-accent/90 disabled:bg-accent/50 text-white rounded-full text-xs font-medium transition-colors disabled:cursor-not-allowed"
-                                        title={isDeploying ? 'Deploying...' : 'Deploy to Cloudflare'}
-                                        aria-label={isDeploying ? 'Deploying' : 'Deploy to Cloudflare'}
+                                        title={isDeploying ? 'Deploying...' : 'Deploy to RIP'}
+                                        aria-label={isDeploying ? 'Deploying' : 'Deploy to RIP'}
                                     >
                                         {isDeploying ? (
                                             <StatusLoader size="sm" color="accent" />
@@ -619,11 +619,11 @@ export function PhaseTimeline({
 													Scroll to Top
 												</button>
 
-												{chatId && handleDeployToCloudflare && (
+												{chatId && handleDeployToRIP && (
 													<button
 														onClick={(e) => {
 															e.stopPropagation();
-															handleDeployToCloudflare(chatId);
+															handleDeployToRIP(chatId);
 														}}
 														disabled={isDeploying}
 														className="flex items-center gap-1.5 px-3 py-1.5 bg-accent hover:bg-accent/90 disabled:bg-accent/50 text-white rounded-lg text-xs font-medium transition-colors disabled:cursor-not-allowed"
@@ -633,7 +633,7 @@ export function PhaseTimeline({
 														) : (
 															<Zap className="w-3 h-3" />
 														)}
-														{isDeploying ? 'Deploying...' : 'Deploy to Cloudflare'}
+														{isDeploying ? 'Deploying...' : 'Deploy to RIP'}
 													</button>
 												)}
 											</div>

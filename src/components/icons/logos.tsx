@@ -20,6 +20,47 @@ export function CloudflareLogo(props: React.SVGProps<SVGSVGElement> & { color1?:
 	);
 }
 
+// RIP - Running In Parallel Logo
+export function RIPLogo(props: React.SVGProps<SVGSVGElement> & { color?: string}) {
+	const fillColor = props.color ?? "#6366F1"; // Indigo default
+	return (
+		<svg
+			xmlns="http://www.w3.org/2000/svg"
+			viewBox="0 0 48 48"
+			fill="none"
+			{...props}
+		>
+			{/* Background circle */}
+			<circle cx="24" cy="24" r="22" fill={fillColor} fillOpacity="0.1" />
+			<circle cx="24" cy="24" r="20" stroke={fillColor} strokeWidth="2" fill="none" />
+			
+			{/* R */}
+			<path
+				fill={fillColor}
+				d="M14 34V14h8c4.4 0 6 2 6 5 0 2-1 3.5-3 4.5L30 34h-5l-4.5-9H16v9h-2zm2-14h6c1.5 0 2-.5 2-2s-.5-2-2-2h-6v4z"
+			/>
+			
+			{/* I */}
+			<path
+				fill={fillColor}
+				d="M20 14h2v20h-2V14z"
+			/>
+			
+			{/* P with parallel lines */}
+			<path
+				fill={fillColor}
+				d="M26 14h6c3.3 0 5 1.5 5 4s-1.7 4-5 4h-4v6h-2V14zm2 6h4c1 0 1.5-.3 1.5-1.5S33.5 17 32.5 17h-4v3z"
+			/>
+			
+			{/* Parallel indicator dots */}
+			<circle cx="12" cy="12" r="2" fill={fillColor} fillOpacity="0.5" />
+			<circle cx="36" cy="12" r="2" fill={fillColor} fillOpacity="0.5" />
+			<circle cx="12" cy="36" r="2" fill={fillColor} fillOpacity="0.5" />
+			<circle cx="36" cy="36" r="2" fill={fillColor} fillOpacity="0.5" />
+		</svg>
+	);
+}
+
 export function TypeScriptIcon(props: React.SVGProps<SVGSVGElement>) {
 	return (
 		<svg viewBox="0 0 400 400" id="Layer_1" xmlns="http://www.w3.org/2000/svg" {...props}>

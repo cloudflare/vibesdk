@@ -155,7 +155,7 @@ export function DeploymentControls({
 					icon: null,
 					titleColor: "text-text-tertiary dark:text-text-tertiary",
 					subtitleColor: "text-text-tertiary/80 dark:text-text-tertiary/70",
-					title: "Deploy to Cloudflare",
+					title: "Deploy to RIP",
 					subtitle: "Deploy will be enabled after Phase 1 is implemented",
 					buttonDisabled: true,
 					buttonVariant: "secondary" as const,
@@ -170,7 +170,7 @@ export function DeploymentControls({
 					titleColor: "text-text-primary dark:text-text-primary",
 					subtitleColor: "text-text-tertiary dark:text-text-tertiary",
 					title: "Ready to Deploy",
-					subtitle: "It's Free! Deploys to Cloudflare Workers for Platform",
+					subtitle: "It's Free! Deploys to RIP Platform for Platform",
 					buttonDisabled: false,
 					buttonVariant: "primary" as const,
 					buttonClass: "bg-accent text-white border-orange-500 dark:border-orange-600 hover:scale-105"
@@ -183,7 +183,7 @@ export function DeploymentControls({
 					icon: <Loader className="w-2.5 h-2.5 text-white animate-spin" />,
 					titleColor: "text-blue-900 dark:text-blue-100",
 					subtitleColor: "text-blue-600 dark:text-blue-300",
-					title: "Deploying to Cloudflare",
+					title: "Deploying to RIP",
 					subtitle: "Please wait while your application is being deployed...",
 					buttonDisabled: true,
 					buttonVariant: "primary" as const,
@@ -197,7 +197,7 @@ export function DeploymentControls({
 					icon: <Loader className="w-2.5 h-2.5 text-white animate-spin" />,
 					titleColor: "text-blue-900 dark:text-blue-100",
 					subtitleColor: "text-blue-600 dark:text-blue-300",
-					title: "Redeploying to Cloudflare",
+					title: "Redeploying to RIP",
 					subtitle: "Please wait while your application is being redeployed...",
 					buttonDisabled: true,
 					buttonVariant: "primary" as const,
@@ -281,7 +281,7 @@ export function DeploymentControls({
 							) : (
 								<>
 									<Zap className="w-4 h-4 mr-2" />
-									Deploy to Cloudflare
+									Deploy to RIP
 								</>
 							)}
 						</Button>
@@ -307,7 +307,7 @@ export function DeploymentControls({
 								🎉 Successfully Deployed!
 							</div>
 							<div className="text-xs text-green-700 dark:text-green-300 mt-0.5">
-								Your application is now live on Cloudflare Workers
+								Your application is now live on RIP Platform
 							</div>
 						</div>
 					</div>

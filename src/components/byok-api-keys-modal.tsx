@@ -42,7 +42,7 @@ import OpenAILogo from '@/assets/provider-logos/openai.svg?react';
 import AnthropicLogo from '@/assets/provider-logos/anthropic.svg?react';
 import GoogleLogo from '@/assets/provider-logos/google.svg?react';
 import CerebrasLogo from '@/assets/provider-logos/cerebras.svg?react';
-import CloudflareLogo from '@/assets/provider-logos/cloudflare.svg?react';
+import RIPLogo from '@/assets/provider-logos/cloudflare.svg?react';
 
 interface ByokApiKeysModalProps {
 	isOpen: boolean;
@@ -65,9 +65,9 @@ const PROVIDER_LOGOS: Record<string, React.ComponentType<{ className?: string }>
 	anthropic: AnthropicLogo,
 	'google-ai-studio': GoogleLogo,
 	cerebras: CerebrasLogo,
-	'workers-ai': CloudflareLogo,
-	cloudflare: CloudflareLogo,
-	custom: CloudflareLogo, // Reuse Cloudflare logo for custom
+	'workers-ai': RIPLogo,
+	cloudflare: RIPLogo,
+	custom: RIPLogo, // Reuse Cloudflare logo for custom
 };
 
 interface BYOKProvider {
@@ -345,7 +345,7 @@ export function ByokApiKeysModal({ isOpen, onClose, onKeyAdded }: ByokApiKeysMod
 							<Key className="h-5 w-5" />
 							Bring Your Own Key
 							<span className="flex items-center gap-1 text-xs text-text-tertiary font-normal">
-								via <CloudflareLogo className="h-3 w-3" /> AI Gateway
+								via <RIPLogo className="h-3 w-3" /> AI Gateway
 							</span>
 						</DialogTitle>
 						<DialogDescription>
