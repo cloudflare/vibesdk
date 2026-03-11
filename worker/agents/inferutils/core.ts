@@ -305,13 +305,15 @@ export async function getConfigurationForModel(
                 };
             case 'workers-ai':
                 // Workers AI - uses native AI binding by default (free)
-                // If user provides CLOUDFLARE_API_KEY, uses REST API for more models
+                // If user provides CLOUDFLARE_API_TOKEN, uses REST API for more models
                 // Model IDs: @cf/meta/llama-3.1-8b-instruct (binding) or llama-3.1-405b-instruct-fp8 (REST)
-                if (env.CLOUDFLARE_API_KEY && env.CLOUDFLARE_ACCOUNT_ID) {
+                const cfApiKey = (env as { CLOUDFLARE_API_TOKEN?: string }).CLOUDFLARE_API_TOKEN;
+                const cfAccountId = (env as { CLOUDFLARE_ACCOUNT_ID?: string }).CLOUDFLARE_ACCOUNT_ID;
+                if (cfApiKey && cfAccountId) {
                     // Use REST API with user's credentials
                     return {
-                        baseURL: `https://api.cloudflare.com/client/v4/accounts/${env.CLOUDFLARE_ACCOUNT_ID}/ai/run/`,
-                        apiKey: env.CLOUDFLARE_API_KEY,
+                        baseURL: `https://api.cloudflare.com/client/v4/accounts/${cfAccountId}/ai/run/`,
+                        apiKey: cfApiKey,
                     };
                 }
                 // Default: use native binding (workers-ai:// prefix)
@@ -321,9 +323,10 @@ export async function getConfigurationForModel(
                 };
             case 'custom':
                 // Custom BYOK - user provides their own endpoint
+                const envWithCustom = env as { CUSTOM_AI_ENDPOINT?: string; CUSTOM_AI_KEY?: string };
                 return {
-                    baseURL: env.CUSTOM_AI_ENDPOINT || '',
-                    apiKey: env.CUSTOM_AI_KEY || '',
+                    baseURL: envWithCustom.CUSTOM_AI_ENDPOINT || '',
+                    apiKey: envWithCustom.CUSTOM_AI_KEY || '',
                 };
             default:
                 providerForcedOverride = modelConfig.provider as AIGatewayProviders;

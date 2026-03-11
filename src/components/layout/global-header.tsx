@@ -5,7 +5,7 @@ import { ThemeToggle } from '../theme-toggle';
 import { motion } from 'framer-motion';
 import { useAuth } from '@/contexts/auth-context';
 import { ChevronRight, GithubIcon, AlertCircle } from 'lucide-react';
-import { CloudflareLogo, RIPLogo } from '../icons/logos';
+import { RIPLogo } from '../icons/logos';
 import { usePlatformStatus } from '@/hooks/use-platform-status';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -91,7 +91,7 @@ export function GlobalHeader() {
 								<div className="flex w-full gap-2 items-center">
 									<div className='text-text-primary/80 mr-4 text-lg font-medium'>Deploy your own AI coding platform</div>
 									<div className="flex font-semibold gap-2 items-center bg-accent dark:bg-accent text-white rounded px-2 hover:opacity-80 cursor-pointer" onClick={() => window.open("https://deploy.workers.cloudflare.com/?url=https://github.com/ateammgt/ripsdk", "_blank")}>
-										Deploy <RIPLogo className='w-5 h-5' color1='#fff' />
+										Deploy <RIPLogo className='w-5 h-5' color='#fff' />
 									</div>
 									<div className="flex font-semibold items-center bg-text-primary text-bg-4 rounded gap-1 px-2 hover:opacity-80 cursor-pointer" onClick={() => window.open("https://github.com/ateammgt/ripsdk", "_blank")} >
 										Fork <GithubIcon className="size-4" />

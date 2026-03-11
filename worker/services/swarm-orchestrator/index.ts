@@ -49,11 +49,9 @@ export enum SwarmTaskType {
  * - Database: uses existing Drizzle schema
  */
 export class SwarmOrchestrator {
-    private env: Env;
     private db: ReturnType<typeof drizzle>;
 
     constructor(env: Env) {
-        this.env = env;
         this.db = drizzle(env.DB);
     }
 
@@ -221,14 +219,14 @@ export class SwarmOrchestrator {
         for (let i = 0; i < workerLinks.length; i += maxConcurrent) {
             const batch = workerLinks.slice(i, i + maxConcurrent);
             
-            const batchPromises = batch.map(async (link) => {
+            const batchPromises = batch.map(async (link, batchIndex) => {
                 const taskId = `task-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
                 
                 await this.db.insert(agentTasks).values({
                     id: taskId,
                     agentId: link.agentId,
                     swarmSessionId: link.swarmSessionId,
-                    description: `Parallel task ${i + batchPromises.indexOf(p)}: ${prompt.substring(0, 50)}...`,
+                    description: `Parallel task ${i + batchIndex}: ${prompt.substring(0, 50)}...`,
                     status: 'running',
                     createdAt: new Date(),
                 });
@@ -268,16 +266,8 @@ export class SwarmOrchestrator {
     ): Promise<any[]> {
         const taskResults: any[] = [];
 
-        // Map roles to task types
-        const roleTaskMap: Record<string, SwarmTaskType> = {
-            'planner': SwarmTaskType.PLAN,
-            'builder': SwarmTaskType.IMPLEMENT,
-            'fixer': SwarmTaskType.FIX,
-            'tester': SwarmTaskType.VALIDATE,
-        };
-
         // Execute in phases: plan -> implement -> fix -> validate
-        const phases = [
+        const phases: Array<{ role: string; taskType: SwarmTaskType; description: string }> = [
             { role: 'planner', taskType: SwarmTaskType.PLAN, description: 'Creating plan' },
             { role: 'builder', taskType: SwarmTaskType.IMPLEMENT, description: 'Implementing' },
             { role: 'fixer', taskType: SwarmTaskType.FIX, description: 'Fixing issues' },
@@ -386,15 +376,6 @@ export class SwarmOrchestrator {
         });
 
         return Promise.all(taskPromises);
-    }
-
-    /**
-     * Utility: Create timeout promise
-     */
-    private timeout(ms: number): Promise<never> {
-        return new Promise((_, reject) => 
-            setTimeout(() => reject(new Error('Operation timed out')), ms)
-        );
     }
 
     /**
@@ -561,11 +542,5 @@ export class SwarmOrchestrator {
         } catch (error) {
             return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
         }
-    }
-
-    private timeout(ms: number): Promise<void> {
-        return new Promise((_, reject) => {
-            setTimeout(() => reject(new Error('Task timeout')), ms);
-        });
     }
 }

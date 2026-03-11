@@ -3,26 +3,18 @@
  * Uses existing infrastructure: AI Gateway, vault, Drizzle
  */
 
-import { eq, and } from 'drizzle-orm';
-import { drizzle } from 'drizzle-orm/d1';
-import { agents, swarmSessions, swarmAgents, agentTasks } from '../../database/schema';
 import { SwarmOrchestrator } from '../../services/swarm-orchestrator';
 
 /**
  * Get authenticated user ID from request
  * Assumes auth middleware has already validated the user
  */
-function getUserId(request: Request, env: Env): string | null {
-    // In production, this would extract from JWT or session
-    // For now, try to get from header set by auth middleware
-    return request.headers.get('x-user-id') || null;
-}
 
 export async function handleSwarmRoutes(
     pathname: string,
     request: Request,
     env: Env,
-    ctx: ExecutionContext,
+    _ctx: ExecutionContext,
     userId: string
 ): Promise<Response | null> {
     const orchestrator = new SwarmOrchestrator(env);
@@ -30,13 +22,19 @@ export async function handleSwarmRoutes(
     // POST /api/swarm/create - Create a new swarm session
     if (pathname === '/api/swarm/create' && request.method === 'POST') {
         try {
-            const config = await request.json();
+            const config = await request.json() as {
+                name?: string;
+                managerAgentId?: string;
+                workerAgentIds?: string[];
+                maxConcurrent?: number;
+                timeoutMs?: number;
+            };
             const result = await orchestrator.createSwarm(userId, {
-                name: config.name,
-                managerAgentId: config.managerAgentId,
-                workerAgentIds: config.workerAgentIds,
-                maxConcurrent: config.maxConcurrent || 3,
-                timeoutMs: config.timeoutMs || 300000,
+                name: config.name ?? 'Unnamed Swarm',
+                managerAgentId: config.managerAgentId ?? '',
+                workerAgentIds: config.workerAgentIds ?? [],
+                maxConcurrent: config.maxConcurrent ?? 3,
+                timeoutMs: config.timeoutMs ?? 300000,
             });
 
             if (!result.success) {
@@ -63,10 +61,11 @@ export async function handleSwarmRoutes(
         const swarmId = executeMatch[1];
         
         try {
-            const { prompt } = await request.json();
+            const body = await request.json() as { prompt?: string };
+            const prompt = body.prompt ?? '';
             
             // Execute using orchestrator - uses existing AI infrastructure
-            const result = await orchestrator.execute(swarmId, prompt, async (agentId, task) => {
+            const result = await orchestrator.execute(swarmId, prompt, async (agentId, _task) => {
                 // This callback uses existing AI infrastructure
                 // In production, this would call the existing agent operations
                 // For now, return a placeholder response
@@ -160,14 +159,21 @@ export async function handleSwarmRoutes(
     // POST /api/agents - Create a new agent
     if (pathname === '/api/agents' && request.method === 'POST') {
         try {
-            const agentData = await request.json();
+            const agentData = await request.json() as {
+                role?: string;
+                modelProvider?: string;
+                instructions?: string;
+                apiKeyVaultRef?: string;
+                maxTokens?: number;
+                temperature?: number;
+            };
             const result = await orchestrator.createAgent(userId, {
-                role: agentData.role,
-                modelProvider: agentData.modelProvider,
-                instructions: agentData.instructions,
+                role: agentData.role ?? 'worker',
+                modelProvider: agentData.modelProvider ?? 'workers-ai',
+                instructions: agentData.instructions ?? '',
                 apiKeyVaultRef: agentData.apiKeyVaultRef,
-                maxTokens: agentData.maxTokens,
-                temperature: agentData.temperature,
+                maxTokens: agentData.maxTokens ?? 4096,
+                temperature: agentData.temperature ?? 0.7,
             });
 
             if (!result.success) {

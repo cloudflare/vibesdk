@@ -620,7 +620,7 @@ export const swarmAgents = sqliteTable('swarm_agents', {
     swarmSessionId: text('swarm_session_id').references(() => swarmSessions.id).notNull(),
     agentId: text('agent_id').references(() => agents.id).notNull(),
     role: text('role').notNull(), // Role within this swarm
-}, (table) => [
+}, () => [
 ]);
 
 /**

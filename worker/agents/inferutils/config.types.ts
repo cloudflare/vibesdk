@@ -686,14 +686,14 @@ export const AllModels: AIModels[] = Object.values(MODELS_MASTER)
  * Filter out deprecated models for UI display
  */
 export const ActiveModels: AIModels[] = Object.values(MODELS_MASTER)
-    .filter((entry) => !entry.config.deprecated)
+    .filter((entry) => !('deprecated' in entry.config) || !entry.config.deprecated)
     .map((entry) => entry.id);
 
 /**
  * Get deprecated models (for admin/cleanup purposes)
  */
 export const DeprecatedModels: AIModels[] = Object.values(MODELS_MASTER)
-    .filter((entry) => entry.config.deprecated)
+    .filter((entry) => 'deprecated' in entry.config && entry.config.deprecated)
     .map((entry) => entry.id);
 
 /**

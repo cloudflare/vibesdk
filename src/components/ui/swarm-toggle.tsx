@@ -3,8 +3,7 @@
  * Switches between single agent mode and swarm (multi-agent) mode
  */
 
-import { useState } from 'react';
-import { Users, User, ChevronDown, Settings } from 'lucide-react';
+import { Users, User, ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
