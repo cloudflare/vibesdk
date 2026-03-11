@@ -7,11 +7,11 @@ declare namespace Cloudflare {
 	}
 	interface Env {
 		VibecoderStore: KVNamespace;
-		TEMPLATES_REPOSITORY: "https://github.com/cloudflare/vibesdk-templates";
+		TEMPLATES_REPOSITORY: "https://github.com/cloudflare/ripsdk-templates";
 		ALLOWED_EMAIL: "";
-		DISPATCH_NAMESPACE: "vibesdk-default-namespace";
+		DISPATCH_NAMESPACE: "ripsdk-default-namespace";
 		ENABLE_READ_REPLICAS: "true";
-		CLOUDFLARE_AI_GATEWAY: "vibesdk-gateway";
+		CLOUDFLARE_AI_GATEWAY: "ripsdk-gateway";
 		PLATFORM_CAPABILITIES: {"features":{"app":{"enabled":true},"presentation":{"enabled":false},"general":{"enabled":false}},"version":"1.0.0"};
 		ANTHROPIC_API_KEY: string;
 		OPENAI_API_KEY: string;

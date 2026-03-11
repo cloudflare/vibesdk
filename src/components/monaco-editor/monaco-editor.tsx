@@ -36,7 +36,7 @@ self.MonacoEnvironment = {
 };
 
 // From GitHub Dark theme
-monaco.editor.defineTheme('vibesdk-dark', {
+monaco.editor.defineTheme('ripsdk-dark', {
 	base: 'vs-dark',
 	inherit: true,
 	rules: [
@@ -77,7 +77,7 @@ monaco.editor.defineTheme('vibesdk-dark', {
 	},
 });
 
-monaco.editor.defineTheme('vibesdk', {
+monaco.editor.defineTheme('ripsdk', {
 	base: 'vs',
 	inherit: true,
 	rules: [
@@ -116,7 +116,7 @@ monaco.editor.defineTheme('vibesdk', {
 	},
 });
 
-monaco.editor.setTheme('vibesdk');
+monaco.editor.setTheme('ripsdk');
 
 export type MonacoEditorProps = React.ComponentProps<'div'> & {
 	createOptions?: monaco.editor.IStandaloneEditorConstructionOptions;
@@ -204,7 +204,7 @@ export const MonacoEditor = memo<MonacoEditorProps>(function MonacoEditor({
 		editor.current = monaco.editor.create(containerRef.current!, {
 			language: createOptions.language || 'typescript',
 			minimap: { enabled: false },
-			theme: configuredTheme === 'dark' ? 'vibesdk-dark' : 'vibesdk',
+			theme: configuredTheme === 'dark' ? 'ripsdk-dark' : 'ripsdk',
 			automaticLayout: true,
 			value: defaultCode,
 			fontSize: 13,
@@ -333,7 +333,7 @@ export const MonacoEditor = memo<MonacoEditorProps>(function MonacoEditor({
 	// Update theme when app theme changes
 	useEffect(() => {
 		if (editor.current) {
-			monaco.editor.setTheme(theme === 'dark' ? 'vibesdk-dark' : 'vibesdk');
+			monaco.editor.setTheme(theme === 'dark' ? 'ripsdk-dark' : 'ripsdk');
 		}
 	}, [theme]);
 

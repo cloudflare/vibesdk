@@ -337,7 +337,7 @@ class SetupManager {
 
 			// Generate suggested URL
 			const wranglerConfig = this.parseWranglerConfig();
-			const gatewayName = wranglerConfig.vars?.CLOUDFLARE_AI_GATEWAY || 'vibesdk-gateway';
+			const gatewayName = wranglerConfig.vars?.CLOUDFLARE_AI_GATEWAY || 'ripsdk-gateway';
 			const suggestedUrl = `https://gateway.ai.cloudflare.com/v1/${accountId}/${gatewayName}/`;
 
 			// Use existing URL if available, otherwise use suggested URL as default
@@ -662,7 +662,7 @@ class SetupManager {
 	}
 
 	private async ensureKVNamespace(binding: string): Promise<{ id: string; title: string }> {
-		const namespaceName = `vibesdk-${binding.toLowerCase()}-local`;
+		const namespaceName = `ripsdk-${binding.toLowerCase()}-local`;
 
 		try {
 			// Check if namespace exists using direct API call
@@ -836,7 +836,7 @@ class SetupManager {
 	}
 
 	private async ensureAIGateway(resources: ResourceInfo): Promise<void> {
-		const gatewayName = this.config.useAIGateway ? 'vibesdk-gateway' : null;
+		const gatewayName = this.config.useAIGateway ? 'ripsdk-gateway' : null;
 
 		if (!gatewayName) {
 			console.log('ℹ️  AI Gateway setup skipped (not configured)');

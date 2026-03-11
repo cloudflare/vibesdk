@@ -76,7 +76,7 @@ export async function deriveVMKFromPRF(
 			name: 'HKDF',
 			hash: 'SHA-256',
 			salt: salt,
-			info: new TextEncoder().encode('vibesdk-vault-vmk'),
+			info: new TextEncoder().encode('ripsdk-vault-vmk'),
 		},
 		keyMaterial,
 		{ name: 'AES-GCM', length: 256 },

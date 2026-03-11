@@ -349,7 +349,7 @@ export function MainContentPanel(props: MainContentPanelProps) {
 								lineNumbers: 'on',
 								scrollBeyondLastLine: false,
 								fontSize: 13,
-								theme: 'vibesdk',
+								theme: 'ripsdk',
 								automaticLayout: true,
 							}}
 							find={edit?.filePath === activeFile.filePath ? edit.search : undefined}
