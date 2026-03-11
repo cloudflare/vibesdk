@@ -5,6 +5,5 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
-    open-pull-requests-limit: 10
-    # Enable security updates (auto-create PRs to fix vulnerabilities)
-    versioning-strategy: increase
+    # Limit open PRs to reduce noise
+    open-pull-requests-limit: 3
