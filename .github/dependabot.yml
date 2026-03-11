@@ -1,11 +1,17 @@
-# Dependabot will check for vulnerable dependencies
+# Dependabot - Security updates only, grouped
 version: 2
 enable-beta-ecosystems: true
 updates:
   - package-ecosystem: "npm"
     directory: "/"
     schedule:
-      interval: "weekly"
-    open-pull-requests-limit: 10
-    # Enable security updates (auto-create PRs to fix vulnerabilities)
-    versioning-strategy: increase
+      interval: "daily"
+    # Only security updates (no version bumps)
+    open-pull-requests-limit: 1
+    # Group all security fixes into one PR
+    groups:
+      security-updates:
+        patterns:
+          - "*"
+        update-types:
+          - "security"
