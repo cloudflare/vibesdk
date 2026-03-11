@@ -187,6 +187,7 @@ interface PhaseTimelineProps {
 	chatId?: string;
 	isDeploying?: boolean;
 	handleDeployToRIP?: (instanceId: string) => void;
+	handleDeployToCloudflare?: (instanceId: string) => void;
 	// Issue tracking and debugging
 	runtimeErrorCount?: number;
 	staticIssueCount?: number;

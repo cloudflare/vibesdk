@@ -4,7 +4,7 @@
  * Compares with known models to detect new/deprecated models
  */
 
-import { AIModels, AI_MODEL_CONFIG, ActiveModels, DeprecatedModels, AIModelConfig, ModelSize } from '../agents/inferutils/config.types';
+import { AIModels, AI_MODEL_CONFIG, AIModelConfig, ModelSize } from '../../agents/inferutils/config.types';
 
 export interface DiscoveredModel {
     id: string;
@@ -29,7 +29,7 @@ export async function fetchCloudflareModels(env: Env): Promise<string[]> {
     try {
         // Try using the AI Gateway API to get available models
         const accountId = env.CLOUDFLARE_ACCOUNT_ID;
-        const apiToken = env.CLOUDFLARE_API_KEY;
+        const apiToken = env.CLOUDFLARE_API_TOKEN;
         
         if (accountId && apiToken) {
             const response = await fetch(
@@ -43,9 +43,9 @@ export async function fetchCloudflareModels(env: Env): Promise<string[]> {
             );
             
             if (response.ok) {
-                const data = await response.json();
+                const data = await response.json() as { result?: Array<{ id: string }> };
                 if (data.result) {
-                    models.push(...data.result.map((m: { id: string }) => m.id));
+                    models.push(...data.result.map((m) => m.id));
                 }
             }
         }
@@ -61,9 +61,9 @@ export async function fetchCloudflareModels(env: Env): Promise<string[]> {
         );
         
         if (fallbackResponse.ok && models.length === 0) {
-            const data = await fallbackResponse.json();
+            const data = await fallbackResponse.json() as { result?: Array<{ id: string }> };
             if (data.result) {
-                models.push(...data.result.map((m: { id: string }) => m.id));
+                models.push(...data.result.map((m) => m.id));
             }
         }
     } catch (error) {
@@ -101,15 +101,12 @@ export function isWorkersAIModel(modelId: string): boolean {
  * Discover new and deprecated models by comparing with known list
  */
 export function discoverModelChanges(availableModels: string[]): ModelDiscoveryResult {
-    const knownModelIds = new Set(Object.values(AIModels));
-    const activeModelConfigs = new Map(
-        Object.entries(AI_MODEL_CONFIG).filter(([_, config]) => !config.deprecated)
-    );
+    const knownModelIds = new Set(Object.values(AIModels) as string[]);
     
     // Find new models (in available but not in known)
     const newModels: DiscoveredModel[] = [];
     for (const modelId of availableModels) {
-        if (isWorkersAIModel(modelId) && !knownModelIds.has(modelId)) {
+        if (isWorkersAIModel(modelId) && !(knownModelIds as Set<string>).has(modelId)) {
             // Try to infer model info from ID
             const name = modelId
                 .replace('@cf/', '')
@@ -130,10 +127,10 @@ export function discoverModelChanges(availableModels: string[]): ModelDiscoveryR
     // Find deprecated models (in known but not in available)
     const deprecatedModels: DiscoveredModel[] = [];
     for (const modelId of knownModelIds) {
-        const config = AI_MODEL_CONFIG[modelId];
-        if (config && config.provider === 'workers-ai' && !availableModels.includes(config.id)) {
+        const config = AI_MODEL_CONFIG[modelId as AIModels] as AIModelConfig | undefined;
+        if (config && config.provider === 'workers-ai' && !availableModels.includes(modelId as string)) {
             deprecatedModels.push({
-                id: modelId,
+                id: modelId as string,
                 name: config.name,
                 provider: config.provider,
                 status: 'deprecated',
@@ -144,7 +141,7 @@ export function discoverModelChanges(availableModels: string[]): ModelDiscoveryR
     return {
         newModels,
         deprecatedModels,
-        knownModels: Array.from(knownModelIds),
+        knownModels: Array.from(knownModelIds as unknown as string[]),
         lastChecked: new Date(),
     };
 }

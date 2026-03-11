@@ -73,12 +73,14 @@ export function setupRoutes(app: Hono<AppEnv>): void {
 
     // Swarm and multi-agent routes
     app.use('*', async (c, next) => {
-        const userId = c.get('userId');
+        // Get user from auth context - assume it's been set by auth middleware
+        const user = c.get('user');
+        const userId = user?.id;
         if (!userId) {
             return c.json({ error: 'Unauthorized' }, 401);
         }
         const pathname = new URL(c.req.url).pathname;
-        const response = await handleSwarmRoutes(pathname, c.req.raw, c.env, c.get('executionCtx'), userId);
+        const response = await handleSwarmRoutes(pathname, c.req.raw, c.env, c.executionCtx, userId);
         if (response) {
             return response;
         }

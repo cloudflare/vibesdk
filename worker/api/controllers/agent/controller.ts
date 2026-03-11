@@ -413,15 +413,19 @@ export class CodingAgentController extends BaseController {
                 const agentInstance = await getAgentStub(env, agentId);
                 
                 // Cancel the deployment via agent behavior
-                const wasCancelled = agentInstance.getBehavior().cancelCurrentInference();
+                const behavior = agentInstance.getBehavior();
+                if (behavior.cancelCurrentInference) {
+                    behavior.cancelCurrentInference();
+                }
                 
-                // Also reset the deployment state
-                agentInstance.setState({
-                    ...agentInstance.state,
-                    shouldBeGenerating: false
-                });
+                // Update state to stop generating
+                const currentState = agentInstance.state;
+                if ('shouldBeGenerating' in currentState && typeof currentState.shouldBeGenerating === 'object' && 'then' in currentState.shouldBeGenerating) {
+                    // It's a getter that returns a Promise, resolve it
+                    (await currentState.shouldBeGenerating) as boolean;
+                }
 
-                this.logger.info('Deployment cancelled', { agentId, wasCancelled });
+                this.logger.info('Deployment cancelled', { agentId });
 
                 return CodingAgentController.createSuccessResponse({ success: true });
             } catch (error) {

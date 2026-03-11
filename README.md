@@ -2,27 +2,6 @@
 
 > **A fork of Cloudflare Vibe SDK** – An AI-powered coding tool built on Cloudflare's developer platform. Part of the RIP suite of AI applications.
 
-<div align="center">
-
-
-## 🚀 Live Demo
-
-**[your-app.workers.dev](https://your-app.workers.dev)**
-
-*Explore RIP SDK before deploying your own stack.*
-
-[![Deploy to Cloudflare Workers](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/ateammgt/ripsdk)
-
-**👆 Click to deploy your own instance!**
-
-*Follow the setup guide below to configure required services*
-
-</div>
-
-## Star History
-
-[![Star History Chart](https://api.star-history.com/svg?repos=ateammgt/ripsdk&type=Date)](https://www.star-history.com/#ateammgt/ripsdk&Date)
-
 ---
 
 ## ✨ What is RIP SDK?
