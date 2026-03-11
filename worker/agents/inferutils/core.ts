@@ -303,7 +303,7 @@ export async function getConfigurationForModel(
                     baseURL: 'https://api.anthropic.com/v1/',
                     apiKey: env.ANTHROPIC_API_KEY,
                 };
-            case 'workers-ai':
+            case 'workers-ai': {
                 // Workers AI - uses native AI binding by default (free)
                 // If user provides CLOUDFLARE_API_TOKEN, uses REST API for more models
                 // Model IDs: @cf/meta/llama-3.1-8b-instruct (binding) or llama-3.1-405b-instruct-fp8 (REST)
@@ -321,13 +321,15 @@ export async function getConfigurationForModel(
                     baseURL: 'workers-ai://',
                     apiKey: '',
                 };
-            case 'custom':
+            }
+            case 'custom': {
                 // Custom BYOK - user provides their own endpoint
                 const envWithCustom = env as { CUSTOM_AI_ENDPOINT?: string; CUSTOM_AI_KEY?: string };
                 return {
                     baseURL: envWithCustom.CUSTOM_AI_ENDPOINT || '',
                     apiKey: envWithCustom.CUSTOM_AI_KEY || '',
                 };
+            }
             default:
                 providerForcedOverride = modelConfig.provider as AIGatewayProviders;
                 break;

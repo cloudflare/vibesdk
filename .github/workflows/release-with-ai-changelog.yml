@@ -1,9 +1,7 @@
 name: Release and Changelog
 
 on:
-  push:
-    branches:
-      - main
+  workflow_dispatch:
 
 permissions:
   contents: write
