@@ -13,6 +13,7 @@ export interface SecretTemplate {
 	validation: string;
 	required: boolean;
 	category: string;
+	hidden?: boolean; // Hide from UI (deprecated)
 }
 
 export function getTemplatesData(): SecretTemplate[] {
@@ -81,12 +82,13 @@ export function getTemplatesData(): SecretTemplate[] {
 			envVarName: 'GOOGLE_AI_STUDIO_API_KEY',
 			provider: 'google-ai-studio',
 			icon: '🔷',
-			description: 'Google Gemini AI API key',
+			description: 'Google Gemini AI API key (DEPRECATED - Use Cloudflare Workers AI)',
 			instructions: 'Go to Google AI Studio → Get API key',
 			placeholder: 'AI...',
 			validation: '^AI[a-zA-Z0-9_-]{35,}$',
 			required: false,
 			category: 'ai',
+			hidden: true,
 		},
 		{
 			id: 'OPENROUTER_API_KEY',
@@ -139,12 +141,13 @@ export function getTemplatesData(): SecretTemplate[] {
 			provider: 'google-ai-studio',
 			icon: '🔷',
 			description:
-				'Use your Google AI API key for Gemini models via Cloudflare AI Gateway',
+				'Use your Google AI API key for Gemini models via Cloudflare AI Gateway (DEPRECATED)',
 			instructions: 'Go to Google AI Studio → Get API Key',
 			placeholder: 'AIzaSy...',
 			validation: '^AIza.{20,}$',
 			required: false,
 			category: 'byok',
+			hidden: true,
 		},
 		{
 			id: 'CEREBRAS_API_KEY_BYOK',

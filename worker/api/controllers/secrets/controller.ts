@@ -12,6 +12,9 @@ export class SecretsController extends BaseController {
             
             let templates = getTemplatesData();
             
+            // Filter out hidden/deprecated secrets
+            templates = templates.filter(template => !template.hidden);
+            
             if (category) {
                 templates = templates.filter(template => template.category === category);
             }
