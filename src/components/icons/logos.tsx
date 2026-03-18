@@ -20,6 +20,22 @@ export function CloudflareLogo(props: React.SVGProps<SVGSVGElement> & { color1?:
 	);
 }
 
+export function CCCoderLogo(props: React.SVGProps<SVGSVGElement>) {
+	return (
+		<svg
+			xmlns="http://www.w3.org/2000/svg"
+			viewBox="0 0 120 40"
+			fill="none"
+			{...props}
+		>
+			<rect width="120" height="40" rx="8" fill="currentColor" fillOpacity="0.1" />
+			<text x="60" y="26" textAnchor="middle" fontFamily="system-ui, sans-serif" fontWeight="700" fontSize="18" fill="currentColor">
+				CC Coder
+			</text>
+		</svg>
+	);
+}
+
 export function TypeScriptIcon(props: React.SVGProps<SVGSVGElement>) {
 	return (
 		<svg viewBox="0 0 400 400" id="Layer_1" xmlns="http://www.w3.org/2000/svg" {...props}>
