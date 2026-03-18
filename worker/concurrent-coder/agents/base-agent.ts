@@ -43,8 +43,18 @@ export abstract class BaseAgent extends DurableObject<Env> {
 
 			return this.json(result);
 		} catch (err: unknown) {
-			const message = err instanceof Error ? err.message : String(err);
-			return this.json({ status: 'error', agent: this.role, error: message });
+			// Log detailed error information server-side, but do not expose it to the client.
+			if (err instanceof Error) {
+				console.error('BaseAgent.fetch error:', err.message, err.stack);
+			} else {
+				console.error('BaseAgent.fetch error:', err);
+			}
+
+			// Return a generic error response to avoid leaking internal details.
+			return this.json(
+				{ status: 'error', agent: this.role, error: 'Internal error' },
+				500,
+			);
 		}
 	}
 
