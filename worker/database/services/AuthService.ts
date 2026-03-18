@@ -536,7 +536,22 @@ export class AuthService extends BaseService {
      * Generate and store verification OTP for email
      */
     private async generateAndStoreVerificationOtp(email: string): Promise<void> {
-        const otp = Math.floor(100000 + Math.random() * 900000).toString(); // 6-digit OTP
+        // Generate a cryptographically secure 6-digit OTP
+        let otpNumber: number;
+        const randomBytes = new Uint8Array(4);
+        do {
+            crypto.getRandomValues(randomBytes);
+            // Convert 4 random bytes to a 32-bit unsigned integer
+            const randomValue =
+                (randomBytes[0] << 24) |
+                (randomBytes[1] << 16) |
+                (randomBytes[2] << 8) |
+                randomBytes[3];
+            // Ensure non-negative and map into [0, 999999] range while minimizing bias
+            const positiveValue = randomValue >>> 0;
+            otpNumber = positiveValue % 1000000;
+        } while (otpNumber > 999999);
+        const otp = otpNumber.toString().padStart(6, '0'); // 6-digit OTP
         const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes expiry
 
         // Store OTP in database (you may need to create a verification_otps table)
