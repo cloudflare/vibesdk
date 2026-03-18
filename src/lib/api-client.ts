@@ -407,6 +407,67 @@ class ApiClient {
 	}
 
 	// ===============================
+	// Concurrent Coder API Methods
+	// ===============================
+
+	async startCCSession(prompt: string, superpowers?: string[]): Promise<ApiResponse<{ sessionId: string; status: string }>> {
+		return this.request<{ sessionId: string; status: string }>('/api/cc/run', {
+			method: 'POST',
+			body: { prompt, superpowers },
+		});
+	}
+
+	async stopCCSession(sessionId: string): Promise<ApiResponse<{ status: string }>> {
+		return this.request<{ status: string }>('/api/cc/stop', {
+			method: 'POST',
+			body: { sessionId },
+		});
+	}
+
+	async toggleCCAuto(sessionId: string, enabled: boolean): Promise<ApiResponse<{ auto: boolean }>> {
+		return this.request<{ auto: boolean }>('/api/cc/auto', {
+			method: 'POST',
+			body: { sessionId, enabled },
+		});
+	}
+
+	async getCCTimeline(sessionId: string): Promise<ApiResponse<unknown[]>> {
+		return this.request<unknown[]>(`/api/cc/timeline?sessionId=${encodeURIComponent(sessionId)}`);
+	}
+
+	async getCCStatus(sessionId: string): Promise<ApiResponse<{ id: string; prompt: string; status: string; created_at: string }>> {
+		return this.request<{ id: string; prompt: string; status: string; created_at: string }>(`/api/cc/status?sessionId=${encodeURIComponent(sessionId)}`);
+	}
+
+	async getCCHistory(): Promise<ApiResponse<Array<{ id: string; prompt: string; status: string; created_at: string }>>> {
+		return this.request<Array<{ id: string; prompt: string; status: string; created_at: string }>>('/api/cc/history');
+	}
+
+	async eraseCCSessions(sessionIds: string[], eraseLongTerm: boolean): Promise<ApiResponse<{ status: string; count: number }>> {
+		return this.request<{ status: string; count: number }>('/api/cc/erase', {
+			method: 'POST',
+			body: { sessionIds, eraseLongTerm },
+		});
+	}
+
+	async listSuperpowers(): Promise<ApiResponse<Array<{ name: string; filename: string; content: string }>>> {
+		return this.request<Array<{ name: string; filename: string; content: string }>>('/api/cc/superpowers');
+	}
+
+	async uploadSuperpower(filename: string, content: string): Promise<ApiResponse<{ status: string; filename: string }>> {
+		return this.request<{ status: string; filename: string }>('/api/cc/superpowers', {
+			method: 'POST',
+			body: { filename, content },
+		});
+	}
+
+	async deleteSuperpower(filename: string): Promise<ApiResponse<{ status: string; filename: string }>> {
+		return this.request<{ status: string; filename: string }>(`/api/cc/superpowers/${encodeURIComponent(filename)}`, {
+			method: 'DELETE',
+		});
+	}
+
+	// ===============================
 	// Platform Status API Methods
 	// ===============================
 

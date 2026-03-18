@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { apiClient } from '@/lib/api-client';
 
 interface SessionRecord {
 	id: string;
@@ -8,12 +9,11 @@ interface SessionRecord {
 }
 
 interface EraseModalProps {
-	apiBase: string;
 	open: boolean;
 	onClose: () => void;
 }
 
-export function EraseModal({ apiBase, open, onClose }: EraseModalProps) {
+export function EraseModal({ open, onClose }: EraseModalProps) {
 	const [history, setHistory] = useState<SessionRecord[]>([]);
 	const [selectedSessions, setSelectedSessions] = useState<string[]>([]);
 	const [eraseLongTerm, setEraseLongTerm] = useState(false);
@@ -22,15 +22,14 @@ export function EraseModal({ apiBase, open, onClose }: EraseModalProps) {
 	const fetchHistory = useCallback(async () => {
 		setLoading(true);
 		try {
-			const res = await fetch(`${apiBase}/history`);
-			const data = await res.json();
-			setHistory(data);
+			const res = await apiClient.getCCHistory();
+			setHistory(res.data as SessionRecord[]);
 		} catch {
 			// ignore
 		} finally {
 			setLoading(false);
 		}
-	}, [apiBase]);
+	}, []);
 
 	useEffect(() => {
 		if (open) {
@@ -47,11 +46,7 @@ export function EraseModal({ apiBase, open, onClose }: EraseModalProps) {
 	const handleErase = async () => {
 		if (selectedSessions.length === 0) return;
 
-		await fetch(`${apiBase}/erase`, {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ sessionIds: selectedSessions, eraseLongTerm }),
-		});
+		await apiClient.eraseCCSessions(selectedSessions, eraseLongTerm);
 
 		setSelectedSessions([]);
 		setEraseLongTerm(false);
