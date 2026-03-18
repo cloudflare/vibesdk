@@ -1,7 +1,7 @@
 /**
  * Concurrent Coder Controller
  *
- * Handles all CC API endpoints following the adaptController pattern
+ * Handles all Coder API endpoints following the adaptController pattern
  * so that authentication is properly enforced.
  */
 
@@ -153,7 +153,7 @@ export class ConcurrentCoderController extends BaseController {
 	): Promise<Response> {
 		try {
 			const sessions = await env.DB.prepare(
-				'SELECT id, prompt, status, created_at FROM cc_sessions ORDER BY created_at DESC',
+				'SELECT id, prompt, status, created_at FROM coder_sessions ORDER BY created_at DESC',
 			).all();
 			return ConcurrentCoderController.createSuccessResponse(sessions.results);
 		} catch (error) {
@@ -178,7 +178,7 @@ export class ConcurrentCoderController extends BaseController {
 			// Delete from D1
 			const placeholders = sessionIds.map(() => '?').join(',');
 			await env.DB.prepare(
-				`DELETE FROM cc_sessions WHERE id IN (${placeholders})`,
+				`DELETE FROM coder_sessions WHERE id IN (${placeholders})`,
 			)
 				.bind(...sessionIds)
 				.run();
