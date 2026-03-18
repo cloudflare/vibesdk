@@ -16,6 +16,18 @@ export { UserAppSandboxService } from './services/sandbox/sandboxSdkClient';
 export { CodeGeneratorAgent } from './agents/core/codingAgent';
 export { UserSecretsStore } from './services/secrets/UserSecretsStore';
 
+// Concurrent Coder agent swarm exports
+export {
+	ConcurrentCoderOrchestrator,
+	Architect,
+	Coder,
+	Tester,
+	Debugger,
+	Reviewer,
+	Deployer,
+} from './concurrent-coder';
+import { handleQueueBatch } from './concurrent-coder';
+
 // export const CodeGeneratorAgent = Sentry.instrumentDurableObjectWithSentry(sentryOptions, CodeGeneratorAgent);
 // export const DORateLimitStore = Sentry.instrumentDurableObjectWithSentry(sentryOptions, BaseDORateLimitStore);
 export const DORateLimitStore = BaseDORateLimitStore;
@@ -139,6 +151,10 @@ async function handleUserAppRequest(request: Request, env: Env): Promise<Respons
  * Main Worker fetch handler with robust, secure routing.
  */
 const worker = {
+	async queue(batch: MessageBatch<unknown>, env: Env): Promise<void> {
+		await handleQueueBatch(batch as MessageBatch<import('./concurrent-coder/types').QueueJob>, env);
+	},
+
 	async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
         // logger.info(`Received request: ${request.method} ${request.url}`);
 		// --- Pre-flight Checks ---

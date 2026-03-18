@@ -62,6 +62,21 @@ declare namespace Cloudflare {
 		AI: Ai;
 		CF_VERSION_METADATA: WorkerVersionMetadata;
 		ASSETS: Fetcher;
+		// Concurrent Coder bindings
+		ORCHESTRATOR: DurableObjectNamespace<import("./worker/index").ConcurrentCoderOrchestrator>;
+		ARCHITECT: DurableObjectNamespace<import("./worker/index").Architect>;
+		CODER: DurableObjectNamespace<import("./worker/index").Coder>;
+		TESTER: DurableObjectNamespace<import("./worker/index").Tester>;
+		DEBUGGER: DurableObjectNamespace<import("./worker/index").Debugger>;
+		REVIEWER: DurableObjectNamespace<import("./worker/index").Reviewer>;
+		DEPLOYER: DurableObjectNamespace<import("./worker/index").Deployer>;
+		CACHE: KVNamespace;
+		VECTORIZE_INDEX: VectorizeIndex;
+		BG_QUEUE: Queue;
+		DEFAULT_MODEL: string;
+		COMPLEX_MODEL: string;
+		MAX_DEBUG_ITERATIONS: string;
+		REVIEW_THRESHOLD: string;
 	}
 }
 interface Env extends Cloudflare.Env {}
