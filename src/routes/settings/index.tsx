@@ -603,7 +603,7 @@ export default function SettingsPage() {
 						<CardContent className="space-y-4 mt-4 px-6">
 							<div className="flex items-start justify-between gap-4">
 								<div className="space-y-1">
-									<h4 className="font-medium text-sm">VibeSDK API Keys</h4>
+									<h4 className="font-medium text-sm">CC Coder API Keys</h4>
 									<p className="text-sm text-text-secondary">
 										Use these keys to authenticate external SDK clients. The full key is shown only once when created.
 									</p>
@@ -653,7 +653,7 @@ export default function SettingsPage() {
 
 												<div className="rounded-lg bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 p-3">
 													<p className="text-sm text-amber-800 dark:text-amber-200">
-														<strong>Important:</strong> Treat this like a password. Anyone with this key can act as your VibeSDK account.
+														<strong>Important:</strong> Treat this like a password. Anyone with this key can act as your CC Coder account.
 													</p>
 												</div>
 											</div>
@@ -745,7 +745,7 @@ export default function SettingsPage() {
 										<div className="space-y-1">
 											<p className="font-medium">No API keys yet</p>
 											<p className="text-sm text-text-tertiary">
-												Create an API key to use the VibeSDK SDK from your own apps.
+												Create an API key to use the CC Coder SDK from your own apps.
 											</p>
 										</div>
 									</div>
