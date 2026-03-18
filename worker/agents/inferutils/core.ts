@@ -303,6 +303,11 @@ export async function getConfigurationForModel(
                     baseURL: 'https://api.anthropic.com/v1/',
                     apiKey: env.ANTHROPIC_API_KEY,
                 };
+            case 'minimax':
+                return {
+                    baseURL: 'https://api.minimax.io/v1',
+                    apiKey: await getApiKey('minimax', env, userId, runtimeOverrides),
+                };
             default:
                 providerForcedOverride = modelConfig.provider as AIGatewayProviders;
                 break;
