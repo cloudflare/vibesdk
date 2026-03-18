@@ -2,8 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Timeline } from './components/timeline';
 import { SkillsManager } from './components/skills-manager';
 import { EraseModal } from './components/erase-modal';
-
-const API_BASE = '/api/cc';
+import { apiClient } from '@/lib/api-client';
 
 interface TimelineEvent {
 	id: string;
@@ -37,15 +36,12 @@ export default function ConcurrentCoderDashboard() {
 
 		try {
 			const [timelineRes, statusRes] = await Promise.all([
-				fetch(`${API_BASE}/timeline?sessionId=${sessionId}`),
-				fetch(`${API_BASE}/status?sessionId=${sessionId}`),
+				apiClient.getCCTimeline(sessionId),
+				apiClient.getCCStatus(sessionId),
 			]);
 
-			const timelineData = await timelineRes.json();
-			const statusData = await statusRes.json();
-
-			setEvents(timelineData);
-			setStatus(statusData);
+			setEvents(timelineRes.data as TimelineEvent[]);
+			setStatus(statusRes.data as SessionStatus);
 		} catch {
 			// ignore polling errors
 		}
@@ -65,13 +61,8 @@ export default function ConcurrentCoderDashboard() {
 		setSubmitting(true);
 
 		try {
-			const res = await fetch(`${API_BASE}/run`, {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ prompt }),
-			});
-			const data = await res.json();
-			setSessionId(data.sessionId);
+			const res = await apiClient.startCCSession(prompt);
+			setSessionId(res.data!.sessionId);
 			setEvents([]);
 			setStatus(null);
 		} catch {
@@ -84,11 +75,7 @@ export default function ConcurrentCoderDashboard() {
 	// Stop (abort)
 	const handleStop = async () => {
 		if (!sessionId) return;
-		await fetch(`${API_BASE}/stop`, {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ sessionId }),
-		});
+		await apiClient.stopCCSession(sessionId);
 		await pollSession();
 	};
 
@@ -96,11 +83,7 @@ export default function ConcurrentCoderDashboard() {
 	const handleAutoToggle = async () => {
 		if (!sessionId) return;
 		const newValue = !autoMode;
-		await fetch(`${API_BASE}/auto`, {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ sessionId, enabled: newValue }),
-		});
+		await apiClient.toggleCCAuto(sessionId, newValue);
 		setAutoMode(newValue);
 	};
 
@@ -218,13 +201,12 @@ export default function ConcurrentCoderDashboard() {
 				{activeTab === 'timeline' ? (
 					<Timeline events={events} />
 				) : (
-					<SkillsManager apiBase={API_BASE} />
+					<SkillsManager />
 				)}
 			</div>
 
 			{/* Erase Modal */}
 			<EraseModal
-				apiBase={API_BASE}
 				open={showEraseModal}
 				onClose={() => setShowEraseModal(false)}
 			/>

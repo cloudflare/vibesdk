@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { apiClient } from '@/lib/api-client';
 
 interface Superpower {
 	name: string;
@@ -6,11 +7,7 @@ interface Superpower {
 	content: string;
 }
 
-interface SkillsManagerProps {
-	apiBase: string;
-}
-
-export function SkillsManager({ apiBase }: SkillsManagerProps) {
+export function SkillsManager() {
 	const [skills, setSkills] = useState<Superpower[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [showUpload, setShowUpload] = useState(false);
@@ -19,15 +16,14 @@ export function SkillsManager({ apiBase }: SkillsManagerProps) {
 
 	const fetchSkills = useCallback(async () => {
 		try {
-			const res = await fetch(`${apiBase}/superpowers`);
-			const data = await res.json();
-			setSkills(data);
+			const res = await apiClient.listSuperpowers();
+			setSkills(res.data as Superpower[]);
 		} catch {
 			// ignore
 		} finally {
 			setLoading(false);
 		}
-	}, [apiBase]);
+	}, []);
 
 	useEffect(() => {
 		fetchSkills();
@@ -36,11 +32,7 @@ export function SkillsManager({ apiBase }: SkillsManagerProps) {
 	const handleUpload = async () => {
 		if (!newFilename || !newContent) return;
 		const filename = newFilename.endsWith('.md') ? newFilename : `${newFilename}.md`;
-		await fetch(`${apiBase}/superpowers`, {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ filename, content: newContent }),
-		});
+		await apiClient.uploadSuperpower(filename, newContent);
 		setNewFilename('');
 		setNewContent('');
 		setShowUpload(false);
@@ -48,9 +40,7 @@ export function SkillsManager({ apiBase }: SkillsManagerProps) {
 	};
 
 	const handleDelete = async (filename: string) => {
-		await fetch(`${apiBase}/superpowers/${encodeURIComponent(filename)}`, {
-			method: 'DELETE',
-		});
+		await apiClient.deleteSuperpower(filename);
 		await fetchSkills();
 	};
 
