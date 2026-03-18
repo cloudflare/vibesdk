@@ -64,7 +64,10 @@ export function errorResponse(error: string | Error | SecurityError, statusCode 
         // SecurityError messages are designed to be safe for clients.
         publicMessage = error.message;
     } else if (typeof error === 'string') {
-        publicMessage = error;
+        // Do not expose raw string errors directly to the client, as they may
+        // contain stack traces or other sensitive internal information.
+        logger.error('API error response (string)', { error });
+        publicMessage = 'An error occurred';
     } else {
         // Do not expose raw internal error messages or stacks to the client.
         publicMessage = 'An error occurred';
