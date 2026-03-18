@@ -83,7 +83,7 @@ export class ConcurrentCoderOrchestrator extends DurableObject<Env> {
 
 		// Persist session in D1
 		await this.env.DB.prepare(
-			'INSERT INTO cc_sessions (id, prompt, status, created_at) VALUES (?, ?, ?, ?)',
+			'INSERT INTO coder_sessions (id, prompt, status, created_at) VALUES (?, ?, ?, ?)',
 		)
 			.bind(sessionId, prompt, 'running', new Date().toISOString())
 			.run();
@@ -391,7 +391,7 @@ export class ConcurrentCoderOrchestrator extends DurableObject<Env> {
 
 	private async getStatus(sessionId: string): Promise<Response> {
 		const row = await this.env.DB.prepare(
-			'SELECT id, prompt, status, created_at FROM cc_sessions WHERE id = ?',
+			'SELECT id, prompt, status, created_at FROM coder_sessions WHERE id = ?',
 		)
 			.bind(sessionId)
 			.first();
@@ -403,7 +403,7 @@ export class ConcurrentCoderOrchestrator extends DurableObject<Env> {
 		sessionId: string,
 		status: SessionStatus,
 	): Promise<void> {
-		await this.env.DB.prepare('UPDATE cc_sessions SET status = ? WHERE id = ?')
+		await this.env.DB.prepare('UPDATE coder_sessions SET status = ? WHERE id = ?')
 			.bind(status, sessionId)
 			.run();
 	}

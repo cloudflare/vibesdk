@@ -36,8 +36,8 @@ export default function ConcurrentCoderDashboard() {
 
 		try {
 			const [timelineRes, statusRes] = await Promise.all([
-				apiClient.getCCTimeline(sessionId),
-				apiClient.getCCStatus(sessionId),
+				apiClient.getCoderTimeline(sessionId),
+				apiClient.getCoderStatus(sessionId),
 			]);
 
 			setEvents(timelineRes.data as TimelineEvent[]);
@@ -61,7 +61,7 @@ export default function ConcurrentCoderDashboard() {
 		setSubmitting(true);
 
 		try {
-			const res = await apiClient.startCCSession(prompt);
+			const res = await apiClient.startCoderSession(prompt);
 			setSessionId(res.data!.sessionId);
 			setEvents([]);
 			setStatus(null);
@@ -75,7 +75,7 @@ export default function ConcurrentCoderDashboard() {
 	// Stop (abort)
 	const handleStop = async () => {
 		if (!sessionId) return;
-		await apiClient.stopCCSession(sessionId);
+		await apiClient.stopCoderSession(sessionId);
 		await pollSession();
 	};
 
@@ -83,7 +83,7 @@ export default function ConcurrentCoderDashboard() {
 	const handleAutoToggle = async () => {
 		if (!sessionId) return;
 		const newValue = !autoMode;
-		await apiClient.toggleCCAuto(sessionId, newValue);
+		await apiClient.toggleCoderAuto(sessionId, newValue);
 		setAutoMode(newValue);
 	};
 

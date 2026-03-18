@@ -22,7 +22,7 @@ export function EraseModal({ open, onClose }: EraseModalProps) {
 	const fetchHistory = useCallback(async () => {
 		setLoading(true);
 		try {
-			const res = await apiClient.getCCHistory();
+			const res = await apiClient.getCoderHistory();
 			setHistory(res.data as SessionRecord[]);
 		} catch {
 			// ignore
@@ -46,7 +46,7 @@ export function EraseModal({ open, onClose }: EraseModalProps) {
 	const handleErase = async () => {
 		if (selectedSessions.length === 0) return;
 
-		await apiClient.eraseCCSessions(selectedSessions, eraseLongTerm);
+		await apiClient.eraseCoderSessions(selectedSessions, eraseLongTerm);
 
 		setSelectedSessions([]);
 		setEraseLongTerm(false);
