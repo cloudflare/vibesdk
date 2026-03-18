@@ -4,9 +4,12 @@
 
 import { RateLimitError } from "../services/rate-limit/errors";
 import { SecurityError, SecurityErrorType } from 'shared/types/errors';
+import { createLogger } from '../logger';
 /**
  * Standard response shape for all API endpoints
  */
+
+const logger = createLogger('ApiResponses');
 
 export interface BaseErrorResponse {
     message: string;
@@ -49,8 +52,26 @@ export function successResponse<T = unknown>(data: T, message?: string): Respons
  * Creates an error response with standard format
  */
 export function errorResponse(error: string | Error | SecurityError, statusCode = 500, message?: string): Response {
+    // Log full error details on the server side for debugging/observability.
+    if (error instanceof Error) {
+        logger.error('API error response', error);
+    }
+
+    let publicMessage: string;
+    if (message) {
+        publicMessage = message;
+    } else if (error instanceof SecurityError) {
+        // SecurityError messages are designed to be safe for clients.
+        publicMessage = error.message;
+    } else if (typeof error === 'string') {
+        publicMessage = error;
+    } else {
+        // Do not expose raw internal error messages or stacks to the client.
+        publicMessage = 'An error occurred';
+    }
+
     let errorResp: ErrorResponse = {
-        message: error instanceof Error ? error.message : error,
+        message: publicMessage,
         name: error instanceof Error ? error.name : 'Error',
     }
     if (error instanceof SecurityError) {
@@ -62,7 +83,7 @@ export function errorResponse(error: string | Error | SecurityError, statusCode 
     const responseBody: BaseApiResponse = {
         success: false,
         error: errorResp,
-        message: message || (error instanceof Error ? error.message : 'An error occurred'),
+        message: publicMessage,
     };
 
     return new Response(JSON.stringify(responseBody), {
