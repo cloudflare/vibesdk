@@ -27,9 +27,9 @@ export async function handleQueueBatch(
 				continue;
 			}
 
-				// Get the orchestrator stub and dispatch (use 'global' to match API routes)
-				const orchestratorId = env.ORCHESTRATOR.idFromName('global');
-				const orchestrator = env.ORCHESTRATOR.get(orchestratorId);
+			// Get the orchestrator stub and dispatch (use 'global' to match API routes)
+			const orchestratorId = env.ORCHESTRATOR.idFromName('global');
+			const orchestrator = env.ORCHESTRATOR.get(orchestratorId);
 
 			// Forward to the orchestrator's pipeline step handler
 			const res = await orchestrator.fetch(
