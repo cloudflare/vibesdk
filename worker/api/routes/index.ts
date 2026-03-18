@@ -12,6 +12,7 @@ import { setupScreenshotRoutes } from './imagesRoutes';
 import { setupSentryRoutes } from './sentryRoutes';
 import { setupCapabilitiesRoutes } from './capabilitiesRoutes';
 import { setupTicketRoutes } from './ticketRoutes';
+import { setupConcurrentCoderRoutes } from './concurrentCoderRoutes';
 import { Hono } from "hono";
 import { AppEnv } from "../../types/appenv";
 import { setupStatusRoutes } from './statusRoutes';
@@ -69,4 +70,7 @@ export function setupRoutes(app: Hono<AppEnv>): void {
 
     // Screenshot serving routes (public)
     setupScreenshotRoutes(app);
+
+    // Concurrent Coder routes
+    setupConcurrentCoderRoutes(app);
 }

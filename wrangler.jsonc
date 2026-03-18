@@ -97,6 +97,34 @@
             {
                 "class_name": "UserSecretsStore",
                 "name": "UserSecretsStore"
+            },
+            {
+                "class_name": "ConcurrentCoderOrchestrator",
+                "name": "ORCHESTRATOR"
+            },
+            {
+                "class_name": "Architect",
+                "name": "ARCHITECT"
+            },
+            {
+                "class_name": "Coder",
+                "name": "CODER"
+            },
+            {
+                "class_name": "Tester",
+                "name": "TESTER"
+            },
+            {
+                "class_name": "Debugger",
+                "name": "DEBUGGER"
+            },
+            {
+                "class_name": "Reviewer",
+                "name": "REVIEWER"
+            },
+            {
+                "class_name": "Deployer",
+                "name": "DEPLOYER"
             }
 		]
 	},
@@ -111,6 +139,11 @@
         {
             "binding": "VibecoderStore",
             "id": "f066f3c2e4824981b48e8586c04db9c1",
+            "remote": true
+        },
+        {
+            "binding": "CACHE",
+            "id": "YOUR_CC_KV_ID",
             "remote": true
         }
     ],
@@ -136,6 +169,18 @@
                 "UserSecretsStore"
             ],
             "tag": "v3"
+        },
+        {
+            "new_classes": [
+                "ConcurrentCoderOrchestrator",
+                "Architect",
+                "Coder",
+                "Tester",
+                "Debugger",
+                "Reviewer",
+                "Deployer"
+            ],
+            "tag": "v4"
         }
 	],
 	"routes": [
@@ -171,8 +216,33 @@
         },
         "CUSTOM_DOMAIN": "",
         "MAX_SANDBOX_INSTANCES": "10",
-        "SANDBOX_INSTANCE_TYPE": "standard-3"
+        "SANDBOX_INSTANCE_TYPE": "standard-3",
+        "DEFAULT_MODEL": "fast-inference-model",
+        "COMPLEX_MODEL": "reasoning-inference-model",
+        "MAX_DEBUG_ITERATIONS": "5",
+        "REVIEW_THRESHOLD": "80"
     },
+    "queues": {
+        "producers": [
+            {
+                "binding": "BG_QUEUE",
+                "queue": "concurrent-coder-jobs"
+            }
+        ],
+        "consumers": [
+            {
+                "queue": "concurrent-coder-jobs",
+                "max_batch_size": 10,
+                "max_batch_timeout": 30
+            }
+        ]
+    },
+    "vectorize": [
+        {
+            "binding": "VECTORIZE_INDEX",
+            "index_name": "concurrent-coder-memory"
+        }
+    ],
 	"workers_dev": false,
 	"preview_urls": false
 }
