@@ -455,8 +455,11 @@ function convertToPrimitive(value: any, schema: z.ZodTypeAny, debugInfo?: { path
     if (schema instanceof z.ZodString) {
         // Basic XML unescape - harmless for plain text
         const unescaped = stringValue
-            .replace(/&lt;/g, '<').replace(/&gt;/g, '>')
-            .replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/&apos;/g, "'");
+            .replace(/&lt;/g, '<')
+            .replace(/&gt;/g, '>')
+            .replace(/&quot;/g, '"')
+            .replace(/&apos;/g, "'")
+            .replace(/&amp;/g, '&');
         if (debug) currentLogger.debug(`[Convert Path: ${pathStr}] Returning string value: "${unescaped.substring(0, 100)}..."`);
         return unescaped;
     } else if (schema instanceof z.ZodNumber) {
