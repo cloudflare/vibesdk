@@ -1,3 +1,5 @@
+import { isDev } from './envs';
+
 export const getProtocolForHost = (host: string): string => {
     if (host.startsWith('localhost') || host.startsWith('127.0.0.1') || host.startsWith('0.0.0.0') || host.startsWith('::1')) {
         return 'http';
@@ -47,6 +49,22 @@ export function migratePreviewUrl(storedUrl: string | undefined, env: Env): stri
     } catch {
         return storedUrl;
     }
+}
+
+/**
+ * Resolve the correct preview URL based on environment.
+ * In tunnel mode (local dev or USE_TUNNEL_FOR_PREVIEW), returns the tunnel URL.
+ * In production, applies domain migration to the sandbox preview URL.
+ */
+export function resolvePreviewUrl(
+    previewURL: string | undefined,
+    tunnelURL: string | undefined,
+    env: Env
+): string | undefined {
+    if (isDev(env) || env.USE_TUNNEL_FOR_PREVIEW) {
+        return tunnelURL || previewURL;
+    }
+    return migratePreviewUrl(previewURL, env);
 }
 
 export function buildGitCloneUrl(env: Env, appId: string, token?: string): string {
