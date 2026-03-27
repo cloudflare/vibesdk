@@ -1,26 +1,52 @@
-## VibeSDK Local Development Container
+## VibeSDK Development Container
+## 
+## Optimized for hot-reload development with volume mounts
 ## Usage: docker compose -f docker/docker-compose.yml up
-## NOTE: Production deploys to Cloudflare Workers (not Docker).
-##       This is for local development only.
 
-FROM oven/bun:1 AS base
+FROM oven/bun:1.1-debian AS base
+
 WORKDIR /app
 
-# Install system deps for native modules
-RUN apt-get update && apt-get install -y git curl && rm -rf /var/lib/apt/lists/*
+# Install system dependencies needed for development
+RUN apt-get update && apt-get install -y \
+    git \
+    curl \
+    bash \
+    procps \
+    net-tools \
+    sqlite3 \
+    && rm -rf /var/lib/apt/lists/*
 
-# Install dependencies (cached layer)
+# Install wrangler globally for CLI access
+RUN bun add -g wrangler
+
+# Copy package files first (for better caching)
 COPY package.json bun.lock ./
+
+# Copy workspace package.json files
 COPY sdk/package.json sdk/
 COPY container/package.json container/
-RUN bun install --frozen-lockfile
 
-# Copy source (mounted as volume in dev, but needed for initial build)
+# Install dependencies
+RUN bun install
+
+# Copy the rest of the source code
+# (In development, this will be overridden by volume mount)
 COPY . .
 
 # Expose ports
-EXPOSE 5173 8787
+# 3000 - Vite dev server (main app)
+# 8787 - Wrangler dev server (Workers backend)
+# 5555 - Drizzle Studio (database GUI)
+EXPOSE 3000 8787 5555
 
-# Default: run Vite dev (frontend) + wrangler dev (backend)
-# Override in docker-compose for specific services
+# Environment variables
+ENV NODE_ENV=development
+ENV DEV_MODE=true
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+    CMD curl -f http://localhost:3000/api/status || exit 1
+
+# Default command - start the dev server
 CMD ["bun", "run", "dev"]

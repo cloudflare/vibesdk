@@ -1,0 +1,96 @@
+{
+	"$schema": "node_modules/wrangler/config-schema.json",
+	"name": "vibesdk-local",
+	"main": "worker/index.ts",
+	"compatibility_date": "2025-08-10",
+	"compatibility_flags": ["nodejs_compat"],
+	"send_metrics": false,
+	"assets": {
+		"directory": "dist",
+		"not_found_handling": "single-page-application",
+		"run_worker_first": true,
+		"binding": "ASSETS"
+	},
+	"d1_databases": [
+		{
+			"binding": "DB",
+			"database_name": "vibesdk-db",
+			"database_id": "c4721a2b-b96a-428a-8b2a-b3d255b307e9",
+			"migrations_dir": "migrations"
+		}
+	],
+	"durable_objects": {
+		"bindings": [
+			{
+				"class_name": "CodeGeneratorAgent",
+				"name": "CodeGenObject"
+			},
+			{
+				"class_name": "UserAppSandboxService",
+				"name": "Sandbox"
+			},
+			{
+				"class_name": "DORateLimitStore",
+				"name": "DORateLimitStore"
+			},
+			{
+				"class_name": "UserSecretsStore",
+				"name": "UserSecretsStore"
+			}
+		]
+	},
+	"r2_buckets": [
+		{
+			"binding": "TEMPLATES_BUCKET",
+			"bucket_name": "vibesdk-templates"
+		}
+	],
+	"kv_namespaces": [
+		{
+			"binding": "VibecoderStore",
+			"id": "local-vibesdk-kv"
+		}
+	],
+	"migrations": [
+		{
+			"new_sqlite_classes": [
+				"CodeGeneratorAgent",
+				"UserAppSandboxService"
+			],
+			"tag": "v1"
+		},
+		{
+			"new_sqlite_classes": [
+				"DORateLimitStore"
+			],
+			"tag": "v2"
+		},
+		{
+			"new_sqlite_classes": [
+				"UserSecretsStore"
+			],
+			"tag": "v3"
+		}
+	],
+	"vars": {
+		"TEMPLATES_REPOSITORY": "https://github.com/cloudflare/vibesdk-templates",
+		"ALLOWED_EMAIL": "",
+		"DISPATCH_NAMESPACE": "",
+		"ENABLE_READ_REPLICAS": "false",
+		"CLOUDFLARE_AI_GATEWAY": "",
+		"CUSTOM_DOMAIN": "localhost",
+		"MAX_SANDBOX_INSTANCES": "2",
+		"SANDBOX_INSTANCE_TYPE": "lite",
+		"ENVIRONMENT": "dev",
+		"PLATFORM_CAPABILITIES": {
+			"features": {
+				"app": { "enabled": true },
+				"presentation": { "enabled": false },
+				"general": { "enabled": false }
+			},
+			"version": "1.0.0"
+		}
+	},
+	"workers_dev": true,
+	"preview_urls": true
+}

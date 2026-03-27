@@ -55,3 +55,7 @@ debug-tools/presentation-tester
 
 .test-data
 cli
+-e 
+# Environment files
+*.env
+*.env.*

@@ -28,7 +28,9 @@ export default defineConfig({
 		react(),
 		svgr(),
 		cloudflare({
-			configPath: 'wrangler.jsonc',
+			configPath: process.env.DEV_MODE === 'true' ? 'wrangler.local.jsonc' : 'wrangler.jsonc',
+			viteEnvironment: { name: 'worker' },
+			persistState: true,
 		}),
 		tailwindcss(),
 		// sentryVitePlugin({
@@ -63,6 +65,8 @@ export default defineConfig({
 	},
 
 	server: {
+		port: 3000,
+		host: '0.0.0.0',
 		allowedHosts: true,
 	},
 

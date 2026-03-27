@@ -1,37 +1,82 @@
 ## VibeSDK Local Development Stack
 ## 
 ## Usage:
-##   docker compose -f docker/docker-compose.yml up
-##   docker compose -f docker/docker-compose.yml up --build  (after dependency changes)
+##   ./scripts/start.sh          # Start all services
+##   ./scripts/stop.sh           # Stop all services
+##   ./scripts/logs.sh           # View logs
+##   ./scripts/rebuild.sh        # Rebuild and restart
 ##
-## Prerequisites:
-##   - Copy .dev.vars.example to .dev.vars and fill in required values
-##   - CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID are required for wrangler dev
+## Or manually:
+##   docker compose -f docker/docker-compose.yml up -d
+##   docker compose -f docker/docker-compose.yml down
 ##
-## NOTE: Production deploys directly to Cloudflare Workers.
-##       This compose file is strictly for local development.
+## Services:
+##   - vibesdk: Main application (Vite + Wrangler)
+##   - sandbox: Code execution sandbox (optional)
 
 version: '3.8'
 
 services:
+  # Main VibeSDK Application
   vibesdk:
     build:
       context: ..
-      dockerfile: docker/Dockerfile.dev
+      dockerfile: docker/Dockerfile
+      target: dev
+    container_name: vibesdk-app
     ports:
-      - "5173:5173"   # Vite dev server (frontend)
-      - "8787:8787"   # Wrangler dev server (worker backend)
+      - "3000:3000"     # Main app (Vite dev server)
+      - "8787:8787"     # Wrangler dev server (Workers backend)
+      - "5555:5555"     # Drizzle Studio (database UI)
     volumes:
       - ..:/app
       - vibesdk_node_modules:/app/node_modules
+      - vibesdk_bun_cache:/root/.bun
+      - vibesdk_wrangler_state:/app/.wrangler
     env_file:
       - ../.dev.vars
     environment:
-      - ENVIRONMENT=dev
+      - NODE_ENV=development
       - DEV_MODE=true
-    stdin_open: true
-    tty: true
+      - ENVIRONMENT=dev
+    networks:
+      - vibesdk-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/status"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Code Execution Sandbox (Optional - for full functionality)
+  sandbox:
+    build:
+      context: ..
+      dockerfile: SandboxDockerfile
+    container_name: vibesdk-sandbox
+    ports:
+      - "8080:8080"     # Sandbox HTTP server
+    volumes:
+      - vibesdk_sandbox_data:/workspace/data
+    environment:
+      - SANDBOX_MODE=local
+    networks:
+      - vibesdk-network
+    restart: unless-stopped
+    profiles:
+      - full  # Only starts with --profile full
+
+networks:
+  vibesdk-network:
+    driver: bridge
 
 volumes:
   vibesdk_node_modules:
     name: vibesdk_node_modules
+  vibesdk_bun_cache:
+    name: vibesdk_bun_cache
+  vibesdk_wrangler_state:
+    name: vibesdk_wrangler_state
+  vibesdk_sandbox_data:
+    name: vibesdk_sandbox_data
