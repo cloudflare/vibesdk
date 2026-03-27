@@ -1,42 +1,126 @@
-# Security Configuration
-#CUSTOM_DOMAIN="your-domain.com" # Your custom domain for CORS
-#ENVIRONMENT="prod" # Options: dev, staging, prod
+# ╔══════════════════════════════════════════════════════════════════════════════╗
+# ║                    VibeSDK + SDAE — Environment Variables                   ║
+# ║  Copy to .dev.vars and fill in. Run `bun run setup` for guided config.     ║
+# ╚══════════════════════════════════════════════════════════════════════════════╝
+#
+# Legend:
+#   🔴 REQUIRED   — app will not start or core feature will fail without this
+#   🟡 RECOMMENDED — strongly recommended for full functionality
+#   🟢 OPTIONAL    — only needed for specific features; has fallback or is disabled by default
+#
+# ──────────────────────────────────────────────────────────────────────────────
+# 🔴 CLOUDFLARE PLATFORM CREDENTIALS (Required for any deployment or dev)
+# Get from: https://dash.cloudflare.com/profile/api-tokens
+# Required scopes: Account-level Workers Scripts, D1, KV, R2, AI Gateway
+# ──────────────────────────────────────────────────────────────────────────────
+CLOUDFLARE_API_TOKEN=""
+CLOUDFLARE_ACCOUNT_ID=""
 
-# Cloudflare Credentials (Required for manual deployment via `bun run deploy`)
-# These are automatically provided when using "Deploy to Cloudflare" button
-# Get these from: https://dash.cloudflare.com/profile/api-tokens
-#CLOUDFLARE_API_TOKEN="" # API token with Account-level permissions (see README for required permissions)
-#CLOUDFLARE_ACCOUNT_ID="" # Your Cloudflare account ID
+# ──────────────────────────────────────────────────────────────────────────────
+# 🔴 SECURITY SECRETS (Required — generate with `openssl rand -hex 32`)
+# ──────────────────────────────────────────────────────────────────────────────
+JWT_SECRET=""                      # Signs user session JWTs
+SECRETS_ENCRYPTION_KEY=""          # Encrypts secrets in UserSecretsStore DO (64-char hex)
+ENTROPY_KEY=""                     # Additional entropy for crypto operations
 
-# Essential Secrets:
-#CLOUDFLARE_AI_GATEWAY_TOKEN="" # If this has read and edit permissions, the AI Gateway will be created automatically. run is required at the least
+# ──────────────────────────────────────────────────────────────────────────────
+# 🔴 AI / LLM PROVIDER API KEYS (At least one required for code generation)
+# ──────────────────────────────────────────────────────────────────────────────
+# Google Gemini — default model provider in out-of-box config
+GOOGLE_AI_STUDIO_API_KEY=""        # 🔴 Required if using default config (free tier available)
 
-# Provider specific secrets:
-#ANTHROPIC_API_KEY=""
-#OPENAI_API_KEY=""
-GOOGLE_AI_STUDIO_API_KEY=""
-#OPENROUTER_API_KEY="default" 
-#GROQ_API_KEY="default" 
- 
-# Stuff for Oauths:
-#GOOGLE_CLIENT_SECRET=""
-#GOOGLE_CLIENT_ID="" 
+# Additional providers — needed if PLATFORM_MODEL_PROVIDERS is set to platform config
+ANTHROPIC_API_KEY=""               # 🟡 Claude models (used for blueprint/spec gen)
+OPENAI_API_KEY=""                  # 🟡 GPT models
+OPENROUTER_API_KEY=""              # 🟢 OpenRouter aggregator
+GROQ_API_KEY=""                    # 🟢 Groq (fast inference)
+CEREBRAS_API_KEY=""                # 🟢 Cerebras models
+GOOGLE_VERTEX_AI_API_KEY=""        # 🟢 Vertex AI (alternative Google endpoint)
 
-# GitHub OAuth
-#GITHUB_CLIENT_ID=""
-#GITHUB_CLIENT_SECRET=""
+# ──────────────────────────────────────────────────────────────────────────────
+# 🟡 AI GATEWAY CONFIGURATION (Recommended for cost tracking & model routing)
+# Auto-created by `bun run setup` if CLOUDFLARE_AI_GATEWAY_TOKEN has edit perms
+# ──────────────────────────────────────────────────────────────────────────────
+CLOUDFLARE_AI_GATEWAY_TOKEN=""     # AI Gateway token (defaults to CLOUDFLARE_API_TOKEN)
+# CLOUDFLARE_AI_GATEWAY_URL=""     # Override auto-detected gateway URL
+# AI_PROXY_JWT_SECRET=""           # JWT secret for AI proxy auth (separate from main JWT)
 
-# Github Export OAuth
-# GITHUB_EXPORTER_CLIENT_SECRET=""
-# GITHUB_EXPORTER_CLIENT_ID=""
+# ──────────────────────────────────────────────────────────────────────────────
+# 🟡 OAUTH — GITHUB (Recommended for login + GitHub export)
+# Create at: https://github.com/settings/applications/new
+# ──────────────────────────────────────────────────────────────────────────────
+# Login OAuth App
+GITHUB_CLIENT_ID=""
+GITHUB_CLIENT_SECRET=""
 
-# Secrets for various internal services of this platform
-JWT_SECRET="" 
-WEBHOOK_SECRET="" 
+# GitHub Export OAuth App (separate app for repo push permissions)
+GITHUB_EXPORTER_CLIENT_ID=""
+GITHUB_EXPORTER_CLIENT_SECRET=""
 
-# AI Gateway URL Override (Leave as-is if not going to set it)
-#CLOUDFLARE_AI_GATEWAY_URL=""
+# ──────────────────────────────────────────────────────────────────────────────
+# 🟡 OAUTH — GOOGLE (Recommended for Google login)
+# Create at: https://console.cloud.google.com/apis/credentials
+# ──────────────────────────────────────────────────────────────────────────────
+GOOGLE_CLIENT_ID=""
+GOOGLE_CLIENT_SECRET=""
 
-# Cloudflare API Key and Account ID. This is important
-# CLOUDFLARE_API_TOKEN=""
-# CLOUDFLARE_ACCOUNT_ID=""
+# ──────────────────────────────────────────────────────────────────────────────
+# 🟢 ENVIRONMENT & DOMAIN CONFIGURATION
+# ──────────────────────────────────────────────────────────────────────────────
+ENVIRONMENT="dev"                  # Options: dev, staging, prod
+CUSTOM_DOMAIN=""                   # Your domain (e.g., "build.yourdomain.com")
+# CUSTOM_PREVIEW_DOMAIN=""         # Preview subdomain (e.g., "preview.yourdomain.com")
+
+# ──────────────────────────────────────────────────────────────────────────────
+# 🟢 SANDBOX CONFIGURATION (Cloudflare Containers)
+# ──────────────────────────────────────────────────────────────────────────────
+# MAX_SANDBOX_INSTANCES="10"       # Max container instances (set in wrangler.jsonc vars)
+# SANDBOX_INSTANCE_TYPE="standard-3"  # Container size (set in wrangler.jsonc vars)
+# ALLOCATION_STRATEGY=""           # "one_to_one" or "many_to_one" (default)
+# USE_TUNNEL_FOR_PREVIEW=""        # Use tunnel instead of direct preview
+
+# Remote sandbox (alternative to Cloudflare Containers)
+# SANDBOX_SERVICE_TYPE=""          # "runner" to use remote sandbox
+# SANDBOX_SERVICE_URL=""           # URL of remote sandbox service
+# SANDBOX_SERVICE_API_KEY=""       # API key for remote sandbox
+
+# ──────────────────────────────────────────────────────────────────────────────
+# 🟢 OBSERVABILITY (Sentry error tracking)
+# ──────────────────────────────────────────────────────────────────────────────
+# SENTRY_DSN=""                    # Sentry DSN for error reporting
+# CF_ACCESS_ID=""                  # Cloudflare Access credentials for Sentry tunnel
+# CF_ACCESS_SECRET=""
+
+# ──────────────────────────────────────────────────────────────────────────────
+# 🟢 ADDITIONAL SERVICES
+# ──────────────────────────────────────────────────────────────────────────────
+# SERPAPI_KEY=""                    # SerpAPI key for web search in agent tools
+# USE_CLOUDFLARE_IMAGES=""         # Enable Cloudflare Images for screenshots
+# PLATFORM_MODEL_PROVIDERS=""      # JSON string to override model routing config
+# ALLOWED_EMAIL=""                 # Restrict access to specific email(s)
+
+# ──────────────────────────────────────────────────────────────────────────────
+# FRONTEND ENV VARS (Vite — prefix with VITE_)
+# These are compiled into the frontend bundle at build time
+# ──────────────────────────────────────────────────────────────────────────────
+# VITE_SENTRY_DSN=""               # Frontend Sentry DSN
+# VITE_ENVIRONMENT=""              # Frontend environment tag
+# VITE_RELEASE=""                  # Release version for Sentry
+
+# ══════════════════════════════════════════════════════════════════════════════
+# CLOUDFLARE RESOURCE BINDINGS (Configured in wrangler.jsonc, not here)
+# These are auto-provisioned — listed for reference only
+# ══════════════════════════════════════════════════════════════════════════════
+# DB                    → D1 Database (vibesdk-db)
+# VibecoderStore        → KV Namespace (sessions, cache, config)
+# TEMPLATES_BUCKET      → R2 Bucket (vibesdk-templates)
+# CodeGenObject         → Durable Object (CodeGeneratorAgent)
+# Sandbox               → Durable Object (UserAppSandboxService + Containers)
+# DORateLimitStore      → Durable Object (rate limiting)
+# UserSecretsStore      → Durable Object (encrypted user secrets vault)
+# DISPATCHER            → Dispatch Namespace (Workers for Platforms)
+# AI                    → Workers AI binding
+# API_RATE_LIMITER      → Rate Limiter (10000 req/min)
+# AUTH_RATE_LIMITER     → Rate Limiter (1000 req/min)
+# ASSETS                → Static asset serving
+# CF_VERSION_METADATA   → Worker version info
