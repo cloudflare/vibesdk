@@ -14,7 +14,7 @@
  * single Worker isolate.
  */
 
-import type { OpType, NodeStatus, RunStatus } from '../types';
+import type { OpType, RunStatus } from '../types';
 import type {
 	DAGNode,
 	CompilationResult,

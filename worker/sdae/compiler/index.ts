@@ -21,9 +21,7 @@
 import {
 	MasterBibleSchema,
 	OP_SCHEMAS,
-	DAGNodeSchema,
 	computeContentHash,
-	type MasterBible,
 	type DAGNode,
 	type CompilationResult,
 	type ValidationResult,

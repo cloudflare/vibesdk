@@ -22,9 +22,6 @@ import type {
 	OpType,
 	NodeStatus,
 	RunStatus,
-	OnFailAction,
-	SandboxIsolation,
-	AuditLevel,
 } from '../types';
 
 // ---------------------------------------------------------------------------

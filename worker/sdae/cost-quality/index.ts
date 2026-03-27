@@ -694,7 +694,7 @@ export class ModelRouter {
 	canEscalate(
 		policy: TenantPolicy,
 		budgetState: BudgetState,
-		risk: 'low' | 'medium' | 'high_security_sensitive',
+		_risk: 'low' | 'medium' | 'high_security_sensitive',
 		escalationsUsed: number,
 	): boolean {
 		// Can't escalate if already at max
@@ -804,7 +804,7 @@ export class QualityGate {
 	 * This is a fast, local check — no network calls.
 	 */
 	private async runStaticGate(
-		context: QualityContext,
+		_context: QualityContext,
 		output: unknown,
 	): Promise<GateResult> {
 		if (typeof output !== 'string' && typeof output !== 'object') {
@@ -892,7 +892,7 @@ export class QualityGate {
 	 * This catches dangerous patterns that the LLM might generate.
 	 */
 	private async runPolicyGate(
-		context: QualityContext,
+		_context: QualityContext,
 		output: unknown,
 	): Promise<GateResult> {
 		const content = typeof output === 'string'
