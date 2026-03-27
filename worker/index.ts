@@ -140,7 +140,7 @@ async function handleUserAppRequest(request: Request, env: Env): Promise<Respons
  */
 const worker = {
 	async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
-        // logger.info(`Received request: ${request.method} ${request.url}`);
+        logger.info(`Worker received: ${request.method} ${request.url} Host=${request.headers.get('host')}`);
 		// --- Pre-flight Checks ---
 
 		// 1. Critical configuration check: Ensure custom domain is set.
@@ -153,17 +153,26 @@ const worker = {
 		const url = new URL(request.url);
 		const { hostname, pathname } = url;
 
-		// 2. Security: Immediately reject any requests made via an IP address.
+		// 2. Security: Reject IP-based requests in production only.
+		// In dev mode, allow IP access for health checks and ingress routing.
 		const ipRegex = /^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/;
 		if (ipRegex.test(hostname)) {
-			return new Response('Access denied. Please use the assigned domain name.', { status: 403 });
+			if (env.ENVIRONMENT !== 'dev') {
+				return new Response('Access denied. Please use the assigned domain name.', { status: 403 });
+			}
+			// In dev mode, treat IP requests as main domain requests
 		}
 
 		// --- Domain-based Routing ---
 
 		// Normalize hostnames for both local development (localhost) and production.
+		const isDev = env.ENVIRONMENT === 'dev';
 		const isMainDomainRequest =
-			hostname === env.CUSTOM_DOMAIN || hostname === 'localhost';
+			hostname === env.CUSTOM_DOMAIN ||
+			hostname === 'localhost' ||
+			(isDev && hostname.endsWith('.preview.emergentagent.com')) ||
+			(isDev && hostname.endsWith('.emergentcf.cloud')) ||
+			(isDev && ipRegex.test(hostname));
 		const isSubdomainRequest =
 			hostname.endsWith(`.${previewDomain}`) ||
 			(hostname.endsWith('.localhost') && hostname !== 'localhost');

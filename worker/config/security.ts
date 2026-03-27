@@ -46,6 +46,11 @@ export function getAllowedOrigins(env: Env): string[] {
     if (env.CUSTOM_DOMAIN) {
         origins.push(`https://${env.CUSTOM_DOMAIN}`);
     }
+
+    // Emergent preview/deployment URL
+    if ((env as Record<string, unknown>).APP_URL) {
+        origins.push((env as Record<string, unknown>).APP_URL as string);
+    }
     
     // Development origins (only in development)
     if (isDev(env)) {
@@ -55,6 +60,8 @@ export function getAllowedOrigins(env: Env): string[] {
         origins.push('http://127.0.0.1:3000');
         origins.push('http://127.0.0.1:5173');
         origins.push('http://127.0.0.1:8787');
+        // Allow all preview domains in dev
+        origins.push('https://*.preview.emergentagent.com');
     }
     
     return origins;
@@ -64,8 +71,14 @@ export function isOriginAllowed(env: Env, origin: string): boolean {
     const allowedOrigins = getAllowedOrigins(env);
     if (!origin) return false;
     
-    // Check against allowed origins
-    return allowedOrigins.includes(origin);
+    // Check against allowed origins (support wildcard patterns)
+    return allowedOrigins.some(allowed => {
+        if (allowed.includes('*')) {
+            const pattern = allowed.replace(/\*/g, '.*');
+            return new RegExp(`^${pattern}$`).test(origin);
+        }
+        return allowed === origin;
+    });
 }
 
 /**

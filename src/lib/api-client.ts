@@ -15,6 +15,7 @@ import type{
 	AppDetailsData,
 	AppStarToggleData,
 	GitCloneTokenData,
+	ForkAppData,
 	UserAppsData,
 	ProfileUpdateData,
 	UserStatsData,
@@ -552,15 +553,14 @@ class ApiClient {
 		});
 	}
 
-	// /**
-	//  * Fork an app
-	//  */
-    // DISABLED: Has been disabled for initial alpha release, for security reasons
-	// async forkApp(appId: string): Promise<ApiResponse<ForkAppData>> {
-	// 	return this.request<ForkAppData>(`/api/apps/${appId}/fork`, {
-	// 		method: 'POST',
-	// 	});
-	// }
+	/**
+	 * Fork an app
+	 */
+	async forkApp(appId: string): Promise<ApiResponse<ForkAppData>> {
+		return this.request<ForkAppData>(`/api/apps/${appId}/fork`, {
+			method: 'POST',
+		});
+	}
 
 	// ===============================
 	// User API Methods

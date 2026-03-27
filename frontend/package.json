@@ -1,0 +1,8 @@
+{
+  "name": "vibesdk-frontend-proxy",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "start": "cd /app && BUN_INSTALL=/root/.bun PATH=/root/.bun/bin:$PATH DEV_MODE=true bun run dev"
+  }
+}

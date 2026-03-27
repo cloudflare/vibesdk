@@ -8,11 +8,13 @@ import {
     AppDetailsData, 
     AppStarToggleData,
     GitCloneTokenData,
+    ForkAppData,
 } from './types';
 import { AgentSummary } from '../../../agents/core/types';
 import { createLogger } from '../../../logger';
 import { buildUserWorkerUrl, buildGitCloneUrl } from 'worker/utils/urls';
 import { JWTUtils } from '../../../utils/jwtUtils';
+import { cloneAgent } from '../../../agents';
 
 export class AppViewController extends BaseController {
     static logger = createLogger('AppViewController');
@@ -116,52 +118,51 @@ export class AppViewController extends BaseController {
         }
     }
 
-    // // Fork an app
-    // DISABLED: Has been disabled for initial alpha release, for security reasons
-    // static async forkApp(_request: Request, env: Env, _ctx: ExecutionContext, context: RouteContext): Promise<ControllerResponse<ApiResponse<ForkAppData>>> {
-    //     try {
-    //         const user = context.user!;
+    // Fork an app
+    static async forkApp(_request: Request, env: Env, _ctx: ExecutionContext, context: RouteContext): Promise<ControllerResponse<ApiResponse<ForkAppData>>> {
+        try {
+            const user = context.user!;
 
-    //         const appId = context.pathParams.id;
-    //         if (!appId) {
-    //             return AppViewController.createErrorResponse<ForkAppData>('App ID is required', 400);
-    //         }
+            const appId = context.pathParams.id;
+            if (!appId) {
+                return AppViewController.createErrorResponse<ForkAppData>('App ID is required', 400);
+            }
 
-    //         // Get original app with permission checks using app service
-    //         const appService = new AppService(env);
-    //         const { app: originalApp, canFork } = await appService.getAppForFork(appId, user.id);
+            // Get original app with permission checks using app service
+            const appService = new AppService(env);
+            const { app: originalApp, canFork } = await appService.getAppForFork(appId, user.id);
 
-    //         if (!originalApp) {
-    //             return AppViewController.createErrorResponse<ForkAppData>('App not found', 404);
-    //         }
+            if (!originalApp) {
+                return AppViewController.createErrorResponse<ForkAppData>('App not found', 404);
+            }
 
-    //         if (!canFork) {
-    //             return AppViewController.createErrorResponse<ForkAppData>('App not found', 404);
-    //         }
+            if (!canFork) {
+                return AppViewController.createErrorResponse<ForkAppData>('App not found', 404);
+            }
 
-    //         // Duplicate agent state first
-    //         try {
-    //             const { newAgentId } = await cloneAgent(env, appId, this.logger);
-    //             this.logger.info(`Successfully duplicated agent state from ${appId} to ${newAgentId}`);
+            // Duplicate agent state first
+            try {
+                const { newAgentId } = await cloneAgent(env, appId);
+                this.logger.info(`Successfully duplicated agent state from ${appId} to ${newAgentId}`);
 
-    //             // Create forked app using app service
-    //             const forkedApp = await appService.createForkedApp(originalApp, newAgentId, user.id);
+                // Create forked app using app service
+                const forkedApp = await appService.createForkedApp(originalApp, newAgentId, user.id);
                 
-    //             const responseData: ForkAppData = {
-    //                 forkedAppId: forkedApp.id,
-    //                 message: 'App forked successfully'
-    //             };
+                const responseData: ForkAppData = {
+                    forkedAppId: forkedApp.id,
+                    message: 'App forked successfully'
+                };
 
-    //             return AppViewController.createSuccessResponse(responseData);
-    //         } catch (error) {
-    //             this.logger.error('Failed to duplicate agent state:', error);
-    //             return AppViewController.createErrorResponse<ForkAppData>('Failed to duplicate agent state', 500);
-    //         }
-    //     } catch (error) {
-    //         this.logger.error('Error forking app:', error);
-    //         return AppViewController.createErrorResponse<ForkAppData>('Internal server error', 500);
-    //     }
-    // }
+                return AppViewController.createSuccessResponse(responseData);
+            } catch (error) {
+                this.logger.error('Failed to duplicate agent state:', error);
+                return AppViewController.createErrorResponse<ForkAppData>('Failed to duplicate agent state', 500);
+            }
+        } catch (error) {
+            this.logger.error('Error forking app:', error);
+            return AppViewController.createErrorResponse<ForkAppData>('Internal server error', 500);
+        }
+    }
 
     /**
      * Generate short-lived token for git clone (private repos only)

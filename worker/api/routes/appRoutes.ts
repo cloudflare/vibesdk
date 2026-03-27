@@ -40,9 +40,8 @@ export function setupAppRoutes(app: Hono<AppEnv>): void {
     // Star/bookmark ANY app - requires authentication (can star others' public apps)
     appRouter.post('/:id/star', setAuthLevel(AuthConfig.authenticated), adaptController(AppViewController, AppViewController.toggleAppStar));
     
-    // // Fork ANY public app - requires authentication (can fork others' public apps)
-    // DISABLED: Has been disabled for initial alpha release, for security reasons
-    // appRouter.post('/:id/fork', setAuthLevel(AuthConfig.authenticated), adaptController(AppViewController, AppViewController.forkApp));
+    // Fork ANY public app - requires authentication (can fork others' public apps)
+    appRouter.post('/:id/fork', setAuthLevel(AuthConfig.authenticated), adaptController(AppViewController, AppViewController.forkApp));
 
     // Toggle favorite status - requires authentication  
     appRouter.post('/:id/favorite', setAuthLevel(AuthConfig.authenticated), adaptController(AppController, AppController.toggleFavorite));

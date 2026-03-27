@@ -1,5 +1,5 @@
-import { useRef, useState, useEffect, useMemo } from 'react';
-import { ArrowRight, Info } from 'react-feather';
+import { useRef, useState, useEffect, useMemo, useCallback } from 'react';
+import { ArrowUp, Mic, Github, GitFork, ChevronDown, Paperclip, Sparkles } from 'lucide-react';
 import { useNavigate } from 'react-router';
 import { useAuth } from '@/contexts/auth-context';
 import { ProjectModeSelector, type ProjectModeOption } from '../components/project-mode-selector';
@@ -12,17 +12,48 @@ import { AppCard } from '@/components/shared/AppCard';
 import clsx from 'clsx';
 import { useImageUpload } from '@/hooks/use-image-upload';
 import { useDragDrop } from '@/hooks/use-drag-drop';
-import { ImageUploadButton } from '@/components/image-upload-button';
 import { ImageAttachmentPreview } from '@/components/image-attachment-preview';
 import { toast } from 'sonner';
+import { apiClient } from '@/lib/api-client';
+import {
+	Popover,
+	PopoverContent,
+	PopoverTrigger,
+} from '@/components/ui/popover';
+import {
+	Dialog,
+	DialogContent,
+	DialogDescription,
+	DialogFooter,
+	DialogHeader,
+	DialogTitle,
+} from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+
+const MODEL_OPTIONS = [
+	{ id: 'e1', label: 'E-1', sublabel: 'Lite', description: 'Fast, lightweight agent for simple tasks' },
+	{ id: 'e1.5', label: 'E-1.5', sublabel: 'Standard', description: 'Balanced performance and quality' },
+	{ id: 'e2', label: 'E-2', sublabel: 'Ultra', description: 'Maximum capability for complex projects' },
+] as const;
 
 export default function Home() {
 	const navigate = useNavigate();
 	const { requireAuth } = useAuthGuard();
 	const textareaRef = useRef<HTMLTextAreaElement>(null);
+	const fileInputRef = useRef<HTMLInputElement>(null);
 	const [projectMode, setProjectMode] = useState<ProjectType>('app');
 	const [query, setQuery] = useState('');
-	const { user } = useAuth();
+	const [selectedModel, setSelectedModel] = useState('e1.5');
+	const [modelOpen, setModelOpen] = useState(false);
+	const [githubDialogOpen, setGithubDialogOpen] = useState(false);
+	const [githubRepoName, setGithubRepoName] = useState('');
+	const [githubRepoDesc, setGithubRepoDesc] = useState('');
+	const [githubIsPrivate, setGithubIsPrivate] = useState(false);
+	const [forkDialogOpen, setForkDialogOpen] = useState(false);
+	const [forkAppId, setForkAppId] = useState('');
+	const { user, isAuthenticated } = useAuth();
 	const { isLoadingCapabilities, capabilities, getEnabledFeatures } = useFeature();
 
 	const modeOptions = useMemo<ProjectModeOption[]>(() => {
@@ -64,16 +95,6 @@ export default function Home() {
 		accept: [...SUPPORTED_IMAGE_MIME_TYPES],
 	});
 
-
-	const placeholderPhrases = useMemo(() => [
-		"todo list app",
-		"F1 fantasy game",
-		"personal finance tracker"
-	], []);
-	const [currentPlaceholderPhraseIndex, setCurrentPlaceholderPhraseIndex] = useState(0);
-	const [currentPlaceholderText, setCurrentPlaceholderText] = useState("");
-	const [isPlaceholderTyping, setIsPlaceholderTyping] = useState(true);
-
 	const {
 		apps,
 		loading,
@@ -84,10 +105,9 @@ export default function Home() {
 		limit: 6,
 	});
 
-	// Discover section should appear only when enough apps are available and loading is done
 	const discoverReady = useMemo(() => !loading && (apps?.length ?? 0) > 5, [loading, apps]);
 
-	const handleCreateApp = (query: string, mode: ProjectType) => {
+	const handleCreateApp = useCallback((query: string, mode: ProjectType) => {
 		if (query.length > MAX_AGENT_QUERY_LENGTH) {
 			toast.error(
 				`Prompt too large (${query.length} characters). Maximum allowed is ${MAX_AGENT_QUERY_LENGTH} characters.`,
@@ -97,8 +117,6 @@ export default function Home() {
 
 		const encodedQuery = encodeURIComponent(query);
 		const encodedMode = encodeURIComponent(mode);
-
-		// Encode images as JSON if present
 		const imageParam = images.length > 0 ? `&images=${encodeURIComponent(JSON.stringify(images))}` : '';
 		const intendedUrl = `/chat/new?query=${encodedQuery}&projectType=${encodedMode}${imageParam}`;
 
@@ -112,20 +130,15 @@ export default function Home() {
 			return;
 		}
 
-		// User is already authenticated, navigate immediately
 		navigate(intendedUrl);
-		// Clear images after navigation
 		clearImages();
-	};
+	}, [images, requireAuth, navigate, clearImages]);
 
-	// Auto-resize textarea based on content
 	const adjustTextareaHeight = () => {
 		if (textareaRef.current) {
 			textareaRef.current.style.height = 'auto';
 			const scrollHeight = textareaRef.current.scrollHeight;
-			const maxHeight = 300; // Maximum height in pixels
-			textareaRef.current.style.height =
-				Math.min(scrollHeight, maxHeight) + 'px';
+			textareaRef.current.style.height = Math.min(scrollHeight, 300) + 'px';
 		}
 	};
 
@@ -133,68 +146,67 @@ export default function Home() {
 		adjustTextareaHeight();
 	}, []);
 
-	// Typewriter effect
-	useEffect(() => {
-		const currentPhrase = placeholderPhrases[currentPlaceholderPhraseIndex];
+	const handleFileClick = () => {
+		fileInputRef.current?.click();
+	};
 
-		if (isPlaceholderTyping) {
-			if (currentPlaceholderText.length < currentPhrase.length) {
-				const timeout = setTimeout(() => {
-					setCurrentPlaceholderText(currentPhrase.slice(0, currentPlaceholderText.length + 1));
-				}, 100); // Typing speed
-				return () => clearTimeout(timeout);
-			} else {
-				// Pause before erasing
-				const timeout = setTimeout(() => {
-					setIsPlaceholderTyping(false);
-				}, 2000); // Pause duration
-				return () => clearTimeout(timeout);
-			}
-		} else {
-			if (currentPlaceholderText.length > 0) {
-				const timeout = setTimeout(() => {
-					setCurrentPlaceholderText(currentPlaceholderText.slice(0, -1));
-				}, 50); // Erasing speed
-				return () => clearTimeout(timeout);
-			} else {
-				// Move to next phrase
-				setCurrentPlaceholderPhraseIndex((prev) => (prev + 1) % placeholderPhrases.length);
-				setIsPlaceholderTyping(true);
-			}
+	const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+		const files = Array.from(e.target.files || []);
+		if (files.length > 0) addImages(files);
+		if (fileInputRef.current) fileInputRef.current.value = '';
+	};
+
+	const handleVoiceInput = () => {
+		toast.info('Voice input coming soon');
+	};
+
+	const handleGitHubSave = useCallback(() => {
+		if (!requireAuth({ requireFullAuth: true, actionContext: 'to save to GitHub' })) return;
+		setGithubDialogOpen(true);
+	}, [requireAuth]);
+
+	const handleGitHubExport = useCallback(async () => {
+		if (!githubRepoName.trim()) {
+			toast.error('Repository name is required');
+			return;
 		}
-	}, [currentPlaceholderText, currentPlaceholderPhraseIndex, isPlaceholderTyping, placeholderPhrases]);
+		try {
+			apiClient.initiateGitHubOAuth();
+		} catch (err) {
+			toast.error('Failed to connect to GitHub. Please try again.');
+		}
+		setGithubDialogOpen(false);
+	}, [githubRepoName]);
 
-	const discoverLinkRef = useRef<HTMLDivElement>(null);
+	const handleForkClick = useCallback(() => {
+		if (!requireAuth({ requireFullAuth: true, actionContext: 'to fork a project' })) return;
+		setForkDialogOpen(true);
+	}, [requireAuth]);
+
+	const handleForkApp = useCallback(async () => {
+		if (!forkAppId.trim()) {
+			toast.error('App ID is required');
+			return;
+		}
+		try {
+			const response = await apiClient.forkApp(forkAppId);
+			if (response.success && response.data) {
+				toast.success('App forked successfully!');
+				navigate(`/chat/${response.data.forkedAppId}`);
+			} else {
+				toast.error('Failed to fork app');
+			}
+		} catch (err) {
+			toast.error('Failed to fork app. Make sure the App ID is valid.');
+		}
+		setForkDialogOpen(false);
+		setForkAppId('');
+	}, [forkAppId, navigate]);
+
+	const currentModel = MODEL_OPTIONS.find(m => m.id === selectedModel) || MODEL_OPTIONS[1];
 
 	return (
-		<div className="relative flex flex-col items-center size-full">
-			{/* Dotted background pattern - extends to full viewport */}
-			<div className="fixed inset-0 text-accent z-0 opacity-20 pointer-events-none">
-				<svg width="100%" height="100%">
-					<defs>
-						<pattern
-							id=":S2:"
-							viewBox="-6 -6 12 12"
-							patternUnits="userSpaceOnUse"
-							width="12"
-							height="12"
-						>
-							<circle
-								cx="0"
-								cy="0"
-								r="1"
-								fill="currentColor"
-							></circle>
-						</pattern>
-					</defs>
-					<rect
-						width="100%"
-						height="100%"
-						fill="url(#:S2:)"
-					></rect>
-				</svg>
-			</div>
-			
+		<div className="relative flex flex-col items-center size-full" data-testid="home-page">
 			<LayoutGroup>
 				<div className="rounded-md w-full max-w-2xl overflow-hidden">
 					<motion.div
@@ -204,7 +216,7 @@ export default function Home() {
 							"px-6 p-8 flex flex-col items-center z-10",
 							discoverReady ? "mt-48" : "mt-[20vh] sm:mt-[24vh] md:mt-[28vh]"
 						)}>
-						<h1 className="text-shadow-sm text-shadow-red-200 dark:text-shadow-red-900 text-accent font-medium leading-[1.1] tracking-tight text-5xl w-full mb-4 bg-clip-text bg-gradient-to-r from-text-primary to-text-primary/90">
+						<h1 className="text-accent font-medium leading-[1.1] tracking-tight text-4xl sm:text-5xl w-full mb-6 bg-clip-text bg-gradient-to-r from-text-primary to-text-primary/90" data-testid="home-heading">
 							What should we build today?
 						</h1>
 
@@ -212,28 +224,29 @@ export default function Home() {
 							method="POST"
 							onSubmit={(e) => {
 								e.preventDefault();
-								const query = textareaRef.current!.value;
-								handleCreateApp(query, projectMode);
+								const q = textareaRef.current!.value;
+								handleCreateApp(q, projectMode);
 							}}
-							className="flex z-10 flex-col w-full min-h-[150px] bg-bg-4 border border-accent/30 dark:border-accent/50 dark:bg-bg-2 rounded-[18px] shadow-textarea p-5 transition-all duration-200"
+							className="flex z-10 flex-col w-full bg-bg-4 dark:bg-bg-2 rounded-2xl border border-border-primary dark:border-border-secondary shadow-textarea transition-all duration-200 focus-within:border-accent/40 dark:focus-within:border-accent/50"
+							data-testid="prompt-form"
 						>
-							<div 
+							<div
 								className={clsx(
-									"flex-1 flex flex-col relative",
-									isDragging && "ring-2 ring-accent ring-offset-2 rounded-lg"
+									"flex-1 flex flex-col relative px-5 pt-5 pb-3",
+									isDragging && "ring-2 ring-accent ring-offset-2 rounded-t-2xl"
 								)}
 								{...dragHandlers}
 							>
 								{isDragging && (
-									<div className="absolute inset-0 flex items-center justify-center bg-accent/10 backdrop-blur-sm rounded-lg z-30 pointer-events-none">
-										<p className="text-accent font-medium">Drop images here</p>
+									<div className="absolute inset-0 flex items-center justify-center bg-accent/10 backdrop-blur-sm rounded-t-2xl z-30 pointer-events-none">
+										<p className="text-accent font-medium">Drop files here</p>
 									</div>
 								)}
 								<textarea
-									className="w-full resize-none ring-0 z-20 outline-0 placeholder:text-text-primary/60 text-text-primary"
+									className="w-full min-h-[80px] resize-none ring-0 z-20 outline-0 bg-transparent placeholder:text-text-tertiary text-text-primary text-base"
 									name="query"
 									value={query}
-									placeholder={`Create a ${currentPlaceholderText}`}
+									placeholder="Message Agent..."
 									ref={textareaRef}
 									onChange={(e) => {
 										setQuery(e.target.value);
@@ -243,52 +256,150 @@ export default function Home() {
 									onKeyDown={(e) => {
 										if (e.key === 'Enter' && !e.shiftKey) {
 											e.preventDefault();
-											const query = textareaRef.current!.value;
-											handleCreateApp(query, projectMode);
+											const q = textareaRef.current!.value;
+											handleCreateApp(q, projectMode);
 										}
 									}}
+									data-testid="prompt-textarea"
 								/>
 								{images.length > 0 && (
-									<div className="mt-3">
-										<ImageAttachmentPreview
-											images={images}
-											onRemove={removeImage}
-										/>
+									<div className="mt-2">
+										<ImageAttachmentPreview images={images} onRemove={removeImage} />
 									</div>
 								)}
 							</div>
-							<div
-								className={clsx(
-									'flex items-center mt-4 pt-1',
-									showModeSelector ? 'justify-between' : 'justify-end',
-								)}
-							>
-								{showModeSelector && (
-									<ProjectModeSelector
-										value={projectMode}
-										onChange={setProjectMode}
-										modes={modeOptions}
-										className="flex-1"
-									/>
-								)}
 
-								<div className={clsx('flex items-center gap-2', showModeSelector && 'ml-4')}>
-									<ImageUploadButton
-										onFilesSelected={addImages}
+							{/* Toolbar */}
+							<div className="flex items-center justify-between px-3 pb-3 pt-1">
+								<div className="flex items-center gap-1.5">
+									{/* Attachment */}
+									<input
+										ref={fileInputRef}
+										type="file"
+										accept={SUPPORTED_IMAGE_MIME_TYPES.join(',')}
+										multiple
+										onChange={handleFileChange}
+										className="hidden"
 										disabled={isProcessing}
 									/>
 									<button
+										type="button"
+										onClick={handleFileClick}
+										disabled={isProcessing}
+										className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-bg-3 dark:bg-bg-3 hover:bg-bg-1 dark:hover:bg-bg-4 text-text-secondary hover:text-text-primary transition-all duration-150 text-sm"
+										title="Attach files"
+										data-testid="attach-btn"
+									>
+										<Paperclip className="size-3.5" />
+									</button>
+
+									{/* GitHub Save */}
+									<button
+										type="button"
+										onClick={handleGitHubSave}
+										className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-bg-3 dark:bg-bg-3 hover:bg-bg-1 dark:hover:bg-bg-4 text-text-secondary hover:text-text-primary transition-all duration-150 text-sm"
+										data-testid="save-github-btn"
+									>
+										<Github className="size-3.5" />
+										<span className="hidden sm:inline">Save</span>
+										<span className="relative flex h-2 w-2">
+											<span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-60"></span>
+											<span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+										</span>
+									</button>
+
+									{/* Fork */}
+									<button
+										type="button"
+										onClick={handleForkClick}
+										className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-bg-3 dark:bg-bg-3 hover:bg-bg-1 dark:hover:bg-bg-4 text-text-secondary hover:text-text-primary transition-all duration-150 text-sm"
+										data-testid="fork-btn"
+									>
+										<GitFork className="size-3.5" />
+										<span className="hidden sm:inline">Fork</span>
+									</button>
+
+									{/* Model Selector */}
+									<Popover open={modelOpen} onOpenChange={setModelOpen}>
+										<PopoverTrigger asChild>
+											<button
+												type="button"
+												className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-bg-3 dark:bg-bg-3 hover:bg-bg-1 dark:hover:bg-bg-4 text-text-secondary hover:text-text-primary transition-all duration-150 text-sm"
+												data-testid="model-selector-btn"
+											>
+												<Sparkles className="size-3.5" />
+												<span className="hidden sm:inline">{currentModel.sublabel}</span>
+												<ChevronDown className="size-3" />
+											</button>
+										</PopoverTrigger>
+										<PopoverContent className="w-64 p-1" align="start">
+											{MODEL_OPTIONS.map((model) => (
+												<button
+													key={model.id}
+													type="button"
+													onClick={() => {
+														setSelectedModel(model.id);
+														setModelOpen(false);
+													}}
+													className={clsx(
+														"w-full flex items-start gap-3 px-3 py-2.5 rounded-lg text-left transition-colors",
+														selectedModel === model.id
+															? "bg-accent/10 text-text-primary"
+															: "hover:bg-bg-3 text-text-secondary"
+													)}
+													data-testid={`model-option-${model.id}`}
+												>
+													<div className="flex-1 min-w-0">
+														<div className="flex items-center gap-2">
+															<span className="font-medium text-sm">{model.label}</span>
+															<span className="text-xs text-text-tertiary">{model.sublabel}</span>
+														</div>
+														<p className="text-xs text-text-tertiary mt-0.5">{model.description}</p>
+													</div>
+													{selectedModel === model.id && (
+														<div className="w-1.5 h-1.5 rounded-full bg-accent mt-2 shrink-0" />
+													)}
+												</button>
+											))}
+										</PopoverContent>
+									</Popover>
+
+									{showModeSelector && (
+										<div className="hidden sm:flex ml-1">
+											<ProjectModeSelector
+												value={projectMode}
+												onChange={setProjectMode}
+												modes={modeOptions}
+											/>
+										</div>
+									)}
+								</div>
+
+								<div className="flex items-center gap-1.5">
+									{/* Voice */}
+									<button
+										type="button"
+										onClick={handleVoiceInput}
+										className="flex items-center justify-center w-8 h-8 rounded-lg bg-bg-3 dark:bg-bg-3 hover:bg-bg-1 dark:hover:bg-bg-4 text-text-secondary hover:text-text-primary transition-all duration-150"
+										title="Voice input"
+										data-testid="voice-btn"
+									>
+										<Mic className="size-4" />
+									</button>
+
+									{/* Send */}
+									<button
 										type="submit"
 										disabled={!query.trim()}
-										className="bg-accent text-white p-1 rounded-md *:size-5 transition-all duration-200 hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
+										className="flex items-center justify-center w-8 h-8 rounded-lg bg-accent text-white transition-all duration-200 hover:opacity-90 disabled:opacity-30 disabled:cursor-not-allowed"
+										data-testid="send-btn"
 									>
-										<ArrowRight />
+										<ArrowUp className="size-4" strokeWidth={2.5} />
 									</button>
 								</div>
 							</div>
 						</form>
 					</motion.div>
-
 				</div>
 
 				<AnimatePresence>
@@ -297,12 +408,11 @@ export default function Home() {
 							initial={{ opacity: 0, y: -10 }}
 							animate={{ opacity: 1, y: 0 }}
 							exit={{ opacity: 0, y: -10 }}
-							className="w-full max-w-2xl px-6"
+							className="w-full max-w-2xl px-6 mt-3"
 						>
 							<div className="flex items-start gap-2 px-4 py-3 rounded-xl bg-bg-4/50 dark:bg-bg-2/50 border border-accent/20 dark:border-accent/30 shadow-sm">
-								<Info className="size-4 text-accent flex-shrink-0 mt-0.5" />
 								<p className="text-xs text-text-tertiary leading-relaxed">
-									<span className="font-medium text-text-secondary">Images Beta:</span> Images guide app layout and design but may not be replicated exactly. The coding agent cannot access images directly for app assets.
+									<span className="font-medium text-text-secondary">Attachments:</span> Files guide app layout and design but may not be replicated exactly.
 								</p>
 							</div>
 						</motion.div>
@@ -321,8 +431,8 @@ export default function Home() {
 							className={clsx('max-w-6xl mx-auto px-4 z-10', images.length > 0 ? 'mt-10' : 'mt-16 mb-8')}
 						>
 							<div className='flex flex-col items-start'>
-								<h2 className="text-2xl font-medium text-text-secondary/80">Discover Apps built by the community</h2>
-								<div ref={discoverLinkRef} className="text-md font-light mb-4 text-text-tertiary hover:underline underline-offset-4 select-text cursor-pointer" onClick={() => navigate('/discover')} >View All</div>
+								<h2 className="text-lg font-medium text-text-secondary/80">Discover Apps built by the community</h2>
+								<div className="text-md font-light mb-4 text-text-tertiary hover:underline underline-offset-4 select-text cursor-pointer" onClick={() => navigate('/discover')}>View All</div>
 								<motion.div
 									layout
 									transition={{ duration: 0.4 }}
@@ -347,202 +457,96 @@ export default function Home() {
 				</AnimatePresence>
 			</LayoutGroup>
 
-			{/* Nudge towards Discover */}
-			{user && <CurvedArrow sourceRef={discoverLinkRef} target={{ x: 50, y: window.innerHeight - 60 }} />}
+			{/* GitHub Save Dialog */}
+			<Dialog open={githubDialogOpen} onOpenChange={setGithubDialogOpen}>
+				<DialogContent className="sm:max-w-md" data-testid="github-dialog">
+					<DialogHeader>
+						<DialogTitle className="flex items-center gap-2">
+							<Github className="size-5" />
+							Save to GitHub
+						</DialogTitle>
+						<DialogDescription>
+							Connect your GitHub account to save and sync your project.
+						</DialogDescription>
+					</DialogHeader>
+					<div className="grid gap-4 py-4">
+						<div className="grid gap-2">
+							<Label htmlFor="repo-name">Repository Name</Label>
+							<Input
+								id="repo-name"
+								placeholder="my-vibesdk-project"
+								value={githubRepoName}
+								onChange={(e) => setGithubRepoName(e.target.value)}
+								data-testid="github-repo-name-input"
+							/>
+						</div>
+						<div className="grid gap-2">
+							<Label htmlFor="repo-desc">Description (optional)</Label>
+							<Input
+								id="repo-desc"
+								placeholder="Built with VibeSDK"
+								value={githubRepoDesc}
+								onChange={(e) => setGithubRepoDesc(e.target.value)}
+								data-testid="github-repo-desc-input"
+							/>
+						</div>
+						<div className="flex items-center gap-2">
+							<input
+								type="checkbox"
+								id="private-repo"
+								checked={githubIsPrivate}
+								onChange={(e) => setGithubIsPrivate(e.target.checked)}
+								className="rounded border-border-primary"
+								data-testid="github-private-checkbox"
+							/>
+							<Label htmlFor="private-repo" className="text-sm font-normal">
+								Make repository private
+							</Label>
+						</div>
+					</div>
+					<DialogFooter>
+						<Button variant="outline" onClick={() => setGithubDialogOpen(false)}>Cancel</Button>
+						<Button onClick={handleGitHubExport} disabled={!githubRepoName.trim()} data-testid="github-connect-btn">
+							<Github className="size-4 mr-2" />
+							Connect GitHub
+						</Button>
+					</DialogFooter>
+				</DialogContent>
+			</Dialog>
+
+			{/* Fork Dialog */}
+			<Dialog open={forkDialogOpen} onOpenChange={setForkDialogOpen}>
+				<DialogContent className="sm:max-w-md" data-testid="fork-dialog">
+					<DialogHeader>
+						<DialogTitle className="flex items-center gap-2">
+							<GitFork className="size-5" />
+							Fork a Project
+						</DialogTitle>
+						<DialogDescription>
+							Enter the App ID of a public project to fork it into your workspace.
+						</DialogDescription>
+					</DialogHeader>
+					<div className="grid gap-4 py-4">
+						<div className="grid gap-2">
+							<Label htmlFor="fork-id">App ID</Label>
+							<Input
+								id="fork-id"
+								placeholder="Enter app ID to fork..."
+								value={forkAppId}
+								onChange={(e) => setForkAppId(e.target.value)}
+								data-testid="fork-app-id-input"
+							/>
+						</div>
+					</div>
+					<DialogFooter>
+						<Button variant="outline" onClick={() => setForkDialogOpen(false)}>Cancel</Button>
+						<Button onClick={handleForkApp} disabled={!forkAppId.trim()} data-testid="fork-submit-btn">
+							<GitFork className="size-4 mr-2" />
+							Fork Project
+						</Button>
+					</DialogFooter>
+				</DialogContent>
+			</Dialog>
 		</div>
 	);
 }
-
-
-
-type ArrowProps = {
-	/** Ref to the source element the arrow starts from */
-	sourceRef: React.RefObject<HTMLElement | null>;
-	/** Target point in viewport/client coordinates */
-	target: { x: number; y: number };
-	/** Curve intensity (0.1 - 1.5 is typical) */
-	curvature?: number;
-	/** Optional pixel offset from source element edge */
-	sourceOffset?: number;
-	/** If true, hides the arrow when the source is offscreen/not measurable */
-	hideWhenInvalid?: boolean;
-};
-
-type Point = { x: number; y: number };
-
-export const CurvedArrow: React.FC<ArrowProps> = ({
-	sourceRef,
-	target,
-	curvature = 0.5,
-	sourceOffset = 6,
-	hideWhenInvalid = true,
-}) => {
-	const [start, setStart] = useState<Point | null>(null);
-	const [end, setEnd] = useState<Point | null>(null);
-
-	const rafRef = useRef<number | null>(null);
-	const roRef = useRef<ResizeObserver | null>(null);
-
-	const compute = () => {
-		const el = sourceRef.current;
-		if (!el) {
-			setStart(null);
-			setEnd(null);
-			return;
-		}
-
-		const rect = el.getBoundingClientRect();
-		if (!rect || rect.width === 0 || rect.height === 0) {
-			setStart(null);
-			setEnd(null);
-			return;
-		}
-
-		const endPoint: Point = { x: target.x, y: target.y };
-
-		// Choose an anchor on the source: midpoint of the side facing the target
-		const centers = {
-			right: { x: rect.right, y: rect.top + rect.height / 2 },
-			left: { x: rect.left, y: rect.top + rect.height / 2 },
-		};
-
-		// Distances to target from each side center
-		const dists = Object.fromEntries(
-			Object.entries(centers).map(([side, p]) => [
-				side,
-				(p.x - endPoint.x) ** 2 + (p.y - endPoint.y) ** 2,
-			])
-		) as Record<keyof typeof centers, number>;
-
-		const bestSide = (Object.entries(dists).sort((a, b) => a[1] - b[1])[0][0] ||
-			"right") as keyof typeof centers;
-
-		// Nudge start point slightly outside the element for visual clarity
-		const nudge = (p: Point, side: keyof typeof centers, offset: number) => {
-			switch (side) {
-				case "right":
-					return { x: p.x + offset, y: p.y };
-				case "left":
-					return { x: p.x - offset, y: p.y };
-			}
-		};
-
-		const startPoint = nudge(centers[bestSide], bestSide, sourceOffset);
-
-		setStart(startPoint);
-		setEnd(endPoint);
-	};
-
-	// Throttle updates with rAF to avoid layout thrash
-	const scheduleCompute = () => {
-		if (rafRef.current != null) cancelAnimationFrame(rafRef.current);
-		rafRef.current = requestAnimationFrame(compute);
-	};
-
-	useEffect(() => {
-		scheduleCompute();
-		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [target.x, target.y, sourceRef.current]);
-
-	useEffect(() => {
-		const onScroll = () => scheduleCompute();
-		const onResize = () => scheduleCompute();
-
-		window.addEventListener("scroll", onScroll, { passive: true });
-		window.addEventListener("resize", onResize);
-
-		// Track source element size changes
-		const el = sourceRef.current;
-		if ("ResizeObserver" in window) {
-			roRef.current = new ResizeObserver(() => scheduleCompute());
-			if (el) roRef.current.observe(el);
-		}
-
-		scheduleCompute();
-
-		return () => {
-			window.removeEventListener("scroll", onScroll);
-			window.removeEventListener("resize", onResize);
-			if (rafRef.current != null) cancelAnimationFrame(rafRef.current);
-			if (roRef.current && el) roRef.current.unobserve(el);
-		};
-		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, []);
-
-	const d = useMemo(() => {
-		if (!start || !end) return "";
-
-		const dx = end.x - start.x;
-		const dy = end.y - start.y;
-
-		// Control points: bend the curve based on the primary axis difference.
-		// This gives a nice S or C curve without sharp kinks.
-		const cpOffset = Math.max(Math.abs(dx), Math.abs(dy)) * curvature;
-
-		const c1: Point = { x: start.x + cpOffset * (dx >= 0 ? 1 : -1), y: start.y };
-		const c2: Point = { x: end.x - cpOffset * (dx >= 0 ? 1 : -1), y: end.y };
-
-		return `M ${start.x},${start.y} C ${c1.x},${c1.y} ${c2.x},${c2.y} ${end.x},${end.y}`;
-	}, [start, end, curvature]);
-
-	const hidden = hideWhenInvalid && (!start || !end);
-
-	if (start && end && (end.y - start.y > 420 || start.x - end.x < 100)) {
-		return null;
-	}
-
-	return (
-		<svg
-			aria-hidden="true"
-			style={{
-				position: "fixed",
-				inset: 0,
-				width: "100vw",
-				height: "100vh",
-				pointerEvents: "none",
-				overflow: "visible",
-				zIndex: 9999,
-				display: hidden ? "none" : "block",
-			}}
-		>
-			<defs>
-				<filter id="discover-squiggle" x="-20%" y="-20%" width="140%" height="140%">
-					<feTurbulence type="fractalNoise" baseFrequency="0.8" numOctaves="1" seed="3" result="noise" />
-					<feDisplacementMap in="SourceGraphic" in2="noise" scale="1" xChannelSelector="R" yChannelSelector="G" />
-				</filter>
-				<marker id="discover-arrowhead" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto" markerUnits="strokeWidth" opacity={0.20}>
-					<path d="M 0 1.2 L 7 4" stroke="var(--color-text-tertiary)" strokeWidth="1.6" strokeLinecap="round" fill="none" />
-					<path d="M 0 6.8 L 7 4" stroke="var(--color-text-tertiary)" strokeWidth="1.2" strokeLinecap="round" fill="none" />
-				</marker>
-			</defs>
-
-			<path
-				d={d}
-				// stroke="var(--color-accent)"
-				stroke="var(--color-text-tertiary)"
-				strokeOpacity={0.20}
-				strokeWidth={1.6}
-				fill="none"
-				strokeLinecap="round"
-				strokeLinejoin="round"
-				vectorEffect="non-scaling-stroke"
-				markerEnd="url(#discover-arrowhead)"
-			/>
-			{/* Soft squiggle overlay for hand-drawn feel */}
-			<g filter="url(#discover-squiggle)">
-				<path
-					d={d}
-					// stroke="var(--color-accent)"
-					stroke="var(--color-text-tertiary)"
-					strokeOpacity={0.12}
-					strokeWidth={1}
-					fill="none"
-					strokeLinecap="round"
-					strokeLinejoin="round"
-					strokeDasharray="8 6 4 9 5 7"
-					vectorEffect="non-scaling-stroke"
-				/>
-			</g>
-		</svg>
-	);
-};
