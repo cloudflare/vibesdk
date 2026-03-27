@@ -1,0 +1,26 @@
+## VibeSDK Local Development Container
+## Usage: docker compose -f docker/docker-compose.yml up
+## NOTE: Production deploys to Cloudflare Workers (not Docker).
+##       This is for local development only.
+
+FROM oven/bun:1 AS base
+WORKDIR /app
+
+# Install system deps for native modules
+RUN apt-get update && apt-get install -y git curl && rm -rf /var/lib/apt/lists/*
+
+# Install dependencies (cached layer)
+COPY package.json bun.lock ./
+COPY sdk/package.json sdk/
+COPY container/package.json container/
+RUN bun install --frozen-lockfile
+
+# Copy source (mounted as volume in dev, but needed for initial build)
+COPY . .
+
+# Expose ports
+EXPOSE 5173 8787
+
+# Default: run Vite dev (frontend) + wrangler dev (backend)
+# Override in docker-compose for specific services
+CMD ["bun", "run", "dev"]

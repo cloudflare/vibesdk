@@ -1,0 +1,37 @@
+## VibeSDK Local Development Stack
+## 
+## Usage:
+##   docker compose -f docker/docker-compose.yml up
+##   docker compose -f docker/docker-compose.yml up --build  (after dependency changes)
+##
+## Prerequisites:
+##   - Copy .dev.vars.example to .dev.vars and fill in required values
+##   - CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID are required for wrangler dev
+##
+## NOTE: Production deploys directly to Cloudflare Workers.
+##       This compose file is strictly for local development.
+
+version: '3.8'
+
+services:
+  vibesdk:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.dev
+    ports:
+      - "5173:5173"   # Vite dev server (frontend)
+      - "8787:8787"   # Wrangler dev server (worker backend)
+    volumes:
+      - ..:/app
+      - vibesdk_node_modules:/app/node_modules
+    env_file:
+      - ../.dev.vars
+    environment:
+      - ENVIRONMENT=dev
+      - DEV_MODE=true
+    stdin_open: true
+    tty: true
+
+volumes:
+  vibesdk_node_modules:
+    name: vibesdk_node_modules
