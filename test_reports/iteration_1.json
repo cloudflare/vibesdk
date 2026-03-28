@@ -26,7 +26,7 @@
   "seed_data_creation": "None",
   "retest_needed": false,
   "main_agent_can_self_test": true,
-  "context_for_next_testing_agent": "VibeSDK is a Cloudflare Workers project (NOT standard React+FastAPI). Frontend and backend both run through Vite dev server on port 3000 using Cloudflare Vite plugin. Port 8001 is FastAPI reverse proxy forwarding to port 3000. Preview URL: https://vibe-sdk-docker.preview.emergentagent.com. All tested features working: /api/capabilities (200), /api/status (200), /api/auth/profile (401 when unauthenticated), /api/auth/providers (200), /api/apps/public (200). UI elements verified: main prompt, Sign In button with modal, Deploy/Fork buttons, theme toggle (Light/Dark/System), text input.",
+  "context_for_next_testing_agent": "VibeSDK is a Cloudflare Workers project (NOT standard React+FastAPI). Frontend and backend both run through Vite dev server on port 3000 using Cloudflare Vite plugin. Port 8001 is FastAPI reverse proxy forwarding to port 3000. Preview URL: https://prompt-studio-103.preview.emergentagent.com. All tested features working: /api/capabilities (200), /api/status (200), /api/auth/profile (401 when unauthenticated), /api/auth/providers (200), /api/apps/public (200). UI elements verified: main prompt, Sign In button with modal, Deploy/Fork buttons, theme toggle (Light/Dark/System), text input.",
   "tests_executed": {
     "backend_api_tests": {
       "total": 6,

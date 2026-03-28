@@ -1,0 +1,116 @@
+{
+  "theme_archetype": "Hybrid: Archetype 7 (Electric & Neon) for Dark Mode, Archetype 4 (Swiss & High-Contrast) for Light Mode",
+  "design_philosophy": "A polished, developer-focused AI interface. Deep void black background with bright neon cyan/teal accents in dark mode, falling back to a clean, stark high-contrast light mode. Strict adherence to light/dark mode support while maintaining a premium SaaS feel without using purple gradients.",
+  "colors": {
+    "dark": {
+      "background": "#0a0a0a",
+      "surface": "rgba(255, 255, 255, 0.03)",
+      "surface_border": "rgba(255, 255, 255, 0.1)",
+      "surface_hover": "rgba(255, 255, 255, 0.08)",
+      "primary": "#22d3ee",
+      "primary_text": "#ffffff",
+      "secondary_text": "#9ca3af",
+      "matrix_rain": "rgba(34, 211, 238, 0.2)",
+      "send_button": "#22d3ee",
+      "send_button_icon": "#000000"
+    },
+    "light": {
+      "background": "#f8f9fa",
+      "surface": "rgba(0, 0, 0, 0.03)",
+      "surface_border": "rgba(0, 0, 0, 0.1)",
+      "surface_hover": "rgba(0, 0, 0, 0.06)",
+      "primary": "#0d9488",
+      "primary_text": "#111827",
+      "secondary_text": "#6b7280",
+      "matrix_rain": "rgba(13, 148, 136, 0.1)",
+      "send_button": "#111827",
+      "send_button_icon": "#ffffff"
+    }
+  },
+  "typography": {
+    "headings": {
+      "font_family": "Cabinet Grotesk, system-ui, sans-serif",
+      "weight": "font-black",
+      "tracking": "tracking-tighter",
+      "styling": "Neon glow effect on main heading (text-shadow) for dark mode"
+    },
+    "body": {
+      "font_family": "IBM Plex Sans, system-ui, sans-serif"
+    },
+    "code_and_pills": {
+      "font_family": "JetBrains Mono, monospace",
+      "size": "text-sm",
+      "tracking": "tracking-tight"
+    }
+  },
+  "visual_enhancers": {
+    "matrix_background": {
+      "description": "A digital rain / falling code effect rendered behind the main heading.",
+      "implementation": "Use a custom React component with an HTML5 `<canvas>`. Set absolute positioning (`absolute inset-0 z-0`). Use cyan/teal colors instead of traditional green. Draw falling characters. Ensure opacity is low so it doesn't overpower the text. Tailwind classes: `absolute inset-0 z-0 opacity-50 pointer-events-none`"
+    },
+    "glassmorphism": {
+      "prompt_card": "backdrop-blur-xl bg-white/5 border border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.4)] (Dark) or bg-black/5 border-black/10 (Light). Never use full transparency."
+    },
+    "neon_glow": {
+      "heading": "drop-shadow-[0_0_20px_rgba(34,211,238,0.4)] for dark mode heading."
+    }
+  },
+  "components_and_layout": {
+    "global_layout": "min-h-screen flex flex-col items-center justify-center p-4 md:p-8 relative overflow-hidden bg-gray-50 dark:bg-[#0a0a0a] text-gray-900 dark:text-white",
+    "header": "absolute top-0 left-0 right-0 p-6 flex justify-between items-center z-50. Include Brand/Logo on left, Light/Dark theme toggle on right.",
+    "hero_section": "relative z-10 flex flex-col items-center w-full max-w-4xl mx-auto mt-20 md:mt-32",
+    "main_heading": "text-4xl sm:text-5xl font-black text-teal-700 dark:text-cyan-400 mb-8 z-10 relative text-center leading-tight dark:drop-shadow-[0_0_15px_rgba(34,211,238,0.4)]",
+    "prompt_interface": {
+      "wrapper": "w-full flex flex-col gap-3 relative z-10",
+      "tab_bar": "flex flex-row self-start gap-1 p-1 rounded-full bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 mb-1 backdrop-blur-md",
+      "tab_item": "flex items-center gap-2 px-4 py-1.5 rounded-full text-sm font-medium transition-colors cursor-pointer",
+      "tab_item_active": "bg-black/10 dark:bg-white/10 text-black dark:text-white shadow-sm",
+      "tab_item_inactive": "text-gray-500 dark:text-gray-400 hover:text-black dark:hover:text-white",
+      "main_card": "w-full rounded-2xl bg-white/80 border border-black/10 dark:bg-zinc-900/60 dark:border-white/10 backdrop-blur-2xl shadow-xl flex flex-col overflow-hidden transition-all duration-300",
+      "textarea": "w-full min-h-[140px] bg-transparent p-6 text-lg outline-none resize-none placeholder:text-gray-400 dark:placeholder:text-gray-500 font-sans",
+      "bottom_toolbar": "flex flex-row items-center justify-between p-3 bg-black/5 dark:bg-black/40 border-t border-black/5 dark:border-white/5",
+      "toolbar_left": "flex items-center gap-2 overflow-x-auto no-scrollbar",
+      "toolbar_right": "flex items-center gap-2 shrink-0",
+      "action_buttons": "flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10 border border-black/5 dark:border-white/5 text-sm font-medium transition-colors whitespace-nowrap cursor-pointer",
+      "send_button": "p-2 rounded-full bg-teal-700 dark:bg-cyan-400 text-white dark:text-black hover:opacity-90 transition-opacity flex items-center justify-center ml-2"
+    },
+    "community_cards_section": {
+      "wrapper": "w-full max-w-4xl mt-12 z-10 relative",
+      "container": "flex flex-row gap-4 overflow-x-auto pb-4 no-scrollbar snap-x",
+      "card": "snap-center shrink-0 w-72 p-4 rounded-2xl bg-white/70 dark:bg-zinc-900/50 border border-black/10 dark:border-white/10 backdrop-blur-md hover:-translate-y-1 transition-transform cursor-pointer group",
+      "card_image_placeholder": "w-full h-32 rounded-xl bg-gradient-to-br from-gray-200 to-gray-300 dark:from-zinc-800 dark:to-zinc-900 mb-4 flex items-center justify-center border border-black/5 dark:border-white/5 overflow-hidden relative",
+      "card_title": "text-base font-bold text-gray-900 dark:text-white mb-1",
+      "card_subtitle": "text-sm text-gray-500 dark:text-gray-400"
+    },
+    "dialogs": {
+      "github_save": "Use Shadcn Dialog. Glassmorphic overlay (`backdrop-blur-sm bg-black/40`). Card styling matches `main_card` logic.",
+      "fork": "Use Shadcn Dialog.",
+      "auth": "Use Shadcn Dialog."
+    }
+  },
+  "icons": {
+    "library": "lucide-react",
+    "mapping": {
+      "tabs": ["MonitorSmartphone", "Smartphone", "LayoutTemplate"],
+      "toolbar": {
+        "attach": "Paperclip",
+        "voice": "Headphones",
+        "model": "Bot",
+        "provider": "Sparkles",
+        "settings": "Settings",
+        "mic": "Mic",
+        "send": "ArrowUp"
+      }
+    }
+  },
+  "instructions_to_main_agent": [
+    "Install `lucide-react` for all icons.",
+    "Strictly follow the light/dark mode color logic using Tailwind's `dark:` variant. The interface must look impeccable in both modes.",
+    "Implement the matrix background as a custom React component using HTML5 `<canvas>`. It should be positioned absolutely behind the hero section. Adjust its colors via props or classes to match the active theme (Teal for Light, Cyan for Dark).",
+    "Ensure the heading has a glowing effect in dark mode using `drop-shadow`. Do NOT use purple gradients anywhere in the app.",
+    "For the toolbar controls, utilize Shadcn's `DropdownMenu` for the AI Model Selector and LLM Provider selectors. Use Shadcn's `Switch` for the 'Ultra' toggle.",
+    "Make sure all interactive elements (buttons, inputs, tabs, dropdown items, switches) include a descriptive `data-testid` attribute (e.g., `data-testid=\"prompt-textarea\"`, `data-testid=\"send-button\"`).",
+    "The Project Type Tab Bar MUST sit structurally above the textarea as part of the prompt interface flow.",
+    "For the Community App Cards, since external images are not available, use sleek CSS gradients with a centered Lucide icon as the placeholder thumbnail."
+  ]
+}

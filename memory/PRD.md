@@ -69,4 +69,4 @@ Setup and review requirements from attached docs. Configure Gemini AI, fix local
 - `/app/backend/server.py` - FastAPI reverse proxy
 
 ## Preview URL
-https://vibe-sdk-docker.preview.emergentagent.com
+https://prompt-studio-103.preview.emergentagent.com

@@ -61,7 +61,7 @@ export function getAllowedOrigins(env: Env): string[] {
         origins.push('http://127.0.0.1:5173');
         origins.push('http://127.0.0.1:8787');
         // Allow all preview domains in dev
-        origins.push('https://*.preview.emergentagent.com');
+        origins.push('https://prompt-studio-103.preview.emergentagent.com');
     }
     
     return origins;

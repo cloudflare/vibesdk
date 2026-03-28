@@ -6,6 +6,7 @@ import { AuthService } from '../../../database/services/AuthService';
 import { SessionService } from '../../../database/services/SessionService';
 import { UserService } from '../../../database/services/UserService';
 import { ApiKeyService } from '../../../database/services/ApiKeyService';
+import { CreditService } from '../../../database/services/CreditService';
 import { generateApiKey, sha256Hash } from '../../../utils/cryptoUtils';
 import { 
     loginSchema, 
@@ -200,14 +201,25 @@ export class AuthController extends BaseController {
      * Get current user profile
      * GET /api/auth/profile
      */
-    static async getProfile(_request: Request, _env: Env, _ctx: ExecutionContext, routeContext: RouteContext): Promise<Response> {
+    static async getProfile(_request: Request, env: Env, _ctx: ExecutionContext, routeContext: RouteContext): Promise<Response> {
         try {
             if (!routeContext.user) {
                 return AuthController.createErrorResponse('Unauthorized', 401);
             }
+
+            // Include credit balance in profile response
+            let creditBalance = 0;
+            try {
+                const creditService = new CreditService(env);
+                creditBalance = await creditService.getBalance(routeContext.user.id);
+            } catch {
+                // Credits table might not exist yet, default to 0
+            }
+
             return AuthController.createSuccessResponse({
                 user: mapUserResponse(routeContext.user),
-                sessionId: routeContext.sessionId
+                sessionId: routeContext.sessionId,
+                credits: creditBalance,
             });
         } catch (error) {
             return AuthController.handleError(error, 'get profile');

@@ -515,6 +515,46 @@ export const systemSettings = sqliteTable('system_settings', {
 }));
 
 // ========================================
+// CREDIT AND BILLING SYSTEM
+// ========================================
+
+/**
+ * Credits table - User credit balances
+ */
+export const credits = sqliteTable('credits', {
+    id: text('id').primaryKey(),
+    userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }).unique(),
+    balance: integer('balance').notNull().default(50),
+    totalEarned: integer('total_earned').notNull().default(50),
+    totalSpent: integer('total_spent').notNull().default(0),
+    createdAt: integer('created_at', { mode: 'timestamp' }).default(sql`CURRENT_TIMESTAMP`),
+    updatedAt: integer('updated_at', { mode: 'timestamp' }).default(sql`CURRENT_TIMESTAMP`),
+}, (table) => ({
+    userIdx: uniqueIndex('credits_user_idx').on(table.userId),
+}));
+
+/**
+ * Credit Transactions table - Track all credit movements
+ */
+export const creditTransactions = sqliteTable('credit_transactions', {
+    id: text('id').primaryKey(),
+    userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+    amount: integer('amount').notNull(),
+    type: text('type', { enum: ['earned', 'spent', 'refund', 'bonus'] }).notNull(),
+    description: text('description').notNull(),
+    model: text('model'),
+    provider: text('provider'),
+    appId: text('app_id'),
+    balanceAfter: integer('balance_after').notNull(),
+    createdAt: integer('created_at', { mode: 'timestamp' }).default(sql`CURRENT_TIMESTAMP`),
+}, (table) => ({
+    userIdx: index('credit_transactions_user_idx').on(table.userId),
+    typeIdx: index('credit_transactions_type_idx').on(table.type),
+    createdAtIdx: index('credit_transactions_created_at_idx').on(table.createdAt),
+    userCreatedAtIdx: index('credit_transactions_user_created_at_idx').on(table.userId, table.createdAt),
+}));
+
+// ========================================
 // TYPE EXPORTS FOR APPLICATION USE
 // ========================================
 
@@ -570,3 +610,9 @@ export type NewUserModelProvider = typeof userModelProviders.$inferInsert;
 
 export type Star = typeof stars.$inferSelect;
 export type NewStar = typeof stars.$inferInsert;
+
+export type Credit = typeof credits.$inferSelect;
+export type NewCredit = typeof credits.$inferInsert;
+
+export type CreditTransaction = typeof creditTransactions.$inferSelect;
+export type NewCreditTransaction = typeof creditTransactions.$inferInsert;
