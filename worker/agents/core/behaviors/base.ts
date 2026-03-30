@@ -1655,7 +1655,7 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
             await this.ensureTemplateDetails();
 
             // Just fetch runtime errors
-            const errors = await this.fetchRuntimeErrors(false);
+            const errors = await this.fetchRuntimeErrors(false, false);
             const projectUpdates = await this.getAndResetProjectUpdates();
             this.logger.info('Passing context to user conversation processor', { errors, projectUpdates });
 
