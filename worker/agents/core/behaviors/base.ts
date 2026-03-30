@@ -81,9 +81,6 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
 
     protected staticAnalysisCache: StaticAnalysisResponse | null = null;
 
-    private sandboxReadyPromise: Promise<void>;
-    private resolveSandboxReady!: () => void;
-
     protected userModelConfigs?: Record<AgentActionKey, ModelConfig>;
     protected runtimeOverrides?: InferenceRuntimeOverrides;
     
@@ -105,27 +102,11 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
     constructor(infrastructure: AgentInfrastructure<TState>, protected projectType: ProjectType) {
         super(infrastructure);
 
-        this.sandboxReadyPromise = new Promise(resolve => { this.resolveSandboxReady = resolve; });
-        if (this.state.sandboxInstanceId) {
-            this.resolveSandboxReady();
-        }
-
         this.setState({
             ...this.state,
             behaviorType: this.getBehavior(),
             projectType: this.projectType,
         });
-    }
-
-    protected async waitForSandboxReady(timeoutMs: number = 5000): Promise<boolean> {
-        const ready = await Promise.race([
-            this.sandboxReadyPromise.then(() => true),
-            new Promise<false>(resolve => setTimeout(() => resolve(false), timeoutMs))
-        ]);
-        if (!ready) {
-            this.logger.warn(`Sandbox not ready after ${timeoutMs}ms`);
-        }
-        return ready;
     }
 
     public async initialize(
@@ -746,9 +727,6 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
             this.logger.info("Fetched issues (browser-rendered):", JSON.stringify({ runtimeErrors: [], staticAnalysis }));
             return { runtimeErrors: [], staticAnalysis };
         }
-        if (!await this.waitForSandboxReady()) {
-            return { runtimeErrors: [], staticAnalysis: { success: false, lint: { issues: [] }, typecheck: { issues: [] } } };
-        }
         const [runtimeErrors, staticAnalysis] = await Promise.all([
             this.fetchRuntimeErrors(resetIssues),
             this.runStaticAnalysisCode()
@@ -1197,7 +1175,6 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
             }
         );
 
-        this.resolveSandboxReady();
         return result;
     }
     
