@@ -43,7 +43,7 @@ import { generateId } from '../../utils/idGenerator';
 import { ResourceProvisioner } from './resourceProvisioner';
 import { TemplateParser } from './templateParser';
 import { ResourceProvisioningResult } from './types';
-import { getPreviewDomain, migratePreviewUrl } from '../../utils/urls';
+import { getPreviewDomain, resolvePreviewUrl } from '../../utils/urls';
 import { isDev } from 'worker/utils/envs'
 import { FileTreeBuilder } from './fileTreeBuilder';
 import { DeploymentTarget } from 'worker/agents/core/types';
@@ -538,7 +538,7 @@ export class SandboxSdkClient extends BaseSandboxService {
                         uptime: Math.floor((Date.now() - new Date(metadata.startTime).getTime()) / 1000),
                         directory: instanceId,
                         serviceDirectory: instanceId,
-                        previewURL: migratePreviewUrl(metadata.previewURL, env),
+                        previewURL: resolvePreviewUrl(metadata.previewURL, metadata.tunnelURL, env),
                         processId: metadata.processId,
                         tunnelURL: metadata.tunnelURL,
                         // Skip file tree
@@ -963,12 +963,7 @@ export class SandboxSdkClient extends BaseSandboxService {
                         }
                     }
 
-                    if(env.USE_TUNNEL_FOR_PREVIEW) {
-                        this.logger.info('Using tunnel url instead for preview as configured', { instanceId, tunnelURL });
-                        previewURL = tunnelURL;
-                    }
-                        
-                    this.logger.info('Preview URL exposed', { instanceId, previewURL });
+                    this.logger.info('Preview URL exposed', { instanceId, previewURL, tunnelURL });
                         
                     return { previewURL, tunnelURL, processId, allocatedPort };
                 } catch (error) {
@@ -1112,7 +1107,7 @@ export class SandboxSdkClient extends BaseSandboxService {
                 serviceDirectory: instanceId,
                 fileTree,
                 runtimeErrors: runtimeErrors.errors,
-                previewURL: migratePreviewUrl(metadata.previewURL, env),
+                previewURL: resolvePreviewUrl(metadata.previewURL, metadata.tunnelURL, env),
                 processId: metadata.processId,
                 tunnelURL: metadata.tunnelURL,
             };
@@ -1169,7 +1164,7 @@ export class SandboxSdkClient extends BaseSandboxService {
                 pending: false,
                 isHealthy,
                 message: isHealthy ? 'Instance is running normally' : 'Instance may have issues',
-                previewURL: migratePreviewUrl(metadata.previewURL, env),
+                previewURL: resolvePreviewUrl(metadata.previewURL, metadata.tunnelURL, env),
                 tunnelURL: metadata.tunnelURL,
                 processId: metadata.processId
             };
