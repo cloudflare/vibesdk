@@ -1,0 +1,62 @@
+name: Bonk-AI PR Review
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  review:
+    # Guard 1: Skip fork PRs — the workflow should only review internal PRs.
+    # Guard 2: Skip release PRs (staging -> main) — already reviewed individually.
+    if: >-
+      github.event.pull_request.head.repo.full_name == github.event.pull_request.base.repo.full_name
+      && !(github.event.pull_request.head.ref == 'staging'
+        && github.event.pull_request.base.ref == 'main')
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    concurrency:
+      group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+      # Don't cancel in-progress reviews — a partial review can leave
+      # orphaned comments and wastes AI API credits.
+      cancel-in-progress: false
+    permissions:
+      id-token: write
+      # 'read' access to prevent the agent from self-modifying files.
+      contents: read
+      issues: write
+      pull-requests: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run Bonk
+        uses: ask-bonk/ask-bonk/github@main
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_GATEWAY_ID: ${{ secrets.CLOUDFLARE_AI_GATEWAY_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_AI_GATEWAY_TOKEN }}
+        with:
+          model: 'cloudflare-ai-gateway/anthropic/claude-opus-4-6'
+          forks: 'false'
+          permissions: write
+          opencode_version: '1.2.27'
+          # The auto-reviewer must never push to PR branches. NO_PUSH
+          # enforces contents: read at the token level so it holds even
+          # if the model ignores prompt instructions.
+          token_permissions: 'NO_PUSH'
+          prompt: |
+            Review this PR for bugs, security issues, performance problems, and style.
+            Read the full file for context, not just the diff.
+
+            Use the gh CLI to submit a single batch review via the GitHub API with
+            inline comments on specific files and line numbers. Use code suggestions
+            where you have high confidence in the fix — ensure they account for
+            surrounding code (braces, indentation, comments).
+
+            Separate "Needs Fix" (bugs, type errors, broken conventions, security)
+            from "Suggestions" (style, minor improvements, maintenance guidance).
+            Flag only medium and high priority issues — skip formatting the linter
+            handles, pre-existing issues, and hypothetical edge cases.
+            If the PR is clean, respond with only "LGTM!" and nothing else.
+
+            Leave the final review body empty — OpenCode posts the summary for you.
