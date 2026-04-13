@@ -36,10 +36,10 @@ jobs:
           CLOUDFLARE_GATEWAY_ID: ${{ secrets.CLOUDFLARE_AI_GATEWAY_ID }}
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_AI_GATEWAY_TOKEN }}
         with:
-          model: 'cloudflare-ai-gateway/anthropic/claude-opus-4-5'
+          model: 'cloudflare-ai-gateway/anthropic/claude-opus-4-6'
           forks: 'false'
           permissions: write
-          opencode_version: '1.2.27'
+          opencode_version: 'latest'
           # The auto-reviewer must never push to PR branches. NO_PUSH
           # enforces contents: read at the token level so it holds even
           # if the model ignores prompt instructions.
@@ -58,3 +58,5 @@ jobs:
             Flag only medium and high priority issues — skip formatting the linter
             handles, pre-existing issues, and hypothetical edge cases.
             If the PR is clean, respond with only "LGTM!" and nothing else.
+
+            Leave the final review body empty — OpenCode posts the summary for you.
