@@ -12,6 +12,7 @@ export interface PlatformCapabilitiesConfig {
 		app: { enabled: boolean };
 		presentation: { enabled: boolean };
 		general: { enabled: boolean };
+		mobile: { enabled: boolean };
 	};
 	version: string;
 }
@@ -174,6 +175,24 @@ export const DEFAULT_FEATURE_DEFINITIONS: Record<ProjectType, Omit<FeatureDefini
 			defaultView: 'editor',
 			supportedExports: ['github'],
 			hasCustomHeaderActions: false,
+			hasCustomSidebar: false,
+			hasCustomFileFilter: false,
+			behaviorType: 'agentic',
+		},
+	},
+	mobile: {
+		id: 'mobile',
+		name: 'Mobile App',
+		description: 'Expo React Native mobile applications',
+		capabilities: {
+			hasPreview: true,
+			hasLiveReload: true,
+			requiresSandbox: true,
+			requiresWebSocket: true,
+			supportedViews: ['editor', 'preview', 'blueprint'],
+			defaultView: 'editor',
+			supportedExports: ['github'],
+			hasCustomHeaderActions: true,
 			hasCustomSidebar: false,
 			hasCustomFileFilter: false,
 			behaviorType: 'agentic',

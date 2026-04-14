@@ -39,6 +39,7 @@ export class CapabilitiesController extends BaseController {
 			{ ...DEFAULT_FEATURE_DEFINITIONS.app, enabled: config.features.app.enabled },
 			{ ...DEFAULT_FEATURE_DEFINITIONS.presentation, enabled: config.features.presentation.enabled },
 			{ ...DEFAULT_FEATURE_DEFINITIONS.general, enabled: config.features.general.enabled },
+			{ ...DEFAULT_FEATURE_DEFINITIONS.mobile, enabled: config.features.mobile.enabled },
 		];
 
 		const capabilities: PlatformCapabilities = {

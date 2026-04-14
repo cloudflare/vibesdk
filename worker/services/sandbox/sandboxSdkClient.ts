@@ -627,15 +627,35 @@ export class SandboxSdkClient extends BaseSandboxService {
         return false;
     }
 
-    private async startDevServer(instanceId: string, initCommand: string, port: number): Promise<string> {
+    private async isExpoProject(instanceId: string): Promise<boolean> {
+        try {
+            const session = await this.getInstanceSession(instanceId);
+            const pkgJson = await session.readFile(`/workspace/${instanceId}/package.json`);
+            if (pkgJson.success) {
+                const pkg = JSON.parse(pkgJson.content);
+                return !!pkg.dependencies?.expo;
+            }
+        } catch {
+            // Ignore — not an expo project
+        }
+        return false;
+    }
+
+    private async startDevServer(instanceId: string, initCommand: string, port: number, tunnelURL?: string): Promise<string> {
         try {
             // Use session-based process management
             // Note: Environment variables should already be set via setLocalEnvVars
             const session = await this.getOrCreateSession(`${instanceId}-dev`, `/workspace/${instanceId}`);
             
-            // Start process with env vars inline for those not in .dev.vars
+            // For Expo mobile projects, EXPO_PACKAGER_PROXY_URL tells Metro the
+            // external URL so it doesn't embed the local port into bundle URLs
+            // (breaks Cloudflare tunnels for Expo Go).
+            let proxyEnv = '';
+            if (tunnelURL && await this.isExpoProject(instanceId)) {
+                proxyEnv = ` EXPO_PACKAGER_PROXY_URL=${tunnelURL}`;
+            }
             const process = await session.startProcess(
-                `VITE_LOGGER_TYPE=json PORT=${port} monitor-cli process start --instance-id ${instanceId} --port ${port} -- ${initCommand}`
+                `VITE_LOGGER_TYPE=json PORT=${port}${proxyEnv} monitor-cli process start --instance-id ${instanceId} --port ${port} -- ${initCommand}`
             );
             this.logger.info('Development server started', { instanceId, processId: process.id });
             
@@ -821,7 +841,7 @@ export class SandboxSdkClient extends BaseSandboxService {
                                 
                                 // Look for the preview URL in the logs
                                 // Format: https://subdomain.trycloudflare.com
-                                const urlMatch = logLine.match(/https:\/\/[a-z0-9-]+\.trycloudflare\.com/);
+                                const urlMatch = logLine.match(/https:\/\/(?!api\.)[a-z0-9-]+\.trycloudflare\.com/);
                                 if (urlMatch) {
                                     clearTimeout(timeout);
                                     const previewURL = urlMatch[0];
@@ -949,7 +969,7 @@ export class SandboxSdkClient extends BaseSandboxService {
                         await this.setLocalEnvVars(instanceId, localEnvVars);
                     }
                     // Start dev server on allocated port
-                    const processId = await this.startDevServer(instanceId, initCommand, allocatedPort);
+                    const processId = await this.startDevServer(instanceId, initCommand, allocatedPort, tunnelURL);
                     this.logger.info('Instance created successfully', { instanceId, processId, port: allocatedPort });
                         
                     // Expose the same port for preview URL
@@ -1140,7 +1160,7 @@ export class SandboxSdkClient extends BaseSandboxService {
             
             let isHealthy = true;
             try {
-                // Optionally check if process is still running
+                // Check if wrapper process is still running
                 if (metadata.processId) {
                     for (let i = 0; i < 3; i++) {
                         try {
@@ -1157,6 +1177,21 @@ export class SandboxSdkClient extends BaseSandboxService {
             } catch {
                 // No preview available
                 isHealthy = false;
+            }
+
+            // If tunnel URL is missing and we need one, start a new tunnel
+            if (!metadata.tunnelURL && metadata.allocatedPort && (isDev(env) || env.USE_TUNNEL_FOR_PREVIEW)) {
+                try {
+                    this.logger.info('No tunnel URL in metadata, starting cloudflared tunnel', { instanceId });
+                    const tunnelURL = await this.startCloudflaredTunnel(instanceId, metadata.allocatedPort);
+                    if (tunnelURL) {
+                        metadata.tunnelURL = tunnelURL;
+                        await this.storeInstanceMetadata(instanceId, metadata);
+                        this.logger.info('Tunnel started and metadata updated', { instanceId, tunnelURL });
+                    }
+                } catch (tunnelError) {
+                    this.logger.warn('Failed to start tunnel during status check', { instanceId, error: tunnelError instanceof Error ? tunnelError.message : 'Unknown error' });
+                }
             }
 
             return {

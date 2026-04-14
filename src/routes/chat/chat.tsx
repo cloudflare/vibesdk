@@ -147,6 +147,7 @@ export default function Chat() {
 		projectType,
 		// Template metadata
 		templateDetails,
+		tunnelUrl,
 	} = useChat({
 		chatId: urlChatId,
 		query: userQuery,
@@ -765,8 +766,8 @@ export default function Chat() {
 								/>
 							)}
 
-							{/* Deployment and Generation Controls - Only for phasic mode */}
-							{chatId && behaviorType !== 'agentic' && (
+							{/* Deployment and Generation Controls - Only for phasic mode, not mobile */}
+							{chatId && behaviorType !== 'agentic' && projectType !== 'mobile' && (
 								<motion.div
 									ref={deploymentControlsRef}
 									initial={{ opacity: 0, y: 20 }}
@@ -888,6 +889,7 @@ export default function Chat() {
 								previewRef={previewRef}
 								editorRef={editorRef}
 								templateDetails={templateDetails}
+								tunnelUrl={tunnelUrl}
 							/>
 						</motion.div>
 					)}

@@ -49,6 +49,12 @@ function registerBuiltInFeatures(): void {
 		{ ...DEFAULT_FEATURE_DEFINITIONS.general, enabled: true },
 		() => import('./general'),
 	);
+
+	// Mobile feature - Expo React Native mobile apps
+	featureRegistry.register(
+		{ ...DEFAULT_FEATURE_DEFINITIONS.mobile, enabled: true },
+		() => import('./mobile'),
+	);
 }
 
 // Register features immediately on module load

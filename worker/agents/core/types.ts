@@ -10,7 +10,7 @@ import { ProcessedImageAttachment } from 'worker/types/image-attachment';
 
 export type BehaviorType = 'phasic' | 'agentic';
 
-export type ProjectType = 'app' | 'workflow' | 'presentation' | 'general';
+export type ProjectType = 'app' | 'workflow' | 'presentation' | 'general' | 'mobile';
 
 /**
  * Runtime type - WHERE it runs during dev

@@ -12,7 +12,7 @@ declare namespace Cloudflare {
 		DISPATCH_NAMESPACE: "vibesdk-default-namespace";
 		ENABLE_READ_REPLICAS: "true";
 		CLOUDFLARE_AI_GATEWAY: "vibesdk-gateway";
-		PLATFORM_CAPABILITIES: {"features":{"app":{"enabled":true},"presentation":{"enabled":false},"general":{"enabled":false}},"version":"1.0.0"};
+		PLATFORM_CAPABILITIES: {"features":{"app":{"enabled":true},"presentation":{"enabled":false},"general":{"enabled":false},"mobile":{"enabled":true}},"version":"1.0.0"};
 		ANTHROPIC_API_KEY: string;
 		OPENAI_API_KEY: string;
 		GOOGLE_AI_STUDIO_API_KEY: string;
@@ -42,6 +42,7 @@ declare namespace Cloudflare {
 		SANDBOX_INSTANCE_TYPE: string;
 		CUSTOM_DOMAIN: string;
 		CUSTOM_PREVIEW_DOMAIN: string;
+		LOCAL_TEMPLATES_DIR: string;
 		ALLOCATION_STRATEGY: string;
 		GITHUB_EXPORTER_CLIENT_ID: string;
 		GITHUB_EXPORTER_CLIENT_SECRET: string;

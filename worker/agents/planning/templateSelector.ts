@@ -59,18 +59,25 @@ async function predictProjectType(
 - No sandbox/runtime unless slides/app are initialized by the builder
 - Examples: "Write a spec", "Draft an outline and slides if helpful", "Create teaching materials"
 
+**mobile** - Native mobile applications
+- iOS and Android apps built with React Native / Expo
+- Cross-platform mobile development
+- Apps that need native device features, gestures, or mobile-specific UX
+- Examples: "Build a fitness tracker app for iOS", "Create a mobile recipe app", "Make a React Native chat app"
+
 ## RULES:
 - Default to 'app' when uncertain
 - Choose 'workflow' only when explicitly about APIs, automation, or backend-only tasks
 - Choose 'presentation' only when explicitly about slides, decks, or presentations
 - Choose 'general' for docs/notes/specs or when the user asks to start from scratch without a specific runtime template
+- Choose 'mobile' when the user explicitly asks for a mobile app, iOS/Android app, or React Native/Expo project
 - Consider the presence of UI/visual requirements as indicator for 'app'
 - High confidence when keywords are explicit, medium/low when inferring`;
 
         const userPrompt = `**User Request:** "${query}"
 
 **Task:** Determine the project type and provide:
-1. Project type (app, workflow, presentation, or general)
+1. Project type (app, workflow, presentation, general, or mobile)
 2. Reasoning for your classification
 3. Confidence level (high, medium, low)
 
@@ -207,8 +214,8 @@ export async function selectTemplate({ env, query, projectType, availableTemplat
         };
     }
 
-    // Step 3: Skip template selection if only 1 template for workflow/presentation
-    if ((actualProjectType === 'workflow' || actualProjectType === 'presentation') && filteredTemplates.length === 1) {
+    // Step 3: Skip template selection if only 1 template for workflow/presentation/mobile
+    if ((actualProjectType === 'workflow' || actualProjectType === 'presentation' || actualProjectType === 'mobile') && filteredTemplates.length === 1) {
         logger.info(`Only one ${actualProjectType} template available, auto-selecting: ${filteredTemplates[0].name}`);
         return {
             selectedTemplateName: filteredTemplates[0].name,

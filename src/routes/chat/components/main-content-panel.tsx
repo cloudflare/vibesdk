@@ -1,8 +1,10 @@
-import { type RefObject, type ReactNode, Suspense, useState, useCallback } from 'react';
+import { type RefObject, type ReactNode, Suspense, useState, useCallback, useEffect } from 'react';
 import { WebSocket } from 'partysocket';
 import { MonacoEditor } from '../../../components/monaco-editor/monaco-editor';
 import { motion } from 'framer-motion';
-import { RefreshCw } from 'lucide-react';
+import { RefreshCw, QrCode } from 'lucide-react';
+import { QRCodeSVG } from 'qrcode.react';
+import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 import { Blueprint } from './blueprint';
 import { FileExplorer } from './file-explorer';
 import { PreviewIframe } from './preview-iframe';
@@ -13,6 +15,7 @@ import { PreviewHeaderActions } from './preview-header-actions';
 import { EditorHeaderActions } from './editor-header-actions';
 import { Copy } from './copy';
 import { featureRegistry } from '@/features';
+import { toExpoUrl } from '@/lib/utils';
 import type { FileType, BlueprintType, BehaviorType, ModelConfigsInfo, TemplateDetails, ProjectType } from '@/api-types';
 import type { ContentDetectionResult } from '../utils/content-detector';
 import type { GitHubExportHook } from '@/hooks/use-github-export';
@@ -65,6 +68,7 @@ interface MainContentPanelProps {
 	// Other
 	behaviorType?: BehaviorType;
 	websocket?: WebSocket;
+	tunnelUrl?: string;
 
 	// Refs
 	previewRef: RefObject<HTMLIFrameElement | null>;
@@ -102,6 +106,7 @@ export function MainContentPanel(props: MainContentPanelProps) {
 		previewRef,
 		editorRef,
 		templateDetails,
+		tunnelUrl,
 	} = props;
 
 	// Feature-specific state management
@@ -109,6 +114,16 @@ export function MainContentPanel(props: MainContentPanelProps) {
 	const setFeatureState = useCallback((key: string, value: unknown) => {
 		setFeatureStateInternal(prev => ({ ...prev, [key]: value }));
 	}, []);
+
+	// Derive Expo Go URL for mobile projects from the tunnel or preview URL
+	useEffect(() => {
+		if (projectType === 'mobile') {
+			const url = tunnelUrl || previewUrl;
+			if (url) {
+				setFeatureState('expoUrl', toExpoUrl(url));
+			}
+		}
+	}, [projectType, tunnelUrl, previewUrl, setFeatureState]);
 
 	const commonHeaderProps = {
 		view: view as 'preview' | 'editor' | 'docs' | 'blueprint' | 'presentation',
@@ -273,6 +288,43 @@ export function MainContentPanel(props: MainContentPanelProps) {
 						<RefreshCw className="size-4 text-text-primary/50" />
 					</button>
 				)}
+				{(tunnelUrl || previewUrl) && (() => {
+					const isMobile = projectType === 'mobile' || !!tunnelUrl?.includes('.trycloudflare.com');
+					const rawUrl = tunnelUrl || previewUrl!;
+					const qrValue = isMobile ? toExpoUrl(rawUrl) : rawUrl;
+					return (
+						<Popover>
+							<PopoverTrigger asChild>
+								<button
+									className="p-1 hover:bg-bg-2 rounded transition-colors"
+									title={isMobile ? 'Scan with Expo Go' : 'View on phone'}
+								>
+									<QrCode className="size-4 text-text-primary/50" />
+								</button>
+							</PopoverTrigger>
+							<PopoverContent className="w-auto" align="center" sideOffset={8}>
+								<div className="flex flex-col items-center gap-3">
+									<div className="bg-white p-3 rounded-xl">
+										<QRCodeSVG
+											value={qrValue}
+											size={180}
+											level="M"
+											includeMargin={false}
+										/>
+									</div>
+									<p className="text-xs text-text-primary/60 text-center">
+										{isMobile
+											? 'Scan with Expo Go to preview'
+											: 'Scan to open on your phone'}
+									</p>
+									<code className="text-[10px] text-text-primary/40 bg-text/5 px-2 py-1 rounded break-all max-w-[200px] text-center">
+										{qrValue}
+									</code>
+								</div>
+							</PopoverContent>
+						</Popover>
+					);
+				})()}
 			</div>,
 			previewContent,
 			headerActions

@@ -1206,6 +1206,16 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
      */
     async deployToCloudflare(target: DeploymentTarget = 'platform'): Promise<{ deploymentUrl?: string; workersUrl?: string } | null> {
         try {
+            // Mobile projects cannot be deployed to Cloudflare Workers
+            if (this.projectType === 'mobile') {
+                this.logger.info('Cloudflare deployment not supported for mobile projects');
+                this.broadcast(WebSocketMessageResponses.CLOUDFLARE_DEPLOYMENT_ERROR, {
+                    message: 'Deployment to Cloudflare is not supported for mobile apps. Export to GitHub instead.',
+                    error: 'Mobile projects cannot be deployed to Cloudflare Workers'
+                });
+                return null;
+            }
+
             // Ensure sandbox instance exists first
             if (!this.state.sandboxInstanceId) {
                 this.logger.info('No sandbox instance, deploying to sandbox first');

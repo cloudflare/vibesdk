@@ -95,6 +95,7 @@ export function useChat({
 	const [bootstrapFiles, setBootstrapFiles] = useState<FileType[]>([]);
 	const [blueprint, setBlueprint] = useState<BlueprintType>();
 	const [previewUrl, setPreviewUrl] = useState<string>();
+	const [tunnelUrl, setTunnelUrl] = useState<string>();
 	const [query, setQuery] = useState<string>();
 	const [behaviorType, setBehaviorType] = useState<BehaviorType>(getInitialBehaviorType());
 	const [internalProjectType, setInternalProjectType] = useState<ProjectType>(projectType);
@@ -203,6 +204,7 @@ export function useChat({
 			setBlueprint,
 			setQuery,
 			setPreviewUrl,
+			setTunnelUrl,
 			setTotalFiles,
 			setIsRedeployReady,
 			setIsPreviewDeploying,
@@ -527,6 +529,7 @@ export function useChat({
 						}
 						if (obj.projectType) {
 							result.projectType = obj.projectType;
+							setInternalProjectType(obj.projectType);
 							logger.debug('Received projectType from server:', obj.projectType);
 						}
 						if (obj.template) {
@@ -775,5 +778,6 @@ export function useChat({
 		projectType: internalProjectType,
 		templateDetails,
 		allFiles,
+		tunnelUrl,
 	};
 }

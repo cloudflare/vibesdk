@@ -115,6 +115,7 @@
 		"openai": "^5.23.2",
 		"ora": "^9.0.0",
 		"partysocket": "^1.1.6",
+		"qrcode.react": "^4.2.0",
 		"react": "^19.2.3",
 		"react-day-picker": "^9.12.0",
 		"react-dom": "^19.2.3",

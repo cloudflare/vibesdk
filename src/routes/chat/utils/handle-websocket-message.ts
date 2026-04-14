@@ -44,6 +44,7 @@ export interface HandleMessageDeps {
     setBlueprint: React.Dispatch<React.SetStateAction<BlueprintType | undefined>>;
     setQuery: React.Dispatch<React.SetStateAction<string | undefined>>;
     setPreviewUrl: React.Dispatch<React.SetStateAction<string | undefined>>;
+    setTunnelUrl: React.Dispatch<React.SetStateAction<string | undefined>>;
     setTotalFiles: React.Dispatch<React.SetStateAction<number | undefined>>;
     setIsRedeployReady: React.Dispatch<React.SetStateAction<boolean>>;
     setIsPreviewDeploying: React.Dispatch<React.SetStateAction<boolean>>;
@@ -125,6 +126,7 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
             setBlueprint,
             setQuery,
             setPreviewUrl,
+            setTunnelUrl,
             setTotalFiles,
             setIsRedeployReady,
             setIsPreviewDeploying,
@@ -594,6 +596,9 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
                 setIsPreviewDeploying(false);
                 const finalPreviewURL = getPreviewUrl(message.previewURL, message.tunnelURL);
                 setPreviewUrl(finalPreviewURL);
+                if (message.tunnelURL) {
+                    setTunnelUrl(message.tunnelURL);
+                }
                 break;
             }
 

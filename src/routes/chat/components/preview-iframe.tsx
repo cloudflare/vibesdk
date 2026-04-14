@@ -68,28 +68,48 @@ export const PreviewIframe = forwardRef<HTMLIFrameElement, PreviewIframeProps>(
 				});
                 console.log('Preview availability test response:', response, response.headers.forEach((value, key) => console.log("Header: ",key, value)));
 				
-				if (!response.ok) {
-					console.log('Preview not ready (status:', response.status, ')');
-					return null;
-				}
-				
 				// Read the custom header to determine preview type
 				// Header will only be present if origin validation passed on server
 				const previewType = response.headers.get('X-Preview-Type');
 				
-                if (previewType === 'sandbox-error') {
-                    console.log('Preview not ready (sandbox error)');
-                    return null;
-                } else if (previewType === 'sandbox' || previewType === 'dispatcher') {
+				if (previewType === 'sandbox-error') {
+					// Sandbox is running but the app has errors (e.g. Expo 500).
+					// Show the iframe so the user can see the error overlay.
+					console.log('Preview available with app error, type: sandbox');
+					return 'sandbox';
+				} else if (previewType === 'sandbox' || previewType === 'dispatcher') {
 					console.log('Preview available, type:', previewType);
 					return previewType;
 				}
 				
-				// Fallback: If no header present (shouldn't happen with valid origin)
-				// but the response is OK, assume sandbox for backward compatibility
+				// No recognized header (e.g. tunnel URL bypassing our proxy)
+				// A 500 means the app is running but erroring (e.g. Expo build error);
+				// only gateway errors (502-504) indicate the sandbox is truly unreachable.
+				if (response.status >= 502 && response.status <= 504) {
+					console.log('Preview not ready (gateway status:', response.status, ')');
+					return null;
+				}
+				
+				if (!response.ok) {
+					// App-level error (e.g. 500) — sandbox is running, show it
+					console.log('Preview available with app error (status:', response.status, ')');
+					return 'sandbox';
+				}
+				
+				// Fallback: response is OK but no header present
 				console.log('Preview available (type unknown, assuming sandbox)');
 				return 'sandbox';
 			} catch (error) {
+				// Tunnel URLs (e.g. trycloudflare.com) don't return CORS headers,
+				// so the fetch fails with a TypeError. The server is still reachable
+				// — treat it as available so the iframe can load it directly.
+				try {
+					const hostname = new URL(url).hostname;
+					if (hostname.endsWith('.trycloudflare.com')) {
+						console.log('Preview assumed available (tunnel URL, CORS blocked)');
+						return 'sandbox';
+					}
+				} catch { /* invalid URL, fall through */ }
 				console.log('Preview not available yet:', error);
 				return null;
 			}

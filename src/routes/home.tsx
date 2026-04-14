@@ -34,7 +34,9 @@ export default function Home() {
 					? 'Slides'
 					: def.id === 'general'
 						? 'General'
-						: 'App',
+						: def.id === 'mobile'
+							? 'Mobile'
+							: 'App',
 			description: def.description,
 		}));
 	}, [capabilities, getEnabledFeatures, isLoadingCapabilities]);
