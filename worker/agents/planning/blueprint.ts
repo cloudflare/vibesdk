@@ -320,6 +320,13 @@ const PROJECT_TYPE_BLUEPRINT_GUIDANCE: Record<ProjectType, string> = {
 - If the outcome is documentation/specs/notes, prefer Markdown/MDX and do not assume any runtime.
 - If a slide deck is helpful, outline the deck structure and content. Avoid assuming a specific file layout; keep the plan flexible.
 - Keep dependencies minimal; introduce runtime only when clearly needed.`,
+    mobile: `## Mobile App Context
+- Build a native mobile app using Expo and React Native with file-based routing (Expo Router)
+- Use only React Native components (View, Text, Pressable, ScrollView, FlatList, etc.) — no HTML elements
+- Style with NativeWind (Tailwind CSS for React Native) using className props
+- Do not install new packages; only use dependencies already in package.json
+- Do not modify app.json, babel.config.js, metro.config.js, or package.json
+- Use @/ path alias for imports from src/ directory`,
 };
 
 const getProjectTypeGuidance = (projectType: ProjectType): string =>
