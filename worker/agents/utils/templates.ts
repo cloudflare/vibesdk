@@ -37,7 +37,6 @@ const emitLog = (level: "info" | "warn" | "error", rawMessage: string) => {
   }
 };
 
-// 3. Create the custom logger for Vite
 const customLogger = {
   warnOnce: (msg: string) => emitLog("warn", msg),
 
@@ -97,33 +96,74 @@ export default ({ mode }: { mode: string }) => {
 
 `;
 
+const SCRATCH_PACKAGE_JSON = `{
+  "name": "scratch-project",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 0.0.0.0 --port \${PORT:-8001}",
+    "build": "vite build",
+    "lint": "eslint --cache -f json --quiet .",
+    "preview": "bun run build && vite preview --host 0.0.0.0 --port \${PORT:-8001}",
+    "deploy": "bun run build && wrangler deploy",
+    "cf-typegen": "wrangler types"
+  },
+  "dependencies": {
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "hono": "^4.8.5",
+    "lucide-react": "^0.525.0",
+    "pino": "^9.11.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-router-dom": "6.30.0",
+    "tailwind-merge": "^3.3.1",
+    "tailwindcss-animate": "^1.0.7"
+  },
+  "devDependencies": {
+    "@cloudflare/vite-plugin": "^1.9.4",
+    "@cloudflare/workers-types": "^4.20250807.0",
+    "@types/node": "^22.15.3",
+    "@types/react": "^18.3.1",
+    "@types/react-dom": "^18.3.1",
+    "@vitejs/plugin-react": "^4.3.4",
+    "autoprefixer": "^10.4.21",
+    "postcss": "^8.5.3",
+    "tailwindcss": "^3.4.17",
+    "typescript": "5.8",
+    "vite": "^6.3.1"
+  }
+}
+`;
+
+const SCRATCH_WRANGLER_JSONC = `{
+  "name": "scratch-project",
+  "main": "worker/index.ts",
+  "compatibility_date": "2025-04-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "assets": {
+    "directory": "dist",
+    "not_found_handling": "single-page-application",
+    "run_worker_first": true,
+    "binding": "ASSETS"
+  },
+  "observability": {
+    "enabled": true
+  }
+}
+`;
+
 const SCRATCH_TEMPLATE_INSTRUCTIONS = `
 To build a valid, previewable and deployable project, it is essential to follow few important rules:
 
-1. The package.json **MUST** be of the following form: 
-\`\`\`
-...
-	"scripts": {
-		"dev": "vite --host 0.0.0.0 --port \${PORT:-8001}",
-		"build": "vite build",
-		"lint": "eslint --cache -f json --quiet .",
-		"preview": "bun run build && vite preview --host 0.0.0.0 --port \${PORT:-8001}",
-		"deploy": "bun run build && wrangler deploy",
-		"cf-typegen": "wrangler types"
-	}
-...
-\`\`\`
-
-Failure to have a compatible package.json would result in the app un-previewable and un-deployable.
+1. A baseline \`package.json\` is already provided with required scripts and core dependencies. You may modify it to add additional dependencies your code needs.
 
 2. The project **MUST** be a valid Cloudflare worker/durable object + Vite + bun project. 
 
-3. It must have a valid wrangler.jsonc and a vite.config.ts file.
+3. A \`wrangler.jsonc\` is already provided and **MUST NOT be modified**. It is preconfigured for the deployment environment.
 
-4. The vite config file MUST have the following minimal config:
-\`\`\`ts
-${VITE_CONFIG_MINIMAL}
-\`\`\`
+4. A \`vite.config.ts\` is already provided. **DO NOT modify it** unless absolutely necessary.
 `;
 
 /**
@@ -135,13 +175,17 @@ export function createScratchTemplateDetails(): TemplateDetails {
         name: 'scratch',
         description: { selection: 'from-scratch baseline', usage: `No template. Agent will scaffold as needed. **IT IS RECOMMENDED THAT YOU CHOOSE A VALID PRECONFIGURED TEMPLATE IF POSSIBLE** ${SCRATCH_TEMPLATE_INSTRUCTIONS}` },
         fileTree: { path: '/', type: 'directory', children: [] },
-        allFiles: {},
+        allFiles: {
+            'package.json': SCRATCH_PACKAGE_JSON,
+            'vite.config.ts': VITE_CONFIG_MINIMAL,
+            'wrangler.jsonc': SCRATCH_WRANGLER_JSONC,
+        },
         language: 'typescript',
         deps: {},
         projectType: 'general',
         frameworks: [],
         importantFiles: [],
-        dontTouchFiles: [],
+        dontTouchFiles: ['wrangler.jsonc'],
         redactedFiles: [],
         disabled: false,
     };

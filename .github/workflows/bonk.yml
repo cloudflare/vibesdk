@@ -1,0 +1,21 @@
+# Required by Bonk's setup check — the backend verifies that a file at
+# exactly this path (.github/workflows/bonk.yml) exists on the default
+# branch before any Bonk workflow can run.
+# See: https://github.com/ask-bonk/ask-bonk/blob/main/src/workflow.ts
+#
+# This is a no-op placeholder. The actual review logic lives in
+# ai-pr-review.yml. If the team later wants interactive /bonk mentions,
+# replace this with a real comment-triggered workflow.
+name: Bonk
+
+on:
+  workflow_dispatch: {}
+
+permissions: {}
+
+jobs:
+  placeholder:
+    if: false
+    runs-on: ubuntu-latest
+    steps:
+      - run: 'true'

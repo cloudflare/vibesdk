@@ -16,6 +16,7 @@ import { getSandboxService } from '../../../services/sandbox/factory';
 import { validateAndCleanBootstrapCommands } from 'worker/agents/utils/common';
 import { DeploymentTarget } from '../../core/types';
 import { BaseProjectState } from '../../core/state';
+import { resolvePreviewUrl } from '../../../utils/urls';
 
 const PER_ATTEMPT_TIMEOUT_MS = 60000;  // 60 seconds per individual attempt
 const MASTER_DEPLOYMENT_TIMEOUT_MS = 300000;  // 5 minutes total
@@ -542,7 +543,7 @@ export class DeploymentManager extends BaseAgentService<BaseProjectState> implem
 
         return {
             sandboxInstanceId: results.runId,
-            previewURL: results.previewURL,
+            previewURL: resolvePreviewUrl(results.previewURL, results.tunnelURL, this.env),
             tunnelURL: results.tunnelURL,
             redeployed: true
         };
