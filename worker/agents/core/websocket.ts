@@ -2,20 +2,34 @@ import { Connection } from 'agents';
 import { createLogger } from '../../logger';
 import { WebSocketMessageRequests, WebSocketMessageResponses } from '../constants';
 import { WebSocketMessage, WebSocketMessageData, WebSocketMessageType } from '../../api/websocketTypes';
-import { MAX_IMAGES_PER_MESSAGE, MAX_IMAGE_SIZE_BYTES } from '../../types/image-attachment';
-// import { credentialsToRuntimeOverrides, type CredentialsPayload } from '../inferutils/config.types';
+import { MAX_IMAGES_PER_MESSAGE, MAX_IMAGE_SIZE_BYTES, type ImageAttachment } from '../../types/image-attachment';
+import { type CredentialsPayload } from '../inferutils/config.types';
+import { checkUsageAndBalance } from '../../services/rate-limit';
 import type { CodeGeneratorAgent } from './codingAgent';
+
+// Type for incoming WebSocket messages
+interface IncomingWebSocketMessage {
+    type: string;
+    message?: string;
+    images?: ImageAttachment[];
+    credentials?: CredentialsPayload;
+    data?: {
+        url?: string;
+        viewport?: unknown;
+        [key: string]: unknown;
+    };
+}
 
 const logger = createLogger('CodeGeneratorWebSocket');
 
-export function handleWebSocketMessage(
+export async function handleWebSocketMessage(
     agent: CodeGeneratorAgent, 
     connection: Connection, 
     message: string
-): void {
+): Promise<void> {
     try {
         logger.info(`Received WebSocket message from ${connection.id}: ${message}`);
-        const parsedMessage = JSON.parse(message);
+        const parsedMessage = JSON.parse(message) as IncomingWebSocketMessage;
 
         switch (parsedMessage.type) {
             case WebSocketMessageRequests.SESSION_INIT: {
@@ -77,7 +91,11 @@ export function handleWebSocketMessage(
                 });
                 break;
             case WebSocketMessageRequests.CAPTURE_SCREENSHOT:
-                agent.getBehavior().captureScreenshot(parsedMessage.data.url, parsedMessage.data.viewport).then((screenshotResult) => {
+                if (!parsedMessage.data?.url) {
+                    sendError(connection, 'Missing url for screenshot capture');
+                    return;
+                }
+                agent.getBehavior().captureScreenshot(parsedMessage.data.url, parsedMessage.data.viewport as { width: number; height: number } | undefined).then((screenshotResult) => {
                     if (!screenshotResult) {
                         logger.error('Failed to capture screenshot');
                         return;
@@ -158,11 +176,58 @@ export function handleWebSocketMessage(
                     
                     // Validate each image size
                     for (const image of parsedMessage.images) {
-                        if (image.size > MAX_IMAGE_SIZE_BYTES) {
+                        if (image.size && image.size > MAX_IMAGE_SIZE_BYTES) {
                             sendError(connection, `Image "${image.filename}" exceeds maximum size of ${MAX_IMAGE_SIZE_BYTES / (1024 * 1024)}MB`);
                             return;
                         }
                     }
+                }
+                
+                // Check usage limits before processing user suggestion
+                try {
+                    const env = agent.env;
+                    const userId = agent.state.metadata.userId;
+
+                    // The encrypted blob was captured from the HttpOnly cookie at WS
+                    // upgrade time (see codingAgent.onConnect) and stored in DO state.
+                    // WS frames do not carry cookies, so we rely on that snapshot.
+                    const userToken = agent.state.cloudflareToken || null;
+
+                    // Check limits and balance (this may transparently refresh the token).
+                    const limitResult = await checkUsageAndBalance(env, userId, undefined, userToken);
+
+                    // If a refresh occurred, keep the DO-cached blob fresh so subsequent
+                    // user_suggestion messages pick up the new access token.
+                    if (limitResult.refreshedBlob) {
+                        agent.setState({ ...agent.state, cloudflareToken: limitResult.refreshedBlob });
+                    }
+
+                    if (!limitResult.allowed) {
+                        logger.warn('User suggestion blocked by usage check', {
+                            userId,
+                            reason: limitResult.reason,
+                            withinLimits: limitResult.withinLimits,
+                            remaining: limitResult.remaining,
+                            hasUserToken: limitResult.hasUserToken,
+                            balance: limitResult.balance,
+                        });
+                        
+                        // Send structured error for frontend to show as popup
+                        sendToConnection(connection, WebSocketMessageResponses.ERROR, {
+                            error: limitResult.reason,
+                            code: 'USAGE_LIMIT_EXCEEDED',
+                            showAsPopup: true,
+                        });
+                        return;
+                    }
+                    
+                } catch (error) {
+                    logger.error('Failed to check usage:', error);
+                    sendToConnection(connection, WebSocketMessageResponses.ERROR, {
+                        error: `Error processing request: ${error instanceof Error ? error.message : String(error)}`,
+                        showAsPopup: true,
+                    });
+                    return;
                 }
                 
                 agent.handleUserInput(parsedMessage.message, parsedMessage.images).catch((error: unknown) => {

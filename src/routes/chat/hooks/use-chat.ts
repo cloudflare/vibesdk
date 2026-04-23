@@ -23,11 +23,12 @@ import { logger } from '@/utils/logger';
 import { mergeFiles } from '@/utils/file-helpers';
 import { apiClient } from '@/lib/api-client';
 import { appEvents } from '@/lib/app-events';
-import { createWebSocketMessageHandler, type HandleMessageDeps } from '../utils/handle-websocket-message';
+import { createWebSocketMessageHandler, type HandleMessageDeps, type BackendErrorDialogState } from '../utils/handle-websocket-message';
 import { isConversationalMessage, addOrUpdateMessage, createUserMessage, handleRateLimitError, createAIMessage, type ChatMessage } from '../utils/message-helpers';
 import { sendWebSocketMessage } from '../utils/websocket-helpers';
 import { initialStages as defaultStages, updateStage as updateStageHelper } from '../utils/project-stage-helpers';
 import type { ProjectStage } from '../utils/project-stage-helpers';
+import { useLimitsContext } from '@/contexts/limits-context';
 
 export type Edit = Omit<CodeFixEdits, 'type'>;
 
@@ -107,6 +108,9 @@ export function useChat({
 
 	const [projectStages, setProjectStages] = useState<ProjectStage[]>(defaultStages);
 
+	// Get refetch function from limits context for usage updates
+	const { refetch: refetchLimits } = useLimitsContext();
+
 	// New state for phase timeline tracking
 	const [phaseTimeline, setPhaseTimeline] = useState<PhaseTimelineItem[]>([]);
 
@@ -142,6 +146,11 @@ export function useChat({
 	
 	// Preview refresh state - triggers preview reload after deployment
 	const [shouldRefreshPreview, setShouldRefreshPreview] = useState(false);
+	
+	// Backend error dialog state - for showing limit errors with CTAs
+	const [backendErrorDialog, setBackendErrorDialog] = useState<BackendErrorDialogState>({
+		isOpen: false
+	});
 	
 	// Track whether we've completed initial state restoration to avoid disrupting active sessions
 	const [isInitialStateRestored, setIsInitialStateRestored] = useState(false);
@@ -221,6 +230,7 @@ export function useChat({
 			setBehaviorType,
 			setInternalProjectType,
 			setTemplateDetails,
+			setBackendErrorDialog,
 			// Current state
 			isInitialStateRestored,
 			blueprint,
@@ -237,6 +247,7 @@ export function useChat({
 			updateStage,
 			sendMessage,
 			loadBootstrapFiles,
+			refetchLimits,
 			onDebugMessage,
 			onTerminalMessage,
 			onVaultUnlockRequired,
@@ -261,6 +272,7 @@ export function useChat({
 			updateStage,
 			sendMessage,
 			loadBootstrapFiles,
+			refetchLimits,
 			onDebugMessage,
 			onTerminalMessage,
 			onVaultUnlockRequired,
@@ -270,7 +282,7 @@ export function useChat({
 
 	// WebSocket connection with retry logic
 	const connectWithRetry = useCallback(
-		(
+		async (
 			wsUrl: string,
 			{ disableGenerate = false, isRetry = false }: { disableGenerate?: boolean; isRetry?: boolean } = {},
 		) => {
@@ -679,15 +691,15 @@ export function useChat({
 	const handleDeployToCloudflare = useCallback(async (instanceId: string) => {
 		try {
 			// Send deployment command via WebSocket instead of HTTP request
-			if (sendWebSocketMessage(websocket, 'deploy', { instanceId })) {
-				logger.debug('Deployment WebSocket message sent:', instanceId);
+			if (await sendWebSocketMessage(websocket, 'deploy', { instanceId })) {
+				logger.debug('🚀 Deployment WebSocket message sent:', instanceId);
 
 				// Clear any existing deployment timeout
 				if (deploymentTimeoutRef.current) {
 					clearTimeout(deploymentTimeoutRef.current);
 					deploymentTimeoutRef.current = null;
 				}
-
+				
 				// Set 1-minute timeout for deployment
 				deploymentTimeoutRef.current = setTimeout(() => {
 					if (isDeploying) {
@@ -775,5 +787,8 @@ export function useChat({
 		projectType: internalProjectType,
 		templateDetails,
 		allFiles,
+		// Backend error dialog state
+		backendErrorDialog,
+		setBackendErrorDialog,
 	};
 }

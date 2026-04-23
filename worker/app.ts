@@ -24,6 +24,13 @@ export function createApp(env: Env): Hono<AppEnv> {
         if (upgradeHeader?.toLowerCase() === 'websocket') {
             return next();
         }
+
+        // Skip secure headers for OAuth redirect endpoints to avoid
+        // immutable header errors on redirect responses.
+        const pathname = new URL(c.req.url).pathname;
+        if (pathname.startsWith('/oauth/') || pathname === '/auth/callback') {
+            return next();
+        }
         // Apply secure headers
         return secureHeaders(getSecureHeadersConfig(env))(c, next);
     });
@@ -42,12 +49,14 @@ export function createApp(env: Env): Hono<AppEnv> {
         }
         
         try {
+            console.log('CSRF middleware', method);
             // Handle GET requests - establish CSRF token if needed
             if (method === 'GET' || method === 'HEAD' || method === 'OPTIONS') {
                 await next();
                 
                 // Only set CSRF token for successful API responses
                 if (c.req.url.startsWith('/api/') && c.res.status < 400) {
+                    console.log('CSRF middleware set', method);
                     await CsrfService.enforce(c.req.raw, c.res);
                 }
                 
@@ -56,8 +65,10 @@ export function createApp(env: Env): Hono<AppEnv> {
             
             // Validate CSRF token for state-changing requests
             await CsrfService.enforce(c.req.raw, undefined);
+            console.log('CSRF middleware exit', method);
             await next();
         } catch (error) {
+            console.log('CSRF middleware error', error);
             if (error instanceof SecurityError && error.type === SecurityErrorType.CSRF_VIOLATION) {
                 return new Response(JSON.stringify({ 
                     error: { 
@@ -90,8 +101,15 @@ export function createApp(env: Env): Hono<AppEnv> {
     setupRoutes(app);
 
     // Add not found route to redirect to ASSETS
-    app.notFound((c) => {
-        return c.env.ASSETS.fetch(c.req.raw);
+    // Wrap the ASSETS response in a new Response with mutable headers so
+    // downstream middleware (e.g. secureHeaders) can safely modify them.
+    app.notFound(async (c) => {
+        const res = await c.env.ASSETS.fetch(c.req.raw);
+        return new Response(res.body, {
+            status: res.status,
+            statusText: res.statusText,
+            headers: new Headers(res.headers),
+        });
     });
     return app;
 }

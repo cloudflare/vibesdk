@@ -17,8 +17,10 @@ import { CompletionSignal, Message, MessageContent, MessageRole } from './common
 import { ToolCallResult, ToolDefinition, toOpenAITool } from '../tools/types';
 import { AgentActionKey, AI_MODEL_CONFIG, AIModelConfig, AIModels, InferenceMetadata, type InferenceRuntimeOverrides } from './config.types';
 import { RateLimitService } from '../../services/rate-limit/rateLimits';
+import { hasCloudflareConfigured } from '../../services/rate-limit/usageChecker';
 import { getUserConfigurableSettings } from '../../config';
 import { SecurityError, RateLimitExceededError } from 'shared/types/errors';
+import { getAccessTokenFromBlob } from '../../utils/tokenEncryption';
 import { RateLimitType } from 'worker/services/rate-limit/config';
 import { getMaxToolCallingDepth, MAX_LLM_MESSAGES } from '../constants';
 import { executeToolCallsWithDependencies } from './toolExecution';
@@ -197,10 +199,18 @@ function constructGatewayUrl(url: URL, providerOverride?: AIGatewayProviders): s
 }
 
 export async function buildGatewayUrl(
-	env: Env,
-	providerOverride?: AIGatewayProviders,
-	gatewayOverride?: { baseUrl: string; token: string },
+    env: Env,
+    providerOverride?: AIGatewayProviders,
+    gatewayOverride?: { baseUrl: string; token: string },
+    userGateway?: { accountId: string; gatewaySlug: string } | null,
 ): Promise<string> {
+    // If user has their own gateway configured (BYOK mode), use it
+    if (userGateway) {
+        const baseUrl = `https://gateway.ai.cloudflare.com/v1/${userGateway.accountId}/${userGateway.gatewaySlug}`;
+        console.log(`Using user's AI Gateway: ${baseUrl}`);
+        return providerOverride ? `${baseUrl}/${providerOverride}` : `${baseUrl}/compat`;
+    }
+
     // Runtime override (SDK): explicit AI Gateway base URL
     if (gatewayOverride?.baseUrl) {
         const url = new URL(gatewayOverride.baseUrl);
@@ -226,7 +236,7 @@ export async function buildGatewayUrl(
             console.warn(`Invalid CLOUDFLARE_AI_GATEWAY_URL provided: ${env.CLOUDFLARE_AI_GATEWAY_URL}. Falling back to AI bindings.`);
         }
     }
-    
+
     // Build the url via bindings
     const gateway = env.AI.gateway(env.CLOUDFLARE_AI_GATEWAY);
     const baseUrl = providerOverride ? await gateway.getUrl(providerOverride) : `${await gateway.getUrl()}compat`;
@@ -245,17 +255,41 @@ function isValidApiKey(apiKey: string): boolean {
 }
 
 async function getApiKey(
-	provider: string,
-	env: Env,
-	_userId: string,
-	runtimeOverrides?: InferenceRuntimeOverrides,
+    provider: string,
+    env: Env,
+    userId: string,
+    runtimeOverrides?: InferenceRuntimeOverrides,
+    shouldUseUserKey?: boolean,
+    encryptedUserToken?: string | null,
 ): Promise<string> {
     console.log("Getting API key for provider: ", provider);
 
+    // First check runtime overrides (SDK)
     const runtimeKey = runtimeOverrides?.userApiKeys?.[provider];
     if (runtimeKey && isValidApiKey(runtimeKey)) {
         return runtimeKey;
     }
+
+    // Check if we should use user's token (flag set once at request start)
+    if (shouldUseUserKey) {
+        console.log("User exceeded free tier limits, attempting to use user's API token");
+        
+        // Decrypt the encrypted token blob from browser storage
+        // Validates that token belongs to this user (prevents token theft)
+        if (encryptedUserToken) {
+            try {
+                const accessToken = await getAccessTokenFromBlob(encryptedUserToken, env, userId);
+                if (accessToken && isValidApiKey(accessToken)) {
+                    console.log("Using user's decrypted Cloudflare AI Gateway token");
+                    return accessToken;
+                }
+            } catch (error) {
+                console.warn("Failed to decrypt user token:", error);
+            }
+        }
+        console.warn("User exceeded limits but no valid API token found, using free tier anyway");
+    }
+
     // Fallback to environment variables
     const providerKeyString = provider.toUpperCase().replaceAll('-', '_');
     const envKey = `${providerKeyString}_API_KEY` as keyof Env;
@@ -277,14 +311,20 @@ async function getApiKey(
 
 export async function getConfigurationForModel(
     modelConfig: AIModelConfig,
-    env: Env, 
+    env: Env,
     userId: string,
     runtimeOverrides?: InferenceRuntimeOverrides,
+    shouldUseUserKey?: boolean,
+    userApiToken?: string | null,
+    userGateway?: { accountId: string; gatewaySlug: string } | null,
 ): Promise<{
     baseURL: string,
     apiKey: string,
     defaultHeaders?: Record<string, string>,
 }> {
+    // Determine if we're using user's own gateway (BYOK mode)
+    const useUserGateway = shouldUseUserKey && userGateway && userApiToken;
+
     let providerForcedOverride: AIGatewayProviders | undefined;
     if (modelConfig.directOverride) {
         switch(modelConfig.provider) {
@@ -311,17 +351,20 @@ export async function getConfigurationForModel(
 
     const gatewayOverride = runtimeOverrides?.aiGatewayOverride;
     const isUsingCustomGateway = !!gatewayOverride?.baseUrl;
-    const baseURL = await buildGatewayUrl(env, providerForcedOverride, gatewayOverride);
+    
+    // Use user's gateway if in BYOK mode, otherwise use platform gateway or runtime override
+    const baseURL = await buildGatewayUrl(env, providerForcedOverride, gatewayOverride, useUserGateway ? userGateway : null);
 
     const gatewayToken = isUsingCustomGateway
         ? gatewayOverride?.token
         : (gatewayOverride?.token ?? env.CLOUDFLARE_AI_GATEWAY_TOKEN);  // Platform gateway
 
     // Try to find API key of type <PROVIDER>_API_KEY else default to gateway token
-    const apiKey = await getApiKey(modelConfig.provider, env, userId, runtimeOverrides);
+    const apiKey = await getApiKey(modelConfig.provider, env, userId, runtimeOverrides, shouldUseUserKey, userApiToken);
 
-    // AI Gateway wholesaling: when using BYOK provider key + platform gateway token
-    const defaultHeaders = gatewayToken && apiKey !== gatewayToken ? {
+    // AI Gateway Wholesaling checks - only needed when using platform gateway with user's key
+    // When using user's own gateway, no wholesaling header needed
+    const defaultHeaders = !useUserGateway && gatewayToken && apiKey !== gatewayToken ? {
         'cf-aig-authorization': `Bearer ${gatewayToken}`,
     } : undefined;
     return {
@@ -351,6 +394,7 @@ type InferArgsBase = {
     abortSignal?: AbortSignal;
     onAssistantMessage?: (message: Message) => Promise<void>;
     completionConfig?: CompletionConfig;
+    onUsageConsumed?: () => void;
 };
 
 type InferArgsStructured = InferArgsBase & {
@@ -527,6 +571,7 @@ export async function infer<OutputSchema extends z.AnyZodObject>({
     abortSignal,
     onAssistantMessage,
     completionConfig,
+    onUsageConsumed,
 }: InferArgsBase & {
     schema?: OutputSchema;
     schemaName?: string;
@@ -553,8 +598,24 @@ export async function infer<OutputSchema extends z.AnyZodObject>({
     
     try {
         const userConfig = await getUserConfigurableSettings(env, metadata.userId)
-        // Maybe in the future can expand using config object for other stuff like global model configs?
-        await RateLimitService.enforceLLMCallsRateLimit(env, userConfig.security.rateLimit, metadata.userId, modelName)
+        const isUsingBYOK = !!(metadata as any).shouldUseUserKey && !!(metadata as any).userApiToken;
+        const hasCfConnected = await hasCloudflareConfigured(env, metadata.userId);
+
+        // Skip rate limiting for BYOK users (they pay for their own usage)
+        // and for users who have connected Cloudflare (configurable)
+        await RateLimitService.enforceLLMCallsRateLimit(
+            env,
+            userConfig.security.rateLimit,
+            metadata.userId,
+            modelName,
+            "", // suffix
+            isUsingBYOK,
+            hasCfConnected
+        );
+        
+        // Notify that usage was consumed
+        onUsageConsumed?.();
+        
         const modelConfig = AI_MODEL_CONFIG[modelName as AIModels];
 
         const { apiKey, baseURL, defaultHeaders } = await getConfigurationForModel(
@@ -562,6 +623,9 @@ export async function infer<OutputSchema extends z.AnyZodObject>({
             env,
             metadata.userId,
             runtimeOverrides,
+            (metadata as any).shouldUseUserKey, // InferenceContext extends InferenceMetadata
+            (metadata as any).userApiToken, // Browser-stored token for BYOK
+            (metadata as any).userGateway // User's AI Gateway for BYOK
         );
         console.log(`baseUrl: ${baseURL}, modelName: ${modelName}`);
 
@@ -834,6 +898,9 @@ export async function infer<OutputSchema extends z.AnyZodObject>({
             console.warn('No content received from OpenAI', JSON.stringify(response, null, 2));
             return { string: "", toolCallContext };
         }
+
+        // Usage tracking is handled by RateLimitService.enforceLLMCallsRateLimit() via DORateLimitStore
+
         let executedToolCalls: ToolCallResult[] = [];
         if (tools) {
             // console.log(`Tool calls:`, JSON.stringify(toolCalls, null, 2), 'definition:', JSON.stringify(tools, null, 2));

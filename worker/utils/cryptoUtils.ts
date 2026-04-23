@@ -27,6 +27,15 @@ export function base64url(buffer: Uint8Array): string {
         .replace(/=/g, '');
 }
 
+/**
+ * Decode a base64url-encoded string back into bytes.
+ * Accepts inputs with or without padding.
+ */
+export function base64urlDecode(input: string): Uint8Array {
+    const padded = input.replace(/-/g, '+').replace(/_/g, '/') + '==='.slice((input.length + 3) % 4);
+    return Uint8Array.from(atob(padded), (c) => c.charCodeAt(0));
+}
+
 export function generatePortToken(): string {
     const array = new Uint8Array(12); // 12 bytes = 16 base64url chars
     crypto.getRandomValues(array);

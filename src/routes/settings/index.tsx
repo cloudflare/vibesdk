@@ -56,6 +56,8 @@ import { toast } from 'sonner';
 import { apiClient } from '@/lib/api-client';
 import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard';
 // import { SecretsManager } from '@/components/vault';
+// import { ByokApiKeysModal } from '@/components/byok-api-keys-modal';
+import { CloudflareAccountSelector } from '@/components/cloudflare-account-selector';
 
 export default function SettingsPage() {
 	const { user } = useAuth();
@@ -523,6 +525,9 @@ export default function SettingsPage() {
 							)}
 						</CardContent>
 					</Card> */}
+
+					{/* Cloudflare Account & Gateway Selection */}
+					<CloudflareAccountSelector />
 
 					{/* Model Configuration Section */}
 					<Card id="model-configs">

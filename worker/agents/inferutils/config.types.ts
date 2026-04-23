@@ -441,6 +441,13 @@ export interface InferenceContext {
     abortSignal?: AbortSignal;
     userModelConfigs?: Record<AgentActionKey, ModelConfig>;
     runtimeOverrides?: InferenceRuntimeOverrides;
+    shouldUseUserKey?: boolean; // Set once at request start based on limit check
+    userApiToken?: string | null; // Encrypted token blob from X-Cloudflare-Token header (backend decrypts)
+    userGateway?: { // User's AI Gateway for BYOK
+        accountId: string;
+        gatewaySlug: string;
+    } | null;
+    onUsageConsumed?: () => void; // Called after each LLM call consumes credits
 }
 
 /**

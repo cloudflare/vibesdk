@@ -12,6 +12,15 @@ export interface BaseErrorResponse {
     message: string;
     name: string;
     type?: SecurityErrorType;
+    errorType?: string;
+    exceededLimits?: Array<{
+        type: string;
+        window: string;
+        current: number;
+        max: number;
+        percentUsed: number;
+    }>;
+    hasUserToken?: boolean;
 }
 
 export interface RateLimitErrorResponse extends BaseErrorResponse {
@@ -57,6 +66,16 @@ export function errorResponse(error: string | Error | SecurityError, statusCode 
         errorResp = {
             ...errorResp,
             type: error.type,
+        }
+    }
+    // Include usage limit error details if present
+    if (error && typeof error === 'object' && 'errorType' in error) {
+        const errorObj = error as any;
+        errorResp = {
+            ...errorResp,
+            errorType: errorObj.errorType,
+            exceededLimits: errorObj.exceededLimits,
+            hasUserToken: errorObj.hasUserToken,
         }
     }
     const responseBody: BaseApiResponse = {

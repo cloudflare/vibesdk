@@ -341,14 +341,28 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
      */
     protected getInferenceContext(): InferenceContext {
         const controller = this.getOrCreateAbortController();
-        
+
+        // The encrypted Cloudflare OAuth blob is kept fresh on `state.cloudflareToken`
+        // (updated on WS connect and on transparent refresh). Override the stale
+        // snapshot that was tacked onto `state.metadata` at init time so inference
+        // always decrypts the most recent access token.
+        const liveBlob = this.state.cloudflareToken ?? null;
+        const metadata = liveBlob
+            ? { ...this.state.metadata, userApiToken: liveBlob }
+            : this.state.metadata;
+
         return {
-            metadata: this.state.metadata,
+            metadata,
             enableFastSmartCodeFix: false,  // TODO: Do we want to enable it via some config?
             enableRealtimeCodeFix: false,   // TODO: Do we want to enable it via some config?
             abortSignal: controller.signal,
             userModelConfigs: this.getUserModelConfigs(),
             runtimeOverrides: this.getRuntimeOverrides(),
+            onUsageConsumed: () => {
+                this.broadcast(WebSocketMessageResponses.USAGE_UPDATED, {
+                    message: 'Usage data updated',
+                });
+            },
         };
     }
 

@@ -175,8 +175,15 @@ const worker = {
 			if (isGitProtocolRequest(pathname)) {
 				return handleGitProtocolRequest(request, env, ctx);
 			}
-
-			// Serve static assets for all non-API routes from the ASSETS binding.
+			
+			// Cloudflare OAuth connect routes: handle via Hono app even though they are not under /api
+			if (pathname.startsWith('/oauth/') || pathname === '/auth/callback') {
+				logger.info(`Handling Cloudflare OAuth request for: ${url}`);
+				const app = createApp(env);
+				return app.fetch(request, env, ctx);
+			}
+			
+			// Serve static assets for all other non-API routes from the ASSETS binding.
 			if (!pathname.startsWith('/api/')) {
 				return env.ASSETS.fetch(request);
 			}

@@ -132,6 +132,7 @@ export async function getGlobalConfigurableSettings(env: Env): Promise<GlobalCon
 }
 
 export async function getUserConfigurableSettings(env: Env, userId: string): Promise<GlobalConfigurableSettings> {
+    console.log('getUserConfigurableSettings', userId);
     const globalConfig = await getGlobalConfigurableSettings(env);
     if (!userId) {
         return globalConfig;
