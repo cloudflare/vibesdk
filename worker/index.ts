@@ -15,6 +15,8 @@ import { getAgentStub } from './agents';
 export { UserAppSandboxService } from './services/sandbox/sandboxSdkClient';
 export { CodeGeneratorAgent } from './agents/core/codingAgent';
 export { UserSecretsStore } from './services/secrets/UserSecretsStore';
+// Multi-agent subsystem (see docs/redesign/ADR-001-multi-agent.md)
+export { PlannerAgent, CoderAgent, TesterAgent, CriticAgent } from './agents/core/subagents';
 
 // export const CodeGeneratorAgent = Sentry.instrumentDurableObjectWithSentry(sentryOptions, CodeGeneratorAgent);
 // export const DORateLimitStore = Sentry.instrumentDurableObjectWithSentry(sentryOptions, BaseDORateLimitStore);

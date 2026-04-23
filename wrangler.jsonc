@@ -97,6 +97,22 @@
             {
                 "class_name": "UserSecretsStore",
                 "name": "UserSecretsStore"
+            },
+            {
+                "class_name": "PlannerAgent",
+                "name": "PlannerAgent"
+            },
+            {
+                "class_name": "CoderAgent",
+                "name": "CoderAgent"
+            },
+            {
+                "class_name": "TesterAgent",
+                "name": "TesterAgent"
+            },
+            {
+                "class_name": "CriticAgent",
+                "name": "CriticAgent"
             }
 		]
 	},
@@ -136,6 +152,15 @@
                 "UserSecretsStore"
             ],
             "tag": "v3"
+        },
+        {
+            "new_sqlite_classes": [
+                "PlannerAgent",
+                "CoderAgent",
+                "TesterAgent",
+                "CriticAgent"
+            ],
+            "tag": "v4"
         }
 	],
 	"routes": [

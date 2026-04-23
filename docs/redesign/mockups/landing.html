@@ -1,0 +1,411 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>VibeSDK — Describe it. Deploy it.</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --ink:#0A0B0F; --surface:#14161C; --surface-2:#1C1F27; --surface-3:#242832;
+  --border:#262A34; --border-hi:#3A3F4C;
+  --orange:#F38020; --orange-hot:#FF8A2E;
+  --indigo:#6366F1; --teal:#14B8A6; --success:#10B981; --error:#EF4444;
+  --text:#F5F6F8; --text-2:#A1A6B2; --text-3:#6B7280;
+  --mono:'JetBrains Mono', ui-monospace, monospace;
+  --sans:'Inter', system-ui, sans-serif;
+  --ease:cubic-bezier(.22,.61,.36,1);
+}
+* { box-sizing:border-box; margin:0; padding:0; }
+html, body { background:var(--ink); color:var(--text); font-family:var(--sans); font-feature-settings:"cv11","ss01"; -webkit-font-smoothing:antialiased; }
+a { color:inherit; text-decoration:none; }
+button { font:inherit; background:none; border:0; color:inherit; cursor:pointer; }
+
+/* ── NAV ──────────────────────────────────────────── */
+.nav { position:fixed; top:0; left:0; right:0; height:64px; z-index:100;
+  display:flex; align-items:center; padding:0 32px; gap:40px;
+  background:rgba(10,11,15,.6); backdrop-filter:blur(12px); border-bottom:1px solid transparent;
+  transition:border-color .2s var(--ease); }
+.nav.scrolled { border-bottom-color:var(--border); }
+.logo { font-weight:700; font-size:17px; letter-spacing:-.01em; display:flex; align-items:center; gap:8px; }
+.logo-dot { width:22px; height:22px; border-radius:6px; background:linear-gradient(135deg,var(--orange) 0%,var(--orange-hot) 100%);
+  box-shadow:0 0 0 1px rgba(255,255,255,.08), 0 4px 12px rgba(243,128,32,.35); }
+.nav-links { display:flex; gap:28px; font-size:14px; color:var(--text-2); }
+.nav-links a:hover { color:var(--text); }
+.nav-right { margin-left:auto; display:flex; gap:12px; align-items:center; }
+.btn { padding:9px 16px; border-radius:10px; font-size:14px; font-weight:500; display:inline-flex; align-items:center; gap:6px;
+  transition:transform .15s var(--ease), background .2s, box-shadow .2s; }
+.btn:hover { transform:translateY(-1px); }
+.btn-ghost { color:var(--text-2); }
+.btn-ghost:hover { color:var(--text); background:var(--surface); }
+.btn-primary { background:var(--orange); color:#0A0B0F; font-weight:600;
+  box-shadow:0 0 0 1px rgba(255,255,255,.06) inset, 0 6px 20px rgba(243,128,32,.25); }
+.btn-primary:hover { background:var(--orange-hot); box-shadow:0 0 0 1px rgba(255,255,255,.08) inset, 0 8px 28px rgba(243,128,32,.4); }
+.btn-lg { padding:13px 22px; font-size:15px; border-radius:12px; }
+
+/* ── HERO ─────────────────────────────────────────── */
+.hero { padding:160px 24px 96px; text-align:center; position:relative; overflow:hidden; }
+.aurora { position:absolute; inset:-20% -10% auto -10%; height:780px; z-index:-1; pointer-events:none; filter:blur(80px); opacity:.7; }
+.aurora::before, .aurora::after { content:""; position:absolute; border-radius:50%; }
+.aurora::before { width:520px; height:520px; background:radial-gradient(circle,var(--orange) 0%,transparent 70%); left:20%; top:0; animation:drift 22s ease-in-out infinite; }
+.aurora::after  { width:620px; height:620px; background:radial-gradient(circle,var(--indigo) 0%,transparent 70%); right:15%; top:10%; animation:drift 26s ease-in-out infinite reverse; }
+@keyframes drift { 0%,100% { transform:translate(0,0); } 50% { transform:translate(60px,-40px); } }
+@media (prefers-reduced-motion:reduce) { .aurora::before, .aurora::after { animation:none; } }
+.pill { display:inline-flex; align-items:center; gap:8px; padding:6px 12px; border-radius:999px;
+  background:var(--surface); border:1px solid var(--border); font-size:13px; color:var(--text-2); margin-bottom:28px; }
+.pill-dot { width:6px; height:6px; border-radius:50%; background:var(--success); box-shadow:0 0 0 3px rgba(16,185,129,.2); }
+h1.headline { font-size:clamp(44px,7vw,84px); font-weight:700; letter-spacing:-.03em; line-height:1.02; max-width:980px; margin:0 auto 24px; }
+h1.headline .grad { background:linear-gradient(120deg,var(--orange) 0%,var(--orange-hot) 50%,var(--indigo) 100%); -webkit-background-clip:text; background-clip:text; color:transparent; }
+.subhead { font-size:clamp(17px,1.6vw,21px); color:var(--text-2); max-width:640px; margin:0 auto 40px; line-height:1.5; }
+.hero-cta { display:flex; gap:12px; justify-content:center; margin-bottom:20px; flex-wrap:wrap; }
+.hero-sub { font-size:13px; color:var(--text-3); }
+.hero-sub span { margin:0 10px; opacity:.5; }
+
+/* ── DEMO CARD ────────────────────────────────────── */
+.demo { max-width:1040px; margin:60px auto 0; padding:0 24px; }
+.demo-card { background:var(--surface); border:1px solid var(--border); border-radius:20px; overflow:hidden;
+  box-shadow:0 1px 0 rgba(255,255,255,.04) inset, 0 30px 80px rgba(0,0,0,.5); }
+.demo-head { display:flex; align-items:center; gap:8px; padding:12px 16px; border-bottom:1px solid var(--border); background:var(--surface-2); }
+.demo-dots { display:flex; gap:6px; }
+.demo-dots span { width:11px; height:11px; border-radius:50%; background:var(--border-hi); }
+.demo-dots span:first-child { background:#FF5F57; } .demo-dots span:nth-child(2) { background:#FEBC2E; } .demo-dots span:nth-child(3) { background:#28C840; }
+.demo-url { font-family:var(--mono); font-size:12px; color:var(--text-3); margin-left:auto; margin-right:auto; padding:5px 12px; background:var(--ink); border-radius:6px; border:1px solid var(--border); }
+.demo-body { display:grid; grid-template-columns:1fr 1.2fr; min-height:420px; }
+.demo-left { padding:24px; border-right:1px solid var(--border); display:flex; flex-direction:column; gap:16px; }
+.demo-prompt { background:var(--ink); border:1px solid var(--border); border-radius:12px; padding:14px; font-family:var(--mono); font-size:13px; color:var(--text-2); line-height:1.6; }
+.demo-prompt .cursor { display:inline-block; width:2px; height:14px; background:var(--orange); vertical-align:middle; margin-left:2px; animation:blink 1s steps(2) infinite; }
+@keyframes blink { 50% { opacity:0; } }
+.demo-plan { display:flex; flex-direction:column; gap:8px; }
+.plan-title { font-size:11px; color:var(--text-3); text-transform:uppercase; letter-spacing:.08em; font-weight:500; }
+.plan-node { display:flex; align-items:center; gap:10px; padding:8px 10px; background:var(--surface-2); border:1px solid var(--border); border-radius:8px; font-size:13px; }
+.plan-icon { width:16px; height:16px; border-radius:50%; flex-shrink:0; display:flex; align-items:center; justify-content:center; font-size:10px; }
+.plan-icon.done { background:rgba(16,185,129,.15); color:var(--success); }
+.plan-icon.run { background:rgba(243,128,32,.15); color:var(--orange); }
+.plan-icon.run::after { content:""; width:8px; height:8px; border:2px solid var(--orange); border-top-color:transparent; border-radius:50%; animation:spin .8s linear infinite; }
+.plan-icon.pending { background:var(--surface-3); color:var(--text-3); }
+@keyframes spin { to { transform:rotate(360deg); } }
+.demo-right { background:#FFF; position:relative; display:flex; align-items:center; justify-content:center; }
+.demo-preview { display:flex; flex-direction:column; align-items:center; gap:16px; color:#0A0B0F; padding:40px; }
+.preview-logo { width:48px; height:48px; border-radius:12px; background:linear-gradient(135deg,#6366F1,#14B8A6); }
+.preview-title { font-size:22px; font-weight:700; }
+.preview-sub { font-size:14px; color:#6B7280; }
+.preview-form { display:flex; gap:8px; margin-top:12px; width:280px; }
+.preview-form input { flex:1; padding:10px 12px; border:1px solid #E5E7EB; border-radius:8px; font:inherit; font-size:13px; }
+.preview-form button { padding:10px 16px; background:#6366F1; color:#FFF; border-radius:8px; font-size:13px; font-weight:600; }
+
+/* ── AGENTS STRIP ─────────────────────────────────── */
+.agents-strip { display:flex; gap:8px; padding:12px 20px; background:var(--ink); border-top:1px solid var(--border); overflow-x:auto; }
+.chip { display:flex; align-items:center; gap:8px; padding:6px 12px; background:var(--surface-2); border:1px solid var(--border); border-radius:999px; font-size:12px; white-space:nowrap; }
+.chip-icon { width:14px; height:14px; border-radius:50%; display:inline-flex; align-items:center; justify-content:center; font-size:9px; }
+.chip .done { background:var(--success); }
+.chip .run  { background:var(--orange); animation:pulse 1.2s ease-in-out infinite; }
+.chip .queue { background:var(--border-hi); }
+@keyframes pulse { 0%,100% { box-shadow:0 0 0 0 rgba(243,128,32,.5); } 50% { box-shadow:0 0 0 6px rgba(243,128,32,0); } }
+.chip-time { color:var(--text-3); font-family:var(--mono); font-size:11px; }
+
+/* ── LOGO CLOUD ───────────────────────────────────── */
+.logos { padding:80px 24px; text-align:center; }
+.logos-label { font-size:12px; color:var(--text-3); text-transform:uppercase; letter-spacing:.12em; margin-bottom:32px; }
+.logos-row { display:flex; gap:48px; justify-content:center; align-items:center; flex-wrap:wrap; opacity:.55; }
+.logos-row span { font-size:20px; font-weight:600; color:var(--text-2); letter-spacing:-.02em; }
+
+/* ── SECTION ──────────────────────────────────────── */
+.section { padding:96px 24px; }
+.container { max-width:1160px; margin:0 auto; }
+.eyebrow { font-size:13px; color:var(--orange); font-weight:500; text-transform:uppercase; letter-spacing:.08em; text-align:center; margin-bottom:16px; }
+.section h2 { font-size:clamp(32px,4.5vw,52px); font-weight:700; letter-spacing:-.02em; text-align:center; margin-bottom:16px; line-height:1.05; }
+.section .lead { font-size:18px; color:var(--text-2); text-align:center; max-width:620px; margin:0 auto 56px; line-height:1.55; }
+
+/* ── HOW ──────────────────────────────────────────── */
+.steps { display:grid; grid-template-columns:repeat(3,1fr); gap:20px; }
+.step { background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:32px 28px; transition:border-color .2s; }
+.step:hover { border-color:var(--border-hi); }
+.step-num { font-family:var(--mono); font-size:13px; color:var(--orange); margin-bottom:16px; }
+.step h3 { font-size:20px; font-weight:600; margin-bottom:10px; letter-spacing:-.01em; }
+.step p { color:var(--text-2); font-size:15px; line-height:1.55; }
+
+/* ── FEATURES ─────────────────────────────────────── */
+.features { display:grid; grid-template-columns:repeat(3,1fr); gap:20px; }
+.feature { background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:28px; position:relative; overflow:hidden; }
+.feature::before { content:""; position:absolute; top:0; left:0; right:0; height:1px; background:linear-gradient(90deg,transparent,var(--border-hi),transparent); opacity:0; transition:opacity .3s; }
+.feature:hover::before { opacity:1; }
+.feature-icon { width:40px; height:40px; border-radius:10px; background:var(--surface-2); border:1px solid var(--border); display:flex; align-items:center; justify-content:center; margin-bottom:16px; font-size:18px; }
+.feature h3 { font-size:17px; font-weight:600; margin-bottom:8px; letter-spacing:-.005em; }
+.feature p { color:var(--text-2); font-size:14px; line-height:1.55; }
+
+/* ── PRICING ──────────────────────────────────────── */
+.pricing { display:grid; grid-template-columns:repeat(4,1fr); gap:16px; }
+.price-card { background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:28px 24px; display:flex; flex-direction:column; position:relative; }
+.price-card.featured { border-color:var(--orange); box-shadow:0 0 0 1px var(--orange), 0 20px 60px rgba(243,128,32,.15); }
+.price-badge { position:absolute; top:-10px; left:50%; transform:translateX(-50%); background:var(--orange); color:#0A0B0F; font-size:11px; font-weight:600; padding:4px 10px; border-radius:999px; letter-spacing:.04em; text-transform:uppercase; }
+.price-name { font-size:14px; color:var(--text-2); margin-bottom:8px; font-weight:500; }
+.price-amount { display:flex; align-items:baseline; gap:4px; margin-bottom:4px; }
+.price-amount .num { font-size:42px; font-weight:700; letter-spacing:-.03em; }
+.price-amount .per { color:var(--text-3); font-size:14px; }
+.price-desc { color:var(--text-2); font-size:13px; margin-bottom:20px; min-height:36px; }
+.price-cta { width:100%; padding:11px; border-radius:10px; font-size:14px; font-weight:600; margin-bottom:24px; transition:all .15s var(--ease); }
+.price-cta.primary { background:var(--orange); color:#0A0B0F; }
+.price-cta.primary:hover { background:var(--orange-hot); }
+.price-cta.secondary { background:var(--surface-2); border:1px solid var(--border); color:var(--text); }
+.price-cta.secondary:hover { background:var(--surface-3); }
+.price-feats { list-style:none; display:flex; flex-direction:column; gap:10px; font-size:13px; color:var(--text-2); }
+.price-feats li { display:flex; gap:8px; align-items:flex-start; line-height:1.4; }
+.price-feats li::before { content:"✓"; color:var(--success); flex-shrink:0; font-weight:700; margin-top:1px; }
+
+/* ── FAQ ──────────────────────────────────────────── */
+.faq { max-width:720px; margin:0 auto; display:flex; flex-direction:column; gap:8px; }
+.faq-item { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:20px 22px; }
+.faq-q { display:flex; justify-content:space-between; align-items:center; font-size:16px; font-weight:500; cursor:pointer; }
+.faq-q::after { content:"+"; color:var(--text-3); font-size:20px; transition:transform .2s; }
+details[open] .faq-q::after { transform:rotate(45deg); }
+.faq-a { margin-top:12px; color:var(--text-2); font-size:14px; line-height:1.6; }
+
+/* ── FINAL CTA ────────────────────────────────────── */
+.cta-band { padding:80px 24px; text-align:center; background:radial-gradient(ellipse at center,rgba(243,128,32,.08) 0%,transparent 60%); border-top:1px solid var(--border); }
+.cta-band h2 { font-size:clamp(32px,4vw,44px); font-weight:700; letter-spacing:-.02em; margin-bottom:16px; }
+.cta-band p { color:var(--text-2); font-size:16px; margin-bottom:28px; }
+
+/* ── FOOTER ───────────────────────────────────────── */
+footer { padding:64px 24px 40px; border-top:1px solid var(--border); background:var(--surface); }
+.footer-grid { max-width:1160px; margin:0 auto 40px; display:grid; grid-template-columns:1.5fr 1fr 1fr 1fr 1fr; gap:40px; }
+.footer-brand { display:flex; flex-direction:column; gap:12px; max-width:280px; }
+.footer-brand p { color:var(--text-2); font-size:13px; line-height:1.55; }
+.footer-col h4 { font-size:12px; text-transform:uppercase; letter-spacing:.08em; color:var(--text-3); margin-bottom:16px; font-weight:500; }
+.footer-col ul { list-style:none; display:flex; flex-direction:column; gap:10px; font-size:14px; color:var(--text-2); }
+.footer-col a:hover { color:var(--text); }
+.footer-bottom { max-width:1160px; margin:0 auto; display:flex; justify-content:space-between; align-items:center; padding-top:24px; border-top:1px solid var(--border); font-size:13px; color:var(--text-3); }
+
+/* ── RESPONSIVE ───────────────────────────────────── */
+@media (max-width:860px) {
+  .nav-links { display:none; }
+  .demo-body { grid-template-columns:1fr; }
+  .demo-left { border-right:0; border-bottom:1px solid var(--border); }
+  .steps, .features { grid-template-columns:1fr; }
+  .pricing { grid-template-columns:1fr 1fr; }
+  .footer-grid { grid-template-columns:1fr 1fr; }
+}
+@media (max-width:520px) { .pricing { grid-template-columns:1fr; } }
+</style>
+</head>
+<body>
+
+<nav class="nav" id="nav">
+  <div class="logo"><div class="logo-dot"></div>VibeSDK</div>
+  <div class="nav-links">
+    <a href="#features">Product</a>
+    <a href="#templates">Templates</a>
+    <a href="#pricing">Pricing</a>
+    <a href="#">Docs</a>
+    <a href="#">Enterprise</a>
+  </div>
+  <div class="nav-right">
+    <a class="btn btn-ghost" href="#">Sign in</a>
+    <a class="btn btn-primary" href="#">Start free →</a>
+  </div>
+</nav>
+
+<section class="hero">
+  <div class="aurora"></div>
+  <div class="pill"><span class="pill-dot"></span>4-agent planner · now in public preview</div>
+  <h1 class="headline">Describe it.<br/><span class="grad">Deploy it.</span></h1>
+  <p class="subhead">Multi-agent AI plans, writes, tests, and ships your full-stack app — running on Cloudflare's edge in minutes, not days.</p>
+  <div class="hero-cta">
+    <a class="btn btn-primary btn-lg" href="#">Start building free →</a>
+    <a class="btn btn-ghost btn-lg" href="#">▶ Watch 2-min demo</a>
+  </div>
+  <p class="hero-sub">No credit card<span>•</span>Free tier forever<span>•</span>Open source core</p>
+
+  <div class="demo">
+    <div class="demo-card">
+      <div class="demo-head">
+        <div class="demo-dots"><span></span><span></span><span></span></div>
+        <div class="demo-url">vibesdk.app/s/abc123</div>
+        <div style="width:60px"></div>
+      </div>
+      <div class="demo-body">
+        <div class="demo-left">
+          <div class="demo-prompt">&gt; build a saas waitlist w/ email capture + admin dashboard<span class="cursor"></span></div>
+          <div class="plan-title">Plan</div>
+          <div class="demo-plan">
+            <div class="plan-node"><div class="plan-icon done">✓</div>Blueprint · Next.js + D1 + Drizzle</div>
+            <div class="plan-node"><div class="plan-icon done">✓</div>Schema + migration</div>
+            <div class="plan-node"><div class="plan-icon run"></div>Landing page + form</div>
+            <div class="plan-node"><div class="plan-icon pending">·</div>Admin dashboard</div>
+            <div class="plan-node"><div class="plan-icon pending">·</div>Email via Resend</div>
+          </div>
+        </div>
+        <div class="demo-right">
+          <div class="demo-preview">
+            <div class="preview-logo"></div>
+            <div class="preview-title">Join the waitlist</div>
+            <div class="preview-sub">Be first to try our new platform.</div>
+            <div class="preview-form">
+              <input placeholder="you@company.com" />
+              <button>Notify me</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="agents-strip">
+        <div class="chip"><span class="chip-icon done"></span>TeamLead<span class="chip-time">04s</span></div>
+        <div class="chip"><span class="chip-icon done"></span>Planner<span class="chip-time">02s</span></div>
+        <div class="chip"><span class="chip-icon run"></span>Coder-1<span class="chip-time">01s</span></div>
+        <div class="chip"><span class="chip-icon run"></span>Coder-2<span class="chip-time">01s</span></div>
+        <div class="chip"><span class="chip-icon queue"></span>Tester</div>
+        <div class="chip"><span class="chip-icon queue"></span>Critic</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="logos">
+  <div class="logos-label">Trusted by builders at</div>
+  <div class="logos-row">
+    <span>Cloudflare</span><span>Vercel</span><span>Linear</span><span>Notion</span><span>Stripe</span><span>Supabase</span>
+  </div>
+</section>
+
+<section class="section" id="how">
+  <div class="container">
+    <div class="eyebrow">How it works</div>
+    <h2>From prompt to production in three moves.</h2>
+    <p class="lead">A team of specialized agents debates the plan before writing a single line of code.</p>
+    <div class="steps">
+      <div class="step"><div class="step-num">01 / Describe</div><h3>Say what you want.</h3><p>Natural language. Full-stack. "A marketplace for used books with Stripe checkout." The planner clarifies, never guesses.</p></div>
+      <div class="step"><div class="step-num">02 / Critique</div><h3>The team argues.</h3><p>Team-Lead and Critic agents red-team the plan before execution. Bad ideas die early, not in production.</p></div>
+      <div class="step"><div class="step-num">03 / Ship</div><h3>Deploy to the edge.</h3><p>Coder agents write files in parallel. Tester runs sandbox checks. One click → live on Cloudflare.</p></div>
+    </div>
+  </div>
+</section>
+
+<section class="section" id="features" style="background:var(--surface);">
+  <div class="container">
+    <div class="eyebrow">Why VibeSDK</div>
+    <h2>Built for people who ship.</h2>
+    <p class="lead">Not a demo. Not a toy. A full development platform with agent transparency you can actually audit.</p>
+    <div class="features">
+      <div class="feature"><div class="feature-icon">🧠</div><h3>Multi-agent planner</h3><p>Team-Lead orchestrates Planner, Coder, Tester, Critic. Each with a job, each visible in real-time.</p></div>
+      <div class="feature"><div class="feature-icon">⚡</div><h3>Parallel execution</h3><p>Up to 8 Coder agents writing files at once. 4× faster than serial competitors.</p></div>
+      <div class="feature"><div class="feature-icon">🧪</div><h3>Self-healing tests</h3><p>Tester agent runs the app, captures errors, hands them back. Critic stops hallucinations at the plan stage.</p></div>
+      <div class="feature"><div class="feature-icon">🔐</div><h3>Your keys, your data</h3><p>BYO API keys stored in per-user encrypted Durable Objects. XChaCha20-Poly1305, key rotation, audit log.</p></div>
+      <div class="feature"><div class="feature-icon">🚀</div><h3>One-click deploy</h3><p>Ships to Cloudflare Workers with custom domains, D1, R2, and KV — all pre-wired.</p></div>
+      <div class="feature"><div class="feature-icon">📦</div><h3>Open source core</h3><p>Fork the platform. Run it yourself. No lock-in, no surprise pricing, no model handcuffs.</p></div>
+    </div>
+  </div>
+</section>
+
+<section class="section" id="pricing">
+  <div class="container">
+    <div class="eyebrow">Pricing</div>
+    <h2>Start free. Scale when you ship.</h2>
+    <p class="lead">Simple tiers. Honest limits. Cancel any time.</p>
+    <div class="pricing">
+      <div class="price-card">
+        <div class="price-name">Free</div>
+        <div class="price-amount"><span class="num">$0</span><span class="per">forever</span></div>
+        <div class="price-desc">Try every core feature. Hobby-scale only.</div>
+        <button class="price-cta secondary">Get started →</button>
+        <ul class="price-feats">
+          <li>5 app generations / month</li>
+          <li>1 agent (serial execution)</li>
+          <li>Haiku + Sonnet models</li>
+          <li>Hosted preview only</li>
+          <li>GitHub export</li>
+          <li>Community support</li>
+        </ul>
+      </div>
+      <div class="price-card featured">
+        <div class="price-badge">Most popular</div>
+        <div class="price-name">Pro</div>
+        <div class="price-amount"><span class="num">$20</span><span class="per">/month</span></div>
+        <div class="price-desc">For solo builders shipping real apps.</div>
+        <button class="price-cta primary">Start Pro trial →</button>
+        <ul class="price-feats">
+          <li>100 generations / month</li>
+          <li>4 parallel Coder agents</li>
+          <li>Critic agent (plan red-team)</li>
+          <li>Custom domain deploy</li>
+          <li>BYO keys (all major providers)</li>
+          <li>Email support</li>
+        </ul>
+      </div>
+      <div class="price-card">
+        <div class="price-name">Team</div>
+        <div class="price-amount"><span class="num">$60</span><span class="per">/seat/mo</span></div>
+        <div class="price-desc">Shared workspaces for design + eng teams.</div>
+        <button class="price-cta secondary">Start Team →</button>
+        <ul class="price-feats">
+          <li>500 generations / seat</li>
+          <li>4 parallel agents + Opus option</li>
+          <li>Team workspaces & SSO-lite</li>
+          <li>Shared templates library</li>
+          <li>Usage analytics dashboard</li>
+          <li>Priority support</li>
+        </ul>
+      </div>
+      <div class="price-card">
+        <div class="price-name">Enterprise</div>
+        <div class="price-amount"><span class="num">Custom</span></div>
+        <div class="price-desc">Self-hosted or private-tenant. SSO, audit, SLA.</div>
+        <button class="price-cta secondary">Talk to sales</button>
+        <ul class="price-feats">
+          <li>Unlimited seats, capped tokens</li>
+          <li>8 parallel agents, Opus default</li>
+          <li>SAML SSO + audit log</li>
+          <li>Private model endpoint</li>
+          <li>99.9% uptime SLA</li>
+          <li>Dedicated Slack channel</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="container">
+    <div class="eyebrow">Questions</div>
+    <h2>Frequently asked.</h2>
+    <p class="lead">Straight answers. No asterisks.</p>
+    <div class="faq">
+      <details class="faq-item" open><summary class="faq-q">How is this different from bolt.new or v0?</summary><p class="faq-a">Those are mostly frontend code generators. VibeSDK ships full-stack apps — database, auth, background jobs, emails, webhooks — wired to production infra on first try. And you see every agent working, not just the output.</p></details>
+      <details class="faq-item"><summary class="faq-q">Can I use my own Anthropic / OpenAI / Gemini keys?</summary><p class="faq-a">Yes. Every tier supports BYO keys. They're encrypted in a per-user Durable Object with XChaCha20-Poly1305, rotatable, and never visible in logs.</p></details>
+      <details class="faq-item"><summary class="faq-q">What stack does the generated app use?</summary><p class="faq-a">React 19 + Vite + Tailwind frontend. Cloudflare Workers backend. D1 or Postgres. You pick a template or let the Planner choose based on your prompt.</p></details>
+      <details class="faq-item"><summary class="faq-q">Is the platform itself open source?</summary><p class="faq-a">Yes. Apache 2.0. Deploy your own instance to your own Cloudflare account with one click. Generated apps are yours — no runtime lock-in.</p></details>
+      <details class="faq-item"><summary class="faq-q">What happens when I hit my free limit?</summary><p class="faq-a">Your existing apps keep running. New generations pause until the monthly reset, or you can upgrade to Pro for 100/mo and 4× parallel agents.</p></details>
+      <details class="faq-item"><summary class="faq-q">Do you train on my prompts or code?</summary><p class="faq-a">No. Your sessions are yours. We don't send your code to any training pipeline. BYO-keys mode means your data doesn't even touch our LLM bills.</p></details>
+    </div>
+  </div>
+</section>
+
+<section class="cta-band">
+  <h2>Start building in 60 seconds.</h2>
+  <p>No credit card. No meeting. No "book a demo." Just a prompt.</p>
+  <a class="btn btn-primary btn-lg" href="#">Start free →</a>
+</section>
+
+<footer>
+  <div class="footer-grid">
+    <div class="footer-brand">
+      <div class="logo"><div class="logo-dot"></div>VibeSDK</div>
+      <p>AI full-stack app generation. Running on Cloudflare's edge. Open source at the core.</p>
+    </div>
+    <div class="footer-col"><h4>Product</h4><ul><li><a>Features</a></li><li><a>Templates</a></li><li><a>Pricing</a></li><li><a>Changelog</a></li><li><a>Roadmap</a></li></ul></div>
+    <div class="footer-col"><h4>Developers</h4><ul><li><a>Docs</a></li><li><a>API reference</a></li><li><a>GitHub</a></li><li><a>Discord</a></li><li><a>Status</a></li></ul></div>
+    <div class="footer-col"><h4>Company</h4><ul><li><a>About</a></li><li><a>Blog</a></li><li><a>Careers</a></li><li><a>Contact</a></li><li><a>Press</a></li></ul></div>
+    <div class="footer-col"><h4>Legal</h4><ul><li><a>Privacy</a></li><li><a>Terms</a></li><li><a>Security</a></li><li><a>DPA</a></li><li><a>Subprocessors</a></li></ul></div>
+  </div>
+  <div class="footer-bottom">
+    <div>© 2026 Cloudflare, Inc.</div>
+    <div>Built on Cloudflare's developer platform.</div>
+  </div>
+</footer>
+
+<script>
+  const nav = document.getElementById('nav');
+  const onScroll = () => nav.classList.toggle('scrolled', window.scrollY > 8);
+  window.addEventListener('scroll', onScroll, { passive:true }); onScroll();
+</script>
+</body>
+</html>

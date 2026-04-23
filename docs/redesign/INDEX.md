@@ -1,0 +1,39 @@
+# Redesign Docs — Index
+
+Read order for a new reader:
+
+1. **[README.md](./README.md)** — brief, team, artifact map
+2. **[ARCHITECTURE.md](./ARCHITECTURE.md)** — current state, target, migration
+3. **[DESIGN.md](./DESIGN.md)** — tokens, post-login layout, components
+4. **[UI-UX-PRELOGIN.md](./UI-UX-PRELOGIN.md)** — marketing site, auth, copy
+5. **[PRICING-TIERS.md](./PRICING-TIERS.md)** — 4 tiers, gating, upgrade nudges
+6. **[PLAN.md](./PLAN.md)** — 5 milestones, stories, estimates
+7. **[CRITIQUE.md](./CRITIQUE.md)** — 10 challenge items, 4 must-fix blockers
+8. **[ADR-001-multi-agent.md](./ADR-001-multi-agent.md)** — DO fan-out decision
+
+## Status Board
+
+| Doc                         | Owner         | Status    |
+|-----------------------------|---------------|-----------|
+| README.md                   | @PM           | DONE      |
+| ARCHITECTURE.md             | @Architect    | DRAFT     |
+| DESIGN.md                   | @UI/UX        | DRAFT     |
+| UI-UX-PRELOGIN.md           | @UI/UX        | DRAFT     |
+| PRICING-TIERS.md            | @PO           | DRAFT     |
+| PLAN.md                     | @PM           | DRAFT     |
+| CRITIQUE.md                 | @Tech-Lead    | DRAFT     |
+| ADR-001-multi-agent.md      | @Architect    | PROPOSED  |
+
+## Next Actions (requires Owner GO)
+
+1. **Run Decision Panel** (8 agents) on multi-agent framework → log verdict in ADR-001 → status PROPOSED → ACCEPTED
+2. **Resolve 4 must-fix blockers** from CRITIQUE.md (C1 storage, C2 file partitioning, C7 Enterprise pricing, C10 panel)
+3. **Owner GO for Phase 1** → start M1 sprint (foundations: tokens + component skeletons + entitlements)
+4. **Phase 0 exit gate** signed
+
+## Decisions Logged
+
+- **DEC-001** (2026-04-24): Target architecture = custom DO fan-out, Manus-style 4-agent + TeamLead. Rationale: on-platform, no new deps. See ADR-001.
+- **DEC-002** (2026-04-24): Pricing = 4-tier (Free/Pro $20/Team $60 seat/Enterprise). See PRICING-TIERS.md. Enterprise margin MUST be reworked (CRITIQUE C7).
+- **DEC-003** (2026-04-24): Pre-login marketing = emergent.sh pattern w/ dark-default + light toggle. See UI-UX-PRELOGIN.md.
+- **DEC-004** (2026-04-24): Migration = feature-flagged, non-breaking, 2-sprint parallel run before monolith deprecation.

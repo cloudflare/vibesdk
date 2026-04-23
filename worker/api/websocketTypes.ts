@@ -548,6 +548,59 @@ export type VaultSecretUpdatedResponse = {
 	error?: string;
 };
 
+// ── Multi-agent (parallel sub-agents) ────────────────────────────────────
+// See docs/redesign/ADR-001-multi-agent.md
+
+export type SubAgentRoleMsg = 'teamlead' | 'planner' | 'coder' | 'tester' | 'critic';
+export type SubAgentStatusMsg = 'idle' | 'queued' | 'running' | 'done' | 'failed';
+export type ModelTierLabel = 'lite' | 'regular' | 'reasoning' | 'premium';
+
+/** Streamed per state transition of any sub-agent. Coalesced by the client at ~10Hz. */
+export type AgentStatusMessage = {
+    type: 'agent_status';
+    agentId: string;          // stable: `${sessionId}:${role}[:N]`
+    role: SubAgentRoleMsg;
+    displayName: string;      // "Coder-1", "Critic", etc.
+    status: SubAgentStatusMsg;
+    modelTier: ModelTierLabel;
+    currentActivity?: string; // e.g. "writing src/app/page.tsx"
+    tokensSpent: number;
+    startedAt?: number;       // ms since epoch
+};
+
+/** Emitted when a plan node is created, updated, or transitions state. */
+export type PlanUpdateMessage = {
+    type: 'plan_update';
+    action: 'upsert' | 'delete';
+    node: {
+        id: string;
+        parentId: string | null;
+        role: 'milestone' | 'task' | 'subtask';
+        title: string;
+        description?: string;
+        status: 'pending' | 'running' | 'done' | 'failed' | 'skipped';
+        assignedAgent?: string;
+        ownedFiles: string[];
+        criticRounds: number;
+        sortIndex: number;
+    };
+};
+
+/** Emitted after each Critic round so UI can show verdicts + concerns inline. */
+export type CriticVerdictMessage = {
+    type: 'critic_verdict';
+    milestoneId: string;
+    round: number;
+    verdict: 'approve' | 'revise' | 'reject';
+    concerns: {
+        severity: 'blocker' | 'major' | 'minor';
+        title: string;
+        rationale: string;
+        offendingTaskId?: string;
+    }[];
+    suggestedRevisions: string[];
+};
+
 /** Union type for all vault WebSocket messages */
 export type VaultWebSocketMessage =
 	| VaultStoreSecretRequest
@@ -620,7 +673,10 @@ export type WebSocketMessage =
 	| ServerLogMessage
 	| VaultUnlockedMessage
 	| VaultLockedMessage
-	| VaultRequiredMessage;
+	| VaultRequiredMessage
+	| AgentStatusMessage
+	| PlanUpdateMessage
+	| CriticVerdictMessage;
 
 // A type representing all possible message type strings (e.g., 'generation_started', 'file_generating', etc.)
 export type WebSocketMessageType = WebSocketMessage['type'];
