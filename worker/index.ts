@@ -206,7 +206,9 @@ const worker = {
 			}
 
 			// Handle all API requests with the main Hono application.
-			logger.info(`Handling API request for: ${url}`);
+			// Log pathname only: some API routes (e.g. /api/auth/callback/:provider)
+			// carry sensitive query params like `code`/`state`.
+			logger.info(`Handling API request for: ${pathname}`);
 			const app = createApp(env);
 			return app.fetch(request, env, ctx);
 		}
