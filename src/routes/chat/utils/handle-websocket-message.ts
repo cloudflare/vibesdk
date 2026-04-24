@@ -35,6 +35,12 @@ const isPhasicState = (state: AgentState): state is PhasicState => {
 	return false;
 };
 
+export interface BackendErrorDialogState {
+    isOpen: boolean;
+    errorCode?: string;
+    errorMessage?: string;
+}
+
 export interface HandleMessageDeps {
     // State setters
     setFiles: React.Dispatch<React.SetStateAction<FileType[]>>;
@@ -65,6 +71,8 @@ export interface HandleMessageDeps {
     onPresentationFileEvent?: (event: { type: 'file_generating' | 'file_chunk' | 'file_generated'; path: string; chunk?: string; contents?: string }) => void;
     clearDeploymentTimeout?: () => void;
 
+    setBackendErrorDialog: React.Dispatch<React.SetStateAction<BackendErrorDialogState>>;
+    
     // Current state
     isInitialStateRestored: boolean;
     blueprint: BlueprintType | undefined;
@@ -82,6 +90,7 @@ export interface HandleMessageDeps {
     updateStage: (stageId: ProjectStage['id'], updates: Partial<Omit<ProjectStage, 'id'>>) => void;
     sendMessage: (message: ConversationMessage) => void;
     loadBootstrapFiles: (files: FileType[]) => void;
+    refetchLimits?: () => Promise<void>;
     onDebugMessage?: (
         type: 'error' | 'warning' | 'info' | 'websocket',
         message: string,
@@ -141,6 +150,7 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
             setBehaviorType,
             setInternalProjectType,
             setTemplateDetails,
+            setBackendErrorDialog,
             isInitialStateRestored,
             blueprint,
             query,
@@ -155,6 +165,7 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
             updateStage,
             sendMessage,
             loadBootstrapFiles,
+            refetchLimits,
             onDebugMessage,
             onTerminalMessage,
             clearDeploymentTimeout,
@@ -1000,13 +1011,54 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
                 }
                 break;
             }
+            
+            case 'usage_updated': {
+                // Dispatch global event so all components can react
+                window.dispatchEvent(new CustomEvent('usage-updated'));
+                
+                // Also trigger direct refetch if available (for backwards compatibility)
+                if (refetchLimits) {
+                    refetchLimits().catch((error: unknown) => {
+                        logger.error('Failed to refetch usage limits:', error);
+                    });
+                }
+                
+                logger.info('Usage updated - dispatched event to refetch limits');
+                break;
+            }
 
             case 'error': {
                 const errorData = message;
-                setMessages(prev => [
-                    ...prev,
-                    createAIMessage(`error_${Date.now()}`, `❌ ${errorData.error}`)
-                ]);
+                
+                logger.info('🚨 Error message received:', {
+                    showAsPopup: errorData.showAsPopup,
+                    code: errorData.code,
+                    error: errorData.error
+                });
+                
+                // Check if error should be shown as dialog instead of chat message
+                if (errorData.showAsPopup && errorData.code === 'USAGE_LIMIT_EXCEEDED') {
+                    logger.info('🚨 Opening backend error dialog');
+                    // Show as dialog with CTA for limit errors
+                    setBackendErrorDialog({
+                        isOpen: true,
+                        errorCode: errorData.code,
+                        errorMessage: errorData.error || 'An error occurred'
+                    });
+                } else if (errorData.showAsPopup) {
+                    logger.info('🚨 Showing toast for popup error');
+                    // Show other popup errors as toast
+                    toast.error(errorData.error || 'An error occurred', {
+                        duration: 5000
+                    });
+                } else {
+                    logger.info('🚨 Adding error to chat messages');
+                    // Show as chat message for non-popup errors
+                    setMessages(prev => [
+                        ...prev,
+                        createAIMessage(`error_${Date.now()}`, `❌ ${errorData.error}`)
+                    ]);
+                }
                 
                 onDebugMessage?.(
                     'error',

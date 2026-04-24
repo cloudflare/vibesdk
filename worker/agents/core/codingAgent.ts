@@ -31,6 +31,7 @@ import { SecretsClient, type UserSecretsStoreStub } from '../../services/secrets
 import { StateMigration } from './stateMigration';
 import { PendingWsTicket, TicketConsumptionResult } from '../../types/auth-types';
 import { WsTicketManager } from '../../utils/wsTicketManager';
+import { readTokenCookie } from '../../utils/oauthCookie';
 
 const DEFAULT_CONVERSATION_SESSION_ID = 'default';
 
@@ -211,6 +212,18 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
     
     onConnect(connection: Connection, ctx: ConnectionContext) {
         this.logger().info(`Agent connected for agent ${this.getAgentId()}`, { connection, ctx });
+        // Capture the encrypted Cloudflare OAuth blob from the WS upgrade request's
+        // HttpOnly cookie and stash it on the DO state. The browser cannot read this
+        // cookie, and messages over the WS do not carry cookies per-frame, so this
+        // is the one chance we get to pick it up per connection.
+        try {
+            const blob = readTokenCookie(ctx.request, this.env);
+            if (blob && blob !== this.state.cloudflareToken) {
+                this.setState({ ...this.state, cloudflareToken: blob });
+            }
+        } catch (error) {
+            this.logger().warn('Failed to capture CF token cookie on WS connect', { error });
+        }
         let previewUrl = '';
         try {
             if (this.behavior.getTemplateDetails().renderMode === 'browser') {
@@ -547,7 +560,7 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
      * Delegates to centralized handler which can access both behavior and objective
      */
     async onMessage(connection: Connection, message: string): Promise<void> {
-        handleWebSocketMessage(this, connection, message);
+        await handleWebSocketMessage(this, connection, message);
     }
     
     /**

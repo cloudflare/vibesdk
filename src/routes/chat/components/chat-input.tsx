@@ -3,8 +3,10 @@ import { ArrowRight, Image as ImageIcon } from 'react-feather';
 import { WebSocket } from 'partysocket';
 import { X } from 'lucide-react';
 import { ImageAttachmentPreview } from '@/components/image-attachment-preview';
+import { CreditsBanner } from '@/components/credits-banner';
 import { sendWebSocketMessage } from '../utils/websocket-helpers';
 import { SUPPORTED_IMAGE_MIME_TYPES, type ImageAttachment } from '@/api-types';
+import { type UsageSummary } from '@/hooks/use-limits';
 
 const MAX_WORDS = 4000;
 const countWords = (text: string): number => {
@@ -45,6 +47,10 @@ interface ChatInputProps {
 	// Refs
 	chatFormRef: RefObject<HTMLFormElement | null>;
 	imageInputRef: RefObject<HTMLInputElement | null>;
+
+	// Usage limits
+	limitsData?: UsageSummary | null;
+	onConnectCloudflare?: () => void;
 }
 
 export function ChatInput({
@@ -65,6 +71,8 @@ export function ChatInput({
 	websocket,
 	chatFormRef,
 	imageInputRef,
+	limitsData,
+	onConnectCloudflare,
 }: ChatInputProps) {
 	const handleTextChange = (newValue: string) => {
 		const newWordCount = countWords(newValue);
@@ -109,12 +117,16 @@ export function ChatInput({
 				: 'Chat with AI...';
 
 	return (
-		<form
-			ref={chatFormRef}
-			onSubmit={onSubmit}
-			className="shrink-0 p-4 pb-5 bg-transparent"
-			{...chatDragHandlers}
-		>
+		<div className="shrink-0 p-4 pb-5 bg-transparent" {...chatDragHandlers}>
+			<CreditsBanner
+				limitsData={limitsData}
+				onConnectCloudflare={onConnectCloudflare}
+			>
+			<div className="rounded-xl bg-bg-2 border border-text-primary/10 drop-shadow-2xl">
+				<form
+					ref={chatFormRef}
+					onSubmit={onSubmit}
+				>
 			<input
 				ref={imageInputRef}
 				type="file"
@@ -151,15 +163,13 @@ export function ChatInput({
 					disabled={isChatDisabled}
 					placeholder={placeholder}
 					rows={1}
-					className="w-full bg-bg-2 border border-text-primary/10 rounded-xl px-3 pr-20 py-2 text-sm outline-none focus:border-white/20 drop-shadow-2xl text-text-primary placeholder:text-text-primary/50! disabled:opacity-50 disabled:cursor-not-allowed resize-none overflow-y-auto no-scrollbar min-h-[36px] max-h-[120px]"
+						className="w-full bg-transparent border-t border-text-primary/10 rounded-xl px-3 pr-20 py-2 text-sm outline-none text-text-primary placeholder:text-text-primary/50! disabled:opacity-50 disabled:cursor-not-allowed resize-none overflow-y-auto no-scrollbar min-h-[36px] max-h-[120px]"
 					style={{
-						// Auto-resize based on content
 						height: 'auto',
 						minHeight: '36px'
 					}}
 					ref={(textarea) => {
 						if (textarea) {
-							// Auto-resize textarea based on content
 							textarea.style.height = 'auto';
 							textarea.style.height = Math.min(textarea.scrollHeight, 120) + 'px';
 						}
@@ -198,7 +208,10 @@ export function ChatInput({
 						<ArrowRight className="size-4" />
 					</button>
 				</div>
+				</div>
+			</form>
 			</div>
-		</form>
+			</CreditsBanner>
+		</div>
 	);
 }

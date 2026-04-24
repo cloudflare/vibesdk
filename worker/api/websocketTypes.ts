@@ -9,6 +9,8 @@ import type { RateLimitExceededError } from 'shared/types/errors';
 type ErrorMessage = {
     type: 'error';
     error: string;
+    code?: string; // Error code (e.g., 'USAGE_LIMIT_EXCEEDED')
+    showAsPopup?: boolean; // Flag to show as popup/toast instead of chat message
 };
 
 type StateMessage = {
@@ -411,6 +413,11 @@ export type ModelConfigsInfoMessage = {
 export type AgentDisplayConfig = ModelConfigsInfoMessage['configs']['agents'][number];
 export type ModelConfigsInfo = ModelConfigsInfoMessage['configs'];
 
+type UsageUpdatedMessage = {
+	type: 'usage_updated';
+	message: string;
+};
+
 type TerminalCommandMessage = {
 	type: 'terminal_command';
 	command: string;
@@ -615,6 +622,7 @@ export type WebSocketMessage =
     | DeterministicCodeFixStartedMessage
     | DeterministicCodeFixCompletedMessage
 	| ModelConfigsInfoMessage
+	| UsageUpdatedMessage
 	| TerminalCommandMessage
 	| TerminalOutputMessage
 	| ServerLogMessage

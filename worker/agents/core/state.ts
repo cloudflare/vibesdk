@@ -66,6 +66,7 @@ export interface BaseProjectState {
 
     mvpGenerated: boolean;
     reviewingInitiated: boolean;
+    cloudflareToken?: string; // Encrypted Cloudflare OAuth token blob (backend decrypts when needed)
 }
 
 /** Phasic agent state */

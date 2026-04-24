@@ -23,6 +23,9 @@ import { ImageType, uploadImage } from 'worker/utils/images';
 import { ProcessedImageAttachment } from 'worker/types/image-attachment';
 import { getTemplateImportantFiles } from 'worker/services/sandbox/utils';
 import { hasTicketParam } from '../../../middleware/auth/ticketAuth';
+import { checkUsageAndBalance, getUserGateway } from '../../../services/rate-limit/usageChecker';
+import { readTokenCookie } from '../../../utils/oauthCookie';
+import { UsageLimitExceededError } from 'shared/types/errors';
 
 const defaultCodeGenArgs: Partial<CodeGenArgs> = {
     language: 'typescript',
@@ -123,20 +126,75 @@ export class CodingAgentController extends BaseController {
             }
 
             const runtimeOverrides = credentialsToRuntimeOverrides(body.credentials);
+            // Check usage limits BEFORE making AI calls.
+            // The encrypted blob lives in an HttpOnly cookie; read it once here so we
+            // can pass it down to the inference pipeline for BYOK decryption.
+            const userToken = readTokenCookie(request, env);
+            const limitResult = await checkUsageAndBalance(env, user.id, request, userToken);
+
+            if (!limitResult.allowed) {
+                this.logger.warn('Request blocked by usage check', {
+                    userId: user.id,
+                    reason: limitResult.reason,
+                    withinLimits: limitResult.withinLimits,
+                    hasUserToken: limitResult.hasUserToken,
+                    balance: limitResult.balance,
+                });
+                
+                const limit = limitResult.limit;
+                const current = Number.isFinite(limit)
+                    ? limit - limitResult.remaining
+                    : 0;
+                const percentUsed = Number.isFinite(limit) && limit > 0
+                    ? Math.min(100, (current / limit) * 100)
+                    : 0;
+
+                throw new UsageLimitExceededError(
+                    limitResult.reason || 'Usage limits exceeded',
+                    [{
+                        type: 'credits',
+                        window: limitResult.windowKind ?? 'rolling',
+                        current,
+                        max: limit,
+                        percentUsed,
+                        resetAt: limitResult.resetAt,
+                    }],
+                    limitResult.hasUserToken
+                );
+            }
+
+            // Get user's AI Gateway if using BYOK
+            let userGateway: { accountId: string; gatewaySlug: string } | null = null;
+            if (userToken) {
+                userGateway = await getUserGateway(env, user.id);
+            }
+
+            // If the limit check transparently refreshed the token, use the fresh blob
+            // downstream so inference decrypts to an unexpired access token.
+            const effectiveUserToken = limitResult.refreshedBlob ?? userToken;
 
             const inferenceContext = {
                 metadata: {
                     agentId: agentId,
                     userId: user.id,
+                    shouldUseUserKey: limitResult.shouldUseByok,
+                    userApiToken: effectiveUserToken,
+                    userGateway,
                 },
                 userModelConfigs,
                 runtimeOverrides,
                 enableRealtimeCodeFix: false, // This costs us too much, so disabled it for now
                 enableFastSmartCodeFix: false,
+                shouldUseUserKey: limitResult.shouldUseByok, // Use BYOK if needed
+                userApiToken: effectiveUserToken, // Encrypted blob from HttpOnly cookie (for BYOK)
+                userGateway, // User's AI Gateway for BYOK
             }
                                 
             this.logger.info(`Initialized inference context for user ${user.id}`, {
                 modelConfigsCount: Object.keys(userModelConfigs).length,
+                shouldUseUserKey: limitResult.shouldUseByok,
+                balance: limitResult.balance,
+                hasUserGateway: !!userGateway,
             });
             this.logger.info(`Creating project of type: ${projectType}`);
 
@@ -189,17 +247,21 @@ export class CodingAgentController extends BaseController {
 
             this.logger.info(`Agent ${agentId} init launched successfully`);
             
+            const streamHeaders = new Headers({
+                // Use SSE content-type to ensure Cloudflare disables buffering,
+                // while the payload remains NDJSON lines consumed by the client.
+                'Content-Type': 'text/event-stream; charset=utf-8',
+                // Prevent intermediary caches/proxies from buffering or transforming
+                'Cache-Control': 'no-cache, no-store, must-revalidate, no-transform',
+                'Pragma': 'no-cache',
+                'Connection': 'keep-alive',
+            });
+            if (limitResult.refreshedCookie) {
+                streamHeaders.append('Set-Cookie', limitResult.refreshedCookie);
+            }
             return new Response(readable, {
                 status: 200,
-                headers: {
-                    // Use SSE content-type to ensure Cloudflare disables buffering,
-                    // while the payload remains NDJSON lines consumed by the client.
-                    'Content-Type': 'text/event-stream; charset=utf-8',
-                    // Prevent intermediary caches/proxies from buffering or transforming
-                    'Cache-Control': 'no-cache, no-store, must-revalidate, no-transform',
-                    'Pragma': 'no-cache',
-                    'Connection': 'keep-alive'
-                }
+                headers: streamHeaders,
             });
         } catch (error) {
             this.logger.error('Error starting code generation', error);

@@ -25,3 +25,6 @@
 ## Key Patterns
 - **Add API endpoint:** types in `src/api-types.ts` -> `src/lib/api-client.ts` -> service in `worker/database/services/` -> controller in `worker/api/controllers/` -> route in `worker/api/routes/`
 - **Add LLM tool:** create in `worker/agents/tools/toolkit/` -> register in `worker/agents/tools/customTools.ts`
+
+## Subsystem Docs
+- **Usage limits UI (top-right badge, credits banner, limit popups):** see `docs/usage-limits-ui.md`

@@ -76,6 +76,9 @@ export const WebSocketMessageResponses: Record<string, WebSocketMessageType> = {
     // Model configuration info
     MODEL_CONFIGS_INFO: 'model_configs_info',
     
+    // Usage tracking
+    USAGE_UPDATED: 'usage_updated',
+    
     // Terminal messages
     TERMINAL_OUTPUT: 'terminal_output',
     SERVER_LOG: 'server_log',

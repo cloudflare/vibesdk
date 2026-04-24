@@ -29,6 +29,36 @@ function CardHeader({ className, variant, ...props }: React.ComponentProps<"div"
   )
 }
 
+const CardWarning = React.forwardRef<
+  HTMLDivElement,
+  React.HTMLAttributes<HTMLDivElement> & {
+    variant?: "warning" | "error" | "info"
+  }
+>(({ className, variant = "warning", ...props }, ref) => {
+  const variantStyles = {
+    warning: "bg-yellow-50 text-yellow-900 border-yellow-200",
+    error: "bg-red-50 text-red-900 border-red-200",
+    info: "bg-blue-50 text-blue-900 border-blue-200",
+  }
+
+  return (
+    <div
+      ref={ref}
+      role="alert"
+      data-slot="card-warning"
+      className={cn(
+        "flex items-center gap-2 px-4 py-2 text-sm border-b rounded-t-md",
+        variantStyles[variant],
+        className
+      )}
+      {...props}
+    />
+  )
+})
+
+CardWarning.displayName = "CardWarning"
+
+
 const CardTitle = React.forwardRef<
   HTMLDivElement,
   React.HTMLAttributes<HTMLDivElement>
@@ -73,4 +103,4 @@ const CardFooter = React.forwardRef<
 ))
 CardFooter.displayName = "CardFooter"
 
-export { Card, CardHeader, CardFooter, CardTitle, CardDescription, CardContent }
+export { Card, CardHeader, CardFooter, CardTitle, CardDescription, CardContent, CardWarning }
