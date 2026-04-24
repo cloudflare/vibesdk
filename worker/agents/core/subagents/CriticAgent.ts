@@ -23,6 +23,7 @@ import type {
     CriticConcern,
 } from './contracts';
 import { pickModel } from '../../inferutils/modelRouter';
+import { callClaudeForJson, CLAUDE_DEFAULT_MODEL } from '../../inferutils/claudeDirect';
 import { createObjectLogger, type StructuredLogger } from '../../../logger';
 
 const MAX_ROUNDS = 2;
@@ -128,9 +129,9 @@ export class CriticAgent extends DurableObject<Cloudflare.Env> implements Critic
     }
 
     /**
-     * Stub — real wiring feeds the plan tree + blueprint + prior-round
-     * concerns to the critique prompt. Returns a deterministic "approve"
-     * so the pipeline runs end-to-end during scaffold phase.
+     * Phase-1 wiring: Claude Sonnet direct. Returns structured verdict +
+     * concerns. Cheap deterministic guard runs first to avoid wasting tokens
+     * on empty plans.
      */
     private async critique(
         input: CriticInput,
@@ -141,21 +142,51 @@ export class CriticAgent extends DurableObject<Cloudflare.Env> implements Critic
             currentActivity: `critiquing with ${model.name}`,
         };
 
-        // Cheap deterministic check: no tasks = blocker.
-        const concerns: CriticConcern[] = [];
         const taskCount = input.plan.reduce((sum, m) => sum + m.tasks.length, 0);
         if (taskCount === 0) {
-            concerns.push({
-                severity: 'blocker',
-                title: 'Empty plan',
-                rationale: 'Planner produced zero tasks; cannot execute.',
-            });
+            return {
+                verdict: 'reject',
+                concerns: [{
+                    severity: 'blocker',
+                    title: 'Empty plan',
+                    rationale: 'Planner produced zero tasks; cannot execute.',
+                }],
+                suggestedRevisions: ['Planner must produce at least one milestone with one task.'],
+            };
         }
 
-        const verdict: CriticOutput['verdict'] =
-            concerns.some((c) => c.severity === 'blocker') ? 'reject' : 'approve';
+        const systemPrompt = [
+            'You are the Critic sub-agent. Red-team the proposed plan BEFORE Coders execute it.',
+            'Focus on: file-partitioning (siblings must not claim same file), missing deps, unrealistic scope, security/auth gaps.',
+            'Be DIRECT. Verdict "approve" is the correct response for clean plans — do NOT invent issues to appear thorough.',
+        ].join(' ');
 
-        return { verdict, concerns, suggestedRevisions: [] };
+        const userPrompt = `Round ${input.previousRounds + 1} of 2.\n\nPlan:\n${JSON.stringify(input.plan, null, 2).slice(0, 6000)}`;
+
+        const result = await callClaudeForJson<CriticJsonResponse>({
+            env: this.env,
+            model: CLAUDE_DEFAULT_MODEL,
+            system: systemPrompt,
+            messages: [{ role: 'user', content: userPrompt }],
+            maxTokens: 2000,
+            temperature: 0.1,
+            jsonSchemaDescription: `{
+                "verdict": "approve" | "revise" | "reject",
+                "concerns": [{ "severity": "blocker" | "major" | "minor", "title": string, "rationale": string, "offendingTaskId"?: string }],
+                "suggestedRevisions": string[]
+            }`,
+        });
+
+        this.criticState = {
+            ...this.criticState,
+            tokensSpent: this.criticState.tokensSpent + result.usage.inputTokens + result.usage.outputTokens,
+        };
+
+        return {
+            verdict: result.value.verdict,
+            concerns: (result.value.concerns ?? []) as readonly CriticConcern[],
+            suggestedRevisions: result.value.suggestedRevisions ?? [],
+        };
     }
 
     private aborted(start: number): AgentRunResult<CriticOutput> {
@@ -168,4 +199,15 @@ export class CriticAgent extends DurableObject<Cloudflare.Env> implements Critic
             elapsedMs: Date.now() - start,
         };
     }
+}
+
+interface CriticJsonResponse {
+    readonly verdict: 'approve' | 'revise' | 'reject';
+    readonly concerns?: readonly {
+        readonly severity: 'blocker' | 'major' | 'minor';
+        readonly title: string;
+        readonly rationale: string;
+        readonly offendingTaskId?: string;
+    }[];
+    readonly suggestedRevisions?: readonly string[];
 }

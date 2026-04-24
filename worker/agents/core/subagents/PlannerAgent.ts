@@ -21,6 +21,7 @@ import type {
     PlannedTask,
 } from './contracts';
 import { pickModel } from '../../inferutils/modelRouter';
+import { callClaudeForJson, CLAUDE_DEFAULT_MODEL } from '../../inferutils/claudeDirect';
 import { createObjectLogger, type StructuredLogger } from '../../../logger';
 
 interface PlannerState {
@@ -108,10 +109,11 @@ export class PlannerAgent extends DurableObject<Cloudflare.Env> implements Plann
     }
 
     /**
-     * Delegates to existing PhaseGeneration + blueprint operations in
-     * `worker/agents/operations/`. Wiring lands in the next commit — this
-     * scaffold keeps the DO type-clean and returns a valid empty plan so
-     * downstream agents can exercise the pipeline.
+     * Phase-1 wiring: calls Claude Sonnet directly via claudeDirect helper.
+     * Phase-2 (deferred): migrate to `executeInference` from inferutils/core
+     * so Gemini is default + Claude is only for tier-gated upgrade.
+     *
+     * JSON-schema'd response so we can parse without regex.
      */
     private async generateRawPlan(
         input: PlannerInput,
@@ -121,15 +123,62 @@ export class PlannerAgent extends DurableObject<Cloudflare.Env> implements Plann
             ...this.plannerState,
             currentActivity: `planning with ${model.name}`,
         };
-        // Placeholder phase concept — real wiring imports PhaseGeneration op.
+
+        const systemPrompt = [
+            'You are the Planner sub-agent of a multi-agent AI app generator.',
+            'Given a user prompt, produce a blueprint + milestone/task plan.',
+            'CRITICAL: each sibling task must own NON-OVERLAPPING file globs so Coder agents can run in parallel without conflicts.',
+            'Prefer 2-4 milestones with 2-3 tasks each. Be concrete — every task must have a clear title and at least one owned file path.',
+        ].join(' ');
+
+        const result = await callClaudeForJson<PlannerJsonResponse>({
+            env: this.env,
+            model: CLAUDE_DEFAULT_MODEL,
+            system: systemPrompt,
+            messages: [{ role: 'user', content: input.prompt }],
+            maxTokens: 4000,
+            temperature: 0.3,
+            jsonSchemaDescription: `{
+                "phaseConcept": { "name": string, "description": string, "lastPhase": boolean },
+                "milestones": [{
+                    "title": string,
+                    "description": string,
+                    "tasks": [{
+                        "title": string,
+                        "ownedFiles": string[],
+                        "assignedRole": "coder" | "tester",
+                        "dependsOn": string[]
+                    }]
+                }]
+            }`,
+        });
+
+        this.plannerState = {
+            ...this.plannerState,
+            tokensSpent: this.plannerState.tokensSpent + result.usage.inputTokens + result.usage.outputTokens,
+        };
+
+        const milestones = result.value.milestones.map((m, mi) => ({
+            id: `m${mi}`,
+            title: m.title,
+            description: m.description,
+            tasks: m.tasks.map((t, ti) => ({
+                id: `m${mi}-t${ti}`,
+                title: t.title,
+                ownedFiles: t.ownedFiles,
+                assignedRole: (t.assignedRole ?? 'coder') as 'coder' | 'tester',
+                dependsOn: t.dependsOn ?? [],
+            })),
+        }));
+
         return {
             phaseConcept: {
-                name: 'initial-scaffold',
-                description: input.prompt.slice(0, 500),
+                name: result.value.phaseConcept.name,
+                description: result.value.phaseConcept.description,
                 files: [],
-                lastPhase: false,
+                lastPhase: result.value.phaseConcept.lastPhase,
             } as unknown as PlannerOutput['phaseConcept'],
-            milestones: [],
+            milestones,
         };
     }
 
@@ -143,6 +192,26 @@ export class PlannerAgent extends DurableObject<Cloudflare.Env> implements Plann
             elapsedMs: Date.now() - start,
         };
     }
+}
+
+// ── Claude JSON response shape ──────────────────────────────────────────
+
+interface PlannerJsonResponse {
+    readonly phaseConcept: {
+        readonly name: string;
+        readonly description: string;
+        readonly lastPhase: boolean;
+    };
+    readonly milestones: readonly {
+        readonly title: string;
+        readonly description: string;
+        readonly tasks: readonly {
+            readonly title: string;
+            readonly ownedFiles: readonly string[];
+            readonly assignedRole?: 'coder' | 'tester';
+            readonly dependsOn?: readonly string[];
+        }[];
+    }[];
 }
 
 // ── File-set partitioner ─────────────────────────────────────────────────

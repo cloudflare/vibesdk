@@ -35,12 +35,17 @@ import { MainContentPanel } from './components/main-content-panel';
 import { ChatInput } from './components/chat-input';
 import { useVault } from '@/hooks/use-vault';
 import { VaultUnlockModal } from '@/components/vault';
+import { AgentsDock, useAgentStream } from '@/components/agents';
 
 const isPhasicBlueprint = (blueprint?: BlueprintType | null): blueprint is PhasicBlueprint =>
 	!!blueprint && 'implementationRoadmap' in blueprint;
 
 export default function Chat() {
 	const { chatId: urlChatId } = useParams();
+
+	// Multi-agent live stream — populated by new agent_status + plan_update
+	// WS messages once the coordinator emits them. Renders empty until then.
+	const { agents: liveAgents } = useAgentStream();
 
 	const [searchParams] = useSearchParams();
 	const userQuery = searchParams.get('query');
@@ -734,6 +739,11 @@ export default function Chat() {
 										isThinking={true}
 									/>
 								</div>
+							)}
+
+							{/* Multi-agent live dock — renders only when live agents present */}
+							{liveAgents.length > 0 && (
+								<AgentsDock agents={liveAgents} className="mb-2" />
 							)}
 
 							{/* Only show PhaseTimeline for phasic mode */}

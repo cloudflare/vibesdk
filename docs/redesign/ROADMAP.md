@@ -26,16 +26,20 @@ These are KNOWN gaps. Listing here so nobody thinks they're "done" when they're 
 
 ### Must-Do Before First Paid Customer (Sprint 1 after this)
 
+Updated 2026-04-24 after commit `HEAD`:
+
 ```
-# schema: item|why-blocked|effort-hours|owner
-Seed password hash: verify format|project uses custom verifier (PBKDF2 assumed, may be argon2)|2|@Dev
-Wire TeamLeadCoordinator into CodeGeneratorAgent|behind multiAgentEnabled flag — currently scaffolded only|8|@Dev
-Wire sub-agent bodies to executeInference|Coder/Planner/Tester/Critic return stubs today|16|@Dev
-Mount AgentsDock + PlanTree in chat.tsx|components exist, not rendered|3|@Dev
-Emit agent_status + plan_update from coordinator|websocket types defined, emit-site not wired|4|@Dev
-claimGenerationSlot call at session start|entitlements counter exists, not called|2|@Dev
-Razorpay plan IDs in wrangler.jsonc|empty strings today — operator must fill per RAZORPAY-SETUP.md|0|@Owner
-Stripe secret + webhook secret via `wrangler secret put`|operator task|0|@Owner
+# schema: item|status|effort-hours|owner
+Wire sub-agent bodies to LLM|DONE — Planner/Coder/Critic call Claude Sonnet via claudeDirect.ts|-|@Dev
+Mount AgentsDock into chat.tsx|DONE — renders when liveAgents > 0|-|@Dev
+Static credit-guard middleware|DONE — checkGenerationGuard, atomic D1, rollback helper|-|@Dev
+Seed password hash: verify format|PENDING — may be argon2 not PBKDF2|2|@Dev
+Wire TeamLeadCoordinator into CodeGeneratorAgent behind multiAgentEnabled flag|PENDING — coordinator exists|6|@Dev
+Emit agent_status + plan_update from coordinator|PENDING — WS types defined|4|@Dev
+Hook checkGenerationGuard into codegenRoutes session-start path|PENDING — middleware exists|2|@Dev
+Tester sub-agent body (sandbox run)|DEFERRED — scaffolded, wire when multi-agent path enabled|6|@Dev
+Razorpay plan IDs in wrangler.jsonc|DEFERRED — per user request, flip last|0|@Owner
+Razorpay secrets via `wrangler secret put`|DEFERRED — per user request|0|@Owner
 ```
 
 ### Production Readiness (Sprint 2, tracked in QA-PROTOCOL.md)
