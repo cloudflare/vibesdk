@@ -152,8 +152,9 @@ export function canUseSso(tier: SubscriptionTier): EntitlementDecision {
 
 /**
  * Atomically increment the generation counter.
- * Uses D1 UPDATE ... WHERE ... RETURNING to avoid TOCTOU.
- * Returns decision + the new counter value on success.
+ * Uses raw D1 `UPDATE ... WHERE ... RETURNING` to avoid TOCTOU — Drizzle
+ * doesn't expose a conditional-increment-and-return in one statement yet.
+ * Takes the raw D1Database binding (accessed from `env.DB` in the caller).
  */
 export interface GenerationBudgetClaim {
     readonly decision: EntitlementDecision;
@@ -162,11 +163,10 @@ export interface GenerationBudgetClaim {
 }
 
 export async function claimGenerationSlot(
-    db: D1Database,
+    d1: D1Database,
     userId: string,
 ): Promise<GenerationBudgetClaim> {
-    // Atomic: only increments if used < limit. Returns 0 rows if over limit.
-    const row = await db
+    const row = await d1
         .prepare(
             `UPDATE subscription_tiers
              SET generations_used_this_period = generations_used_this_period + 1,
@@ -177,25 +177,16 @@ export async function claimGenerationSlot(
              RETURNING tier, generations_used_this_period, generations_limit`,
         )
         .bind(userId)
-        .first<{
-            tier: SubscriptionTier;
-            generations_used_this_period: number;
-            generations_limit: number;
-        }>();
+        .first<{ tier: SubscriptionTier; generations_used_this_period: number; generations_limit: number }>();
 
     if (!row) {
-        // Either over limit, or no subscription row — fetch reason.
-        const current = await db
+        const current = await d1
             .prepare(
                 `SELECT tier, generations_used_this_period, generations_limit
                  FROM subscription_tiers WHERE user_id = ? AND active = 1`,
             )
             .bind(userId)
-            .first<{
-                tier: SubscriptionTier;
-                generations_used_this_period: number;
-                generations_limit: number;
-            }>();
+            .first<{ tier: SubscriptionTier; generations_used_this_period: number; generations_limit: number }>();
 
         const currentTier = current?.tier ?? 'free';
         return {
@@ -211,46 +202,21 @@ export async function claimGenerationSlot(
             limit: current?.generations_limit,
         };
     }
-
-    return {
-        decision: OK,
-        newUsed: row.generations_used_this_period,
-        limit: row.generations_limit,
-    };
-}
-
-/**
- * Ensure a subscription_tiers row exists for the user (first-session bootstrap).
- * Idempotent: no-op if row present.
- */
-export async function ensureSubscriptionRow(
-    db: D1Database,
-    userId: string,
-    tier: SubscriptionTier = 'free',
-): Promise<void> {
-    const ent = ENTITLEMENTS[tier];
-    const limit = tier === 'enterprise' ? 10_000 : ent.maxGenerationsPerMonth;
-    await db
-        .prepare(
-            `INSERT OR IGNORE INTO subscription_tiers
-               (user_id, tier, generations_limit, period_ends_at, active)
-             VALUES (?, ?, ?, strftime('%s','now','+30 days'), 1)`,
-        )
-        .bind(userId, tier, limit)
-        .run();
+    return { decision: OK, newUsed: row.generations_used_this_period, limit: row.generations_limit };
 }
 
 /**
  * Initialize agent_budgets for a session. Called at session create by TeamLead.
+ * Uses raw D1 — agent_budgets is write-heavy + short-lived, no need for Drizzle types here.
  */
 export async function initAgentBudget(
-    db: D1Database,
+    d1: D1Database,
     sessionId: string,
     userId: string,
     tier: SubscriptionTier,
 ): Promise<void> {
     const ent = ENTITLEMENTS[tier];
-    await db
+    await d1
         .prepare(
             `INSERT OR REPLACE INTO agent_budgets
                (session_id, user_id, tier, max_parallel_agents, critic_enabled)

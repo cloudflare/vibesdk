@@ -8,6 +8,8 @@
  *   POST /api/billing/order               → create one-time order (credit pack)
  *   POST /api/billing/verify-payment      → verify client-returned payment signature
  *   POST /api/billing/webhook             → Razorpay webhook (signature-verified, idempotent)
+ *
+ * Data access goes through BillingService (see worker/database/services/).
  */
 
 import { BaseController } from '../baseController';
@@ -15,14 +17,8 @@ import type { ApiResponse, ControllerResponse } from '../types';
 import type { RouteContext } from '../../types/route-context';
 import { createLogger } from '../../../logger';
 import { RazorpayService, type RazorpayWebhookEvent } from '../../../services/billing/razorpay';
-import {
-    ENTITLEMENTS,
-    ensureSubscriptionRow,
-    type SubscriptionTier,
-} from '../../../services/entitlements/entitlements';
-import { eq } from 'drizzle-orm';
-import { subscriptionTiers, razorpayEvents } from '../../../database/schema';
-import { createDatabase } from '../../../database/database';
+import { ENTITLEMENTS, type SubscriptionTier } from '../../../services/entitlements/entitlements';
+import { BillingService } from '../../../database/services/BillingService';
 
 const logger = createLogger('BillingController');
 
@@ -40,9 +36,9 @@ interface BillingStatusData {
 
 interface CreateSubscriptionResult {
     subscriptionId: string;
-    shortUrl: string;      // hosted Razorpay authorize page
+    shortUrl: string;
     status: string;
-    keyId: string;         // public key for Razorpay Checkout SDK
+    keyId: string;
 }
 
 interface CreateOrderResult {
@@ -58,7 +54,7 @@ interface VerifyPaymentResult {
 }
 
 interface PlanTierSelection {
-    tier: Exclude<SubscriptionTier, 'free' | 'enterprise'>;   // pro | team
+    tier: Exclude<SubscriptionTier, 'free' | 'enterprise'>;    // pro | team
     cycle: 'monthly' | 'annual';
 }
 
@@ -73,27 +69,26 @@ export class BillingController extends BaseController {
     ): Promise<ControllerResponse<ApiResponse<BillingStatusData>>> {
         try {
             const user = context.user!;
-            const db = createDatabase(env);
-            await ensureSubscriptionRow(env.DB as unknown as D1Database, user.id);
-            const row = await db
-                .select()
-                .from(subscriptionTiers)
-                .where(eq(subscriptionTiers.userId, user.id))
-                .get();
-            if (!row) return BillingController.createErrorResponse<BillingStatusData>('No subscription row', 500);
+            const svc = new BillingService(env);
+            await svc.ensureRow(user.id);
+            const row = await svc.getStatus(user.id);
+            if (!row) {
+                return BillingController.createErrorResponse<BillingStatusData>('No subscription row', 500);
+            }
+            const tier = row.tier as SubscriptionTier;
             return BillingController.createSuccessResponse<BillingStatusData>({
-                tier: row.tier as SubscriptionTier,
+                tier,
                 billingCycle: row.billingCycle as 'monthly' | 'annual',
                 generationsLimit: row.generationsLimit,
                 generationsUsedThisPeriod: row.generationsUsedThisPeriod,
                 periodEndsAt: row.periodEndsAt,
                 active: Boolean(row.active),
-                features: ENTITLEMENTS[row.tier as SubscriptionTier],
+                features: ENTITLEMENTS[tier],
                 razorpaySubscriptionId: row.razorpaySubscriptionId,
                 currency: row.currency,
             });
         } catch (err) {
-            logger.error('getStatus failed', { error: err instanceof Error ? err.message : String(err) });
+            logger.error('getStatus failed', { error: errorMessage(err) });
             return BillingController.createErrorResponse<BillingStatusData>('Failed to load billing status', 500);
         }
     }
@@ -122,28 +117,9 @@ export class BillingController extends BaseController {
                 notes: { userId: user.id, tier: body.tier, cycle: body.cycle },
             });
 
-            // Record the pending subscription id so webhook can correlate.
-            const db = createDatabase(env);
-            await db
-                .insert(subscriptionTiers)
-                .values({
-                    userId: user.id,
-                    tier: 'free',                    // stays free until webhook activates
-                    billingCycle: body.cycle,
-                    razorpaySubscriptionId: sub.id,
-                    razorpayPlanId: sub.plan_id,
-                    generationsLimit: ENTITLEMENTS.free.maxGenerationsPerMonth,
-                    active: 1,
-                })
-                .onConflictDoUpdate({
-                    target: subscriptionTiers.userId,
-                    set: {
-                        razorpaySubscriptionId: sub.id,
-                        razorpayPlanId: sub.plan_id,
-                        billingCycle: body.cycle,
-                        updatedAt: new Date(),
-                    },
-                });
+            // Record pending id so the webhook can correlate.
+            const svc = new BillingService(env);
+            await svc.recordPendingSubscription(user.id, sub.id, sub.plan_id, body.cycle);
 
             return BillingController.createSuccessResponse<CreateSubscriptionResult>({
                 subscriptionId: sub.id,
@@ -152,7 +128,7 @@ export class BillingController extends BaseController {
                 keyId: env.RAZORPAY_KEY_ID ?? '',
             });
         } catch (err) {
-            logger.error('createSubscription failed', { error: err instanceof Error ? err.message : String(err) });
+            logger.error('createSubscription failed', { error: errorMessage(err) });
             return BillingController.createErrorResponse<CreateSubscriptionResult>('Failed to create subscription', 500);
         }
     }
@@ -165,12 +141,8 @@ export class BillingController extends BaseController {
     ): Promise<ControllerResponse<ApiResponse<{ status: string }>>> {
         try {
             const user = context.user!;
-            const db = createDatabase(env);
-            const row = await db
-                .select()
-                .from(subscriptionTiers)
-                .where(eq(subscriptionTiers.userId, user.id))
-                .get();
+            const svc = new BillingService(env);
+            const row = await svc.getStatus(user.id);
             if (!row?.razorpaySubscriptionId) {
                 return BillingController.createErrorResponse<{ status: string }>('No active subscription', 404);
             }
@@ -178,7 +150,7 @@ export class BillingController extends BaseController {
             const cancelled = await rzp.cancelSubscription(row.razorpaySubscriptionId, true);
             return BillingController.createSuccessResponse({ status: cancelled.status });
         } catch (err) {
-            logger.error('cancelSubscription failed', { error: err instanceof Error ? err.message : String(err) });
+            logger.error('cancelSubscription failed', { error: errorMessage(err) });
             return BillingController.createErrorResponse<{ status: string }>('Failed to cancel subscription', 500);
         }
     }
@@ -209,7 +181,7 @@ export class BillingController extends BaseController {
                 keyId: env.RAZORPAY_KEY_ID ?? '',
             });
         } catch (err) {
-            logger.error('createOrder failed', { error: err instanceof Error ? err.message : String(err) });
+            logger.error('createOrder failed', { error: errorMessage(err) });
             return BillingController.createErrorResponse<CreateOrderResult>('Failed to create order', 500);
         }
     }
@@ -227,7 +199,7 @@ export class BillingController extends BaseController {
                 message: ok ? undefined : 'Signature mismatch',
             });
         } catch (err) {
-            logger.error('verifyPayment failed', { error: err instanceof Error ? err.message : String(err) });
+            logger.error('verifyPayment failed', { error: errorMessage(err) });
             return BillingController.createErrorResponse<VerifyPaymentResult>('Failed to verify payment', 500);
         }
     }
@@ -262,28 +234,16 @@ export class BillingController extends BaseController {
                 event.payload.payment?.entity.id ??
                 null;
 
-            const db = createDatabase(env);
-
-            // Idempotency — skip if already processed.
-            const existing = await db
-                .select({ id: razorpayEvents.eventId })
-                .from(razorpayEvents)
-                .where(eq(razorpayEvents.eventId, eventId))
-                .get();
-            if (existing) {
-                return BillingController.createSuccessResponse({ ok: true });
+            const svc = new BillingService(env);
+            const fresh = await svc.markEventProcessed({ eventId, eventType: event.event, entityId });
+            if (!fresh) {
+                return BillingController.createSuccessResponse({ ok: true });    // idempotent no-op
             }
-            await db.insert(razorpayEvents).values({
-                eventId,
-                eventType: event.event,
-                entityId,
-            });
 
-            // Dispatch by event type.
-            await dispatchWebhook(event, env, rzp);
+            await dispatchWebhook(event, rzp, svc);
             return BillingController.createSuccessResponse({ ok: true });
         } catch (err) {
-            logger.error('webhook failed', { error: err instanceof Error ? err.message : String(err) });
+            logger.error('webhook failed', { error: errorMessage(err) });
             return BillingController.createErrorResponse<{ ok: boolean }>('Webhook processing failed', 500);
         }
     }
@@ -303,13 +263,15 @@ function resolvePlanId(
     return undefined;
 }
 
+function errorMessage(err: unknown): string {
+    return err instanceof Error ? err.message : String(err);
+}
+
 async function dispatchWebhook(
     event: RazorpayWebhookEvent,
-    env: Env,
     rzp: RazorpayService,
+    svc: BillingService,
 ): Promise<void> {
-    const db = createDatabase(env);
-
     switch (event.event) {
         case 'subscription.activated':
         case 'subscription.charged': {
@@ -317,25 +279,17 @@ async function dispatchWebhook(
             if (!sub) return;
             const mapping = rzp.mapPlanToTier(sub.plan_id);
             if (!mapping) return;
-
             const userId = sub.notes?.userId;
             if (!userId) return;
 
-            const ent = ENTITLEMENTS[mapping.tier];
-            await db
-                .update(subscriptionTiers)
-                .set({
-                    tier: mapping.tier,
-                    billingCycle: mapping.cycle,
-                    generationsLimit: ent.maxGenerationsPerMonth,
-                    generationsUsedThisPeriod: 0,
-                    periodStartedAt: sub.current_start ?? Math.floor(Date.now() / 1000),
-                    periodEndsAt: sub.current_end,
-                    active: 1,
-                    razorpayLastEventId: event.id,
-                    updatedAt: new Date(),
-                })
-                .where(eq(subscriptionTiers.userId, userId));
+            await svc.activateTier({
+                userId,
+                tier: mapping.tier,
+                cycle: mapping.cycle,
+                periodStart: sub.current_start ?? Math.floor(Date.now() / 1000),
+                periodEnd: sub.current_end,
+                eventId: event.id,
+            });
             return;
         }
 
@@ -344,27 +298,18 @@ async function dispatchWebhook(
         case 'subscription.paused': {
             const sub = event.payload.subscription?.entity;
             if (!sub) return;
-            await db
-                .update(subscriptionTiers)
-                .set({
-                    tier: 'free',
-                    generationsLimit: ENTITLEMENTS.free.maxGenerationsPerMonth,
-                    active: event.event === 'subscription.cancelled' ? 0 : 1,
-                    razorpayLastEventId: event.id,
-                    updatedAt: new Date(),
-                })
-                .where(eq(subscriptionTiers.razorpaySubscriptionId, sub.id));
+            await svc.demoteToFreeBySubscriptionId(sub.id, {
+                active: event.event !== 'subscription.cancelled',
+                eventId: event.id,
+            });
             return;
         }
 
-        case 'payment.captured': {
-            // Credit top-up flow. Order.notes.creditPackId could be used to map packages.
-            // Left as a TODO-marker — requires credit-pack catalog table.
+        case 'payment.captured':
+            // Credit top-up flow — requires credit-pack catalog (deferred).
             return;
-        }
 
         default:
-            // Unknown event — record but don't act. Safe default.
             return;
     }
 }

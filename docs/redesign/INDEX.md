@@ -10,6 +10,12 @@ Read order for a new reader:
 6. **[PLAN.md](./PLAN.md)** — 5 milestones, stories, estimates
 7. **[CRITIQUE.md](./CRITIQUE.md)** — 10 challenge items, 4 must-fix blockers
 8. **[ADR-001-multi-agent.md](./ADR-001-multi-agent.md)** — DO fan-out decision
+9. **[WEDGES.md](./WEDGES.md)** — speed + cost wedges vs emergent
+10. **[INFRASTRUCTURE.md](./INFRASTRUCTURE.md)** — Cloudflare vs GCP decision (HIGH-confidence, 43× cheaper)
+11. **[COST-OPTIMIZATION.md](./COST-OPTIMIZATION.md)** — 9 levers ranked by ROI
+12. **[RAZORPAY-SETUP.md](./RAZORPAY-SETUP.md)** — operator runbook for live billing
+13. **[QA-PROTOCOL.md](./QA-PROTOCOL.md)** — automated + manual QA checklist
+14. **[ROADMAP.md](./ROADMAP.md)** — honest close-out: what shipped, what didn't
 
 ## Status Board
 
