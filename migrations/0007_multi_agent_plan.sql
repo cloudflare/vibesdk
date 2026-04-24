@@ -57,19 +57,21 @@ CREATE INDEX IF NOT EXISTS `agent_budgets_user_idx` ON `agent_budgets` (`user_id
 CREATE INDEX IF NOT EXISTS `agent_budgets_tier_idx` ON `agent_budgets` (`tier`);
 
 -- ── subscription_tiers ─────────────────────────────────────────────────
--- One row per user. Updated by Stripe webhook handler (idempotent on
--- stripe_event_id). Queried by entitlements service on every session start.
+-- One row per user. Updated by Razorpay webhook handler (idempotent on
+-- razorpay_event_id). Queried by entitlements service on every session start.
 CREATE TABLE IF NOT EXISTS `subscription_tiers` (
     `user_id` text PRIMARY KEY NOT NULL,
     `tier` text NOT NULL DEFAULT 'free',       -- 'free' | 'pro' | 'team' | 'enterprise'
     `billing_cycle` text NOT NULL DEFAULT 'monthly', -- 'monthly' | 'annual'
-    `stripe_customer_id` text,
-    `stripe_subscription_id` text,
-    `stripe_last_event_id` text,
+    `razorpay_customer_id` text,
+    `razorpay_subscription_id` text,
+    `razorpay_plan_id` text,
+    `razorpay_last_event_id` text,
+    `currency` text NOT NULL DEFAULT 'INR',    -- Razorpay primarily INR; USD via intl plans
     `seats` integer NOT NULL DEFAULT 1,
     `generations_limit` integer NOT NULL DEFAULT 5,
     `generations_used_this_period` integer NOT NULL DEFAULT 0,
-    `period_started_at` integer NOT NULL DEFAULT (CURRENT_TIMESTAMP),
+    `period_started_at` integer NOT NULL DEFAULT (strftime('%s','now')),
     `period_ends_at` integer,
     `active` integer NOT NULL DEFAULT 1,
     `created_at` integer DEFAULT (CURRENT_TIMESTAMP),
@@ -77,13 +79,16 @@ CREATE TABLE IF NOT EXISTS `subscription_tiers` (
     FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE
 );
 
-CREATE INDEX IF NOT EXISTS `subscription_tiers_stripe_cust_idx` ON `subscription_tiers` (`stripe_customer_id`);
-CREATE INDEX IF NOT EXISTS `subscription_tiers_stripe_sub_idx` ON `subscription_tiers` (`stripe_subscription_id`);
+CREATE INDEX IF NOT EXISTS `subscription_tiers_rzp_cust_idx` ON `subscription_tiers` (`razorpay_customer_id`);
+CREATE INDEX IF NOT EXISTS `subscription_tiers_rzp_sub_idx` ON `subscription_tiers` (`razorpay_subscription_id`);
 CREATE INDEX IF NOT EXISTS `subscription_tiers_tier_idx` ON `subscription_tiers` (`tier`);
 
--- Stripe webhook idempotency: record every processed event to prevent replay.
-CREATE TABLE IF NOT EXISTS `stripe_events` (
+-- Razorpay webhook idempotency: record every processed event to prevent replay.
+CREATE TABLE IF NOT EXISTS `razorpay_events` (
     `event_id` text PRIMARY KEY NOT NULL,
-    `event_type` text NOT NULL,
+    `event_type` text NOT NULL,      -- e.g. 'payment.captured', 'subscription.activated'
+    `entity_id` text,                -- order_id / subscription_id / payment_id
     `processed_at` integer DEFAULT (CURRENT_TIMESTAMP)
 );
+
+CREATE INDEX IF NOT EXISTS `razorpay_events_entity_idx` ON `razorpay_events` (`entity_id`);

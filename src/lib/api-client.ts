@@ -1207,6 +1207,75 @@ class ApiClient {
                 // Redirect to OAuth provider
                 window.location.href = oauthUrl.toString();
         }
+
+        // ===============================
+        // Billing (Razorpay) API Methods
+        // ===============================
+
+        async getBillingStatus(): Promise<ApiResponse<BillingStatusData>> {
+                return this.request<BillingStatusData>('/api/billing/status');
+        }
+
+        async createSubscription(params: { tier: 'pro' | 'team'; cycle: 'monthly' | 'annual' }): Promise<ApiResponse<CreateSubscriptionResult>> {
+                return this.request<CreateSubscriptionResult>('/api/billing/subscription', {
+                        method: 'POST',
+                        body: JSON.stringify(params),
+                });
+        }
+
+        async cancelSubscription(): Promise<ApiResponse<{ status: string }>> {
+                return this.request<{ status: string }>('/api/billing/subscription/cancel', {
+                        method: 'POST',
+                });
+        }
+
+        async createOrder(amountPaise: number, currency: 'INR' | 'USD' = 'INR'): Promise<ApiResponse<CreateOrderResult>> {
+                return this.request<CreateOrderResult>('/api/billing/order', {
+                        method: 'POST',
+                        body: JSON.stringify({ amountPaise, currency }),
+                });
+        }
+
+        async verifyPayment(params: { orderId: string; paymentId: string; signature: string }): Promise<ApiResponse<{ verified: boolean; message?: string }>> {
+                return this.request<{ verified: boolean; message?: string }>('/api/billing/verify-payment', {
+                        method: 'POST',
+                        body: JSON.stringify(params),
+                });
+        }
+}
+
+export interface BillingStatusData {
+        tier: 'free' | 'pro' | 'team' | 'enterprise';
+        billingCycle: 'monthly' | 'annual';
+        generationsLimit: number;
+        generationsUsedThisPeriod: number;
+        periodEndsAt: number | null;
+        active: boolean;
+        razorpaySubscriptionId: string | null;
+        currency: string;
+        features: {
+                maxGenerationsPerMonth: number;
+                maxParallelAgents: 1 | 4 | 8;
+                criticEnabled: boolean;
+                customDomainDeploy: boolean;
+                teamWorkspaces: boolean;
+                ssoEnabled: boolean;
+                supportSla: 'community' | 'email' | 'priority' | 'dedicated';
+        };
+}
+
+export interface CreateSubscriptionResult {
+        subscriptionId: string;
+        shortUrl: string;
+        status: string;
+        keyId: string;
+}
+
+export interface CreateOrderResult {
+        orderId: string;
+        amount: number;
+        currency: string;
+        keyId: string;
 }
 
 // Export singleton instance

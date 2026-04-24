@@ -616,3 +616,108 @@ export type NewCredit = typeof credits.$inferInsert;
 
 export type CreditTransaction = typeof creditTransactions.$inferSelect;
 export type NewCreditTransaction = typeof creditTransactions.$inferInsert;
+
+// ========================================
+// MULTI-AGENT + SUBSCRIPTION TIERS (see migrations/0007)
+// ========================================
+
+/**
+ * Plan tree — the Manus-style hierarchical plan built by the Planner agent.
+ * Milestone → Task → Subtask, owned-files glob list is JSON-encoded.
+ */
+export const planNodes = sqliteTable('plan_nodes', {
+    id: text('id').primaryKey(),
+    sessionId: text('session_id').notNull(),
+    parentId: text('parent_id'),
+    sortIndex: integer('sort_index').notNull().default(0),
+    role: text('role', { enum: ['milestone', 'task', 'subtask'] }).notNull(),
+    title: text('title').notNull(),
+    description: text('description'),
+    status: text('status', { enum: ['pending', 'running', 'done', 'failed', 'skipped'] }).notNull().default('pending'),
+    assignedAgent: text('assigned_agent'),
+    ownedFilesJson: text('owned_files_json').notNull().default('[]'),
+    criticRounds: integer('critic_rounds').notNull().default(0),
+    criticVerdict: text('critic_verdict'),
+    tokensSpent: integer('tokens_spent').notNull().default(0),
+    startedAt: integer('started_at'),
+    completedAt: integer('completed_at'),
+    createdAt: integer('created_at', { mode: 'timestamp' }).default(sql`CURRENT_TIMESTAMP`),
+    updatedAt: integer('updated_at', { mode: 'timestamp' }).default(sql`CURRENT_TIMESTAMP`),
+}, (table) => ({
+    sessionIdx: index('plan_nodes_session_idx').on(table.sessionId),
+    parentIdx: index('plan_nodes_parent_idx').on(table.parentId),
+    sessionStatusIdx: index('plan_nodes_session_status_idx').on(table.sessionId, table.status),
+    sessionSortIdx: index('plan_nodes_session_sort_idx').on(table.sessionId, table.sortIndex),
+}));
+
+/**
+ * Per-session token accounting by model tier — feeds entitlement gate + cost telemetry.
+ */
+export const agentBudgets = sqliteTable('agent_budgets', {
+    sessionId: text('session_id').primaryKey(),
+    userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+    tier: text('tier', { enum: ['free', 'pro', 'team', 'enterprise'] }).notNull(),
+    opusTokensUsed: integer('opus_tokens_used').notNull().default(0),
+    sonnetHighTokensUsed: integer('sonnet_high_tokens_used').notNull().default(0),
+    sonnetMedTokensUsed: integer('sonnet_med_tokens_used').notNull().default(0),
+    sonnetLowTokensUsed: integer('sonnet_low_tokens_used').notNull().default(0),
+    haikuTokensUsed: integer('haiku_tokens_used').notNull().default(0),
+    maxParallelAgents: integer('max_parallel_agents').notNull().default(1),
+    criticEnabled: integer('critic_enabled').notNull().default(0),
+    createdAt: integer('created_at', { mode: 'timestamp' }).default(sql`CURRENT_TIMESTAMP`),
+    updatedAt: integer('updated_at', { mode: 'timestamp' }).default(sql`CURRENT_TIMESTAMP`),
+}, (table) => ({
+    userIdx: index('agent_budgets_user_idx').on(table.userId),
+    tierIdx: index('agent_budgets_tier_idx').on(table.tier),
+}));
+
+/**
+ * Subscription tier state. One row per user. Updated by Razorpay webhook handler
+ * (idempotent on razorpay_event_id via `razorpayEvents` table).
+ */
+export const subscriptionTiers = sqliteTable('subscription_tiers', {
+    userId: text('user_id').primaryKey().references(() => users.id, { onDelete: 'cascade' }),
+    tier: text('tier', { enum: ['free', 'pro', 'team', 'enterprise'] }).notNull().default('free'),
+    billingCycle: text('billing_cycle', { enum: ['monthly', 'annual'] }).notNull().default('monthly'),
+    razorpayCustomerId: text('razorpay_customer_id'),
+    razorpaySubscriptionId: text('razorpay_subscription_id'),
+    razorpayPlanId: text('razorpay_plan_id'),
+    razorpayLastEventId: text('razorpay_last_event_id'),
+    currency: text('currency').notNull().default('INR'),
+    seats: integer('seats').notNull().default(1),
+    generationsLimit: integer('generations_limit').notNull().default(5),
+    generationsUsedThisPeriod: integer('generations_used_this_period').notNull().default(0),
+    periodStartedAt: integer('period_started_at').notNull().default(sql`(strftime('%s','now'))`),
+    periodEndsAt: integer('period_ends_at'),
+    active: integer('active').notNull().default(1),
+    createdAt: integer('created_at', { mode: 'timestamp' }).default(sql`CURRENT_TIMESTAMP`),
+    updatedAt: integer('updated_at', { mode: 'timestamp' }).default(sql`CURRENT_TIMESTAMP`),
+}, (table) => ({
+    razorpayCustIdx: index('subscription_tiers_rzp_cust_idx').on(table.razorpayCustomerId),
+    razorpaySubIdx: index('subscription_tiers_rzp_sub_idx').on(table.razorpaySubscriptionId),
+    tierIdx: index('subscription_tiers_tier_idx').on(table.tier),
+}));
+
+/**
+ * Razorpay webhook idempotency — never process the same event twice.
+ */
+export const razorpayEvents = sqliteTable('razorpay_events', {
+    eventId: text('event_id').primaryKey(),
+    eventType: text('event_type').notNull(),
+    entityId: text('entity_id'),
+    processedAt: integer('processed_at', { mode: 'timestamp' }).default(sql`CURRENT_TIMESTAMP`),
+}, (table) => ({
+    entityIdx: index('razorpay_events_entity_idx').on(table.entityId),
+}));
+
+export type PlanNode = typeof planNodes.$inferSelect;
+export type NewPlanNode = typeof planNodes.$inferInsert;
+
+export type AgentBudget = typeof agentBudgets.$inferSelect;
+export type NewAgentBudget = typeof agentBudgets.$inferInsert;
+
+export type SubscriptionTierRow = typeof subscriptionTiers.$inferSelect;
+export type NewSubscriptionTierRow = typeof subscriptionTiers.$inferInsert;
+
+export type RazorpayEvent = typeof razorpayEvents.$inferSelect;
+export type NewRazorpayEvent = typeof razorpayEvents.$inferInsert;

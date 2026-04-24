@@ -8,6 +8,7 @@ import { setupModelConfigRoutes } from './modelConfigRoutes';
 import { setupModelProviderRoutes } from './modelProviderRoutes';
 import { setupGitHubExporterRoutes } from './githubExporterRoutes';
 import { setupCreditRoutes } from './creditRoutes';
+import { setupBillingRoutes } from './billingRoutes';
 import { setupCodegenRoutes } from './codegenRoutes';
 import { setupScreenshotRoutes } from './imagesRoutes';
 import { setupSentryRoutes } from './sentryRoutes';
@@ -73,4 +74,7 @@ export function setupRoutes(app: Hono<AppEnv>): void {
 
     // Credit management routes
     setupCreditRoutes(app);
+
+    // Razorpay billing / subscription routes
+    setupBillingRoutes(app);
 }
