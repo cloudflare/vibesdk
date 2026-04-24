@@ -34,18 +34,25 @@ export class LimitsController extends BaseController {
 			]);
 
 			const window = usageResult.windowKind ?? 'rolling';
-			const used = Number.isFinite(usageResult.limit) ? usageResult.limit - usageResult.remaining : 0;
+			const unlimited = !Number.isFinite(usageResult.limit);
+			const used = unlimited ? 0 : usageResult.limit - usageResult.remaining;
+			// Omit `config.limit` when unlimited: a finite `maxValue` is part of
+			// the client contract, but `Infinity` serialises to `null` in JSON
+			// and would give clients a misleading `maxValue: null` with
+			// `unlimited: false` semantics everywhere else.
 			const response = LimitsController.createSuccessResponse({
 				config: {
-					limit: {
-						type: 'credits',
-						window,
-						maxValue: usageResult.limit,
-						enabled: true,
-						periodSeconds: usageResult.periodSeconds,
-						resetAt: usageResult.resetAt,
-					},
-					unlimited: !Number.isFinite(usageResult.limit),
+					...(unlimited ? {} : {
+						limit: {
+							type: 'credits' as const,
+							window,
+							maxValue: usageResult.limit,
+							enabled: true,
+							periodSeconds: usageResult.periodSeconds,
+							resetAt: usageResult.resetAt,
+						},
+					}),
+					unlimited,
 				},
 				usage: {
 					credits: {

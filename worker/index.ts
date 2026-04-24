@@ -178,7 +178,9 @@ const worker = {
 			
 			// Cloudflare OAuth connect routes: handle via Hono app even though they are not under /api
 			if (pathname.startsWith('/oauth/') || pathname === '/auth/callback') {
-				logger.info(`Handling Cloudflare OAuth request for: ${url}`);
+				// Do not log the full URL: /auth/callback carries sensitive
+				// query params (code, state) that must not end up in logs.
+				logger.info(`Handling Cloudflare OAuth request for: ${pathname}`);
 				const app = createApp(env);
 				return app.fetch(request, env, ctx);
 			}

@@ -46,12 +46,13 @@ export interface LimitCheckResult {
 
 export interface UsageSummary {
 	config: {
-		userId: string;
-		limit: LimitConfig;
+		/**
+		 * Only present when the user has a finite quota. Omitted when
+		 * `unlimited` is true (an infinite `maxValue` cannot be represented
+		 * safely in JSON — it would serialise to `null`).
+		 */
+		limit?: LimitConfig;
 		unlimited: boolean;
-		notes?: string;
-		createdAt: string;
-		updatedAt: string;
 	};
 	usage: Usage;
 	limitCheck: LimitCheckResult;
@@ -76,7 +77,8 @@ export function useLimits() {
 			setLoading(true);
 			setError(null);
 			
-			// Use API client - this will automatically include X-Cloudflare-Token header
+			// Use API client - auth (including encrypted Cloudflare OAuth token)
+			// is read server-side from the HttpOnly cookie.
 			const result = await apiClient.getLimitsUsage();
 			
 			// apiClient returns { success, data, message?, error? }

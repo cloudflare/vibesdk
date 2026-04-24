@@ -442,7 +442,7 @@ export interface InferenceContext {
     userModelConfigs?: Record<AgentActionKey, ModelConfig>;
     runtimeOverrides?: InferenceRuntimeOverrides;
     shouldUseUserKey?: boolean; // Set once at request start based on limit check
-    userApiToken?: string | null; // Encrypted token blob from X-Cloudflare-Token header (backend decrypts)
+    userApiToken?: string | null; // Encrypted Cloudflare OAuth token blob read server-side from the HttpOnly cookie (or captured at WS upgrade time) and decrypted by the backend; never sent as a client header.
     userGateway?: { // User's AI Gateway for BYOK
         accountId: string;
         gatewaySlug: string;

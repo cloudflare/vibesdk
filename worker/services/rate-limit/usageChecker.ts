@@ -263,12 +263,20 @@ async function getCloudflareBalance(env: Env, userId: string, token: string): Pr
 			return selected.gateway.creditsRemaining;
 		}
 
-		// Fetch fresh credits from Cloudflare
+		// Fetch fresh credits from Cloudflare. `null` means the credits API
+		// call failed (e.g. upstream outage, non-OK response, parse error).
 		const credits = await accountService.fetchGatewayCredits(
 			token,
 			selected.account.accountId,
 			selected.gateway.gatewayId
 		);
+
+		if (credits === null) {
+			// Don't overwrite the cached value with an unknown reading; fall
+			// back to the last-known balance so an outage doesn't masquerade
+			// as a $0 balance.
+			return selected.gateway.creditsRemaining ?? null;
+		}
 
 		// Update cached credits (fire and forget)
 		accountService.saveGateway(

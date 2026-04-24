@@ -560,7 +560,7 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
      * Delegates to centralized handler which can access both behavior and objective
      */
     async onMessage(connection: Connection, message: string): Promise<void> {
-        handleWebSocketMessage(this, connection, message);
+        await handleWebSocketMessage(this, connection, message);
     }
     
     /**

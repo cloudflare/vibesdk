@@ -81,9 +81,10 @@ export function UsageLimitsCard({ className, onConnectToken }: UsageLimitsCardPr
 	const isUnlimited = config.unlimited;
 	const limit = config.limit;
 
-	// Get current usage for the active limit type and window
-	const current = usage[limit.type]?.[limit.window] || 0;
-	const max = limit.maxValue;
+	// When unlimited, the backend omits `config.limit` (see worker controller).
+	// Bail out of finite-quota math so we don't read properties off undefined.
+	const current = limit ? usage[limit.type]?.[limit.window] || 0 : 0;
+	const max = limit?.maxValue ?? 0;
 	const percentUsed = max > 0 ? (current / max) * 100 : 0;
 	const remaining = Math.max(0, max - current);
 
@@ -150,10 +151,12 @@ export function UsageLimitsCard({ className, onConnectToken }: UsageLimitsCardPr
 						<RefreshCw className="h-4 w-4" />
 					</Button>
 				</div>
-				<CardDescription className="flex items-center gap-2 mt-2">
-					<Calendar className="h-3 w-3" />
-					{getWindowLabel(limit.window)}
-				</CardDescription>
+				{limit && (
+					<CardDescription className="flex items-center gap-2 mt-2">
+						<Calendar className="h-3 w-3" />
+						{getWindowLabel(limit.window)}
+					</CardDescription>
+				)}
 			</CardHeader>
 			<CardContent className="pt-6">
 				{isUnlimited ? (
@@ -174,7 +177,7 @@ export function UsageLimitsCard({ className, onConnectToken }: UsageLimitsCardPr
 									<div className="flex items-center justify-between text-sm">
 										<div className="flex items-center gap-2">
 											<BarChart3 className="h-4 w-4 text-text-tertiary" />
-											<span className="font-medium">{getTypeLabel(limit.type)}</span>
+											<span className="font-medium">{getTypeLabel(limit!.type)}</span>
 										</div>
 										<div className="flex items-center gap-2">
 											<span className={cn(
@@ -182,11 +185,11 @@ export function UsageLimitsCard({ className, onConnectToken }: UsageLimitsCardPr
 												isExceeded && "text-red-600",
 												isWarning && "text-amber-600"
 											)}>
-												{formatValue(current, limit.type)}
+												{formatValue(current, limit!.type)}
 											</span>
 											<span className="text-text-tertiary">/</span>
 											<span className="text-text-tertiary">
-												{formatValue(max, limit.type)}
+												{formatValue(max, limit!.type)}
 											</span>
 										</div>
 									</div>
@@ -203,7 +206,7 @@ export function UsageLimitsCard({ className, onConnectToken }: UsageLimitsCardPr
 									<div className="flex items-center justify-between text-xs text-text-tertiary">
 										<span>{percentUsed.toFixed(1)}% used</span>
 										<span className="font-medium text-foreground">
-											{formatValue(remaining, limit.type)} remaining
+											{formatValue(remaining, limit!.type)} remaining
 										</span>
 									</div>
 								</div>

@@ -71,6 +71,8 @@ export class UsageLimitExceededError extends Error {
             current: number;
             max: number;
             percentUsed: number;
+            /** ISO timestamp when this limit window resets (if known). */
+            resetAt?: string;
         }>,
         public hasUserToken: boolean = false
     ) {

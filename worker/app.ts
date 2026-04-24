@@ -49,14 +49,12 @@ export function createApp(env: Env): Hono<AppEnv> {
         }
         
         try {
-            console.log('CSRF middleware', method);
             // Handle GET requests - establish CSRF token if needed
             if (method === 'GET' || method === 'HEAD' || method === 'OPTIONS') {
                 await next();
                 
                 // Only set CSRF token for successful API responses
                 if (c.req.url.startsWith('/api/') && c.res.status < 400) {
-                    console.log('CSRF middleware set', method);
                     await CsrfService.enforce(c.req.raw, c.res);
                 }
                 
@@ -65,10 +63,8 @@ export function createApp(env: Env): Hono<AppEnv> {
             
             // Validate CSRF token for state-changing requests
             await CsrfService.enforce(c.req.raw, undefined);
-            console.log('CSRF middleware exit', method);
             await next();
         } catch (error) {
-            console.log('CSRF middleware error', error);
             if (error instanceof SecurityError && error.type === SecurityErrorType.CSRF_VIOLATION) {
                 return new Response(JSON.stringify({ 
                     error: { 

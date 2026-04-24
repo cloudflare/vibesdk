@@ -42,7 +42,8 @@ export function LimitsProvider({ children }: LimitsProviderProps) {
 			setLoading(true);
 			setError(null);
 			
-			// Use API client - this will automatically include X-Cloudflare-Token header
+			// Use API client - auth (including encrypted Cloudflare OAuth token)
+			// is read server-side from the HttpOnly cookie.
 			const result = await apiClient.getLimitsUsage();
 			
 			// apiClient returns { success, data, message?, error? }

@@ -141,14 +141,23 @@ export class CodingAgentController extends BaseController {
                     balance: limitResult.balance,
                 });
                 
+                const limit = limitResult.limit;
+                const current = Number.isFinite(limit)
+                    ? limit - limitResult.remaining
+                    : 0;
+                const percentUsed = Number.isFinite(limit) && limit > 0
+                    ? Math.min(100, (current / limit) * 100)
+                    : 0;
+
                 throw new UsageLimitExceededError(
                     limitResult.reason || 'Usage limits exceeded',
                     [{
                         type: 'credits',
-                        window: 'rolling',
-                        current: limitResult.limit - limitResult.remaining,
-                        max: limitResult.limit,
-                        percentUsed: ((limitResult.limit - limitResult.remaining) / limitResult.limit) * 100
+                        window: limitResult.windowKind ?? 'rolling',
+                        current,
+                        max: limit,
+                        percentUsed,
+                        resetAt: limitResult.resetAt,
                     }],
                     limitResult.hasUserToken
                 );

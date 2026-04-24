@@ -380,7 +380,7 @@ export class CloudflareConnectController extends BaseController {
 				userId,
 				accountDbId,
 				gateway.id,
-				gateway.id,
+				gateway.name,
 				gateway.slug,
 				autoCreated,
 				credits,

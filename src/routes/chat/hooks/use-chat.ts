@@ -691,7 +691,7 @@ export function useChat({
 	const handleDeployToCloudflare = useCallback(async (instanceId: string) => {
 		try {
 			// Send deployment command via WebSocket instead of HTTP request
-			if (await sendWebSocketMessage(websocket, 'deploy', { instanceId })) {
+			if (sendWebSocketMessage(websocket, 'deploy', { instanceId })) {
 				logger.debug('🚀 Deployment WebSocket message sent:', instanceId);
 
 				// Clear any existing deployment timeout

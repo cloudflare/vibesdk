@@ -193,14 +193,18 @@ export class CloudflareAccountService extends BaseService {
 	}
 
 	/**
-	 * Fetch credits for a specific AI Gateway
-	 * Note: Credits are account-level, not gateway-specific
+	 * Fetch credits for a specific AI Gateway.
+	 *
+	 * Returns `null` on any upstream failure so callers can distinguish
+	 * "unknown balance" (e.g. API outage, parse error) from a genuine $0
+	 * balance and keep the last cached value instead of overwriting it.
+	 * Note: Credits are account-level, not gateway-specific.
 	 */
 	async fetchGatewayCredits(
 		accessToken: string,
 		accountId: string,
 		gatewayId: string
-	): Promise<number> {
+	): Promise<number | null> {
 		try {
 			const response = await fetch(
 				`https://api.cloudflare.com/client/v4/accounts/${accountId}/ai-gateway-billing/credit_balance`,
@@ -217,13 +221,13 @@ export class CloudflareAccountService extends BaseService {
 					accountId,
 					status: response.status,
 				});
-				return 0;
+				return null;
 			}
 
 			const data = await response.json() as CfApiEnvelope<CfCreditBalanceApi>;
 
 			if (!data.success || !data.result) {
-				return 0;
+				return null;
 			}
 
 			// Extract credit balance (in cents) and convert to dollars
@@ -232,7 +236,7 @@ export class CloudflareAccountService extends BaseService {
 			return balanceInDollars;
 		} catch (error) {
 			this.logger.error('Error fetching gateway credits', { accountId, gatewayId, error });
-			return 0;
+			return null;
 		}
 	}
 
@@ -322,10 +326,15 @@ export class CloudflareAccountService extends BaseService {
 		gatewayName: string,
 		gatewaySlug: string,
 		autoCreated: boolean = false,
-		creditsRemaining: number = 0,
+		creditsRemaining: number | null = null,
 		setAsActive?: boolean
 	): Promise<string> {
 		const now = new Date();
+
+		// When creditsRemaining is null the upstream credits API was unavailable
+		// (see fetchGatewayCredits). Preserve the previously cached value rather
+		// than clobbering it with a stale/zero reading.
+		const hasCredits = creditsRemaining !== null;
 
 		// Check if gateway already exists
 		const existing = await this.database
@@ -345,8 +354,10 @@ export class CloudflareAccountService extends BaseService {
 				.set({
 					gatewayName,
 					gatewaySlug,
-					creditsRemaining,
-					creditsLastUpdated: now,
+					...(hasCredits ? {
+						creditsRemaining,
+						creditsLastUpdated: now,
+					} : {}),
 					updatedAt: now,
 				})
 				.where(eq(schema.aiGateways.id, existing.id));
@@ -365,8 +376,10 @@ export class CloudflareAccountService extends BaseService {
 			gatewayId,
 			gatewayName,
 			gatewaySlug,
-			creditsRemaining,
-			creditsLastUpdated: now,
+			...(hasCredits ? {
+				creditsRemaining,
+				creditsLastUpdated: now,
+			} : {}),
 			autoCreated,
 			isActive,
 			createdAt: now,
