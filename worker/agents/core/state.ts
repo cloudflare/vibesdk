@@ -109,11 +109,19 @@ export interface WorkflowMetadata {
     };
 }
 
+export interface PreflightState {
+    questionsAsked: number;
+    isWaitingForAnswer: boolean;
+}
+
 /** Agentic agent state */
 export interface AgenticState extends BaseProjectState {
     behaviorType: 'agentic';
     blueprint: AgenticBlueprint;
     currentPlan: Plan;
+    preflightQuestions?: string;
+    preflightState?: PreflightState;
+    disableGit?: boolean;
 }
 
 export type AgentState = PhasicState | AgenticState;

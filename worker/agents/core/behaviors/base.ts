@@ -7,7 +7,8 @@ import {
     PhasicBlueprint,
 } from '../../schemas';
 import { ExecuteCommandsResponse, PreviewType, RuntimeError, StaticAnalysisResponse, TemplateDetails, TemplateFile } from '../../../services/sandbox/sandboxTypes';
-import { BaseProjectState, AgenticState, FileState } from '../state';
+import { BaseProjectState, AgenticState, FileState, PreflightState } from '../state';
+import { ConversationMessage } from '../../inferutils/common';
 import { AllIssues, AgentSummary, AgentInitArgs, BehaviorType, DeploymentTarget, ProjectType } from '../types';
 import { WebSocketMessageResponses } from '../../constants';
 import { ProjectSetupAssistant } from '../../assistants/projectsetup';
@@ -386,6 +387,22 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
         return this.state.projectType;
     }
 
+    getPreflightState(): PreflightState | undefined {
+        if (this.isAgenticState(this.state)) {
+            return this.state.preflightState;
+        }
+        return undefined;
+    }
+
+    updatePreflightState(preflightState: PreflightState): void {
+        if (this.isAgenticState(this.state)) {
+            this.setState({
+                ...this.state,
+                preflightState,
+            });
+        }
+    }
+
     async queueUserRequest(request: string, images?: ProcessedImageAttachment[]): Promise<void> {
         this.setState({
             ...this.state,
@@ -412,6 +429,10 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
 
     clearConversation(): void {
         this.infrastructure.clearConversation();
+    }
+
+    addConversationMessage(message: ConversationMessage): void {
+        this.infrastructure.addConversationMessage(message);
     }
 
     getGit(): GitVersionControl {
@@ -995,6 +1016,9 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
                 fileContents = fmFile.fileContents;
                 filePurpose = fmFile.filePurpose || '';
             } else {
+                if (templateDetails?.renderMode === 'browser') {
+                    throw new Error(`File not found in project files: ${path}`);
+                }
                 const { sandboxInstanceId } = this.state;
                 if (!sandboxInstanceId) {
                     throw new Error('No sandbox instance available');
@@ -1013,7 +1037,7 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
         this.staticAnalysisCache = null;
         // Persist to sandbox instance
         // await this.getSandboxServiceClient().writeFiles(sandboxInstanceId, [{ filePath: regenerated.filePath, fileContents: regenerated.fileContents }], `Deep debugger fix: ${path}`);
-        await this.deploymentManager.deployToSandbox([regenerated])
+        await this.deployToSandbox([regenerated])
         return { path, diff: regenerated.lastDiff };
     }
 
@@ -1148,9 +1172,9 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
         const response = await this.deployToSandbox([], forceRedeploy, undefined, clearLogs);
         if (response && response.previewURL) {
             this.broadcast(WebSocketMessageResponses.PREVIEW_FORCE_REFRESH, {});
-            return `Deployment successful: ${response.previewURL}`;
+            return 'Deployment successful. The preview is now live.';
         }
-        return `Failed to deploy: ${response?.tunnelURL}`;
+        return 'Deployment failed. Please try again.';
     }
 
     async deployToSandbox(files: FileOutputType[] = [], redeploy: boolean = false, commitMessage?: string, clearLogs: boolean = false): Promise<PreviewType | null> {

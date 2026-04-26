@@ -121,7 +121,7 @@ export abstract class AgentOperationWithTools<
         session: TSession
     ): {
         agentActionName: AgentActionKey;
-        completionSignalName?: string;
+        completionSignalNames?: string[];
         operationalMode?: "initial" | "followup";
         allowWarningInjection?: boolean;
     };
@@ -134,13 +134,13 @@ export abstract class AgentOperationWithTools<
     ): TOutput;
 
     protected createCompletionConfig(
-        completionSignalName: string,
+        completionSignalNames: string[],
         operationalMode: "initial" | "followup",
         allowWarningInjection: boolean,
     ): CompletionConfig {
         return {
-            detector: completionSignalName
-                ? new CompletionDetector([completionSignalName])
+            detector: completionSignalNames.length > 0
+                ? new CompletionDetector(completionSignalNames)
                 : undefined,
             operationalMode,
             allowWarningInjection,
@@ -258,14 +258,14 @@ export abstract class AgentOperationWithTools<
 
         const {
             agentActionName,
-            completionSignalName,
+            completionSignalNames,
             operationalMode,
             allowWarningInjection,
         } = this.getAgentConfig(inputs, options, session);
 
-        const completionConfig = completionSignalName
+        const completionConfig = completionSignalNames && completionSignalNames.length > 0
             ? this.createCompletionConfig(
-                  completionSignalName,
+                  completionSignalNames,
                   operationalMode ?? "initial",
                   allowWarningInjection ?? false,
               )
