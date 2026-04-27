@@ -7,6 +7,8 @@
 		"setup": "tsx scripts/setup.ts",
 		"prepare": "husky",
 		"dev": "DEV_MODE=true vite",
+		"dev:reset": "bash scripts/dev-reset.sh",
+		"templates:redeploy": "bash scripts/redeploy-templates.sh",
 		"build": "tsc -b --incremental && vite build",
 		"typecheck": "tsc -b --incremental --noEmit",
 		"lint": "eslint .",

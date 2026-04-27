@@ -96,6 +96,29 @@ export const PreviewIframe = forwardRef<HTMLIFrameElement, PreviewIframeProps>(
 		}, []);
 
 		/**
+		 * Warm the preview by fetching the app entry so vite finishes its dep
+		 * crawl before the iframe mounts. HEAD / returns 200 while vite is
+		 * still re-bundling; the iframe's parallel ?v=... module requests then
+		 * 504 (or 404 on stale hashes). Fetching src/main.tsx forces vite to
+		 * transform the entry and chain through all app imports, which is what
+		 * "switch to Code tab and back" effectively buys us.
+		 */
+		const warmupPreview = useCallback(async (url: string): Promise<boolean> => {
+			try {
+				const entry = await fetch(new URL('src/main.tsx', url).toString(), {
+					method: 'GET',
+					mode: 'cors',
+					cache: 'no-cache',
+					signal: AbortSignal.timeout(20000),
+				});
+				return entry.ok;
+			} catch (error) {
+				console.log('Preview warmup fetch failed:', error);
+				return false;
+			}
+		}, []);
+
+		/**
 		 * Request automatic redeployment via WebSocket
 		 */
 		const requestRedeploy = useCallback(() => {
@@ -183,6 +206,27 @@ export const PreviewIframe = forwardRef<HTMLIFrameElement, PreviewIframeProps>(
 			const previewType = await testAvailability(url);
 
 			if (previewType) {
+				// HEAD / returned 200, but for sandbox previews we also need to
+				// confirm vite has finished dep optimization before mounting the
+				// iframe — otherwise the iframe's module requests race vite's
+				// re-bundling and 504.
+				if (previewType === 'sandbox') {
+					console.log('Preview HEAD ok; warming vite module graph before mounting iframe');
+					const warm = await warmupPreview(url);
+					if (!warm) {
+						const delay = getRetryDelay(attempt);
+						const nextAttempt = attempt + 1;
+						console.log(`Preview not warm yet. Retrying in ${Math.ceil(delay / 1000)}s (attempt ${nextAttempt}/${MAX_RETRIES})`);
+						if (nextAttempt === REDEPLOY_AFTER_ATTEMPT) {
+							requestRedeploy();
+						}
+						retryTimeoutRef.current = setTimeout(() => {
+							loadWithRetry(url, nextAttempt);
+						}, delay);
+						return;
+					}
+				}
+
 				// Success: put component into postload state, keep loading UI visible
 				console.log(`Preview available (${previewType}) at attempt ${attempt + 1}`);
 				setLoadState({
@@ -220,7 +264,7 @@ export const PreviewIframe = forwardRef<HTMLIFrameElement, PreviewIframeProps>(
 					loadWithRetry(url, nextAttempt);
 				}, delay);
 			}
-		}, [testAvailability, requestScreenshot, requestRedeploy]);
+		}, [testAvailability, warmupPreview, requestScreenshot, requestRedeploy]);
 
 		/**
 		 * Force a fresh reload from scratch
@@ -332,73 +376,66 @@ export const PreviewIframe = forwardRef<HTMLIFrameElement, PreviewIframeProps>(
 		// Render
 		// ====================================================================
 
-		// Successfully loaded - show iframe
-		if (loadState.status === 'loaded' && loadState.loadedSrc) {
-			return (
-				<iframe
-                    sandbox="allow-scripts allow-same-origin allow-pointer-lock allow-forms allow-modals allow-orientation-lock	allow-popups allow-presentation"
-					ref={ref}
-					src={loadState.loadedSrc}
-					className={className}
-					title={title}
-					style={{ border: 'none' }}
-					onError={() => {
-						console.error('Iframe failed to load');
-						setLoadState(prev => ({
-							...prev,
-							status: 'error',
-							errorMessage: 'Preview failed to render',
-						}));
-					}}
-				/>
-			);
-		}
-
-		// Loading state
-		if (loadState.status === 'loading' || loadState.status === 'idle' || loadState.status === 'postload') {
+		// Loading / postload / loaded — share a single stable iframe element so
+		// React never unmounts the warmed-up iframe when status flips to 'loaded'.
+		// The iframe stays mounted whenever loadedSrc is set; the spinner overlay
+		// is shown on top until the transition to 'loaded' reveals the iframe.
+		if (
+			loadState.status === 'loading' ||
+			loadState.status === 'idle' ||
+			loadState.status === 'postload' ||
+			loadState.status === 'loaded'
+		) {
 			const delay = getRetryDelay(loadState.attempt - 1);
 			const delaySeconds = Math.ceil(delay / 1000);
+			const isLoaded = loadState.status === 'loaded';
+			const showIframe = !!loadState.loadedSrc && (loadState.status === 'postload' || isLoaded);
+			const showSpinner = !isLoaded;
 
 			return (
-				<div className={`${className} relative flex flex-col items-center justify-center bg-bg-3 border border-text/10 rounded-lg`}>
-                    {loadState.status === 'postload' && loadState.loadedSrc && (
-                        <iframe
-                            sandbox="allow-scripts allow-same-origin allow-pointer-lock allow-forms allow-modals allow-orientation-lock	allow-popups allow-presentation"
-                            ref={ref}
-                            src={loadState.loadedSrc}
-                            className="absolute inset-0 opacity-0 pointer-events-none"
-                            title={title}
-                            aria-hidden="true"
-                            onError={() => {
-                                console.error('Iframe failed to load');
-                                setLoadState(prev => ({
-                                    ...prev,
-                                    status: 'error',
-                                    errorMessage: 'Preview failed to render',
-                                }));
-                            }}
-                        />
-                    )}
-					<div className="text-center p-8 max-w-md">
-						<RefreshCw className="size-8 text-accent animate-spin mx-auto mb-4" />
-						<h3 className="text-lg font-medium text-text-primary mb-2">
-							Loading Preview
-						</h3>
-						<p className="text-text-primary/70 text-sm mb-4">
-							{loadState.attempt === 0
-								? 'Checking if your deployed preview is ready...'
-								: `Preview not ready yet. Retrying in ${delaySeconds}s... (attempt ${loadState.attempt}/${MAX_RETRIES})`
-							}
-						</p>
-						{loadState.attempt >= REDEPLOY_AFTER_ATTEMPT && (
-							<p className="text-xs text-accent/70">
-								Auto-redeployment triggered to refresh the preview
+				<div
+					className={`${className} relative ${isLoaded ? '' : 'flex flex-col items-center justify-center bg-bg-3 border border-text/10 rounded-lg'}`}
+				>
+					{showIframe && loadState.loadedSrc && (
+						<iframe
+							sandbox="allow-scripts allow-same-origin allow-pointer-lock allow-forms allow-modals allow-orientation-lock	allow-popups allow-presentation"
+							ref={ref}
+							src={loadState.loadedSrc}
+							className={`absolute inset-0 w-full h-full border-0 ${isLoaded ? '' : 'opacity-0 pointer-events-none'}`}
+							title={title}
+							aria-hidden={isLoaded ? undefined : true}
+							onError={() => {
+								console.error('Iframe failed to load');
+								setLoadState(prev => ({
+									...prev,
+									status: 'error',
+									errorMessage: 'Preview failed to render',
+								}));
+							}}
+						/>
+					)}
+					{showSpinner && (
+						<div className="text-center p-8 max-w-md">
+							<RefreshCw className="size-8 text-accent animate-spin mx-auto mb-4" />
+							<h3 className="text-lg font-medium text-text-primary mb-2">
+								Loading Preview
+							</h3>
+							<p className="text-text-primary/70 text-sm mb-4">
+								{loadState.attempt === 0
+									? 'Checking if your deployed preview is ready...'
+									: `Preview not ready yet. Retrying in ${delaySeconds}s... (attempt ${loadState.attempt}/${MAX_RETRIES})`
+								}
 							</p>
-						)}
-						<div className="text-xs text-text-primary/50 mt-2">
-							Preview URLs may take a moment to become available after deployment
+							{loadState.attempt >= REDEPLOY_AFTER_ATTEMPT && (
+								<p className="text-xs text-accent/70">
+									Auto-redeployment triggered to refresh the preview
+								</p>
+							)}
+							<div className="text-xs text-text-primary/50 mt-2">
+								Preview URLs may take a moment to become available after deployment
+							</div>
 						</div>
-					</div>
+					)}
 				</div>
 			);
 		}

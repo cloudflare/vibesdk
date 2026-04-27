@@ -44,17 +44,17 @@
 	 * databases, object storage, AI inference, real-time communication and more.
 	 * https://developers.cloudflare.com/workers/runtime-apis/bindings/
 	 */
-	"ai": {
-		"binding": "AI",
-        "remote": true
-	},
-    "dispatch_namespaces": [
-        {
-            "binding": "DISPATCHER",
-            "namespace": "vibesdk-default-namespace",
-            "remote": true
-        }
-    ],
+    // "ai": binding removed for local-only mode (Workers AI requires Cloudflare auth).
+    //       Bypassed in worker/agents/inferutils/core.ts by routing direct to provider base URL.
+    // "dispatch_namespaces": commented out for local-only mode.
+    //       isDispatcherAvailable() returns false; "Deploy to Cloudflare" button in chat is disabled.
+    // "dispatch_namespaces": [
+    //     {
+    //         "binding": "DISPATCHER",
+    //         "namespace": "vibesdk-default-namespace",
+    //         "remote": false
+    //     }
+    // ],
 	"containers": [
 		{
 			"class_name": "UserAppSandboxService",
@@ -72,14 +72,14 @@
 		}
 	],
 	"d1_databases": [
-		{
-			"binding": "DB",
-			"database_name": "vibesdk-db",
-			"database_id": "c4721a2b-b96a-428a-8b2a-b3d255b307e9",
-			"migrations_dir": "migrations",
-			"remote": true
-		}
-	],
+        {
+            "binding": "DB",
+            "database_name": "vibesdk-db",
+            "database_id": "local",
+            "migrations_dir": "migrations",
+            "remote": false
+        }
+    ],
 	"durable_objects": {
 		"bindings": [
 			{
@@ -101,17 +101,17 @@
 		]
 	},
     "r2_buckets": [
-      {
-        "binding": "TEMPLATES_BUCKET",
-        "bucket_name": "vibesdk-templates",
-        "remote": true
-      }
+        {
+            "binding": "TEMPLATES_BUCKET",
+            "bucket_name": "vibesdk-templates",
+            "remote": false
+        }
     ],
     "kv_namespaces": [
         {
             "binding": "VibecoderStore",
-            "id": "f066f3c2e4824981b48e8586c04db9c1",
-            "remote": true
+            "id": "local",
+            "remote": false
         }
     ],
     // "placement": {
@@ -137,17 +137,6 @@
             ],
             "tag": "v3"
         }
-	],
-	"routes": [
-        {
-            "pattern": "build.cloudflare.dev",
-            "custom_domain": true
-        },
-        {
-            "pattern": "*build-preview.cloudflare.dev/*",
-            "custom_domain": false,
-            "zone_id": "db01fac4261b2604aacad8410443a3e2"
-        }
     ],
 	"vars": {
         "TEMPLATES_REPOSITORY": "https://github.com/cloudflare/vibesdk-templates",
@@ -169,10 +158,10 @@
             },
             "version": "1.0.0"
         },
-        "CUSTOM_DOMAIN": "",
+        "CUSTOM_DOMAIN": "localhost:5173",
         "MAX_SANDBOX_INSTANCES": "10",
         "SANDBOX_INSTANCE_TYPE": "standard-3"
     },
-	"workers_dev": false,
-	"preview_urls": false
+	"workers_dev": true,
+	"preview_urls": true
 }

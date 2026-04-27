@@ -444,9 +444,11 @@ export class SandboxSdkClient extends BaseSandboxService {
         const startTime = Date.now();
         const excludeList = excludedPorts.join(' ');
         
-        // Single command to find first available port in dev range (8001-8999)
+        // Single command to find first available port in dev range (8001-8010).
+        // Must stay in sync with EXPOSE directives in SandboxDockerfile:
+        // workerd's containerFetch rejects ports not declared in EXPOSE.
         const findPortCmd = `
-            for port in $(seq 8001 8999); do
+            for port in $(seq 8001 8010); do
                 if ! echo "${excludeList}" | grep -q "\\\\b$port\\\\b" && 
                    ! netstat -tuln 2>/dev/null | grep -q ":$port " && 
                    ! ss -tuln 2>/dev/null | grep -q ":$port "; then
@@ -468,7 +470,7 @@ export class SandboxSdkClient extends BaseSandboxService {
             return port;
         }
         
-        throw new Error('No available ports found in range 8001-8999');
+        throw new Error('No available ports found in range 8001-8010');
     }
     
     private async buildFileTree(instanceId: string): Promise<FileTreeNode | undefined> {
@@ -656,6 +658,28 @@ export class SandboxSdkClient extends BaseSandboxService {
         } catch (error) {
             this.logger.warn('Failed to start dev server', error);
             throw error;
+        }
+    }
+
+    /**
+     * Warms up the dev server before we expose its preview URL. Without this,
+     * the browser can race vite's on-demand dep optimization: mid-load re-
+     * optimization changes ?v= hashes and produces 404/504 on module requests.
+     * The template also sets optimizeDeps.include + server.warmup, this is the
+     * belt-and-suspenders layer that also covers stale caches from prior runs.
+     */
+    private async warmupDevServer(instanceId: string, port: number): Promise<void> {
+        try {
+            await this.executeCommand(
+                instanceId,
+                `curl -s -o /dev/null --max-time 15 http://localhost:${port}/ && ` +
+                    `curl -s -o /dev/null --max-time 15 http://localhost:${port}/src/main.tsx || true`,
+                { timeout: 35000 },
+            );
+            await new Promise((resolve) => setTimeout(resolve, 5000));
+            this.logger.info('Dev server warmup complete', { instanceId, port });
+        } catch (error) {
+            this.logger.warn('Dev server warmup failed (continuing anyway)', { instanceId, error });
         }
     }
 
@@ -930,7 +954,7 @@ export class SandboxSdkClient extends BaseSandboxService {
             // Allocate single port for both dev server and tunnel
             const allocatedPort = await this.allocateAvailablePort();
 
-            if (isDev(env) || env.USE_TUNNEL_FOR_PREVIEW) {
+            if (env.USE_TUNNEL_FOR_PREVIEW === 'true') {
                 this.logger.info('Starting cloudflared tunnel for local development', { instanceId });
                 tunnelUrlPromise = this.startCloudflaredTunnel(instanceId, allocatedPort);
             }
@@ -951,7 +975,9 @@ export class SandboxSdkClient extends BaseSandboxService {
                     // Start dev server on allocated port
                     const processId = await this.startDevServer(instanceId, initCommand, allocatedPort);
                     this.logger.info('Instance created successfully', { instanceId, processId, port: allocatedPort });
-                        
+
+                    await this.warmupDevServer(instanceId, allocatedPort);
+
                     // Expose the same port for preview URL
                     const previewResult = await sandbox.exposePort(allocatedPort, { hostname: getPreviewDomain(env) });
                     let previewURL = previewResult.url;

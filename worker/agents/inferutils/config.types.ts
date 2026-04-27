@@ -337,7 +337,30 @@ const MODELS_MASTER = {
             creditCost: 8, // $0.22
             contextSize: 262144, // 256K Context
         },
-    }
+    },
+
+    // --- profhinrichs.org gateway models (CLOUDFLARE_AI_GATEWAY_URL) ---
+    // provider: 'custom' → getApiKey falls back to CLOUDFLARE_AI_GATEWAY_TOKEN
+    REQUESTY_GEMINI_3_FLASH: {
+        id: 'requesty.policy/gemini-3-flash-preview',
+        config: {
+            name: 'Gemini 3 Flash (requesty gateway)',
+            size: ModelSize.LITE,
+            provider: 'custom',
+            creditCost: 2,
+            contextSize: 1048576,
+        },
+    },
+    REQUESTY_GEMINI_3_1_PRO: {
+        id: 'requesty.policy/gemini-3.1-pro-preview',
+        config: {
+            name: 'Gemini 3.1 Pro (requesty gateway)',
+            size: ModelSize.REGULAR,
+            provider: 'custom',
+            creditCost: 8,
+            contextSize: 1048576,
+        },
+    },
 } as const;
 
 /**

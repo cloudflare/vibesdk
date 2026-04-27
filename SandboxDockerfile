@@ -59,6 +59,10 @@ ENV VITE_LOGGER_TYPE=json
 WORKDIR /container-server
 
 EXPOSE 3000
+# Dev-server ports for local wrangler dev. containerFetch() in workerd only
+# allows connecting to ports declared here, so the allocator range below must
+# stay in sync with this list.
+EXPOSE 8001 8002 8003 8004 8005 8006 8007 8008 8009 8010
 
 # Use startup script
 CMD ["./startup.sh"]

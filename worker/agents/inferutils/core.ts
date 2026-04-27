@@ -207,22 +207,18 @@ export async function buildGatewayUrl(
         return constructGatewayUrl(url, providerOverride);
     }
 
-    // If CLOUDFLARE_AI_GATEWAY_URL is set and is a valid URL, use it directly
-    if (env.CLOUDFLARE_AI_GATEWAY_URL && 
-        env.CLOUDFLARE_AI_GATEWAY_URL !== 'none' && 
+    // If CLOUDFLARE_AI_GATEWAY_URL is set, use it as the raw OpenAI-compatible base URL.
+    // Model routing is done via the model name in the request body, not via URL path segments.
+    if (env.CLOUDFLARE_AI_GATEWAY_URL &&
+        env.CLOUDFLARE_AI_GATEWAY_URL !== 'none' &&
         env.CLOUDFLARE_AI_GATEWAY_URL.trim() !== '') {
-        
+
         try {
             const url = new URL(env.CLOUDFLARE_AI_GATEWAY_URL);
-            // Validate it's actually an HTTP/HTTPS URL
             if (url.protocol === 'http:' || url.protocol === 'https:') {
-                // Add 'providerOverride' as a segment to the URL
-                const cleanPathname = url.pathname.replace(/\/$/, ''); // Remove trailing slash
-                url.pathname = buildGatewayPathname(cleanPathname, providerOverride);
-                return url.toString();
+                return url.toString().replace(/\/$/, '');
             }
         } catch (error) {
-            // Invalid URL, fall through to use bindings
             console.warn(`Invalid CLOUDFLARE_AI_GATEWAY_URL provided: ${env.CLOUDFLARE_AI_GATEWAY_URL}. Falling back to AI bindings.`);
         }
     }
@@ -286,7 +282,10 @@ export async function getConfigurationForModel(
     defaultHeaders?: Record<string, string>,
 }> {
     let providerForcedOverride: AIGatewayProviders | undefined;
-    if (modelConfig.directOverride) {
+    const aiBindingMissing = !('AI' in env) || !env.AI;
+    const hasCustomGatewayUrl = !!(env.CLOUDFLARE_AI_GATEWAY_URL?.trim());
+    // When a custom gateway URL is configured, fall through to buildGatewayUrl so it handles routing.
+    if (modelConfig.directOverride || (aiBindingMissing && !hasCustomGatewayUrl)) {
         switch(modelConfig.provider) {
             case 'openrouter':
                 return {
@@ -303,7 +302,15 @@ export async function getConfigurationForModel(
                     baseURL: 'https://api.anthropic.com/v1/',
                     apiKey: env.ANTHROPIC_API_KEY,
                 };
+            case 'openai':
+                return {
+                    baseURL: 'https://api.openai.com/v1/',
+                    apiKey: env.OPENAI_API_KEY,
+                };
             default:
+                if (aiBindingMissing) {
+                    throw new Error(`AI binding missing and no direct-URL mapping for provider '${modelConfig.provider}'. Add a direct case in core.ts or restore the AI binding in wrangler.jsonc.`);
+                }
                 providerForcedOverride = modelConfig.provider as AIGatewayProviders;
                 break;
         }
