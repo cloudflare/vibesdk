@@ -14,8 +14,8 @@ const __dirname = dirname(__filename);
 const PROJECT_ROOT = join(__dirname, '..');
 
 interface SetupConfig {
-	accountId: string;
-	apiToken: string;
+	accountId?: string;
+	apiToken?: string;
 	customDomain?: string;
 	useAIGateway: boolean;
 	aiGatewayUrl?: string;
@@ -69,7 +69,9 @@ class SetupManager {
 			await this.setupPackageManager();
 			this.loadExistingConfig();
 			await this.collectUserConfig();
-			await this.initializeCloudflareClient();
+			if (this.config.apiToken) {
+				await this.initializeCloudflareClient();
+			}
 
 			const resources = await this.validateAndSetupResources();
 
@@ -243,28 +245,10 @@ class SetupManager {
 		console.log('📋 Configuration Review & Setup');
 		console.log('--------------------------------\n');
 
-		// Get Cloudflare account ID
-		const accountId = await this.promptWithDefault(
-			'Enter your Cloudflare Account ID: ',
-			this.existingConfig.CLOUDFLARE_ACCOUNT_ID
-		);
-		if (!accountId) {
-			throw new Error('Account ID is required');
-		}
-
-		// Get API token
-		const apiToken = await this.promptWithDefault(
-			'Enter your Cloudflare API Token: ',
-			this.existingConfig.CLOUDFLARE_API_TOKEN
-		);
-		if (!apiToken) {
-			throw new Error('API Token is required');
-		}
-
-		// Domain Configuration - Ask once upfront with existing domain detection
-		console.log('\n🌐 Domain Configuration');
+		// Domain Configuration first - determines whether Cloudflare credentials are needed
+		console.log('🌐 Domain Configuration');
 		console.log('A custom domain is required for production deployment and remote resource access.');
-		console.log('Without a custom domain, only local development will be available.\n');
+		console.log('Without a custom domain, only local development will be configured (no Cloudflare account needed).\n');
 
 		let customDomain: string | undefined;
 		let useRemoteBindings = false;
@@ -278,7 +262,7 @@ class SetupManager {
 
 		while (true) {
 			customDomain = await this.promptWithDefault(
-				'Enter your custom domain (or press Enter to skip): ',
+				'Enter your custom domain (or press Enter to skip for local-only): ',
 				existingProdDomain || this.existingConfig.CUSTOM_DOMAIN
 			);
 
@@ -286,7 +270,7 @@ class SetupManager {
 				console.log('\n⚠️  No custom domain provided.');
 				console.log('   • Remote Cloudflare resources: Not available');
 				console.log('   • Production deployment: Not available');
-				console.log('   • Only local development will be configured\n');
+				console.log('   • Only local development will be configured (no Cloudflare account required)\n');
 
 				const continueChoice = await this.prompt('Continue with local-only setup? (Y/n): ');
 				if (continueChoice.toLowerCase() === 'n') {
@@ -321,11 +305,47 @@ class SetupManager {
 		}
 
 		const finalDomain = customDomain || 'localhost:5173';
+		const needsCloudflareCredentials = useRemoteBindings || setupRemote;
 
-		// AI Gateway configuration
+		// Cloudflare credentials - only required when using remote resources or production deployment
+		let accountId = '';
+		let apiToken = '';
+
+		if (needsCloudflareCredentials) {
+			console.log('\n🔑 Cloudflare Credentials');
+			accountId = await this.promptWithDefault(
+				'Enter your Cloudflare Account ID: ',
+				this.existingConfig.CLOUDFLARE_ACCOUNT_ID
+			);
+			if (!accountId) {
+				throw new Error('Account ID is required for remote/production setup');
+			}
+
+			apiToken = await this.promptWithDefault(
+				'Enter your Cloudflare API Token: ',
+				this.existingConfig.CLOUDFLARE_API_TOKEN
+			);
+			if (!apiToken) {
+				throw new Error('API Token is required for remote/production setup');
+			}
+		} else {
+			// Preserve existing credentials if present (e.g. re-running setup after prior remote config)
+			accountId = this.existingConfig.CLOUDFLARE_ACCOUNT_ID || '';
+			apiToken = this.existingConfig.CLOUDFLARE_API_TOKEN || '';
+			if (accountId || apiToken) {
+				console.log('ℹ️  Existing Cloudflare credentials preserved from prior configuration.');
+			}
+		}
+
+		// AI Gateway configuration - only available when Cloudflare credentials are present
 		console.log('\n🤖 AI Gateway Configuration');
-		const useAIGatewayChoice = await this.prompt('Use Cloudflare AI Gateway? [STRONGLY RECOMMENDED for developer experience] (Y/n): ');
-		const useAIGateway = useAIGatewayChoice.toLowerCase() !== 'n';
+		let useAIGateway = false;
+		if (needsCloudflareCredentials) {
+			const useAIGatewayChoice = await this.prompt('Use Cloudflare AI Gateway? [STRONGLY RECOMMENDED for developer experience] (Y/n): ');
+			useAIGateway = useAIGatewayChoice.toLowerCase() !== 'n';
+		} else {
+			console.log('ℹ️  AI Gateway requires a Cloudflare account — skipped for local-only setup.');
+		}
 
 		let aiGatewayUrl: string | undefined;
 		const devVars: Record<string, string> = {};
@@ -477,8 +497,8 @@ class SetupManager {
 		const prodVars = setupRemote && prodDomain ? { ...devVars, CUSTOM_DOMAIN: prodDomain } : undefined;
 
 		this.config = {
-			accountId,
-			apiToken,
+			accountId: accountId || undefined,
+			apiToken: apiToken || undefined,
 			customDomain: finalDomain,
 			useAIGateway,
 			aiGatewayUrl,
@@ -1232,16 +1252,36 @@ class SetupManager {
 		content += `CUSTOM_DOMAIN="${this.config.customDomain}"\n`;
 		content += 'ENVIRONMENT="dev"\n\n';
 
-		// Essential Secrets
-		content += '# Essential Secrets\n';
-		content += `CLOUDFLARE_API_TOKEN="${this.config.apiToken}"\n`;
-		content += `CLOUDFLARE_ACCOUNT_ID="${this.config.accountId}"\n\n`;
+		// Cloudflare account credentials (only needed for `bun run deploy`, not local dev)
+		content += '# Cloudflare account credentials are only needed for `bun run deploy`.\n';
+		content += '# Local dev (`bun run dev`) does not use them — leave commented to run fully local.\n';
+		if (this.config.apiToken) {
+			content += `CLOUDFLARE_API_TOKEN="${this.config.apiToken}"\n`;
+		} else {
+			content += '#CLOUDFLARE_API_TOKEN=""\n';
+		}
+		if (this.config.accountId) {
+			content += `CLOUDFLARE_ACCOUNT_ID="${this.config.accountId}"\n`;
+		} else {
+			content += '#CLOUDFLARE_ACCOUNT_ID=""\n';
+		}
+		content += '\n';
 
-		// AI Gateway Configuration
+		// AI Gateway Configuration — preserve existing values if not actively reconfigured
 		content += '# AI Gateway Configuration\n';
-        content += `CLOUDFLARE_AI_GATEWAY_TOKEN="${this.config.devVars?.CLOUDFLARE_AI_GATEWAY_TOKEN}"\n`;
-		if (this.config.aiGatewayUrl) {
-			content += `CLOUDFLARE_AI_GATEWAY_URL="${this.config.aiGatewayUrl}"\n`;
+		const aiGatewayToken = this.config.devVars?.CLOUDFLARE_AI_GATEWAY_TOKEN
+			|| this.existingConfig.CLOUDFLARE_AI_GATEWAY_TOKEN;
+		const aiGatewayUrl = this.config.aiGatewayUrl
+			|| this.existingConfig.CLOUDFLARE_AI_GATEWAY_URL;
+		if (aiGatewayToken) {
+			content += `CLOUDFLARE_AI_GATEWAY_TOKEN="${aiGatewayToken}"\n`;
+		} else {
+			content += '#CLOUDFLARE_AI_GATEWAY_TOKEN=""\n';
+		}
+		if (aiGatewayUrl) {
+			content += `CLOUDFLARE_AI_GATEWAY_URL="${aiGatewayUrl}"\n`;
+		} else {
+			content += '#CLOUDFLARE_AI_GATEWAY_URL=""\n';
 		}
 		content += '\n';
 

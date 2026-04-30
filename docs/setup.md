@@ -12,12 +12,14 @@ Before getting started, make sure you have:
 
 ### Required
 - **Node.js** (v18 or later)
-- **Cloudflare account** with API access  
-- **Cloudflare API Token** with appropriate permissions
+- **Bun** (recommended; the setup script will install it automatically if missing)
 
-### Recommended
-- **Bun**
-- **Custom domain** configured in Cloudflare (for production deployment)
+### For Remote Resources & Production Deployment (optional)
+- **Cloudflare account** with API access
+- **Cloudflare API Token** with appropriate permissions
+- **Custom domain** configured in Cloudflare
+
+> **Local-only development does not require a Cloudflare account or API token.** If you only want to run the project locally, you can skip the domain prompt during setup and no credentials will be needed.
 
 ### For Production Features
 - **Workers Paid Plan** (for remote Cloudflare resources)
@@ -29,18 +31,20 @@ Before getting started, make sure you have:
 The fastest way to get VibSDK running is with our automated setup script:
 
 ```bash
-# Bun is recommended for the projec instead of npm. First install bun if you don't have it already
+# Bun is recommended instead of npm. First install bun if you don't have it already.
 curl -fsSL https://bun.sh/install | bash
 # Then install dependencies and run setup
 bun install
 bun run setup
 ```
 
+**For local-only development:** when the setup script asks for a custom domain, press Enter to skip. No Cloudflare account or API token will be required.
+
 This interactive script will guide you through the entire setup process, including:
 
 - **Package manager setup** (installs Bun automatically for better performance)
-- **Cloudflare credentials** collection (Account ID and API Token)
 - **Domain configuration** (custom domain or localhost for development)
+- **Cloudflare credentials** collection (Account ID and API Token — only prompted when using a custom domain)
 - **Remote setup** (optional production deployment configuration)
 - **AI Gateway configuration** (Cloudflare AI Gateway recommended)
 - **API key collection** (OpenAI, Anthropic, Google AI Studio, etc.)
@@ -165,16 +169,17 @@ cp .dev.vars.example .dev.vars
 ### 2. Configure Required Variables
 
 ```bash
-# Essential
-CLOUDFLARE_API_TOKEN="your-api-token"
-CLOUDFLARE_ACCOUNT_ID="your-account-id"
-
-# Security
+# Security (always required)
 JWT_SECRET="generated-secret"
 WEBHOOK_SECRET="generated-secret"
 
-# Domain (optional)
+# Domain (optional — defaults to localhost:5173 for local dev)
 CUSTOM_DOMAIN="your-domain.com"
+
+# Cloudflare credentials (only needed for `bun run deploy` or remote resources)
+# Leave commented out for local-only development
+#CLOUDFLARE_API_TOKEN="your-api-token"
+#CLOUDFLARE_ACCOUNT_ID="your-account-id"
 ```
 
 ### 3. Create Cloudflare Resources
