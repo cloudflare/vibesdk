@@ -175,8 +175,17 @@ const worker = {
 			if (isGitProtocolRequest(pathname)) {
 				return handleGitProtocolRequest(request, env, ctx);
 			}
-
-			// Serve static assets for all non-API routes from the ASSETS binding.
+			
+			// Cloudflare OAuth connect routes: handle via Hono app even though they are not under /api
+			if (pathname.startsWith('/oauth/') || pathname === '/auth/callback') {
+				// Do not log the full URL: /auth/callback carries sensitive
+				// query params (code, state) that must not end up in logs.
+				logger.info(`Handling Cloudflare OAuth request for: ${pathname}`);
+				const app = createApp(env);
+				return app.fetch(request, env, ctx);
+			}
+			
+			// Serve static assets for all other non-API routes from the ASSETS binding.
 			if (!pathname.startsWith('/api/')) {
 				return env.ASSETS.fetch(request);
 			}
@@ -197,7 +206,9 @@ const worker = {
 			}
 
 			// Handle all API requests with the main Hono application.
-			logger.info(`Handling API request for: ${url}`);
+			// Log pathname only: some API routes (e.g. /api/auth/callback/:provider)
+			// carry sensitive query params like `code`/`state`.
+			logger.info(`Handling API request for: ${pathname}`);
 			const app = createApp(env);
 			return app.fetch(request, env, ctx);
 		}

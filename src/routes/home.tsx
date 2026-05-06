@@ -1,5 +1,6 @@
-import { useRef, useState, useEffect, useMemo } from 'react';
+import { useCallback, useRef, useState, useEffect, useMemo } from 'react';
 import { ArrowRight, Info } from 'react-feather';
+import { Loader2 } from 'lucide-react';
 import { useNavigate } from 'react-router';
 import { useAuth } from '@/contexts/auth-context';
 import { ProjectModeSelector, type ProjectModeOption } from '../components/project-mode-selector';
@@ -12,18 +13,24 @@ import { AppCard } from '@/components/shared/AppCard';
 import clsx from 'clsx';
 import { useImageUpload } from '@/hooks/use-image-upload';
 import { useDragDrop } from '@/hooks/use-drag-drop';
-import { ImageUploadButton } from '@/components/image-upload-button';
-import { ImageAttachmentPreview } from '@/components/image-attachment-preview';
 import { toast } from 'sonner';
+import { useLimitsContext } from '@/contexts/limits-context';
+import { checkCanSendPrompt } from '@/utils/usage-limit-checker';
+import { PromptBox } from '@/components/prompt-box';
 
 export default function Home() {
 	const navigate = useNavigate();
 	const { requireAuth } = useAuthGuard();
-	const textareaRef = useRef<HTMLTextAreaElement>(null);
 	const [projectMode, setProjectMode] = useState<ProjectType>('app');
 	const [query, setQuery] = useState('');
 	const { user } = useAuth();
 	const { isLoadingCapabilities, capabilities, getEnabledFeatures } = useFeature();
+	const { data: limitsData, loading: usageLimitsLoading } = useLimitsContext();
+	const [showLimitDialog, setShowLimitDialog] = useState<React.ReactElement | null>(null);
+
+	const handleConnectCloudflare = useCallback(() => {
+		window.location.href = `/oauth/login?return_url=${encodeURIComponent(window.location.href)}`;
+	}, []);
 
 	const modeOptions = useMemo<ProjectModeOption[]>(() => {
 		if (isLoadingCapabilities || !capabilities) return [];
@@ -70,9 +77,6 @@ export default function Home() {
 		"F1 fantasy game",
 		"personal finance tracker"
 	], []);
-	const [currentPlaceholderPhraseIndex, setCurrentPlaceholderPhraseIndex] = useState(0);
-	const [currentPlaceholderText, setCurrentPlaceholderText] = useState("");
-	const [isPlaceholderTyping, setIsPlaceholderTyping] = useState(true);
 
 	const {
 		apps,
@@ -95,6 +99,10 @@ export default function Home() {
 			return;
 		}
 
+		if (user && usageLimitsLoading) {
+			return;
+		}
+
 		const encodedQuery = encodeURIComponent(query);
 		const encodedMode = encodeURIComponent(mode);
 
@@ -112,57 +120,25 @@ export default function Home() {
 			return;
 		}
 
+		// Check usage limits before proceeding
+		const limitCheck = checkCanSendPrompt(
+			limitsData,
+			usageLimitsLoading,
+			() => { window.location.href = `/oauth/login?return_url=${encodeURIComponent(window.location.href)}`; },
+			() => setShowLimitDialog(null)
+		);
+
+		if (!limitCheck.canProceed) {
+			setShowLimitDialog(limitCheck.dialogComponent || null);
+			return;
+		}
+
 		// User is already authenticated, navigate immediately
 		navigate(intendedUrl);
 		// Clear images after navigation
 		clearImages();
 	};
 
-	// Auto-resize textarea based on content
-	const adjustTextareaHeight = () => {
-		if (textareaRef.current) {
-			textareaRef.current.style.height = 'auto';
-			const scrollHeight = textareaRef.current.scrollHeight;
-			const maxHeight = 300; // Maximum height in pixels
-			textareaRef.current.style.height =
-				Math.min(scrollHeight, maxHeight) + 'px';
-		}
-	};
-
-	useEffect(() => {
-		adjustTextareaHeight();
-	}, []);
-
-	// Typewriter effect
-	useEffect(() => {
-		const currentPhrase = placeholderPhrases[currentPlaceholderPhraseIndex];
-
-		if (isPlaceholderTyping) {
-			if (currentPlaceholderText.length < currentPhrase.length) {
-				const timeout = setTimeout(() => {
-					setCurrentPlaceholderText(currentPhrase.slice(0, currentPlaceholderText.length + 1));
-				}, 100); // Typing speed
-				return () => clearTimeout(timeout);
-			} else {
-				// Pause before erasing
-				const timeout = setTimeout(() => {
-					setIsPlaceholderTyping(false);
-				}, 2000); // Pause duration
-				return () => clearTimeout(timeout);
-			}
-		} else {
-			if (currentPlaceholderText.length > 0) {
-				const timeout = setTimeout(() => {
-					setCurrentPlaceholderText(currentPlaceholderText.slice(0, -1));
-				}, 50); // Erasing speed
-				return () => clearTimeout(timeout);
-			} else {
-				// Move to next phrase
-				setCurrentPlaceholderPhraseIndex((prev) => (prev + 1) % placeholderPhrases.length);
-				setIsPlaceholderTyping(true);
-			}
-		}
-	}, [currentPlaceholderText, currentPlaceholderPhraseIndex, isPlaceholderTyping, placeholderPhrases]);
 
 	const discoverLinkRef = useRef<HTMLDivElement>(null);
 
@@ -194,7 +170,7 @@ export default function Home() {
 					></rect>
 				</svg>
 			</div>
-			
+
 			<LayoutGroup>
 				<div className="rounded-md w-full max-w-2xl overflow-hidden">
 					<motion.div
@@ -207,86 +183,35 @@ export default function Home() {
 						<h1 className="text-shadow-sm text-shadow-red-200 dark:text-shadow-red-900 text-accent font-medium leading-[1.1] tracking-tight text-5xl w-full mb-4 bg-clip-text bg-gradient-to-r from-text-primary to-text-primary/90">
 							What should we build today?
 						</h1>
-
-						<form
-							method="POST"
-							onSubmit={(e) => {
-								e.preventDefault();
-								const query = textareaRef.current!.value;
-								handleCreateApp(query, projectMode);
-							}}
-							className="flex z-10 flex-col w-full min-h-[150px] bg-bg-4 border border-accent/30 dark:border-accent/50 dark:bg-bg-2 rounded-[18px] shadow-textarea p-5 transition-all duration-200"
-						>
-							<div 
-								className={clsx(
-									"flex-1 flex flex-col relative",
-									isDragging && "ring-2 ring-accent ring-offset-2 rounded-lg"
-								)}
-								{...dragHandlers}
-							>
-								{isDragging && (
-									<div className="absolute inset-0 flex items-center justify-center bg-accent/10 backdrop-blur-sm rounded-lg z-30 pointer-events-none">
-										<p className="text-accent font-medium">Drop images here</p>
-									</div>
-								)}
-								<textarea
-									className="w-full resize-none ring-0 z-20 outline-0 placeholder:text-text-primary/60 text-text-primary"
-									name="query"
-									value={query}
-									placeholder={`Create a ${currentPlaceholderText}`}
-									ref={textareaRef}
-									onChange={(e) => {
-										setQuery(e.target.value);
-										adjustTextareaHeight();
-									}}
-									onInput={adjustTextareaHeight}
-									onKeyDown={(e) => {
-										if (e.key === 'Enter' && !e.shiftKey) {
-											e.preventDefault();
-											const query = textareaRef.current!.value;
-											handleCreateApp(query, projectMode);
-										}
-									}}
-								/>
-								{images.length > 0 && (
-									<div className="mt-3">
-										<ImageAttachmentPreview
-											images={images}
-											onRemove={removeImage}
-										/>
-									</div>
-								)}
-							</div>
-							<div
-								className={clsx(
-									'flex items-center mt-4 pt-1',
-									showModeSelector ? 'justify-between' : 'justify-end',
-								)}
-							>
-								{showModeSelector && (
+						<PromptBox
+							value={query}
+							onChange={setQuery}
+							onSubmit={() => handleCreateApp(query, projectMode)}
+							placeholder="Create a "
+							animatedPlaceholder
+							placeholderPhrases={placeholderPhrases}
+							images={images}
+							onAddImages={addImages}
+							onRemoveImage={removeImage}
+							isProcessing={isProcessing || (user ? usageLimitsLoading : false)}
+							isDragging={isDragging}
+							dragHandlers={dragHandlers}
+							submitDisabled={user ? usageLimitsLoading : false}
+							limitsData={user ? limitsData : undefined}
+							onConnectCloudflare={handleConnectCloudflare}
+							variant="expanded"
+							submitIcon={user && usageLimitsLoading ? <Loader2 className="animate-spin" /> : <ArrowRight />}
+							leftActions={
+								showModeSelector ? (
 									<ProjectModeSelector
 										value={projectMode}
 										onChange={setProjectMode}
 										modes={modeOptions}
 										className="flex-1"
 									/>
-								)}
-
-								<div className={clsx('flex items-center gap-2', showModeSelector && 'ml-4')}>
-									<ImageUploadButton
-										onFilesSelected={addImages}
-										disabled={isProcessing}
-									/>
-									<button
-										type="submit"
-										disabled={!query.trim()}
-										className="bg-accent text-white p-1 rounded-md *:size-5 transition-all duration-200 hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
-									>
-										<ArrowRight />
-									</button>
-								</div>
-							</div>
-						</form>
+								) : undefined
+							}
+						/>
 					</motion.div>
 
 				</div>
@@ -349,6 +274,9 @@ export default function Home() {
 
 			{/* Nudge towards Discover */}
 			{user && <CurvedArrow sourceRef={discoverLinkRef} target={{ x: 50, y: window.innerHeight - 60 }} />}
+
+			{/* Usage limit dialogs */}
+			{showLimitDialog}
 		</div>
 	);
 }

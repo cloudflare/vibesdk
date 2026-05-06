@@ -28,6 +28,12 @@ declare namespace Cloudflare {
 		CLOUDFLARE_ACCOUNT_ID: string;
 		CLOUDFLARE_AI_GATEWAY_URL: string;
 		CLOUDFLARE_AI_GATEWAY_TOKEN: string;
+		CLOUDFLARE_OAUTH_CLIENT_ID: string;
+		CLOUDFLARE_OAUTH_CLIENT_SECRET: string;
+		CLOUDFLARE_OAUTH_AUTH_URL: string;
+		CLOUDFLARE_OAUTH_TOKEN_URL: string;
+		CLOUDFLARE_OAUTH_USERINFO_URL: string;
+		CLOUDFLARE_OAUTH_SCOPES: string;
 		SERPAPI_KEY: string;
 		GOOGLE_CLIENT_SECRET: string;
 		GOOGLE_CLIENT_ID: string;
@@ -62,6 +68,8 @@ declare namespace Cloudflare {
 		AI: Ai;
 		CF_VERSION_METADATA: WorkerVersionMetadata;
 		ASSETS: Fetcher;
+		ENABLE_CLOUDFLARE_LIMITS: string;
+		CF_OAUTH_ENCRYPTION_KEY: string;
 	}
 }
 interface Env extends Cloudflare.Env {}

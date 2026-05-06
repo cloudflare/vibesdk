@@ -100,6 +100,7 @@ interface InferenceParamsBase {
     context: InferenceContext;
     onAssistantMessage?: (message: Message) => Promise<void>;
     completionConfig?: CompletionConfig;
+    onUsageConsumed?: () => void;
 }
 
 interface InferenceParamsStructured<T extends z.AnyZodObject> extends InferenceParamsBase {
@@ -177,6 +178,10 @@ export async function executeInference<T extends z.AnyZodObject>(   {
                 onAssistantMessage,
                 completionConfig,
                 runtimeOverrides: context.runtimeOverrides,
+                onUsageConsumed: context.onUsageConsumed,
+                shouldUseUserKey: context.shouldUseUserKey,
+                userApiToken: context.userApiToken,
+                userGateway: context.userGateway,
             }) : await infer({
                 env,
                 metadata: context.metadata,
@@ -192,6 +197,10 @@ export async function executeInference<T extends z.AnyZodObject>(   {
                 onAssistantMessage,
                 completionConfig,
                 runtimeOverrides: context.runtimeOverrides,
+                onUsageConsumed: context.onUsageConsumed,
+                shouldUseUserKey: context.shouldUseUserKey,
+                userApiToken: context.userApiToken,
+                userGateway: context.userGateway,
             });
             logger.info(`Successfully completed ${agentActionName} operation`);
             // console.log(result);
