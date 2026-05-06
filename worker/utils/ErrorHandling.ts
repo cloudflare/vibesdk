@@ -3,7 +3,7 @@
  */
 
 import { createLogger } from '../logger';
-import { SecurityError } from 'shared/types/errors';
+import { SecurityError, UsageLimitExceededError } from 'shared/types/errors';
 import { errorResponse } from '../api/responses';
 
 const logger = createLogger('ErrorHandling');
@@ -68,6 +68,21 @@ export class ErrorHandler {
             );
         }
 
+        // Handle UsageLimitExceededError
+        if (error instanceof UsageLimitExceededError) {
+            return new AppError(
+                AppErrorType.RATE_LIMIT_ERROR,
+                error.message,
+                429,
+                {
+                    ...context,
+                    exceededLimits: error.exceededLimits,
+                    hasUserToken: error.hasUserToken,
+                    errorType: 'USAGE_LIMIT_EXCEEDED'
+                }
+            );
+        }
+
         // Convert AppError
         if (error instanceof AppError) {
             return error;
@@ -86,6 +101,16 @@ export class ErrorHandler {
      * Convert AppError to HTTP Response
      */
     static toResponse(error: AppError): Response {
+        // For usage limit errors, include context in response
+        if (error.context?.errorType === 'USAGE_LIMIT_EXCEEDED') {
+            const errorObj: Error & { errorType?: string; exceededLimits?: unknown; hasUserToken?: boolean } =
+                Object.assign(new Error(error.message), {
+                    errorType: error.context.errorType as string,
+                    exceededLimits: error.context.exceededLimits,
+                    hasUserToken: error.context.hasUserToken as boolean | undefined,
+                });
+            return errorResponse(errorObj, error.statusCode);
+        }
         return errorResponse(error.message, error.statusCode);
     }
 

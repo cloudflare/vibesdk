@@ -35,6 +35,8 @@ import { MainContentPanel } from './components/main-content-panel';
 import { ChatInput } from './components/chat-input';
 import { useVault } from '@/hooks/use-vault';
 import { VaultUnlockModal } from '@/components/vault';
+import { useLimitsContext } from '@/contexts/limits-context';
+import { checkCanSendPrompt, getBackendLimitDialog } from '@/utils/usage-limit-checker';
 
 const isPhasicBlueprint = (blueprint?: BlueprintType | null): blueprint is PhasicBlueprint =>
 	!!blueprint && 'implementationRoadmap' in blueprint;
@@ -147,6 +149,9 @@ export default function Chat() {
 		projectType,
 		// Template metadata
 		templateDetails,
+		// Backend error dialog state
+		backendErrorDialog,
+		setBackendErrorDialog,
 	} = useChat({
 		chatId: urlChatId,
 		query: userQuery,
@@ -176,6 +181,15 @@ export default function Chat() {
 
 	const [isResetDialogOpen, setIsResetDialogOpen] = useState(false);
 	const [isGitCloneModalOpen, setIsGitCloneModalOpen] = useState(false);
+
+	// Usage limits state
+	const { data: limitsData, loading: limitsLoading } = useLimitsContext();
+	const [showLimitDialog, setShowLimitDialog] = useState<React.ReactElement | null>(null);
+	
+	// Debug: Log when backend error dialog state changes
+	useEffect(() => {
+		console.log('🔍 Backend error dialog state changed:', backendErrorDialog);
+	}, [backendErrorDialog]);
 
 	// Model config info state
 	const [modelConfigs, setModelConfigs] = useState<ModelConfigsInfo | undefined>();
@@ -275,7 +289,6 @@ export default function Chat() {
 			console.error('Chat image upload error:', error);
 		},
 	});
-	const imageInputRef = useRef<HTMLInputElement>(null);
 
 	// Fake stream bootstrap files
 	const { streamedFiles: streamedBootstrapFiles } =
@@ -586,14 +599,24 @@ export default function Chat() {
 				return;
 			}
 
-			// When generation is active, send as conversational AI suggestion
-			websocket?.send(
-				JSON.stringify({
-					type: 'user_suggestion',
-					message: newMessage,
-					images: images.length > 0 ? images : undefined,
-				}),
+			// Check usage limits before sending
+			const limitCheck = checkCanSendPrompt(
+				limitsData,
+				limitsLoading,
+				() => { window.location.href = `/oauth/login?return_url=${encodeURIComponent(window.location.href)}`; },
+				() => setShowLimitDialog(null)
 			);
+
+			if (!limitCheck.canProceed) {
+				setShowLimitDialog(limitCheck.dialogComponent || null);
+				return;
+			}
+
+			// When generation is active, send as conversational AI suggestion
+			sendWebSocketMessage(websocket, 'user_suggestion', {
+				message: newMessage,
+				images: images.length > 0 ? images : undefined,
+			});
 			sendUserMessage(newMessage);
 			setNewMessage('');
 			// Clear images after sending
@@ -603,7 +626,7 @@ export default function Chat() {
 			// Ensure we scroll after sending our own message
 			requestAnimationFrame(() => scrollToBottom());
 		},
-		[newMessage, websocket, sendUserMessage, isChatDisabled, scrollToBottom, images, clearImages],
+		[newMessage, websocket, sendUserMessage, isChatDisabled, scrollToBottom, images, clearImages, limitsData, limitsLoading],
 	);
 
 	const [progress, total] = useMemo((): [number, number] => {
@@ -845,7 +868,8 @@ export default function Chat() {
 					isDebugging={isDebugging}
 					websocket={websocket}
 					chatFormRef={chatFormRef}
-					imageInputRef={imageInputRef}
+					limitsData={limitsData}
+					onConnectCloudflare={() => { window.location.href = `/oauth/login?return_url=${encodeURIComponent(window.location.href)}`; }}
 				/>
 				</motion.div>
 
@@ -916,6 +940,26 @@ export default function Chat() {
 				}}
 				reason={vaultState.unlockReason ?? undefined}
 			/>
+
+			{/* Usage limit dialogs */}
+			{showLimitDialog}
+			
+			{/* Backend error dialog - shows when backend blocks request due to limits */}
+			{(() => {
+				if (backendErrorDialog.isOpen && backendErrorDialog.errorCode === 'USAGE_LIMIT_EXCEEDED') {
+					const limitCheckResult = getBackendLimitDialog(
+						limitsData,
+						() => {
+							setBackendErrorDialog({ isOpen: false });
+							window.location.href = '/settings';
+						},
+						() => setBackendErrorDialog({ isOpen: false })
+					);
+					
+					return limitCheckResult.dialogComponent || null;
+				}
+				return null;
+			})()}
 		</div>
 	);
 }

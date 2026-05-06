@@ -164,7 +164,7 @@ class ApiClient {
 	/**
 	 * Get authentication headers for API requests
 	 */
-	private getAuthHeaders(): Record<string, string> {
+	private async getAuthHeaders(): Promise<Record<string, string>> {
 		const headers: Record<string, string> = {};
 
 		// Add session token for anonymous users if not authenticated
@@ -179,6 +179,9 @@ class ApiClient {
 			headers['X-CSRF-Token'] = this.csrfTokenInfo.token;
 		}
 
+		// The Cloudflare OAuth token lives in an HttpOnly cookie. The browser
+		// attaches it automatically on same-origin requests; there is nothing
+		// for the API client to add.
 		return headers;
 	}
 
@@ -320,11 +323,12 @@ class ApiClient {
 		}
 
 		const url = `${this.baseUrl}${endpoint}`;
+		const authHeaders = await this.getAuthHeaders();
 		const config: RequestInit = {
 			method: options.method || 'GET',
 			headers: {
 				...this.defaultHeaders,
-				...this.getAuthHeaders(),
+				...authHeaders,
 				...options.headers,
 			},
 			credentials: options.credentials || 'include',
@@ -348,6 +352,10 @@ class ApiClient {
 			const data = await response.json() as ApiResponse<T>;
 
 			if (!response.ok) {
+                // Token refresh happens transparently on the backend via the
+                // HttpOnly cookie. A 401 here means the cookie is gone or the
+                // session itself is invalid - no client-side refresh to attempt.
+
                 if (
                     response.status === 401 &&
                     globalAuthModalTrigger &&
@@ -604,6 +612,21 @@ class ApiClient {
 			
 			// Check if response is ok
 			if (!response.ok) {
+				// Check if this is a usage limit error
+				if (response.status === 429 && data?.error?.errorType === 'USAGE_LIMIT_EXCEEDED') {
+					// Emit custom event for usage limit exceeded
+					window.dispatchEvent(new CustomEvent('usage-limit-exceeded', {
+						detail: {
+							message: data.error.message,
+							exceededLimits: data.error.exceededLimits,
+							hasUserToken: data.error.hasUserToken,
+						}
+					}));
+					
+					const errorMessage = data.error.message || 'Free tier limits exceeded';
+					throw new Error(errorMessage);
+				}
+				
 				// Parse error response if available
 				const errorMessage = data?.error?.message || `Agent creation failed with status: ${response.status}`;
 				throw new Error(errorMessage);
@@ -1189,6 +1212,41 @@ class ApiClient {
 
 		// Redirect to OAuth provider
 		window.location.href = oauthUrl.toString();
+	}
+
+	// ===============================
+	// Usage Limits API Methods
+	// ===============================
+
+	/**
+	 * Get user's usage limits and Cloudflare credits
+	 */
+	async getLimitsUsage(): Promise<ApiResponse<any>> {
+		return this.request<any>('/api/limits/usage');
+	}
+
+	// ===============================
+	// Cloudflare Account API Methods
+	// ===============================
+
+	/**
+	 * Set user's selected Cloudflare account and gateway
+	 */
+	async setCloudflareSelection(accountId: string, gatewayId: string): Promise<ApiResponse<{ message: string }>> {
+		return this.request<{ message: string }>('/api/cloudflare/selection', {
+			method: 'PUT',
+			body: { accountId, gatewayId },
+		});
+	}
+
+	/**
+	 * Disconnect the user's Cloudflare OAuth session by clearing the HttpOnly
+	 * token cookie on the server.
+	 */
+	async disconnectCloudflare(): Promise<ApiResponse<{ message: string }>> {
+		return this.request<{ message: string }>('/api/cloudflare/connection', {
+			method: 'DELETE',
+		});
 	}
 }
 
