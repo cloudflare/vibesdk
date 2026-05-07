@@ -83,7 +83,7 @@
 		"@types/argon2-browser": "^1.18.4",
 		"@types/mdast": "^4.0.4",
 		"@vitejs/plugin-react": "^5.1.2",
-		"agents": "^0.2.32",
+		"agents": "^0.12.3",
 		"class-variance-authority": "^0.7.1",
 		"cli-table3": "^0.6.5",
 		"cloudflare": "^4.5.0",
@@ -92,7 +92,7 @@
 		"cross-spawn": "^7.0.6",
 		"date-fns": "^4.1.0",
 		"diff": "^8.0.2",
-		"drizzle-orm": "^0.44.7",
+		"drizzle-orm": "^0.45.2",
 		"embla-carousel-react": "^8.6.0",
 		"esbuild": "^0.27.1",
 		"eslint-import-resolver-typescript": "^4.4.4",
@@ -169,7 +169,7 @@
 		"typescript-eslint": "^8.49.0",
 		"vite": "npm:rolldown-vite@7.1.13",
 		"vitest": "^3.2.4",
-		"wrangler": "4.50.0"
+		"wrangler": "4.59.1"
 	},
 	"prettier": {
 		"singleQuote": true,
