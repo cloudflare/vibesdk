@@ -16,7 +16,7 @@ const ALGORITHM = 'AES-GCM';
 const KEY_LENGTH = 256;
 const IV_LENGTH = 12;
 const SALT_LENGTH = 16;
-const PBKDF2_ITERATIONS = 600_000; // OWASP 2023 guidance for PBKDF2-SHA256
+const PBKDF2_ITERATIONS = 100_000; // Workers runtime caps PBKDF2 at 100k iterations
 // Fallback salt for decrypting blobs produced before per-record salts were introduced.
 const LEGACY_SALT = new TextEncoder().encode('cloudflare-oauth-v3');
 

@@ -45,6 +45,7 @@ export interface LimitCheckResult {
 }
 
 export interface UsageSummary {
+	cloudflareConnectEnabled: boolean;
 	config: {
 		/**
 		 * Only present when the user has a finite quota. Omitted when
