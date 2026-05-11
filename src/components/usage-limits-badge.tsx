@@ -24,6 +24,10 @@ export function UsageLimitsBadge({ onConnect }: UsageLimitsBadgeProps) {
 	let needsConfiguration = false;
 	let showUsage = false;
 
+	if (!loading && data && !data.cloudflareConnectEnabled) {
+		return null;
+	}
+
 	if (!loading && !error && data && data.config) {
 		const {
 			config,
@@ -113,7 +117,7 @@ export function UsageLimitsBadge({ onConnect }: UsageLimitsBadgeProps) {
 
 				{/* Usage badge - on the LEFT */}
 				{!loading && showUsage && !isExhausted && (
-					<div className="flex items-center px-2 py-1 text-white border-r border-[#f48120]/30 font-medium">
+					<div className="flex items-center px-2 py-1 text-text-primary border-r border-[#f48120]/30 font-medium">
 						<span className="hidden md:inline">{usageText}</span>
 						<span className="md:hidden">{mobileUsageText}</span>
 					</div>

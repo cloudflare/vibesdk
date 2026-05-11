@@ -5,7 +5,7 @@
 
 import { BaseController } from '../baseController';
 import { RouteContext } from '../../types/route-context';
-import { checkUsageAndBalance } from '../../../services/rate-limit';
+import { checkUsageAndBalance, isCloudflareGatewayLimitsEnabled } from '../../../services/rate-limit';
 import { CloudflareAccountService } from '../../../services/cloudflare/CloudflareAccountService';
 import { createLogger } from '../../../logger';
 
@@ -44,6 +44,7 @@ export class LimitsController extends BaseController {
 			// and would give clients a misleading `maxValue: null` with
 			// `unlimited: false` semantics everywhere else.
 			const response = LimitsController.createSuccessResponse({
+				cloudflareConnectEnabled: isCloudflareGatewayLimitsEnabled(env),
 				config: {
 					...(unlimited ? {} : {
 						limit: {
