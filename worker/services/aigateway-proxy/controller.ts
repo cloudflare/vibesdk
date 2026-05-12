@@ -152,7 +152,10 @@ export async function proxyToAiGateway(request: Request, env: Env, _ctx: Executi
         const { baseURL, apiKey, defaultHeaders } = await getConfigurationForModel(
             AI_MODEL_CONFIG[modelName as AIModels],
             env,
-            app.userId
+            app.userId,
+            undefined, // User app proxy doesn't use BYOK
+            undefined,
+            null // No user gateway for app proxy
         );
 
         console.log(`[AI Proxy] Forwarding request to model: ${modelName}, baseURL: ${baseURL}`);
@@ -185,10 +188,30 @@ export async function proxyToAiGateway(request: Request, env: Env, _ctx: Executi
             body: JSON.stringify(requestBody),
         });
 
+        // Allowlist response headers to avoid leaking upstream cookies, cf-aig-* metadata,
+        // or any Cloudflare-internal auth headers back to the caller.
+        const SAFE_RESPONSE_HEADERS = new Set([
+            'content-type',
+            'content-length',
+            'content-encoding',
+            'cache-control',
+            'openai-model',
+            'openai-organization',
+            'openai-processing-ms',
+            'openai-version',
+            'x-request-id',
+        ]);
+        const safeHeaders = new Headers();
+        for (const [name, value] of proxyResponse.headers) {
+            if (SAFE_RESPONSE_HEADERS.has(name.toLowerCase())) {
+                safeHeaders.set(name, value);
+            }
+        }
+
         return new Response(proxyResponse.body, {
             status: proxyResponse.status,
             statusText: proxyResponse.statusText,
-            headers: proxyResponse.headers,
+            headers: safeHeaders,
         });
 
     } catch (error) {

@@ -443,6 +443,65 @@ export const auditLogs = sqliteTable('audit_logs', {
 }));
 
 // ========================================
+// CLOUDFLARE ACCOUNT AND GATEWAY MANAGEMENT
+// ========================================
+
+/**
+ * Cloudflare Accounts table - Store user's connected Cloudflare accounts
+ */
+export const cloudflareAccounts = sqliteTable('cloudflare_accounts', {
+    id: text('id').primaryKey(),
+    userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+    
+    // Account Details
+    accountId: text('account_id').notNull(), // Cloudflare account ID
+    accountName: text('account_name').notNull(), // Account name from CF API
+    accountEmail: text('account_email'), // Account email
+    
+    // Metadata
+    createdAt: integer('created_at', { mode: 'timestamp' }).default(sql`CURRENT_TIMESTAMP`),
+    updatedAt: integer('updated_at', { mode: 'timestamp' }).default(sql`CURRENT_TIMESTAMP`),
+    lastSyncedAt: integer('last_synced_at', { mode: 'timestamp' }),
+}, (table) => ({
+    userIdx: index('cloudflare_accounts_user_idx').on(table.userId),
+    accountIdIdx: index('cloudflare_accounts_account_id_idx').on(table.accountId),
+    userAccountIdx: uniqueIndex('cloudflare_accounts_user_account_idx').on(table.userId, table.accountId),
+}));
+
+/**
+ * AI Gateways table - Store AI Gateways for each Cloudflare account
+ */
+export const aiGateways = sqliteTable('ai_gateways', {
+    id: text('id').primaryKey(),
+    userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+    cloudflareAccountId: text('cloudflare_account_id').notNull().references(() => cloudflareAccounts.id, { onDelete: 'cascade' }),
+    
+    // Gateway Details
+    gatewayId: text('gateway_id').notNull(), // Gateway ID from Cloudflare
+    gatewayName: text('gateway_name').notNull(), // Gateway name
+    gatewaySlug: text('gateway_slug').notNull(), // Gateway slug/identifier
+    
+    // Credits and Usage
+    creditsRemaining: real('credits_remaining').default(0), // Cached credits value
+    creditsLastUpdated: integer('credits_last_updated', { mode: 'timestamp' }),
+    
+    // Configuration
+    autoCreated: integer('auto_created', { mode: 'boolean' }).default(false), // Was this auto-created?
+    
+    // Status
+    isActive: integer('is_active', { mode: 'boolean' }).default(false),
+    
+    // Metadata
+    createdAt: integer('created_at', { mode: 'timestamp' }).default(sql`CURRENT_TIMESTAMP`),
+    updatedAt: integer('updated_at', { mode: 'timestamp' }).default(sql`CURRENT_TIMESTAMP`),
+}, (table) => ({
+    userIdx: index('ai_gateways_user_idx').on(table.userId),
+    accountIdx: index('ai_gateways_account_idx').on(table.cloudflareAccountId),
+    userAccountIdx: index('ai_gateways_user_account_idx').on(table.userId, table.cloudflareAccountId),
+    gatewayIdIdx: uniqueIndex('ai_gateways_gateway_id_idx').on(table.cloudflareAccountId, table.gatewayId),
+}));
+
+// ========================================
 // USER MODEL CONFIGURATIONS
 // ========================================
 

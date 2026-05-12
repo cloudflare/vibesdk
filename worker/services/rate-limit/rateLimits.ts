@@ -64,7 +64,8 @@ export class RateLimitService {
                 burst: config.burst,
                 burstWindow: config.burstWindow,
                 bucketSize: config.bucketSize,
-                dailyLimit: config.dailyLimit
+                dailyLimit: config.dailyLimit,
+                calendarDaily: config.calendarDaily,
             }, incrementBy);
 
             return result;
@@ -83,13 +84,15 @@ export class RateLimitService {
         config: RateLimitSettings,
         limitType: RateLimitType,
         incrementBy: number = 1
-    ) : Promise<RateLimitResult> {
-        // If dev, don't enforce
-        if (isDev(env)) {
+    ): Promise<RateLimitResult> {
+        const rateLimitConfig = config[limitType];
+        
+        // In dev mode, only skip binding-based rate limiters (they don't work locally)
+        // DO-based rate limiting works locally
+        if (isDev(env) && rateLimitConfig.store === RateLimitStore.RATE_LIMITER) {
             return { success: true };
         }
-        const rateLimitConfig = config[limitType];
-
+        
         switch (rateLimitConfig.store) {
             case RateLimitStore.RATE_LIMITER: {
                 const result = await (env[rateLimitConfig.bindingName as keyof Env] as RateLimit).limit({ key });
@@ -241,15 +244,84 @@ export class RateLimitService {
 		}
 	}
 
+	/**
+	 * Get remaining credits for LLM calls without incrementing (for pre-flight checks)
+	 * Works in both dev and prod - uses local DO in dev mode
+	 */
+	static async getRemainingCredits(
+		env: Env,
+		config: RateLimitSettings,
+		userId: string
+	): Promise<{ remaining: number; limit: number; dailyRemaining?: number; dailyLimit?: number }> {
+		const identifier = `user:${userId}`;
+		const key = this.buildRateLimitKey(RateLimitType.LLM_CALLS, identifier);
+		const llmConfig = config[RateLimitType.LLM_CALLS] as DORateLimitConfig;
+
+		try {
+			const stub = env.DORateLimitStore.getByName(key);
+			const remaining = await stub.getRemainingLimit(key, {
+				limit: llmConfig.limit,
+				period: llmConfig.period,
+				dailyLimit: llmConfig.dailyLimit,
+				bucketSize: llmConfig.bucketSize,
+				calendarDaily: llmConfig.calendarDaily,
+			});
+
+			return {
+				remaining,
+				limit: llmConfig.limit,
+				dailyLimit: llmConfig.dailyLimit,
+			};
+		} catch (error) {
+			this.logger.error('Failed to get remaining credits', {
+				key,
+				error: error instanceof Error ? error.message : 'Unknown error'
+			});
+			// Fail open - return full limit
+			return {
+				remaining: llmConfig.limit,
+				limit: llmConfig.limit,
+				dailyLimit: llmConfig.dailyLimit,
+			};
+		}
+	}
+
+	/**
+	 * Check if user is within free tier limits (without incrementing)
+	 */
+	static async isWithinLimits(
+		env: Env,
+		config: RateLimitSettings,
+		userId: string
+	): Promise<boolean> {
+		const { remaining } = await this.getRemainingCredits(env, config, userId);
+		return remaining > 0;
+	}
+
 	static async enforceLLMCallsRateLimit(
         env: Env,
 		config: RateLimitSettings,
 		userId: string,
         model: AIModels | string,
-        suffix: string = ""
+        suffix: string = "",
+		isUsingBYOK: boolean = false,
+		hasCloudflareConfigured: boolean = false
 	): Promise<void> {
-		
-		if (!config[RateLimitType.LLM_CALLS].enabled) {
+
+		const llmConfig = config[RateLimitType.LLM_CALLS];
+		if (!llmConfig.enabled) {
+			return;
+		}
+
+		// Skip rate limiting for BYOK users if configured
+		if (isUsingBYOK && llmConfig.excludeBYOKUsers) {
+			this.logger.debug('Skipping rate limit for BYOK user', { userId });
+			return;
+		}
+
+		// Skip rate limiting for Cloudflare-connected users if configured
+		if (hasCloudflareConfigured && llmConfig.excludeCloudflareConnected) {
+			this.logger.debug('Skipping rate limit for Cloudflare-connected user', { userId });
 			return;
 		}
 

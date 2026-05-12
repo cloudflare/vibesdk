@@ -1,5 +1,11 @@
 import { DurableObject } from 'cloudflare:workers';
 
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
+
+function getStartOfUtcDay(nowMs: number): number {
+    return Math.floor(nowMs / MS_PER_DAY) * MS_PER_DAY;
+}
+
 export interface RateLimitBucket {
     count: number;
     timestamp: number;
@@ -17,6 +23,8 @@ export interface RateLimitConfig {
     burstWindow?: number; // in seconds
     bucketSize?: number; // in seconds
     dailyLimit?: number; // max requests in a rolling 24h window
+    /** If true, the main window is aligned to UTC calendar day (resets at midnight UTC) */
+    calendarDaily?: boolean;
 }
 
 export interface RateLimitResult {
@@ -52,6 +60,7 @@ export class DORateLimitStore extends DurableObject<Env> {
         const burstWindow = (config.burstWindow || 60) * 1000; // Convert to milliseconds
         const mainWindow = config.period * 1000; // Convert to milliseconds
         const dailyWindow = config.dailyLimit ? 24 * 60 * 60 * 1000 : 0; // 24 hours in ms if enabled
+        const mainWindowStart = config.calendarDaily ? getStartOfUtcDay(now) : now - mainWindow;
 
         const currentBucket = Math.floor(now / bucketSize) * bucketSize;
         const bucketKey = `${key}:${currentBucket}`;
@@ -62,7 +71,7 @@ export class DORateLimitStore extends DurableObject<Env> {
         }
 
         // Calculate current counts
-        const mainBuckets = this.getBucketsInWindow(key, now, mainWindow, bucketSize);
+        const mainBuckets = this.getBucketsInRange(key, mainWindowStart, now, bucketSize);
         const burstBuckets = config.burst ? this.getBucketsInWindow(key, now, burstWindow, bucketSize) : [];
         const dailyBuckets = config.dailyLimit ? this.getBucketsInWindow(key, now, dailyWindow, bucketSize) : [];
 
@@ -130,8 +139,9 @@ export class DORateLimitStore extends DurableObject<Env> {
         const bucketSize = (config.bucketSize || 10) * 1000;
         const mainWindow = config.period * 1000;
         const dailyWindow = config.dailyLimit ? 24 * 60 * 60 * 1000 : 0;
+        const mainWindowStart = config.calendarDaily ? getStartOfUtcDay(now) : now - mainWindow;
 
-        const mainBuckets = this.getBucketsInWindow(key, now, mainWindow, bucketSize);
+        const mainBuckets = this.getBucketsInRange(key, mainWindowStart, now, bucketSize);
         const mainCount = mainBuckets.reduce((sum, bucket) => sum + bucket.count, 0);
 
         const mainRemaining = config.limit - mainCount;
@@ -166,17 +176,20 @@ export class DORateLimitStore extends DurableObject<Env> {
     }
 
     private getBucketsInWindow(key: string, now: number, windowMs: number, bucketSizeMs: number): RateLimitBucket[] {
+        return this.getBucketsInRange(key, now - windowMs, now, bucketSizeMs);
+    }
+
+    private getBucketsInRange(key: string, startMs: number, endMs: number, bucketSizeMs: number): RateLimitBucket[] {
         const buckets: RateLimitBucket[] = [];
-        const windowStart = now - windowMs;
-        
-        for (let time = Math.floor(windowStart / bucketSizeMs) * bucketSizeMs; time <= now; time += bucketSizeMs) {
+
+        for (let time = Math.floor(startMs / bucketSizeMs) * bucketSizeMs; time <= endMs; time += bucketSizeMs) {
             const bucketKey = `${key}:${time}`;
             const bucket = this.state.buckets.get(bucketKey);
             if (bucket) {
                 buckets.push(bucket);
             }
         }
-        
+
         return buckets;
     }
 

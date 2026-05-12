@@ -24,6 +24,13 @@ export function createApp(env: Env): Hono<AppEnv> {
         if (upgradeHeader?.toLowerCase() === 'websocket') {
             return next();
         }
+
+        // Skip secure headers for OAuth redirect endpoints to avoid
+        // immutable header errors on redirect responses.
+        const pathname = new URL(c.req.url).pathname;
+        if (pathname.startsWith('/oauth/') || pathname === '/auth/callback') {
+            return next();
+        }
         // Apply secure headers
         return secureHeaders(getSecureHeadersConfig(env))(c, next);
     });
@@ -90,8 +97,15 @@ export function createApp(env: Env): Hono<AppEnv> {
     setupRoutes(app);
 
     // Add not found route to redirect to ASSETS
-    app.notFound((c) => {
-        return c.env.ASSETS.fetch(c.req.raw);
+    // Wrap the ASSETS response in a new Response with mutable headers so
+    // downstream middleware (e.g. secureHeaders) can safely modify them.
+    app.notFound(async (c) => {
+        const res = await c.env.ASSETS.fetch(c.req.raw);
+        return new Response(res.body, {
+            status: res.status,
+            statusText: res.statusText,
+            headers: new Headers(res.headers),
+        });
     });
     return app;
 }

@@ -12,6 +12,9 @@ import { setupScreenshotRoutes } from './imagesRoutes';
 import { setupSentryRoutes } from './sentryRoutes';
 import { setupCapabilitiesRoutes } from './capabilitiesRoutes';
 import { setupTicketRoutes } from './ticketRoutes';
+import { setupCloudflareConnectRoutes } from './cloudflareConnectRoutes';
+import { setupCloudflareAccountRoutes } from './cloudflareAccountRoutes';
+import { setupLimitsRoutes } from './limitsRoutes';
 import { Hono } from "hono";
 import { AppEnv } from "../../types/appenv";
 import { setupStatusRoutes } from './statusRoutes';
@@ -33,6 +36,10 @@ export function setupRoutes(app: Hono<AppEnv>): void {
 
     // Authentication and user management routes
     setupAuthRoutes(app);
+    // Cloudflare "Connect" OAuth routes (for per-user AI Gateway tokens)
+    setupCloudflareConnectRoutes(app);
+    // Cloudflare account and gateway management routes
+    setupCloudflareAccountRoutes(app);
     
     // WebSocket ticket routes
     setupTicketRoutes(app);
@@ -69,4 +76,7 @@ export function setupRoutes(app: Hono<AppEnv>): void {
 
     // Screenshot serving routes (public)
     setupScreenshotRoutes(app);
+
+    // Usage limits and free tier routes
+    setupLimitsRoutes(app);
 }

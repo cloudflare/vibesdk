@@ -58,3 +58,25 @@ export class RateLimitExceededError extends SecurityError {
         );
     }
 }
+
+/**
+ * Usage limit exceeded error for free tier limits
+ */
+export class UsageLimitExceededError extends Error {
+    constructor(
+        message: string,
+        public exceededLimits: Array<{
+            type: string;
+            window: string;
+            current: number;
+            max: number;
+            percentUsed: number;
+            /** ISO timestamp when this limit window resets (if known). */
+            resetAt?: string;
+        }>,
+        public hasUserToken: boolean = false
+    ) {
+        super(message);
+        this.name = 'UsageLimitExceededError';
+    }
+}

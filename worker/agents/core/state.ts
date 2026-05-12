@@ -66,6 +66,8 @@ export interface BaseProjectState {
 
     mvpGenerated: boolean;
     reviewingInitiated: boolean;
+    cloudflareToken?: string; // Encrypted Cloudflare OAuth token blob (backend decrypts when needed)
+    wsOrigin?: string; // Origin captured at WS upgrade time for token refresh
 }
 
 /** Phasic agent state */

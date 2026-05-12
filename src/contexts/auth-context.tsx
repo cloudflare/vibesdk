@@ -143,7 +143,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const response = await apiClient.getProfile(true);
       
       if (response.success && response.data?.user) {
-        setUser({ ...response.data.user, isAnonymous: false } as AuthUser);
+        const userData = { ...response.data.user, isAnonymous: false } as AuthUser;
+        setUser(userData);
         setToken(null); // Profile endpoint doesn't return token, cookies are used
         setSession({
           userId: response.data.user.id,
@@ -151,7 +152,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           sessionId: response.data.sessionId || response.data.user.id,
           expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours expiry
         });
-        
+
         // Setup token refresh
         setupTokenRefresh();
       } else {
