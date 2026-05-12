@@ -22,10 +22,10 @@ Recurring agent: `cron 0 */4 * * *` (every 4 hours local IST) → research-loop 
 
 ```
 # schema: run|date-IST|pillar|file|key-finding
-001|2026-05-12 13:23|architecture|2026-05-12-1323-run001.md|pending
+001|2026-05-12 13:23|architecture|2026-05-12-1323-run001.md|Devin collapsed $500→$20/mo; Lovable $400M ARR @ $6.6B val; Manus uses E2B+Sonnet+29 tools
 ```
 
-(Each new run prepends a row here.)
+(Newest at top going forward.)
 
 ## Cumulative Knowledge Base
 
