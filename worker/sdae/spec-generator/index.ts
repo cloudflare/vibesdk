@@ -191,7 +191,7 @@ export class SpecGenerator {
 		const refinedEdgeCases = [...bible.edgeCases, ...newEdgeCases];
 
 		// Apply constraint fixes (remove conflicts, add missing)
-		let refinedConstraints = [...bible.constraints];
+		const refinedConstraints = [...bible.constraints];
 		for (const missing of constraintResult.missingConstraints) {
 			refinedConstraints.push(missing);
 		}

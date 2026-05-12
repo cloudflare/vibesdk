@@ -73,7 +73,7 @@ function reducer(state: State, action: Action): State {
                 status: p.status,
                 modelTier: p.modelTier,
                 currentActivity: p.currentActivity,
-                tokensSpent: p.tokensSpent,
+                tokensUsed: p.tokensSpent,        // WS payload uses tokensSpent; snapshot uses tokensUsed
                 startedAt: p.startedAt,
             });
             return { ...state, agents: next };

@@ -104,7 +104,10 @@ export async function checkGenerationGuard(ctx: GuardContext): Promise<GuardOutc
         });
         // Fail-open on DB errors during dev so local QA isn't blocked.
         // Production override: set GENERATION_GUARD_STRICT env var and fail-closed here.
-        if (ctx.env.GENERATION_GUARD_STRICT === 'true') {
+        // Strict mode is an optional env var — read via loose lookup so we
+        // don't have to regenerate Cloudflare.Env types for every ops flag.
+        const strict = (ctx.env as unknown as Record<string, string | undefined>).GENERATION_GUARD_STRICT;
+        if (strict === 'true') {
             return { ok: false, code: 'no-subscription', message: 'Could not verify your plan. Try again.' };
         }
         logger.warn('generationGuard fail-open (dev)', { userId: ctx.userId });
