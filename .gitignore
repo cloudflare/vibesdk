@@ -28,6 +28,9 @@ dist
 
 # wrangler files
 .wrangler
+
+# Claude Code session scratch (worktree-local, never push)
+.claude/
 .dev.vars*
 .prod.vars
 .env

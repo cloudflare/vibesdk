@@ -33,13 +33,16 @@ Updated 2026-04-24 after commit `HEAD`:
 Wire sub-agent bodies to LLM|DONE — Planner/Coder/Critic call Claude Sonnet via claudeDirect.ts|-|@Dev
 Mount AgentsDock into chat.tsx|DONE — renders when liveAgents > 0|-|@Dev
 Static credit-guard middleware|DONE — checkGenerationGuard, atomic D1, rollback helper|-|@Dev
-Seed password hash: verify format|PENDING — may be argon2 not PBKDF2|2|@Dev
-Wire TeamLeadCoordinator into CodeGeneratorAgent behind multiAgentEnabled flag|PENDING — coordinator exists|6|@Dev
-Emit agent_status + plan_update from coordinator|PENDING — WS types defined|4|@Dev
-Hook checkGenerationGuard into codegenRoutes session-start path|PENDING — middleware exists|2|@Dev
-Tester sub-agent body (sandbox run)|DEFERRED — scaffolded, wire when multi-agent path enabled|6|@Dev
+Seed password hash align (PBKDF2-SHA256)|DONE — scripts/seed.ts byte-identical to passwordService.ts|-|@Dev
+Wire TeamLeadCoordinator into CodeGenAgent behind multiAgentEnabled flag|DONE — phasic.ts runMultiAgentPhase() delegates when flag=true|-|@Dev
+Emit agent_status + plan_update from coordinator|DONE — emitAgentStatus + emitPlanUpdate in TeamLeadCoordinator|-|@Dev
+/benchmark backend (cron + KV + routes)|DONE — runDailyBenchmark, BenchmarkController, setupBenchmarkRoutes|-|@Dev
+Session monitor endpoint + badge|DONE — /api/sessions/:id/monitor + SessionMonitorBadge.tsx|-|@Dev
+Hook checkGenerationGuard into codegenRoutes session-start path|DONE — wired in agent controller w/ rollback|-|@Dev
+Tester sub-agent body (sandbox run)|DEFERRED — scaffolded, wire when traffic justifies|6|@Dev
 Razorpay plan IDs in wrangler.jsonc|DEFERRED — per user request, flip last|0|@Owner
 Razorpay secrets via `wrangler secret put`|DEFERRED — per user request|0|@Owner
+Memory + RAG + Eval layer (ADR-004)|S2 — Cloudflare Agent Memory + AI Search + TS-port DeepEval gates|14|@Dev
 ```
 
 ### Production Readiness (Sprint 2, tracked in QA-PROTOCOL.md)

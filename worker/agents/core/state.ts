@@ -66,6 +66,9 @@ export interface BaseProjectState {
 
     mvpGenerated: boolean;
     reviewingInitiated: boolean;
+
+    /** S1.2 — when true, phase execution delegates to TeamLeadCoordinator.runParallelPhase */
+    readonly multiAgentEnabled?: boolean;
 }
 
 /** Phasic agent state */

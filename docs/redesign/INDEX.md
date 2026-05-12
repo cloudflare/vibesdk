@@ -12,7 +12,8 @@ Read order for a new reader:
 8. **[ADR-001-multi-agent.md](./ADR-001-multi-agent.md)** — DO fan-out decision
 9. **[ADR-002-sandbox-strategy.md](./ADR-002-sandbox-strategy.md)** — stay CF-native, e2b escape hatch (ACCEPTED 2026-05-12)
 10. **[ADR-003-agui-protocol-adoption.md](./ADR-003-agui-protocol-adoption.md)** — adopt AG-UI post-S2 (ACCEPTED-DEFERRED)
-11. **[WEDGES.md](./WEDGES.md)** — speed + cost wedges vs emergent
+11. **[ADR-004-memory-rag-eval.md](./ADR-004-memory-rag-eval.md)** — CF-native memory + RAG + DeepEval-port (ACCEPTED 2026-05-13, response to research-run-003)
+12. **[WEDGES.md](./WEDGES.md)** — speed + cost wedges vs emergent
 12. **[INFRASTRUCTURE.md](./INFRASTRUCTURE.md)** — Cloudflare vs GCP decision (HIGH-confidence, 43× cheaper)
 13. **[COST-OPTIMIZATION.md](./COST-OPTIMIZATION.md)** — 9 levers ranked by ROI
 14. **[RAZORPAY-SETUP.md](./RAZORPAY-SETUP.md)** — operator runbook for live billing
@@ -48,3 +49,4 @@ Read order for a new reader:
 - **DEC-002** (2026-04-24): Pricing = 4-tier (Free/Pro $20/Team $60 seat/Enterprise). See PRICING-TIERS.md. Enterprise margin MUST be reworked (CRITIQUE C7).
 - **DEC-003** (2026-04-24): Pre-login marketing = emergent.sh pattern w/ dark-default + light toggle. See UI-UX-PRELOGIN.md.
 - **DEC-004** (2026-04-24): Migration = feature-flagged, non-breaking, 2-sprint parallel run before monolith deprecation.
+- **DEC-005** (2026-05-13): Memory + RAG + Eval layer = Cloudflare Agent Memory + AI Search + TS-port of DeepEval core metrics. Best-of-breed (Mem0/Infinity/E2B) deferred to preserve 43× CF cost moat. See ADR-004. Triggered by run003 finding (zero memory/RAG/eval vs Mem0 91.6 LoCoMo + DeepEval 50+ metrics).

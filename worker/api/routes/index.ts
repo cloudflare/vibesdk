@@ -9,7 +9,9 @@ import { setupModelProviderRoutes } from './modelProviderRoutes';
 import { setupGitHubExporterRoutes } from './githubExporterRoutes';
 import { setupCreditRoutes } from './creditRoutes';
 import { setupBillingRoutes } from './billingRoutes';
+import { setupBenchmarkRoutes } from './benchmarkRoutes';
 import { setupCodegenRoutes } from './codegenRoutes';
+import { setupSessionRoutes } from './sessionRoutes';
 import { setupScreenshotRoutes } from './imagesRoutes';
 import { setupSentryRoutes } from './sentryRoutes';
 import { setupCapabilitiesRoutes } from './capabilitiesRoutes';
@@ -77,4 +79,10 @@ export function setupRoutes(app: Hono<AppEnv>): void {
 
     // Razorpay billing / subscription routes
     setupBillingRoutes(app);
+
+    // Public /benchmark page backend (GET latest + POST run-on-demand)
+    setupBenchmarkRoutes(app);
+
+    // Session monitor + future session-scoped read endpoints
+    setupSessionRoutes(app);
 }

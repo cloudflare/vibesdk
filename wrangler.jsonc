@@ -128,8 +128,22 @@
             "binding": "VibecoderStore",
             "id": "f066f3c2e4824981b48e8586c04db9c1",
             "remote": true
+        },
+        // /benchmark page backend — see docs/redesign/BENCHMARK-PAGE-SPEC.md §4.
+        // Provision: `wrangler kv namespace create BENCHMARK_RESULTS` then paste
+        // the returned id below. After filling the id, run `npm run cf-typegen`
+        // so the `BENCHMARK_RESULTS` field appears on the typed Env.
+        {
+            "binding": "BENCHMARK_RESULTS",
+            "id": "<set-via-wrangler-kv-namespace-create>",
+            "remote": true
         }
     ],
+    // Cloudflare Cron Triggers — see worker/index.ts scheduled() handler.
+    // Daily benchmark vs Emergent runs at 03:00 UTC (BENCHMARK-PAGE-SPEC.md §3).
+    "triggers": {
+        "crons": ["0 3 * * *"]
+    },
     // "placement": {
     //   "mode": "smart"
     // },

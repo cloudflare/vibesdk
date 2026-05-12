@@ -12,7 +12,7 @@
  *  5. Surface the cost guard from worker/middleware/guardrails/generationGuard.ts.
  */
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState, type JSX } from 'react';
 import { useNavigate } from 'react-router';
 import { useAuth } from '@/contexts/auth-context';
 import { apiClient, type BillingStatusData } from '@/lib/api-client';

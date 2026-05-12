@@ -10,6 +10,7 @@ import { isOriginAllowed } from './config/security';
 import { proxyToSandbox } from './services/sandbox/request-handler';
 import { handleGitProtocolRequest, isGitProtocolRequest } from './api/handlers/git-protocol';
 import { getAgentStub } from './agents';
+import { runDailyBenchmark } from './cron/benchmarkRunner';
 
 // Durable Object and Service exports
 export { UserAppSandboxService } from './services/sandbox/sandboxSdkClient';
@@ -219,6 +220,28 @@ const worker = {
 		}
 
 		return new Response('Not Found', { status: 404 });
+	},
+
+	/**
+	 * Cloudflare Cron Trigger entry point.
+	 *
+	 * Cron list is defined in wrangler.jsonc `triggers.crons`. The benchmark
+	 * runner is the only daily job today (03:00 UTC). Future cron jobs should
+	 * branch on `event.cron` so we keep a single scheduled() export.
+	 *
+	 * `ctx.waitUntil` so the worker keeps running past the schedule callback
+	 * return — the actual benchmark fan-out + KV writes happen async.
+	 */
+	async scheduled(controller: ScheduledController, env: Env, ctx: ExecutionContext): Promise<void> {
+		logger.info(`Cron triggered: ${controller.cron} at scheduledTime=${controller.scheduledTime}`);
+		switch (controller.cron) {
+			case '0 3 * * *':
+				ctx.waitUntil(runDailyBenchmark(env));
+				return;
+			default:
+				logger.warn(`No handler for cron pattern: ${controller.cron}`);
+				return;
+		}
 	},
 } satisfies ExportedHandler<Env>;
 

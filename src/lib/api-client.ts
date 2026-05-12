@@ -1242,6 +1242,14 @@ class ApiClient {
                         body: JSON.stringify(params),
                 });
         }
+
+        // ===============================
+        // Session Monitor (read-only)
+        // ===============================
+
+        async getSessionMonitor(sessionId: string): Promise<ApiResponse<SessionMonitorData>> {
+                return this.request<SessionMonitorData>(`/api/sessions/${encodeURIComponent(sessionId)}/monitor`);
+        }
 }
 
 export interface BillingStatusData {
@@ -1276,6 +1284,19 @@ export interface CreateOrderResult {
         amount: number;
         currency: string;
         keyId: string;
+}
+
+export interface SessionMonitorData {
+        sessionId: string;
+        startedAt: number;
+        elapsedMs: number;
+        status: 'planning' | 'coding' | 'testing' | 'idle' | 'failed' | 'done';
+        currentActivity: string | null;
+        progress: { completed: number; total: number };
+        cost: { creditsSpent: number; tokensSpent: number };
+        agents: { running: number; done: number; failed: number };
+        lastEventAt: number | null;
+        links: { sessionUrl: string; previewUrl: string | null };
 }
 
 // Export singleton instance

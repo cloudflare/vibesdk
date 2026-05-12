@@ -9,8 +9,9 @@
  *   - 1 sample app per user for /apps page to render
  *   - 1 in-flight plan_nodes tree for the Pro user so chat surface has fixtures
  *
- * Uses bcrypt-hashed passwords (only `TestPassword123!`) so you can log in
- * via the normal email/password flow.
+ * Uses PBKDF2-SHA256 hashed passwords (only `TestPassword123!`) so you can
+ * log in via the normal email/password flow. Hash format matches
+ * worker/utils/passwordService.ts exactly: base64(salt[16] || pbkdf2[32]).
  *
  * Usage:
  *   npm run db:seed              # local
@@ -24,7 +25,7 @@
  */
 
 import { execSync } from 'child_process';
-import { createHash, randomBytes } from 'crypto';
+import { pbkdf2Sync, randomBytes } from 'crypto';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { writeFileSync, unlinkSync } from 'fs';
@@ -41,24 +42,27 @@ const VERBOSE = args.includes('--verbose') || args.includes('-v');
 const DB_NAME = 'vibesdk-db';
 const PASSWORD = 'TestPassword123!';
 
-// PBKDF2 params matching worker/api/controllers/auth/authService (commonly used)
-// Most Workers auth libs use 100k-600k rounds; we approximate w/ a bcrypt-style
-// prefix that the existing password verifier should recognise. If the auth
-// service uses argon2 or custom, see SEED-AUTH note at the bottom of this file.
-function hashPassword(pw: string): string {
-    // The vibesdk auth service stores PBKDF2 hashes prefixed w/ salt:iterations.
-    // This hash matches the format expected by existing verifyPassword util.
-    const salt = 'vibesdk-seed-salt';
-    const iterations = 100_000;
-    const key = pbkdf2Sync(pw, salt, iterations, 32, 'sha256');
-    return `pbkdf2$${iterations}$${salt}$${key.toString('hex')}`;
-}
+// Hash format must match worker/utils/passwordService.ts exactly.
+// Production PasswordService.hash():
+//   1. salt = 16 random bytes (crypto.getRandomValues)
+//   2. hash = PBKDF2-SHA256(password, salt, iterations=100_000, keyLen=32)
+//   3. stored = btoa(salt || hash)  — base64 of 48-byte concat (16 salt + 32 hash)
+// Verifier reads back: atob → first 16 bytes = salt, rest = expected hash.
+//
+// Approach: re-implement w/ Node's crypto.pbkdf2Sync. PBKDF2-SHA256 is a
+// deterministic RFC-8018 KDF — Node's output is byte-identical to Web Crypto
+// API output for same inputs. Importing PasswordService directly would require
+// miniflare runtime (PasswordService uses Worker-global crypto.subtle), which
+// is much heavier than this 4-line re-implementation.
+const HASH_SALT_LENGTH = 16;
+const HASH_ITERATIONS = 100_000;
+const HASH_KEY_LENGTH = 32;
 
-// Minimal PBKDF2 — avoid heavy deps. Node's crypto.pbkdf2Sync is synchronous + safe here.
-function pbkdf2Sync(pw: string, salt: string, iters: number, keylen: number, digest: string): Buffer {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const { pbkdf2Sync: native } = require('crypto') as typeof import('crypto');
-    return native(pw, salt, iters, keylen, digest);
+function hashPassword(pw: string): string {
+    const salt = randomBytes(HASH_SALT_LENGTH);
+    const hash = pbkdf2Sync(pw, salt, HASH_ITERATIONS, HASH_KEY_LENGTH, 'sha256');
+    const combined = Buffer.concat([salt, hash]);
+    return combined.toString('base64');
 }
 
 function id(prefix: string): string {
@@ -206,15 +210,21 @@ main();
 
 /*
  * ── SEED-AUTH NOTE ─────────────────────────────────────────────────────
- * If the seeded password fails on login, the project's password verifier
- * uses a different hash format than the pbkdf2 prefix used above. To find
- * the real format:
- *   1. Search the codebase: `grep -rn "password_hash\|verifyPassword\|hashPassword" worker/`
- *   2. Find the hashPassword() or similar implementation
- *   3. Replace `hashPassword()` above with a call that matches its output
- *      (OR import that util and hash inside this script — ideal).
+ * Hash function above mirrors worker/utils/passwordService.ts:
+ *   - Algorithm: PBKDF2-SHA256
+ *   - Salt: 16 random bytes per password (stored as prefix of blob)
+ *   - Iterations: 100_000 (OWASP recommended minimum)
+ *   - Key length: 32 bytes (256 bits)
+ *   - Storage encoding: base64(salt || hash) — 48 raw bytes → 64-char b64
  *
- * A cleaner v2 of this seeder imports AuthService.hashPassword directly so
- * format matches. Deferred for now because running that code outside a
- * Worker context needs miniflare setup; this fast path unblocks manual QA.
+ * The Worker verifier (PasswordService.verify) decodes the same blob, splits
+ * off the first 16 bytes as salt, then PBKDF2-hashes the input password with
+ * that salt and timing-safe-compares. Because PBKDF2-SHA256 is deterministic
+ * and standardised (RFC 8018), Node's crypto.pbkdf2Sync produces byte-
+ * identical output to Web Crypto API's PBKDF2 for the same inputs — so the
+ * seeded hash is accepted by the production verifier unchanged.
+ *
+ * If you ever change the iteration count, salt length, or KDF in
+ * worker/utils/passwordService.ts, mirror the change here AND in the
+ * HASH_* constants at the top of this file.
  */

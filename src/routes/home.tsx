@@ -1,7 +1,6 @@
 import { useRef, useState, useEffect, useMemo, useCallback } from 'react';
 import { ArrowUp, Mic, Github, GitFork, ChevronDown, Paperclip, Sparkles, Settings, Bot, MonitorSmartphone, Smartphone, LayoutTemplate, Headphones } from 'lucide-react';
 import { useNavigate } from 'react-router';
-import { useAuth } from '@/contexts/auth-context';
 import { MAX_AGENT_QUERY_LENGTH, SUPPORTED_IMAGE_MIME_TYPES, type ProjectType } from '@/api-types';
 import { useFeature } from '@/features';
 import { useAuthGuard } from '../hooks/useAuthGuard';
@@ -68,7 +67,6 @@ export default function Home() {
   const [githubIsPrivate, setGithubIsPrivate] = useState(false);
   const [forkDialogOpen, setForkDialogOpen] = useState(false);
   const [forkAppId, setForkAppId] = useState('');
-  const { isAuthenticated } = useAuth();
   const { isLoadingCapabilities, capabilities, getEnabledFeatures } = useFeature();
 
   const modeOptions = useMemo(() => {
@@ -139,21 +137,11 @@ export default function Home() {
 
   const handleVoiceInput = () => toast.info('Voice input coming soon');
 
-  const handleGitHubSave = useCallback(() => {
-    if (!requireAuth({ requireFullAuth: true, actionContext: 'to save to GitHub' })) return;
-    setGithubDialogOpen(true);
-  }, [requireAuth]);
-
   const handleGitHubExport = useCallback(async () => {
     if (!githubRepoName.trim()) { toast.error('Repository name is required'); return; }
     try { apiClient.initiateGitHubOAuth(); } catch { toast.error('Failed to connect to GitHub.'); }
     setGithubDialogOpen(false);
   }, [githubRepoName]);
-
-  const handleForkClick = useCallback(() => {
-    if (!requireAuth({ requireFullAuth: true, actionContext: 'to fork a project' })) return;
-    setForkDialogOpen(true);
-  }, [requireAuth]);
 
   const handleForkApp = useCallback(async () => {
     if (!forkAppId.trim()) { toast.error('App ID is required'); return; }

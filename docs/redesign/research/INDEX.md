@@ -22,6 +22,9 @@ Recurring agent: `cron 0 */4 * * *` (every 4 hours local IST) → research-loop 
 
 ```
 # schema: run|date-IST|pillar|file|key-finding
+004|2026-05-13 04:12|market|2026-05-13-0412-run004.md|Capital bifurcated: top-tier (Cursor $50B, Cognition $25B, Replit $9B) doubled in <6mo while vibe-coding tier (Lovable $400M ARR, Emergent $100M ARR/8mo, Bolt+Azure) is fastest-growing revenue cohort in software history; Lovable Apr'26 security crisis + Cloudflare May 7 AI-first layoff (1,100) open a "trustworthy CF-native vibe-coding" lane for vibesdk
+003|2026-05-13 00:07|tech|2026-05-13-0007-run003.md|vibesdk has zero memory/RAG/eval/routing layer vs SOTA (Mem0 91.6 LoCoMo, Zep 94.8 DMR, DeepEval 50+ metrics); Cloudflare Q2'26 shipped Agent Memory + AI Search + Sandbox GA as drop-in fixes on same platform
+002|2026-05-12 10:38|features|2026-05-12-1038-run002.md|Agent-IDE bar reset: Cursor 3 + Composer 2, Replit Agent 3 sub-agents, Devin 2.0 ACU pricing; Manus shipped 8+ features in 60d; vibesdk gap: sub-agents, parallel worktrees, app monitoring, effort-based pricing
 001|2026-05-12 13:23|architecture|2026-05-12-1323-run001.md|Devin collapsed $500→$20/mo; Lovable $400M ARR @ $6.6B val; Manus uses E2B+Sonnet+29 tools
 ```
 

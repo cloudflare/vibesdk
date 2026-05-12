@@ -28,6 +28,13 @@ import { ICodingAgent } from '../../services/interfaces/ICodingAgent';
 import { SimpleCodeGenerationOperation } from '../../operations/SimpleCodeGeneration';
 import { StateMigration } from '../stateMigration';
 import { runPreDeploySafetyGate } from '../../utils/preDeploySafetyGate';
+// S1.3 — multi-agent path. Flag-gated; default monolith path stays unchanged.
+import { runParallelPhase } from '../subagents/TeamLeadCoordinator';
+import type { PlannedMilestone, SharedContext } from '../subagents/contracts';
+import type { CoderAgent as CoderAgentDO } from '../subagents/CoderAgent';
+import type { PlannerAgent as PlannerAgentDO } from '../subagents/PlannerAgent';
+import type { CriticAgent as CriticAgentDO } from '../subagents/CriticAgent';
+import type { TesterAgent as TesterAgentDO } from '../subagents/TesterAgent';
 
 interface PhasicOperations extends BaseCodingOperations {
     generateNextPhase: PhaseGenerationOperation;
@@ -406,10 +413,26 @@ export class PhasicCodingBehavior extends BaseCodingBehavior<PhasicState> implem
             
             // Prepare issues for implementation
             const currentIssues = await this.fetchAllIssues(true);
-            
-            // Implement the phase with user context (suggestions and images)
-            await this.implementPhase(phaseConcept, currentIssues, userContext);
-    
+
+            // S1.3 — Flag-gated branch: when multiAgentEnabled is true, delegate to
+            // TeamLeadCoordinator.runParallelPhase. Otherwise the existing monolith
+            // path runs unchanged (default for all sessions today).
+            if (this.state.multiAgentEnabled === true) {
+                const result = await this.runMultiAgentPhase(phaseConcept);
+                if (!result.ok) {
+                    this.logger.warn('Multi-agent phase failed, transitioning to REVIEWING', {
+                        phase: phaseConcept.name,
+                        failedTaskIds: result.failedTaskIds,
+                    });
+                    return { currentDevState: CurrentDevState.REVIEWING };
+                }
+                // Mark phase complete to mirror the monolith implementPhase tail.
+                this.markPhaseComplete(phaseConcept.name);
+            } else {
+                // Implement the phase with user context (suggestions and images)
+                await this.implementPhase(phaseConcept, currentIssues, userContext);
+            }
+
             this.logger.info(`Phase ${phaseConcept.name} completed, generating next phase`);
 
             const phasesCounter = this.decrementPhasesCounter();
@@ -688,6 +711,118 @@ export class PhasicCodingBehavior extends BaseCodingBehavior<PhasicState> implem
 
     getTotalFiles(): number {
         return this.fileManager.getGeneratedFilePaths().length + ((this.state.currentPhase || this.state.blueprint.initialPhase)?.files?.length || 0);
+    }
+
+    /**
+     * S1.3 — Multi-agent phase execution. Builds a single-task milestone from the
+     * current PhaseConceptType, wires the DO's broadcast through to the coordinator
+     * so the WS sees live agent_status / plan_update events, and commits patches
+     * back via FileManager. Default path is the monolith implementPhase; this only
+     * runs when state.multiAgentEnabled === true (set externally, never here).
+     */
+    private async runMultiAgentPhase(
+        phase: PhaseConceptType,
+    ): Promise<{ ok: boolean; failedTaskIds: readonly string[] }> {
+        // TODO(S1.3-followup): When Planner emits structured tasks, use those.
+        // For now collapse the whole phase into a single Coder task so existing
+        // PhaseConcept shape still works.
+        const ownedFiles = phase.files?.map((f) => f.path) ?? [];
+        const milestone: PlannedMilestone = {
+            id: 'm0',
+            title: phase.name ?? 'Phase',
+            description: phase.description ?? '',
+            tasks: [
+                {
+                    id: 'm0-t0',
+                    title: 'Implement phase',
+                    ownedFiles,
+                    assignedRole: 'coder',
+                    dependsOn: [],
+                },
+            ],
+        };
+
+        // TODO(S1.3-followup): read tier from entitlements service (state.metadata
+        // does not yet carry it). Default 'free' until S2 plumbs the value through.
+        const ctx: SharedContext = {
+            sessionId: this.state.sessionId,
+            userId: this.state.metadata?.userId ?? '',
+            tier: 'free',
+            blueprint: this.state.blueprint,
+            ownedFiles,
+            budgetTokens: 20000,
+            modelTier: 'regular',
+            // TODO(S1.3-followup): wire the signed file-tree read URL once the
+            // route is in place. Sub-agents currently treat empty string as
+            // "use ctx.ownedFiles directly".
+            fileTreeReadUrl: '',
+        };
+
+        // worker-configuration.d.ts is stale (does not yet include the new
+        // sub-agent DO namespaces declared in wrangler.jsonc). Bridge via a typed
+        // narrowing cast to avoid touching the generated file.
+        const env = this.env as unknown as {
+            CoderAgent: DurableObjectNamespace<CoderAgentDO>;
+            PlannerAgent: DurableObjectNamespace<PlannerAgentDO>;
+            CriticAgent: DurableObjectNamespace<CriticAgentDO>;
+            TesterAgent: DurableObjectNamespace<TesterAgentDO>;
+        };
+
+        const result = await runParallelPhase({
+            sessionId: this.state.sessionId,
+            tier: 'free', // TODO(S2): read from entitlements
+            milestone,
+            ctx,
+            maxParallelCoders: 4,
+            enableCritic: false, // TODO(S2): tier-gate
+            bindings: {
+                CoderAgent: env.CoderAgent,
+                PlannerAgent: env.PlannerAgent,
+                CriticAgent: env.CriticAgent,
+                TesterAgent: env.TesterAgent,
+                // Wire the DO's typed broadcast through to the coordinator.
+                // Coordinator emits `{type: 'agent_status' | 'plan_update', ...rest}`;
+                // we split type/rest so the existing typed websocket pipeline
+                // carries it unchanged.
+                broadcast: (msg: unknown) => {
+                    try {
+                        if (msg && typeof msg === 'object' && 'type' in msg) {
+                            const m = msg as { type: string } & Record<string, unknown>;
+                            const { type, ...rest } = m;
+                             
+                            this.broadcast(type as any, rest as any);
+                        }
+                    } catch (e) {
+                        this.logger.warn('multi-agent broadcast pipe threw', {
+                            err: e instanceof Error ? e.message : String(e),
+                        });
+                    }
+                },
+            },
+            logger: this.logger,
+            onPatches: async (_agentId, patches) => {
+                for (const patch of patches) {
+                    try {
+                        await this.fileManager.saveGeneratedFile(
+                            {
+                                filePath: patch.path,
+                                fileContents: patch.contents,
+                                filePurpose: `multi-agent patch (${patch.action})`,
+                            },
+                            `feat: ${phase.name} (multi-agent)`,
+                            true,
+                        );
+                    } catch (e) {
+                        this.logger.warn('Failed to commit multi-agent patch', {
+                            path: patch.path,
+                            err: e instanceof Error ? e.message : String(e),
+                        });
+                    }
+                }
+            },
+        });
+
+        return { ok: result.ok, failedTaskIds: result.failedTaskIds };
     }
 
     private async applyFastSmartCodeFixes() : Promise<void> {
