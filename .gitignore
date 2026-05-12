@@ -71,3 +71,4 @@ cli
 # Environment files
 *.env
 *.env.*
+.commit-msg-tmp.txt
