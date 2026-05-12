@@ -11,6 +11,7 @@ import AppView from './routes/app';
 import DiscoverPage from './routes/discover';
 import PricingPage from './routes/pricing';
 import BillingPage from './routes/billing';
+import BenchmarkPage from './routes/benchmark';
 import { ProtectedRoute } from './routes/protected-route';
 
 const routes = [
@@ -49,6 +50,10 @@ const routes = [
 			{
 				path: 'pricing',
 				Component: PricingPage,
+			},
+			{
+				path: 'benchmark',
+				Component: BenchmarkPage,
 			},
 			{
 				path: 'billing',

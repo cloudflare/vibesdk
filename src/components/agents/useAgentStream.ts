@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useReducer } from 'react';
+import { useCallback, useEffect, useMemo, useReducer } from 'react';
 import type {
     AgentSnapshot,
     AgentRole,
@@ -150,6 +150,26 @@ export function useAgentStream(): AgentStreamApi {
     }, []);
 
     const reset = useCallback(() => dispatch({ type: 'reset' }), []);
+
+    // S1.6 — pick up bridge events fired by handle-websocket-message.ts. Done
+    // here (not via prop drilling) so any component that mounts useAgentStream
+    // automatically subscribes — no plumbing into useChat.
+    useEffect(() => {
+        const onStatus = (e: Event) => {
+            const detail = (e as CustomEvent<AgentStatusMessagePayload>).detail;
+            if (detail) dispatch({ type: 'agent_status', payload: detail });
+        };
+        const onPlan = (e: Event) => {
+            const detail = (e as CustomEvent<PlanUpdateMessagePayload>).detail;
+            if (detail) dispatch({ type: 'plan_update', payload: detail });
+        };
+        window.addEventListener('vibesdk:agent_status', onStatus as EventListener);
+        window.addEventListener('vibesdk:plan_update', onPlan as EventListener);
+        return () => {
+            window.removeEventListener('vibesdk:agent_status', onStatus as EventListener);
+            window.removeEventListener('vibesdk:plan_update', onPlan as EventListener);
+        };
+    }, []);
 
     const agents = useMemo(() => Array.from(state.agents.values()), [state.agents]);
     const plan = useMemo(() => buildTree(state.planFlat), [state.planFlat]);

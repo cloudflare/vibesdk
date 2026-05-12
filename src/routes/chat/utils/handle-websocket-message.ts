@@ -1026,7 +1026,22 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
                     onDebugMessage
                 );
                 setMessages(prev => [...prev, rateLimitMessage]);
-                
+
+                break;
+            }
+
+            // S1.6 — Bridge multi-agent WS events to a window CustomEvent so the
+            // useAgentStream hook (mounted in AgentsDock) can listen without
+            // wiring through useChat's full dep chain.
+            case 'agent_status': {
+                const { type: _type, ...detail } = message;
+                window.dispatchEvent(new CustomEvent('vibesdk:agent_status', { detail }));
+                break;
+            }
+
+            case 'plan_update': {
+                const { type: _type, ...detail } = message;
+                window.dispatchEvent(new CustomEvent('vibesdk:plan_update', { detail }));
                 break;
             }
 

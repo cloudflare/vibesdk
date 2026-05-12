@@ -23,6 +23,7 @@ import { ImageType, uploadImage } from 'worker/utils/images';
 import { ProcessedImageAttachment } from 'worker/types/image-attachment';
 import { getTemplateImportantFiles } from 'worker/services/sandbox/utils';
 import { hasTicketParam } from '../../../middleware/auth/ticketAuth';
+import { checkGenerationGuard, rollbackGenerationSlot } from '../../../middleware/guardrails/generationGuard';
 
 const defaultCodeGenArgs: Partial<CodeGenArgs> = {
     language: 'typescript',
@@ -103,6 +104,28 @@ export class CodingAgentController extends BaseController {
                 }
             }
 
+            // S1.1 — Plan/burst guardrail BEFORE we mint a DO id so over-limit users
+            // get a clean 402/429 instead of starting a runaway agent.
+            const guardDecision = await checkGenerationGuard({ env, userId: user.id });
+            if (!guardDecision.ok) {
+                const status = guardDecision.code === 'burst-cap' ? 429 : 402;
+                const upgradeTo = guardDecision.code === 'over-limit' ? 'pro' : undefined;
+                const guardResponseBody = {
+                    success: false,
+                    error: {
+                        code: guardDecision.code,
+                        message: guardDecision.message,
+                        ...(upgradeTo ? { upgradeTo } : {}),
+                        ...(guardDecision.used !== undefined ? { used: guardDecision.used } : {}),
+                        ...(guardDecision.limit !== undefined ? { limit: guardDecision.limit } : {}),
+                    },
+                };
+                return new Response(JSON.stringify(guardResponseBody), {
+                    status,
+                    headers: { 'Content-Type': 'application/json' },
+                });
+            }
+
             const agentId = generateId();
             const modelConfigService = new ModelConfigService(env);
             const projectType = resolveProjectType(body);
@@ -164,7 +187,15 @@ export class CodingAgentController extends BaseController {
                     files: getTemplateImportantFiles(templateDetails),
                 }
             });
-            const agentInstance = await getAgentStub(env, agentId, { behaviorType, projectType: finalProjectType });
+            // S1.1 — Wrap DO creation so a downstream throw rolls back the
+            // generation slot we just claimed in checkGenerationGuard().
+            let agentInstance;
+            try {
+                agentInstance = await getAgentStub(env, agentId, { behaviorType, projectType: finalProjectType });
+            } catch (doErr) {
+                await rollbackGenerationSlot(env, user.id);
+                throw doErr;
+            }
 
             const baseInitArgs = {
                 query,
@@ -185,6 +216,11 @@ export class CodingAgentController extends BaseController {
                 writer.write("terminate");
                 writer.close();
                 this.logger.info(`Agent ${agentId} terminated successfully`);
+            }).catch(async (initErr) => {
+                // S1.1 — Initialize() runs after we returned the stream; we can't
+                // change the HTTP status anymore, but we MUST roll the counter back.
+                this.logger.error(`Agent ${agentId} initialize threw — rolling back generation slot`, initErr);
+                await rollbackGenerationSlot(env, user.id);
             });
 
             this.logger.info(`Agent ${agentId} init launched successfully`);

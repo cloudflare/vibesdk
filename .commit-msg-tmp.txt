@@ -1,0 +1,72 @@
+feat(s1+decisions): 4-agent burst — 2 ADRs locked + S1.1/4-6 wired + /benchmark scaffold
+
+Autonomous decision burst: 3 architecture decisions taken without Owner
+ping (per directive "take decision as needed"), 4 build agents dispatched
+in parallel, all 4 returned typecheck-clean.
+
+DECISIONS LOCKED:
+  D1 sandbox: stay Cloudflare-native (43x cost wedge preserved).
+              e2b.dev escape hatch documented with 4 specific trigger conditions.
+  D2 AG-UI Protocol: adopt POST-S2 (after demo locks numbers).
+              Migration plan = 4 mechanical steps documented in ADR-003.
+  D3 mid-tier $49: defer until S2 conversion data exists.
+              Pricing change without data is guessing. @Critic concurred.
+
+ADRs (decision-grade, ~700 words each):
+  - ADR-002-sandbox-strategy.md — ACCEPTED 2026-05-12
+  - ADR-003-agui-protocol-adoption.md — ACCEPTED-DEFERRED, fires at S3 start
+
+S1 STORY WIRING (real source edits, typecheck clean):
+  S1.1 — checkGenerationGuard hooked into worker/api/controllers/agent/controller.ts:
+         pre-DO guard returns 402 (over-limit) or 429 (burst-cap) cleanly;
+         try/catch wraps DO creation; rollbackGenerationSlot fires on failure
+         so the user's counter is restored.
+  S1.4 — TeamLeadCoordinator.CoordinatorBindings gets optional `broadcast`
+         field (kept optional so existing call-sites stay green).
+         emitAgentStatus + emitPlanUpdate helpers added; dispatchCoder fires
+         agent_status + plan_update at dispatch+done+failed; runCritic fires
+         agent_status at start+end. No-ops cleanly when broadcast not wired.
+  S1.5 — taskIndexById precomputed so plan_update events carry stable
+         sortIndex even when tasks resolve out of dispatch order.
+  S1.6 — handle-websocket-message.ts dispatches new `agent_status` +
+         `plan_update` switch cases as window CustomEvents.
+         useAgentStream subscribes via useEffect (no prop drilling) — any
+         component mounting the hook auto-subscribes.
+
+  ONE follow-up tagged TODO(S1-followup) in TeamLeadCoordinator.ts:
+    Wire `broadcast: this.broadcast.bind(this)` from CodeGeneratorAgent
+    when it invokes runParallelPhase. Optional field means UI is hidden
+    until that one-liner lands — graceful degrade today, demo-able after.
+
+/BENCHMARK PAGE SCAFFOLD (S2 deliverable, route already live):
+  - docs/redesign/BENCHMARK-PAGE-SPEC.md — full spec (data shapes, KV
+    namespace, cron schedule, cost guard, privacy disclaimer)
+  - docs/redesign/mockups/benchmark.html — dark-theme HTML mockup matching
+    landing.html tokens (hero + 3 big-number cards + 7-day table + 30-day
+    chart placeholder + methodology + gated "run your own" form)
+  - src/routes/benchmark/index.tsx — React component with explicit
+    idle|loading|error|ready|empty discriminated union, tier-gated
+    "Run your own" (anon→signup, free→pricing, pro+→run)
+  - src/routes.ts — `/benchmark` route registered public
+
+  Still TODO for live page (S2 backend work):
+    1. worker/cron/benchmarkRunner.ts + benchmark-prompts.json + wrangler
+       crons config
+    2. KV namespace BENCHMARK_RESULTS + worker/api/routes/benchmarkRoutes.ts
+    3. generationGuard `kind: 'benchmark'` path w/ Pro+ gate + daily $USD cap
+
+DOCS WIRING:
+  - INDEX.md updated: ADR-002, ADR-003, BEAT-EMERGENT-PLAN, BENCHMARK-PAGE-SPEC,
+    research/ link all added to read-order
+
+SPRINT S1 STATUS (10 stories, post-this-commit):
+  S1.1 ✓  S1.2 pending  S1.3 pending  S1.4 ✓  S1.5 ✓
+  S1.6 ✓  S1.7 pending  S1.8 pending  S1.9 pending  S1.10 pending
+  → 4 of 10 done. Remaining: multiAgentEnabled flag (S1.2), CodeGenAgent
+    delegation to runParallelPhase (S1.3), AgentsDock render verification
+    (S1.7), seed password hash format (S1.8), Playwright run (S1.9),
+    @PM walkthrough (S1.10).
+
+Research loop continues: next fire 2026-05-12 16:00 IST (Pillar 2 - features).
+
+Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>

@@ -36,6 +36,14 @@ export interface CoordinatorBindings {
     readonly PlannerAgent: DurableObjectNamespace<PlannerAgent>;
     readonly CriticAgent: DurableObjectNamespace<CriticAgent>;
     readonly TesterAgent: DurableObjectNamespace<TesterAgent>;
+    /**
+     * S1.4 — WebSocket emitter injected by the caller (CodeGeneratorAgent DO's
+     * `broadcast()` from the Agent base class). Kept as an unknown-arg function
+     * so we don't pull a hard dep on the DO type into the coordinator module.
+     * Made optional so existing callers + tests stay green; coordinator no-ops
+     * the emit if not supplied.
+     */
+    readonly broadcast?: (msg: unknown) => void;
 }
 
 export interface RunPhaseArgs {
@@ -109,6 +117,13 @@ export async function runParallelPhase(args: RunPhaseArgs): Promise<RunPhaseResu
         }
     }
 
+    // S1.5 — Precompute the task sortIndex so plan_update events keep a stable order
+    // even when tasks resolve out of dispatch order. milestoneId is the parentId.
+    const taskIndexById = new Map<string, number>(
+        args.milestone.tasks.map((t, i) => [t.id, i]),
+    );
+    const milestoneId = args.milestone.id;
+
     // ── Stage 2: dependency-ordered parallel Coder dispatch ──
     const pending = new Map<string, PlannedTask>(args.milestone.tasks.map((t) => [t.id, t]));
     const running = new Map<string, Promise<{ taskId: string; output: CoderOutput | null; tokens: number }>>();
@@ -119,7 +134,10 @@ export async function runParallelPhase(args: RunPhaseArgs): Promise<RunPhaseResu
             const next = pickReadyTask(pending, completed, failed);
             if (!next) break; // everything else is blocked by in-flight work
             pending.delete(next.id);
-            running.set(next.id, dispatchCoder(args, next));
+            running.set(
+                next.id,
+                dispatchCoder(args, next, taskIndexById.get(next.id) ?? 0, milestoneId),
+            );
             args.logger.info('Coder dispatched', {
                 taskId: next.id,
                 inFlight: running.size,
@@ -176,9 +194,35 @@ function pickReadyTask(
 async function dispatchCoder(
     args: RunPhaseArgs,
     task: PlannedTask,
+    // S1.5 — task index inside the milestone, used for plan_update.sortIndex.
+    taskIndex: number,
+    // S1.5 — milestoneId parent for the plan_update node.
+    milestoneId: string,
 ): Promise<{ taskId: string; output: CoderOutput | null; tokens: number }> {
     const agentId = `${args.sessionId}:${task.id}`;
     const stub = args.bindings.CoderAgent.get(args.bindings.CoderAgent.idFromName(agentId));
+    const startedAt = Date.now();
+
+    // S1.4/1.5 — emit "queued/running" status + plan_update on dispatch.
+    emitAgentStatus(args, {
+        agentId,
+        role: 'coder',
+        status: 'running',
+        tokensSpent: 0,
+        modelTier: 'regular',
+        startedAt,
+    });
+    emitPlanUpdate(args, {
+        id: task.id,
+        parentId: milestoneId,
+        role: 'task',
+        title: task.title,
+        status: 'running',
+        ownedFiles: [...task.ownedFiles],
+        criticRounds: 0,
+        sortIndex: taskIndex,
+    });
+
     try {
         const result = await stub.run({ task, ctx: { ...args.ctx, ownedFiles: task.ownedFiles } });
         args.onStatus?.({
@@ -188,6 +232,25 @@ async function dispatchCoder(
             tokensSpent: result.tokensSpent,
             modelTier: 'regular',
         });
+        // S1.4/1.5 — also push to the WS so the client picks it up.
+        emitAgentStatus(args, {
+            agentId,
+            role: 'coder',
+            status: result.status,
+            tokensSpent: result.tokensSpent,
+            modelTier: 'regular',
+            startedAt,
+        });
+        emitPlanUpdate(args, {
+            id: task.id,
+            parentId: milestoneId,
+            role: 'task',
+            title: task.title,
+            status: result.ok ? 'done' : 'failed',
+            ownedFiles: [...task.ownedFiles],
+            criticRounds: 0,
+            sortIndex: taskIndex,
+        });
         return {
             taskId: task.id,
             output: result.ok ? result.output ?? null : null,
@@ -196,6 +259,24 @@ async function dispatchCoder(
     } catch (err) {
         const error = err instanceof Error ? err : new Error(String(err));
         args.logger.error('Coder dispatch threw', { taskId: task.id, error: error.message });
+        emitAgentStatus(args, {
+            agentId,
+            role: 'coder',
+            status: 'failed',
+            tokensSpent: 0,
+            modelTier: 'regular',
+            startedAt,
+        });
+        emitPlanUpdate(args, {
+            id: task.id,
+            parentId: milestoneId,
+            role: 'task',
+            title: task.title,
+            status: 'failed',
+            ownedFiles: [...task.ownedFiles],
+            criticRounds: 0,
+            sortIndex: taskIndex,
+        });
         return { taskId: task.id, output: null, tokens: 0 };
     }
 }
@@ -205,6 +286,16 @@ async function runCritic(
 ): Promise<{ verdict: CriticOutput['verdict']; tokens: number }> {
     const agentId = `${args.sessionId}:critic:${args.milestone.id}`;
     const stub = args.bindings.CriticAgent.get(args.bindings.CriticAgent.idFromName(agentId));
+    const startedAt = Date.now();
+    // S1.4 — emit "running" for the Critic so the UI shows a chip while it works.
+    emitAgentStatus(args, {
+        agentId,
+        role: 'critic',
+        status: 'running',
+        tokensSpent: 0,
+        modelTier: 'premium',
+        startedAt,
+    });
     const result = await stub.run({
         plan: [args.milestone],
         ctx: args.ctx,
@@ -217,8 +308,121 @@ async function runCritic(
         tokensSpent: result.tokensSpent,
         modelTier: 'premium',
     });
+    emitAgentStatus(args, {
+        agentId,
+        role: 'critic',
+        status: result.status,
+        tokensSpent: result.tokensSpent,
+        modelTier: 'premium',
+        startedAt,
+    });
     if (!result.ok || !result.output) {
         return { verdict: 'approve', tokens: result.tokensSpent }; // fail-open to not block pipeline
     }
     return { verdict: result.output.verdict, tokens: result.tokensSpent };
+}
+
+// ── S1.4 helpers ─────────────────────────────────────────────────────────
+
+type AgentStatusEmit = AgentStatusSnapshot & { readonly agentId: string };
+
+/** S1.4 — Map internal ModelTier (router) → wire-format label the client knows. */
+function mapModelTierLabel(tier: AgentStatusSnapshot['modelTier']): 'haiku' | 'sonnet-low' | 'sonnet-med' | 'sonnet-high' | 'opus' {
+    // Backend ModelTier values: 'regular' | 'lite' | 'reasoning' | 'premium' (+ any future tiers).
+    switch (tier) {
+        case 'lite':
+            return 'sonnet-low';
+        case 'reasoning':
+            return 'sonnet-high';
+        case 'premium':
+            return 'opus';
+        case 'regular':
+            return 'sonnet-med';
+        default:
+            // TODO(S1-followup): wire haiku label once router exposes a haiku-class tier.
+            return 'sonnet-med';
+    }
+}
+
+/** S1.4 — Friendly display name for the chip. Pretty-print the role + index. */
+function roleToDisplayName(role: AgentStatusSnapshot['role'], agentId: string): string {
+    // For coder/tester we tack on the task-id suffix so the user sees Coder-<id>.
+    const suffix = agentId.includes(':') ? agentId.slice(agentId.lastIndexOf(':') + 1) : '';
+    switch (role) {
+        case 'planner':
+            return 'Planner';
+        case 'critic':
+            return 'Critic';
+        case 'tester':
+            return suffix ? `Tester (${suffix})` : 'Tester';
+        case 'coder':
+            return suffix ? `Coder (${suffix})` : 'Coder';
+        default:
+            return role;
+    }
+}
+
+/** S1.4 — push an agent_status event over the WS, no-op when broadcast not wired. */
+function emitAgentStatus(args: RunPhaseArgs, snap: AgentStatusEmit): void {
+    const bcast = args.bindings.broadcast;
+    if (!bcast) return;
+    try {
+        bcast({
+            type: 'agent_status',
+            agentId: snap.agentId,
+            role: snap.role,
+            displayName: roleToDisplayName(snap.role, snap.agentId),
+            status: snap.status,
+            modelTier: mapModelTierLabel(snap.modelTier),
+            currentActivity: snap.currentActivity,
+            tokensSpent: snap.tokensSpent,
+            startedAt: snap.startedAt ?? Date.now(),
+        });
+    } catch (e) {
+        // Never let a broadcast failure crash the coordinator.
+        args.logger.warn('emitAgentStatus broadcast threw', {
+            err: e instanceof Error ? e.message : String(e),
+        });
+    }
+}
+
+interface PlanUpdateNode {
+    readonly id: string;
+    readonly parentId: string | null;
+    readonly role: 'milestone' | 'task' | 'subtask';
+    readonly title: string;
+    readonly description?: string;
+    readonly status: 'pending' | 'running' | 'done' | 'failed' | 'skipped';
+    readonly assignedAgent?: string;
+    readonly ownedFiles: readonly string[];
+    readonly criticRounds: number;
+    readonly sortIndex: number;
+}
+
+/** S1.5 — push a plan_update event over the WS. Upsert-only for now. */
+function emitPlanUpdate(args: RunPhaseArgs, node: PlanUpdateNode): void {
+    const bcast = args.bindings.broadcast;
+    if (!bcast) return;
+    try {
+        bcast({
+            type: 'plan_update',
+            action: 'upsert',
+            node: {
+                id: node.id,
+                parentId: node.parentId,
+                role: node.role,
+                title: node.title,
+                description: node.description,
+                status: node.status,
+                assignedAgent: node.assignedAgent,
+                ownedFiles: [...node.ownedFiles],
+                criticRounds: node.criticRounds,
+                sortIndex: node.sortIndex,
+            },
+        });
+    } catch (e) {
+        args.logger.warn('emitPlanUpdate broadcast threw', {
+            err: e instanceof Error ? e.message : String(e),
+        });
+    }
 }
