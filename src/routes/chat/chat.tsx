@@ -36,6 +36,7 @@ import { ChatInput } from './components/chat-input';
 import { useVault } from '@/hooks/use-vault';
 import { VaultUnlockModal } from '@/components/vault';
 import { AgentsDock, useAgentStream } from '@/components/agents';
+import { PhaseQualityBadge } from '@/components/quality';
 
 const isPhasicBlueprint = (blueprint?: BlueprintType | null): blueprint is PhasicBlueprint =>
 	!!blueprint && 'implementationRoadmap' in blueprint;
@@ -675,6 +676,9 @@ export default function Chat() {
 									{(appTitle || chatId) && (
 								<div className="flex items-center justify-between mb-2">
 									<div className="text-lg font-semibold">{appTitle}</div>
+									{chatId && (
+										<PhaseQualityBadge sessionId={chatId} />
+									)}
 								</div>
 							)}
 									<UserMessage

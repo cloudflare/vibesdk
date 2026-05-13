@@ -1045,6 +1045,12 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
                 break;
             }
 
+            case 'eval_gate_verdict': {
+                const { type: _type, ...detail } = message;
+                window.dispatchEvent(new CustomEvent('vibesdk:eval_gate_verdict', { detail }));
+                break;
+            }
+
             default:
                 logger.warn('Unhandled message:', message);
         }

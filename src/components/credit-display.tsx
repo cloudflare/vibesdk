@@ -24,6 +24,10 @@ interface CreditTransaction {
   description: string;
   model: string | null;
   balanceAfter: number;
+  /** Actual input tokens consumed — populated for AI generation transactions. */
+  inputTokens: number;
+  /** Actual output tokens consumed — populated for AI generation transactions. */
+  outputTokens: number;
   createdAt: string | null;
 }
 
@@ -125,13 +129,20 @@ export function CreditDisplay() {
           ) : (
             <div className="space-y-1.5 max-h-40 overflow-y-auto">
               {transactions.map((tx) => (
-                <div key={tx.id} className="flex items-center justify-between text-xs" data-testid={`tx-${tx.id}`}>
+                <div key={tx.id} className="flex items-start justify-between text-xs gap-2" data-testid={`tx-${tx.id}`}>
                   <div className="flex items-center gap-1.5 min-w-0">
-                    <Clock className="size-3 text-gray-400 shrink-0" />
-                    <span className="truncate text-gray-600 dark:text-gray-300">{tx.description}</span>
+                    <Clock className="size-3 text-gray-400 shrink-0 mt-0.5" />
+                    <div className="min-w-0">
+                      <span className="truncate block text-gray-600 dark:text-gray-300">{tx.description}</span>
+                      {(tx.inputTokens + tx.outputTokens) > 0 && (
+                        <span className="text-gray-400 dark:text-gray-500">
+                          {((tx.inputTokens + tx.outputTokens) / 1000).toFixed(1)}k tokens
+                        </span>
+                      )}
+                    </div>
                   </div>
                   <span className={clsx(
-                    "font-medium shrink-0 ml-2",
+                    "font-medium shrink-0",
                     tx.amount > 0 ? "text-green-500" : "text-red-400"
                   )}>
                     {tx.amount > 0 ? '+' : ''}{tx.amount}
