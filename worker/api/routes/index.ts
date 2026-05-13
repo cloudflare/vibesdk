@@ -19,6 +19,7 @@ import { setupTicketRoutes } from './ticketRoutes';
 import { Hono } from "hono";
 import { AppEnv } from "../../types/appenv";
 import { setupStatusRoutes } from './statusRoutes';
+import { setupWebhookRoutes } from './webhookRoutes';
 
 export function setupRoutes(app: Hono<AppEnv>): void {
     // Health check route
@@ -85,4 +86,7 @@ export function setupRoutes(app: Hono<AppEnv>): void {
 
     // Session monitor + future session-scoped read endpoints
     setupSessionRoutes(app);
+
+    // Messaging-first inbound webhook (WhatsApp, Telegram, generic)
+    setupWebhookRoutes(app);
 }
