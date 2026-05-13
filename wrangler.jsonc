@@ -21,6 +21,13 @@
 	"observability": {
 		"enabled": true,
         "head_sampling_rate": 1,
+		"logs": {
+			"enabled": true,
+			"invocation_logs": true
+		},
+		"traces": {
+			"enabled": true
+		}
 	},
     "unsafe": {
         "bindings": [
@@ -68,7 +75,10 @@
                 "memory_mib": 8192,
                 "disk_mb": 10240
             },
-            "rollout_step_percentage": 100
+            "rollout_step_percentage": 100,
+			"ssh": {
+				"enabled": true
+			}
 		}
 	],
 	"d1_databases": [
