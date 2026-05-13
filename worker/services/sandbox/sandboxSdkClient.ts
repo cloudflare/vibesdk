@@ -30,6 +30,7 @@ import { createObjectLogger } from '../../logger';
 import { env } from 'cloudflare:workers'
 import { BaseSandboxService } from './BaseSandboxService';
 
+import { parse } from 'jsonc-parser';
 import { 
     buildDeploymentConfig, 
     parseWranglerConfig, 
@@ -66,6 +67,48 @@ interface InstanceMetadata {
 type SandboxType = Sandbox;
 
 type ExecutionSession = Awaited<ReturnType<Sandbox['createSession']>>;
+
+type WranglerJson = { name?: string; main?: string; assets?: { directory?: string } };
+
+/**
+ * `@cloudflare/vite-plugin` >= 1.0 emits a rewritten wrangler.json at
+ * `dist/<env>/wrangler.json` with the real `main` and `assets.directory`. We
+ * read it rather than reproducing the plugin's name-sanitization. Legacy
+ * templates that wrote `dist/index.js` directly fall through.
+ */
+export async function resolveBuildArtifacts(
+    session: { exec(c: string): Promise<ExecResult>; readFile(p: string): Promise<{ success: boolean; content?: string }> },
+    instanceId: string,
+    workerName: string,
+): Promise<{ workerPath: string; assetsPath: string | null }> {
+    const distDir = `/workspace/${instanceId}/dist`;
+    const find = await session.exec(`find ${distDir} -maxdepth 2 -name wrangler.json -type f 2>/dev/null`);
+    const candidates = find.stdout.split('\n').map(p => p.trim()).filter(Boolean);
+
+    let fallback: { dir: string; cfg: WranglerJson } | undefined;
+    for (const path of candidates) {
+        const file = await session.readFile(path);
+        if (!file.success || !file.content) continue;
+        const cfg = parse(file.content) as WranglerJson | undefined;
+        if (!cfg || typeof cfg.main !== 'string') continue;
+        const dir = path.slice(0, path.lastIndexOf('/'));
+        if (cfg.name === workerName) return resolveFromCfg(dir, cfg);
+        fallback ??= { dir, cfg };
+    }
+    if (fallback) return resolveFromCfg(fallback.dir, fallback.cfg);
+
+    return { workerPath: `${distDir}/index.js`, assetsPath: `${instanceId}/dist/client` };
+}
+
+function resolveFromCfg(dir: string, cfg: WranglerJson): { workerPath: string; assetsPath: string | null } {
+    const assetsDir = cfg.assets?.directory;
+    return {
+        workerPath: `${dir}/${cfg.main}`,
+        assetsPath: assetsDir === undefined ? null
+            : assetsDir.startsWith('../') ? `${dir.slice(0, dir.lastIndexOf('/'))}/${assetsDir.slice(3)}`
+            : `${dir}/${assetsDir}`,
+    };
+}
 
 /**
  * Streaming event for enhanced command execution
@@ -1783,11 +1826,12 @@ export class SandboxSdkClient extends BaseSandboxService {
             this.logger.info('Worker compatibility', { compatibilityDate: config.compatibility_date });
             
             // Step 3: Read worker script from dist
-            this.logger.info('Reading worker script');
             const session = await this.getInstanceSession(instanceId);
-            const workerFile = await session.readFile(`/workspace/${instanceId}/dist/index.js`);
+            const { workerPath, assetsPath } = await resolveBuildArtifacts(session, instanceId, config.name);
+            this.logger.info('Reading worker script', { workerPath, assetsPath });
+            const workerFile = await session.readFile(workerPath);
             if (!workerFile.success) {
-                throw new Error(`Worker script not found at /${instanceId}/dist/index.js. Please build the project first.`);
+                throw new Error(`Worker script not found at ${workerPath}. Please build the project first.`);
             }
             
             const workerContent = workerFile.content;
@@ -1840,14 +1884,13 @@ export class SandboxSdkClient extends BaseSandboxService {
             }
             
             // Step 4: Check for static assets and process them
-            const assetsPath = `${instanceId}/dist/client`;
             let assetsManifest: Record<string, { hash: string; size: number }> | undefined;
             let fileContents: Map<string, Buffer> | undefined;
             
-            const assetDirResult = await this.safeSandboxExec(`test -d ${assetsPath} && echo "exists" || echo "missing"`);
-            const hasAssets = assetDirResult.exitCode === 0 && assetDirResult.stdout.trim() === "exists";
-            
-            if (hasAssets) {
+            const assetDirCheck = assetsPath
+                ? await this.safeSandboxExec(`test -d ${assetsPath} && echo "exists" || echo "missing"`)
+                : null;
+            if (assetsPath && assetDirCheck?.exitCode === 0 && assetDirCheck.stdout.trim() === "exists") {
                 this.logger.info('Processing static assets', { assetsPath });
                 const assetProcessResult = await this.processAssetsInSandbox(instanceId, assetsPath);
                 assetsManifest = assetProcessResult.assetsManifest;
