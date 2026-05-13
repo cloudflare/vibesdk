@@ -1,5 +1,45 @@
 # Changelog
 
+## [1.6.0](https://github.com/cloudflare/vibesdk/compare/v1.5.0...v1.6.0) (2026-05-13)
+
+
+### Features
+
+* add bonk ai code reviews ([189dc48](https://github.com/cloudflare/vibesdk/commit/189dc4837166b3a6887a2d400eb76f0641cc36a0))
+* add bonk ai code reviews ([e16961b](https://github.com/cloudflare/vibesdk/commit/e16961b8ab367634471d75da0c5630c8abaf9046))
+* cloudflare oauth connect with usage limits and BYOK inference ([6fc180c](https://github.com/cloudflare/vibesdk/commit/6fc180cd1ee68f19f64aa99410468874d09132cd))
+* faster blueprint for minimal templates ([1321e43](https://github.com/cloudflare/vibesdk/commit/1321e43cdfecfef9bf47a09006c4408ffab1d8dd))
+* reduce limits ([9f810e7](https://github.com/cloudflare/vibesdk/commit/9f810e7dbc90039a0fa639bc676e1197066bef51))
+* reduce limits ([8299ba5](https://github.com/cloudflare/vibesdk/commit/8299ba554b6eee4920c0c7f5adaf0e677ebcaf3c))
+* reduce side of blueprint infer for minimal templates ([3eb0039](https://github.com/cloudflare/vibesdk/commit/3eb0039e57bd398afd7b3ea0616f0a532e292a61))
+* static analysis for browser rendered preview projects ([22be3f8](https://github.com/cloudflare/vibesdk/commit/22be3f8e74b1897254031dbffa0411893d7a5446))
+* static analysis for browser rendered preview projects ([320fc84](https://github.com/cloudflare/vibesdk/commit/320fc84454073e2a720deb6dca6deffa8e9060a3))
+
+
+### Bug Fixes
+
+* add missing lock changes ([b567804](https://github.com/cloudflare/vibesdk/commit/b5678042b61af353a1777695baaaf68f60134ac7))
+* ai gateway config issue ([01de759](https://github.com/cloudflare/vibesdk/commit/01de759cedaf09f5beb88a80fd8cdfb9dfb7fcfe))
+* allow editing package.json in scratch templates ([ee69533](https://github.com/cloudflare/vibesdk/commit/ee6953386fed3490ddcdc407c4bb26ce248d2506))
+* bonk model name ([57d83c0](https://github.com/cloudflare/vibesdk/commit/57d83c0ce4750adb38958901b27cf896afa99da5))
+* bug where preview url did not use tunnel url ([61291d0](https://github.com/cloudflare/vibesdk/commit/61291d0cb3843e398b19ab10ff682efbc1115210))
+* bug where preview url did not use tunnel url when getting instance state ([d2abffe](https://github.com/cloudflare/vibesdk/commit/d2abffed7c74e06fe7dead693f80a5c7e9684a8a))
+* **ci:** use canonical gemini-3-pro-preview slug ([9d22900](https://github.com/cloudflare/vibesdk/commit/9d22900628be6efa632bd322ed13529ef140cf45))
+* **ci:** use canonical gemini-3-pro-preview slug ([63e78b1](https://github.com/cloudflare/vibesdk/commit/63e78b1476787b088158d2cd02a9662d859d6785))
+* **ci:** use gemini in bonk ai-pr-review workflow and fix vuln ([17f56d6](https://github.com/cloudflare/vibesdk/commit/17f56d61f5addfc9b2aa95b608e35033e671e88d))
+* **ci:** use gemini in bonk ai-pr-review workflow and fix vuln ([277dbad](https://github.com/cloudflare/vibesdk/commit/277dbad88e3cc40570d41c260e7f1f9a2e5f61b0))
+* fixed github bot's commit mistakes ([a729366](https://github.com/cloudflare/vibesdk/commit/a72936654aa13113e4a73d8902bded052566f0cd))
+* improve browser rendering checking logic ([fa397bb](https://github.com/cloudflare/vibesdk/commit/fa397bb0b44aab332139ce99791bf5816dcec3c7))
+* manual template selection ([e440372](https://github.com/cloudflare/vibesdk/commit/e440372760d69e6f587bfcb94d93c7bece39a6b6))
+* more visibility for containers and workers ([a632039](https://github.com/cloudflare/vibesdk/commit/a632039d2b65a48a2448a5f99744b2f971c66174))
+* opencode version issue ([7842ab9](https://github.com/cloudflare/vibesdk/commit/7842ab91fb259753083f37e4571ed6c3b3f8d8fd))
+* pass manually selected template and skip ai flow ([ad7ae4e](https://github.com/cloudflare/vibesdk/commit/ad7ae4ec992ec85e17d073a15d63b28ba2462671))
+* race condition between instance start and static analysis ([befdde7](https://github.com/cloudflare/vibesdk/commit/befdde72fb8d6defd61184dbe47d8054232ce616))
+* ui and logging imp for cf oauth ([fd8f281](https://github.com/cloudflare/vibesdk/commit/fd8f2814609b387cd8ad6156b52f1790619ffba9))
+* ui and logging imp for cf oauth ([86ebbdb](https://github.com/cloudflare/vibesdk/commit/86ebbdb358bed0ad7a6a90cf2cb1005523623f0d))
+* unintended change leading to bad behaviour ([7a586cc](https://github.com/cloudflare/vibesdk/commit/7a586cc41023546cace89df31a84fd00bddc427b))
+* wrangle rupdate ([9666d98](https://github.com/cloudflare/vibesdk/commit/9666d98518b2292b0aa58e1aee18ac1a95cbb2e9))
+
 ## [1.5.0](https://github.com/cloudflare/vibesdk/compare/v1.4.0...v1.5.0) (2026-02-03)
 
 
