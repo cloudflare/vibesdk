@@ -721,3 +721,53 @@ export type NewSubscriptionTierRow = typeof subscriptionTiers.$inferInsert;
 
 export type RazorpayEvent = typeof razorpayEvents.$inferSelect;
 export type NewRazorpayEvent = typeof razorpayEvents.$inferInsert;
+
+/**
+ * Local mirror of CF Agent Memory blocks — see ADR-004 + migration 0008.
+ * Lets us recall on a managed-API outage and audit what was remembered.
+ */
+export const memoryBlocks = sqliteTable('memory_blocks', {
+    id: text('id').primaryKey(),
+    userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+    tag: text('tag').notNull(),
+    content: text('content').notNull(),
+    metadataJson: text('metadata_json').notNull().default('{}'),
+    source: text('source', { enum: ['cf-agent-memory', 'local-stub', 'mem0'] }).notNull().default('cf-agent-memory'),
+    createdAt: integer('created_at', { mode: 'timestamp' }).default(sql`CURRENT_TIMESTAMP`),
+    updatedAt: integer('updated_at', { mode: 'timestamp' }).default(sql`CURRENT_TIMESTAMP`),
+}, (table) => ({
+    userIdx: index('memory_blocks_user_idx').on(table.userId),
+    userTagIdx: index('memory_blocks_user_tag_idx').on(table.userId, table.tag),
+}));
+
+/**
+ * EvalGate phase-quality verdicts — see ADR-004 §Implementation step 3.
+ * Composite logical key: (sessionId, phaseName, attempt). `attempt` lets us
+ * re-evaluate a phase after Critic retry without losing prior verdicts.
+ */
+export const evalResults = sqliteTable('eval_results', {
+    id: text('id').primaryKey(),
+    sessionId: text('session_id').notNull(),
+    phaseName: text('phase_name').notNull(),
+    attempt: integer('attempt').notNull().default(1),
+    faithfulness: real('faithfulness').notNull(),
+    answerRelevancy: real('answer_relevancy').notNull(),
+    toolCorrectness: real('tool_correctness').notNull(),
+    hallucinationRisk: real('hallucination_risk').notNull(),
+    passed: integer('passed').notNull(),
+    blockedReason: text('blocked_reason'),
+    comments: text('comments').notNull().default(''),
+    judgeInputTokens: integer('judge_input_tokens').notNull().default(0),
+    judgeOutputTokens: integer('judge_output_tokens').notNull().default(0),
+    createdAt: integer('created_at', { mode: 'timestamp' }).default(sql`CURRENT_TIMESTAMP`),
+}, (table) => ({
+    sessionIdx: index('eval_results_session_idx').on(table.sessionId),
+    sessionPhaseIdx: index('eval_results_session_phase_idx').on(table.sessionId, table.phaseName),
+    passedIdx: index('eval_results_passed_idx').on(table.passed),
+}));
+
+export type MemoryBlockRow = typeof memoryBlocks.$inferSelect;
+export type NewMemoryBlockRow = typeof memoryBlocks.$inferInsert;
+
+export type EvalResultRow = typeof evalResults.$inferSelect;
+export type NewEvalResultRow = typeof evalResults.$inferInsert;
