@@ -224,6 +224,11 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
             templateDetails: this.behavior.getTemplateDetails(),
             previewUrl: previewUrl
         });
+        // AG-UI S6: state_snapshot companion so AG-UI-compliant clients get the
+        // full serialised state in the standard format on connect / reconnect.
+        sendToConnection(connection, WebSocketMessageResponses.STATE_SNAPSHOT, {
+            snapshot: this.state as unknown as Record<string, unknown>,
+        });
     }
 
     private initLogger(agentId: string, userId: string, sessionId?: string) {

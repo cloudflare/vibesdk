@@ -628,6 +628,66 @@ export type CostPreviewMessage = {
     modelTier: 'lite' | 'regular' | 'reasoning' | 'premium';
 };
 
+// ── AG-UI Protocol Alignment ─────────────────────────────────────────────────
+// https://docs.ag-ui.com/concepts/events
+// Companion events emitted alongside native vibesdk events so AG-UI-compliant
+// clients (CopilotKit, etc.) can attach without a custom adapter.
+
+/**
+ * AG-UI RUN_STARTED — emitted when a generation run begins.
+ * Companion to `generation_started`.
+ */
+export type RunStartedMessage = {
+    type: 'run_started';
+    /** Monotonic run counter — disambiguates retries on the same session. */
+    runId: string;
+    sessionId: string;
+};
+
+/**
+ * AG-UI RUN_FINISHED — emitted when a generation run completes (success or abort).
+ * Companion to `generation_complete`.
+ */
+export type RunFinishedMessage = {
+    type: 'run_finished';
+    runId: string;
+    sessionId: string;
+};
+
+/**
+ * AG-UI RUN_ERROR — emitted when a generation run fails with an unrecoverable error.
+ */
+export type RunErrorMessage = {
+    type: 'run_error';
+    runId: string;
+    sessionId: string;
+    message: string;
+    code?: string;
+};
+
+/**
+ * AG-UI STATE_SNAPSHOT — full serialised agent state, emitted on connect/reconnect.
+ * Companion to `agent_connected`. Mirrors the RFC-specified `STATE_SNAPSHOT` event.
+ */
+export type StateSnapshotMessage = {
+    type: 'state_snapshot';
+    snapshot: Record<string, unknown>;
+};
+
+/**
+ * AG-UI STATE_DELTA — incremental state patch (RFC 6902 JSON Patch array).
+ * Emitted after each operation that mutates durable agent state.
+ * Each patch op: `{ op: 'replace' | 'add' | 'remove'; path: string; value?: unknown }`.
+ */
+export type StateDeltaMessage = {
+    type: 'state_delta';
+    delta: Array<{
+        op: 'add' | 'remove' | 'replace' | 'move' | 'copy' | 'test';
+        path: string;
+        value?: unknown;
+    }>;
+};
+
 /** Union type for all vault WebSocket messages */
 export type VaultWebSocketMessage =
 	| VaultStoreSecretRequest
@@ -705,7 +765,13 @@ export type WebSocketMessage =
 	| PlanUpdateMessage
 	| CriticVerdictMessage
 	| EvalGateVerdictMessage
-	| CostPreviewMessage;
+	| CostPreviewMessage
+	// AG-UI protocol companion events
+	| RunStartedMessage
+	| RunFinishedMessage
+	| RunErrorMessage
+	| StateSnapshotMessage
+	| StateDeltaMessage;
 
 // A type representing all possible message type strings (e.g., 'generation_started', 'file_generating', etc.)
 export type WebSocketMessageType = WebSocketMessage['type'];

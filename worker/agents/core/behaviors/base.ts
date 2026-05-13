@@ -26,6 +26,7 @@ import { looksLikeCommand, validateAndCleanBootstrapCommands } from '../../utils
 import { customizeTemplateFiles, generateBootstrapScript } from '../../utils/templateCustomizer';
 import { AppService } from '../../../database';
 import { RateLimitExceededError } from 'shared/types/errors';
+import { generateNanoId } from 'worker/utils/idGenerator';
 import { ImageAttachment, type ProcessedImageAttachment } from '../../../types/image-attachment';
 import { OperationOptions } from '../../operations/common';
 import { ImageType, uploadImage, detectBlankScreenshot } from 'worker/utils/images';
@@ -450,10 +451,16 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
     }
 
     private async buildWrapper() {
+        // AG-UI S6: persist runId so RUN_STARTED / RUN_FINISHED share the same id.
+        const runId = generateNanoId();
+        const sessionId = this.getAgentId();
+
         this.broadcast(WebSocketMessageResponses.GENERATION_STARTED, {
             message: 'Starting code generation',
             totalFiles: this.getTotalFiles()
         });
+        // AG-UI companion event — RUN_STARTED.
+        this.broadcast(WebSocketMessageResponses.RUN_STARTED, { runId, sessionId });
         this.logger.info('Starting code generation', {
             totalFiles: this.getTotalFiles()
         });
@@ -483,6 +490,8 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
                 message: "Code generation and review process completed.",
                 instanceId: this.state.sandboxInstanceId,
             });
+            // AG-UI companion event — RUN_FINISHED.
+            this.broadcast(WebSocketMessageResponses.RUN_FINISHED, { runId, sessionId });
         }
     }
     

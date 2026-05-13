@@ -88,6 +88,14 @@ export const WebSocketMessageResponses: Record<string, WebSocketMessageType> = {
 
     // Per-phase credit cost preview emitted before execution begins
     COST_PREVIEW: 'cost_preview',
+
+    // AG-UI protocol lifecycle events (companion to native events)
+    // https://docs.ag-ui.com/concepts/events
+    RUN_STARTED: 'run_started',
+    RUN_FINISHED: 'run_finished',
+    RUN_ERROR: 'run_error',
+    STATE_SNAPSHOT: 'state_snapshot',
+    STATE_DELTA: 'state_delta',
 } as const satisfies Record<string, WebSocketMessageType>;
 
 // WebSocket message types

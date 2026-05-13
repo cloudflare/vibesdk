@@ -1057,6 +1057,28 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
                 break;
             }
 
+            // AG-UI S6 companion events — re-dispatch as standard custom events
+            // so AG-UI-aware components can subscribe without knowing vibesdk internals.
+            case 'run_started':
+            case 'run_finished':
+            case 'run_error': {
+                const { type: agUiType, ...agUiDetail } = message;
+                window.dispatchEvent(new CustomEvent(`vibesdk:${agUiType}`, { detail: agUiDetail }));
+                break;
+            }
+
+            case 'state_snapshot': {
+                const { type: _ssType, ...snapshotDetail } = message;
+                window.dispatchEvent(new CustomEvent('vibesdk:state_snapshot', { detail: snapshotDetail }));
+                break;
+            }
+
+            case 'state_delta': {
+                const { type: _sdType, ...deltaDetail } = message;
+                window.dispatchEvent(new CustomEvent('vibesdk:state_delta', { detail: deltaDetail }));
+                break;
+            }
+
             default:
                 logger.warn('Unhandled message:', message);
         }
