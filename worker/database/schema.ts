@@ -546,12 +546,19 @@ export const creditTransactions = sqliteTable('credit_transactions', {
     provider: text('provider'),
     appId: text('app_id'),
     balanceAfter: integer('balance_after').notNull(),
+    /** Actual LLM input tokens consumed — for effort-based pricing transparency. */
+    inputTokens: integer('input_tokens').notNull().default(0),
+    /** Actual LLM output tokens consumed — for effort-based pricing transparency. */
+    outputTokens: integer('output_tokens').notNull().default(0),
+    /** Session that triggered this spend — enables per-session cost breakdown. */
+    sessionId: text('session_id'),
     createdAt: integer('created_at', { mode: 'timestamp' }).default(sql`CURRENT_TIMESTAMP`),
 }, (table) => ({
     userIdx: index('credit_transactions_user_idx').on(table.userId),
     typeIdx: index('credit_transactions_type_idx').on(table.type),
     createdAtIdx: index('credit_transactions_created_at_idx').on(table.createdAt),
     userCreatedAtIdx: index('credit_transactions_user_created_at_idx').on(table.userId, table.createdAt),
+    sessionIdx: index('credit_transactions_session_idx').on(table.sessionId),
 }));
 
 // ========================================

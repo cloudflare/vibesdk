@@ -601,6 +601,20 @@ export type CriticVerdictMessage = {
     suggestedRevisions: string[];
 };
 
+/** Emitted after EvalGate judges a completed phase (ADR-004 §Implementation step 3). */
+export type EvalGateVerdictMessage = {
+    type: 'eval_gate_verdict';
+    phaseName: string;
+    passed: boolean;
+    blockedReason: string | null;
+    scores: {
+        faithfulness: number;
+        answerRelevancy: number;
+        toolCorrectness: number;
+        hallucinationRisk: number;
+    };
+};
+
 /** Union type for all vault WebSocket messages */
 export type VaultWebSocketMessage =
 	| VaultStoreSecretRequest
@@ -676,7 +690,8 @@ export type WebSocketMessage =
 	| VaultRequiredMessage
 	| AgentStatusMessage
 	| PlanUpdateMessage
-	| CriticVerdictMessage;
+	| CriticVerdictMessage
+	| EvalGateVerdictMessage;
 
 // A type representing all possible message type strings (e.g., 'generation_started', 'file_generating', etc.)
 export type WebSocketMessageType = WebSocketMessage['type'];

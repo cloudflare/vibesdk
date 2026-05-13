@@ -21,6 +21,7 @@ import { GenerationContext } from "../domain/values/GenerationContext";
 import { compactifyContext } from "../utils/conversationCompactifier";
 import { ChatCompletionMessageFunctionToolCall } from "openai/resources";
 import { prepareMessagesForInference } from "../utils/common";
+import { AgentMemoryClient } from "../../services/memory/AgentMemoryClient";
 
 // Constants
 const CHUNK_SIZE = 64;
@@ -326,7 +327,30 @@ export class UserConversationProcessor extends AgentOperation<GenerationContext,
         });
 
         try {
-            const systemPromptMessages = getSystemPromptWithProjectContext(SYSTEM_PROMPT, context, CodeSerializerType.SIMPLE);
+            // Recall user style-preference memory blocks and inject into system prompt.
+            // Wrapped in try/catch — a memory outage must never block the conversation.
+            let activeSystemPrompt = SYSTEM_PROMPT;
+            try {
+                const memClient = new AgentMemoryClient(env);
+                const memBlocks = await memClient.recall({
+                    userId: options.inferenceContext.metadata.userId,
+                    query: userMessage,
+                    k: 3,
+                    tag: 'style',
+                });
+                if (memBlocks.length > 0) {
+                    const memSection = memBlocks
+                        .map((b) => `[${b.tag}] ${b.content}`)
+                        .join('\n');
+                    activeSystemPrompt = `${SYSTEM_PROMPT}\n\n<user_memory>\n${memSection}\n</user_memory>`;
+                }
+            } catch (memErr) {
+                logger.warn('Memory recall failed — continuing without user memory', {
+                    error: memErr instanceof Error ? memErr.message : String(memErr),
+                });
+            }
+
+            const systemPromptMessages = getSystemPromptWithProjectContext(activeSystemPrompt, context, CodeSerializerType.SIMPLE);
             
             // Create user message with optional images for inference
             const userPromptForInference = buildUserMessageWithContext(userMessage, errors, projectUpdates, true);

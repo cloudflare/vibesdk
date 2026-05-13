@@ -30,6 +30,9 @@ import { StateMigration } from '../stateMigration';
 import { runPreDeploySafetyGate } from '../../utils/preDeploySafetyGate';
 // S1.3 — multi-agent path. Flag-gated; default monolith path stays unchanged.
 import { runParallelPhase } from '../subagents/TeamLeadCoordinator';
+// S3.1 — EvalGate: best-effort quality gate after each phase (ADR-004 §Implementation step 3).
+import { runEvalGate } from '../../operations/EvalGate';
+import { EvalResultsService } from '../../../database/services/EvalResultsService';
 import type { PlannedMilestone, SharedContext } from '../subagents/contracts';
 import type { CoderAgent as CoderAgentDO } from '../subagents/CoderAgent';
 import type { PlannerAgent as PlannerAgentDO } from '../subagents/PlannerAgent';
@@ -433,6 +436,10 @@ export class PhasicCodingBehavior extends BaseCodingBehavior<PhasicState> implem
                 await this.implementPhase(phaseConcept, currentIssues, userContext);
             }
 
+            // S3.1 — Fire-and-forget EvalGate quality check (ADR-004 §Implementation step 3).
+            // Runs after implementation succeeds and never blocks the generation pipeline.
+            void this.runPhaseEvalGate(phaseConcept);
+
             this.logger.info(`Phase ${phaseConcept.name} completed, generating next phase`);
 
             const phasesCounter = this.decrementPhasesCounter();
@@ -823,6 +830,57 @@ export class PhasicCodingBehavior extends BaseCodingBehavior<PhasicState> implem
         });
 
         return { ok: result.ok, failedTaskIds: result.failedTaskIds };
+    }
+
+    /**
+     * S3.1 — Run EvalGate for the completed phase and persist the verdict.
+     * Best-effort: all errors are swallowed so generation is never interrupted.
+     * Called via `void` so it does not block the caller.
+     */
+    private async runPhaseEvalGate(phaseConcept: PhaseConceptType): Promise<void> {
+        try {
+            const sessionId = this.state.sessionId ?? this.getAgentId();
+            const userId = this.state.metadata?.userId ?? '';
+            const userQuery = this.state.query ?? '';
+
+            const verdict = await runEvalGate(this.env, {
+                sessionId,
+                userId,
+                phase: phaseConcept,
+                implementation: null,
+                userQuery,
+            });
+
+            // Persist verdict — best-effort, errors caught inside the service.
+            const evalService = new EvalResultsService(this.env);
+            await evalService.writeEvalResult({
+                sessionId,
+                phaseName: phaseConcept.name,
+                faithfulness: verdict.scores.faithfulness,
+                answerRelevancy: verdict.scores.answerRelevancy,
+                toolCorrectness: verdict.scores.toolCorrectness,
+                hallucinationRisk: verdict.scores.hallucinationRisk,
+                passed: verdict.passed,
+                blockedReason: verdict.blockedReason,
+                comments: verdict.comments,
+                judgeInputTokens: verdict.judgeTokens.input,
+                judgeOutputTokens: verdict.judgeTokens.output,
+            });
+
+            // Broadcast so the frontend can display real-time quality signals.
+            this.broadcast(WebSocketMessageResponses.EVAL_GATE_VERDICT, {
+                phaseName: phaseConcept.name,
+                passed: verdict.passed,
+                blockedReason: verdict.blockedReason,
+                scores: verdict.scores,
+            });
+        } catch (err) {
+            // Log but never propagate — EvalGate is observability-only.
+            this.logger.warn('runPhaseEvalGate failed (non-blocking)', {
+                phase: phaseConcept.name,
+                error: err instanceof Error ? err.message : String(err),
+            });
+        }
     }
 
     private async applyFastSmartCodeFixes() : Promise<void> {

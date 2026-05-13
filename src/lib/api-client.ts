@@ -58,6 +58,7 @@ import type{
         CapabilitiesData,
         VaultConfigResponse,
         VaultStatusResponse,
+        SessionQualityResponse,
 } from '@/api-types';
 import {
         RateLimitExceededError,
@@ -1249,6 +1250,13 @@ class ApiClient {
 
         async getSessionMonitor(sessionId: string): Promise<ApiResponse<SessionMonitorData>> {
                 return this.request<SessionMonitorData>(`/api/sessions/${encodeURIComponent(sessionId)}/monitor`);
+        }
+
+        // Session Quality / Eval results (read-only)
+        // ===============================
+
+        async getSessionQuality(sessionId: string): Promise<ApiResponse<SessionQualityResponse>> {
+                return this.request<SessionQualityResponse>(`/api/sessions/${encodeURIComponent(sessionId)}/quality`);
         }
 }
 

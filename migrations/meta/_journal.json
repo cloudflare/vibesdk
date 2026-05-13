@@ -43,6 +43,34 @@
       "when": 1774915200000,
       "tag": "0005_sdae_cost_quality",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1743128161000,
+      "tag": "0006_credit_system",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "6",
+      "when": 1745472405000,
+      "tag": "0007_multi_agent_plan",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1747094400000,
+      "tag": "0008_memory_eval_tables",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "6",
+      "when": 1747180800000,
+      "tag": "0009_token_tracking",
+      "breakpoints": true
     }
   ]
 }

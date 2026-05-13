@@ -82,6 +82,9 @@ export const WebSocketMessageResponses: Record<string, WebSocketMessageType> = {
 
     // Vault messages
     VAULT_REQUIRED: 'vault_required',
+
+    // EvalGate quality verdict (ADR-004 §Implementation step 3)
+    EVAL_GATE_VERDICT: 'eval_gate_verdict',
 } as const satisfies Record<string, WebSocketMessageType>;
 
 // WebSocket message types

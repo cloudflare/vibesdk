@@ -67,6 +67,12 @@ export class CreditService extends BaseService {
         provider?: string;
         appId?: string;
         description?: string;
+        /** Actual LLM input tokens — stored for effort-based pricing transparency. */
+        inputTokens?: number;
+        /** Actual LLM output tokens — stored for effort-based pricing transparency. */
+        outputTokens?: number;
+        /** Session that triggered this spend — enables per-session cost breakdown. */
+        sessionId?: string;
     }): Promise<{ success: boolean; balance: number; cost: number; message?: string }> {
         const cost = this.getCost(opts.model, opts.ultra);
         const credit = await this.getOrCreateBalance(userId);
@@ -96,9 +102,34 @@ export class CreditService extends BaseService {
             provider: opts.provider,
             appId: opts.appId,
             balanceAfter: newBalance,
+            inputTokens: opts.inputTokens ?? 0,
+            outputTokens: opts.outputTokens ?? 0,
+            sessionId: opts.sessionId,
         });
 
         return { success: true, balance: newBalance, cost };
+    }
+
+    /**
+     * Retrieve the total token spend for a session — used by the session
+     * quality + monitor endpoints to surface per-session cost breakdowns.
+     */
+    async getSessionTokenSpend(sessionId: string): Promise<{ inputTokens: number; outputTokens: number; creditSpent: number }> {
+        const rows = await this.database
+            .select({
+                inputTokens: sql<number>`COALESCE(SUM(${schema.creditTransactions.inputTokens}), 0)`,
+                outputTokens: sql<number>`COALESCE(SUM(${schema.creditTransactions.outputTokens}), 0)`,
+                creditSpent: sql<number>`COALESCE(SUM(CASE WHEN ${schema.creditTransactions.type} = 'spent' THEN ABS(${schema.creditTransactions.amount}) ELSE 0 END), 0)`,
+            })
+            .from(schema.creditTransactions)
+            .where(eq(schema.creditTransactions.sessionId, sessionId))
+            .get();
+
+        return {
+            inputTokens: Number(rows?.inputTokens) || 0,
+            outputTokens: Number(rows?.outputTokens) || 0,
+            creditSpent: Number(rows?.creditSpent) || 0,
+        };
     }
 
     async addCredits(userId: string, amount: number, description: string, type: 'earned' | 'bonus' | 'refund' = 'bonus'): Promise<number> {

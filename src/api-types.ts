@@ -305,6 +305,28 @@ export interface ApiKeysData {
   }>;
 }
 
+// Session quality (eval_results) — S3.2
+export interface SessionQualityResult {
+    id: string;
+    sessionId: string;
+    phaseName: string;
+    attempt: number;
+    faithfulness: number;
+    answerRelevancy: number;
+    toolCorrectness: number;
+    hallucinationRisk: number;
+    passed: boolean;
+    blockedReason: string | null;
+    comments: string;
+    createdAt: number | null;
+}
+
+export interface SessionQualityResponse {
+    sessionId: string;
+    results: SessionQualityResult[];
+    hasResults: boolean;
+}
+
 export type {
     GitHubExportOptions,
     GitHubExportResult,
