@@ -48,6 +48,9 @@ interface WranglerConfig {
 			disk_mb?: number;
 		} | string;
 		rollout_step_percentage?: number;
+		ssh?: {
+			enabled: boolean;
+		};
 	}>;
 	d1_databases?: Array<{
 		binding: string;
