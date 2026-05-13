@@ -615,6 +615,19 @@ export type EvalGateVerdictMessage = {
     };
 };
 
+/**
+ * Emitted before each phase begins — gives the frontend a credit cost
+ * estimate so it can render a "~N credits" preview badge.
+ */
+export type CostPreviewMessage = {
+    type: 'cost_preview';
+    phaseName: string;
+    fileCount: number;
+    creditsMin: number;
+    creditsMax: number;
+    modelTier: 'lite' | 'regular' | 'reasoning' | 'premium';
+};
+
 /** Union type for all vault WebSocket messages */
 export type VaultWebSocketMessage =
 	| VaultStoreSecretRequest
@@ -691,7 +704,8 @@ export type WebSocketMessage =
 	| AgentStatusMessage
 	| PlanUpdateMessage
 	| CriticVerdictMessage
-	| EvalGateVerdictMessage;
+	| EvalGateVerdictMessage
+	| CostPreviewMessage;
 
 // A type representing all possible message type strings (e.g., 'generation_started', 'file_generating', etc.)
 export type WebSocketMessageType = WebSocketMessage['type'];

@@ -132,6 +132,43 @@ export class CreditService extends BaseService {
         };
     }
 
+    /**
+     * Record actual token consumption for a completed phase without charging
+     * additional credits (the frontend already called spendCredits for the
+     * flat model fee).  Inserts a zero-amount transaction so the token counts
+     * appear in per-session breakdowns shown by getSessionTokenSpend.
+     *
+     * Best-effort — never throws. Called from phasic.ts after each phase.
+     */
+    async recordPhaseTokens(opts: {
+        userId: string;
+        sessionId: string;
+        phaseName: string;
+        inputTokens: number;
+        outputTokens: number;
+        model: string;
+    }): Promise<void> {
+        try {
+            const credit = await this.getOrCreateBalance(opts.userId);
+            await this.database.insert(schema.creditTransactions).values({
+                id: generateId(),
+                userId: opts.userId,
+                amount: 0,
+                type: 'spent',
+                description: `Token usage — phase: ${opts.phaseName}`,
+                model: opts.model,
+                provider: undefined,
+                appId: undefined,
+                balanceAfter: credit.balance,
+                inputTokens: opts.inputTokens,
+                outputTokens: opts.outputTokens,
+                sessionId: opts.sessionId,
+            });
+        } catch {
+            // Intentionally swallowed — token recording must never block generation.
+        }
+    }
+
     async addCredits(userId: string, amount: number, description: string, type: 'earned' | 'bonus' | 'refund' = 'bonus'): Promise<number> {
         const credit = await this.getOrCreateBalance(userId);
         const newBalance = credit.balance + amount;

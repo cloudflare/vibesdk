@@ -85,6 +85,9 @@ export const WebSocketMessageResponses: Record<string, WebSocketMessageType> = {
 
     // EvalGate quality verdict (ADR-004 §Implementation step 3)
     EVAL_GATE_VERDICT: 'eval_gate_verdict',
+
+    // Per-phase credit cost preview emitted before execution begins
+    COST_PREVIEW: 'cost_preview',
 } as const satisfies Record<string, WebSocketMessageType>;
 
 // WebSocket message types

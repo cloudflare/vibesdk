@@ -1051,6 +1051,12 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
                 break;
             }
 
+            case 'cost_preview': {
+                const { type: _type2, ...detail } = message;
+                window.dispatchEvent(new CustomEvent('vibesdk:cost_preview', { detail }));
+                break;
+            }
+
             default:
                 logger.warn('Unhandled message:', message);
         }

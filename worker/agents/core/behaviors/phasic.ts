@@ -33,6 +33,9 @@ import { runParallelPhase } from '../subagents/TeamLeadCoordinator';
 // S3.1 — EvalGate: best-effort quality gate after each phase (ADR-004 §Implementation step 3).
 import { runEvalGate } from '../../operations/EvalGate';
 import { EvalResultsService } from '../../../database/services/EvalResultsService';
+// S5 — per-phase effort estimation + token recording.
+import { estimatePhaseCredits } from '../../../services/billing/effortEstimator';
+import { CreditService } from '../../../database/services/CreditService';
 import type { PlannedMilestone, SharedContext } from '../subagents/contracts';
 import type { CoderAgent as CoderAgentDO } from '../subagents/CoderAgent';
 import type { PlannerAgent as PlannerAgentDO } from '../subagents/PlannerAgent';
@@ -417,9 +420,14 @@ export class PhasicCodingBehavior extends BaseCodingBehavior<PhasicState> implem
             // Prepare issues for implementation
             const currentIssues = await this.fetchAllIssues(true);
 
+            // S5 — Emit credit cost preview before phase starts so the UI can
+            // show a "~N credits" badge while generation is in progress.
+            this.emitCostPreview(phaseConcept);
+
             // S1.3 — Flag-gated branch: when multiAgentEnabled is true, delegate to
             // TeamLeadCoordinator.runParallelPhase. Otherwise the existing monolith
             // path runs unchanged (default for all sessions today).
+            let phaseTokensSpent = 0;
             if (this.state.multiAgentEnabled === true) {
                 const result = await this.runMultiAgentPhase(phaseConcept);
                 if (!result.ok) {
@@ -429,11 +437,17 @@ export class PhasicCodingBehavior extends BaseCodingBehavior<PhasicState> implem
                     });
                     return { currentDevState: CurrentDevState.REVIEWING };
                 }
+                phaseTokensSpent = result.tokensSpent;
                 // Mark phase complete to mirror the monolith implementPhase tail.
                 this.markPhaseComplete(phaseConcept.name);
             } else {
                 // Implement the phase with user context (suggestions and images)
                 await this.implementPhase(phaseConcept, currentIssues, userContext);
+            }
+
+            // S5 — Record actual token spend for this phase (best-effort, non-blocking).
+            if (phaseTokensSpent > 0) {
+                void this.recordPhaseTokens(phaseConcept.name, phaseTokensSpent);
             }
 
             // S3.1 — Fire-and-forget EvalGate quality check (ADR-004 §Implementation step 3).
@@ -729,7 +743,7 @@ export class PhasicCodingBehavior extends BaseCodingBehavior<PhasicState> implem
      */
     private async runMultiAgentPhase(
         phase: PhaseConceptType,
-    ): Promise<{ ok: boolean; failedTaskIds: readonly string[] }> {
+    ): Promise<{ ok: boolean; failedTaskIds: readonly string[]; tokensSpent: number }> {
         // TODO(S1.3-followup): When Planner emits structured tasks, use those.
         // For now collapse the whole phase into a single Coder task so existing
         // PhaseConcept shape still works.
@@ -829,7 +843,7 @@ export class PhasicCodingBehavior extends BaseCodingBehavior<PhasicState> implem
             },
         });
 
-        return { ok: result.ok, failedTaskIds: result.failedTaskIds };
+        return { ok: result.ok, failedTaskIds: result.failedTaskIds, tokensSpent: result.totalTokensSpent };
     }
 
     /**
@@ -878,6 +892,61 @@ export class PhasicCodingBehavior extends BaseCodingBehavior<PhasicState> implem
             // Log but never propagate — EvalGate is observability-only.
             this.logger.warn('runPhaseEvalGate failed (non-blocking)', {
                 phase: phaseConcept.name,
+                error: err instanceof Error ? err.message : String(err),
+            });
+        }
+    }
+
+    /**
+     * S5 — Emit a `cost_preview` WebSocket message before a phase executes so
+     * the UI can show a credit-range badge while the phase is running.
+     * Best-effort: never throws.
+     */
+    private emitCostPreview(phaseConcept: PhaseConceptType): void {
+        try {
+            const fileCount = phaseConcept.files?.length ?? 1;
+            const estimate = estimatePhaseCredits(fileCount, 'free');
+            this.broadcast(WebSocketMessageResponses.COST_PREVIEW, {
+                phaseName: phaseConcept.name,
+                fileCount: estimate.fileCount,
+                creditsMin: estimate.creditsMin,
+                creditsMax: estimate.creditsMax,
+                modelTier: estimate.modelTier,
+            });
+        } catch (err) {
+            this.logger.warn('emitCostPreview failed (non-blocking)', {
+                phase: phaseConcept.name,
+                error: err instanceof Error ? err.message : String(err),
+            });
+        }
+    }
+
+    /**
+     * S5 — Record actual token consumption for a completed phase.
+     * Inserts a zero-amount credit transaction so per-session token totals
+     * are accurate. Best-effort: never throws.
+     */
+    private async recordPhaseTokens(phaseName: string, tokensSpent: number): Promise<void> {
+        try {
+            const sessionId = this.state.sessionId ?? this.getAgentId();
+            const userId = this.state.metadata?.userId ?? '';
+            if (!userId) return;
+
+            const creditService = new CreditService(this.env);
+            // Split tokens 3:1 input:output (typical agentic workload distribution).
+            const inputTokens = Math.round(tokensSpent * 0.75);
+            const outputTokens = tokensSpent - inputTokens;
+            await creditService.recordPhaseTokens({
+                userId,
+                sessionId,
+                phaseName,
+                inputTokens,
+                outputTokens,
+                model: 'multi-agent',
+            });
+        } catch (err) {
+            this.logger.warn('recordPhaseTokens failed (non-blocking)', {
+                phase: phaseName,
                 error: err instanceof Error ? err.message : String(err),
             });
         }
