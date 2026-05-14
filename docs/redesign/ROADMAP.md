@@ -102,6 +102,7 @@ run041 Cycle 10 market (S13)|DONE — SpaceX IPO PRECISE (Jun 18-30 = largest IP
 CUMULATIVE-SUMMARY-CYCLE-10 (S13)|DONE — Cycle 10 close: SpaceX IPO Jun 18-30 → Jul 1 vibesdk launch target; Razorpay DUE JUN 15; DO Facets S14 spike planned; India $0 VC developer tools → first-mover; 15 decisions DEC-039→DEC-041; S14 agenda: DO Facets + ADR-008 app-layer + Unified Tracing + blog content (7d2c4fb)|--|@Architect
 /blog/lovable-bola post (S13 DEC-040-D)|DONE — BOLA incident technical deep-dive: 76-day timeline, 5-step attack anatomy, Wiz limitation table, DO structural comparison; /security gains deep-dive link; SEO targets: lovable security incident / lovable bola / ai app builder security; 0 TS errors (5e00941)|--|@Dev
 run043b Cycle 11 tech (S14)|DONE — Sonnet 4.8 NOT released (Opus 4.7/Sonnet 4.6/Haiku 4.5 trio confirmed live); @mastra/core 1.33.1 installed compiles clean; CF AI Gateway RFC #1257 still open → ADR-008 app-layer confirmed; CF Agents SDK v0.12.4 "server turn persistence" = ADR-008 S14 WS buffering reference pattern; Dynamic Workflows S15 evaluate; 5 decisions DEC-043-A→E (0a22c4a)|--|@Architect
+ADR-008 S14 WS broadcast buffer (S14 DEC-043-D)|DONE — ws-buffer.ts: pure enqueueBroadcast/filterFreshBroadcasts/hasFreshBroadcasts helpers; MAX 100 entries, 5min TTL; CodeGeneratorAgent: _pendingBroadcasts ephemeral field + broadcast() buffers on 0 connections + flushPendingBroadcasts() called at onConnect before STATE_SNAPSHOT; 14 unit tests; 0 TS errors (ca14d60)|--|@Dev
 ```
 
 ### Production Readiness (Sprint 2, tracked in QA-PROTOCOL.md)
