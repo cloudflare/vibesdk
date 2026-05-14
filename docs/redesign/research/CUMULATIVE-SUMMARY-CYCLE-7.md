@@ -60,13 +60,13 @@ EvalResultsService apps import fix|b4dcc34|39|Bug fix: missing import from iter 
 # schema: decision|verdict|action
 DEC-027-A|Mastra ResponseCache HIGH — verified via run029|Implemented eval-cache.ts (iter 39)
 DEC-028-A|CF AI Gateway streaming buffer RFC-stage NOT GA|ADR-008 status: PROPOSED deferred
-DEC-029-A|Docker layer caching P0 — Cursor shipped May 13 (70% faster)|PENDING iter 41
+DEC-029-A|Docker layer caching P0 — Cursor shipped May 13 (70% faster)|DONE iter 42 (ab78a36)
 DEC-029-B|ResponseCache evalStep P1|DONE eval-cache.ts (iter 39)
 DEC-029-C|ADR-001 addendum Dynamic Workflows|DONE (iter 38)
 DEC-029-D|Lovable Wiz counter: architecture beats scanning|IsolationBadge done (iter 36)
 DEC-029-E|Mastra Durable Agents + ADR-008 complementary not redundant|Both on roadmap
 DEC-030-A|Q3 2026 window CRITICAL (SpaceX-Cursor limbo)|ACTION: feature parity by Jul 1
-DEC-030-B|Retire "vibe coding"; adopt "agentic engineering" in product surfaces|PENDING iter 41
+DEC-030-B|Retire "vibe coding"; adopt "agentic engineering" in product surfaces|DONE iter 42 (ab78a36)
 DEC-030-C|Claude Code #1 = Anthropic API dependency is strategic asset|Surface in messaging
 DEC-030-D|Bolt enterprise pivot = SMB opportunity for vibesdk|Add to competitive messaging
 DEC-030-E|NxCode "free forever" highest individual threat|Counter: quality/isolation not price
@@ -78,8 +78,8 @@ DEC-030-E|NxCode "free forever" highest individual threat|Counter: quality/isola
 
 ```
 # schema: item|priority|type|notes
-Docker layer caching in sandbox|P0|Engineering|Cursor shipped May 13; last speed gap
-"Agentic engineering" positioning|P0|Marketing|Landing page + README update
+Docker layer caching in sandbox|DONE|Engineering|ab78a36 iter 42; all 3 Dockerfiles + compose
+"Agentic engineering" positioning|DONE|Marketing|ab78a36 iter 42; README tagline + What-is section
 Opus 4.7 Fast Mode waitlist|P0|Owner action|apply at claude.com/fast-mode; code ready
 Q3 2026 window feature audit|P1|Product|Full gap analysis vs Lovable feature checklist
 Sonnet 4.8 AGENT_CONFIG upgrade|P1|Engineering|BLOCKED_API; flip immediately on release
