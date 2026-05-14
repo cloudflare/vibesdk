@@ -56,7 +56,7 @@ PhaseParallel — ADR-007 Option A primitives (S10)|DONE — validateDisjointFil
 phasic.ts parallel dispatch wiring (S10)|DONE — executeParallelPhases() + parallelGroupMetrics; escalation warning >10% (313add1)|-|@Dev
 MCP resources/list + resources/read (S10)|DONE — 3 URI templates (status|quality|app), parseResourceUri, 10 tests; server v1.1.0 (5ee6d56)|-|@Dev
 Claude Sonnet 4.8 AGENT_CONFIG upgrade (S10)|BLOCKED_API — monitor Anthropic API; update immediately on release|-|@Dev
-Payments template scaffold Stripe/Paddle (S10)|QUEUED — "SaaS with payments" project type, 1d effort|-|@Dev
+Payments template scaffold Stripe/Paddle (S10)|DONE — 'SaaS with Payments' useCase enum + SAAS_PAYMENTS_INSTRUCTIONS; CF Workers fetch pattern, crypto.subtle webhook verify, D1 schema guidance, 15 tests (f47542b)|-|@Dev
 ```
 
 ### Production Readiness (Sprint 2, tracked in QA-PROTOCOL.md)
