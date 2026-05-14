@@ -81,6 +81,7 @@ Agentic engineering rebrand (S11)|DONE — README.md: "AI vibe coding platform" 
 run031 Cycle 8 opening (S12)|DONE — Q3 gap audit vs Lovable (5 ahead, 3 gaps: Cloud/D1/collab); CF AI Gateway RFC unchanged; NxCode counter narrative "architecture vs price"; 5 decisions DEC-031-A→E; Cycle 8 agenda drafted (run032-034) (11aeb40)|--|@Architect
 Competitive landing section (S12)|DONE — CompetitiveSection.tsx: 4 proof points (isolation/eval-gate/parallel/DESIGN.md), emerald icon badges, staggered scroll animation, CTA to SECURITY.md; mounted in home.tsx below Discover Apps; 0 TS errors (743e565)|2h|@Dev
 run032 Cycle 8 tech pillar (S12)|DONE — Mastra v1.34 not released (pin v1.33); DO Facets still preview (defer migration); Sonnet 4.8 BLOCKED_API (3-step flip plan ready); CF Gateway RFC unchanged; Agent Signals deferred; blueprint-cache.ts design (S12 F-32); 6 decisions DEC-032-A→F (2425f48)|--|@Architect
+Pricing competitive comparison table (S12)|DONE — pricing/index.tsx: 10-row table vs NxCode/free tools; vibesdk AHEAD on 8/10 dimensions; lucide Check/X; shadcn bg tokens; 0 TS errors; DEC-031-E companion piece (ccc8df5)|1h|@Dev
 ```
 
 ### Production Readiness (Sprint 2, tracked in QA-PROTOCOL.md)
