@@ -86,6 +86,7 @@ run033 Cycle 8 features pillar (S12)|DONE — Lovable Q2: Teams v2 + Analytics a
 DeployBadge — live deploy chip (S12)|DONE — DeployBadge.tsx: 3 states (idle/deploying/live), globe/spinner icons, tooltip with URL, keyboard-accessible, mounted in chat.tsx header between IsolationBadge+CostPreviewBadge; 0 TS errors (3f5a84d)|2h|@Dev
 India pricing copy (S12)|DONE — pricing/index.tsx header: "First AI agentic engineering platform priced for India. ₹1,699/mo vs ₹2,100+ for global alternatives." DEC-033-E companion; GST-inclusive note preserved; 0 TS errors|(this iter)|@Dev
 run034 Cycle 8 market close (S12)|DONE — Q3 window confirmed; Q3 readiness scorecard (5 AHEAD, 2 gaps, 2 true blockers); India-first architecture (Razorpay/UPI/GST); email templates decision (Resend.com); 4 decisions DEC-034-A→D; VERDICT: ARCHITECTURALLY READY, COMMERCIALLY BLOCKED (Razorpay IDs)|(this iter)|@Architect
+AI SaaS template scaffold (S12)|DONE — schemas.ts: 'AI SaaS' useCase enum (distinguishes billing vs LLM-feature intent); prompts.ts: AI_SAAS_INSTRUCTIONS with streaming (TransformStream/ReadableStream/text/event-stream), D1 schema (conversations/messages/user_settings), raw fetch to OpenAI+Anthropic (no Node.js SDK), API key safety + rate limiting; ui-corpus.ts: 'AI SaaS' → ['dashboard','auth']; 22 unit tests; 0 TS errors (4d072e3)|3h|@Dev
 ```
 
 ### Production Readiness (Sprint 2, tracked in QA-PROTOCOL.md)
