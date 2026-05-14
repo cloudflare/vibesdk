@@ -42,7 +42,11 @@ Hook checkGenerationGuard into codegenRoutes session-start path|DONE — wired i
 Tester sub-agent body (sandbox run)|DEFERRED — scaffolded, wire when traffic justifies|6|@Dev
 Razorpay plan IDs in wrangler.jsonc|DEFERRED — per user request, flip last|0|@Owner
 Razorpay secrets via `wrangler secret put`|DEFERRED — per user request|0|@Owner
-Memory + RAG + Eval layer (ADR-004)|S2 — Cloudflare Agent Memory + AI Search + TS-port DeepEval gates|14|@Dev
+Memory + RAG + Eval layer (ADR-004)|DONE — S3/S4: CF Agent Memory (stub-safe), AI Search, DeepEval TS-port (4 metrics), AgentMemoryClient|-|@Dev
+Per-phase effort estimation + token recording (S5)|DONE — effortEstimator.ts, recordPhaseTokens, CostPreviewBadge|-|@Dev
+AG-UI protocol alignment (S6)|DONE — agui-adapter.ts, RUN_STARTED/RUN_FINISHED/STATE_SNAPSHOT, handle-websocket-message.ts|-|@Dev
+Messaging-first inbound webhook (S7)|DONE — WhatsApp + Telegram receiver, worker/api/webhooks/|-|@Dev
+Mastra AI integration (S8, ADR-005)|DONE — PhaseWorkflow, phasic.ts runPhaseWorkflow, STATE_DELTA, storePhaseEvalMemory|-|@Dev
 ```
 
 ### Production Readiness (Sprint 2, tracked in QA-PROTOCOL.md)
