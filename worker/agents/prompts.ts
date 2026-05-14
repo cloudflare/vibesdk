@@ -866,6 +866,8 @@ export interface GeneralSystemPromptBuilderParams {
     language?: string,
     frameworks?: string[],
     templateMetaInfo?: TemplateSelection,
+    /** Optional contents of DESIGN.md from the session — injected into usecase instructions when present. */
+    designRules?: string,
 }
 
 export function generalSystemPromptBuilder(
@@ -908,7 +910,7 @@ export function generalSystemPromptBuilder(
         variables.frameworks = params.frameworks.join(', ');
     }
     if (params.templateMetaInfo) {
-        variables.usecaseSpecificInstructions = getUsecaseSpecificInstructions(params.templateMetaInfo);
+        variables.usecaseSpecificInstructions = getUsecaseSpecificInstructions(params.templateMetaInfo, params.designRules);
     }
 
     const formattedPrompt = PROMPT_UTILS.replaceTemplateVariables(prompt, variables);
@@ -1145,7 +1147,10 @@ const SAAS_PAYMENTS_INSTRUCTIONS = (): string => `
 ** Test mode: all Stripe test keys start with pk_test_ / sk_test_ — remind user to switch to live keys before production.
 `;
 
-export const getUsecaseSpecificInstructions = (selectedTemplate: TemplateSelection): string => {
+export const getUsecaseSpecificInstructions = (
+    selectedTemplate: TemplateSelection,
+    designRules?: string,
+): string => {
     // Base instructions per use case
     let baseInstructions: string;
     switch (selectedTemplate.useCase) {
@@ -1166,5 +1171,10 @@ export const getUsecaseSpecificInstructions = (selectedTemplate: TemplateSelecti
     }
     // Append relevant UI pattern hints from the static corpus (S10)
     const patternHints = getUiPatternHints(useCaseToCorpusKeys(selectedTemplate.useCase));
-    return patternHints ? `${baseInstructions}\n${patternHints}` : baseInstructions;
+    let result = patternHints ? `${baseInstructions}\n${patternHints}` : baseInstructions;
+    // Append DESIGN.md rules if the user placed one in the session root (Google Stitch protocol)
+    if (designRules) {
+        result += `\n\n### Design Rules (from DESIGN.md)\nThe user has provided a DESIGN.md file with project-specific design constraints. Follow these rules strictly:\n\n${designRules}`;
+    }
+    return result;
 }

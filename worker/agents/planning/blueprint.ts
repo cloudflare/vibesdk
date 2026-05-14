@@ -337,6 +337,8 @@ interface BaseBlueprintGenerationArgs {
         chunk_size: number;
         onChunk: (chunk: string) => void;
     };
+    /** Optional contents of DESIGN.md from the session — injected into blueprint planning prompt when present. */
+    designRules?: string;
 }
 
 export interface PhasicBlueprintGenerationArgs extends BaseBlueprintGenerationArgs {
@@ -357,7 +359,7 @@ export async function generateBlueprint(args: AgenticBlueprintGenerationArgs): P
 export async function generateBlueprint(
     args: PhasicBlueprintGenerationArgs | AgenticBlueprintGenerationArgs
 ): Promise<Blueprint> {
-    const { env, inferenceContext, query, language, frameworks, templateDetails, templateMetaInfo, images, stream, projectType } = args;
+    const { env, inferenceContext, query, language, frameworks, templateDetails, templateMetaInfo, images, stream, projectType, designRules } = args;
     const isAgentic = !templateDetails || !templateMetaInfo;
     
     try {
@@ -396,6 +398,7 @@ export async function generateBlueprint(
             blueprint: undefined,
             language,
             dependencies: templateDetails?.deps,
+            designRules,
         }));
 
         const userMessage = images && images.length > 0

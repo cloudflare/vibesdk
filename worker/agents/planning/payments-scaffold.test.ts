@@ -149,3 +149,49 @@ describe('getUsecaseSpecificInstructions — SaaS with Payments', () => {
         expect(instructions.toLowerCase()).toContain('entitlement');
     });
 });
+
+// ── DESIGN.md injection ────────────────────────────────────────────────────────
+
+describe('getUsecaseSpecificInstructions — DESIGN.md injection', () => {
+    const makeSelection = (overrides: Partial<TemplateSelection> = {}): TemplateSelection => ({
+        selectedTemplateName: 'react-dashboard',
+        reasoning: 'test',
+        useCase: 'SaaS with Payments',
+        complexity: 'simple',
+        styleSelection: 'Minimalist Design',
+        projectType: 'app',
+        ...overrides,
+    });
+
+    it('omits Design Rules section when designRules is undefined', () => {
+        const instructions = getUsecaseSpecificInstructions(makeSelection());
+        expect(instructions).not.toContain('Design Rules (from DESIGN.md)');
+    });
+
+    it('appends Design Rules section when designRules is provided', () => {
+        const rules = 'Use Inter font. Brand color: #4F46E5.';
+        const instructions = getUsecaseSpecificInstructions(makeSelection(), rules);
+        expect(instructions).toContain('Design Rules (from DESIGN.md)');
+        expect(instructions).toContain(rules);
+    });
+
+    it('Design Rules section appears after base instructions', () => {
+        const rules = 'Custom rule XYZ';
+        const instructions = getUsecaseSpecificInstructions(makeSelection(), rules);
+        // Base content (payments) comes before design rules
+        const paymentsIdx = instructions.indexOf('Checkout Session');
+        const designIdx = instructions.indexOf('Design Rules (from DESIGN.md)');
+        expect(paymentsIdx).toBeGreaterThan(-1);
+        expect(designIdx).toBeGreaterThan(paymentsIdx);
+    });
+
+    it('works across all use cases', () => {
+        const rules = 'Always use TailwindCSS utility classes only.';
+        const useCases = ['SaaS Product Website', 'E-Commerce', 'Dashboard', 'General'] as const;
+        for (const useCase of useCases) {
+            const instructions = getUsecaseSpecificInstructions(makeSelection({ useCase } as Partial<TemplateSelection>), rules);
+            expect(instructions).toContain('Design Rules (from DESIGN.md)');
+            expect(instructions).toContain(rules);
+        }
+    });
+});

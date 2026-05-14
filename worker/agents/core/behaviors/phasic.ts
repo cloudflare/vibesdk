@@ -103,7 +103,14 @@ export class PhasicCodingBehavior extends BaseCodingBehavior<PhasicState> implem
         // Generate a blueprint
         this.logger.info('Generating blueprint', { query, queryLength: query.length, imagesCount: initArgs.images?.length || 0 });
         this.logger.info(`Using language: ${language}, frameworks: ${frameworks ? frameworks.join(", ") : "none"}`);
-        
+
+        // Detect DESIGN.md in session root — inject into blueprint planning if present (Google Stitch protocol)
+        const designRulesFile = this.fileManager.getFile('DESIGN.md');
+        const designRules = designRulesFile?.fileContents ?? undefined;
+        if (designRules) {
+            this.logger.info('DESIGN.md detected in session — injecting design rules into blueprint prompt');
+        }
+
         const blueprint = await generateBlueprint({
             env: this.env,
             inferenceContext,
@@ -114,6 +121,7 @@ export class PhasicCodingBehavior extends BaseCodingBehavior<PhasicState> implem
             templateMetaInfo: templateInfo?.selection,
             images: initArgs.images,
             projectType: this.projectType,
+            designRules,
             stream: {
                 chunk_size: 256,
                 onChunk: (chunk) => {
