@@ -18,6 +18,12 @@
  *
  * Storage: results land in `eval_results` table (see migration 0008).
  * Read path is for the future /sessions/:id/quality endpoint.
+ *
+ * Public API:
+ *   - runEvalGate(env, input)            — execute the gate (async, never throws)
+ *   - decide(scores, comments, tokens)   — pure gate decision (unit-testable)
+ *   - computeCompositeEvalScore(scores)  — shared composite formula (mean of 4)
+ *   - FAITHFULNESS_FLOOR / HALLUCINATION_CEILING — threshold constants
  */
 
 import { callClaudeForJson } from '../inferutils/claudeDirect';
