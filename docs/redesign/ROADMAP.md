@@ -47,6 +47,11 @@ Per-phase effort estimation + token recording (S5)|DONE — effortEstimator.ts, 
 AG-UI protocol alignment (S6)|DONE — agui-adapter.ts, RUN_STARTED/RUN_FINISHED/STATE_SNAPSHOT, handle-websocket-message.ts|-|@Dev
 Messaging-first inbound webhook (S7)|DONE — WhatsApp + Telegram receiver, worker/api/webhooks/|-|@Dev
 Mastra AI integration (S8, ADR-005)|DONE — PhaseWorkflow, phasic.ts runPhaseWorkflow, STATE_DELTA, storePhaseEvalMemory|-|@Dev
+Mem0 REST memory adapter (S9)|DONE — Mem0RestMemoryClient (pure fetch, CF Workers compat), 14 tests; replaces @mastra/mem0 (native sqlite3 dep)|-|@Dev
+Context Usage Breakdown (S9)|DONE — judgeTokens thread PhaseWorkflow→phasic→WebSocket→PhaseQualityBadge; "Eval judge: Nin/Nout tok" display|-|@Dev
+SECURITY.md — BOLA structural immunity (S9)|DONE — per-DO SQLite isolation vs Lovable BOLA incident; enterprise marketing asset|-|@Architect
+ADR-007 — parallel sub-agent merge strategy (pre-S10)|DONE — Option A (phase independence) primary; Option B (LLM merge) S11; 10% serialization threshold|-|@Architect
+MCP server POST /api/mcp (S9)|DONE — stateless JSON-RPC 2024-11-05, 3 tools (get_status/get_quality/describe_app), CF Workers compat, 13 tests|-|@Dev
 ```
 
 ### Production Readiness (Sprint 2, tracked in QA-PROTOCOL.md)
