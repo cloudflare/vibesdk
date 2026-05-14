@@ -108,7 +108,7 @@ const COMPARISON_ROWS: ComparisonRow[] = [
     },
     {
         dimension: 'Security approach',
-        lovable: 'Post-incident Wiz scanner + Cursor Security Review (scanning) — finds problems after code is written',
+        lovable: 'Wiz + Aikido + Cursor Security Review (3 scan layers) — finds problems after code is written; each layer is evidence the problem cannot be fixed by scanning',
         vibesdk: 'Structural isolation — the vulnerability class cannot exist (Cloudflare SOC 2 Type II)',
         lovableOk: false,
     },
@@ -161,10 +161,11 @@ export default function SecurityPage() {
                         variants={fadeUp}
                         className="mt-4 text-base text-gray-500 dark:text-gray-400 max-w-2xl mx-auto leading-relaxed"
                     >
-                        Code scanners — including those used by Lovable (Wiz) and Cursor (Security Review) —
-                        find vulnerabilities after they are written. Structural isolation ensures the
-                        vulnerability class does not exist to begin with. vibesdk's Cloudflare Durable Object
-                        architecture makes the class of attacks that exposed Lovable's users{' '}
+                        Code scanners — including Lovable (Wiz + Aikido) and Cursor (Security Review) —
+                        find vulnerabilities after they are written. Three scan layers is three times the
+                        evidence that the problem cannot be fixed by scanning. Structural isolation ensures
+                        the vulnerability class does not exist to begin with. vibesdk's Cloudflare Durable
+                        Object architecture makes the class of attacks that exposed Lovable's users{' '}
                         <span className="text-gray-700 dark:text-gray-300 font-medium">
                             structurally impossible
                         </span>
