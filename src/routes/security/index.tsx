@@ -185,7 +185,7 @@ export default function SecurityPage() {
                             <p className="text-sm font-semibold text-amber-800 dark:text-amber-300 mb-1">
                                 Lovable BOLA incident — Feb 3 to Apr 20, 2026 (76 days)
                             </p>
-                            <p className="text-xs text-amber-700 dark:text-amber-400 leading-relaxed">
+                            <p className="text-xs text-amber-700 dark:text-amber-400 leading-relaxed mb-2">
                                 A free Lovable account and 5 API calls were sufficient to enumerate other
                                 users' source code, Supabase credentials, and Stripe customer IDs. Root cause:
                                 authorization was enforced at the API layer, but the underlying project object
@@ -193,6 +193,13 @@ export default function SecurityPage() {
                                 Wiz scanning after the incident detects new vulnerabilities — it cannot
                                 change the shared-graph architecture that made the attack possible.
                             </p>
+                            <Link
+                                to="/blog/lovable-bola"
+                                className="inline-flex items-center gap-1 text-xs font-semibold text-amber-700 dark:text-amber-400 hover:text-amber-800 dark:hover:text-amber-300 transition-colors"
+                            >
+                                Technical deep-dive
+                                <ArrowRight className="size-3" />
+                            </Link>
                         </div>
                     </div>
                 </motion.div>

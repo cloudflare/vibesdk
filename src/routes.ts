@@ -13,6 +13,7 @@ import PricingPage from './routes/pricing';
 import BillingPage from './routes/billing';
 import BenchmarkPage from './routes/benchmark';
 import SecurityPage from './routes/security';
+import LovableBolaPost from './routes/blog/lovable-bola';
 import { ProtectedRoute } from './routes/protected-route';
 
 const routes = [
@@ -59,6 +60,10 @@ const routes = [
 			{
 				path: 'security',
 				Component: SecurityPage,
+			},
+			{
+				path: 'blog/lovable-bola',
+				Component: LovableBolaPost,
 			},
 			{
 				path: 'billing',
