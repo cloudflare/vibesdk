@@ -4,3 +4,5 @@ export { IsolationBadge } from './IsolationBadge';
 export type { IsolationBadgeProps } from './IsolationBadge';
 export { GitHistoryPanel } from './GitHistoryPanel';
 export type { GitHistoryPanelProps } from './GitHistoryPanel';
+export { DeployBadge } from './DeployBadge';
+export type { DeployBadgeProps } from './DeployBadge';

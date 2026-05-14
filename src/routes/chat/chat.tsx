@@ -36,7 +36,7 @@ import { ChatInput } from './components/chat-input';
 import { useVault } from '@/hooks/use-vault';
 import { VaultUnlockModal } from '@/components/vault';
 import { AgentsDock, PlanTree, useAgentStream } from '@/components/agents';
-import { PhaseQualityBadge, IsolationBadge, GitHistoryPanel } from '@/components/quality';
+import { PhaseQualityBadge, IsolationBadge, GitHistoryPanel, DeployBadge } from '@/components/quality';
 import { CostPreviewBadge } from '@/components/billing/CostPreviewBadge';
 
 const isPhasicBlueprint = (blueprint?: BlueprintType | null): blueprint is PhasicBlueprint =>
@@ -680,6 +680,10 @@ export default function Chat() {
 									{chatId && (
 										<div className="flex items-center gap-2">
 											<IsolationBadge />
+											<DeployBadge
+												deploymentUrl={cloudflareDeploymentUrl}
+												isDeploying={isDeploying}
+											/>
 											<CostPreviewBadge />
 											<PhaseQualityBadge sessionId={chatId} />
 										</div>
