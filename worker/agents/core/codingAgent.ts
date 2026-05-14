@@ -32,6 +32,12 @@ import { SecretsClient, type UserSecretsStoreStub } from '../../services/secrets
 import { StateMigration } from './stateMigration';
 import { PendingWsTicket, TicketConsumptionResult } from '../../types/auth-types';
 import { WsTicketManager } from '../../utils/wsTicketManager';
+import {
+    PendingBroadcast,
+    enqueueBroadcast,
+    filterFreshBroadcasts,
+    hasFreshBroadcasts,
+} from './ws-buffer';
 
 const DEFAULT_CONVERSATION_SESSION_ID = 'default';
 
@@ -49,7 +55,16 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
     
     /** Ticket manager for WebSocket authentication */
     private ticketManager = new WsTicketManager();
-    
+
+    /**
+     * Ephemeral broadcast buffer — server-turn persistence (ADR-008 S14).
+     *
+     * Messages broadcast while zero clients are connected are queued here
+     * and flushed to the next reconnecting client. Cleared after each flush.
+     * Not persisted: lives only for the current DO in-memory instance.
+     */
+    private _pendingBroadcasts: PendingBroadcast[] = [];
+
     // Services
     readonly fileManager: FileManager;
     readonly deploymentManager: DeploymentManager;
@@ -233,6 +248,11 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
             templateDetails: this.behavior.getTemplateDetails(),
             previewUrl: previewUrl
         });
+
+        // ADR-008 S14 — flush any messages buffered during the disconnect window
+        // before sending the state snapshot, so the client sees the ordered stream.
+        this.flushPendingBroadcasts(connection);
+
         // AG-UI S6: state_snapshot companion so AG-UI-compliant clients get the
         // full serialised state in the standard format on connect / reconnect.
         sendToConnection(connection, WebSocketMessageResponses.STATE_SNAPSHOT, {
@@ -580,14 +600,61 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
     }
     
     /**
-     * Broadcast message to all connected WebSocket clients
-     * Type-safe version using proper WebSocket message types
+     * Broadcast message to all connected WebSocket clients.
+     *
+     * When zero clients are connected (mid-inference disconnect), the message
+     * is buffered for delivery to the next reconnecting client (server-turn
+     * persistence — ADR-008 S14, mirrors CF Agents SDK v0.12.4 pattern).
      */
     public broadcast<T extends WebSocketMessageType>(
-        type: T, 
+        type: T,
         data?: WebSocketMessageData<T>
     ): void {
-        broadcastToConnections(this, type, data || {} as WebSocketMessageData<T>);
+        const connections = this.getWebSockets();
+        const payload = data ?? ({} as WebSocketMessageData<T>);
+
+        if (connections.length > 0) {
+            broadcastToConnections(this, type, payload);
+        } else {
+            // No active connections — buffer for reconnect delivery
+            this._pendingBroadcasts = enqueueBroadcast(
+                this._pendingBroadcasts,
+                type,
+                payload as WebSocketMessageData<WebSocketMessageType>,
+            );
+            this.logger().debug(`WS broadcast buffered (no connections): ${type}`, {
+                bufferSize: this._pendingBroadcasts.length,
+            });
+        }
+    }
+
+    /**
+     * Flush buffered broadcast messages to a newly-connected client.
+     *
+     * Called at the start of `onConnect` before the STATE_SNAPSHOT so that
+     * the client receives any messages emitted during the disconnect window,
+     * then sees the current snapshot as ground truth.
+     *
+     * Entries older than BROADCAST_BUFFER_TTL_MS are silently dropped.
+     * The buffer is cleared after flushing regardless of delivery success.
+     */
+    private flushPendingBroadcasts(connection: Connection): void {
+        const fresh = filterFreshBroadcasts(this._pendingBroadcasts);
+        this._pendingBroadcasts = [];
+
+        if (fresh.length === 0) return;
+
+        this.logger().info(`Flushing ${fresh.length} buffered WS message(s) to reconnecting client`, {
+            connectionId: connection.id,
+        });
+
+        for (const entry of fresh) {
+            sendToConnection(
+                connection,
+                entry.type,
+                entry.data as WebSocketMessageData<typeof entry.type>,
+            );
+        }
     }
 
     protected broadcastError(context: string, error: unknown): void {
