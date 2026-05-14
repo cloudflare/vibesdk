@@ -62,6 +62,9 @@ Payments template scaffold Stripe/Paddle (S10)|DONE — 'SaaS with Payments' use
 Mount PlanTree into chat.tsx (S11)|DONE — livePlan destructured from useAgentStream(), PlanTree renders below AgentsDock when plan_update events arrive (301e020)|2h|@Dev
 MULTI_AGENT_ENABLED env var toggle (S11)|DONE — wrangler.jsonc var + worker-configuration.d.ts + codingAgent.ts onStart reads flag; set to "true" in staging to enable parallel dispatch (c15fe09)|1h|@Dev
 Cycle 6 research (S11)|DONE — runs 023-026: tech (Sonnet 4.6/4.7 upgrade), features (Lovable Cloud gap, DESIGN.md), arch (AI Gateway streaming resilience), market (Emergent pivot, NxCode threat); CUMULATIVE-6 written|--|@Architect
+ADR-008 AI Gateway streaming resilience (S11)|DONE — 3-phase plan: capture cf-aig-request-id, resume on WS reconnect, cleanup; implementation deferred S12; 5% LLM cost reduction at 5% reconnect rate (7f45de4)|1d|@Architect
+run027 architecture supplement (Cycle 7)|DONE — CF Browser Run on Containers; Cursor multi-repo agents; Vercel Opus 4.7 Fast Mode; Mastra v1.33 GA (ResponseCache HIGH, Agent Signals); Replit micro-VM topology; Terminal Use YC W26 profile (7f45de4)|--|@Architect
+DESIGN.md detection + blueprint injection (S11)|DONE — fileManager.getFile('DESIGN.md') in phasic.ts initialize(); designRules threaded through generateBlueprint() → generalSystemPromptBuilder() → getUsecaseSpecificInstructions(); 4 new tests, 19 total pass (2cdc124)|2h|@Dev
 ```
 
 ### Production Readiness (Sprint 2, tracked in QA-PROTOCOL.md)
