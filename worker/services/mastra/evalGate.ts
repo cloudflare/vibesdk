@@ -15,7 +15,12 @@
  * adapter here produces the same shape without the storage dependency.
  */
 
-import { runEvalGate, FAITHFULNESS_FLOOR, HALLUCINATION_CEILING } from '../../agents/operations/EvalGate';
+import {
+    runEvalGate,
+    computeCompositeEvalScore,
+    FAITHFULNESS_FLOOR,
+    HALLUCINATION_CEILING,
+} from '../../agents/operations/EvalGate';
 import type { EvalVerdict, EvalInput } from '../../agents/operations/EvalGate';
 import type { PhaseImplementationSchemaType, PhaseConceptType } from '../../agents/schemas';
 import { createLogger } from '../../logger';
@@ -82,13 +87,8 @@ export async function runMastraEvalScorer(
 
     const { scores, passed, blockedReason, comments, judgeTokens } = verdict;
 
-    // Composite score: simple mean of all 4 metrics (hallucinationRisk inverted).
-    const composite =
-        (scores.faithfulness +
-            scores.answerRelevancy +
-            scores.toolCorrectness +
-            (1 - scores.hallucinationRisk)) /
-        4;
+    // Composite score: shared formula from EvalGate (hallucinationRisk inverted).
+    const composite = computeCompositeEvalScore(scores);
 
     logger.info('MastraEvalScorer verdict', {
         phase: input.phase.name,

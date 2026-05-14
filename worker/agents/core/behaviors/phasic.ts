@@ -31,7 +31,7 @@ import { runPreDeploySafetyGate } from '../../utils/preDeploySafetyGate';
 // S1.3 — multi-agent path. Flag-gated; default monolith path stays unchanged.
 import { runParallelPhase } from '../subagents/TeamLeadCoordinator';
 // S3.1 — EvalGate: best-effort quality gate after each phase (ADR-004 §Implementation step 3).
-import { runEvalGate } from '../../operations/EvalGate';
+import { runEvalGate, computeCompositeEvalScore } from '../../operations/EvalGate';
 // S8 — PhaseWorkflow: Mastra-orchestrated plan → implement → eval (ADR-005).
 import { runPhaseWorkflow } from '../../operations/PhaseWorkflow';
 // S8 — Agent memory: persist phase eval results for cross-session recall (ADR-004).
@@ -939,12 +939,7 @@ export class PhasicCodingBehavior extends BaseCodingBehavior<PhasicState> implem
             });
 
             // S8 — Persist eval summary in agent memory for cross-session recall.
-            const compositeScore = (
-                verdict.scores.faithfulness +
-                verdict.scores.answerRelevancy +
-                verdict.scores.toolCorrectness +
-                (1 - verdict.scores.hallucinationRisk)
-            ) / 4;
+            const compositeScore = computeCompositeEvalScore(verdict.scores);
             void this.storePhaseEvalMemory(
                 phaseConcept.name,
                 compositeScore,

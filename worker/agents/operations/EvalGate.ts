@@ -120,6 +120,21 @@ export async function runEvalGate(env: Env, input: EvalInput): Promise<EvalVerdi
 }
 
 /**
+ * Compute the composite (0-1) eval score from four individual metrics.
+ *
+ * Formula: mean of (faithfulness, answerRelevancy, toolCorrectness,
+ * 1 − hallucinationRisk).  Exported so all callers share one definition.
+ */
+export function computeCompositeEvalScore(scores: EvalScores): number {
+    return (
+        scores.faithfulness +
+        scores.answerRelevancy +
+        scores.toolCorrectness +
+        (1 - scores.hallucinationRisk)
+    ) / 4;
+}
+
+/**
  * Pure decision function — exposed for unit tests. Given scores +
  * comments, decide pass/fail per the documented floor + ceiling.
  */
