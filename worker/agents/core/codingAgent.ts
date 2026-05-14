@@ -179,6 +179,14 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
 
         this.behavior.onStart(props);
 
+        // Operator flag: MULTI_AGENT_ENABLED="true" in wrangler.jsonc (or wrangler secret)
+        // enables TeamLeadCoordinator parallel phase dispatch for phasic sessions.
+        // Default "false" keeps existing serial behavior. Flip in staging before GA.
+        const multiAgentEnabled = this.env.MULTI_AGENT_ENABLED === 'true';
+        if (multiAgentEnabled !== (this.state.multiAgentEnabled ?? false)) {
+            this.setState({ ...this.state, multiAgentEnabled });
+        }
+
         // Ignore if agent not initialized
         if (!this.state.query) {
             this.logger().warn(`Agent ${this.getAgentId()} session: ${this.state.sessionId} onStart ignored, agent not initialized`);
