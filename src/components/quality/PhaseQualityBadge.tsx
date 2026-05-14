@@ -14,6 +14,7 @@ type PhaseVerdict = {
         toolCorrectness: number;
         hallucinationRisk: number;
     };
+    compositeScore: number;
 };
 
 type EvalGateVerdictDetail = {
@@ -26,6 +27,7 @@ type EvalGateVerdictDetail = {
         toolCorrectness: number;
         hallucinationRisk: number;
     };
+    compositeScore: number;
 };
 
 export interface PhaseQualityBadgeProps {
@@ -60,6 +62,7 @@ export const PhaseQualityBadge = memo(function PhaseQualityBadge({
                     toolCorrectness: r.toolCorrectness,
                     hallucinationRisk: r.hallucinationRisk,
                 },
+                compositeScore: r.compositeScore,
             }));
             setVerdicts(mapped);
         }
@@ -77,6 +80,7 @@ export const PhaseQualityBadge = memo(function PhaseQualityBadge({
                 passed: detail.passed,
                 blockedReason: detail.blockedReason,
                 scores: detail.scores,
+                compositeScore: detail.compositeScore,
             };
             setVerdicts((prev) => [verdict, ...prev]);
         };
@@ -160,16 +164,21 @@ function VerdictRow({ verdict }: { readonly verdict: PhaseVerdict }) {
                 <span className="font-medium text-text-primary truncate" title={verdict.phaseName}>
                     {verdict.phaseName}
                 </span>
-                <span
-                    className={cn(
-                        'ml-2 shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase',
-                        verdict.passed
-                            ? 'bg-emerald-500/15 text-emerald-400'
-                            : 'bg-amber-500/15 text-amber-400',
-                    )}
-                >
-                    {verdict.passed ? 'PASS' : 'FAIL'}
-                </span>
+                <div className="ml-2 flex shrink-0 items-center gap-1.5">
+                    <span className="font-mono text-[11px] tabular-nums text-text-primary/50">
+                        {(verdict.compositeScore * 100).toFixed(0)}%
+                    </span>
+                    <span
+                        className={cn(
+                            'rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase',
+                            verdict.passed
+                                ? 'bg-emerald-500/15 text-emerald-400'
+                                : 'bg-amber-500/15 text-amber-400',
+                        )}
+                    >
+                        {verdict.passed ? 'PASS' : 'FAIL'}
+                    </span>
+                </div>
             </div>
             {verdict.blockedReason && (
                 <p className="text-[10px] text-red-400 leading-snug">{verdict.blockedReason}</p>
