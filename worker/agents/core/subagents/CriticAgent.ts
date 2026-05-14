@@ -163,6 +163,12 @@ export class CriticAgent extends DurableObject<Cloudflare.Env> implements Critic
 
         const userPrompt = `Round ${input.previousRounds + 1} of 2.\n\nPlan:\n${JSON.stringify(input.plan, null, 2).slice(0, 6000)}`;
 
+        // Fast Mode (Opus 4.7 beta, 2.5× OTPS, 6× pricing) — active only when
+        // ANTHROPIC_FAST_MODE_ACCESS="true" (set via `wrangler secret put` after waitlist approval).
+        // Critic is the ideal first target: plan critique is latency-sensitive and
+        // benefits most from faster token generation.
+        const speedMode = this.env.ANTHROPIC_FAST_MODE_ACCESS === 'true' ? 'fast' as const : 'standard' as const;
+
         const result = await callClaudeForJson<CriticJsonResponse>({
             env: this.env,
             model: CLAUDE_PREMIUM_MODEL, // Opus 4.7 — best agentic coding for plan critique
@@ -170,6 +176,7 @@ export class CriticAgent extends DurableObject<Cloudflare.Env> implements Critic
             messages: [{ role: 'user', content: userPrompt }],
             maxTokens: 2000,
             temperature: 0.1,
+            speedMode,
             jsonSchemaDescription: `{
                 "verdict": "approve" | "revise" | "reject",
                 "concerns": [{ "severity": "blocker" | "major" | "minor", "title": string, "rationale": string, "offendingTaskId"?: string }],

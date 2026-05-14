@@ -13,6 +13,13 @@ declare namespace Cloudflare {
 		ENABLE_READ_REPLICAS: "true";
 		/** Operator flag: "true" enables TeamLeadCoordinator parallel phase dispatch. Default "false". */
 		MULTI_AGENT_ENABLED: string;
+		/**
+		 * Operator flag: "true" activates Opus 4.7 Fast Mode for CriticAgent
+		 * (waitlist-gated beta — apply at claude.com/fast-mode; 6× pricing, 2.5× OTPS).
+		 * Set via `wrangler secret put ANTHROPIC_FAST_MODE_ACCESS` when waitlist access is granted.
+		 * Default: "false" (standard mode).
+		 */
+		ANTHROPIC_FAST_MODE_ACCESS: string;
 		CLOUDFLARE_AI_GATEWAY: "vibesdk-gateway";
 		PLATFORM_CAPABILITIES: {"features":{"app":{"enabled":true},"presentation":{"enabled":false},"general":{"enabled":false}},"version":"1.0.0"};
 		ANTHROPIC_API_KEY: string;

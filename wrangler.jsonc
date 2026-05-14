@@ -194,6 +194,9 @@
         "DISPATCH_NAMESPACE": "vibesdk-default-namespace",
         "ENABLE_READ_REPLICAS": "true",
         "MULTI_AGENT_ENABLED": "false",
+        // Opus 4.7 Fast Mode for CriticAgent — flip to "true" when waitlist access is granted
+        // (apply at claude.com/fast-mode; 6× pricing = $150/MTok out, 2.5× OTPS)
+        "ANTHROPIC_FAST_MODE_ACCESS": "false",
         "CLOUDFLARE_AI_GATEWAY": "vibesdk-gateway",
         "PLATFORM_CAPABILITIES": {
             "features": {

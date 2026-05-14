@@ -141,8 +141,23 @@ Feature flag `multiAgentEnabled=false` routes to existing `SimpleCodeGeneratorAg
 - Q2: Observability / tracing → ADR-003
 - Q3: Cross-session sub-agent pooling (cost optimization) → post-GA
 
+## Addendum — Cloudflare Dynamic Workflows (2026-05-15, run029)
+
+**Status:** Awareness / future-phase consideration (S13+)
+
+Cloudflare shipped **Dynamic Workflows** (MIT-licensed, open beta, May 2026) — a ~300-line TypeScript library that enables per-tenant/per-agent durable workflow logic to differ at runtime. A Worker Loader sits between the Workflows engine and tenant code; calling `env.WORKFLOWS.create()` persists tenant metadata and routes execution back to the correct tenant code on engine wake. Standard features (pause/resume, retries, hibernation, sleep, waitForEvent) function unchanged.
+
+This is distinct from our current architecture:
+- **ADR-001 (this)**: DO fan-out with static per-deploy Mastra workflow (`PhaseWorkflow.ts`)
+- **CF Dynamic Workflows**: Runtime-variable workflow logic per session/app-type
+
+Potential future application: payments-specific durable workflow vs dashboard-specific workflow, loaded at session creation time rather than at deploy time. Enables per-use-case phase orchestration without redeployment.
+
+**Action:** No change to current design. Monitor open beta → spike in S13 when billing + limits are confirmed. Adds to Options Considered table as Option 5 (deferred).
+
 ## References
 
 - CRITIQUE.md — all challenge items this ADR addresses
 - ARCHITECTURE.md — target-state diagrams
 - Cloudflare Durable Objects docs (verify RPC limits pre-M2)
+- CF Dynamic Workflows: https://blog.cloudflare.com/agents-week-in-review/ + InfoQ 2026-05
