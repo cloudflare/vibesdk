@@ -52,6 +52,11 @@ Context Usage Breakdown (S9)|DONE — judgeTokens thread PhaseWorkflow→phasic�
 SECURITY.md — BOLA structural immunity (S9)|DONE — per-DO SQLite isolation vs Lovable BOLA incident; enterprise marketing asset|-|@Architect
 ADR-007 — parallel sub-agent merge strategy (pre-S10)|DONE — Option A (phase independence) primary; Option B (LLM merge) S11; 10% serialization threshold|-|@Architect
 MCP server POST /api/mcp (S9)|DONE — stateless JSON-RPC 2024-11-05, 3 tools (get_status/get_quality/describe_app), CF Workers compat, 13 tests|-|@Dev
+PhaseParallel — ADR-007 Option A primitives (S10)|DONE — validateDisjointFiles, executeParallelPhaseGroup, metrics; 16 tests (36d0f97)|-|@Dev
+phasic.ts parallel dispatch wiring (S10)|DONE — executeParallelPhases() + parallelGroupMetrics; escalation warning >10% (313add1)|-|@Dev
+MCP resources/list + resources/read (S10)|DONE — 3 URI templates (status|quality|app), parseResourceUri, 10 tests; server v1.1.0 (5ee6d56)|-|@Dev
+Claude Sonnet 4.8 AGENT_CONFIG upgrade (S10)|BLOCKED_API — monitor Anthropic API; update immediately on release|-|@Dev
+Payments template scaffold Stripe/Paddle (S10)|QUEUED — "SaaS with payments" project type, 1d effort|-|@Dev
 ```
 
 ### Production Readiness (Sprint 2, tracked in QA-PROTOCOL.md)
