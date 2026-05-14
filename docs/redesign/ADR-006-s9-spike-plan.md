@@ -37,15 +37,42 @@ Sub-agents: can they replace TeamLeadCoordinator DO fan-out?|Architect|ADR-006 a
 Cost model: Project Think billable units vs current DO compute|Analyst-Commercial|cost delta table
 ```
 
-### Execution Ladder Compatibility Matrix (preliminary)
+### Execution Ladder Compatibility Matrix (updated run015 — API confirmed)
 
-| Ladder Tier | vibesdk Equivalent | Compatible? |
-|---|---|---|
-| Tier 0 — Stateless function | Simple tool calls | YES — no change needed |
-| Tier 1 — Persistent Session | DO per-session state machine | YES — mirrors current arch |
-| Tier 2 — Fibers | Phase step sequencing | SPIKE — replaces PhaseWorkflow? |
-| Tier 3 — Sub-agents | TeamLeadCoordinator DO fan-out | SPIKE — replaces custom DO RPC |
-| Tier 4 — Durable Agents | Full DO lifecycle | YES — already our model |
+| Ladder Tier | CF API | vibesdk Equivalent | Compatible? |
+|---|---|---|---|
+| Tier 0 — Workspace | `createWorkspaceTools()` | Simple tool calls + shell | YES — no change needed |
+| Tier 1 — Dynamic Worker | `createExecuteTool()` | Ad-hoc TypeScript execution | YES — additive |
+| Tier 2 — npm support | `@cloudflare/worker-bundler` | — | YES — additive |
+| Tier 3 — Browser | `createBrowserTools()` | — | YES — additive |
+| Tier 4 — Full sandbox | `createSandboxTools()` | `worker/services/sandbox/factory.ts` | SPIKE |
+
+### Fibers API (confirmed run015)
+
+```typescript
+await runFiber("phase-gen", async (ctx) => {
+    // … do phase work …
+    ctx.stash({ generatedFiles });   // checkpoint state
+});
+onFiberRecovered(ctx) { /* ctx.name, ctx.snapshot */ }
+```
+
+**Verdict:** Fibers are safe to adopt in S9 even in experimental state — they add crash recovery ON TOP of existing pattern without replacing anything. Touchpoint: `worker/agents/operations/PhaseWorkflow.ts` step wrappers.
+
+### Sub-agents API (confirmed run015)
+
+```typescript
+const sub = await this.subAgent(AgentClass, "name");
+// Each sub-agent: isolated SQLite DB, typed RPC, compile-time safety
+const result = await sub.chat(query, streamRelay);
+```
+
+**Verdict:** Exact pattern vibesdk wants for parallel phase execution. ADOPT in S9 alongside parallel sub-agent task (cycle 2/3 escalation).
+
+### Breaking Changes (Agents SDK v0.12.4, May 13 2026)
+
+- `ChatOptions.tools` REMOVED — verify vibesdk doesn't use this shape before spike
+- `cancelOnClientAbort` ADDED to `useAgentChat()` — vibesdk uses PartySocket, not `useAgentChat`; pattern useful as reference only
 
 ### Decision Criteria
 
@@ -73,10 +100,20 @@ worker/agents/core/subagents/TeamLeadCoordinator.ts — replace DO fan-out
 ### Goal
 Wire Memori Labs TS SDK behind a `MemoryClient` interface and benchmark against stateless baseline on vibesdk phase-trace data.
 
-### Package
+### Package — BLOCKED (iteration 19 finding)
+
 ```
-npm install @memori.ai/memori-api-client   # v3.3.3, 14.4k★, Apache 2.0
+# @memori.ai/memori-api-client@6.23.0 is React-only ("React library to integrate
+# a Memori in your app or website") — CF Workers incompatible (requires browser DOM).
+# Cannot use in worker/ runtime directly.
 ```
+
+**Unblocking options:**
+1. Memori REST API — call their HTTP endpoints directly (no SDK); check CORS/auth model
+2. Memori MCP integration — they ship an MCP server; vibesdk could call via MCP from the agent side
+3. Find a CF Workers–compatible TS client for the Memori API (check `memorilabs.ai/docs/memori-cloud/`)
+
+**Status:** BLOCKED until a CF Workers–compatible client path is confirmed. Carry to S10 if unblocked. If blocked indefinitely, fall back to Mem0 REST API (fetch-based, no DOM dependency).
 
 ### Interface Contract (to implement)
 
@@ -154,8 +191,10 @@ Monitor for **Managed Agents Platform Alpha** announcement. If released:
 
 ```
 # schema: item|status|trigger|effort|impact
-CF Project Think|DEFER until GA|npm stable tag|3d spike|HIGH if replaces factory
-Memori Labs pilot|S9 Q2 2026|Immediate (SDK available)|5d|MEDIUM (quality uplift)
+CF Think Fibers|S9 NOW|@cloudflare/think experimental (stable enough for Fibers)|2d|HIGH — crash recovery
+CF Think subAgent RPC|S9 NOW|Same as Fibers|1d|HIGH — parallel phase execution
+CF Think Execution Ladder|S10 DEFER|npm stable tag (GA)|2d|HIGH if replaces factory
+Memori Labs pilot|BLOCKED|CF-compatible client path|5d|MEDIUM quality uplift
 LiteLLM Managed Agents|MONITOR|May 18 2026 town hall|1d eval|LOW-MEDIUM
 ```
 
