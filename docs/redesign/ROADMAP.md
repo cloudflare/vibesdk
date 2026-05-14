@@ -68,6 +68,8 @@ DESIGN.md detection + blueprint injection (S11)|DONE — fileManager.getFile('DE
 Opus 4.7 Fast Mode support + API research (S11)|DONE — claudeDirect.ts: speedMode:'fast'|'standard' param; anthropic-beta header injection; FAST_MODE_SUPPORTED_MODELS guard; speed field in result; waitlist-gated, 6× pricing ($150/MTok out), CriticAgent is correct first target; NOT available via OpenAI-compat AI Gateway path; apply-for-waitlist = owner action (8e74125)|1h|@Dev
 CF AI Gateway RFC correction (S11)|DONE — ADR-008 updated: streaming buffer RFC-stage NOT GA; correct header X-AI-Gateway-Durable-Id (not cf-aig-request-id); resume endpoint open question; re-check every cycle (8e74125)|0.5h|@Architect
 run028 tech+arch research (Cycle 7, S11)|DONE — Opus 4.7 Fast confirmed API; CF AI Gateway RFC status corrected; fast mode gap analysis (claudeDirect vs core.ts provider split)|--|@Architect
+IsolationBadge — DO isolation trust signal (S11)|DONE — IsolationBadge.tsx: ShieldCheck + Tooltip explaining Cloudflare DO per-session isolation; mounted in chat.tsx badge row leftmost; emerald scheme; pure presentational (80bfeaa)|2h|@Dev
+Git history panel — isomorphic-git log surface (S11)|DONE — getGitLog() RPC on CodeGeneratorAgent; GET /api/sessions/:id/git/log controller (owner check via EvalResultsService, limit [1,100]); GitCommitEntry+GitLogResponse in api-types.ts; getGitLog() in api-client.ts; GitHistoryPanel.tsx collapsible (7-char OID chip, subject, relative timestamp, max-h-64 scroll); mounted in chat.tsx below PlanTree; v0.dev Git panel parity; 55 tests pass, 0 TS errors (c809fe4)|3h|@Dev
 ```
 
 ### Production Readiness (Sprint 2, tracked in QA-PROTOCOL.md)
