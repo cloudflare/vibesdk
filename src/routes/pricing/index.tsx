@@ -228,6 +228,11 @@ export default function PricingPage() {
                     <div className="mb-3 text-sm font-medium uppercase tracking-wider text-accent">Pricing</div>
                     <h1 className="text-4xl font-bold tracking-tight text-text-primary sm:text-5xl">Start free. Scale when you ship.</h1>
                     <p className="mt-4 text-base text-text-primary/70 sm:text-lg">Simple tiers. Honest limits. Cancel any time.</p>
+                    <p className="mt-2 text-sm text-text-primary/50">
+                        First AI agentic engineering platform priced for India.{' '}
+                        <span className="text-accent font-medium">₹1,699/mo</span>
+                        {' '}vs ₹2,100+ for global alternatives.
+                    </p>
 
                     <div className="mt-8 inline-flex rounded-full border border-bg-4 bg-bg-2 p-1">
                         <CycleButton active={cycle === 'monthly'} onClick={() => setCycle('monthly')}>Monthly</CycleButton>

@@ -84,6 +84,8 @@ run032 Cycle 8 tech pillar (S12)|DONE — Mastra v1.34 not released (pin v1.33);
 Pricing competitive comparison table (S12)|DONE — pricing/index.tsx: 10-row table vs NxCode/free tools; vibesdk AHEAD on 8/10 dimensions; lucide Check/X; shadcn bg tokens; 0 TS errors; DEC-031-E companion piece (ccc8df5)|1h|@Dev
 run033 Cycle 8 features pillar (S12)|DONE — Lovable Q2: Teams v2 + Analytics auto-config (NEW GAP DEC-033-A); Replit Design Canvas still beta; v0 DB GA (Neon/Supabase/Upstash, confirms DEC-031-B); AI SaaS template gap (DEC-033-D); India pricing moat (DEC-033-E); DeployBadge UX gap (DEC-033-F); 6 decisions (f9afe16)|--|@Architect
 DeployBadge — live deploy chip (S12)|DONE — DeployBadge.tsx: 3 states (idle/deploying/live), globe/spinner icons, tooltip with URL, keyboard-accessible, mounted in chat.tsx header between IsolationBadge+CostPreviewBadge; 0 TS errors (3f5a84d)|2h|@Dev
+India pricing copy (S12)|DONE — pricing/index.tsx header: "First AI agentic engineering platform priced for India. ₹1,699/mo vs ₹2,100+ for global alternatives." DEC-033-E companion; GST-inclusive note preserved; 0 TS errors|(this iter)|@Dev
+run034 Cycle 8 market close (S12)|DONE — Q3 window confirmed; Q3 readiness scorecard (5 AHEAD, 2 gaps, 2 true blockers); India-first architecture (Razorpay/UPI/GST); email templates decision (Resend.com); 4 decisions DEC-034-A→D; VERDICT: ARCHITECTURALLY READY, COMMERCIALLY BLOCKED (Razorpay IDs)|(this iter)|@Architect
 ```
 
 ### Production Readiness (Sprint 2, tracked in QA-PROTOCOL.md)
