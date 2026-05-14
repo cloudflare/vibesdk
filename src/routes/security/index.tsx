@@ -107,10 +107,10 @@ const COMPARISON_ROWS: ComparisonRow[] = [
         lovableOk: false,
     },
     {
-        dimension: 'Security certifications',
-        lovable: 'Post-incident Wiz scanner added',
-        vibesdk: 'Cloudflare SOC 2 Type II (infrastructure)',
-        lovableOk: true,
+        dimension: 'Security approach',
+        lovable: 'Post-incident Wiz scanner + Cursor Security Review (scanning) — finds problems after code is written',
+        vibesdk: 'Structural isolation — the vulnerability class cannot exist (Cloudflare SOC 2 Type II)',
+        lovableOk: false,
     },
 ];
 
@@ -161,8 +161,9 @@ export default function SecurityPage() {
                         variants={fadeUp}
                         className="mt-4 text-base text-gray-500 dark:text-gray-400 max-w-2xl mx-auto leading-relaxed"
                     >
-                        Scan-based security finds known vulnerabilities in a shared codebase. Structural
-                        isolation removes the shared codebase entirely. vibesdk's Cloudflare Durable Object
+                        Code scanners — including those used by Lovable (Wiz) and Cursor (Security Review) —
+                        find vulnerabilities after they are written. Structural isolation ensures the
+                        vulnerability class does not exist to begin with. vibesdk's Cloudflare Durable Object
                         architecture makes the class of attacks that exposed Lovable's users{' '}
                         <span className="text-gray-700 dark:text-gray-300 font-medium">
                             structurally impossible
