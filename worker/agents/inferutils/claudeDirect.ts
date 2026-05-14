@@ -27,12 +27,26 @@ const ANTHROPIC_API = 'https://api.anthropic.com/v1/messages';
 const ANTHROPIC_VERSION = '2023-06-01';
 
 export type ClaudeModel =
-    | 'claude-sonnet-4-5'          // medium-weight, sub-agent default
-    | 'claude-sonnet-4-5-20250929' // pinned stable for regression-safety
-    | 'claude-opus-4-5'            // reserved for Critic (Team+ tier only)
-    | 'claude-haiku-4-5';          // reserved for Tester (Flash-Lite equivalent)
+    // Current generation (as of May 2026 — run023 research)
+    | 'claude-sonnet-4-6'          // GA: 1M ctx, adaptive thinking, same price as 4.5 — DEFAULT
+    | 'claude-opus-4-7'            // GA: 1M ctx, 128k out, best agentic coding — Critic Team+ tier
+    | 'claude-haiku-4-5'           // GA: fastest, Flash-Lite equivalent — Tester lite tier
+    // Legacy (still available, kept for regression-safety pinning)
+    | 'claude-sonnet-4-5'          // legacy: 200k ctx (use 4.6 for new code)
+    | 'claude-sonnet-4-5-20250929' // pinned snapshot — regression-safety only
+    | 'claude-opus-4-5'            // legacy Opus — use 4.7 for new code
+    // Future: uncomment when released (~mid-May 2026)
+    // | 'claude-sonnet-4-8'       // NOT YET RELEASED — monitor Anthropic API (run023)
+    ;
 
-export const CLAUDE_DEFAULT_MODEL: ClaudeModel = 'claude-sonnet-4-5';
+// S10 → S11 upgrade: claude-sonnet-4-5 → claude-sonnet-4-6
+// Gains: 1M context window (vs 200k), adaptive thinking, same pricing.
+// Upgrade to claude-sonnet-4-8 immediately when it becomes available.
+export const CLAUDE_DEFAULT_MODEL: ClaudeModel = 'claude-sonnet-4-6';
+
+// Premium model for Critic (Team+) and future Opus-tier operations.
+// claude-opus-4-7: step-change agentic coding, 128k output, 1M context.
+export const CLAUDE_PREMIUM_MODEL: ClaudeModel = 'claude-opus-4-7';
 
 export interface ClaudeMessage {
     readonly role: 'user' | 'assistant';

@@ -39,7 +39,7 @@ Emit agent_status + plan_update from coordinator|DONE — emitAgentStatus + emit
 /benchmark backend (cron + KV + routes)|DONE — runDailyBenchmark, BenchmarkController, setupBenchmarkRoutes|-|@Dev
 Session monitor endpoint + badge|DONE — /api/sessions/:id/monitor + SessionMonitorBadge.tsx|-|@Dev
 Hook checkGenerationGuard into codegenRoutes session-start path|DONE — wired in agent controller w/ rollback|-|@Dev
-Tester sub-agent body (sandbox run)|DEFERRED — scaffolded, wire when traffic justifies|6|@Dev
+Tester sub-agent body (sandbox run)|DONE — getInstanceErrors+runStaticAnalysisCode+getLogs wired; tester-utils.ts (pure conversions), 24 tests, LLM enrichment deferred S11 (0ca86e8)|6|@Dev
 Razorpay plan IDs in wrangler.jsonc|DEFERRED — per user request, flip last|0|@Owner
 Razorpay secrets via `wrangler secret put`|DEFERRED — per user request|0|@Owner
 Memory + RAG + Eval layer (ADR-004)|DONE — S3/S4: CF Agent Memory (stub-safe), AI Search, DeepEval TS-port (4 metrics), AgentMemoryClient|-|@Dev

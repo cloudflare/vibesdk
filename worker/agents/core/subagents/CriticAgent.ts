@@ -23,7 +23,7 @@ import type {
     CriticConcern,
 } from './contracts';
 import { pickModel } from '../../inferutils/modelRouter';
-import { callClaudeForJson, CLAUDE_DEFAULT_MODEL } from '../../inferutils/claudeDirect';
+import { callClaudeForJson, CLAUDE_PREMIUM_MODEL } from '../../inferutils/claudeDirect';
 import { createObjectLogger, type StructuredLogger } from '../../../logger';
 
 const MAX_ROUNDS = 2;
@@ -165,7 +165,7 @@ export class CriticAgent extends DurableObject<Cloudflare.Env> implements Critic
 
         const result = await callClaudeForJson<CriticJsonResponse>({
             env: this.env,
-            model: CLAUDE_DEFAULT_MODEL,
+            model: CLAUDE_PREMIUM_MODEL, // Opus 4.7 — best agentic coding for plan critique
             system: systemPrompt,
             messages: [{ role: 'user', content: userPrompt }],
             maxTokens: 2000,
