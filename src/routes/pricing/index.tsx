@@ -154,9 +154,16 @@ const COMPARISON_ROWS: readonly ComparisonRow[] = [
         vibesdk: true,
     },
     {
-        feature: 'Price',
-        freeTools: 'Free forever',
-        vibesdk: 'Free tier + paid',
+        feature: 'Pricing model',
+        note: 'Replit/Bolt use effort-based or credit-based billing — costs vary each session',
+        freeTools: 'Credits / effort-based',
+        vibesdk: 'Flat monthly (₹1,699/mo)',
+    },
+    {
+        feature: 'India billing rails',
+        note: 'Razorpay + UPI + GST-inclusive INR pricing — no currency conversion fees',
+        freeTools: false,
+        vibesdk: true,
     },
 ];
 
@@ -232,6 +239,9 @@ export default function PricingPage() {
                         First AI agentic engineering platform priced for India.{' '}
                         <span className="text-accent font-medium">₹1,699/mo</span>
                         {' '}vs ₹2,100+ for global alternatives.
+                    </p>
+                    <p className="mt-1.5 text-xs text-text-primary/40">
+                        Flat monthly price — no credits, no effort-based surprises. Know your costs before you build.
                     </p>
 
                     <div className="mt-8 inline-flex rounded-full border border-bg-4 bg-bg-2 p-1">
@@ -310,7 +320,7 @@ export default function PricingPage() {
                         vibesdk vs free AI coding tools
                     </h2>
                     <p className="mb-8 text-center text-sm text-text-primary/60">
-                        Free tools generate apps. vibesdk generates architectures.
+                        Free tools generate apps. vibesdk generates architectures — at a price you can predict.
                     </p>
                     <div className="overflow-x-auto rounded-2xl border border-bg-4">
                         <table className="w-full text-sm">
