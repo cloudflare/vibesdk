@@ -21,7 +21,7 @@ import { GenerationContext } from "../domain/values/GenerationContext";
 import { compactifyContext } from "../utils/conversationCompactifier";
 import { ChatCompletionMessageFunctionToolCall } from "openai/resources";
 import { prepareMessagesForInference } from "../utils/common";
-import { AgentMemoryClient } from "../../services/memory/AgentMemoryClient";
+import { AgentMemoryClient } from "../../services/memory";
 
 // Constants
 const CHUNK_SIZE = 64;

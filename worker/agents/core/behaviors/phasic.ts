@@ -35,7 +35,7 @@ import { runEvalGate } from '../../operations/EvalGate';
 // S8 — PhaseWorkflow: Mastra-orchestrated plan → implement → eval (ADR-005).
 import { runPhaseWorkflow } from '../../operations/PhaseWorkflow';
 // S8 — Agent memory: persist phase eval results for cross-session recall (ADR-004).
-import { AgentMemoryClient } from '../../../services/memory/AgentMemoryClient';
+import { AgentMemoryClient } from '../../../services/memory';
 import { EvalResultsService } from '../../../database/services/EvalResultsService';
 // S5 — per-phase effort estimation + token recording.
 import { estimatePhaseCredits } from '../../../services/billing/effortEstimator';
