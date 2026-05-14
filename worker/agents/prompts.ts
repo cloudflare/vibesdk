@@ -1200,6 +1200,46 @@ const AI_SAAS_INSTRUCTIONS = (): string => `
 ** Remind the user to set CLOUDFLARE_ACCOUNT_ID and their gateway ID in wrangler.jsonc if using CF AI Gateway.
 `;
 
+// ── Analytics injection (DEC-033-A) ─────────────────────────────────────────
+
+/**
+ * Plausible analytics hint — appended to all public-facing use-case instructions.
+ *
+ * Tells the blueprint LLM to include a Plausible snippet so generated apps
+ * have analytics from day one without the user having to think about it.
+ * Domain is left as a placeholder; the user sets it in the Plausible dashboard.
+ */
+const PLAUSIBLE_ANALYTICS_HINT = `
+### Analytics (Plausible — auto-included)
+Include lightweight, privacy-first analytics in every generated app. Use Plausible.io:
+
+**For HTML/React apps (index.html or the root layout):**
+Add to \`<head>\`:
+\`\`\`html
+<!-- Plausible Analytics — replace YOUR_DOMAIN with your actual domain -->
+<script defer data-domain="YOUR_DOMAIN" src="https://plausible.io/js/script.js"></script>
+\`\`\`
+
+**For React/Vite (src/index.html or public/index.html):**
+\`\`\`html
+<script defer data-domain="YOUR_DOMAIN" src="https://plausible.io/js/script.js"></script>
+\`\`\`
+
+**For server-rendered layouts (e.g., a root layout component):**
+\`\`\`tsx
+{/* Plausible Analytics */}
+<script defer data-domain="YOUR_DOMAIN" src="https://plausible.io/js/script.js" />
+\`\`\`
+
+Rules:
+** Always use \`defer\` — never block rendering.
+** Set \`data-domain\` to a placeholder string \`YOUR_DOMAIN\`; add a comment instructing the user to replace it.
+** Do NOT use \`async\` — Plausible requires \`defer\` for correct first-pageview capture.
+** Do NOT inline the script — always reference the CDN URL.
+** Plausible is GDPR-compliant, cookie-free, and does not require a cookie banner.
+** Free plan covers 10,000 pageviews/month. Sign up at plausible.io.
+`;
+
 export const getUsecaseSpecificInstructions = (
     selectedTemplate: TemplateSelection,
     designRules?: string,
@@ -1231,6 +1271,12 @@ export const getUsecaseSpecificInstructions = (
     // Append DESIGN.md rules if the user placed one in the session root (Google Stitch protocol)
     if (designRules) {
         result += `\n\n### Design Rules (from DESIGN.md)\nThe user has provided a DESIGN.md file with project-specific design constraints. Follow these rules strictly:\n\n${designRules}`;
+    }
+    // Append Plausible analytics hint for all public-facing use cases (DEC-033-A)
+    // Omit for Dashboard (internal tooling) and null/undefined use cases
+    const analyticsUseCase = selectedTemplate.useCase;
+    if (analyticsUseCase !== null && analyticsUseCase !== undefined && analyticsUseCase !== 'Dashboard') {
+        result += PLAUSIBLE_ANALYTICS_HINT;
     }
     return result;
 }

@@ -195,3 +195,83 @@ describe('getUsecaseSpecificInstructions — DESIGN.md injection', () => {
         }
     });
 });
+
+// ── Plausible analytics injection (DEC-033-A) ─────────────────────────────────
+
+describe('getUsecaseSpecificInstructions — Plausible analytics injection', () => {
+    const makeSelection = (overrides: Partial<TemplateSelection> = {}): TemplateSelection => ({
+        selectedTemplateName: 'react-dashboard',
+        reasoning: 'test',
+        useCase: 'SaaS with Payments',
+        complexity: 'simple',
+        styleSelection: 'Minimalist Design',
+        projectType: 'app',
+        ...overrides,
+    });
+
+    it('includes Plausible script tag for SaaS with Payments', () => {
+        const instructions = getUsecaseSpecificInstructions(makeSelection());
+        expect(instructions).toContain('plausible.io');
+        expect(instructions).toContain('data-domain');
+        expect(instructions).toContain('defer');
+    });
+
+    it('includes Plausible for SaaS Product Website', () => {
+        const instructions = getUsecaseSpecificInstructions(makeSelection({ useCase: 'SaaS Product Website' }));
+        expect(instructions).toContain('plausible.io');
+    });
+
+    it('includes Plausible for AI SaaS', () => {
+        const instructions = getUsecaseSpecificInstructions(makeSelection({ useCase: 'AI SaaS' }));
+        expect(instructions).toContain('plausible.io');
+    });
+
+    it('includes Plausible for E-Commerce', () => {
+        const instructions = getUsecaseSpecificInstructions(makeSelection({ useCase: 'E-Commerce' }));
+        expect(instructions).toContain('plausible.io');
+    });
+
+    it('includes Plausible for Blog', () => {
+        const instructions = getUsecaseSpecificInstructions(makeSelection({ useCase: 'Blog' }));
+        expect(instructions).toContain('plausible.io');
+    });
+
+    it('includes Plausible for General', () => {
+        const instructions = getUsecaseSpecificInstructions(makeSelection({ useCase: 'General' }));
+        expect(instructions).toContain('plausible.io');
+    });
+
+    it('omits Plausible for Dashboard (internal tooling)', () => {
+        const instructions = getUsecaseSpecificInstructions(makeSelection({ useCase: 'Dashboard' }));
+        expect(instructions).not.toContain('plausible.io');
+    });
+
+    it('Plausible hint appears after base usecase instructions', () => {
+        const instructions = getUsecaseSpecificInstructions(makeSelection());
+        const paymentsIdx = instructions.indexOf('Checkout Session');
+        const plausibleIdx = instructions.indexOf('plausible.io');
+        expect(paymentsIdx).toBeGreaterThan(-1);
+        expect(plausibleIdx).toBeGreaterThan(paymentsIdx);
+    });
+
+    it('Plausible hint appears after DESIGN.md rules when both present', () => {
+        const rules = 'Use Inter font only.';
+        const instructions = getUsecaseSpecificInstructions(makeSelection(), rules);
+        const designIdx = instructions.indexOf('Design Rules (from DESIGN.md)');
+        const plausibleIdx = instructions.indexOf('plausible.io');
+        expect(designIdx).toBeGreaterThan(-1);
+        expect(plausibleIdx).toBeGreaterThan(designIdx);
+    });
+
+    it('uses defer attribute (not async)', () => {
+        const instructions = getUsecaseSpecificInstructions(makeSelection());
+        expect(instructions).toContain('defer');
+        // Should explicitly warn against async
+        expect(instructions.toLowerCase()).toContain('async');
+    });
+
+    it('includes YOUR_DOMAIN placeholder', () => {
+        const instructions = getUsecaseSpecificInstructions(makeSelection());
+        expect(instructions).toContain('YOUR_DOMAIN');
+    });
+});
