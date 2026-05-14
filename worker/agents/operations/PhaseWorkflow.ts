@@ -31,6 +31,7 @@
 
 import { z } from 'zod';
 import { createWorkflow, createStep } from '@mastra/core/workflows';
+import { PhaseConceptSchema } from '../schemas';
 import type { PhaseConceptType, PhaseImplementationSchemaType } from '../schemas';
 import type { AllIssues, UserContext } from '../core/types';
 import { runMastraEvalScorer } from '../../services/mastra/evalGate';
@@ -41,9 +42,15 @@ const logger = createLogger('PhaseWorkflow');
 
 // ── Zod schemas for workflow step I/O ─────────────────────────────────────
 
+// PhaseConceptSchema.passthrough() — accepts PhaseConceptType and its
+// extensions (e.g. PhaseConceptGenerationSchemaType with installCommands).
+// Using passthrough instead of z.unknown() gives Mastra runtime validation
+// while preserving extra fields from the caller.
+const PhaseConceptZodSchema = PhaseConceptSchema.passthrough();
+
 const PhaseWorkflowInputSchema = z.object({
     /** Phase concept produced by PhaseGenerationOperation. */
-    phase: z.unknown(), // PhaseConceptType — opaque to Mastra
+    phase: PhaseConceptZodSchema,
     /** User's original request — passed to eval judge. */
     userQuery: z.string(),
     /** Session identifiers for EvalGate + telemetry. */
@@ -52,7 +59,7 @@ const PhaseWorkflowInputSchema = z.object({
 });
 
 const PlanStepOutputSchema = z.object({
-    phase: z.unknown(),
+    phase: PhaseConceptZodSchema,
     fileCount: z.number(),
     durationMs: z.number(),
 });
