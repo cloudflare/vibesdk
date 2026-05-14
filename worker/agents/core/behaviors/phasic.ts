@@ -480,11 +480,14 @@ export class PhasicCodingBehavior extends BaseCodingBehavior<PhasicState> implem
             // Mastra path: emit workflow eval scores as RFC 6902 state_delta JSON patches.
             // Monolith path: fire-and-forget EvalGate (ADR-004 §Implementation step 3).
             if (mastraEval !== null) {
+                // RFC 6901 JSON Pointer: escape '~' → '~0', '/' → '~1' in the phase name
+                // so phase names like "Backend/API" produce valid pointer segments.
+                const phasePtr = phaseConcept.name.replace(/~/g, '~0').replace(/\//g, '~1');
                 this.broadcast(WebSocketMessageResponses.STATE_DELTA, {
                     delta: [
-                        { op: 'replace' as const, path: `/phases/${phaseConcept.name}/evalScore`, value: mastraEval.evalScore },
-                        { op: 'replace' as const, path: `/phases/${phaseConcept.name}/evalPassed`, value: mastraEval.evalPassed },
-                        { op: 'replace' as const, path: `/phases/${phaseConcept.name}/evalReason`, value: mastraEval.evalReason },
+                        { op: 'replace' as const, path: `/phases/${phasePtr}/evalScore`, value: mastraEval.evalScore },
+                        { op: 'replace' as const, path: `/phases/${phasePtr}/evalPassed`, value: mastraEval.evalPassed },
+                        { op: 'replace' as const, path: `/phases/${phasePtr}/evalReason`, value: mastraEval.evalReason },
                     ],
                 });
                 // S8 — Persist Mastra eval result in agent memory (same path as monolith).
