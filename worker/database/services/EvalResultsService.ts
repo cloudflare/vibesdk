@@ -8,7 +8,7 @@
 
 import { desc, eq } from 'drizzle-orm';
 import { BaseService } from './BaseService';
-import { evalResults } from '../schema';
+import { apps, evalResults } from '../schema';
 import type { EvalResultRow } from '../schema';
 import { generateId } from '../../utils/idGenerator';
 

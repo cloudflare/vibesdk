@@ -29,6 +29,7 @@
 import { callClaudeForJson } from '../inferutils/claudeDirect';
 import { createLogger } from '../../logger';
 import type { PhaseConceptType, PhaseImplementationSchemaType } from '../schemas';
+import { getCachedEvalVerdict, cacheEvalVerdict } from './eval-cache';
 
 const logger = createLogger('EvalGate');
 
@@ -90,6 +91,20 @@ interface JudgeRaw {
  * spot judge-availability problems via telemetry.
  */
 export async function runEvalGate(env: Env, input: EvalInput): Promise<EvalVerdict> {
+    const phaseName = input.phase.name ?? '';
+
+    // ResponseCache analog (eval-cache.ts) — skip judge LLM call when the same
+    // (session, phase) pair was scored within the current process lifetime (10-min TTL).
+    // Covers retry storms and concurrent duplicate eval requests in multi-agent mode.
+    const cached = getCachedEvalVerdict(input.sessionId, phaseName);
+    if (cached) {
+        logger.info('EvalGate cache hit — returning cached verdict', {
+            sessionId: input.sessionId,
+            phase: phaseName,
+        });
+        return cached;
+    }
+
     try {
         const judgePrompt = buildJudgePrompt(input);
         const judged = await callClaudeForJson<JudgeRaw>({
@@ -105,9 +120,13 @@ export async function runEvalGate(env: Env, input: EvalInput): Promise<EvalVerdi
             input: judged.usage.inputTokens,
             output: judged.usage.outputTokens,
         });
+
+        // Store for subsequent calls within the same process window.
+        cacheEvalVerdict(input.sessionId, phaseName, verdict);
+
         logger.info('EvalGate verdict', {
             sessionId: input.sessionId,
-            phase: input.phase.name,
+            phase: phaseName,
             passed: verdict.passed,
             blockedReason: verdict.blockedReason,
             faithfulness: scores.faithfulness,
@@ -118,7 +137,7 @@ export async function runEvalGate(env: Env, input: EvalInput): Promise<EvalVerdi
     } catch (err) {
         logger.warn('EvalGate threw — emitting permissive verdict', {
             sessionId: input.sessionId,
-            phase: input.phase.name,
+            phase: phaseName,
             error: err instanceof Error ? err.message : String(err),
         });
         return permissiveVerdict('judge-threw');
