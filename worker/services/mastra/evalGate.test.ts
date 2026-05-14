@@ -20,12 +20,20 @@ const mockEvalGate = vi.hoisted(() => ({
     runEvalGate: vi.fn(),
     FAITHFULNESS_FLOOR: 0.6,
     HALLUCINATION_CEILING: 0.2,
+    // Keep the real formula so scorer output stays correct in tests.
+    computeCompositeEvalScore: (s: {
+        faithfulness: number;
+        answerRelevancy: number;
+        toolCorrectness: number;
+        hallucinationRisk: number;
+    }) => (s.faithfulness + s.answerRelevancy + s.toolCorrectness + (1 - s.hallucinationRisk)) / 4,
 }));
 
 vi.mock('../../agents/operations/EvalGate', () => ({
     runEvalGate: mockEvalGate.runEvalGate,
     FAITHFULNESS_FLOOR: mockEvalGate.FAITHFULNESS_FLOOR,
     HALLUCINATION_CEILING: mockEvalGate.HALLUCINATION_CEILING,
+    computeCompositeEvalScore: mockEvalGate.computeCompositeEvalScore,
 }));
 
 // Logger mock — suppress console output during tests.
