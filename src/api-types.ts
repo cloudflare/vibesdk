@@ -329,6 +329,21 @@ export interface SessionQualityResponse {
     hasResults: boolean;
 }
 
+// Git history panel — S11 (v0.dev Git panel parity)
+export interface GitCommitEntry {
+    oid: string;
+    /** Full commit message (first line = subject). */
+    message: string;
+    author: string;
+    /** ISO 8601 timestamp. */
+    timestamp: string;
+}
+
+export interface GitLogResponse {
+    sessionId: string;
+    commits: GitCommitEntry[];
+}
+
 export type {
     GitHubExportOptions,
     GitHubExportResult,

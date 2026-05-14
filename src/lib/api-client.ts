@@ -59,6 +59,7 @@ import type{
         VaultConfigResponse,
         VaultStatusResponse,
         SessionQualityResponse,
+        GitLogResponse,
 } from '@/api-types';
 import {
         RateLimitExceededError,
@@ -1257,6 +1258,15 @@ class ApiClient {
 
         async getSessionQuality(sessionId: string): Promise<ApiResponse<SessionQualityResponse>> {
                 return this.request<SessionQualityResponse>(`/api/sessions/${encodeURIComponent(sessionId)}/quality`);
+        }
+
+        // Git commit history (read-only)
+        // ===============================
+
+        async getGitLog(sessionId: string, limit = 20): Promise<ApiResponse<GitLogResponse>> {
+                return this.request<GitLogResponse>(
+                        `/api/sessions/${encodeURIComponent(sessionId)}/git/log?limit=${limit}`,
+                );
         }
 }
 

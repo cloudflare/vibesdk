@@ -36,7 +36,7 @@ import { ChatInput } from './components/chat-input';
 import { useVault } from '@/hooks/use-vault';
 import { VaultUnlockModal } from '@/components/vault';
 import { AgentsDock, PlanTree, useAgentStream } from '@/components/agents';
-import { PhaseQualityBadge, IsolationBadge } from '@/components/quality';
+import { PhaseQualityBadge, IsolationBadge, GitHistoryPanel } from '@/components/quality';
 import { CostPreviewBadge } from '@/components/billing/CostPreviewBadge';
 
 const isPhasicBlueprint = (blueprint?: BlueprintType | null): blueprint is PhasicBlueprint =>
@@ -760,6 +760,14 @@ export default function Chat() {
 								<PlanTree
 									nodes={livePlan}
 									className="mb-2 rounded-lg border border-bg-4 bg-bg-2"
+								/>
+							)}
+
+							{/* Git history panel — collapsible commit log (v0.dev Git panel parity) */}
+							{chatId && (
+								<GitHistoryPanel
+									sessionId={chatId}
+									className="mb-2"
 								/>
 							)}
 

@@ -4,9 +4,10 @@ import { adaptController } from '../honoAdapter';
 import { AuthConfig, setAuthLevel } from '../../middleware/auth/routeAuth';
 import { SessionMonitorController } from '../controllers/sessions/monitorController';
 import { SessionQualityController } from '../controllers/sessions/qualityController';
+import { GitLogController } from '../controllers/sessions/gitLogController';
 
 /**
- * Session-scoped read endpoints (monitor, quality, etc.). Owner-checked inside
+ * Session-scoped read endpoints (monitor, quality, git history, etc.). Owner-checked inside
  * each controller.
  */
 export function setupSessionRoutes(app: Hono<AppEnv>): void {
@@ -20,5 +21,11 @@ export function setupSessionRoutes(app: Hono<AppEnv>): void {
         '/api/sessions/:sessionId/quality',
         setAuthLevel(AuthConfig.authenticated),
         adaptController(SessionQualityController, SessionQualityController.getSessionQuality),
+    );
+
+    app.get(
+        '/api/sessions/:sessionId/git/log',
+        setAuthLevel(AuthConfig.authenticated),
+        adaptController(GitLogController, GitLogController.getGitLog),
     );
 }

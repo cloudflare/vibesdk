@@ -10,6 +10,7 @@ import { normalizePath, isPathSafe } from '../../utils/pathUtils';
 import { FileManager } from '../services/implementations/FileManager';
 import { DeploymentManager } from '../services/implementations/DeploymentManager';
 import { GitVersionControl } from '../git';
+import type { CommitInfo } from '../git';
 import { StateManager } from '../services/implementations/StateManager';
 import { PhasicCodingBehavior } from './behaviors/phasic';
 import { AgenticCodingBehavior } from './behaviors/agentic';
@@ -331,6 +332,14 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
 
     async getSummary(): Promise<AgentSummary> {
         return this.behavior.getSummary();
+    }
+
+    /**
+     * RPC: return commit history from the session's isomorphic-git store.
+     * Called by GitLogController to surface the git panel in the UI.
+     */
+    async getGitLog(limit = 20): Promise<CommitInfo[]> {
+        return this.git.log(limit);
     }
 
     getPreviewUrlCache(): string {
