@@ -82,6 +82,8 @@ run031 Cycle 8 opening (S12)|DONE — Q3 gap audit vs Lovable (5 ahead, 3 gaps: 
 Competitive landing section (S12)|DONE — CompetitiveSection.tsx: 4 proof points (isolation/eval-gate/parallel/DESIGN.md), emerald icon badges, staggered scroll animation, CTA to SECURITY.md; mounted in home.tsx below Discover Apps; 0 TS errors (743e565)|2h|@Dev
 run032 Cycle 8 tech pillar (S12)|DONE — Mastra v1.34 not released (pin v1.33); DO Facets still preview (defer migration); Sonnet 4.8 BLOCKED_API (3-step flip plan ready); CF Gateway RFC unchanged; Agent Signals deferred; blueprint-cache.ts design (S12 F-32); 6 decisions DEC-032-A→F (2425f48)|--|@Architect
 Pricing competitive comparison table (S12)|DONE — pricing/index.tsx: 10-row table vs NxCode/free tools; vibesdk AHEAD on 8/10 dimensions; lucide Check/X; shadcn bg tokens; 0 TS errors; DEC-031-E companion piece (ccc8df5)|1h|@Dev
+run033 Cycle 8 features pillar (S12)|DONE — Lovable Q2: Teams v2 + Analytics auto-config (NEW GAP DEC-033-A); Replit Design Canvas still beta; v0 DB GA (Neon/Supabase/Upstash, confirms DEC-031-B); AI SaaS template gap (DEC-033-D); India pricing moat (DEC-033-E); DeployBadge UX gap (DEC-033-F); 6 decisions (f9afe16)|--|@Architect
+DeployBadge — live deploy chip (S12)|DONE — DeployBadge.tsx: 3 states (idle/deploying/live), globe/spinner icons, tooltip with URL, keyboard-accessible, mounted in chat.tsx header between IsolationBadge+CostPreviewBadge; 0 TS errors (3f5a84d)|2h|@Dev
 ```
 
 ### Production Readiness (Sprint 2, tracked in QA-PROTOCOL.md)
