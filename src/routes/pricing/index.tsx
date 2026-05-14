@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useAuth } from '@/contexts/auth-context';
 import { useNavigate } from 'react-router';
 import { Button } from '@/components/ui/button';
-import { Check } from 'lucide-react';
+import { Check, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { apiClient } from '@/lib/api-client';
 
@@ -85,6 +85,78 @@ const TIERS: readonly TierDef[] = [
             '99.9% uptime SLA',
             'Dedicated Slack channel',
         ],
+    },
+];
+
+// ── Competitive comparison (DEC-031-E) ────────────────────────────────────
+
+interface ComparisonRow {
+    readonly feature: string;
+    readonly note?: string;
+    /** true = has it, false = missing, string = nuanced */
+    readonly freeTools: boolean | string;
+    readonly vibesdk: boolean | string;
+}
+
+const COMPARISON_ROWS: readonly ComparisonRow[] = [
+    {
+        feature: 'Per-session isolation',
+        note: 'Private SQLite per session; no shared infrastructure',
+        freeTools: false,
+        vibesdk: true,
+    },
+    {
+        feature: 'Eval gate',
+        note: 'Faithfulness + relevancy + tool correctness + hallucination risk',
+        freeTools: false,
+        vibesdk: true,
+    },
+    {
+        feature: 'Parallel multi-agent',
+        note: 'Planner + Coder + Tester + Critic running simultaneously',
+        freeTools: false,
+        vibesdk: 'Pro+',
+    },
+    {
+        feature: 'DESIGN.md injection',
+        note: 'Brand tokens and component rules injected into every phase',
+        freeTools: false,
+        vibesdk: true,
+    },
+    {
+        feature: 'Agentic engineering (multi-phase)',
+        note: 'Structured plan → implement → eval per feature phase',
+        freeTools: false,
+        vibesdk: true,
+    },
+    {
+        feature: 'Git history',
+        note: 'Full commit log via isomorphic-git; clone-able',
+        freeTools: 'Basic',
+        vibesdk: true,
+    },
+    {
+        feature: 'MCP server',
+        note: 'Expose session status / quality / app description as AI tools',
+        freeTools: false,
+        vibesdk: true,
+    },
+    {
+        feature: 'Context usage breakdown',
+        note: 'Tokens per phase, judge tokens, effort estimate',
+        freeTools: false,
+        vibesdk: true,
+    },
+    {
+        feature: 'Cloudflare Workers deploy',
+        note: 'One-click deploy to global edge; custom domain on Pro',
+        freeTools: false,
+        vibesdk: true,
+    },
+    {
+        feature: 'Price',
+        freeTools: 'Free forever',
+        vibesdk: 'Free tier + paid',
     },
 ];
 
@@ -225,6 +297,61 @@ export default function PricingPage() {
                             </div>
                         );
                     })}
+                </div>
+
+                {/* Competitive comparison table — vibesdk vs free tools (DEC-031-E) */}
+                <div className="mt-16" data-testid="competitive-comparison-table">
+                    <h2 className="mb-1 text-center text-lg font-semibold text-text-primary">
+                        vibesdk vs free AI coding tools
+                    </h2>
+                    <p className="mb-8 text-center text-sm text-text-primary/60">
+                        Free tools generate apps. vibesdk generates architectures.
+                    </p>
+                    <div className="overflow-x-auto rounded-2xl border border-bg-4">
+                        <table className="w-full text-sm">
+                            <thead>
+                                <tr className="border-b border-bg-4 bg-bg-2">
+                                    <th className="px-5 py-3.5 text-left font-semibold text-text-primary/70">Feature</th>
+                                    <th className="px-5 py-3.5 text-center font-semibold text-text-primary/50">Free tools<br /><span className="text-[10px] font-normal text-text-primary/40">(NxCode, Bolt free tier, etc.)</span></th>
+                                    <th className="px-5 py-3.5 text-center font-semibold text-accent">vibesdk</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {COMPARISON_ROWS.map((row, i) => (
+                                    <tr
+                                        key={row.feature}
+                                        className={cn(
+                                            'border-b border-bg-4/60 last:border-0',
+                                            i % 2 === 0 ? 'bg-bg-3/40' : 'bg-bg-2',
+                                        )}
+                                    >
+                                        <td className="px-5 py-3">
+                                            <div className="font-medium text-text-primary">{row.feature}</div>
+                                            {row.note && <div className="mt-0.5 text-[11px] text-text-primary/50">{row.note}</div>}
+                                        </td>
+                                        <td className="px-5 py-3 text-center">
+                                            {row.freeTools === true ? (
+                                                <Check className="mx-auto size-4 text-emerald-500" />
+                                            ) : row.freeTools === false ? (
+                                                <X className="mx-auto size-4 text-text-primary/30" />
+                                            ) : (
+                                                <span className="text-xs text-text-primary/50">{row.freeTools}</span>
+                                            )}
+                                        </td>
+                                        <td className="px-5 py-3 text-center">
+                                            {row.vibesdk === true ? (
+                                                <Check className="mx-auto size-4 text-emerald-500" />
+                                            ) : row.vibesdk === false ? (
+                                                <X className="mx-auto size-4 text-text-primary/30" />
+                                            ) : (
+                                                <span className="text-xs font-medium text-accent">{row.vibesdk}</span>
+                                            )}
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
 
                 <p className="mt-10 text-center text-xs text-text-primary/50">
