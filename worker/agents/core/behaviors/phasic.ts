@@ -45,6 +45,12 @@ import type { CoderAgent as CoderAgentDO } from '../subagents/CoderAgent';
 import type { PlannerAgent as PlannerAgentDO } from '../subagents/PlannerAgent';
 import type { CriticAgent as CriticAgentDO } from '../subagents/CriticAgent';
 import type { TesterAgent as TesterAgentDO } from '../subagents/TesterAgent';
+// S10 — ADR-007 Option A: parallel phase dispatch primitives.
+import {
+    executeParallelPhaseGroup,
+    shouldEscalateToOptionB,
+    type ParallelGroupMetrics,
+} from '../../operations/PhaseParallel';
 
 interface PhasicOperations extends BaseCodingOperations {
     generateNextPhase: PhaseGenerationOperation;
@@ -71,6 +77,13 @@ export class PhasicCodingBehavior extends BaseCodingBehavior<PhasicState> implem
         generateNextPhase: new PhaseGenerationOperation(),
         implementPhase: new PhaseImplementationOperation(),
     };
+
+    /**
+     * S10 — ADR-007 Option A: in-session parallel dispatch metrics.
+     * Ephemeral (not persisted) — resets on DO restart. If serialization
+     * rate exceeds 10%, escalate to Option B (LLM-Mediated Merge, S11).
+     */
+    private readonly parallelGroupMetrics: ParallelGroupMetrics = { total: 0, serialized: 0 };
 
     /**
      * Initialize the code generator with project blueprint and template
@@ -528,6 +541,50 @@ export class PhasicCodingBehavior extends BaseCodingBehavior<PhasicState> implem
             }
             return {currentDevState: CurrentDevState.IDLE};
         }
+    }
+
+    /**
+     * S10 — ADR-007 Option A: execute a group of phases in parallel.
+     *
+     * Called from the state machine when PhaseGeneration produces a set of
+     * phases whose file sets are guaranteed disjoint. Falls back to sequential
+     * automatically via `executeParallelPhaseGroup` if any two phases share a file.
+     *
+     * Escalation: if `parallelGroupMetrics.serialized / total > 0.10` after
+     * this call, a warning is logged to prompt migration to ADR-007 Option B
+     * (LLM-Mediated Merge, S11). The caller can inspect
+     * `this.parallelGroupMetrics` directly if finer-grained decisions are needed.
+     */
+    async executeParallelPhases(
+        phases: readonly PhaseConceptType[],
+        userContext?: UserContext,
+    ): Promise<{ currentDevState: CurrentDevState }> {
+        const results = await executeParallelPhaseGroup(
+            phases,
+            (phase) => this.executePhaseImplementation(phase, userContext),
+            this.parallelGroupMetrics,
+        );
+
+        if (shouldEscalateToOptionB(this.parallelGroupMetrics)) {
+            this.logger.warn('ADR-007: serialization rate >10% — consider escalating to Option B (S11)', {
+                total: this.parallelGroupMetrics.total,
+                serialized: this.parallelGroupMetrics.serialized,
+            });
+        }
+
+        // Surface the most terminal state from all phase results.
+        // Priority: IDLE > REVIEWING > FINALIZING > PHASE_GENERATING (default).
+        const statePriority: CurrentDevState[] = [
+            CurrentDevState.IDLE,
+            CurrentDevState.REVIEWING,
+            CurrentDevState.FINALIZING,
+        ];
+        for (const target of statePriority) {
+            if (results.some((r) => r.currentDevState === target)) {
+                return { currentDevState: target };
+            }
+        }
+        return { currentDevState: CurrentDevState.PHASE_GENERATING };
     }
 
     /**
