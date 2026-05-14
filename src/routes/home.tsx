@@ -1,5 +1,6 @@
 import { useRef, useState, useEffect, useMemo, useCallback } from 'react';
 import { ArrowUp, Mic, Github, GitFork, ChevronDown, Paperclip, Sparkles, Settings, Bot, MonitorSmartphone, Smartphone, LayoutTemplate, Headphones } from 'lucide-react';
+import { CompetitiveSection } from '@/components/competitive-section';
 import { useNavigate } from 'react-router';
 import { MAX_AGENT_QUERY_LENGTH, SUPPORTED_IMAGE_MIME_TYPES, type ProjectType } from '@/api-types';
 import { useFeature } from '@/features';
@@ -474,6 +475,9 @@ export default function Home() {
             </motion.section>
           )}
         </AnimatePresence>
+
+        {/* "Why vibesdk vs free tools?" — competitive positioning (DEC-031-E) */}
+        <CompetitiveSection />
       </LayoutGroup>
 
       {/* GitHub Save Dialog */}
