@@ -2,8 +2,9 @@
  * Unit tests for runMastraEvalScorer (worker/services/mastra/evalGate.ts).
  *
  * Tests the composite score calculation, gate pass/fail logic, and the
- * permissive fallback when EvalGate throws.  EvalGate itself is mocked so
- * these tests run without Cloudflare bindings or a Claude API key.
+ * permissive fallback when EvalGate throws.  Only runEvalGate is mocked
+ * (calls claudeDirect); constants and computeCompositeEvalScore use real
+ * implementations via importOriginal — no Cloudflare bindings needed.
  *
  * Note: These tests require `@cloudflare/vitest-pool-workers` which needs the
  * platform-specific workerd binary.  On Windows dev machines the binary may
@@ -14,27 +15,18 @@ import { vi, describe, it, expect, beforeEach } from 'vitest';
 
 // ── Mock EvalGate ──────────────────────────────────────────────────────────
 //
-// vi.mock must appear before the import-under-test so Vitest can hoist it.
-// The factory returns a stable object whose properties we override per-test.
-const mockEvalGate = vi.hoisted(() => ({
-    runEvalGate: vi.fn(),
-    FAITHFULNESS_FLOOR: 0.6,
-    HALLUCINATION_CEILING: 0.2,
-    // Keep the real formula so scorer output stays correct in tests.
-    computeCompositeEvalScore: (s: {
-        faithfulness: number;
-        answerRelevancy: number;
-        toolCorrectness: number;
-        hallucinationRisk: number;
-    }) => (s.faithfulness + s.answerRelevancy + s.toolCorrectness + (1 - s.hallucinationRisk)) / 4,
-}));
+// Only mock `runEvalGate` — it calls claudeDirect (needs API key + CF bindings).
+// All other exports (computeCompositeEvalScore, constants, decide) use the real
+// implementations via importOriginal so tests don't duplicate formula logic.
+const mockRunEvalGate = vi.hoisted(() => vi.fn());
 
-vi.mock('../../agents/operations/EvalGate', () => ({
-    runEvalGate: mockEvalGate.runEvalGate,
-    FAITHFULNESS_FLOOR: mockEvalGate.FAITHFULNESS_FLOOR,
-    HALLUCINATION_CEILING: mockEvalGate.HALLUCINATION_CEILING,
-    computeCompositeEvalScore: mockEvalGate.computeCompositeEvalScore,
-}));
+vi.mock('../../agents/operations/EvalGate', async (importOriginal) => {
+    const actual = await importOriginal<typeof import('../../agents/operations/EvalGate')>();
+    return {
+        ...actual,
+        runEvalGate: mockRunEvalGate,
+    };
+});
 
 // Logger mock — suppress console output during tests.
 vi.mock('../../logger', () => ({
@@ -99,7 +91,7 @@ describe('runMastraEvalScorer', () => {
             hallucinationRisk: 0.1,  // inverted → 0.9
         });
         // composite = (0.8 + 0.7 + 0.9 + 0.9) / 4 = 0.825
-        mockEvalGate.runEvalGate.mockResolvedValue(verdict);
+        mockRunEvalGate.mockResolvedValue(verdict);
 
         const result = await runMastraEvalScorer({} as any, makeInput());
 
@@ -115,7 +107,7 @@ describe('runMastraEvalScorer', () => {
             hallucinationRisk: 0.15,  // inverted → 0.85
         });
         // composite = (0.7 + 0.8 + 0.6 + 0.85) / 4 = 0.7375
-        mockEvalGate.runEvalGate.mockResolvedValue(verdict);
+        mockRunEvalGate.mockResolvedValue(verdict);
 
         const result = await runMastraEvalScorer({} as any, makeInput());
 
@@ -124,7 +116,7 @@ describe('runMastraEvalScorer', () => {
 
     it('reports gate passed when faithfulness ≥ floor and hallucination ≤ ceiling', async () => {
         const verdict = makeVerdict({ faithfulness: 0.6, hallucinationRisk: 0.2 }, { passed: true });
-        mockEvalGate.runEvalGate.mockResolvedValue(verdict);
+        mockRunEvalGate.mockResolvedValue(verdict);
 
         const result = await runMastraEvalScorer({} as any, makeInput());
 
@@ -137,7 +129,7 @@ describe('runMastraEvalScorer', () => {
             { faithfulness: 0.59, hallucinationRisk: 0.1 },
             { passed: false, blockedReason: 'faithfulness 0.59 < floor 0.6' },
         );
-        mockEvalGate.runEvalGate.mockResolvedValue(verdict);
+        mockRunEvalGate.mockResolvedValue(verdict);
 
         const result = await runMastraEvalScorer({} as any, makeInput());
 
@@ -151,7 +143,7 @@ describe('runMastraEvalScorer', () => {
             { faithfulness: 0.8, hallucinationRisk: 0.21 },
             { passed: false, blockedReason: 'hallucination 0.21 > ceiling 0.2' },
         );
-        mockEvalGate.runEvalGate.mockResolvedValue(verdict);
+        mockRunEvalGate.mockResolvedValue(verdict);
 
         const result = await runMastraEvalScorer({} as any, makeInput());
 
@@ -167,7 +159,7 @@ describe('runMastraEvalScorer', () => {
             hallucinationRisk: 0.05,
         });
         verdict.judgeTokens = { input: 200, output: 80 };
-        mockEvalGate.runEvalGate.mockResolvedValue(verdict);
+        mockRunEvalGate.mockResolvedValue(verdict);
 
         const result = await runMastraEvalScorer({} as any, makeInput());
 
@@ -181,7 +173,7 @@ describe('runMastraEvalScorer', () => {
     });
 
     it('returns permissive score (1.0 passed) when EvalGate throws', async () => {
-        mockEvalGate.runEvalGate.mockRejectedValue(new Error('network timeout'));
+        mockRunEvalGate.mockRejectedValue(new Error('network timeout'));
 
         const result = await runMastraEvalScorer({} as any, makeInput());
 
