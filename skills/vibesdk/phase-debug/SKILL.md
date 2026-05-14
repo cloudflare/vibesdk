@@ -53,22 +53,53 @@ Check browser DevTools → Application → Events for 'vibesdk:state_delta'.
 // Missing binding → 'getAgentStub returned null' error
 ```
 
+## S8 Execution Path (multiAgentEnabled = true)
+
+```
+executePhaseImplementation(phaseConcept)
+  └─ runPhaseWorkflow({ env, phase, userQuery, sessionId, userId, runners })
+       └─ Mastra workflow: plan-phase → implement-phase → eval-phase
+            ├─ plan-phase: validates PhaseConceptType, records fileCount
+            ├─ implement-phase: calls runImpl closure → runMultiAgentPhase
+            │    └─ TeamLeadCoordinator.runParallelPhase (fan-out to CoderAgent DOs)
+            └─ eval-phase: runMastraEvalScorer → runEvalGate judge
+  └─ broadcast STATE_DELTA (RFC 6902 patches: evalScore, evalPassed, evalReason)
+  └─ storePhaseEvalMemory → AgentMemoryClient.remember (tag: 'phase:<name>')
+```
+
+## Monolith Execution Path (multiAgentEnabled = false, default)
+
+```
+executePhaseImplementation(phaseConcept)
+  └─ implementPhase(phaseConcept, issues, userContext)
+       └─ PhaseImplementationOperation.execute
+  └─ void runPhaseEvalGate(phaseConcept)   ← fire-and-forget
+       ├─ runEvalGate → judge scores
+       ├─ EvalResultsService.writeEvalResult → D1 DB
+       ├─ broadcast EVAL_GATE_VERDICT
+       └─ storePhaseEvalMemory → AgentMemoryClient.remember
+```
+
 ## Common Fixes
 
 | Symptom | Fix |
 |---------|-----|
 | Phase stuck in PHASE_GENERATING | Abort controller did not fire — check `getOrCreateAbortController()` |
 | EvalGate always blocks | Judge API key missing — check ANTHROPIC_API_KEY in env |
-| PhaseWorkflow `implement-phase` step fails | `runImpl` closure lost DO `this` — pass as arrow function |
+| PhaseWorkflow `implement-phase` step fails | `runImpl` closure lost DO `this` — verify arrow function wrapper in phasic.ts line ~449 |
 | tokensSpent = 0 | Sub-agents did not accumulate — check `TeamLeadCoordinator.runParallelPhase` return |
 | state_delta not received on frontend | AG-UI event dispatch missing — check `handle-websocket-message.ts` case `'state_delta'` |
+| storePhaseEvalMemory silently skipped | userId empty — anonymous sessions skip memory write by design |
+| Memory recall returns stale results | AGENT_MEMORY binding not provisioned — stub mode active (see TODO in AgentMemoryClient.ts) |
 
 ## Key Files
 ```
-worker/agents/core/behaviors/phasic.ts     — phase lifecycle, emitCostPreview, recordPhaseTokens
-worker/agents/operations/PhaseWorkflow.ts  — Mastra workflow: plan → implement → eval
-worker/agents/operations/EvalGate.ts       — eval judge, FAITHFULNESS_FLOOR, HALLUCINATION_CEILING
-worker/services/mastra/evalGate.ts         — Mastra scorer adapter
-worker/agents/subagents/TeamLeadCoordinator.ts — runParallelPhase orchestration
-worker/agents/core/behaviors/base.ts       — RUN_STARTED / RUN_FINISHED emission
+worker/agents/core/behaviors/phasic.ts          — executePhaseImplementation, storePhaseEvalMemory
+worker/agents/operations/PhaseWorkflow.ts       — Mastra workflow: plan → implement → eval
+worker/agents/operations/EvalGate.ts            — eval judge, FAITHFULNESS_FLOOR, HALLUCINATION_CEILING
+worker/services/mastra/evalGate.ts              — Mastra scorer adapter (runMastraEvalScorer)
+worker/services/mastra/client.ts                — getMastra() lazy singleton
+worker/services/memory/AgentMemoryClient.ts     — CF Agent Memory adapter (stub-safe)
+worker/agents/core/subagents/TeamLeadCoordinator.ts — runParallelPhase orchestration
+worker/agents/core/behaviors/base.ts            — RUN_STARTED / RUN_FINISHED emission
 ```
