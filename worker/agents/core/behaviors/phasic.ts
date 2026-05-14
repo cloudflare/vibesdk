@@ -477,11 +477,13 @@ export class PhasicCodingBehavior extends BaseCodingBehavior<PhasicState> implem
             // Mastra path: emit workflow eval scores as RFC 6902 state_delta JSON patches.
             // Monolith path: fire-and-forget EvalGate (ADR-004 §Implementation step 3).
             if (mastraEval !== null) {
-                this.broadcast(WebSocketMessageResponses.STATE_DELTA, [
-                    { op: 'replace', path: `/phases/${phaseConcept.name}/evalScore`, value: mastraEval.evalScore },
-                    { op: 'replace', path: `/phases/${phaseConcept.name}/evalPassed`, value: mastraEval.evalPassed },
-                    { op: 'replace', path: `/phases/${phaseConcept.name}/evalReason`, value: mastraEval.evalReason },
-                ]);
+                this.broadcast(WebSocketMessageResponses.STATE_DELTA, {
+                    delta: [
+                        { op: 'replace' as const, path: `/phases/${phaseConcept.name}/evalScore`, value: mastraEval.evalScore },
+                        { op: 'replace' as const, path: `/phases/${phaseConcept.name}/evalPassed`, value: mastraEval.evalPassed },
+                        { op: 'replace' as const, path: `/phases/${phaseConcept.name}/evalReason`, value: mastraEval.evalReason },
+                    ],
+                });
                 // S8 — Persist Mastra eval result in agent memory (same path as monolith).
                 void this.storePhaseEvalMemory(
                     phaseConcept.name,
