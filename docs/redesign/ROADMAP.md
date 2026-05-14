@@ -103,6 +103,7 @@ CUMULATIVE-SUMMARY-CYCLE-10 (S13)|DONE — Cycle 10 close: SpaceX IPO Jun 18-30 
 /blog/lovable-bola post (S13 DEC-040-D)|DONE — BOLA incident technical deep-dive: 76-day timeline, 5-step attack anatomy, Wiz limitation table, DO structural comparison; /security gains deep-dive link; SEO targets: lovable security incident / lovable bola / ai app builder security; 0 TS errors (5e00941)|--|@Dev
 run043b Cycle 11 tech (S14)|DONE — Sonnet 4.8 NOT released (Opus 4.7/Sonnet 4.6/Haiku 4.5 trio confirmed live); @mastra/core 1.33.1 installed compiles clean; CF AI Gateway RFC #1257 still open → ADR-008 app-layer confirmed; CF Agents SDK v0.12.4 "server turn persistence" = ADR-008 S14 WS buffering reference pattern; Dynamic Workflows S15 evaluate; 5 decisions DEC-043-A→E (0a22c4a)|--|@Architect
 ADR-008 S14 WS broadcast buffer (S14 DEC-043-D)|DONE — ws-buffer.ts: pure enqueueBroadcast/filterFreshBroadcasts/hasFreshBroadcasts helpers; MAX 100 entries, 5min TTL; CodeGeneratorAgent: _pendingBroadcasts ephemeral field + broadcast() buffers on 0 connections + flushPendingBroadcasts() called at onConnect before STATE_SNAPSHOT; 14 unit tests; 0 TS errors (ca14d60)|--|@Dev
+run044 Cycle 11 features (S14)|DONE — Lovable mobile (Apr 28) MEDIUM gap → S15 PWA; Rocket.new entrant free/credits-based no India pricing → WATCH only; Bolt AI image gen confirmed S15 LOW; Replit ChatGPT distribution + effort-based pricing → vibesdk flat ₹1,699 counter-narrative; 5 decisions DEC-044-A→E (f6389c8)|--|@Architect
 ```
 
 ### Production Readiness (Sprint 2, tracked in QA-PROTOCOL.md)
