@@ -6,6 +6,8 @@ import { IssueReport } from "./domain/values/IssueReport";
 import { FileState, MAX_PHASES } from "./core/state";
 import { CODE_SERIALIZERS, CodeSerializerType } from "./utils/codeSerializers";
 import { getCodebaseContext } from "./utils/codebaseContext";
+// S10 — UI Pattern Corpus (Mobbin-style static reference for blueprint LLM)
+import { getUiPatternHints, useCaseToCorpusKeys } from "./prompts/ui-corpus";
 
 export const PROMPT_UTILS = {
     /**
@@ -1144,17 +1146,25 @@ const SAAS_PAYMENTS_INSTRUCTIONS = (): string => `
 `;
 
 export const getUsecaseSpecificInstructions = (selectedTemplate: TemplateSelection): string => {
+    // Base instructions per use case
+    let baseInstructions: string;
     switch (selectedTemplate.useCase) {
         case 'SaaS Product Website':
-            return SAAS_LANDING_INSTRUCTIONS(selectedTemplate.styleSelection);
+            baseInstructions = SAAS_LANDING_INSTRUCTIONS(selectedTemplate.styleSelection);
+            break;
         case 'SaaS with Payments':
-            return SAAS_PAYMENTS_INSTRUCTIONS();
+            baseInstructions = SAAS_PAYMENTS_INSTRUCTIONS();
+            break;
         case 'E-Commerce':
-            return ECOMM_INSTRUCTIONS();
+            baseInstructions = ECOMM_INSTRUCTIONS();
+            break;
         case 'Dashboard':
-            return DASHBOARD_INSTRUCTIONS();
+            baseInstructions = DASHBOARD_INSTRUCTIONS();
+            break;
         default:
-            return `Use the following artistic style:
-            ${getStyleInstructions(selectedTemplate.styleSelection)}`;
+            baseInstructions = `Use the following artistic style:\n            ${getStyleInstructions(selectedTemplate.styleSelection)}`;
     }
+    // Append relevant UI pattern hints from the static corpus (S10)
+    const patternHints = getUiPatternHints(useCaseToCorpusKeys(selectedTemplate.useCase));
+    return patternHints ? `${baseInstructions}\n${patternHints}` : baseInstructions;
 }
