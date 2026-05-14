@@ -174,6 +174,109 @@ describe('D1ProvisionService', () => {
         });
     });
 
+    // ── generateDurableObjectSQLiteCode ──────────────────────────────────────
+
+    describe('generateDurableObjectSQLiteCode', () => {
+        const tables = [
+            {
+                name: 'items',
+                columns: [
+                    { name: 'id', type: 'TEXT' as const, primaryKey: true },
+                    { name: 'title', type: 'TEXT' as const, notNull: true },
+                    { name: 'created_at', type: 'INTEGER' as const, defaultSql: '(unixepoch())' },
+                ],
+            },
+            {
+                name: 'tags',
+                columns: [
+                    { name: 'id', type: 'TEXT' as const, primaryKey: true },
+                    { name: 'label', type: 'TEXT' as const, notNull: true },
+                ],
+            },
+        ] as const;
+
+        it('doClassCode extends DurableObject', () => {
+            const result = service.generateDurableObjectSQLiteCode('AppDatabase', 'APP_DB', tables);
+            expect(result.doClassCode).toContain('extends DurableObject');
+        });
+
+        it('doClassCode uses ctx.storage.sql', () => {
+            const result = service.generateDurableObjectSQLiteCode('AppDatabase', 'APP_DB', tables);
+            expect(result.doClassCode).toContain('ctx.storage.sql');
+        });
+
+        it('doClassCode sanitizes class name (removes non-alphanumeric)', () => {
+            const result = service.generateDurableObjectSQLiteCode('My App-Database!', 'DB', tables);
+            expect(result.doClassCode).toContain('class MyAppDatabase');
+        });
+
+        it('doClassCode generates CREATE TABLE IF NOT EXISTS for each table', () => {
+            const result = service.generateDurableObjectSQLiteCode('Store', 'STORE_DB', tables);
+            expect(result.doClassCode).toContain('CREATE TABLE IF NOT EXISTS items');
+            expect(result.doClassCode).toContain('CREATE TABLE IF NOT EXISTS tags');
+        });
+
+        it('doClassCode includes PRIMARY KEY column constraint', () => {
+            const result = service.generateDurableObjectSQLiteCode('Store', 'STORE_DB', tables);
+            expect(result.doClassCode).toContain('id TEXT PRIMARY KEY');
+        });
+
+        it('doClassCode includes DEFAULT clause when defaultSql provided', () => {
+            const result = service.generateDurableObjectSQLiteCode('Store', 'STORE_DB', tables);
+            expect(result.doClassCode).toContain('DEFAULT (unixepoch())');
+        });
+
+        it('doClassCode generates getAll, upsert, delete methods per table', () => {
+            const result = service.generateDurableObjectSQLiteCode('Store', 'STORE_DB', tables);
+            expect(result.doClassCode).toContain('getAllItems');
+            expect(result.doClassCode).toContain('upsertItems');
+            expect(result.doClassCode).toContain('deleteItems');
+            expect(result.doClassCode).toContain('getAllTags');
+            expect(result.doClassCode).toContain('upsertTags');
+            expect(result.doClassCode).toContain('deleteTags');
+        });
+
+        it('doClassCode includes cloudflare:workers import', () => {
+            const result = service.generateDurableObjectSQLiteCode('Store', 'STORE_DB', tables);
+            expect(result.doClassCode).toContain("from 'cloudflare:workers'");
+        });
+
+        it('wranglerSnippet includes durable_objects binding', () => {
+            const result = service.generateDurableObjectSQLiteCode('Store', 'STORE_DB', tables);
+            expect(result.wranglerSnippet).toContain('"durable_objects"');
+            expect(result.wranglerSnippet).toContain('"class_name": "Store"');
+            expect(result.wranglerSnippet).toContain('"name": "STORE_DB"');
+        });
+
+        it('wranglerSnippet includes migrations with new_sqlite_classes', () => {
+            const result = service.generateDurableObjectSQLiteCode('Store', 'STORE_DB', tables);
+            expect(result.wranglerSnippet).toContain('"new_sqlite_classes"');
+            expect(result.wranglerSnippet).toContain('"Store"');
+        });
+
+        it('workerExampleCode references the binding name', () => {
+            const result = service.generateDurableObjectSQLiteCode('Store', 'STORE_DB', tables);
+            expect(result.workerExampleCode).toContain('env.STORE_DB');
+        });
+
+        it('workerExampleCode uses idFromName for per-user isolation', () => {
+            const result = service.generateDurableObjectSQLiteCode('Store', 'STORE_DB', tables);
+            expect(result.workerExampleCode).toContain('idFromName');
+        });
+
+        it('binding name is uppercased and sanitized', () => {
+            const result = service.generateDurableObjectSQLiteCode('Store', 'my-app db', tables);
+            expect(result.wranglerSnippet).toContain('MY_APP_DB');
+        });
+
+        it('returns all three code blocks as non-empty strings', () => {
+            const result = service.generateDurableObjectSQLiteCode('Store', 'STORE_DB', tables);
+            expect(result.doClassCode.length).toBeGreaterThan(0);
+            expect(result.wranglerSnippet.length).toBeGreaterThan(0);
+            expect(result.workerExampleCode.length).toBeGreaterThan(0);
+        });
+    });
+
     // ── generateSetupDoc ──────────────────────────────────────────────────────
 
     describe('generateSetupDoc', () => {
