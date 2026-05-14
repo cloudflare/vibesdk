@@ -56,8 +56,12 @@ PhaseParallel — ADR-007 Option A primitives (S10)|DONE — validateDisjointFil
 phasic.ts parallel dispatch wiring (S10)|DONE — executeParallelPhases() + parallelGroupMetrics; escalation warning >10% (313add1)|-|@Dev
 MCP resources/list + resources/read (S10)|DONE — 3 URI templates (status|quality|app), parseResourceUri, 10 tests; server v1.1.0 (5ee6d56)|-|@Dev
 Static UI pattern corpus (S10)|DONE — 68 patterns × 10 categories, selective injection via getUiPatternHints(), 34 tests (1a7e322)|-|@Dev
-Claude Sonnet 4.8 AGENT_CONFIG upgrade (S10)|BLOCKED_API — monitor Anthropic API; update immediately on release|-|@Dev
+Claude model upgrade claudeDirect.ts|DONE — Sonnet 4.5→4.6 (1M ctx, adaptive thinking), added Opus 4.7 for Critic, ClaudeModel type extended (7dcb879)|-|@Dev
+Claude Sonnet 4.8 AGENT_CONFIG upgrade (S11)|BLOCKED_API — still not released; run023 confirmed imminent; uncomment in ClaudeModel, flip DEFAULT_MODEL immediately|-|@Dev
 Payments template scaffold Stripe/Paddle (S10)|DONE — 'SaaS with Payments' useCase enum + SAAS_PAYMENTS_INSTRUCTIONS; CF Workers fetch pattern, crypto.subtle webhook verify, D1 schema guidance, 15 tests (f47542b)|-|@Dev
+Mount PlanTree into chat.tsx (S11)|DONE — livePlan destructured from useAgentStream(), PlanTree renders below AgentsDock when plan_update events arrive (301e020)|2h|@Dev
+MULTI_AGENT_ENABLED env var toggle (S11)|DONE — wrangler.jsonc var + worker-configuration.d.ts + codingAgent.ts onStart reads flag; set to "true" in staging to enable parallel dispatch (c15fe09)|1h|@Dev
+Cycle 6 research (S11)|DONE — runs 023-026: tech (Sonnet 4.6/4.7 upgrade), features (Lovable Cloud gap, DESIGN.md), arch (AI Gateway streaming resilience), market (Emergent pivot, NxCode threat); CUMULATIVE-6 written|--|@Architect
 ```
 
 ### Production Readiness (Sprint 2, tracked in QA-PROTOCOL.md)
