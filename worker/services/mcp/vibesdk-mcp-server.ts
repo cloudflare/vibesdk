@@ -9,8 +9,16 @@
  *   vibesdk_get_quality  — eval gate verdicts, composite scores per phase
  *   vibesdk_describe_app — app metadata (title, framework, status)
  *
+ * Exposed resources (MCP 2024-11-05 §resources, Mastra v1.32 pattern):
+ *   vibesdk://session/{sessionId}/status  — same data as vibesdk_get_status
+ *   vibesdk://session/{sessionId}/quality — same data as vibesdk_get_quality
+ *   vibesdk://session/{sessionId}/app     — same data as vibesdk_describe_app
+ *
+ * Resources are read-only + non-subscribable (stateless HTTP POST).
+ * URI authority: `session`. Path segments: `{sessionId}` + resource name.
+ *
  * Authentication: caller passes `Authorization: Bearer <jwt>` on every request.
- * Ownership is enforced per tool (same DB ownership checks as REST controllers).
+ * Ownership is enforced per tool/resource (same DB ownership checks as REST controllers).
  *
  * CF Workers compat:
  *   No Node.js built-ins used. Pure fetch / V8 / Zod.
@@ -112,6 +120,66 @@ const MCP_TOOLS = [
         inputSchema: SESSION_ID_SCHEMA,
     },
 ] as const;
+
+// ── MCP resource templates ────────────────────────────────────────────────────
+
+/**
+ * URI scheme: `vibesdk://session/{sessionId}/{resource}`
+ *
+ * Templates follow RFC 6570 Level 1 (simple string expansion).
+ * Clients substitute `{sessionId}` before calling `resources/read`.
+ */
+const MCP_RESOURCE_TEMPLATES = [
+    {
+        uriTemplate: 'vibesdk://session/{sessionId}/status',
+        name: 'Session Status',
+        description:
+            'Real-time state of a vibesdk code generation session: progress, cost, ' +
+            'current activity, agent counts, elapsed time. Poll to track generation.',
+        mimeType: 'application/json',
+    },
+    {
+        uriTemplate: 'vibesdk://session/{sessionId}/quality',
+        name: 'Session Quality',
+        description:
+            'Eval gate verdicts for all completed phases: faithfulness, answer relevancy, ' +
+            'tool correctness, hallucination risk, composite score, pass/fail.',
+        mimeType: 'application/json',
+    },
+    {
+        uriTemplate: 'vibesdk://session/{sessionId}/app',
+        name: 'App Metadata',
+        description:
+            'App metadata: title, original prompt, framework, status, visibility, ' +
+            'creation timestamp, and session URL.',
+        mimeType: 'application/json',
+    },
+] as const;
+
+/**
+ * Parse a vibesdk resource URI and return the sessionId + resource name.
+ * Expected format: `vibesdk://session/{sessionId}/{resource}`
+ *
+ * @returns null if the URI does not match the expected format.
+ */
+function parseResourceUri(
+    uri: string,
+): { sessionId: string; resource: 'status' | 'quality' | 'app' } | null {
+    try {
+        const url = new URL(uri);
+        if (url.protocol !== 'vibesdk:') return null;
+        // authority is `session`, path is `/{sessionId}/{resource}`
+        if (url.hostname !== 'session') return null;
+        const parts = url.pathname.split('/').filter(Boolean);
+        if (parts.length !== 2) return null;
+        const [sessionId, resource] = parts;
+        if (!sessionId) return null;
+        if (resource !== 'status' && resource !== 'quality' && resource !== 'app') return null;
+        return { sessionId, resource };
+    } catch {
+        return null;
+    }
+}
 
 // ── Argument validation ───────────────────────────────────────────────────────
 
@@ -264,6 +332,28 @@ async function handleDescribeApp(
     }, null, 2);
 }
 
+// ── Resource handlers ─────────────────────────────────────────────────────────
+
+/**
+ * Build the text content for a resource URI.
+ * Ownership is checked via the same DB guards used by the equivalent tool handlers.
+ */
+async function readResource(
+    sessionId: string,
+    resource: 'status' | 'quality' | 'app',
+    env: Env,
+    user: AuthUser,
+): Promise<string> {
+    switch (resource) {
+        case 'status':
+            return handleGetStatus({ sessionId }, env, user);
+        case 'quality':
+            return handleGetQuality({ sessionId }, env, user);
+        case 'app':
+            return handleDescribeApp({ sessionId }, env, user);
+    }
+}
+
 // ── Tool dispatch ─────────────────────────────────────────────────────────────
 
 class McpToolError extends Error {
@@ -298,16 +388,76 @@ function handleInitialize(id: string | number | null): JsonRpcResponse {
         protocolVersion: '2024-11-05',
         capabilities: {
             tools: {},
+            // S10 — MCP Resources (Mastra v1.32 pattern, MCP 2024-11-05 §resources).
+            // Read-only; non-subscribable (stateless HTTP POST, no push channel).
+            resources: {
+                subscribe: false,
+                listChanged: false,
+            },
         },
         serverInfo: {
             name: 'vibesdk',
-            version: '1.0.0',
+            version: '1.1.0',
         },
         instructions:
-            'vibesdk MCP server. Use vibesdk_get_status to poll generation progress, ' +
-            'vibesdk_get_quality to inspect eval scores, and vibesdk_describe_app to read app metadata. ' +
-            'All tools require a sessionId (the app ID returned when creating a session).',
+            'vibesdk MCP server. Use tools (vibesdk_get_status, vibesdk_get_quality, ' +
+            'vibesdk_describe_app) or resources (vibesdk://session/{sessionId}/status|quality|app) ' +
+            'to inspect code generation sessions. All require a sessionId ' +
+            '(the app ID returned when creating a session via POST /api/agent).',
     });
+}
+
+function handleResourcesList(id: string | number | null): JsonRpcResponse {
+    // Return URI templates (RFC 6570 Level 1) — clients substitute {sessionId}.
+    return ok(id, {
+        resources: [],
+        resourceTemplates: MCP_RESOURCE_TEMPLATES,
+    });
+}
+
+async function handleResourcesRead(
+    id: string | number | null,
+    params: unknown,
+    env: Env,
+    user: AuthUser,
+): Promise<JsonRpcResponse> {
+    const parsed = z
+        .object({ uri: z.string().min(1) })
+        .safeParse(params);
+
+    if (!parsed.success) {
+        return err(id, JSONRPC_ERROR.INVALID_PARAMS, 'resources/read requires a uri parameter');
+    }
+
+    const { uri } = parsed.data;
+    const parsed_uri = parseResourceUri(uri);
+
+    if (!parsed_uri) {
+        return err(
+            id,
+            JSONRPC_ERROR.INVALID_PARAMS,
+            `Unrecognised resource URI. Expected format: vibesdk://session/{sessionId}/{status|quality|app}`,
+        );
+    }
+
+    try {
+        const text = await readResource(parsed_uri.sessionId, parsed_uri.resource, env, user);
+        return ok(id, {
+            contents: [{ uri, mimeType: 'application/json', text }],
+        });
+    } catch (e) {
+        if (e instanceof z.ZodError) {
+            return err(id, JSONRPC_ERROR.INVALID_PARAMS, 'Invalid resource arguments', e.issues);
+        }
+        if (e instanceof McpToolError) {
+            return err(id, JSONRPC_ERROR.INTERNAL_ERROR, e.message);
+        }
+        logger.error('MCP resource read failed', {
+            uri,
+            error: e instanceof Error ? e.message : String(e),
+        });
+        return err(id, JSONRPC_ERROR.INTERNAL_ERROR, 'Resource read failed');
+    }
 }
 
 function handleToolsList(id: string | number | null): JsonRpcResponse {
@@ -395,6 +545,13 @@ export async function handleMcpRequest(
 
         case 'tools/call':
             return handleToolsCall(id, params, env, user);
+
+        // S10 — MCP Resources (Mastra v1.32 pattern, MCP 2024-11-05 §resources).
+        case 'resources/list':
+            return handleResourcesList(id);
+
+        case 'resources/read':
+            return handleResourcesRead(id, params, env, user);
 
         default:
             return err(id, JSONRPC_ERROR.METHOD_NOT_FOUND, `Method not found: ${method}`);

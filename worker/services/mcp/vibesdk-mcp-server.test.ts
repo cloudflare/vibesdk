@@ -102,8 +102,11 @@ describe('initialize', () => {
             id: 1,
             result: {
                 protocolVersion: '2024-11-05',
-                capabilities: { tools: {} },
-                serverInfo: { name: 'vibesdk', version: '1.0.0' },
+                capabilities: {
+                    tools: {},
+                    resources: { subscribe: false, listChanged: false },
+                },
+                serverInfo: { name: 'vibesdk', version: '1.1.0' },
             },
         });
     });
@@ -280,5 +283,128 @@ describe('notifications/initialized', () => {
 
         expect('result' in res).toBe(true);
         expect(res.id).toBeNull();
+    });
+});
+
+// ── resources/list ────────────────────────────────────────────────────────────
+
+describe('resources/list', () => {
+    it('returns resource templates with URI patterns', async () => {
+        const res = await handleMcpRequest(rpc('resources/list'), FAKE_ENV, FAKE_USER) as {
+            result: { resources: unknown[]; resourceTemplates: Array<{ uriTemplate: string; name: string }> };
+        };
+
+        expect('result' in res).toBe(true);
+        expect(res.result.resources).toEqual([]);
+        expect(res.result.resourceTemplates).toHaveLength(3);
+    });
+
+    it('templates include status, quality, and app URI patterns', async () => {
+        const res = await handleMcpRequest(rpc('resources/list'), FAKE_ENV, FAKE_USER) as {
+            result: { resourceTemplates: Array<{ uriTemplate: string }> };
+        };
+        const templates = res.result.resourceTemplates.map((t) => t.uriTemplate);
+        expect(templates).toContain('vibesdk://session/{sessionId}/status');
+        expect(templates).toContain('vibesdk://session/{sessionId}/quality');
+        expect(templates).toContain('vibesdk://session/{sessionId}/app');
+    });
+
+    it('each template has mimeType application/json', async () => {
+        const res = await handleMcpRequest(rpc('resources/list'), FAKE_ENV, FAKE_USER) as {
+            result: { resourceTemplates: Array<{ mimeType: string }> };
+        };
+        for (const t of res.result.resourceTemplates) {
+            expect(t.mimeType).toBe('application/json');
+        }
+    });
+});
+
+// ── resources/read ────────────────────────────────────────────────────────────
+
+describe('resources/read', () => {
+    it('reads status resource and returns JSON contents', async () => {
+        const res = await handleMcpRequest(
+            rpc('resources/read', { uri: 'vibesdk://session/session-abc/status' }),
+            FAKE_ENV,
+            FAKE_USER,
+        ) as { result: { contents: Array<{ uri: string; mimeType: string; text: string }> } };
+
+        expect('result' in res).toBe(true);
+        expect(res.result.contents).toHaveLength(1);
+        expect(res.result.contents[0].mimeType).toBe('application/json');
+        const data = JSON.parse(res.result.contents[0].text);
+        expect(data.sessionId).toBe('session-abc');
+        expect(data).toHaveProperty('status');
+        expect(data).toHaveProperty('progress');
+    });
+
+    it('reads quality resource and returns eval data', async () => {
+        const res = await handleMcpRequest(
+            rpc('resources/read', { uri: 'vibesdk://session/session-abc/quality' }),
+            FAKE_ENV,
+            FAKE_USER,
+        ) as { result: { contents: Array<{ text: string }> } };
+
+        expect('result' in res).toBe(true);
+        const data = JSON.parse(res.result.contents[0].text);
+        expect(data.hasResults).toBe(true);
+        expect(data.phases).toHaveLength(1);
+    });
+
+    it('reads app resource and returns metadata', async () => {
+        const res = await handleMcpRequest(
+            rpc('resources/read', { uri: 'vibesdk://session/session-abc/app' }),
+            FAKE_ENV,
+            FAKE_USER,
+        ) as { result: { contents: Array<{ text: string }> } };
+
+        expect('result' in res).toBe(true);
+        const data = JSON.parse(res.result.contents[0].text);
+        expect(data.id).toBe('session-abc');
+        expect(data.title).toBe('My Test App');
+    });
+
+    it('returns INVALID_PARAMS when uri param is missing', async () => {
+        const res = await handleMcpRequest(
+            rpc('resources/read', {}),
+            FAKE_ENV,
+            FAKE_USER,
+        ) as { error: { code: number } };
+
+        expect('error' in res).toBe(true);
+        expect(res.error.code).toBe(-32602);
+    });
+
+    it('returns INVALID_PARAMS for URI with unrecognised resource segment', async () => {
+        const res = await handleMcpRequest(
+            rpc('resources/read', { uri: 'vibesdk://session/session-abc/unknown' }),
+            FAKE_ENV,
+            FAKE_USER,
+        ) as { error: { code: number } };
+
+        expect('error' in res).toBe(true);
+        expect(res.error.code).toBe(-32602);
+    });
+
+    it('returns INVALID_PARAMS for a non-vibesdk URI scheme', async () => {
+        const res = await handleMcpRequest(
+            rpc('resources/read', { uri: 'https://example.com/data' }),
+            FAKE_ENV,
+            FAKE_USER,
+        ) as { error: { code: number } };
+
+        expect('error' in res).toBe(true);
+        expect(res.error.code).toBe(-32602);
+    });
+
+    it('echoes the URI back in the contents entry', async () => {
+        const uri = 'vibesdk://session/session-abc/status';
+        const res = await handleMcpRequest(
+            rpc('resources/read', { uri }),
+            FAKE_ENV,
+            FAKE_USER,
+        ) as { result: { contents: Array<{ uri: string }> } };
+
+        expect(res.result.contents[0].uri).toBe(uri);
     });
 });
