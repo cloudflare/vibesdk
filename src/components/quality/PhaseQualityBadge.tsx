@@ -27,8 +27,14 @@ type EvalGateVerdictDetail = {
         toolCorrectness: number;
         hallucinationRisk: number;
     };
-    compositeScore: number;
+    /** Present in server ≥ d9d5ae4; fall back to local computation for older messages. */
+    compositeScore?: number;
 };
+
+/** Client-side fallback — mirrors computeCompositeEvalScore in EvalGate.ts. */
+function computeFallbackScore(scores: EvalGateVerdictDetail['scores']): number {
+    return (scores.faithfulness + scores.answerRelevancy + scores.toolCorrectness + (1 - scores.hallucinationRisk)) / 4;
+}
 
 export interface PhaseQualityBadgeProps {
     readonly sessionId: string;
@@ -80,7 +86,8 @@ export const PhaseQualityBadge = memo(function PhaseQualityBadge({
                 passed: detail.passed,
                 blockedReason: detail.blockedReason,
                 scores: detail.scores,
-                compositeScore: detail.compositeScore,
+                // Fall back to computing locally for old server messages that lack the field.
+                compositeScore: detail.compositeScore ?? computeFallbackScore(detail.scores),
             };
             setVerdicts((prev) => [verdict, ...prev]);
         };
