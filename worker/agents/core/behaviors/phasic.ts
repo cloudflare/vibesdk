@@ -32,6 +32,8 @@ import { runPreDeploySafetyGate } from '../../utils/preDeploySafetyGate';
 import { runParallelPhase } from '../subagents/TeamLeadCoordinator';
 // S3.1 — EvalGate: best-effort quality gate after each phase (ADR-004 §Implementation step 3).
 import { runEvalGate } from '../../operations/EvalGate';
+// S8 — PhaseWorkflow: Mastra-orchestrated plan → implement → eval (ADR-005).
+import { runPhaseWorkflow } from '../../operations/PhaseWorkflow';
 import { EvalResultsService } from '../../../database/services/EvalResultsService';
 // S5 — per-phase effort estimation + token recording.
 import { estimatePhaseCredits } from '../../../services/billing/effortEstimator';
@@ -428,17 +430,36 @@ export class PhasicCodingBehavior extends BaseCodingBehavior<PhasicState> implem
             // TeamLeadCoordinator.runParallelPhase. Otherwise the existing monolith
             // path runs unchanged (default for all sessions today).
             let phaseTokensSpent = 0;
+            let mastraEval: { evalScore: number; evalPassed: boolean; evalReason: string } | null = null;
             if (this.state.multiAgentEnabled === true) {
-                const result = await this.runMultiAgentPhase(phaseConcept);
-                if (!result.ok) {
-                    this.logger.warn('Multi-agent phase failed, transitioning to REVIEWING', {
+                // S8 — Mastra workflow: plan → implement → eval (ADR-005).
+                // PhaseWorkflow wraps runMultiAgentPhase and runs the Mastra eval scorer
+                // as an embedded step, so we skip the separate runPhaseEvalGate call
+                // below to avoid double-scoring the same output.
+                const wf = await runPhaseWorkflow({
+                    env: this.env,
+                    phase: phaseConcept,
+                    userQuery: this.state.query ?? '',
+                    sessionId: this.state.sessionId ?? this.getAgentId(),
+                    userId: this.state.metadata?.userId ?? '',
+                    runners: {
+                        // Wrap runMultiAgentPhase to satisfy the runImpl contract.
+                        // implementedFiles/implementation are tracked by FileManager;
+                        // the eval scorer only needs the phase + implementation ref.
+                        runImpl: async (phase) => {
+                            const r = await this.runMultiAgentPhase(phase);
+                            return { ...r, implementedFiles: [], implementation: null };
+                        },
+                    },
+                });
+                if (!wf.ok) {
+                    this.logger.warn('PhaseWorkflow failed, transitioning to REVIEWING', {
                         phase: phaseConcept.name,
-                        failedTaskIds: result.failedTaskIds,
                     });
                     return { currentDevState: CurrentDevState.REVIEWING };
                 }
-                phaseTokensSpent = result.tokensSpent;
-                // Mark phase complete to mirror the monolith implementPhase tail.
+                phaseTokensSpent = wf.tokensSpent;
+                mastraEval = { evalScore: wf.evalScore, evalPassed: wf.evalPassed, evalReason: wf.evalReason };
                 this.markPhaseComplete(phaseConcept.name);
             } else {
                 // Implement the phase with user context (suggestions and images)
@@ -450,9 +471,20 @@ export class PhasicCodingBehavior extends BaseCodingBehavior<PhasicState> implem
                 void this.recordPhaseTokens(phaseConcept.name, phaseTokensSpent);
             }
 
-            // S3.1 — Fire-and-forget EvalGate quality check (ADR-004 §Implementation step 3).
-            // Runs after implementation succeeds and never blocks the generation pipeline.
-            void this.runPhaseEvalGate(phaseConcept);
+            // S3.1 / S8 — Quality gate eval.
+            // Mastra path: emit workflow eval scores as RFC 6902 state_delta JSON patches.
+            // Monolith path: fire-and-forget EvalGate (ADR-004 §Implementation step 3).
+            if (mastraEval !== null) {
+                this.broadcast(WebSocketMessageResponses.STATE_DELTA, [
+                    { op: 'replace', path: `/phases/${phaseConcept.name}/evalScore`, value: mastraEval.evalScore },
+                    { op: 'replace', path: `/phases/${phaseConcept.name}/evalPassed`, value: mastraEval.evalPassed },
+                    { op: 'replace', path: `/phases/${phaseConcept.name}/evalReason`, value: mastraEval.evalReason },
+                ]);
+            } else {
+                // S3.1 — Fire-and-forget EvalGate quality check (ADR-004 §Implementation step 3).
+                // Runs after implementation succeeds and never blocks the generation pipeline.
+                void this.runPhaseEvalGate(phaseConcept);
+            }
 
             this.logger.info(`Phase ${phaseConcept.name} completed, generating next phase`);
 
