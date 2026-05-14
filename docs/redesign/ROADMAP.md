@@ -78,6 +78,7 @@ run030 Cycle 7 market close (S11)|DONE — SpaceX-Cursor $60B Q3 window CRITICAL
 bun vitest compat fixes (S11)|DONE — NullMemoryClient.test.ts: replace invalid .resolves.not.toThrow() with direct await+assert (7 tests); mastra/evalGate.test.ts: remove vi.hoisted() + importOriginal (both unsupported in bun compat layer), provide manual mock factory (8 tests); all 15 pre-existing test failures resolved (290ceaf)|1h|@Dev
 Docker BuildKit layer caching (S11)|DONE — # syntax=docker/dockerfile:1.4 + --mount=type=cache on all bun install + apt-get/apk add in Dockerfile, Dockerfile.dev, SandboxDockerfile; docker-compose.yml BUILDKIT_INLINE_CACHE=1 anchor; SandboxDockerfile split into separate layers (apt/curl/git); mirrors Cursor 70% speedup (ab78a36)|2h|@Dev
 Agentic engineering rebrand (S11)|DONE — README.md: "AI vibe coding platform" → "AI agentic engineering platform" in tagline + What-is section; placeholder GitHub URLs left for owner rename action (ab78a36)|0.5h|@Dev
+run031 Cycle 8 opening (S12)|DONE — Q3 gap audit vs Lovable (5 ahead, 3 gaps: Cloud/D1/collab); CF AI Gateway RFC unchanged; NxCode counter narrative "architecture vs price"; 5 decisions DEC-031-A→E; Cycle 8 agenda drafted (run032-034) (11aeb40)|--|@Architect
 ```
 
 ### Production Readiness (Sprint 2, tracked in QA-PROTOCOL.md)
