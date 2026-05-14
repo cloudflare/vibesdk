@@ -446,11 +446,14 @@ export class PhasicCodingBehavior extends BaseCodingBehavior<PhasicState> implem
                     userId: this.state.metadata?.userId ?? '',
                     runners: {
                         // Wrap runMultiAgentPhase to satisfy the runImpl contract.
-                        // implementedFiles/implementation are tracked by FileManager;
-                        // the eval scorer only needs the phase + implementation ref.
+                        // Pass planned file paths as implementedFiles for telemetry;
+                        // actual writes happen inside runMultiAgentPhase via onPatches.
+                        // implementation is null — multi-agent phases don't produce a
+                        // PhaseImplementationSchemaType (the eval scorer accepts null).
                         runImpl: async (phase) => {
                             const r = await this.runMultiAgentPhase(phase);
-                            return { ...r, implementedFiles: [], implementation: null };
+                            const plannedFiles = phase.files?.map((f) => f.path) ?? [];
+                            return { ...r, implementedFiles: plannedFiles, implementation: null };
                         },
                     },
                 });
