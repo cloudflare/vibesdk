@@ -275,3 +275,88 @@ describe('getUsecaseSpecificInstructions — Plausible analytics injection', () 
         expect(instructions).toContain('YOUR_DOMAIN');
     });
 });
+
+// ── SEO scaffolding injection (DEC-035-F) ─────────────────────────────────────
+
+describe('getUsecaseSpecificInstructions — SEO scaffolding injection', () => {
+    const makeSelection = (overrides: Partial<TemplateSelection> = {}): TemplateSelection => ({
+        selectedTemplateName: 'react-dashboard',
+        reasoning: 'test',
+        useCase: 'SaaS with Payments',
+        complexity: 'simple',
+        styleSelection: 'Minimalist Design',
+        projectType: 'app',
+        ...overrides,
+    });
+
+    it('includes meta description tag for SaaS with Payments', () => {
+        const instructions = getUsecaseSpecificInstructions(makeSelection());
+        expect(instructions).toContain('meta name="description"');
+    });
+
+    it('includes Open Graph tags', () => {
+        const instructions = getUsecaseSpecificInstructions(makeSelection());
+        expect(instructions).toContain('og:title');
+        expect(instructions).toContain('og:description');
+        expect(instructions).toContain('og:image');
+    });
+
+    it('includes canonical link tag', () => {
+        const instructions = getUsecaseSpecificInstructions(makeSelection());
+        expect(instructions).toContain('rel="canonical"');
+    });
+
+    it('includes llms.txt guidance (AI search parity with Lovable)', () => {
+        const instructions = getUsecaseSpecificInstructions(makeSelection());
+        expect(instructions).toContain('llms.txt');
+    });
+
+    it('includes react-helmet-async guidance for SPA meta tag updates', () => {
+        const instructions = getUsecaseSpecificInstructions(makeSelection());
+        expect(instructions).toContain('react-helmet-async');
+    });
+
+    it('includes OG image placeholder instruction', () => {
+        const instructions = getUsecaseSpecificInstructions(makeSelection());
+        expect(instructions).toContain('og-image.png');
+    });
+
+    it('includes SEO for SaaS Product Website', () => {
+        const instructions = getUsecaseSpecificInstructions(makeSelection({ useCase: 'SaaS Product Website' }));
+        expect(instructions).toContain('meta name="description"');
+        expect(instructions).toContain('llms.txt');
+    });
+
+    it('includes SEO for AI SaaS', () => {
+        const instructions = getUsecaseSpecificInstructions(makeSelection({ useCase: 'AI SaaS' }));
+        expect(instructions).toContain('og:title');
+    });
+
+    it('includes SEO for E-Commerce', () => {
+        const instructions = getUsecaseSpecificInstructions(makeSelection({ useCase: 'E-Commerce' }));
+        expect(instructions).toContain('llms.txt');
+    });
+
+    it('omits SEO for Dashboard (internal tooling)', () => {
+        const instructions = getUsecaseSpecificInstructions(makeSelection({ useCase: 'Dashboard' }));
+        expect(instructions).not.toContain('llms.txt');
+        expect(instructions).not.toContain('og:title');
+    });
+
+    it('SEO hint appears before Plausible hint in output', () => {
+        const instructions = getUsecaseSpecificInstructions(makeSelection());
+        const seoIdx = instructions.indexOf('llms.txt');
+        const plausibleIdx = instructions.indexOf('plausible.io');
+        expect(seoIdx).toBeGreaterThan(-1);
+        expect(plausibleIdx).toBeGreaterThan(seoIdx);
+    });
+
+    it('SEO hint appears after DESIGN.md rules when both present', () => {
+        const rules = 'Use Inter font only.';
+        const instructions = getUsecaseSpecificInstructions(makeSelection(), rules);
+        const designIdx = instructions.indexOf('Design Rules (from DESIGN.md)');
+        const seoIdx = instructions.indexOf('llms.txt');
+        expect(designIdx).toBeGreaterThan(-1);
+        expect(seoIdx).toBeGreaterThan(designIdx);
+    });
+});

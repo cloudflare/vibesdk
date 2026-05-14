@@ -1200,6 +1200,81 @@ const AI_SAAS_INSTRUCTIONS = (): string => `
 ** Remind the user to set CLOUDFLARE_ACCOUNT_ID and their gateway ID in wrangler.jsonc if using CF AI Gateway.
 `;
 
+// ── SEO scaffolding (DEC-035-F) ──────────────────────────────────────────────
+
+/**
+ * SEO scaffolding hint — appended to all public-facing use-case instructions.
+ *
+ * Closes the gap with Lovable's SEO + AI search (llms.txt) auto-generation
+ * announced May 13, 2026. Tells the blueprint LLM to include meta tags,
+ * Open Graph, canonical URLs, and an llms.txt for AI crawler compatibility.
+ */
+const SEO_SCAFFOLDING_HINT = `
+### SEO & AI Search (auto-included)
+Every generated app should be discoverable by search engines and AI crawlers from day one.
+
+**Meta tags — add to \`<head>\` in index.html (or root layout):**
+\`\`\`html
+<!-- SEO meta tags — replace placeholders before deploying -->
+<title>YOUR_APP_TITLE</title>
+<meta name="description" content="YOUR_APP_DESCRIPTION (150–160 chars)" />
+<link rel="canonical" href="https://YOUR_DOMAIN/" />
+
+<!-- Open Graph (social sharing) -->
+<meta property="og:title" content="YOUR_APP_TITLE" />
+<meta property="og:description" content="YOUR_APP_DESCRIPTION" />
+<meta property="og:type" content="website" />
+<meta property="og:url" content="https://YOUR_DOMAIN/" />
+<meta property="og:image" content="https://YOUR_DOMAIN/og-image.png" />
+
+<!-- Twitter / X card -->
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content="YOUR_APP_TITLE" />
+<meta name="twitter:description" content="YOUR_APP_DESCRIPTION" />
+<meta name="twitter:image" content="https://YOUR_DOMAIN/og-image.png" />
+\`\`\`
+
+**OG image placeholder:** Create \`public/og-image.png\` (1200×630px). Leave a comment:
+"Replace with your actual OG image before launch."
+
+**For React/Vite SPAs:** Meta tags in \`index.html\` are served on first load but are
+not dynamically updated on navigation. Use \`react-helmet-async\` (npm install
+react-helmet-async) to set per-page titles and descriptions:
+\`\`\`tsx
+import { Helmet } from 'react-helmet-async';
+// Inside each page component:
+<Helmet>
+  <title>Page Title | YOUR_APP_TITLE</title>
+  <meta name="description" content="Page-specific description." />
+</Helmet>
+\`\`\`
+
+**llms.txt — AI crawler compatibility (Lovable parity):**
+Create a \`public/llms.txt\` file so AI assistants (Claude, ChatGPT, Perplexity)
+can understand and reference your app:
+\`\`\`text
+# YOUR_APP_TITLE
+
+> YOUR_APP_DESCRIPTION
+
+## What this app does
+- [List 3-5 key features or use cases here]
+
+## Key pages
+- /: Home
+- [List other important routes]
+
+## Contact
+- [Your email or support URL]
+\`\`\`
+
+Rules:
+** Always include at least the title, description, and canonical meta tags.
+** Replace all YOUR_* placeholders and add a comment instructing the user to update them.
+** Do NOT add a robots.txt that blocks crawlers unless the user explicitly asks.
+** For multi-page apps, each page should have a unique title and description.
+`;
+
 // ── Analytics injection (DEC-033-A) ─────────────────────────────────────────
 
 /**
@@ -1272,10 +1347,11 @@ export const getUsecaseSpecificInstructions = (
     if (designRules) {
         result += `\n\n### Design Rules (from DESIGN.md)\nThe user has provided a DESIGN.md file with project-specific design constraints. Follow these rules strictly:\n\n${designRules}`;
     }
-    // Append Plausible analytics hint for all public-facing use cases (DEC-033-A)
-    // Omit for Dashboard (internal tooling) and null/undefined use cases
-    const analyticsUseCase = selectedTemplate.useCase;
-    if (analyticsUseCase !== null && analyticsUseCase !== undefined && analyticsUseCase !== 'Dashboard') {
+    // Append SEO scaffolding + Plausible analytics for all public-facing use cases
+    // Omit for Dashboard (internal tooling) and null/undefined use cases (DEC-033-A, DEC-035-F)
+    const publicUseCase = selectedTemplate.useCase;
+    if (publicUseCase !== null && publicUseCase !== undefined && publicUseCase !== 'Dashboard') {
+        result += SEO_SCAFFOLDING_HINT;
         result += PLAUSIBLE_ANALYTICS_HINT;
     }
     return result;
