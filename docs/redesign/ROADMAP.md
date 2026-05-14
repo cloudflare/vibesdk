@@ -55,6 +55,7 @@ MCP server POST /api/mcp (S9)|DONE — stateless JSON-RPC 2024-11-05, 3 tools (g
 PhaseParallel — ADR-007 Option A primitives (S10)|DONE — validateDisjointFiles, executeParallelPhaseGroup, metrics; 16 tests (36d0f97)|-|@Dev
 phasic.ts parallel dispatch wiring (S10)|DONE — executeParallelPhases() + parallelGroupMetrics; escalation warning >10% (313add1)|-|@Dev
 MCP resources/list + resources/read (S10)|DONE — 3 URI templates (status|quality|app), parseResourceUri, 10 tests; server v1.1.0 (5ee6d56)|-|@Dev
+Static UI pattern corpus (S10)|DONE — 68 patterns × 10 categories, selective injection via getUiPatternHints(), 34 tests (1a7e322)|-|@Dev
 Claude Sonnet 4.8 AGENT_CONFIG upgrade (S10)|BLOCKED_API — monitor Anthropic API; update immediately on release|-|@Dev
 Payments template scaffold Stripe/Paddle (S10)|DONE — 'SaaS with Payments' useCase enum + SAAS_PAYMENTS_INSTRUCTIONS; CF Workers fetch pattern, crypto.subtle webhook verify, D1 schema guidance, 15 tests (f47542b)|-|@Dev
 ```
