@@ -432,7 +432,12 @@ export class PhasicCodingBehavior extends BaseCodingBehavior<PhasicState> implem
             // TeamLeadCoordinator.runParallelPhase. Otherwise the existing monolith
             // path runs unchanged (default for all sessions today).
             let phaseTokensSpent = 0;
-            let mastraEval: { evalScore: number; evalPassed: boolean; evalReason: string } | null = null;
+            let mastraEval: {
+                evalScore: number;
+                evalPassed: boolean;
+                evalReason: string;
+                judgeTokens: { readonly input: number; readonly output: number };
+            } | null = null;
             if (this.state.multiAgentEnabled === true) {
                 // S8 — Mastra workflow: plan → implement → eval (ADR-005).
                 // PhaseWorkflow wraps runMultiAgentPhase and runs the Mastra eval scorer
@@ -464,7 +469,12 @@ export class PhasicCodingBehavior extends BaseCodingBehavior<PhasicState> implem
                     return { currentDevState: CurrentDevState.REVIEWING };
                 }
                 phaseTokensSpent = wf.tokensSpent;
-                mastraEval = { evalScore: wf.evalScore, evalPassed: wf.evalPassed, evalReason: wf.evalReason };
+                mastraEval = {
+                    evalScore: wf.evalScore,
+                    evalPassed: wf.evalPassed,
+                    evalReason: wf.evalReason,
+                    judgeTokens: wf.judgeTokens,
+                };
                 this.markPhaseComplete(phaseConcept.name);
             } else {
                 // Implement the phase with user context (suggestions and images)
@@ -488,6 +498,8 @@ export class PhasicCodingBehavior extends BaseCodingBehavior<PhasicState> implem
                         { op: 'replace' as const, path: `/phases/${phasePtr}/evalScore`, value: mastraEval.evalScore },
                         { op: 'replace' as const, path: `/phases/${phasePtr}/evalPassed`, value: mastraEval.evalPassed },
                         { op: 'replace' as const, path: `/phases/${phasePtr}/evalReason`, value: mastraEval.evalReason },
+                        { op: 'replace' as const, path: `/phases/${phasePtr}/judgeTokensInput`, value: mastraEval.judgeTokens.input },
+                        { op: 'replace' as const, path: `/phases/${phasePtr}/judgeTokensOutput`, value: mastraEval.judgeTokens.output },
                     ],
                 });
                 // S8 — Persist Mastra eval result in agent memory (same path as monolith).
@@ -939,6 +951,10 @@ export class PhasicCodingBehavior extends BaseCodingBehavior<PhasicState> implem
                 blockedReason: verdict.blockedReason,
                 scores: verdict.scores,
                 compositeScore: Math.round(compositeScore * 1000) / 1000,
+                judgeTokens: {
+                    input: verdict.judgeTokens.input,
+                    output: verdict.judgeTokens.output,
+                },
             });
 
             // S8 — Persist eval summary in agent memory for cross-session recall.

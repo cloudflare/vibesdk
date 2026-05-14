@@ -251,6 +251,7 @@ export async function runPhaseWorkflow(ctx: PhaseWorkflowContext): Promise<{
     evalScore: number;
     evalPassed: boolean;
     evalReason: string;
+    judgeTokens: { readonly input: number; readonly output: number };
 }> {
     const { env, phase, userQuery, sessionId, userId, runners } = ctx;
 
@@ -306,5 +307,9 @@ export async function runPhaseWorkflow(ctx: PhaseWorkflowContext): Promise<{
         evalScore: evalOut?.score ?? 1,
         evalPassed: evalOut?.passed ?? true,
         evalReason: evalOut?.reason ?? '',
+        judgeTokens: {
+            input: evalOut?.metadata?.judgeInputTokens ?? 0,
+            output: evalOut?.metadata?.judgeOutputTokens ?? 0,
+        },
     };
 }

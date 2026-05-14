@@ -4,6 +4,11 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { apiClient } from '@/lib/api-client';
 import { cn } from '@/lib/utils';
 
+type JudgeTokens = {
+    readonly input: number;
+    readonly output: number;
+};
+
 type PhaseVerdict = {
     phaseName: string;
     passed: boolean;
@@ -15,6 +20,8 @@ type PhaseVerdict = {
         hallucinationRisk: number;
     };
     compositeScore: number;
+    /** Token consumption for the eval judge call. Present in server >= 2026-05-14. */
+    judgeTokens?: JudgeTokens;
 };
 
 type EvalGateVerdictDetail = {
@@ -27,13 +34,20 @@ type EvalGateVerdictDetail = {
         toolCorrectness: number;
         hallucinationRisk: number;
     };
-    /** Present in server ≥ d9d5ae4; fall back to local computation for older messages. */
+    /** Present in server >= d9d5ae4; fall back to local computation for older messages. */
     compositeScore?: number;
+    /** Present in server >= 2026-05-14; enables Context Usage Breakdown display. */
+    judgeTokens?: JudgeTokens;
 };
 
 /** Client-side fallback — mirrors computeCompositeEvalScore in EvalGate.ts. */
 function computeFallbackScore(scores: EvalGateVerdictDetail['scores']): number {
     return (scores.faithfulness + scores.answerRelevancy + scores.toolCorrectness + (1 - scores.hallucinationRisk)) / 4;
+}
+
+/** Format token count as compact string: 1234 → "1.2K", 890 → "890". */
+function fmtTokens(n: number): string {
+    return n >= 1000 ? `${(n / 1000).toFixed(1)}K` : String(n);
 }
 
 export interface PhaseQualityBadgeProps {
@@ -88,6 +102,7 @@ export const PhaseQualityBadge = memo(function PhaseQualityBadge({
                 scores: detail.scores,
                 // Fall back to computing locally for old server messages that lack the field.
                 compositeScore: detail.compositeScore ?? computeFallbackScore(detail.scores),
+                judgeTokens: detail.judgeTokens,
             };
             setVerdicts((prev) => [verdict, ...prev]);
         };
@@ -196,6 +211,14 @@ function VerdictRow({ verdict }: { readonly verdict: PhaseVerdict }) {
                 <ScoreBar label="Tool accuracy" value={verdict.scores.toolCorrectness} positive />
                 <ScoreBar label="Hallucination" value={verdict.scores.hallucinationRisk} positive={false} />
             </div>
+            {verdict.judgeTokens && (
+                <div className="mt-1.5 flex items-center gap-1 text-[10px] text-text-primary/40 font-mono">
+                    <span>Eval judge:</span>
+                    <span className="tabular-nums">{fmtTokens(verdict.judgeTokens.input)} in</span>
+                    <span>/</span>
+                    <span className="tabular-nums">{fmtTokens(verdict.judgeTokens.output)} out</span>
+                </div>
+            )}
         </div>
     );
 }

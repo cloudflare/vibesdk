@@ -615,6 +615,15 @@ export type EvalGateVerdictMessage = {
     };
     /** Pre-computed composite: mean(faithfulness, answerRelevancy, toolCorrectness, 1-hallucinationRisk). */
     compositeScore: number;
+    /**
+     * Token consumption for the eval judge call.
+     * Enables the Context Usage Breakdown display in PhaseQualityBadge.
+     * Optional for backward compatibility with server versions pre-2026-05-14.
+     */
+    judgeTokens?: {
+        readonly input: number;
+        readonly output: number;
+    };
 };
 
 /**
