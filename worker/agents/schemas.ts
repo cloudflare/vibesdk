@@ -11,7 +11,7 @@ export const ProjectTypePredictionSchema = z.object({
 export const TemplateSelectionSchema = z.object({
     selectedTemplateName: z.string().nullable().describe('The name of the most suitable template, or null if none are suitable.'),
     reasoning: z.string().describe('Brief explanation for the selection or why no template was chosen.'),
-    useCase: z.enum(['SaaS Product Website', 'SaaS with Payments', 'Dashboard', 'Blog', 'Portfolio', 'E-Commerce', 'General', 'Other']).describe('The use case for which the template is selected, if applicable. Use "SaaS with Payments" when the user explicitly needs subscription billing, payment checkout, or Stripe/Paddle integration.').nullable(),
+    useCase: z.enum(['SaaS Product Website', 'SaaS with Payments', 'AI SaaS', 'Dashboard', 'Blog', 'Portfolio', 'E-Commerce', 'General', 'Other']).describe('The use case for which the template is selected, if applicable. Use "SaaS with Payments" when the user explicitly needs subscription billing, payment checkout, or Stripe/Paddle integration. Use "AI SaaS" when the user wants to build an AI-powered product with LLM features, chat UI, streaming completions, or API key management.').nullable(),
     complexity: z.enum(['simple', 'moderate', 'complex']).describe('The complexity of developing the project based on the the user query').nullable(),
     styleSelection: z.enum(['Minimalist Design', 'Brutalism', 'Retro', 'Illustrative', 'Kid_Playful', 'Custom']).describe('Pick a style relevant to the user query').nullable(),
     projectType: z.enum(['app', 'workflow', 'presentation', 'general']).default('app').describe('The type of project based on the user query'),

@@ -1147,6 +1147,59 @@ const SAAS_PAYMENTS_INSTRUCTIONS = (): string => `
 ** Test mode: all Stripe test keys start with pk_test_ / sk_test_ — remind user to switch to live keys before production.
 `;
 
+const AI_SAAS_INSTRUCTIONS = (): string => `
+## AI SaaS — Cloudflare Workers Compatible LLM Integration Patterns
+
+** If there is no brand/product name specified, come up with a suitable AI tool name.
+
+### REQUIRED PAGES & COMPONENTS
+** Include a Chat or Completion UI with real-time streaming (SSE via text/event-stream). Display tokens word-by-word as they arrive.
+** Include an API Key Settings page where users can configure their own LLM provider keys (OpenAI, Anthropic, or both). Store them in a D1 user_settings row; display masked (sk-...XXXX). Warn: "Keys are stored server-side. Use test keys first."
+** Include a Usage Dashboard showing prompt tokens, completion tokens, estimated cost, and conversation count for the current user.
+** Include a polished landing/home page with a demo interaction preview and a clear CTA to the main feature.
+
+### LLM INTEGRATION PATTERNS (CF Workers compatible — do NOT import Node.js SDKs)
+** Use raw fetch() to call provider REST endpoints — the openai and @anthropic-ai/sdk npm packages use Node.js modules incompatible with CF Workers.
+** OpenAI streaming: POST https://api.openai.com/v1/chat/completions with \`{ stream: true }\`. The response body is a ReadableStream of text/event-stream chunks.
+** Anthropic streaming: POST https://api.anthropic.com/v1/messages with \`{ stream: true }\` and headers \`{ 'anthropic-version': '2023-06-01', 'x-api-key': key }\`.
+** For Cloudflare AI Gateway (optional caching + rate limiting): prefix provider URLs with \`https://gateway.ai.cloudflare.com/v1/{account_id}/{gateway_id}/{provider}/\`.
+
+### STREAMING RESPONSE PATTERN (Worker → Browser)
+** Return a streaming Response from the Worker:
+   \`\`\`
+   const { readable, writable } = new TransformStream();
+   // pipe upstream LLM ReadableStream → writable, chunking as needed
+   return new Response(readable, {
+     headers: { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache' },
+   });
+   \`\`\`
+** Frontend: consume with \`fetch()\` + \`response.body.getReader()\` in a while-loop, appending decoded chunks to the assistant message as they arrive.
+** Buffer partial JSON delta lines in the Transform — LLM providers may split \`data: {...}\` across chunks.
+
+### D1 SCHEMA (minimal AI SaaS schema)
+** conversations table: id TEXT PRIMARY KEY, user_id TEXT NOT NULL, model TEXT, created_at INTEGER DEFAULT (unixepoch()).
+** messages table: id TEXT PRIMARY KEY, conversation_id TEXT REFERENCES conversations(id) ON DELETE CASCADE, role TEXT CHECK(role IN ('user','assistant','system')), content TEXT NOT NULL, tokens_in INTEGER DEFAULT 0, tokens_out INTEGER DEFAULT 0, created_at INTEGER DEFAULT (unixepoch()).
+** user_settings table: user_id TEXT PRIMARY KEY, provider TEXT DEFAULT 'openai', encrypted_api_key TEXT, model_preference TEXT DEFAULT 'gpt-4o-mini', updated_at INTEGER DEFAULT (unixepoch()).
+
+### API KEY HANDLING (security)
+** NEVER store raw API keys in localStorage or cookies — always send over HTTPS to the Worker and store server-side only.
+** In the generated scaffold: store as plaintext in D1 with a comment: "TODO: encrypt at rest before production using WebCrypto AES-GCM."
+** CRITICAL: proxy all LLM calls through the Worker — never call provider APIs from the browser directly (exposes the key).
+** Provide a DELETE /api/settings/api-key endpoint so users can revoke their stored key.
+
+### RATE LIMITING
+** Plan a simple sliding-window counter in D1 (or KV): SELECT count FROM rate_limits WHERE user_id = ? AND window_start > unixepoch() - 60. Return 429 with Retry-After header when exceeded.
+** Default limits: 10 requests/minute on Free tier, 60 on Pro tier.
+** Surface the current limit and remaining count in the Usage Dashboard.
+
+### PITFALLS TO AVOID
+** CRITICAL: Do NOT import openai, @anthropic-ai/sdk, or any Node.js-native LLM SDK — use raw fetch to provider REST APIs.
+** CRITICAL: Do NOT use process.env — read API keys from env bindings passed to the Worker handler (env.OPENAI_API_KEY or from D1 user_settings).
+** Do NOT block on synchronous response parsing — use streaming ReadableStream throughout.
+** CF Workers have a 128 MB memory limit and a 30 s CPU time limit — keep conversation history bounded (last N messages, not full history).
+** Remind the user to set CLOUDFLARE_ACCOUNT_ID and their gateway ID in wrangler.jsonc if using CF AI Gateway.
+`;
+
 export const getUsecaseSpecificInstructions = (
     selectedTemplate: TemplateSelection,
     designRules?: string,
@@ -1159,6 +1212,9 @@ export const getUsecaseSpecificInstructions = (
             break;
         case 'SaaS with Payments':
             baseInstructions = SAAS_PAYMENTS_INSTRUCTIONS();
+            break;
+        case 'AI SaaS':
+            baseInstructions = AI_SAAS_INSTRUCTIONS();
             break;
         case 'E-Commerce':
             baseInstructions = ECOMM_INSTRUCTIONS();

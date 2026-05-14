@@ -192,6 +192,7 @@ export function useCaseToCorpusKeys(useCase: string | null | undefined): string[
     const map: Record<string, string[]> = {
         'SaaS Product Website': ['landing', 'auth'],
         'SaaS with Payments': ['saas-payments', 'auth'],
+        'AI SaaS': ['dashboard', 'auth'],
         Dashboard: ['dashboard'],
         'E-Commerce': ['ecommerce'],
         Blog: ['general', 'landing'],
