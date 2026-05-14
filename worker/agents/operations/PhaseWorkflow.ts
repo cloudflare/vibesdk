@@ -73,18 +73,21 @@ const ImplementStepOutputSchema = z.object({
     durationMs: z.number(),
 });
 
+const score01 = z.number().min(0).max(1);
+
 const EvalStepOutputSchema = z.object({
-    score: z.number(),
+    /** Composite score: mean of 4 metrics (hallucinationRisk inverted). Range [0, 1]. */
+    score: score01,
     passed: z.boolean(),
     reason: z.string(),
     metadata: z.object({
-        faithfulness: z.number(),
-        answerRelevancy: z.number(),
-        toolCorrectness: z.number(),
-        hallucinationRisk: z.number(),
+        faithfulness: score01,
+        answerRelevancy: score01,
+        toolCorrectness: score01,
+        hallucinationRisk: score01,
         blockedReason: z.string().nullable(),
-        judgeInputTokens: z.number(),
-        judgeOutputTokens: z.number(),
+        judgeInputTokens: z.number().int().nonnegative(),
+        judgeOutputTokens: z.number().int().nonnegative(),
     }),
 });
 
