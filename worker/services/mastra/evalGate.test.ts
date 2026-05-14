@@ -16,17 +16,39 @@ import { vi, describe, it, expect, beforeEach } from 'vitest';
 // ── Mock EvalGate ──────────────────────────────────────────────────────────
 //
 // Only mock `runEvalGate` — it calls claudeDirect (needs API key + CF bindings).
-// All other exports (computeCompositeEvalScore, constants, decide) use the real
-// implementations via importOriginal so tests don't duplicate formula logic.
-const mockRunEvalGate = vi.hoisted(() => vi.fn());
+// All other exports are provided manually in the factory:
+//   - constants: literal values (0.6, 0.2)
+//   - computeCompositeEvalScore: real 4-metric mean formula (pure function)
+//
+// Why no importOriginal?  bun's vitest compat passes `undefined` for the
+// importOriginal parameter, so calling it throws at runtime.  Manual provision
+// of each export sidesteps the limitation without duplicating meaningful logic.
+//
+// Pattern: declare vi.fn() at module scope; wrap in arrow function inside the
+// factory so the reference is resolved lazily (at call time, not factory time).
+// This avoids vi.hoisted() which is also unsupported in bun's vitest compat.
+const mockRunEvalGate = vi.fn();
 
-vi.mock('../../agents/operations/EvalGate', async (importOriginal) => {
-    const actual = await importOriginal<typeof import('../../agents/operations/EvalGate')>();
-    return {
-        ...actual,
-        runEvalGate: mockRunEvalGate,
-    };
-});
+vi.mock('../../agents/operations/EvalGate', () => ({
+    // Threshold constants (same literal values as EvalGate source)
+    FAITHFULNESS_FLOOR: 0.6,
+    HALLUCINATION_CEILING: 0.2,
+    // Real formula: arithmetic mean of 4 metrics (hallucinationRisk inverted).
+    // Mirrors computeCompositeEvalScore in EvalGate.ts exactly.
+    computeCompositeEvalScore: (scores: {
+        faithfulness: number;
+        answerRelevancy: number;
+        toolCorrectness: number;
+        hallucinationRisk: number;
+    }) =>
+        (scores.faithfulness +
+            scores.answerRelevancy +
+            scores.toolCorrectness +
+            (1 - scores.hallucinationRisk)) /
+        4,
+    // Mocked — runEvalGate resolved lazily via closure (vi.fn() assigned before call)
+    runEvalGate: (...args: unknown[]) => mockRunEvalGate(...args),
+}));
 
 // Logger mock — suppress console output during tests.
 vi.mock('../../logger', () => ({

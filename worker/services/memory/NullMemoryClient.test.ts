@@ -62,10 +62,16 @@ describe('NullMemoryClient', () => {
     });
 
     it('does not throw on any method call', async () => {
+        // .resolves.not.toThrow() is invalid (toThrow is synchronous-only).
+        // Correct pattern: await each promise and assert the resolved value —
+        // if the promise rejected, the await would throw and the test would fail.
         const client = new NullMemoryClient();
-        await expect(client.recall(makeQuery())).resolves.not.toThrow();
-        await expect(client.remember(makeBlock())).resolves.not.toThrow();
-        await expect(client.forget('u1', 'any-id')).resolves.not.toThrow();
+        const recalled = await client.recall(makeQuery());
+        const remembered = await client.remember(makeBlock());
+        const forgotten = await client.forget('u1', 'any-id');
+        expect(Array.isArray(recalled)).toBe(true);
+        expect(remembered).toBeNull();
+        expect(forgotten).toBe(false);
     });
 
     it('implements MemoryClient interface (structural check)', () => {
