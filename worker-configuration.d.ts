@@ -20,6 +20,12 @@ declare namespace Cloudflare {
 		 * Default: "false" (standard mode).
 		 */
 		ANTHROPIC_FAST_MODE_ACCESS: string;
+		/**
+		 * Resend.com API key for transactional email delivery.
+		 * Set via `wrangler secret put RESEND_API_KEY`.
+		 * Free tier: 3,000 emails/month. See worker/services/email/EmailService.ts.
+		 */
+		RESEND_API_KEY: string;
 		CLOUDFLARE_AI_GATEWAY: "vibesdk-gateway";
 		PLATFORM_CAPABILITIES: {"features":{"app":{"enabled":true},"presentation":{"enabled":false},"general":{"enabled":false}},"version":"1.0.0"};
 		ANTHROPIC_API_KEY: string;

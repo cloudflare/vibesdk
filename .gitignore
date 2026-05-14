@@ -44,6 +44,9 @@ test.ts
 temp/
 
 templates
+# Un-ignore TypeScript email template modules (bare 'templates' above is for scaffolding dir only)
+!worker/services/email/templates/
+!worker/services/email/templates/*.ts
 debugging.ipynb
 
 #bun.lock
