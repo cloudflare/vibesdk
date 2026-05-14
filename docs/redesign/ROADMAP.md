@@ -73,6 +73,7 @@ Git history panel — isomorphic-git log surface (S11)|DONE — getGitLog() RPC 
 run029 Cycle 7 features pillar (S11)|DONE — Replit Agent 4 Design Canvas gap noted; Cursor layer caching (70% faster) → elevated P0; Lovable Wiz scanning counter-marketing ("architecture beats scanning"); v0.app DB auto-provisioning gap; CF Dynamic Workflows + Mastra v1.29-v1.33 catchup; ADR-001 addendum; 5 decisions (DEC-029-A→E)|--|@Architect
 CriticAgent Opus 4.7 Fast Mode wire (S11)|DONE — ANTHROPIC_FAST_MODE_ACCESS env var in worker-configuration.d.ts + wrangler.jsonc; CriticAgent.ts reads env flag → passes speedMode:'fast' to callClaudeForJson; guard prevents 400 on unsupported models; 0 TS errors; flip flag when waitlist granted (owner action: claude.com/fast-mode)|1h|@Dev
 ADR-001 addendum — CF Dynamic Workflows (S11)|DONE — awareness note added: Dynamic Workflows (MIT, open beta) enables per-tenant durable execution at runtime; future S13+ option; no current action needed; references Agents Week blog + InfoQ|0.5h|@Architect
+EvalGate ResponseCache analog (S11)|DONE — eval-cache.ts: module-scoped Map, TTL 10min, max 100 entries, key=sessionId:phaseName; getCachedEvalVerdict/cacheEvalVerdict/clearEvalCache; wired into runEvalGate (cache-before-LLM, store-after); 12 unit tests pass; fix: EvalResultsService apps import missing (iter 37 bug) (b4dcc34)|2h|@Dev
 ```
 
 ### Production Readiness (Sprint 2, tracked in QA-PROTOCOL.md)
