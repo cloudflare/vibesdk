@@ -61,6 +61,13 @@ export interface ClaudeCallArgs {
     readonly maxTokens?: number;
     readonly temperature?: number;
     readonly abortSignal?: AbortSignal;
+    /**
+     * Opus 4.7 Fast Mode (beta — waitlist-gated, 6× pricing, 2.5× OTPS).
+     * Supported models: claude-opus-4-7, claude-opus-4-6.
+     * Requires ANTHROPIC_FAST_MODE_ACCESS=true in env or a feature flag.
+     * Beta header: fast-mode-2026-02-01 | body param: speed: "fast"
+     */
+    readonly speedMode?: 'fast' | 'standard';
 }
 
 export interface ClaudeCallResult {
@@ -70,6 +77,8 @@ export interface ClaudeCallResult {
     readonly stopReason: 'end_turn' | 'max_tokens' | 'stop_sequence' | 'tool_use' | string;
     readonly model: string;
     readonly elapsedMs: number;
+    /** Present when speed: "fast" was requested — confirms which speed was served. */
+    readonly speed?: 'fast' | 'standard';
 }
 
 export class ClaudeDirectError extends Error {
@@ -82,10 +91,14 @@ export class ClaudeDirectError extends Error {
     }
 }
 
+const FAST_MODE_BETA_HEADER = 'fast-mode-2026-02-01';
+// Opus models that support the fast-mode beta. Sending speed:"fast" with other models returns a 400.
+const FAST_MODE_SUPPORTED_MODELS: ReadonlySet<ClaudeModel> = new Set(['claude-opus-4-7']);
+
 interface AnthropicResponseShape {
     readonly content: readonly { readonly type: string; readonly text?: string }[];
     readonly stop_reason: string;
-    readonly usage: { readonly input_tokens: number; readonly output_tokens: number };
+    readonly usage: { readonly input_tokens: number; readonly output_tokens: number; readonly speed?: 'fast' | 'standard' };
     readonly model: string;
 }
 
@@ -110,19 +123,33 @@ export async function callClaudeDirect(args: ClaudeCallArgs): Promise<ClaudeCall
     const start = Date.now();
     const model = args.model ?? CLAUDE_DEFAULT_MODEL;
 
+    // Fast mode (Opus 4.7 only, waitlist-gated beta). Logs a warning if requested
+    // for an unsupported model so misconfigurations surface immediately.
+    const useFastMode = args.speedMode === 'fast';
+    if (useFastMode && !FAST_MODE_SUPPORTED_MODELS.has(model as ClaudeModel)) {
+        logger.warn('fast mode requested for unsupported model — falling back to standard', { model });
+    }
+    const fastModeActive = useFastMode && FAST_MODE_SUPPORTED_MODELS.has(model as ClaudeModel);
+
+    const headers: Record<string, string> = {
+        'x-api-key': args.env.ANTHROPIC_API_KEY,
+        'anthropic-version': ANTHROPIC_VERSION,
+        'content-type': 'application/json',
+    };
+    if (fastModeActive) {
+        headers['anthropic-beta'] = FAST_MODE_BETA_HEADER;
+    }
+
     const res = await fetch(ANTHROPIC_API, {
         method: 'POST',
-        headers: {
-            'x-api-key': args.env.ANTHROPIC_API_KEY,
-            'anthropic-version': ANTHROPIC_VERSION,
-            'content-type': 'application/json',
-        },
+        headers,
         body: JSON.stringify({
             model,
             max_tokens: args.maxTokens ?? 4096,
             temperature: args.temperature ?? 0.7,
             system: args.system,
             messages: args.messages,
+            ...(fastModeActive ? { speed: 'fast' } : {}),
         }),
         signal: args.abortSignal,
     });
@@ -146,6 +173,7 @@ export async function callClaudeDirect(args: ClaudeCallArgs): Promise<ClaudeCall
         stopReason: parsed.stop_reason,
         model: parsed.model,
         elapsedMs: Date.now() - start,
+        speed: parsed.usage.speed,
     };
 }
 

@@ -23,6 +23,10 @@ export function createGenerateBlueprintTool(
 			const language = 'typescript';
 			const frameworks: string[] = [];
 
+			// Detect DESIGN.md in session files — inject into blueprint planning if present (Google Stitch protocol)
+			const designFile = context.allFiles.find(f => f.filePath === 'DESIGN.md');
+			const designRules = designFile?.fileContents ?? undefined;
+
 			const args: AgenticBlueprintGenerationArgs = {
 				env,
 				inferenceContext,
@@ -31,6 +35,7 @@ export function createGenerateBlueprintTool(
 				frameworks,
 				templateDetails: context.templateDetails,
 				projectType: agent.getProjectType(),
+				designRules,
 				stream: {
 					chunk_size: 256,
 					onChunk: (chunk: string) => {

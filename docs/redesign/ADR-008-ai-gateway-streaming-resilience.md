@@ -82,10 +82,16 @@ const resumedStream = await fetch(resumeUrl, {
 
 ## Action Required Before Implementation
 
-1. Verify `cf-aig-request-id` header is exposed in OpenAI client `.withResponse()`
-2. Confirm AI Gateway resume endpoint URL format (check CF Agents Week docs / `developers.cloudflare.com/ai-gateway`)
-3. Confirm buffer TTL (expected: ~5 minutes, matches WS reconnect window)
-4. Test with: stub WebSocket drop mid-stream → verify resume retrieves correct tokens
+**Updated 2026-05-15 from RFC investigation (github.com/cloudflare/agents/issues/1257):**
+
+1. **Request ID header:** RFC proposes `X-AI-Gateway-Durable-Id` (NOT `cf-aig-request-id` as originally assumed). Verify correct header when CF finalises the API — **do not assume either name until confirmed from CF docs.**
+2. **Resume endpoint URL:** Still OPEN QUESTION in RFC. Two competing proposals:
+   - Option A: `GET /gateway/buffer/{id}?offset={n}` (new endpoint)
+   - Option B: Reconnect with same request + a `Resume:` header (proxy extension)
+   Final shape not yet decided. **Do not implement Phase 2 until RFC is merged and documented.**
+3. **Buffer TTL:** RFC proposes ~5-minute default (configurable). Consistent with ADR assumption.
+4. **Feature status:** RFC opened 2026-04-04, still open. The streaming buffer feature is **NOT yet GA** — the Agents Week blog referenced capability as roadmap, not shipping. Re-check CF docs every cycle.
+5. **Implementation test:** stub WebSocket drop mid-stream → verify resume retrieves correct tokens once endpoint is confirmed.
 
 ---
 
@@ -100,6 +106,7 @@ const resumedStream = await fetch(resumeUrl, {
 
 ## Dependencies
 
-- CF AI Gateway streaming buffer must be GA (confirmed from Agents Week — GA)
-- `cf-aig-request-id` header must be accessible through OpenAI SDK response headers
+- CF AI Gateway streaming buffer RFC must be finalized and feature GA (currently RFC-stage, not GA)
+- Correct request ID header confirmed (`X-AI-Gateway-Durable-Id` proposed, not yet final)
+- Resume endpoint shape confirmed (two competing proposals in RFC)
 - DO state migration to include `activeGatewayRequestId?: string`
