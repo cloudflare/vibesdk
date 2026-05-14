@@ -34,6 +34,8 @@ import { runParallelPhase } from '../subagents/TeamLeadCoordinator';
 import { runEvalGate } from '../../operations/EvalGate';
 // S8 — PhaseWorkflow: Mastra-orchestrated plan → implement → eval (ADR-005).
 import { runPhaseWorkflow } from '../../operations/PhaseWorkflow';
+// S8 — Agent memory: persist phase eval results for cross-session recall (ADR-004).
+import { AgentMemoryClient } from '../../../services/memory/AgentMemoryClient';
 import { EvalResultsService } from '../../../database/services/EvalResultsService';
 // S5 — per-phase effort estimation + token recording.
 import { estimatePhaseCredits } from '../../../services/billing/effortEstimator';
@@ -480,6 +482,13 @@ export class PhasicCodingBehavior extends BaseCodingBehavior<PhasicState> implem
                     { op: 'replace', path: `/phases/${phaseConcept.name}/evalPassed`, value: mastraEval.evalPassed },
                     { op: 'replace', path: `/phases/${phaseConcept.name}/evalReason`, value: mastraEval.evalReason },
                 ]);
+                // S8 — Persist Mastra eval result in agent memory (same path as monolith).
+                void this.storePhaseEvalMemory(
+                    phaseConcept.name,
+                    mastraEval.evalScore,
+                    mastraEval.evalPassed,
+                    mastraEval.evalReason,
+                );
             } else {
                 // S3.1 — Fire-and-forget EvalGate quality check (ADR-004 §Implementation step 3).
                 // Runs after implementation succeeds and never blocks the generation pipeline.
@@ -920,10 +929,58 @@ export class PhasicCodingBehavior extends BaseCodingBehavior<PhasicState> implem
                 blockedReason: verdict.blockedReason,
                 scores: verdict.scores,
             });
+
+            // S8 — Persist eval summary in agent memory for cross-session recall.
+            const compositeScore = (
+                verdict.scores.faithfulness +
+                verdict.scores.answerRelevancy +
+                verdict.scores.toolCorrectness +
+                (1 - verdict.scores.hallucinationRisk)
+            ) / 4;
+            void this.storePhaseEvalMemory(
+                phaseConcept.name,
+                compositeScore,
+                verdict.passed,
+                verdict.blockedReason ?? '',
+            );
         } catch (err) {
             // Log but never propagate — EvalGate is observability-only.
             this.logger.warn('runPhaseEvalGate failed (non-blocking)', {
                 phase: phaseConcept.name,
+                error: err instanceof Error ? err.message : String(err),
+            });
+        }
+    }
+
+    /**
+     * S8 — Store phase eval result in AgentMemory so future sessions for the
+     * same user can recall quality signals from prior runs (ADR-004 + ADR-005).
+     * Fire-and-forget: a memory outage must never interrupt code generation.
+     */
+    private async storePhaseEvalMemory(
+        phaseName: string,
+        evalScore: number,
+        evalPassed: boolean,
+        reason: string,
+    ): Promise<void> {
+        const userId = this.state.metadata?.userId ?? '';
+        if (!userId) return; // anonymous session — skip memory write
+        try {
+            const memClient = new AgentMemoryClient(this.env);
+            await memClient.remember({
+                userId,
+                tag: `phase:${phaseName}`,
+                content: `Phase "${phaseName}" eval: score=${evalScore.toFixed(2)}, passed=${evalPassed}${reason ? `. ${reason}` : ''}.`,
+                metadata: {
+                    evalScore,
+                    evalPassed,
+                    sessionId: this.state.sessionId ?? '',
+                    phaseName,
+                },
+            });
+        } catch (err) {
+            this.logger.warn('storePhaseEvalMemory failed (non-blocking)', {
+                phaseName,
                 error: err instanceof Error ? err.message : String(err),
             });
         }
