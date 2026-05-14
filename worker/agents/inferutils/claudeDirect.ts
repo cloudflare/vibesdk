@@ -29,14 +29,14 @@ const ANTHROPIC_VERSION = '2023-06-01';
 export type ClaudeModel =
     // Current generation (as of May 2026 — run023 research)
     | 'claude-sonnet-4-6'          // GA: 1M ctx, adaptive thinking, same price as 4.5 — DEFAULT
-    | 'claude-opus-4-7'            // GA: 1M ctx, 128k out, best agentic coding — Critic Team+ tier
+    | 'claude-opus-4-7'            // GA: 1M ctx, 128k out, best agentic coding — Critic Team+ tier ($5/$25 per MTok, NOT $15/$75 — that was Opus 4.1)
     | 'claude-haiku-4-5'           // GA: fastest, Flash-Lite equivalent — Tester lite tier
     // Legacy (still available, kept for regression-safety pinning)
     | 'claude-sonnet-4-5'          // legacy: 200k ctx (use 4.6 for new code)
     | 'claude-sonnet-4-5-20250929' // pinned snapshot — regression-safety only
     | 'claude-opus-4-5'            // legacy Opus — use 4.7 for new code
-    // Future: uncomment when released (~mid-May 2026)
-    // | 'claude-sonnet-4-8'       // NOT YET RELEASED — monitor Anthropic API (run023)
+    // Future: uncomment when released (window closed ~May 14; recheck cycle 15 — run055)
+    // | 'claude-sonnet-4-8'       // NOT YET RELEASED — cadence window closed, likely bundled launch; monitor Anthropic API
     ;
 
 // S10 → S11 upgrade: claude-sonnet-4-5 → claude-sonnet-4-6
@@ -46,6 +46,7 @@ export const CLAUDE_DEFAULT_MODEL: ClaudeModel = 'claude-sonnet-4-6';
 
 // Premium model for Critic (Team+) and future Opus-tier operations.
 // claude-opus-4-7: step-change agentic coding, 128k output, 1M context.
+// Pricing: $5/$25 per MTok in/out (DEC-055-B correction — NOT $15/$75 which was Opus 4.1).
 export const CLAUDE_PREMIUM_MODEL: ClaudeModel = 'claude-opus-4-7';
 
 export interface ClaudeMessage {
