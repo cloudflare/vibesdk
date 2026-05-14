@@ -8,6 +8,7 @@
  */
 
 import { Shield, GitBranch, Zap, Palette, ChevronRight } from 'lucide-react';
+import { Link } from 'react-router';
 import { motion } from 'framer-motion';
 
 interface ProofPoint {
@@ -134,16 +135,14 @@ export function CompetitiveSection() {
 
             {/* CTA link to SECURITY.md / docs */}
             <div className="mt-6 flex justify-center">
-                <a
-                    href="https://github.com/cloudflare/vibesdk/blob/main/docs/SECURITY.md"
-                    target="_blank"
-                    rel="noopener noreferrer"
+                <Link
+                    to="/security"
                     className="inline-flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors"
                     data-testid="competitive-security-link"
                 >
                     Read the architecture security brief
                     <ChevronRight className="size-3" />
-                </a>
+                </Link>
             </div>
         </section>
     );

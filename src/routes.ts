@@ -12,6 +12,7 @@ import DiscoverPage from './routes/discover';
 import PricingPage from './routes/pricing';
 import BillingPage from './routes/billing';
 import BenchmarkPage from './routes/benchmark';
+import SecurityPage from './routes/security';
 import { ProtectedRoute } from './routes/protected-route';
 
 const routes = [
@@ -54,6 +55,10 @@ const routes = [
 			{
 				path: 'benchmark',
 				Component: BenchmarkPage,
+			},
+			{
+				path: 'security',
+				Component: SecurityPage,
 			},
 			{
 				path: 'billing',
