@@ -20,6 +20,7 @@ import { Hono } from "hono";
 import { AppEnv } from "../../types/appenv";
 import { setupStatusRoutes } from './statusRoutes';
 import { setupWebhookRoutes } from './webhookRoutes';
+import { setupMcpRoutes } from './mcpRoutes';
 
 export function setupRoutes(app: Hono<AppEnv>): void {
     // Health check route
@@ -89,4 +90,7 @@ export function setupRoutes(app: Hono<AppEnv>): void {
 
     // Messaging-first inbound webhook (WhatsApp, Telegram, generic)
     setupWebhookRoutes(app);
+
+    // MCP server — AI client integrations (Claude Code, Cursor, Windsurf)
+    setupMcpRoutes(app);
 }
