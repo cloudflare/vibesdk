@@ -13,7 +13,9 @@ Read order for a new reader:
 9. **[ADR-002-sandbox-strategy.md](./ADR-002-sandbox-strategy.md)** — stay CF-native, e2b escape hatch (ACCEPTED 2026-05-12)
 10. **[ADR-003-agui-protocol-adoption.md](./ADR-003-agui-protocol-adoption.md)** — adopt AG-UI post-S2 (ACCEPTED-DEFERRED)
 11. **[ADR-004-memory-rag-eval.md](./ADR-004-memory-rag-eval.md)** — CF-native memory + RAG + DeepEval-port (ACCEPTED 2026-05-13, response to research-run-003)
-12. **[WEDGES.md](./WEDGES.md)** — speed + cost wedges vs emergent
+12. **[ADR-005-agent-stack-selection.md](./ADR-005-agent-stack-selection.md)** — Mastra INCLUDE / Hermes+ApeRAG AVOID / Skills INCLUDE (ACCEPTED 2026-05-14, panel 6/8)
+13. **[ADR-006-s9-spike-plan.md](./ADR-006-s9-spike-plan.md)** — S9 spikes: CF Project Think (DEFER until GA) + Memori pilot (PROPOSED 2026-05-14)
+14. **[WEDGES.md](./WEDGES.md)** — speed + cost wedges vs emergent
 12. **[INFRASTRUCTURE.md](./INFRASTRUCTURE.md)** — Cloudflare vs GCP decision (HIGH-confidence, 43× cheaper)
 13. **[COST-OPTIMIZATION.md](./COST-OPTIMIZATION.md)** — 9 levers ranked by ROI
 14. **[RAZORPAY-SETUP.md](./RAZORPAY-SETUP.md)** — operator runbook for live billing
