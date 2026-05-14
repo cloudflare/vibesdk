@@ -1086,17 +1086,69 @@ const ECOMM_INSTRUCTIONS = (): string => `
 const DASHBOARD_INSTRUCTIONS = (): string => `
 ** If applicable to user query group Related Controls and Forms into Well-Labeled Cards / Panels
 ** If applicable to user query offer Quick Actions / Shortcuts for Common Tasks
-** If user asked for analytics/visualizations/statistics - Show sparklines, mini line/bar charts, or simple pie indicators for trends 
+** If user asked for analytics/visualizations/statistics - Show sparklines, mini line/bar charts, or simple pie indicators for trends
 ** If user asked for analytics/visualizations/statistics - Maybe show key metrics in modular cards
 ** If applicable to user query make It Interactive and Contextual (Filters, Search, Pagination)
 ** If applicable to user query add a sidebar and or tabs
 ** Dashboard should be information dense.
 `;
 
+const SAAS_PAYMENTS_INSTRUCTIONS = (): string => `
+## Payments Integration — Cloudflare Workers Compatible Patterns
+
+** If there is no brand/product name specified, come up with a suitable SaaS name and pricing tiers.
+
+### REQUIRED PAGES & COMPONENTS
+** Include a polished Pricing page with 2-3 tier cards (Free/Pro/Enterprise or similar), monthly/annual billing toggle, feature matrix per tier, and a prominent CTA per tier.
+** Include a Checkout success page (/success) and a Checkout cancel/back page (/cancel or redirect to pricing).
+** Include an Account/Billing page showing current plan, usage, and a "Manage Subscription" button (Stripe Customer Portal link).
+** Design a hero section on the landing/home page with a clear value prop and a CTA leading to the Pricing page.
+
+### STRIPE INTEGRATION (primary — Cloudflare Workers compatible)
+** Frontend: load Stripe.js via @stripe/stripe-js (browser-only npm package). Call \`loadStripe(PUBLISHABLE_KEY)\` from a client-side module, never from Worker code.
+** Checkout flow: use Stripe Checkout (redirect mode) — call a backend API endpoint to create a Checkout Session, then redirect with \`stripe.redirectToCheckout({ sessionId })\`. This avoids PCI scope on the frontend entirely.
+** Backend endpoints to plan (Cloudflare Worker fetch handlers):
+   - POST /api/billing/checkout — creates a Stripe Checkout Session via fetch('https://api.stripe.com/v1/checkout/sessions', { method:'POST', headers:{ Authorization:'Bearer STRIPE_SECRET_KEY' } }). Returns { sessionId }.
+   - POST /api/billing/portal — creates a Stripe Customer Portal session (fetch /v1/billing_portal/sessions). Returns { url }.
+   - POST /api/billing/webhook — receives Stripe webhook events. Verifies Stripe-Signature using crypto.subtle HMAC-SHA256 (NOT stripe Node SDK — not CF Workers compatible). Updates subscription status in D1.
+** Environment variables needed (instruct user to set in wrangler.jsonc secrets):
+   - STRIPE_PUBLISHABLE_KEY (frontend, safe to expose)
+   - STRIPE_SECRET_KEY (backend only, use wrangler secret put)
+   - STRIPE_WEBHOOK_SECRET (for webhook signature verification)
+** D1 schema additions: users table needs \`stripe_customer_id TEXT\`, \`subscription_status TEXT DEFAULT 'free'\`, \`plan_id TEXT\`.
+
+### WEBHOOK SIGNATURE VERIFICATION (CF Workers safe pattern)
+** Do NOT use the stripe Node.js package for webhook verification — it requires Node crypto module.
+** Use this CF Workers compatible pattern with crypto.subtle:
+   \`\`\`
+   const sig = request.headers.get('stripe-signature');
+   const body = await request.text();
+   // parse timestamp + v1 from sig header, verify HMAC-SHA256(timestamp.body) against sig
+   \`\`\`
+** Plan a \`verifyStripeWebhook(body, sig, secret)\` utility function in the backend.
+
+### ALTERNATIVE: PADDLE (simpler tax handling)
+** If user prefers Paddle: use Paddle.js via CDN script tag (\`https://cdn.paddle.com/paddle/paddle.js\`). Paddle handles VAT automatically — better for global SaaS.
+** Paddle webhook verification is simpler (HMAC-SHA256 on raw body with PADDLE_WEBHOOK_SECRET).
+
+### FEATURE GATING
+** Plan a \`checkEntitlement(userId, feature)\` helper that reads subscription_status from D1 and returns true/false.
+** Gate premium features behind this check on both frontend (hide/disable UI) and backend (return 403).
+
+### PITFALLS TO AVOID
+** CRITICAL: stripe npm package (server-side Node.js SDK) is NOT compatible with Cloudflare Workers — use raw fetch to Stripe API instead.
+** CRITICAL: Never expose STRIPE_SECRET_KEY to the browser — all Stripe API calls that need the secret key must go through your Worker backend.
+** Do not store raw card data — always use Stripe Checkout or Stripe Elements; PCI scope stays with Stripe.
+** Webhook deduplication: store processed event IDs in D1 to handle Stripe's at-least-once delivery.
+** Test mode: all Stripe test keys start with pk_test_ / sk_test_ — remind user to switch to live keys before production.
+`;
+
 export const getUsecaseSpecificInstructions = (selectedTemplate: TemplateSelection): string => {
     switch (selectedTemplate.useCase) {
         case 'SaaS Product Website':
             return SAAS_LANDING_INSTRUCTIONS(selectedTemplate.styleSelection);
+        case 'SaaS with Payments':
+            return SAAS_PAYMENTS_INSTRUCTIONS();
         case 'E-Commerce':
             return ECOMM_INSTRUCTIONS();
         case 'Dashboard':
