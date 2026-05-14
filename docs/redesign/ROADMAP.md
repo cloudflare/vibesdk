@@ -64,7 +64,10 @@ MULTI_AGENT_ENABLED env var toggle (S11)|DONE — wrangler.jsonc var + worker-co
 Cycle 6 research (S11)|DONE — runs 023-026: tech (Sonnet 4.6/4.7 upgrade), features (Lovable Cloud gap, DESIGN.md), arch (AI Gateway streaming resilience), market (Emergent pivot, NxCode threat); CUMULATIVE-6 written|--|@Architect
 ADR-008 AI Gateway streaming resilience (S11)|DONE — 3-phase plan: capture cf-aig-request-id, resume on WS reconnect, cleanup; implementation deferred S12; 5% LLM cost reduction at 5% reconnect rate (7f45de4)|1d|@Architect
 run027 architecture supplement (Cycle 7)|DONE — CF Browser Run on Containers; Cursor multi-repo agents; Vercel Opus 4.7 Fast Mode; Mastra v1.33 GA (ResponseCache HIGH, Agent Signals); Replit micro-VM topology; Terminal Use YC W26 profile (7f45de4)|--|@Architect
-DESIGN.md detection + blueprint injection (S11)|DONE — fileManager.getFile('DESIGN.md') in phasic.ts initialize(); designRules threaded through generateBlueprint() → generalSystemPromptBuilder() → getUsecaseSpecificInstructions(); 4 new tests, 19 total pass (2cdc124)|2h|@Dev
+DESIGN.md detection + blueprint injection (S11)|DONE — fileManager.getFile('DESIGN.md') in phasic.ts initialize(); designRules threaded through generateBlueprint() → generalSystemPromptBuilder() → getUsecaseSpecificInstructions(); agentic tool path also covered (generate-blueprint.ts reads context.allFiles); 4 new tests, 19 total pass (2cdc124/8e74125)|2h|@Dev
+Opus 4.7 Fast Mode support + API research (S11)|DONE — claudeDirect.ts: speedMode:'fast'|'standard' param; anthropic-beta header injection; FAST_MODE_SUPPORTED_MODELS guard; speed field in result; waitlist-gated, 6× pricing ($150/MTok out), CriticAgent is correct first target; NOT available via OpenAI-compat AI Gateway path; apply-for-waitlist = owner action (8e74125)|1h|@Dev
+CF AI Gateway RFC correction (S11)|DONE — ADR-008 updated: streaming buffer RFC-stage NOT GA; correct header X-AI-Gateway-Durable-Id (not cf-aig-request-id); resume endpoint open question; re-check every cycle (8e74125)|0.5h|@Architect
+run028 tech+arch research (Cycle 7, S11)|DONE — Opus 4.7 Fast confirmed API; CF AI Gateway RFC status corrected; fast mode gap analysis (claudeDirect vs core.ts provider split)|--|@Architect
 ```
 
 ### Production Readiness (Sprint 2, tracked in QA-PROTOCOL.md)
