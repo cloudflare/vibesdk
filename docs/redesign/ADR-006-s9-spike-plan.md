@@ -191,12 +191,35 @@ Monitor for **Managed Agents Platform Alpha** announcement. If released:
 
 ```
 # schema: item|status|trigger|effort|impact
-CF Think Fibers|S9 NOW|@cloudflare/think experimental (stable enough for Fibers)|2d|HIGH — crash recovery
-CF Think subAgent RPC|S9 NOW|Same as Fibers|1d|HIGH — parallel phase execution
-CF Think Execution Ladder|S10 DEFER|npm stable tag (GA)|2d|HIGH if replaces factory
+CF Think Fibers|BLOCKED — dep upgrade required|agents 0.2→0.12.4 + zod 3→4 + ai^6.0.0|5d spike|HIGH — crash recovery
+CF Think subAgent RPC|BLOCKED — same dep chain|Same as Fibers|+1d|HIGH — parallel phase execution
+CF Think Execution Ladder|S10 DEFER|npm stable tag (GA)|+2d|HIGH if replaces factory
 Memori Labs pilot|BLOCKED|CF-compatible client path|5d|MEDIUM quality uplift
 LiteLLM Managed Agents|MONITOR|May 18 2026 town hall|1d eval|LOW-MEDIUM
 ```
+
+### Dependency Upgrade Analysis (run015 addendum — critical blocker)
+
+`@cloudflare/think@0.6.0` peerDependencies:
+```
+agents: >=0.12.4 <1.0.0    # vibesdk has: "^0.2.32" — requires +10 minor version jump
+ai: ^6.0.0                  # vibesdk has: NOT installed (uses AI SDK differently)
+zod: ^4.0.0                 # vibesdk has: "^3.25.76" — MAJOR breaking change
+@cloudflare/codemode: >=0.3.4
+@cloudflare/shell: >=0.3.4
+```
+
+**Zod v3→v4 blast radius:** ALL existing Zod schemas across `worker/agents/`, `worker/services/mastra/`, `worker/api/`, `shared/` — estimated 40-60 schema definitions would need migration.
+
+**agents 0.2→0.12.4 blast radius:** Unknown until diff reviewed. 10 minor versions in a pre-1.0 package can include breaking API changes.
+
+**Recommendation:** Spike in an ISOLATED worktree, NOT in the main vibesdk branch. Steps:
+1. Create new worktree: `git worktree add ../s9-think-spike -b feature/s9-think-spike`
+2. `npm install @cloudflare/think agents@latest` in that worktree
+3. Assess actual migration effort from peer dep resolution errors
+4. If ≤5 days total: bring changes to main. If >5 days: DEFER to S10 post-Zod-v4 migration.
+
+**Updated effort estimate:** 5d spike becomes 5d + Zod-v4 migration (~3-5d additional). Total 8-10d. Exceeds S9 budget → DEFER to S10 unless Owner explicitly allocates sprint for dep upgrade.
 
 ---
 
