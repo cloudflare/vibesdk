@@ -315,6 +315,8 @@ export interface SessionQualityResult {
     answerRelevancy: number;
     toolCorrectness: number;
     hallucinationRisk: number;
+    /** Composite score: mean of (faithfulness, answerRelevancy, toolCorrectness, 1-hallucinationRisk). Range [0, 1]. */
+    compositeScore: number;
     passed: boolean;
     blockedReason: string | null;
     comments: string;

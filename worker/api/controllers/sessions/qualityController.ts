@@ -15,6 +15,7 @@ import type { RouteContext } from '../../types/route-context';
 import { createLogger } from '../../../logger';
 import { EvalResultsService } from '../../../database/services/EvalResultsService';
 import type { EvalResultRow } from '../../../database/schema';
+import { computeCompositeEvalScore } from '../../../agents/operations/EvalGate';
 
 const logger = createLogger('SessionQualityController');
 
@@ -27,6 +28,8 @@ export interface SessionQualityResult {
     answerRelevancy: number;
     toolCorrectness: number;
     hallucinationRisk: number;
+    /** Pre-computed composite score so consumers don't duplicate the formula. */
+    compositeScore: number;
     passed: boolean;
     blockedReason: string | null;
     comments: string;
@@ -108,6 +111,13 @@ function mapRow(row: EvalResultRow): SessionQualityResult {
             ? Number(row.createdAt)
             : null;
 
+    const compositeScore = Math.round(computeCompositeEvalScore({
+        faithfulness: row.faithfulness,
+        answerRelevancy: row.answerRelevancy,
+        toolCorrectness: row.toolCorrectness,
+        hallucinationRisk: row.hallucinationRisk,
+    }) * 1000) / 1000;
+
     return {
         id: row.id,
         sessionId: row.sessionId,
@@ -117,6 +127,7 @@ function mapRow(row: EvalResultRow): SessionQualityResult {
         answerRelevancy: row.answerRelevancy,
         toolCorrectness: row.toolCorrectness,
         hallucinationRisk: row.hallucinationRisk,
+        compositeScore,
         passed: row.passed === 1,
         blockedReason: row.blockedReason ?? null,
         comments: row.comments,
