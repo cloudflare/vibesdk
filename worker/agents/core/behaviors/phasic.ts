@@ -931,15 +931,17 @@ export class PhasicCodingBehavior extends BaseCodingBehavior<PhasicState> implem
             });
 
             // Broadcast so the frontend can display real-time quality signals.
+            // Include compositeScore so the frontend doesn't duplicate the formula.
+            const compositeScore = computeCompositeEvalScore(verdict.scores);
             this.broadcast(WebSocketMessageResponses.EVAL_GATE_VERDICT, {
                 phaseName: phaseConcept.name,
                 passed: verdict.passed,
                 blockedReason: verdict.blockedReason,
                 scores: verdict.scores,
+                compositeScore: Math.round(compositeScore * 1000) / 1000,
             });
 
             // S8 — Persist eval summary in agent memory for cross-session recall.
-            const compositeScore = computeCompositeEvalScore(verdict.scores);
             void this.storePhaseEvalMemory(
                 phaseConcept.name,
                 compositeScore,

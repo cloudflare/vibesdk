@@ -613,6 +613,8 @@ export type EvalGateVerdictMessage = {
         toolCorrectness: number;
         hallucinationRisk: number;
     };
+    /** Pre-computed composite: mean(faithfulness, answerRelevancy, toolCorrectness, 1-hallucinationRisk). */
+    compositeScore: number;
 };
 
 /**
