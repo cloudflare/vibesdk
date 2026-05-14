@@ -127,9 +127,11 @@ const MODELS_MASTER = {
         }
     },
     CLAUDE_4_SONNET: {
-        id: 'anthropic/claude-sonnet-4-20250514',
+        // Note: claude-sonnet-4-20250514 is deprecated (retiring June 15, 2026)
+        // Updated to claude-sonnet-4-6 per DEC-035-B.
+        id: 'anthropic/claude-sonnet-4-6',
         config: {
-            name: 'Claude 4 Sonnet',
+            name: 'Claude Sonnet 4.6',
             size: ModelSize.LARGE,
             provider: 'anthropic',
             creditCost: 12, // $3.00
