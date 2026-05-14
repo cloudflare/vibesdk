@@ -1,6 +1,6 @@
 # 🧡 Cloudflare Vibe SDK
 
-> **An open source full-stack AI webapp generator** – Deploy your own instance of Cloudflare VibeSDK, an AI vibe coding platform that you can run and customize yourself.
+> **An open source full-stack AI webapp generator** – Deploy your own instance of Cloudflare VibeSDK, an AI agentic engineering platform that you can run and customize yourself.
 
 <div align="center">
 
@@ -27,7 +27,7 @@
 
 ## ✨ What is Cloudflare VibeSDK?
 
-Cloudflare VibeSDK is an open source AI vibe coding platform built on Cloudflare's developer platform. If you're building an AI-powered platform for building applications, this is a great example that you can deploy and customize to build the whole platform yourself. Once the platform is deployed, users can say what they want to build in natural language, and the AI agent will create and deploy the application. 
+Cloudflare VibeSDK is an open source AI agentic engineering platform built on Cloudflare's developer platform. If you're building an AI-powered platform for building applications, this is a great example that you can deploy and customize to build the whole platform yourself. Once the platform is deployed, users can say what they want to build in natural language, and the AI agent will create and deploy the application. 
 
 **🌐 [Experience it live at build.cloudflare.dev](https://build.cloudflare.dev)** – Try it out before deploying your own instance!
 

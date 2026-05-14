@@ -1,34 +1,46 @@
+# syntax=docker/dockerfile:1.4
 ## VibeSDK Development Container
-## 
-## Optimized for hot-reload development with volume mounts
-## Usage: docker compose -f docker/docker-compose.yml up
+##
+## Optimized for hot-reload development with volume mounts.
+## BuildKit cache mounts ensure package installs are served from disk
+## on subsequent builds (mirrors Cursor 70% speedup, May 2026).
+##
+## Usage: DOCKER_BUILDKIT=1 docker compose -f docker/docker-compose.yml up
 
 FROM oven/bun:1.1-debian AS base
 
 WORKDIR /app
 
-# Install system dependencies needed for development
-RUN apt-get update && apt-get install -y \
-    git \
-    curl \
-    bash \
-    procps \
-    net-tools \
-    sqlite3 \
+# Install system dependencies.
+# Cache /var/cache/apt so unchanged package sets skip network fetches.
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
+    apt-get update && apt-get install -y \
+        git \
+        curl \
+        bash \
+        procps \
+        net-tools \
+        sqlite3 \
     && rm -rf /var/lib/apt/lists/*
 
-# Install wrangler globally for CLI access
-RUN bun add -g wrangler
+# Install wrangler globally.
+# Cache bun's global install cache to avoid re-fetching wrangler each build.
+RUN --mount=type=cache,target=/root/.bun/install/cache,sharing=locked \
+    bun add -g wrangler
 
-# Copy package files first (for better caching)
+# Copy package manifests first — layer order ensures dependency install only
+# re-runs when package.json/bun.lock change, not when source files change.
 COPY package.json bun.lock ./
 
 # Copy workspace package.json files
 COPY sdk/package.json sdk/
 COPY container/package.json container/
 
-# Install dependencies
-RUN bun install
+# Install dependencies with BuildKit bun cache mount.
+# Unchanged packages are resolved locally; only new/updated ones hit network.
+RUN --mount=type=cache,target=/root/.bun/install/cache,sharing=locked \
+    bun install
 
 # Copy the rest of the source code
 # (In development, this will be overridden by volume mount)

@@ -1,5 +1,9 @@
 ## VibeSDK Local Development Stack
-## 
+##
+## BuildKit is required for --mount=type=cache directives in Dockerfiles.
+## Docker Compose v2 (docker compose, no hyphen) enables BuildKit automatically.
+## Docker Compose v1 (docker-compose): set DOCKER_BUILDKIT=1 before running.
+##
 ## Usage:
 ##   ./scripts/start.sh          # Start all services
 ##   ./scripts/stop.sh           # Stop all services
@@ -12,14 +16,21 @@
 ##
 ## Services:
 ##   - vibesdk: Main application (Vite + Wrangler)
-##   - sandbox: Code execution sandbox (optional)
+##   - sandbox: Code execution sandbox (optional, --profile full)
 
 version: '3.8'
+
+# BuildKit inline cache — push cache metadata with images so remote pulls
+# benefit from layer reuse (CI/CD and multi-developer environments).
+x-build-defaults: &build-defaults
+  args:
+    BUILDKIT_INLINE_CACHE: "1"
 
 services:
   # Main VibeSDK Application
   vibesdk:
     build:
+      <<: *build-defaults
       context: ..
       dockerfile: docker/Dockerfile
       target: dev
@@ -52,6 +63,7 @@ services:
   # Code Execution Sandbox (Optional - for full functionality)
   sandbox:
     build:
+      <<: *build-defaults
       context: ..
       dockerfile: SandboxDockerfile
     container_name: vibesdk-sandbox
