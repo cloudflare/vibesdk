@@ -60,17 +60,17 @@ const PhaseWorkflowInputSchema = z.object({
 
 const PlanStepOutputSchema = z.object({
     phase: PhaseConceptZodSchema,
-    fileCount: z.number(),
-    durationMs: z.number(),
+    fileCount: z.number().int().nonnegative(),
+    durationMs: z.number().nonnegative(),
 });
 
 const ImplementStepOutputSchema = z.object({
     ok: z.boolean(),
     failedTaskIds: z.array(z.string()),
-    tokensSpent: z.number(),
+    tokensSpent: z.number().int().nonnegative(),
     implementedFiles: z.array(z.string()),
     implementation: z.unknown().nullable(), // PhaseImplementationSchemaType | null
-    durationMs: z.number(),
+    durationMs: z.number().nonnegative(),
 });
 
 const score01 = z.number().min(0).max(1);
