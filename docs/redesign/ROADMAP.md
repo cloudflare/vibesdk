@@ -105,6 +105,7 @@ run043b Cycle 11 tech (S14)|DONE — Sonnet 4.8 NOT released (Opus 4.7/Sonnet 4.
 ADR-008 S14 WS broadcast buffer (S14 DEC-043-D)|DONE — ws-buffer.ts: pure enqueueBroadcast/filterFreshBroadcasts/hasFreshBroadcasts helpers; MAX 100 entries, 5min TTL; CodeGeneratorAgent: _pendingBroadcasts ephemeral field + broadcast() buffers on 0 connections + flushPendingBroadcasts() called at onConnect before STATE_SNAPSHOT; 14 unit tests; 0 TS errors (ca14d60)|--|@Dev
 run044 Cycle 11 features (S14)|DONE — Lovable mobile (Apr 28) MEDIUM gap → S15 PWA; Rocket.new entrant free/credits-based no India pricing → WATCH only; Bolt AI image gen confirmed S15 LOW; Replit ChatGPT distribution + effort-based pricing → vibesdk flat ₹1,699 counter-narrative; 5 decisions DEC-044-A→E (f6389c8)|--|@Architect
 Pricing counter-narrative (DEC-044-D)|DONE — COMPARISON_ROWS: Pricing model row (flat monthly vs credits/effort-based) + India billing rails row; header: "no effort-based surprises" line; comparison subtitle updated; 0 TS errors (c2423f3)|--|@Dev
+run045 Cycle 11 market (S14)|DONE — SpaceX S-1 prospectus window OPEN today (May 15-22); roadshow Jun 8-11, IPO Jun 18-30 → Cursor acquisition post-IPO Jul-Aug; Cursor dual-exit UNCHANGED ($60B option, $10B breakup fee, $2B VC paused); Lovable Series C NOT announced (still Series B $330M/$6.6B Dec 2025) → marketing window holds; all /security + /blog/lovable-bola content live; Razorpay P0 DUE JUN 15 unchanged; 5 decisions DEC-045-A→E (b8574a4)|--|@Architect
 ```
 
 ### Production Readiness (Sprint 2, tracked in QA-PROTOCOL.md)
