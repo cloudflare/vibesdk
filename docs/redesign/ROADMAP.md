@@ -76,6 +76,8 @@ ADR-001 addendum — CF Dynamic Workflows (S11)|DONE — awareness note added: D
 EvalGate ResponseCache analog (S11)|DONE — eval-cache.ts: module-scoped Map, TTL 10min, max 100 entries, key=sessionId:phaseName; getCachedEvalVerdict/cacheEvalVerdict/clearEvalCache; wired into runEvalGate (cache-before-LLM, store-after); 12 unit tests pass; fix: EvalResultsService apps import missing (iter 37 bug) (b4dcc34)|2h|@Dev
 run030 Cycle 7 market close (S11)|DONE — SpaceX-Cursor $60B Q3 window CRITICAL; Claude Code #1 = Anthropic API strategic asset; "agentic engineering" paradigm; Bolt enterprise pivot = SMB opportunity; 5 decisions (DEC-030-A→E); CUMULATIVE-SUMMARY-CYCLE-7.md written|--|@Architect
 bun vitest compat fixes (S11)|DONE — NullMemoryClient.test.ts: replace invalid .resolves.not.toThrow() with direct await+assert (7 tests); mastra/evalGate.test.ts: remove vi.hoisted() + importOriginal (both unsupported in bun compat layer), provide manual mock factory (8 tests); all 15 pre-existing test failures resolved (290ceaf)|1h|@Dev
+Docker BuildKit layer caching (S11)|DONE — # syntax=docker/dockerfile:1.4 + --mount=type=cache on all bun install + apt-get/apk add in Dockerfile, Dockerfile.dev, SandboxDockerfile; docker-compose.yml BUILDKIT_INLINE_CACHE=1 anchor; SandboxDockerfile split into separate layers (apt/curl/git); mirrors Cursor 70% speedup (ab78a36)|2h|@Dev
+Agentic engineering rebrand (S11)|DONE — README.md: "AI vibe coding platform" → "AI agentic engineering platform" in tagline + What-is section; placeholder GitHub URLs left for owner rename action (ab78a36)|0.5h|@Dev
 ```
 
 ### Production Readiness (Sprint 2, tracked in QA-PROTOCOL.md)
