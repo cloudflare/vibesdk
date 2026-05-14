@@ -21,6 +21,14 @@
 	"observability": {
 		"enabled": true,
         "head_sampling_rate": 1,
+        // CF Unified Tracing — May 7, 2026 (automatic DO + Worker subrequest tracing)
+        // Produces single unified trace across CodeGeneratorAgent DO calls and subrequests.
+        // head_sampling_rate: 0.1 = 10% of requests traced (increase once pricing confirmed).
+        // Export to OTLP destination: add logpush OTLP endpoint in CF Dashboard → Workers → Logpush.
+        "traces": {
+            "enabled": true,
+            "head_sampling_rate": 0.1
+        }
 	},
     "unsafe": {
         "bindings": [
