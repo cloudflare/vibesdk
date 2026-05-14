@@ -15,7 +15,8 @@ Read order for a new reader:
 11. **[ADR-004-memory-rag-eval.md](./ADR-004-memory-rag-eval.md)** — CF-native memory + RAG + DeepEval-port (ACCEPTED 2026-05-13, response to research-run-003)
 12. **[ADR-005-agent-stack-selection.md](./ADR-005-agent-stack-selection.md)** — Mastra INCLUDE / Hermes+ApeRAG AVOID / Skills INCLUDE (ACCEPTED 2026-05-14, panel 6/8)
 13. **[ADR-006-s9-spike-plan.md](./ADR-006-s9-spike-plan.md)** — S9 spikes: CF Project Think (DEFER until GA) + Memori pilot (PROPOSED 2026-05-14)
-14. **[WEDGES.md](./WEDGES.md)** — speed + cost wedges vs emergent
+14. **[ADR-007-parallel-subagent-merge-strategy.md](./ADR-007-parallel-subagent-merge-strategy.md)** — parallel sub-agent merge: Option A phase independence constraint (S10 primary), Option B LLM merge (S11), Option C HITL fallback (PROPOSED 2026-05-14)
+15. **[WEDGES.md](./WEDGES.md)** — speed + cost wedges vs emergent
 12. **[INFRASTRUCTURE.md](./INFRASTRUCTURE.md)** — Cloudflare vs GCP decision (HIGH-confidence, 43× cheaper)
 13. **[COST-OPTIMIZATION.md](./COST-OPTIMIZATION.md)** — 9 levers ranked by ROI
 14. **[RAZORPAY-SETUP.md](./RAZORPAY-SETUP.md)** — operator runbook for live billing
@@ -52,3 +53,4 @@ Read order for a new reader:
 - **DEC-003** (2026-04-24): Pre-login marketing = emergent.sh pattern w/ dark-default + light toggle. See UI-UX-PRELOGIN.md.
 - **DEC-004** (2026-04-24): Migration = feature-flagged, non-breaking, 2-sprint parallel run before monolith deprecation.
 - **DEC-005** (2026-05-13): Memory + RAG + Eval layer = Cloudflare Agent Memory + AI Search + TS-port of DeepEval core metrics. Best-of-breed (Mem0/Infinity/E2B) deferred to preserve 43× CF cost moat. See ADR-004. Triggered by run003 finding (zero memory/RAG/eval vs Mem0 91.6 LoCoMo + DeepEval 50+ metrics).
+- **DEC-006** (2026-05-14): Parallel sub-agent merge strategy = Option A (Phase Independence Constraint) primary for S10. Disjoint file sets enforced at plan time; zero conflicts by construction. Option B (LLM merge via git-DO branches) queued for S11 if serialization rate >10%. See ADR-007.
