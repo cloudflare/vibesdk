@@ -37,6 +37,7 @@ import { runPhaseWorkflow } from '../../operations/PhaseWorkflow';
 // S8 — Agent memory: persist phase eval results for cross-session recall (ADR-004).
 import { AgentMemoryClient } from '../../../services/memory';
 import { EvalResultsService } from '../../../database/services/EvalResultsService';
+import { SnapshotService } from '../../../database/services/SnapshotService';
 // S5 — per-phase effort estimation + token recording.
 import { estimatePhaseCredits } from '../../../services/billing/effortEstimator';
 import { CreditService } from '../../../database/services/CreditService';
@@ -620,12 +621,30 @@ export class PhasicCodingBehavior extends BaseCodingBehavior<PhasicState> implem
             }
             // Store the message in the conversation history so user's response can trigger the deep debug tool
             this.infrastructure.addConversationMessage(message);
-            
+
             this.broadcast(WebSocketMessageResponses.CONVERSATION_RESPONSE, {
                 message: message.content,
                 conversationId: message.conversationId,
                 isStreaming: false,
             });
+        }
+
+        // ADR-010 Option A: persist session snapshot on generation completion.
+        // Best-effort — a DB error here must never block the IDLE transition.
+        try {
+            const snapshotService = new SnapshotService(this.env);
+            await snapshotService.writeSnapshot({
+                sessionId: this.getAgentId(),
+                projectName: this.state.projectName ?? '',
+                filesCount: this.fileManager.getGeneratedFilePaths().length,
+                templateName: this.state.templateName ?? '',
+                snapshotJson: {
+                    phases: this.state.generatedPhases.map((p) => p.name),
+                    completedAt: Date.now(),
+                },
+            });
+        } catch {
+            // best-effort — swallow silently
         }
 
         return CurrentDevState.IDLE;

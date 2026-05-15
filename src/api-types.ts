@@ -115,6 +115,18 @@ export interface ModelConfigUpdate {
   isUserOverride?: boolean;
 }
 
+// Session snapshot — ADR-010 Option A degraded-mode UX.
+// Returned by GET /api/sessions/:sessionId/snapshot.
+// Consumed by DegradedModeBanner to show last-known-good project state.
+export interface SessionSnapshot {
+  sessionId: string;
+  projectName: string;
+  filesCount: number;
+  templateName: string;
+  snapshotJson: Record<string, unknown>;
+  completedAt: number | null;
+}
+
 // Secrets API Types
 export type { SecretTemplatesData } from 'worker/api/controllers/secrets/types';
 

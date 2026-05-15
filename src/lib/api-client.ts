@@ -60,6 +60,7 @@ import type{
         VaultStatusResponse,
         SessionQualityResponse,
         GitLogResponse,
+        SessionSnapshot,
 } from '@/api-types';
 import {
         RateLimitExceededError,
@@ -1267,6 +1268,27 @@ class ApiClient {
                 return this.request<GitLogResponse>(
                         `/api/sessions/${encodeURIComponent(sessionId)}/git/log?limit=${limit}`,
                 );
+        }
+
+        // Session snapshot — ADR-010 Option A degraded-mode UX
+        // ===============================
+
+        /**
+         * Return the last-completed snapshot for a session.
+         * Returns null on 404 (snapshot not yet written or session unknown).
+         */
+        async getSessionSnapshot(sessionId: string): Promise<SessionSnapshot | null> {
+                try {
+                        const response = await this.request<SessionSnapshot>(
+                                `/api/sessions/${encodeURIComponent(sessionId)}/snapshot`,
+                        );
+                        return response.data ?? null;
+                } catch (err) {
+                        if (err instanceof ApiError && err.status === 404) {
+                                return null;
+                        }
+                        throw err;
+                }
         }
 }
 

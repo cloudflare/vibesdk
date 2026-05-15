@@ -38,6 +38,7 @@ import { VaultUnlockModal } from '@/components/vault';
 import { AgentsDock, PlanTree, useAgentStream } from '@/components/agents';
 import { PhaseQualityBadge, IsolationBadge, GitHistoryPanel, DeployBadge } from '@/components/quality';
 import { CostPreviewBadge } from '@/components/billing/CostPreviewBadge';
+import { DegradedModeBanner } from './components/DegradedModeBanner';
 
 const isPhasicBlueprint = (blueprint?: BlueprintType | null): blueprint is PhasicBlueprint =>
 	!!blueprint && 'implementationRoadmap' in blueprint;
@@ -577,6 +578,14 @@ export default function Chat() {
 		return blueprintNotCompleted || isDebugging;
 	}, [projectStages, isDebugging]);
 
+	// Degraded-mode banner — show when WebSocket connection has failed permanently
+	// (all retry attempts exhausted). Detected by the presence of the sentinel
+	// 'websocket_failed' message injected by the use-chat retry handler.
+	const showDegradedBanner = useMemo(
+		() => messages.some((m) => m.conversationId === 'websocket_failed'),
+		[messages],
+	);
+
 	const chatFormRef = useRef<HTMLFormElement>(null);
 	const { isDragging: isChatDragging, dragHandlers: chatDragHandlers } = useDragDrop({
 		onFilesDropped: addImages,
@@ -866,6 +875,11 @@ export default function Chat() {
 						</div>
 					</div>
 
+
+				<DegradedModeBanner
+					sessionId={chatId ?? urlChatId ?? ''}
+					isVisible={showDegradedBanner}
+				/>
 
 				<ChatInput
 					newMessage={newMessage}
