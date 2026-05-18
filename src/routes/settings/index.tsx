@@ -541,13 +541,10 @@ export default function SettingsPage() {
 							{/* Provider API Keys Integration */}
 							<div className="space-y-2 mt-6">
 								<h4 className="font-medium">
-									Provider API Keys
+									Provider API Keys (BYOK)
 								</h4>
 								<p className="text-sm text-text-tertiary">
-									AI provider API keys are managed in the "API
-									Keys & Secrets" section below. Configure
-									your OpenAI, Anthropic, Google AI, and
-									OpenRouter keys there.
+									Connect your own Anthropic, OpenAI, or Google AI key. Requests run on your provider account at their published rates — vibesdk does not bill for tokens.
 								</p>
 
 								<Button
@@ -566,7 +563,7 @@ export default function SettingsPage() {
 									className="gap-2 shrink-0"
 								>
 														<Key className="h-4 w-4" />
-														API Keys
+														Manage API Keys
 								</Button>
 							</div>
 
