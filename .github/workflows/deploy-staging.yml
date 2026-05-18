@@ -58,7 +58,7 @@ jobs:
 
       # Staging-specific overrides. These take priority over wrangler.staging.jsonc vars.
       CUSTOM_DOMAIN: staging.build.cloudflare.dev
-      CUSTOM_PREVIEW_DOMAIN: staging-build-preview.cloudflare.dev
+      CUSTOM_PREVIEW_DOMAIN: staging.build-preview.cloudflare.dev
       DISPATCH_NAMESPACE: vibesdk-staging-namespace
       ENVIRONMENT: staging
 

@@ -3,8 +3,10 @@
  * isolated staging Cloudflare resources. Selected by setting
  * WRANGLER_CONFIG_PATH=wrangler.staging.jsonc when running scripts/deploy.ts.
  *
- * Resource IDs marked TODO must be filled in with the already-provisioned
- * staging values before the first deploy.
+ * Resource sharing with prod:
+ *  - Templates R2 bucket (read-only static assets)
+ *  - AI Gateway (`vibesdk-gateway`) and its token
+ * Everything else (worker, D1, KV, dispatch namespace, routes) is isolated.
  */
  {
 	"$schema": "node_modules/wrangler/config-schema.json",
@@ -50,7 +52,7 @@
     },
 	"ai": {
 		"binding": "AI",
-        "remote": false
+        "remote": true
 	},
     "dispatch_namespaces": [
         {
@@ -81,9 +83,9 @@
 		{
 			"binding": "DB",
 			"database_name": "vibesdk-db-staging",
-			"database_id": "TODO-staging-d1-database-id",
+			"database_id": "5c6e594f-1655-4f12-95e9-92f541255864",
 			"migrations_dir": "migrations",
-			"remote": false
+			"remote": true
 		}
 	],
 	"durable_objects": {
@@ -125,15 +127,15 @@
     "r2_buckets": [
       {
         "binding": "TEMPLATES_BUCKET",
-        "bucket_name": "vibesdk-templates-staging",
-        "remote": false
+        "bucket_name": "vibesdk-templates",
+        "remote": true
       }
     ],
     "kv_namespaces": [
         {
             "binding": "VibecoderStore",
-            "id": "TODO-staging-kv-namespace-id",
-            "remote": false
+            "id": "e9367b2dce4740659642116c37bb052c",
+            "remote": true
         }
     ],
 	"migrations": [
@@ -175,9 +177,9 @@
             "custom_domain": true
         },
         {
-            "pattern": "*staging-build-preview.cloudflare.dev/*",
+            "pattern": "*staging.build-preview.cloudflare.dev/*",
             "custom_domain": false,
-            "zone_id": "TODO-staging-preview-zone-id"
+            "zone_id": "db01fac4261b2604aacad8410443a3e2"
         }
     ],
 	"vars": {
