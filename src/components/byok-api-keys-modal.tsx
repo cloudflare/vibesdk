@@ -5,7 +5,7 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
-import { Key, Check, AlertCircle, Loader2, Plus, Settings, Trash2, Eye, Lock } from 'lucide-react';
+import { Key, Check, AlertCircle, Loader2, Plus, Settings, Trash2, Eye, Lock, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -75,13 +75,38 @@ interface BYOKProvider {
 	logo: React.ComponentType<{ className?: string }>;
 	placeholder: string;
 	validation: RegExp;
+	helpText: string;
+	consoleUrl: string;
 }
+
+const PROVIDER_HELP: Record<string, { helpText: string; consoleUrl: string }> = {
+	anthropic: {
+		helpText: 'Encrypted in your account vault. Get yours at console.anthropic.com',
+		consoleUrl: 'console.anthropic.com',
+	},
+	openai: {
+		helpText: 'Encrypted in your account vault. Get yours at platform.openai.com/api-keys',
+		consoleUrl: 'platform.openai.com/api-keys',
+	},
+	'google-ai-studio': {
+		helpText: 'Encrypted in your account vault. Get yours at aistudio.google.com/app/apikey',
+		consoleUrl: 'aistudio.google.com/app/apikey',
+	},
+	cerebras: {
+		helpText: 'Encrypted in your account vault. Get yours at cloud.cerebras.ai',
+		consoleUrl: 'cloud.cerebras.ai',
+	},
+};
 
 /**
  * Convert BYOK template to provider configuration
  */
 function templateToBYOKProvider(template: SecretTemplate): BYOKProvider {
 	const logo = PROVIDER_LOGOS[template.provider] || (() => <div className="w-4 h-4 bg-gray-300 rounded" />);
+	const help = PROVIDER_HELP[template.provider] ?? {
+		helpText: 'Encrypted in your account vault.',
+		consoleUrl: '',
+	};
 
 	return {
 		id: template.id,
@@ -91,6 +116,8 @@ function templateToBYOKProvider(template: SecretTemplate): BYOKProvider {
 		logo,
 		placeholder: template.placeholder,
 		validation: new RegExp(template.validation),
+		helpText: help.helpText,
+		consoleUrl: help.consoleUrl,
 	};
 }
 
@@ -117,6 +144,16 @@ export function ByokApiKeysModal({ isOpen, onClose, onKeyAdded }: ByokApiKeysMod
 	// Vault modals
 	const [showUnlockModal, setShowUnlockModal] = useState(false);
 	const [showSetupModal, setShowSetupModal] = useState(false);
+
+	// Explainer card visibility (localStorage-dismissed)
+	const [explainerDismissed, setExplainerDismissed] = useState(
+		() => localStorage.getItem('vibesdk_byok_explainer_seen') === 'true'
+	);
+
+	const dismissExplainer = () => {
+		localStorage.setItem('vibesdk_byok_explainer_seen', 'true');
+		setExplainerDismissed(true);
+	};
 
 	// Get selected provider details
 	const provider = byokProviders.find((p) => p.id === selectedProvider);
@@ -235,7 +272,7 @@ export function ByokApiKeysModal({ isOpen, onClose, onKeyAdded }: ByokApiKeysMod
 			});
 
 			if (secretId) {
-				toast.success(`${provider.name} API key added successfully!`);
+				toast.success(`${provider.name} key active. Usage billed directly by ${provider.name}.`);
 				onKeyAdded?.();
 
 				// Reload managed secrets and switch to manage tab
@@ -325,7 +362,7 @@ export function ByokApiKeysModal({ isOpen, onClose, onKeyAdded }: ByokApiKeysMod
 		<div className="text-center py-8 text-text-tertiary">
 			<Key className="h-12 w-12 mx-auto mb-4 opacity-50" />
 			<p className="text-lg font-medium mb-2">Set up your secure vault</p>
-			<p className="text-sm mb-4">Create a vault to securely store your API keys</p>
+			<p className="text-sm mb-4">Create a vault to securely store your API keys with XChaCha20-Poly1305 encryption</p>
 			<Button onClick={() => setShowSetupModal(true)}>
 				<Key className="h-4 w-4 mr-2" />
 				Set Up Vault
@@ -340,13 +377,13 @@ export function ByokApiKeysModal({ isOpen, onClose, onKeyAdded }: ByokApiKeysMod
 					<DialogHeader>
 						<DialogTitle className="flex items-center gap-2">
 							<Key className="h-5 w-5" />
-							Bring Your Own Key
+							Use Your Own API Key
 							<span className="flex items-center gap-1 text-xs text-text-tertiary font-normal">
 								via <CloudflareLogo className="h-3 w-3" /> AI Gateway
 							</span>
 						</DialogTitle>
 						<DialogDescription>
-							Add your API keys to use your own provider accounts for billing, or manage existing keys
+							Connect your Anthropic or OpenAI key directly. You pay them at their published rates — vibesdk never marks up your AI usage.
 						</DialogDescription>
 					</DialogHeader>
 
@@ -368,9 +405,39 @@ export function ByokApiKeysModal({ isOpen, onClose, onKeyAdded }: ByokApiKeysMod
 
 						{/* Add Keys Tab */}
 						<TabsContent value="add" className="space-y-6">
+							{/* Explainer card — shown on first open, dismissed to localStorage */}
+							{!explainerDismissed && (
+								<div className="relative rounded-lg border border-blue-200 bg-blue-50/60 p-4 space-y-2">
+									<div className="flex items-center justify-between">
+										<h4 className="text-sm font-semibold text-blue-900">How BYOK works</h4>
+										<button
+											onClick={dismissExplainer}
+											aria-label="Dismiss explainer"
+											className="text-blue-400 hover:text-blue-600 transition-colors"
+										>
+											<X className="h-4 w-4" />
+										</button>
+									</div>
+									<ul className="space-y-1.5 text-xs text-blue-800 list-none">
+										<li className="flex gap-2">
+											<span className="shrink-0 mt-0.5">•</span>
+											<span>Your key goes directly from vibesdk to Anthropic or OpenAI — every token is billed on your provider account at their published rates.</span>
+										</li>
+										<li className="flex gap-2">
+											<span className="shrink-0 mt-0.5">•</span>
+											<span>vibesdk does not add any markup. You see exact costs in your Anthropic Console or OpenAI dashboard, not in vibesdk billing.</span>
+										</li>
+										<li className="flex gap-2">
+											<span className="shrink-0 mt-0.5">•</span>
+											<span>Your key is encrypted with XChaCha20-Poly1305 before storage and is never logged, shared, or visible to vibesdk staff. Revoke it anytime from this screen.</span>
+										</li>
+									</ul>
+								</div>
+							)}
+
 							{/* Provider Selection - Clean List */}
 							<div className="space-y-3">
-								<Label className="text-sm font-medium">Select Provider</Label>
+								<Label className="text-sm font-medium">Select provider</Label>
 								{isLoading ? (
 									<div className="space-y-2">
 										{[1, 2, 3, 4].map((i) => (
@@ -413,7 +480,7 @@ export function ByokApiKeysModal({ isOpen, onClose, onKeyAdded }: ByokApiKeysMod
 							{selectedProvider && provider && (
 								<div className="space-y-3 animate-in slide-in-from-top-2 duration-300">
 									<Label htmlFor="apiKey" className="text-sm font-medium">
-										Enter your {provider.name} API key
+										{provider.name} API Key
 									</Label>
 									<div className="relative">
 										<Input
@@ -440,10 +507,12 @@ export function ByokApiKeysModal({ isOpen, onClose, onKeyAdded }: ByokApiKeysMod
 											</div>
 										)}
 									</div>
-									{apiKey && !isKeyFormatValid && (
+									{apiKey && !isKeyFormatValid ? (
 										<p className="text-xs text-red-600">
-											Invalid format. Expected: {provider.placeholder}
+											This key format looks wrong. Expected: {provider.placeholder} — Check it at {provider.consoleUrl} and try again.
 										</p>
+									) : (
+										<p className="text-xs text-text-tertiary">{provider.helpText}</p>
 									)}
 								</div>
 							)}
@@ -472,7 +541,7 @@ export function ByokApiKeysModal({ isOpen, onClose, onKeyAdded }: ByokApiKeysMod
 								<div className="text-center py-8 text-text-tertiary">
 									<Key className="h-12 w-12 mx-auto mb-4 opacity-50" />
 									<p className="text-lg font-medium mb-2">No API keys configured</p>
-									<p className="text-sm">Add your first API key using the "Add Keys" tab</p>
+									<p className="text-sm">Add a key using the "Add Keys" tab. Your keys stay encrypted in your vault.</p>
 								</div>
 							) : (
 								<div className="space-y-4">
@@ -557,10 +626,9 @@ export function ByokApiKeysModal({ isOpen, onClose, onKeyAdded }: ByokApiKeysMod
 			<AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
 				<AlertDialogContent>
 					<AlertDialogHeader>
-						<AlertDialogTitle>Delete API Key</AlertDialogTitle>
+						<AlertDialogTitle>Remove API key?</AlertDialogTitle>
 						<AlertDialogDescription>
-							Are you sure you want to delete the {secretToDelete?.name} API key? This action cannot be
-							undone.
+							This removes {secretToDelete?.name} from vibesdk. Your {secretToDelete?.name} account and any existing usage are not affected. This action cannot be undone in vibesdk (you can always add the key again).
 						</AlertDialogDescription>
 					</AlertDialogHeader>
 					<AlertDialogFooter>

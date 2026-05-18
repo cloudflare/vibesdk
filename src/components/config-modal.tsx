@@ -420,7 +420,7 @@ export function ConfigModal({
                   <h4 className="font-medium text-sm text-green-900">BYOK (Your Keys)</h4>
                 </div>
                 <p className="text-xs text-green-700">
-                  Your API keys are used for direct billing with providers. Unlimited usage based on your provider account.
+                  You control your AI costs — pay providers directly, no markup. Your API keys are used for direct billing at published rates.
                 </p>
               </div>
             </div>
