@@ -177,9 +177,9 @@
             "custom_domain": true
         },
         {
-            "pattern": "*staging.build-preview.cloudflare.dev/*",
+            "pattern": "*staging-preview.build.cloudflare.dev/*",
             "custom_domain": false,
-            "zone_id": "db01fac4261b2604aacad8410443a3e2"
+            "zone_id": "f14aecaf571802180f79dcba9a8d34c3"
         }
     ],
 	"vars": {
