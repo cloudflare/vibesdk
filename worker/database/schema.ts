@@ -778,3 +778,25 @@ export type NewMemoryBlockRow = typeof memoryBlocks.$inferInsert;
 
 export type EvalResultRow = typeof evalResults.$inferSelect;
 export type NewEvalResultRow = typeof evalResults.$inferInsert;
+
+/**
+ * Session snapshots — ADR-010 Option A degraded-mode UX.
+ * Written on REVIEWING→IDLE in PhasicCodingBehavior.executeReviewCycle().
+ * Read by GET /api/sessions/:sessionId/snapshot (SnapshotController).
+ * Upserted on re-completion so the row always reflects the latest run.
+ */
+export const sessionSnapshots = sqliteTable('session_snapshots', {
+    id: text('id').primaryKey(),
+    sessionId: text('session_id').notNull(),
+    projectName: text('project_name').notNull().default(''),
+    filesCount: integer('files_count').notNull().default(0),
+    templateName: text('template_name').notNull().default(''),
+    snapshotJson: text('snapshot_json', { mode: 'json' }).notNull().default('{}'),
+    createdAt: integer('created_at', { mode: 'timestamp' }).default(sql`CURRENT_TIMESTAMP`),
+}, (table) => ({
+    sessionIdx: uniqueIndex('session_snapshots_session_idx').on(table.sessionId),
+    createdAtIdx: index('session_snapshots_created_at_idx').on(table.createdAt),
+}));
+
+export type SessionSnapshotRow = typeof sessionSnapshots.$inferSelect;
+export type NewSessionSnapshotRow = typeof sessionSnapshots.$inferInsert;
