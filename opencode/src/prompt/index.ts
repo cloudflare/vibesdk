@@ -1,0 +1,8 @@
+export { default as PROMPT_ANTHROPIC } from "./anthropic.txt"
+export { default as PROMPT_DEFAULT } from "./default.txt"
+export { default as PROMPT_BEAST } from "./beast.txt"
+export { default as PROMPT_GEMINI } from "./gemini.txt"
+export { default as PROMPT_GPT } from "./gpt.txt"
+export { default as PROMPT_KIMI } from "./kimi.txt"
+export { default as PROMPT_CODEX } from "./codex.txt"
+export { default as PROMPT_TRINITY } from "./trinity.txt"

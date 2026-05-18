@@ -615,11 +615,11 @@ export function useChat({
 					connectionStatus.current = 'connecting';
 
 					setIsBootstrapping(false);
-					// Show a thinking placeholder while we fetch the agent
-					// summary. The think behavior rehydrates from the ThinkAgent DO via
-					// `GET_CONVERSATION_STATE`, which produces the real
-					// thread directly — no placeholder is needed there.
-					if (getBehaviorTypeForProject(projectType) !== 'think') {
+				// Show a thinking placeholder while we fetch the agent
+				// summary. The think behavior rehydrates from the ThinkAgent DO via
+				// `GET_CONVERSATION_STATE`, which produces the real
+				// thread directly — no placeholder is needed there.
+				if (getBehaviorTypeForProject(projectType) !== 'think') {
 						setMessages(() => [
 							createAIMessage('fetching-chat', 'Starting from where you left off...', true),
 						]);
