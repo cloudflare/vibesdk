@@ -107,9 +107,25 @@
             {
                 "class_name": "UserSecretsStore",
                 "name": "UserSecretsStore"
+            },
+            {
+                "class_name": "SessionDO",
+                "name": "SESSION_DO"
+            },
+            {
+                "class_name": "SpaceDO",
+                "name": "SPACE_DO"
             }
 		]
 	},
+    "worker_loaders": [
+        {
+            "binding": "LOADER"
+        }
+    ],
+    "alias": {
+        "@opencode-do/opencode": "./node_modules/@opencode-do/opencode/dist/index.js"
+    },
     "r2_buckets": [
       {
         "binding": "TEMPLATES_BUCKET",
@@ -146,6 +162,18 @@
                 "UserSecretsStore"
             ],
             "tag": "v3"
+        },
+        {
+            "new_sqlite_classes": [
+                "SessionDO"
+            ],
+            "tag": "v4"
+        },
+        {
+            "new_sqlite_classes": [
+                "SpaceDO"
+            ],
+            "tag": "v5"
         }
 	],
 	"routes": [

@@ -182,6 +182,7 @@ export type {
   BehaviorType,
   ProjectType
 } from 'worker/agents/core/types';
+export { isAgenticLikeBehavior } from 'worker/agents/core/types';
 
 export type {
   ConversationMessage,

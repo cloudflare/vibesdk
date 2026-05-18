@@ -260,10 +260,11 @@ export async function handleWebSocketMessage(
                 break;
             case WebSocketMessageRequests.GET_CONVERSATION_STATE:
                 try {
-                    const state = agent.getConversationState();
+                    const loader = agent.getConversationMessageLoader();
+                    const state = await loader.load();
                     const debugState = agent.getBehavior().getDeepDebugSessionState();
                     logger.info('Conversation state retrieved', state);
-                    sendToConnection(connection, WebSocketMessageResponses.CONVERSATION_STATE, { 
+                    sendToConnection(connection, WebSocketMessageResponses.CONVERSATION_STATE, {
                         state,
                         deepDebugSession: debugState
                     });

@@ -118,4 +118,24 @@ export interface AgenticState extends BaseProjectState {
     currentPlan: Plan;
 }
 
-export type AgentState = PhasicState | AgenticState;
+/**
+ * Opencode agent state — backed by `@opencode-do/opencode` SessionDO/SpaceDO.
+ *
+ * Files are *not* mirrored into `generatedFilesMap`; they live in the
+ * companion `SpaceDO` workspace and are read on demand via RPC. The map is
+ * kept for shape compatibility and used as a small in-memory cache.
+ */
+export interface OpencodeState extends BaseProjectState {
+    behaviorType: 'opencode';
+    blueprint: AgenticBlueprint;
+    /** Opencode session id (`ses_…`) created in SessionDO. */
+    opencodeSessionId: string;
+    /** SpaceDO `idFromName` key — defaults to the agent id. */
+    spaceName: string;
+    /** Git branch used for deployment previews. */
+    currentBranch: string;
+    /** Last commit SHA we successfully deployed. */
+    lastDeployedCommit?: string;
+}
+
+export type AgentState = PhasicState | AgenticState | OpencodeState;

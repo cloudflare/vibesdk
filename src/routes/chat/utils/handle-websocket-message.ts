@@ -587,8 +587,16 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
                 setFiles((prev) => setAllFilesCompleted(prev));
                 setProjectStages((prev) => completeStages(prev, ['code']));
 
-                sendMessage(createAIMessage('generation-complete', 'Code generation has been completed.'));
-                
+                // Opencode runs are conversational — every assistant turn
+                // is its own "completion", so a stand-alone
+                // `Code generation has been completed` banner is
+                // misleading. Phasic/agentic emit this once at the end
+                // of a multi-phase build, which is when the banner
+                // makes sense.
+                if (behaviorType !== 'opencode') {
+                    sendMessage(createAIMessage('generation-complete', 'Code generation has been completed.'));
+                }
+
                 // Reset all phase indicators
                 setIsPhaseProgressActive(false);
                 setIsThinking(false);

@@ -1,8 +1,10 @@
 import { Agent, AgentContext, ConnectionContext } from "agents";
 import { AgentInitArgs, AgentSummary, DeployOptions, DeployResult, ExportOptions, ExportResult, DeploymentTarget, BehaviorType } from "./types";
-import { AgenticState, AgentState, BaseProjectState, CurrentDevState, MAX_PHASES, PhasicState } from "./state";
+import { AgenticState, AgentState, BaseProjectState, CurrentDevState, MAX_PHASES, OpencodeState, PhasicState } from "./state";
 import { Blueprint } from "../schemas";
 import { BaseCodingBehavior } from "./behaviors/base";
+import { OpencodeCodingBehavior } from './behaviors/opencode';
+import { getBehaviorTypeForProject } from './features';
 import { createObjectLogger, StructuredLogger } from '../../logger';
 import { InferenceMetadata } from "../inferutils/config.types";
 import { getMimeType } from 'hono/utils/mime';
@@ -29,6 +31,11 @@ import { ProjectObjective } from "./objectives/base";
 import { FileOutputType } from "../schemas";
 import { SecretsClient, type UserSecretsStoreStub } from '../../services/secrets/SecretsClient';
 import { StateMigration } from './stateMigration';
+import {
+    ConversationMessageLoader,
+    LocalConversationMessageLoader,
+    SessionDOMessageLoader,
+} from './conversation/MessageLoader';
 import { PendingWsTicket, TicketConsumptionResult } from '../../types/auth-types';
 import { WsTicketManager } from '../../utils/wsTicketManager';
 import { readTokenCookie } from '../../utils/oauthCookie';
@@ -166,11 +173,35 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
 
         this.logger().info('Bootstrapping CodeGeneratorAgent', { props });
         const agentProps = props as AgentBootstrapProps;
-        const behaviorType = agentProps?.behaviorType ?? this.state.behaviorType ?? 'phasic';
-        const projectType = agentProps?.projectType ?? this.state.projectType ?? 'app';
+        // ProjectType: prefer props → existing state → 'app'. Treat 'unknown'
+        // sentinel from initialState as missing.
+        const projectType =
+            agentProps?.projectType ??
+            (this.state.projectType && this.state.projectType !== ('unknown' as unknown as typeof this.state.projectType)
+                ? this.state.projectType
+                : 'app');
+
+        // BehaviorType resolution order:
+        //   1. explicit props.behaviorType (controller-supplied)
+        //   2. previously persisted state.behaviorType (only if valid)
+        //   3. feature-registry default for projectType
+        // The 'unknown' sentinel and any invalid value falls through to (3).
+        const persistedBehavior = this.state.behaviorType;
+        const isValidPersisted =
+            persistedBehavior === 'phasic' ||
+            persistedBehavior === 'agentic' ||
+            persistedBehavior === 'opencode';
+        const behaviorType: BehaviorType =
+            agentProps?.behaviorType ??
+            (isValidPersisted ? persistedBehavior : getBehaviorTypeForProject(projectType));
 
         if (behaviorType === 'phasic') {
             this.behavior = new PhasicCodingBehavior(this as AgentInfrastructure<PhasicState>, projectType);
+        } else if (behaviorType === 'opencode') {
+            this.behavior = new OpencodeCodingBehavior(
+                this as AgentInfrastructure<OpencodeState>,
+                projectType,
+            ) as unknown as BaseCodingBehavior<AgentState>;
         } else {
             this.behavior = new AgenticCodingBehavior(this as AgentInfrastructure<AgenticState>, projectType);
         }
@@ -234,7 +265,12 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
         }
         let previewUrl = '';
         try {
-            if (this.behavior.getTemplateDetails().renderMode === 'browser') {
+            // Opencode behavior always exposes its preview via the
+            // `/space/.../preview/<branch>/` worker route — surface it on
+            // reconnect so the UI can rehydrate the iframe without
+            // waiting for the next deploy event.
+            const renderMode = this.behavior.getTemplateDetails().renderMode;
+            if (renderMode === 'browser' || this.state.behaviorType === 'opencode') {
                 previewUrl = this.behavior.getBrowserPreviewURL();
             }
         } catch (error) {
@@ -504,6 +540,34 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
         this.setConversationState(conversationState);
     }
     
+    /**
+     * Pick a conversation message loader based on the active behavior.
+     *
+     *   - `opencode` → reads from the shared `SessionDO` (source of truth
+     *     for opencode runs; populated by the opencode runtime itself).
+     *   - everything else → reads from this agent's local SQLite tables.
+     *
+     * Used by the WebSocket boundary (`GET_CONVERSATION_STATE`) so the
+     * frontend sees the same history the backend actually persists.
+     */
+    public getConversationMessageLoader(): ConversationMessageLoader {
+        const behavior = this.state.behaviorType;
+        if (behavior === 'opencode') {
+            const opencodeState = this.state as OpencodeState;
+            const ns = (this.env as unknown as {
+                SESSION_DO?: DurableObjectNamespace;
+            }).SESSION_DO;
+            if (ns && opencodeState.opencodeSessionId) {
+                const stub = ns.get(ns.idFromName('main'));
+                return new SessionDOMessageLoader(
+                    stub as unknown as ConstructorParameters<typeof SessionDOMessageLoader>[0],
+                    opencodeState.opencodeSessionId,
+                );
+            }
+        }
+        return new LocalConversationMessageLoader(this);
+    }
+
     /**
      * Clear conversation history
      */

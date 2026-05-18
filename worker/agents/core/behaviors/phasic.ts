@@ -45,7 +45,9 @@ interface PhasicOperations extends BaseCodingOperations {
  */
 export class PhasicCodingBehavior extends BaseCodingBehavior<PhasicState> implements ICodingAgent {
     protected static readonly PROJECT_NAME_PREFIX_MAX_LENGTH = 20;
-    
+
+    override getBehavior(): 'phasic' { return 'phasic'; }
+
     protected operations: PhasicOperations = {
         regenerateFile: new FileRegenerationOperation(),
         fastCodeFixer: new FastCodeFixerOperation(),

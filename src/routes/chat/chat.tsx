@@ -15,7 +15,7 @@ import { PhaseTimeline } from './components/phase-timeline';
 import { type DebugMessage } from './components/debug-panel';
 import { DeploymentControls } from './components/deployment-controls';
 import { useChat } from './hooks/use-chat';
-import { type ModelConfigsInfo, type BlueprintType, type PhasicBlueprint, SUPPORTED_IMAGE_MIME_TYPES, type ProjectType, type FileType } from '@/api-types';
+import { type ModelConfigsInfo, type BlueprintType, type PhasicBlueprint, SUPPORTED_IMAGE_MIME_TYPES, type ProjectType, type FileType, isAgenticLikeBehavior } from '@/api-types';
 import { featureRegistry } from '@/features';
 import { useFileContentStream } from './hooks/use-file-content-stream';
 import { logger } from '@/utils/logger';
@@ -418,7 +418,7 @@ export default function Chat() {
 	}, [phaseTimeline]);
 
 	const isGitHubExportReady = useMemo(() => {
-		if (behaviorType === 'agentic') {
+		if (isAgenticLikeBehavior(behaviorType)) {
 			return files.length > 0 && !!urlChatId;
 		}
 		return isPhase1Complete && !!urlChatId;
@@ -426,7 +426,7 @@ export default function Chat() {
 
 	// Detect if agentic mode is showing static content (docs, markdown)
 	const isStaticContent = useMemo(() => {
-		if (behaviorType !== 'agentic' || files.length === 0) return false;
+		if (!isAgenticLikeBehavior(behaviorType) || files.length === 0) return false;
 		return files.every(file => isDocumentationPath(file.filePath.toLowerCase()));
 	}, [behaviorType, files]);
 
@@ -446,8 +446,8 @@ export default function Chat() {
 	}, [hasDocumentation, previewUrl]);
 
 	const showMainView = useMemo(() => {
-		// For agentic mode: show preview panel when files exist or preview URL exists
-		if (behaviorType === 'agentic') {
+		// For agentic/opencode mode: show preview panel when files exist or preview URL exists
+		if (isAgenticLikeBehavior(behaviorType)) {
 			const hasFiles = files.length > 0;
 			const hasPreview = !!previewUrl;
 			const result = hasFiles || hasPreview;
@@ -496,7 +496,7 @@ export default function Chat() {
 		} else if (previewUrl) {
 			const isExistingChat = urlChatId !== 'new';
 			const shouldSwitch =
-				behaviorType === 'agentic' ||
+				isAgenticLikeBehavior(behaviorType) ||
 				(behaviorType === 'phasic' && isPhase1Complete) ||
 				(isExistingChat && behaviorType !== 'phasic');
 
@@ -760,7 +760,7 @@ export default function Chat() {
 							)}
 
 							{/* Only show PhaseTimeline for phasic mode */}
-							{behaviorType !== 'agentic' && (
+							{!isAgenticLikeBehavior(behaviorType) && (
 								<PhaseTimeline
 									projectStages={projectStages}
 									phaseTimeline={phaseTimeline}
@@ -789,7 +789,7 @@ export default function Chat() {
 							)}
 
 							{/* Deployment and Generation Controls - Only for phasic mode */}
-							{chatId && behaviorType !== 'agentic' && (
+							{chatId && !isAgenticLikeBehavior(behaviorType) && (
 								<motion.div
 									ref={deploymentControlsRef}
 									initial={{ opacity: 0, y: 20 }}

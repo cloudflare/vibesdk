@@ -114,7 +114,10 @@ export const DEFAULT_FEATURE_DEFINITIONS: Record<ProjectType, Omit<FeatureDefini
 		capabilities: {
 			hasPreview: true,
 			hasLiveReload: true,
-			requiresSandbox: true,
+			// Opencode workspaces live in SpaceDO; previews are served by
+			// SpaceDO's `/preview/:branch` route via worker_loaders. The
+			// Container sandbox is not used.
+			requiresSandbox: false,
 			requiresWebSocket: true,
 			supportedViews: ['editor', 'preview', 'docs', 'blueprint'],
 			defaultView: 'editor',
@@ -122,7 +125,7 @@ export const DEFAULT_FEATURE_DEFINITIONS: Record<ProjectType, Omit<FeatureDefini
 			hasCustomHeaderActions: true,
 			hasCustomSidebar: false,
 			hasCustomFileFilter: false,
-			behaviorType: 'phasic',
+			behaviorType: 'opencode',
 		},
 	},
 	presentation: {

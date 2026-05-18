@@ -34,6 +34,8 @@ interface AgenticOperations extends BaseCodingOperations {
 export class AgenticCodingBehavior extends BaseCodingBehavior<AgenticState> implements ICodingAgent {
     protected static readonly PROJECT_NAME_PREFIX_MAX_LENGTH = 20;
 
+    override getBehavior(): 'agentic' { return 'agentic'; }
+
     protected operations: AgenticOperations = {
         regenerateFile: new FileRegenerationOperation(),
         fastCodeFixer: new FastCodeFixerOperation(),

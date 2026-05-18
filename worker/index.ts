@@ -15,6 +15,9 @@ import { getAgentStub } from './agents';
 export { UserAppSandboxService } from './services/sandbox/sandboxSdkClient';
 export { CodeGeneratorAgent } from './agents/core/codingAgent';
 export { UserSecretsStore } from './services/secrets/UserSecretsStore';
+// Opencode DOs (same-worker integration). Re-exported so wrangler can bind
+// them via durable_objects.bindings + migrations declared in wrangler.jsonc.
+export { SessionDO, SpaceDO } from '@opencode-do/opencode';
 
 // export const CodeGeneratorAgent = Sentry.instrumentDurableObjectWithSentry(sentryOptions, CodeGeneratorAgent);
 // export const DORateLimitStore = Sentry.instrumentDurableObjectWithSentry(sentryOptions, BaseDORateLimitStore);
@@ -170,6 +173,19 @@ const worker = {
 
 		// Route 1: Main Platform Request (e.g., build.cloudflare.dev or localhost)
 		if (isMainDomainRequest) {
+			// Opencode SpaceDO preview routes: /space/:spaceName/preview/:branch[/*]
+			// Forward to the SpaceDO stub identified by `spaceName` so it can serve
+			// the deployment via worker_loaders.
+			const spacePreviewMatch = pathname.match(/^\/space\/([^/]+)\/preview\/[^/]+(?:\/.*)?$/);
+			if (spacePreviewMatch) {
+				const spaceName = decodeURIComponent(spacePreviewMatch[1]);
+				const spaceNs = (env as unknown as { SPACE_DO?: DurableObjectNamespace }).SPACE_DO;
+				if (spaceNs) {
+					const stub = spaceNs.get(spaceNs.idFromName(spaceName));
+					return stub.fetch(request);
+				}
+			}
+
 			// Handle Git protocol endpoints directly
 			// Route: /apps/:id.git/info/refs or /apps/:id.git/git-upload-pack
 			if (isGitProtocolRequest(pathname)) {

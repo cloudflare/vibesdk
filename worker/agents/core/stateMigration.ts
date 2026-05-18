@@ -5,6 +5,7 @@ import { generateNanoId } from '../../utils/idGenerator';
 import { generateProjectName } from '../utils/templateCustomizer';
 import { MAX_AGENT_QUERY_LENGTH } from 'worker/api/controllers/agent/types';
 import type { InferenceMetadata } from '../inferutils/config.types';
+import { getBehaviorTypeForProject } from './features';
 
 // Type guards for legacy state detection
 type LegacyFileFormat = {
@@ -172,10 +173,18 @@ export class StateMigration {
 
         let migratedBehaviorType = state.behaviorType;
         const rawBehaviorType = stateRecord.behaviorType;
-        const hasValidBehaviorType = rawBehaviorType === 'phasic' || rawBehaviorType === 'agentic';
+        const hasValidBehaviorType = rawBehaviorType === 'phasic' || rawBehaviorType === 'agentic' || rawBehaviorType === 'opencode';
 
         if (!hasField(state, 'behaviorType') || !hasValidBehaviorType) {
-            migratedBehaviorType = 'phasic';
+            // Derive default behaviorType from the (migrated) projectType
+            // via the feature registry. Falls back to 'phasic' if the
+            // helper is unavailable. This keeps the migration consistent
+            // with `DEFAULT_FEATURE_DEFINITIONS` (single source of truth).
+            try {
+                migratedBehaviorType = getBehaviorTypeForProject(migratedProjectType);
+            } catch {
+                migratedBehaviorType = 'phasic';
+            }
             needsMigration = true;
             logger.info('Adding default behaviorType for legacy state', { behaviorType: migratedBehaviorType });
         }
