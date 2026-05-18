@@ -913,10 +913,25 @@ class CloudflareDeploymentManager {
 	};
 
 	/**
-	 * Gets the path to wrangler.jsonc
+	 * Gets the path to the wrangler config file. Honors WRANGLER_CONFIG_PATH
+	 * (relative to project root) so the same deploy script can target staging
+	 * via `wrangler.staging.jsonc`. Defaults to `wrangler.jsonc`.
 	 */
 	private getWranglerPath(): string {
-		return join(PROJECT_ROOT, 'wrangler.jsonc');
+		const override = process.env.WRANGLER_CONFIG_PATH;
+		return join(PROJECT_ROOT, override && override.trim() !== '' ? override : 'wrangler.jsonc');
+	}
+
+	/**
+	 * Builds the `--config` argument suffix for wrangler subcommands when a
+	 * non-default config path is in use. Returns an empty string for the default.
+	 */
+	private getWranglerConfigArg(): string {
+		const override = process.env.WRANGLER_CONFIG_PATH;
+		if (!override || override.trim() === '' || override === 'wrangler.jsonc') {
+			return '';
+		}
+		return ` --config ${override}`;
 	}
 
 	/**
@@ -1585,7 +1600,7 @@ class CloudflareDeploymentManager {
 		console.log('🚀 Deploying to Cloudflare Workers...');
 
 		try {
-			execSync('wrangler deploy', {
+			execSync(`wrangler deploy${this.getWranglerConfigArg()}`, {
 				stdio: 'inherit',
 				cwd: PROJECT_ROOT,
 			});
@@ -1837,7 +1852,7 @@ class CloudflareDeploymentManager {
 				return;
 			}
 
-			execSync('wrangler secret bulk .prod.vars', {
+			execSync(`wrangler secret bulk .prod.vars${this.getWranglerConfigArg()}`, {
 				stdio: 'inherit',
 				cwd: PROJECT_ROOT,
 			});
@@ -1862,7 +1877,7 @@ class CloudflareDeploymentManager {
 
 		try {
 			// Run the wrangler dispatch-namespace list command to test availability
-			const result = execSync('npx wrangler dispatch-namespace list', {
+			const result = execSync(`npx wrangler dispatch-namespace list${this.getWranglerConfigArg()}`, {
 				stdio: 'pipe',
 				cwd: PROJECT_ROOT,
 				encoding: 'utf8',
@@ -1899,7 +1914,7 @@ class CloudflareDeploymentManager {
 		try {
 			console.log('🔧 Commenting out dispatch_namespaces in wrangler.jsonc...');
 			
-			const wranglerPath = join(PROJECT_ROOT, 'wrangler.jsonc');
+			const wranglerPath = this.getWranglerPath();
 			const content = readFileSync(wranglerPath, 'utf-8');
 			
 			// Check if dispatch_namespaces is currently uncommented
