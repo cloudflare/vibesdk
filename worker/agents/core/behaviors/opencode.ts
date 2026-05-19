@@ -13,7 +13,6 @@ import { generateProjectName } from '../../utils/templateCustomizer';
 import { PreviewType, TemplateDetails } from 'worker/services/sandbox/sandboxTypes';
 import type { SessionEvent, SessionConfigOverrides, StoredMessage, StoredPart } from '@opencode-do/opencode';
 import { DeploymentTarget } from '../types';
-import { createScratchTemplateDetails } from '../../utils/templates';
 import { getPreviewDomain } from 'worker/utils/urls';
 import { isDev } from 'worker/utils/envs';
 
@@ -84,7 +83,10 @@ export class OpencodeCodingBehavior
         ..._args: unknown[]
     ): Promise<OpencodeState> {
         await super.initialize(initArgs);
-        const { query, hostname, inferenceContext, templateInfo, sandboxSessionId } = initArgs;
+        // Opencode projects are template-free: SpaceDO + the `cloudflare-bundler-apps`
+        // skill own the scaffolding entirely. We intentionally ignore `templateInfo`
+        // even when callers pass it.
+        const { query, hostname, inferenceContext, sandboxSessionId } = initArgs;
 
         const baseName = (query || 'project').toString();
         const projectName = generateProjectName(
@@ -149,12 +151,9 @@ export class OpencodeCodingBehavior
                 frameworks: [],
                 plan: [],
             },
-            templateName:
-                templateInfo?.templateDetails?.name ||
-                (this.projectType === 'general' ? 'scratch' : 'opencode'),
+            templateName: 'opencode',
             sandboxInstanceId: undefined,
             commandsHistory: [],
-            lastPackageJson: templateInfo?.templateDetails?.allFiles?.['package.json'],
             sessionId: sandboxSessionId!,
             hostname,
             metadata: inferenceContext.metadata,
@@ -172,19 +171,10 @@ export class OpencodeCodingBehavior
         // now (and create an initial empty commit) so the space exists,
         // has a `main` branch ref, and is immediately usable by the
         // LLM's tool calls.
-        // Seed the SpaceDO + FileManager. Opencode-mode projects are guided
-        // by the `cloudflare-bundler-apps` skill which mandates a layout
-        // (public/ + src/index.ts, no Vite, no dist) that conflicts with
-        // the in-memory scratch baseline (Vite + worker/index.ts + dist).
-        // Seeding the scratch files would mislead the agent into mixing
-        // both layouts, so for the scratch / no-template path we
-        // intentionally start empty and let the skill drive the
-        // scaffolding. Real selected templates are still seeded as-is.
-        if (templateInfo && templateInfo.templateDetails.name !== 'scratch') {
-            await this.seedSpaceFromTemplate(templateInfo.templateDetails);
-        } else {
-            await this.seedEmptySpace();
-        }
+        // Always start with an empty SpaceDO. Layout, dependencies and entry
+        // points are produced by the agent under guidance from the
+        // `cloudflare-bundler-apps` skill.
+        await this.seedEmptySpace();
 
         this.logger.info(
             `Opencode agent ${this.getAgentId()} initialized (session=${opencodeSessionId}, space=${spaceName})`,
@@ -271,49 +261,11 @@ export class OpencodeCodingBehavior
         }
     }
 
-    private async seedSpaceFromTemplate(template: TemplateDetails): Promise<void> {
-        const space = this.getSpaceStub() as unknown as {
-            writeFile: (path: string, content: string) => Promise<unknown>;
-            gitCommit: (msg: string, author?: { name: string; email: string }) => Promise<unknown>;
-        };
-
-        const entries = Object.entries(template.allFiles || {});
-        for (const [path, content] of entries) {
-            try {
-                await space.writeFile(path, content);
-            } catch (e) {
-                this.logger.warn('SpaceDO.writeFile failed during seeding', { path, e });
-            }
-        }
-        try {
-            await space.gitCommit('chore: seed template files');
-        } catch (e) {
-            this.logger.warn('SpaceDO.gitCommit failed during seeding', e);
-        }
-
-        // Also mirror seeded files into FileManager so the editor renders them.
-        const filesToSave = entries.map(([filePath, content]) => ({
-            filePath,
-            fileContents: content,
-            filePurpose: 'Template file (seeded into SpaceDO)',
-        }));
-        try {
-            await this.fileManager.saveGeneratedFiles(
-                filesToSave,
-                'Initialize project from template',
-                true,
-            );
-        } catch (e) {
-            this.logger.warn('FileManager.saveGeneratedFiles failed during seeding', e);
-        }
-    }
-
     // ──────────────────────────────────────────────────────────────
     // Generation orchestration
 
     /**
-     * Skip the standard template-derived sandbox deployment — opencode uses
-     * SpaceDO's preview engine instead. Returning null keeps callers happy.
+     * Opencode uses SpaceDO's preview engine; no sandbox deploy needed.
      */
     async deployToSandbox(): Promise<PreviewType | null> {
         return null;
@@ -331,14 +283,31 @@ export class OpencodeCodingBehavior
         return `${scheme}://${previewDomain}/space/${spaceName}/preview/${branch}/`;
     }
 
-    /** Provide a minimal synthetic template details so existing callers don't crash. */
+    /**
+     * Opencode has no template. We return a stable, empty stub so legacy
+     * callers (`FileManager`, `codingAgent` reconnect handler, the
+     * `AGENT_CONNECTED` payload, `GenerationContext.from`) keep working
+     * without special-casing every site.
+     */
     public getTemplateDetails(): TemplateDetails {
         if (!this.templateDetailsCache) {
-            this.templateDetailsCache = createScratchTemplateDetails();
-            this.templateDetailsCache.name = this.state.templateName || 'opencode';
-            // SpaceDO previews are served from a sub-route on the main worker;
-            // we use 'sandbox' rendermode so the existing iframe path is used.
-            this.templateDetailsCache.renderMode = 'sandbox';
+            this.templateDetailsCache = {
+                name: 'opencode',
+                description: { selection: 'opencode', usage: 'opencode (template-free)' },
+                fileTree: { path: '/', type: 'directory', children: [] },
+                allFiles: {},
+                deps: {},
+                language: 'typescript',
+                projectType: 'general',
+                frameworks: [],
+                importantFiles: [],
+                dontTouchFiles: [],
+                redactedFiles: [],
+                disabled: false,
+                // SpaceDO previews are served from a sub-route on the main
+                // worker; 'sandbox' rendermode reuses the existing iframe path.
+                renderMode: 'sandbox',
+            };
         }
         return this.templateDetailsCache;
     }
