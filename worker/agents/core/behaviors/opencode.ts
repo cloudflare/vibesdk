@@ -172,14 +172,16 @@ export class OpencodeCodingBehavior
         // now (and create an initial empty commit) so the space exists,
         // has a `main` branch ref, and is immediately usable by the
         // LLM's tool calls.
-        // Seed the SpaceDO + FileManager with template files. For "scratch"
-        // (or when no template was selected) we still want the in-memory
-        // baseline from createScratchTemplateDetails() so the agent starts
-        // with package.json/wrangler.jsonc/vite.config.ts instead of inventing
-        // them. seedEmptySpace is a fallback for when no allFiles exist.
-        const templateToSeed = templateInfo?.templateDetails ?? createScratchTemplateDetails();
-        if (Object.keys(templateToSeed.allFiles || {}).length > 0) {
-            await this.seedSpaceFromTemplate(templateToSeed);
+        // Seed the SpaceDO + FileManager. Opencode-mode projects are guided
+        // by the `cloudflare-bundler-apps` skill which mandates a layout
+        // (public/ + src/index.ts, no Vite, no dist) that conflicts with
+        // the in-memory scratch baseline (Vite + worker/index.ts + dist).
+        // Seeding the scratch files would mislead the agent into mixing
+        // both layouts, so for the scratch / no-template path we
+        // intentionally start empty and let the skill drive the
+        // scaffolding. Real selected templates are still seeded as-is.
+        if (templateInfo && templateInfo.templateDetails.name !== 'scratch') {
+            await this.seedSpaceFromTemplate(templateInfo.templateDetails);
         } else {
             await this.seedEmptySpace();
         }
