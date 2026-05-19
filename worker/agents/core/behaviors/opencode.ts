@@ -172,8 +172,14 @@ export class OpencodeCodingBehavior
         // now (and create an initial empty commit) so the space exists,
         // has a `main` branch ref, and is immediately usable by the
         // LLM's tool calls.
-        if (templateInfo && templateInfo.templateDetails.name !== 'scratch') {
-            await this.seedSpaceFromTemplate(templateInfo.templateDetails);
+        // Seed the SpaceDO + FileManager with template files. For "scratch"
+        // (or when no template was selected) we still want the in-memory
+        // baseline from createScratchTemplateDetails() so the agent starts
+        // with package.json/wrangler.jsonc/vite.config.ts instead of inventing
+        // them. seedEmptySpace is a fallback for when no allFiles exist.
+        const templateToSeed = templateInfo?.templateDetails ?? createScratchTemplateDetails();
+        if (Object.keys(templateToSeed.allFiles || {}).length > 0) {
+            await this.seedSpaceFromTemplate(templateToSeed);
         } else {
             await this.seedEmptySpace();
         }
