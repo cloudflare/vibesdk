@@ -7,7 +7,7 @@
 		"setup": "tsx scripts/setup.ts",
 		"prepare": "husky",
 		"dev": "DEV_MODE=true vite",
-		"build": "tsc -b --incremental && vite build",
+		"build": "bun run --cwd opencode build && vite build",
 		"typecheck": "tsc -b --incremental --noEmit",
 		"lint": "eslint .",
 		"preview": "npm run build && vite preview",
