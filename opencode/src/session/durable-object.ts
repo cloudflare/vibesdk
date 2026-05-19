@@ -648,7 +648,7 @@ export class SessionDO extends DurableObject<Env> {
     const limit = parseInt(query.get("limit") || "100", 10)
     const rows = this.ctx.storage.sql
       .exec(
-        `SELECT data FROM messages WHERE session_id = ? ORDER BY created_at ASC LIMIT ?`,
+        `SELECT data FROM messages WHERE session_id = ? ORDER BY created_at ASC, id ASC LIMIT ?`,
         sessionId,
         limit,
       )
@@ -667,7 +667,7 @@ export class SessionDO extends DurableObject<Env> {
   getMessagesForSession(sessionId: string): StoredMessage[] {
     const rows = this.ctx.storage.sql
       .exec(
-        `SELECT data FROM messages WHERE session_id = ? ORDER BY created_at ASC`,
+        `SELECT data FROM messages WHERE session_id = ? ORDER BY created_at ASC, id ASC`,
         sessionId,
       )
       .toArray()
