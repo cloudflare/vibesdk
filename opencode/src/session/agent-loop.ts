@@ -1,8 +1,54 @@
-import { streamText, convertToModelMessages, tool, jsonSchema, type UIMessage } from "ai"
+import { streamText, convertToModelMessages, tool, jsonSchema, type ModelMessage, type UIMessage } from "ai"
 import type { LanguageModelV3 } from "@ai-sdk/provider"
 import type { StoredMessage, SessionEvent } from "../types"
 
 const MAX_STEPS = 25
+
+/**
+ * Gemini (especially gemini-3-flash-preview) strictly enforces:
+ *   - The conversation must start with a user turn.
+ *   - Function-call (assistant) turns must come immediately after a user
+ *     or function-response turn.
+ *   - Two consecutive non-assistant turns (user + tool-result, or user +
+ *     user) are rejected with INVALID_ARGUMENT.
+ *
+ * The AI SDK's convertToModelMessages emits separate `tool` messages for
+ * function responses, which Gemini renders as `role: "user"`. When that
+ * is followed by another `user` message (e.g. the user typing
+ * "continue"), Gemini sees two consecutive user turns and 400s.
+ *
+ * This helper merges consecutive non-assistant turns into a single turn
+ * (preserving all parts) and drops any leading non-user turns so the
+ * conversation always opens with a real user message.
+ */
+function sanitizeForStrictAlternation(messages: ModelMessage[]): ModelMessage[] {
+	const normalizeContent = (m: ModelMessage): unknown[] => {
+		if (typeof m.content === "string") return [{ type: "text", text: m.content }]
+		return Array.isArray(m.content) ? [...m.content] : []
+	}
+
+	const out: ModelMessage[] = []
+	let started = false
+	for (const msg of messages) {
+		if (!started) {
+			// System messages stay in `system`; only user/tool can open the convo.
+			if (msg.role !== "user" && msg.role !== "tool") continue
+			started = true
+		}
+		const last = out[out.length - 1]
+		const sideOf = (role: ModelMessage["role"]) => (role === "assistant" ? "assistant" : "user")
+		if (last && sideOf(last.role) === sideOf(msg.role)) {
+			// Merge: keep the earlier message's role (prefer "tool" if either
+			// is tool, so AI SDK still recognises it for function responses).
+			const mergedContent = [...normalizeContent(last), ...normalizeContent(msg)]
+			const role = last.role === "tool" || msg.role === "tool" ? "tool" : last.role
+			out[out.length - 1] = { ...last, role, content: mergedContent } as ModelMessage
+		} else {
+			out.push({ ...msg, content: normalizeContent(msg) } as ModelMessage)
+		}
+	}
+	return out
+}
 
 export interface AgentLoopInput {
   model: LanguageModelV3
@@ -116,7 +162,11 @@ export async function runAgentLoop(input: AgentLoopInput): Promise<void> {
   }
 
   const uiMessages: UIMessage[] = toUIMessages(getMessages())
-  const messages = await convertToModelMessages(uiMessages, { tools: allTools })
+  const rawMessages = await convertToModelMessages(uiMessages, { tools: allTools })
+  // Defensive: enforce Gemini's strict user/assistant alternation. Safe for
+  // non-Gemini providers — merging adjacent same-role turns is a no-op for
+  // already well-formed conversations.
+  const messages = sanitizeForStrictAlternation(rawMessages)
 
   // Single streamText call — AI SDK handles multi-round tool execution.
   // Matches upstream LLM.stream() which also calls streamText() once.
