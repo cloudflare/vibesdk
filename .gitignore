@@ -55,3 +55,6 @@ debug-tools/presentation-tester
 
 .test-data
 cli
+
+# opencode generated artifacts
+opencode/src/skill/manifest.ts
