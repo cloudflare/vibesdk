@@ -5,8 +5,6 @@ import { AgentState } from '../../../agents/core/state';
 import { BehaviorType, ProjectType } from '../../../agents/core/types';
 import { getBehaviorTypeForProject } from '../../../agents/core/features';
 import { getAgentStub, getTemplateForQuery } from '../../../agents';
-import { createScratchTemplateDetails } from '../../../agents/utils/templates';
-import type { TemplateSelection } from '../../../agents/schemas';
 import {
     AgentConnectionData,
     AgentPreviewResponse,
