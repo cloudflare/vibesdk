@@ -131,13 +131,55 @@ Fix one of these three ways:
 - **Paths in JS need care under preview**: prefer `import.meta.url`, relative paths, or a runtime base detected from `document.baseURI`. Don't hard-code `/api/...` in client code; use `./api/...` or read a base from a `<meta>` tag.
 - **Trailing slashes matter** for `auto-trailing-slash` mode: `/about` serves `about.html`, `/about/` serves `about/index.html`. Pick one shape and link consistently.
 - **No CSS preprocessors at runtime** — ship `.css`, not `.scss`. Compile first if you need Sass.
-- **Importmaps work** since they're inline JSON. Use them to avoid bundling React/etc. for prototypes:
+- **Importmaps work** since they're inline JSON. Use them to avoid bundling React/etc. for prototypes — but watch the dual-React trap below.
 
-  ```html
-  <script type="importmap">
-    { "imports": { "react": "https://esm.sh/react@18.2.0" } }
-  </script>
-  ```
+### The dual-React trap (the #1 cause of "blank page + `useContext` is null`)
+
+`esm.sh` bundles a package's peer dependencies *into the package itself* unless you tell it otherwise. So this importmap looks correct but ships **two copies of React** — one for your app, another nested inside `framer-motion`:
+
+```html
+<!-- BROKEN: framer-motion has its own React inside, hooks crash with `Cannot read properties of null (reading 'useContext')` -->
+<script type="importmap">
+{
+  "imports": {
+    "react": "https://esm.sh/react@18.2.0",
+    "react-dom": "https://esm.sh/react-dom@18.2.0/client",
+    "framer-motion": "https://esm.sh/framer-motion@11"
+  }
+}
+</script>
+```
+
+The symptom is exactly: blank background + console errors like
+
+```
+TypeError: Cannot read properties of null (reading 'useContext')
+  at u (SwitchLayoutGroupContext.mjs:1:1)
+```
+
+because the nested React instance has no provider in the tree.
+
+**Fix: append `?external=react,react-dom` (and any other shared peers) to every esm.sh URL that has React as a peer dep.** Pin the exact same React version everywhere too.
+
+```html
+<!-- CORRECT: one React shared across the whole importmap -->
+<script type="importmap">
+{
+  "imports": {
+    "react": "https://esm.sh/react@18.3.1",
+    "react/jsx-runtime": "https://esm.sh/react@18.3.1/jsx-runtime",
+    "react-dom": "https://esm.sh/react-dom@18.3.1",
+    "react-dom/client": "https://esm.sh/react-dom@18.3.1/client",
+    "framer-motion": "https://esm.sh/framer-motion@11?external=react,react-dom",
+    "lucide-react": "https://esm.sh/lucide-react@0.400.0?external=react,react-dom"
+  }
+}
+</script>
+```
+
+Apply `?external=...` to **every** React-consuming dep (UI libraries, icon sets, animation libs, headless components). Same rule for `vue`, `solid-js`, etc. if you swap the framework.
+
+If a project needs more than two or three of these packages, stop using the importmap path — switch to option 1 (pre-compile with Vite/esbuild) so the bundler can dedupe React for you.
 
 ## npm dependencies
 
