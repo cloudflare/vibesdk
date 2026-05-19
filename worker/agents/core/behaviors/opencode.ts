@@ -312,6 +312,17 @@ export class OpencodeCodingBehavior
         return this.templateDetailsCache;
     }
 
+    /**
+     * Opencode never consults the sandbox template catalog. The base
+     * implementation would try to fetch details for `templateName ===
+     * 'opencode'`, which has no catalog entry, and throw. Hydrate the
+     * in-memory stub instead — `CodeGeneratorAgent.onStart` calls this on
+     * every DO wakeup, so this path must not error.
+     */
+    public override async ensureTemplateDetails(): Promise<TemplateDetails> {
+        return this.getTemplateDetails();
+    }
+
     getOperationOptions(): OperationOptions<AgenticGenerationContext> {
         // Opencode delegates code generation to SessionDO, so operations
         // declared on the base class aren't invoked here. We still need to
