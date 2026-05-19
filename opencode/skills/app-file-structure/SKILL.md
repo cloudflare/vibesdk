@@ -113,17 +113,54 @@ Fix one of these three ways:
 
 1. **Pre-compile** — write JSX in a build step (Vite/esbuild/tsup) and emit plain JS into `public/`. Best for production.
 2. **`React.createElement` by hand** — works without a build step but is verbose.
-3. **`@babel/standalone`** — only for prototypes. Load Babel **before** the script and use `type="text/babel"`:
+3. **`@babel/standalone`** — only for prototypes. Load Babel **before** the script and use `type="text/babel"`. The modern `@babel/preset-react` defaults to the **automatic JSX runtime**, which emits `import { jsx } from "react/jsx-runtime"`. Browsers will reject that bare specifier unless your importmap maps it. **Always ship a complete importmap alongside the Babel script:**
 
    ```html
+   <script type="importmap">
+   {
+     "imports": {
+       "react": "https://esm.sh/react@18.3.1",
+       "react/jsx-runtime": "https://esm.sh/react@18.3.1/jsx-runtime",
+       "react-dom": "https://esm.sh/react-dom@18.3.1",
+       "react-dom/client": "https://esm.sh/react-dom@18.3.1/client"
+     }
+   }
+   </script>
    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
    <script type="text/babel" data-type="module" data-presets="react">
-     import React from "https://esm.sh/react@18";
+     import React from "react";
+     import { createRoot } from "react-dom/client";
+     const App = () => <div>hi</div>;
+     createRoot(document.getElementById("root")).render(<App />);
+   </script>
+   ```
+
+   `data-type="module"` is required for `import` to work inside the Babel script. Import React from the importmap key (`"react"`) — not from a hard-coded `esm.sh` URL — so your code and Babel's emitted `react/jsx-runtime` import resolve to the **same** React instance.
+
+   If you really cannot ship `react/jsx-runtime` in the importmap, force Babel to the legacy classic runtime instead so it emits `React.createElement` calls and never touches `react/jsx-runtime`:
+
+   ```html
+   <script
+     type="text/babel"
+     data-type="module"
+     data-presets="react"
+     data-plugins='[["transform-react-jsx", { "runtime": "classic" }]]'
+   >
+     import React from "https://esm.sh/react@18.3.1";  /* must be in scope */
      const App = () => <div>hi</div>;
    </script>
    ```
 
-   `data-type="module"` is required for `import` to work inside the Babel script.
+   The classic runtime requires `React` to be in lexical scope (because `<div>` becomes `React.createElement("div")`). The automatic runtime (default) does not, but needs `react/jsx-runtime` resolvable.
+
+### Symptom-to-fix index
+
+| Console error | Cause | Fix |
+| --- | --- | --- |
+| `Uncaught SyntaxError: Unexpected token '<'` (inside `<script type="module">`) | JSX shipped raw to the browser | Pre-compile, or use `@babel/standalone` with `type="text/babel"` |
+| `Uncaught TypeError: Failed to resolve module specifier "react/jsx-runtime". Relative references must start with either "/", "./", or "../".` | Automatic JSX runtime emits `import "react/jsx-runtime"` but importmap doesn't map it | Add `"react/jsx-runtime": "https://esm.sh/react@<same-version>/jsx-runtime"` to the importmap **before** the Babel/script tag — or force the classic runtime (see above) |
+| `Uncaught TypeError: Failed to resolve module specifier "react"` (or any bare name) | No importmap entry for that package | Add it to the importmap; importmap script tag must appear **before** any module script that uses the specifier |
+| `TypeError: Cannot read properties of null (reading 'useContext')` | Dual-React (two copies loaded) | Append `?external=react,react-dom` to every esm.sh URL with React as a peer dep — see the dual-React trap below |
 
 ### Other asset gotchas
 
@@ -210,6 +247,8 @@ Run through every item — most "preview is broken" reports trace back to one of
 
 - `wrangler.json` exists at repo root with `main` and (if static assets exist) `[assets].directory`.
 - Every browser-loaded `.js` / `.mjs` / `<script type="module">` is **plain JS, no JSX**, or wrapped with `@babel/standalone` + `type="text/babel"`.
+- If you use React via importmap (Babel-standalone or pre-compiled with the automatic JSX runtime), the importmap maps **all** of `react`, `react/jsx-runtime`, `react-dom`, and `react-dom/client` — same version on every entry. Missing `react/jsx-runtime` produces `Failed to resolve module specifier "react/jsx-runtime"` and a blank page.
+- The `<script type="importmap">` tag appears **before** any `<script type="module">` (or `type="text/babel" data-type="module"`) that depends on the mapped specifiers.
 - Static files live under the configured `assets.directory` (default suggestion: `public/`).
 - HTML uses root-relative paths (`/foo.js`) — they get rewritten. JS uses relative paths (`./foo`).
 - No binary assets are imported from npm packages. Binaries live in `public/`.

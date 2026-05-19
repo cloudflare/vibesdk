@@ -1,25 +1,33 @@
-# ===== CF-WORKERS-DESIGN.md =====
+---
+name: frontend-design-landing-page
+description: Marketing landing page and conversion-focused product page reference. Use this skill when building hero sections, feature grids, pricing pages, testimonials, CTAs, footers, navigation bars, or any public-facing marketing surface. Covers a warm, professional, developer-friendly design language (cream backgrounds, generous whitespace, pill CTAs, corner-bracket card decorations) and a complete token set, animation system, and copy-paste component snippets. NOT for product/dashboard UIs — use frontend-design-saas for those.
+---
 
-# CF Workers Design System
+# Landing Page Design System
 
-> **AI-Optimized Design Reference** for building Cloudflare-style landing pages, calculators, interactive tools, and marketing assets.
->
-> Based on: `workers.cloudflare.com`, `workershops.cloudflare.com`, `r2-calculator.cloudflare.com`
+> **AI-Optimized Design Reference** for building warm, professional, conversion-focused marketing landing pages, product pages, feature pages, and pricing pages.
+
+This skill captures a specific landing-page register: warm cream backgrounds (NOT pure white), brown text (NOT pure black), a single bold accent for CTAs, pill-rounded buttons, and signature corner-bracket card decorations. It's tuned for developer-adjacent / B2B products — the aesthetic feels human and crafted without being playful or consumer-y. Pin the accent color to your brand; the rest of the system is reusable as-is.
+
+> **When to use this vs. `frontend-design-saas`:** Landing-page surfaces (homepage, /features, /pricing, /about, blog) → this skill. Product UI behind the login (dashboards, settings, tables) → `frontend-design-saas`.
 
 ---
 
 ## Quick Reference (TL;DR)
 
 ```
-Brand Orange:     #FF4801 (primary), #FF7038 (hover)
-Background:       #FFFBF5 (cream) / #121212 (dark mode)
-Text:             #521000 (brown) / #F0E3DE (dark mode)
-Border:           #EBD5C1
-Font Sans:        "FT Kunst Grotesk", sans-serif
-Font Mono:        "Apercu Mono Pro", monospace
-Base Spacing:     4px (use multiples: 8, 12, 16, 24, 32, 48, 64)
-Border Radius:    Buttons = full (9999px), Cards = 12-16px, Inputs = 8px
+Brand Accent:    #FF4801 (replace with your brand) / #FF7038 (hover)
+Background:      #FFFBF5 (warm cream) / #121212 (dark mode)
+Text:            #521000 (warm brown) / #F0E3DE (dark mode)
+Border:          #EBD5C1 (cream-tinted)
+Font Sans:       "Inter" / "Geist" / "Manrope" / any modern grotesk
+Font Mono:       "JetBrains Mono" / "IBM Plex Mono" / "Geist Mono"
+Base Spacing:    4px (multiples: 8, 12, 16, 24, 32, 48, 64)
+Border Radius:   Buttons = pill (9999px), Cards = 12-16px, Inputs = 8px, Hero = 16-20px
+Signature:       Corner brackets on cards (8px decorative squares at corners)
 ```
+
+This is a **landing-page** register, not a product-UI register. Buttons are pills (consumer/marketing read), backgrounds are warm cream (inviting, not sterile), and decorative idioms like corner brackets are welcome. For product surfaces behind auth, use the SaaS skill instead.
 
 ---
 
@@ -50,40 +58,44 @@ Border Radius:    Buttons = full (9999px), Cards = 12-16px, Inputs = 8px
 
 | Token | Hex | RGB | Usage |
 |-------|-----|-----|-------|
-| `--cf-orange` | `#FF4801` | `rgb(255, 72, 1)` | Primary accent, CTAs, links |
-| `--cf-orange-hover` | `#FF7038` | `rgb(255, 112, 56)` | Hover states |
-| `--cf-orange-light` | `rgba(255, 72, 1, 0.1)` | — | Badges, light backgrounds |
-| `--cf-text` | `#521000` | `rgb(82, 16, 0)` | Primary text |
-| `--cf-text-muted` | `rgba(82, 16, 0, 0.6)` | — | Secondary text |
-| `--cf-text-subtle` | `rgba(82, 16, 0, 0.38)` | — | Tertiary text, placeholders |
-| `--cf-bg-page` | `#F5F1EB` | `rgb(245, 241, 235)` | Page background (outer) |
-| `--cf-bg-100` | `#FFFBF5` | `rgb(255, 251, 245)` | Primary background |
-| `--cf-bg-200` | `#FFFDFB` | `rgb(255, 253, 251)` | Card backgrounds |
-| `--cf-bg-300` | `#FEF7ED` | `rgb(254, 247, 237)` | Hover backgrounds |
-| `--cf-border` | `#EBD5C1` | `rgb(235, 213, 193)` | Borders, dividers |
-| `--cf-border-light` | `rgba(235, 213, 193, 0.5)` | — | Subtle borders |
+| `--lp-accent` | `#FF4801` | `rgb(255, 72, 1)` | Primary accent, CTAs, links |
+| `--lp-accent-hover` | `#FF7038` | `rgb(255, 112, 56)` | Hover states |
+| `--lp-accent-light` | `rgba(255, 72, 1, 0.1)` | — | Badges, light backgrounds |
+| `--lp-text` | `#521000` | `rgb(82, 16, 0)` | Primary text |
+| `--lp-text-muted` | `rgba(82, 16, 0, 0.6)` | — | Secondary text |
+| `--lp-text-subtle` | `rgba(82, 16, 0, 0.38)` | — | Tertiary text, placeholders |
+| `--lp-bg-page` | `#F5F1EB` | `rgb(245, 241, 235)` | Page background (outer) |
+| `--lp-bg-100` | `#FFFBF5` | `rgb(255, 251, 245)` | Primary background |
+| `--lp-bg-200` | `#FFFDFB` | `rgb(255, 253, 251)` | Card backgrounds |
+| `--lp-bg-300` | `#FEF7ED` | `rgb(254, 247, 237)` | Hover backgrounds |
+| `--lp-border` | `#EBD5C1` | `rgb(235, 213, 193)` | Borders, dividers |
+| `--lp-border-light` | `rgba(235, 213, 193, 0.5)` | — | Subtle borders |
 
 ### 2.2 Primary Palette (Dark Mode)
 
 | Token | Hex | Usage |
 |-------|-----|-------|
-| `--cf-orange` | `#F14602` | Primary accent |
-| `--cf-orange-hover` | `#FF6D33` | Hover states |
-| `--cf-text` | `#F0E3DE` | Primary text |
-| `--cf-text-muted` | `rgba(255, 253, 251, 0.56)` | Secondary text |
-| `--cf-bg-100` | `#121212` | Primary background |
-| `--cf-bg-200` | `#191817` | Card backgrounds |
-| `--cf-bg-300` | `#2A2927` | Hover backgrounds |
-| `--cf-border` | `rgba(240, 227, 222, 0.13)` | Borders |
+| `--lp-accent` | `#F14602` | Primary accent |
+| `--lp-accent-hover` | `#FF6D33` | Hover states |
+| `--lp-text` | `#F0E3DE` | Primary text |
+| `--lp-text-muted` | `rgba(255, 253, 251, 0.56)` | Secondary text |
+| `--lp-bg-100` | `#121212` | Primary background |
+| `--lp-bg-200` | `#191817` | Card backgrounds |
+| `--lp-bg-300` | `#2A2927` | Hover backgrounds |
+| `--lp-border` | `rgba(240, 227, 222, 0.13)` | Borders |
 
-### 2.3 Product Category Colors
+### 2.3 Category / Tag Colors (optional)
 
-| Category | Primary | Background | Usage |
+If your product has multiple feature categories that appear as tags or pills throughout the page (feature cards, navigation, etc.), define a small categorical palette. Keep luminance similar across the set so no single color overpowers the others.
+
+| Slot | Primary | Background | Example use |
 |----------|---------|------------|-------|
-| Compute | `#0A95FF` | `rgba(10, 149, 255, 0.1)` | Workers, compute products |
-| Storage | `#EE0DDB` | `rgba(238, 13, 219, 0.1)` | R2, D1, KV |
-| AI | `#19E306` | `#F2F5E1` | Workers AI, inference |
-| Media | `#9616FF` | `#F8EBEE` | Stream, Images |
+| Category A | `#0A95FF` | `rgba(10, 149, 255, 0.1)` | "Compute" / "Performance" |
+| Category B | `#EE0DDB` | `rgba(238, 13, 219, 0.1)` | "Storage" / "Data" |
+| Category C | `#19E306` | `#F2F5E1` | "AI" / "Intelligence" |
+| Category D | `#9616FF` | `#F8EBEE` | "Media" / "Edge" |
+
+These are placeholders — swap to your product's category palette. The goal is a small set of visually distinct accent colors used only on category labels, NEVER on primary CTAs (the brand accent owns that role).
 
 ### 2.4 Semantic Colors
 
@@ -94,15 +106,6 @@ Border Radius:    Buttons = full (9999px), Cards = 12-16px, Inputs = 8px
 | Error | `#DC2626` | `#F87171` |
 | Info | `#2563EB` | `#60A5FA` |
 
-### 2.5 Comparison Provider Colors (for calculators)
-
-| Provider | Color | Usage |
-|----------|-------|-------|
-| Cloudflare | `#FF4801` | R2, Workers pricing |
-| AWS | `#FF9900` | S3 comparison |
-| Google Cloud | `#4285F4` | GCS comparison |
-| Azure | `#0078D4` | Azure comparison |
-
 ---
 
 ## 3. Typography
@@ -110,14 +113,14 @@ Border Radius:    Buttons = full (9999px), Cards = 12-16px, Inputs = 8px
 ### 3.1 Font Families
 
 ```css
---font-sans: "FT Kunst Grotesk", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
---font-mono: "Apercu Mono Pro", "SF Mono", "Fira Code", "Consolas", monospace;
+--font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+--font-mono: "JetBrains Mono", "SF Mono", "Fira Code", "Consolas", monospace;
 ```
 
 **Font Files:**
 - `Kunst Grotesk Regular.woff2` (400)
 - `Kunst Grotesk Medium.woff2` (500)
-- `Apercu Mono Pro Regular.woff2` (400)
+- `JetBrains Mono Regular.woff2` (400)
 
 ### 3.2 Type Scale
 
@@ -498,21 +501,21 @@ Place in `<head>` before any styles load:
 
 ```css
 :root {
-  --cf-orange: #FF4801;
-  --cf-text: #521000;
-  --cf-text-muted: rgba(82, 16, 0, 0.6);
-  --cf-bg-100: #FFFBF5;
-  --cf-bg-200: #FFFDFB;
-  --cf-border: #EBD5C1;
+  --lp-accent: #FF4801;
+  --lp-text: #521000;
+  --lp-text-muted: rgba(82, 16, 0, 0.6);
+  --lp-bg-100: #FFFBF5;
+  --lp-bg-200: #FFFDFB;
+  --lp-border: #EBD5C1;
 }
 
 :root.dark, html.dark {
-  --cf-orange: #F14602;
-  --cf-text: #F0E3DE;
-  --cf-text-muted: rgba(255, 253, 251, 0.56);
-  --cf-bg-100: #121212;
-  --cf-bg-200: #191817;
-  --cf-border: rgba(240, 227, 222, 0.13);
+  --lp-accent: #F14602;
+  --lp-text: #F0E3DE;
+  --lp-text-muted: rgba(255, 253, 251, 0.56);
+  --lp-bg-100: #121212;
+  --lp-bg-200: #191817;
+  --lp-border: rgba(240, 227, 222, 0.13);
 }
 ```
 
@@ -543,7 +546,7 @@ mediaQuery.addEventListener('change', (e) => {
 ```css
 /* Default focus ring */
 :focus-visible {
-  outline: 2px solid var(--cf-orange);
+  outline: 2px solid var(--lp-accent);
   outline-offset: 2px;
 }
 
@@ -558,7 +561,7 @@ input:focus-visible,
 select:focus-visible,
 textarea:focus-visible {
   outline: none;
-  border-color: var(--cf-orange);
+  border-color: var(--lp-accent);
   box-shadow: 0 0 0 3px rgba(255, 72, 1, 0.1);
 }
 ```
@@ -612,7 +615,7 @@ textarea:focus-visible {
 ```css
 ::selection {
   background-color: rgba(255, 72, 1, 0.2);
-  color: var(--cf-text);
+  color: var(--lp-text);
 }
 ```
 
@@ -635,9 +638,9 @@ Signature decorative element for cards:
   position: absolute;
   width: 8px;
   height: 8px;
-  border: 1px solid var(--cf-border);
+  border: 1px solid var(--lp-border);
   border-radius: 1.5px;
-  background: var(--cf-bg-100);
+  background: var(--lp-bg-100);
 }
 
 /* Positions */
@@ -653,7 +656,7 @@ Signature decorative element for cards:
 .dot-pattern {
   background-image: radial-gradient(
     circle,
-    var(--cf-border) 0.75px,
+    var(--lp-border) 0.75px,
     transparent 0.75px
   );
   background-size: 12px 12px;
@@ -668,7 +671,7 @@ Signature decorative element for cards:
   width: 1px;
   background-image: linear-gradient(
     to bottom,
-    var(--cf-border) 50%,
+    var(--lp-border) 50%,
     transparent 50%
   );
   background-size: 1px 16px;
@@ -680,7 +683,7 @@ Signature decorative element for cards:
   height: 1px;
   background-image: linear-gradient(
     to right,
-    var(--cf-border) 50%,
+    var(--lp-border) 50%,
     transparent 50%
   );
   background-size: 16px 1px;
@@ -760,7 +763,7 @@ project/
 ├── fonts/
 │   ├── Kunst Grotesk Regular.woff2
 │   ├── Kunst Grotesk Medium.woff2
-│   └── Apercu Mono Pro Regular.woff2
+│   └── JetBrains Mono Regular.woff2
 └── components/             # React/Vue components
     ├── Button.tsx
     ├── Card.tsx
@@ -780,45 +783,45 @@ Copy this into your project's CSS:
 ```css
 :root {
   /* Colors - Primary */
-  --cf-orange: #FF4801;
-  --cf-orange-hover: #FF7038;
-  --cf-orange-light: rgba(255, 72, 1, 0.1);
+  --lp-accent: #FF4801;
+  --lp-accent-hover: #FF7038;
+  --lp-accent-light: rgba(255, 72, 1, 0.1);
   
   /* Colors - Text */
-  --cf-text: #521000;
-  --cf-text-muted: rgba(82, 16, 0, 0.6);
-  --cf-text-subtle: rgba(82, 16, 0, 0.38);
+  --lp-text: #521000;
+  --lp-text-muted: rgba(82, 16, 0, 0.6);
+  --lp-text-subtle: rgba(82, 16, 0, 0.38);
   
   /* Colors - Backgrounds */
-  --cf-bg-page: #F5F1EB;
-  --cf-bg-100: #FFFBF5;
-  --cf-bg-200: #FFFDFB;
-  --cf-bg-300: #FEF7ED;
+  --lp-bg-page: #F5F1EB;
+  --lp-bg-100: #FFFBF5;
+  --lp-bg-200: #FFFDFB;
+  --lp-bg-300: #FEF7ED;
   
   /* Colors - Borders */
-  --cf-border: #EBD5C1;
-  --cf-border-light: rgba(235, 213, 193, 0.5);
+  --lp-border: #EBD5C1;
+  --lp-border-light: rgba(235, 213, 193, 0.5);
   
   /* Colors - Semantic */
-  --cf-success: #16A34A;
-  --cf-warning: #EAB308;
-  --cf-error: #DC2626;
-  --cf-info: #2563EB;
+  --lp-success: #16A34A;
+  --lp-warning: #EAB308;
+  --lp-error: #DC2626;
+  --lp-info: #2563EB;
   
   /* Colors - Product Categories */
-  --cf-compute: #0A95FF;
-  --cf-storage: #EE0DDB;
-  --cf-ai: #19E306;
-  --cf-media: #9616FF;
+  --lp-compute: #0A95FF;
+  --lp-storage: #EE0DDB;
+  --lp-ai: #19E306;
+  --lp-media: #9616FF;
   
   /* Colors - Provider Comparisons */
-  --cf-aws: #FF9900;
-  --cf-gcp: #4285F4;
-  --cf-azure: #0078D4;
+  --lp-aws: #FF9900;
+  --lp-gcp: #4285F4;
+  --lp-azure: #0078D4;
   
   /* Typography */
-  --font-sans: "FT Kunst Grotesk", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  --font-mono: "Apercu Mono Pro", "SF Mono", "Fira Code", monospace;
+  --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono", "SF Mono", "Fira Code", monospace;
   
   /* Spacing */
   --spacing-unit: 4px;
@@ -866,7 +869,7 @@ Copy this into your project's CSS:
 | Aspect | Value | Notes |
 |--------|-------|-------|
 | **Layout Type** | Asymmetrical fluid with max-width constraints | NOT a strict 12-column grid |
-| **Max Container** | `1480px` (workers.cloudflare.com) / `1024px` (r2-calculator) | Content centered with `mx-auto` |
+| **Max Container** | `1480px` (homepage / wide marketing) / `1024px` (focused content / docs) | Content centered with `mx-auto` |
 | **Content Width** | `64rem` (1024px) for tools/calculators | Narrower for focused interfaces |
 | **Grid Columns** | 1-col mobile → 2-col tablet → responsive desktop | Uses CSS Grid, not flexbox grids |
 
@@ -904,22 +907,22 @@ Component Internal Padding:
 #### Primary Palette (Extracted Exact Values)
 
 ```css
-/* From r2-calculator.cloudflare.com CSS */
+/* Core landing-page palette */
 :root {
-  --cf-orange: #ff4801;        /* Primary accent - EXACT */
-  --cf-text: #521000;          /* Primary text - warm brown */
-  --cf-bg-page: #fffbf5;       /* Page background - warm cream */
-  --cf-border: #EBD5C1;        /* Border color */
+  --lp-accent: #ff4801;        /* Primary accent - EXACT */
+  --lp-text: #521000;          /* Primary text - warm brown */
+  --lp-bg-page: #fffbf5;       /* Page background - warm cream */
+  --lp-border: #EBD5C1;        /* Border color */
 }
 
 /* Background Layers (Light Mode) */
---cf-bg-100: rgb(255, 251, 245);  /* #FFFBF5 - Primary */
---cf-bg-200: rgb(255, 253, 251);  /* #FFFDFB - Cards/elevated */
---cf-bg-300: rgb(254, 247, 237);  /* #FEF7ED - Hover states */
+--lp-bg-100: rgb(255, 251, 245);  /* #FFFBF5 - Primary */
+--lp-bg-200: rgb(255, 253, 251);  /* #FFFDFB - Cards/elevated */
+--lp-bg-300: rgb(254, 247, 237);  /* #FEF7ED - Hover states */
 
 /* Text Opacity Variations */
---cf-text-muted: rgba(82, 16, 0, 0.7);   /* #521000b3 - Secondary */
---cf-text-subtle: rgba(82, 16, 0, 0.4);  /* #52100066 - Tertiary */
+--lp-text-muted: rgba(82, 16, 0, 0.7);   /* #521000b3 - Secondary */
+--lp-text-subtle: rgba(82, 16, 0, 0.4);  /* #52100066 - Tertiary */
 ```
 
 #### Semantic Colors (from components)
@@ -951,28 +954,19 @@ box-shadow: 0 0 0 3px rgba(255, 72, 1, 0.1);
 /* NO heavy drop shadows */
 ```
 
-#### Provider Comparison Colors
-
-```css
-/* For pricing calculators */
---aws-orange: rgb(255, 153, 0);   /* #FF9900 */
---gcp-blue: rgb(66, 133, 244);    /* #4285F4 */
---cloudflare: rgb(255, 72, 1);    /* #FF4801 */
-```
-
 ### 15.3 Typography & Micro-Copy Specs
 
 #### Type Personality: **Grotesk Sans**
 
-The typography uses **FT Kunst Grotesk** - a modern grotesk with humanist touches. Fallback chain:
+The typography uses **Inter** - a modern grotesk with humanist touches. Fallback chain:
 ```css
-font-family: FT Kunst Grotesk, -apple-system, system-ui, BlinkMacSystemFont, 
+font-family: Inter, -apple-system, system-ui, BlinkMacSystemFont, 
              Segoe UI, sans-serif, ui-sans-serif, system-ui, sans-serif;
 ```
 
 #### Monospace for Code
 ```css
-font-family: Apercu Mono Pro, ui-monospace, SFMono-Regular, SF Mono, 
+font-family: JetBrains Mono, ui-monospace, SFMono-Regular, SF Mono, 
              Monaco, Consolas, monospace;
 ```
 
@@ -980,7 +974,7 @@ font-family: Apercu Mono Pro, ui-monospace, SFMono-Regular, SF Mono,
 
 | Level | Size | Weight | Line Height | Letter Spacing | Example |
 |-------|------|--------|-------------|----------------|---------|
-| **h1** | 24px-30px (`text-2xl` to `text-3xl`) | 500 (medium) | 1.2-1.33 | `-0.035em` | "R2 Pricing Calculator" |
+| **h1** | 24px-30px (`text-2xl` to `text-3xl`) | 500 (medium) | 1.2-1.33 | `-0.035em` | "Pricing", "Build faster" |
 | **h2** | 18px (`text-lg`) | 500 | 1.4 | normal | "Pricing Details" |
 | **h3** | 16px (`text-base`) | 500 | 1.5 | normal | Form labels |
 | **p** (body) | 14px-16px (`text-sm` to `text-base`) | 400 | 1.4-1.5 | normal | Descriptions |
@@ -1030,7 +1024,7 @@ font-family: Apercu Mono Pro, ui-monospace, SFMono-Regular, SF Mono,
 
 /* Background shift */
 .interactive:hover {
-  background-color: var(--cf-bg-300);  /* Warmer cream */
+  background-color: var(--lp-bg-300);  /* Warmer cream */
 }
 ```
 
@@ -1045,12 +1039,12 @@ button:active {
 **Focus States:**
 ```css
 :focus-visible {
-  outline: 2px solid var(--cf-orange);
+  outline: 2px solid var(--lp-accent);
   outline-offset: 2px;
 }
 
 input:focus {
-  border-color: var(--cf-orange);
+  border-color: var(--lp-accent);
   box-shadow: 0 0 0 3px rgba(255, 72, 1, 0.1);
 }
 ```
@@ -1059,7 +1053,7 @@ input:focus {
 
 #### Corner Brackets (Signature Element)
 
-The 8px corner bracket decorations are a signature Cloudflare Workers element:
+The 8px corner bracket decorations are the **signature decorative element** of this design language — they appear at the four outer corners of cards and feature blocks, suggesting precision and crafted technical detail without adding visual noise:
 
 ```html
 <!-- Corner bracket structure -->
@@ -1199,8 +1193,8 @@ module.exports = {
         'gcp-blue': '#4285F4',
       },
       fontFamily: {
-        sans: ['FT Kunst Grotesk', '-apple-system', 'system-ui', 'BlinkMacSystemFont', 'Segoe UI', 'sans-serif'],
-        mono: ['Apercu Mono Pro', 'ui-monospace', 'SFMono-Regular', 'SF Mono', 'Monaco', 'Consolas', 'monospace'],
+        sans: ['Inter', '-apple-system', 'system-ui', 'BlinkMacSystemFont', 'Segoe UI', 'sans-serif'],
+        mono: ['JetBrains Mono', 'ui-monospace', 'SFMono-Regular', 'SF Mono', 'Monaco', 'Consolas', 'monospace'],
       },
       fontSize: {
         'sm': ['0.9rem', { lineHeight: '1.4' }],
@@ -1260,38 +1254,38 @@ module.exports = {
 :root {
   /* === COLORS === */
   /* Primary */
-  --cf-orange: #FF4801;
-  --cf-orange-hover: #FF7038;
-  --cf-orange-light: rgba(255, 72, 1, 0.06);
+  --lp-accent: #FF4801;
+  --lp-accent-hover: #FF7038;
+  --lp-accent-light: rgba(255, 72, 1, 0.06);
   
   /* Text */
-  --cf-text: #521000;
-  --cf-text-muted: rgba(82, 16, 0, 0.7);
-  --cf-text-subtle: rgba(82, 16, 0, 0.4);
+  --lp-text: #521000;
+  --lp-text-muted: rgba(82, 16, 0, 0.7);
+  --lp-text-subtle: rgba(82, 16, 0, 0.4);
   
   /* Backgrounds */
-  --cf-bg-page: #FFFBF5;
-  --cf-bg-100: #FFFBF5;
-  --cf-bg-200: #FFFDFB;
-  --cf-bg-300: #FEF7ED;
+  --lp-bg-page: #FFFBF5;
+  --lp-bg-100: #FFFBF5;
+  --lp-bg-200: #FFFDFB;
+  --lp-bg-300: #FEF7ED;
   
   /* Borders */
-  --cf-border: #EBD5C1;
-  --cf-border-light: rgba(235, 213, 193, 0.5);
+  --lp-border: #EBD5C1;
+  --lp-border-light: rgba(235, 213, 193, 0.5);
   
   /* Semantic */
-  --cf-success: #16A34A;
-  --cf-success-bg: #DCF7E3;
-  --cf-warning: #EAB308;
-  --cf-error: #DC2626;
+  --lp-success: #16A34A;
+  --lp-success-bg: #DCF7E3;
+  --lp-warning: #EAB308;
+  --lp-error: #DC2626;
   
   /* Provider Colors */
   --aws-orange: #FF9900;
   --gcp-blue: #4285F4;
   
   /* === TYPOGRAPHY === */
-  --font-sans: "FT Kunst Grotesk", -apple-system, system-ui, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  --font-mono: "Apercu Mono Pro", ui-monospace, SFMono-Regular, "SF Mono", Monaco, Consolas, monospace;
+  --font-sans: "Inter", -apple-system, system-ui, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, "SF Mono", Monaco, Consolas, monospace;
   
   /* === SPACING === */
   --spacing-unit: 4px;
@@ -1328,14 +1322,14 @@ module.exports = {
 
 /* Dark Mode */
 :root.dark {
-  --cf-orange: #F14602;
-  --cf-text: #F0E3DE;
-  --cf-text-muted: rgba(255, 253, 251, 0.56);
-  --cf-bg-page: #0D0D0D;
-  --cf-bg-100: #121212;
-  --cf-bg-200: #191817;
-  --cf-bg-300: #2A2927;
-  --cf-border: rgba(240, 227, 222, 0.13);
+  --lp-accent: #F14602;
+  --lp-text: #F0E3DE;
+  --lp-text-muted: rgba(255, 253, 251, 0.56);
+  --lp-bg-page: #0D0D0D;
+  --lp-bg-100: #121212;
+  --lp-bg-200: #191817;
+  --lp-bg-300: #2A2927;
+  --lp-border: rgba(240, 227, 222, 0.13);
 }
 
 /* Base Styles */
@@ -1346,21 +1340,21 @@ html {
 
 body {
   margin: 0;
-  background-color: var(--cf-bg-page);
-  color: var(--cf-text);
+  background-color: var(--lp-bg-page);
+  color: var(--lp-text);
   font-family: var(--font-sans);
   overflow-x: hidden;
 }
 
 /* Focus States */
 :focus-visible {
-  outline: 2px solid var(--cf-orange);
+  outline: 2px solid var(--lp-accent);
   outline-offset: 2px;
 }
 
 input:focus,
 select:focus {
-  border-color: var(--cf-orange);
+  border-color: var(--lp-accent);
   box-shadow: var(--shadow-focus);
 }
 
@@ -1516,15 +1510,15 @@ function Page() {
 
 ---
 
-*Last updated: March 2026 — Based on forensic analysis of workers.cloudflare.com and r2-calculator.cloudflare.com*
+*Synthesized from analysis of warm-cream developer-marketing landing pages. The aesthetic — warm cream backgrounds, brown text, single bold accent for CTAs, corner-bracket decorations — is portable to any B2B / developer-tools / dev-adjacent product brand.*
 
 
 
 # ===== SNIPPETS.md =====
 
-# CF Workers Design - Component Snippets
+# Landing Page Design - Component Snippets
 
-> **Copy-paste ready components** for building Cloudflare-style interfaces.
+> **Copy-paste ready components** for building warm-cream landing-page interfaces.
 > Each snippet includes React + Tailwind AND Vanilla HTML versions.
 
 ---
@@ -1567,7 +1561,7 @@ Primary CTA button - cream background, orange text, fully rounded.
   gap: 8px;
   padding: 12px 24px;
   border-radius: 9999px;
-  font-family: 'FT Kunst Grotesk', sans-serif;
+  font-family: 'Inter', sans-serif;
   font-weight: 500;
   font-size: 16px;
   background: #FFFBF5;
@@ -1604,7 +1598,7 @@ Secondary button - orange background, white text.
   gap: 8px;
   padding: 12px 24px;
   border-radius: 9999px;
-  font-family: 'FT Kunst Grotesk', sans-serif;
+  font-family: 'Inter', sans-serif;
   font-weight: 500;
   font-size: 16px;
   background: #FF4801;
@@ -1641,7 +1635,7 @@ Ghost button - transparent with border, for secondary actions.
   gap: 8px;
   padding: 12px 24px;
   border-radius: 9999px;
-  font-family: 'FT Kunst Grotesk', sans-serif;
+  font-family: 'Inter', sans-serif;
   font-weight: 500;
   font-size: 16px;
   background: transparent;
@@ -1678,7 +1672,7 @@ Outline button - for less prominent actions.
   gap: 8px;
   padding: 12px 24px;
   border-radius: 9999px;
-  font-family: 'FT Kunst Grotesk', sans-serif;
+  font-family: 'Inter', sans-serif;
   font-weight: 500;
   font-size: 16px;
   background: #FFFDFB;
@@ -1759,7 +1753,7 @@ Link styled as text with arrow.
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  font-family: 'FT Kunst Grotesk', sans-serif;
+  font-family: 'Inter', sans-serif;
   font-weight: 500;
   color: #FF4801;
   text-decoration: none;
@@ -1803,7 +1797,7 @@ Button with loading spinner state.
   gap: 8px;
   padding: 12px 24px;
   border-radius: 9999px;
-  font-family: 'FT Kunst Grotesk', sans-serif;
+  font-family: 'Inter', sans-serif;
   font-weight: 500;
   font-size: 16px;
   background: #FF4801;
@@ -1864,8 +1858,8 @@ Standard card with corner bracket decorations.
   <div style="position: absolute; bottom: -4px; left: -4px; width: 8px; height: 8px; border: 1px solid #EBD5C1; border-radius: 1.5px; background: #FFFBF5;"></div>
   <div style="position: absolute; bottom: -4px; right: -4px; width: 8px; height: 8px; border: 1px solid #EBD5C1; border-radius: 1.5px; background: #FFFBF5;"></div>
   
-  <h3 style="font-family: 'FT Kunst Grotesk', sans-serif; font-size: 18px; font-weight: 500; color: #521000; margin: 0 0 8px 0;">Card Title</h3>
-  <p style="font-family: 'FT Kunst Grotesk', sans-serif; font-size: 14px; color: rgba(82,16,0,0.6); line-height: 1.6; margin: 0;">
+  <h3 style="font-family: 'Inter', sans-serif; font-size: 18px; font-weight: 500; color: #521000; margin: 0 0 8px 0;">Card Title</h3>
+  <p style="font-family: 'Inter', sans-serif; font-size: 14px; color: rgba(82,16,0,0.6); line-height: 1.6; margin: 0;">
     Card description goes here. This is a standard card with the signature corner bracket decorations.
   </p>
 </div>
@@ -1924,8 +1918,8 @@ Feature card with icon, title, and description.
     </svg>
   </div>
   
-  <h3 style="font-family: 'FT Kunst Grotesk', sans-serif; font-size: 16px; font-weight: 500; color: #521000; margin: 0 0 8px 0;">Lightning Fast</h3>
-  <p style="font-family: 'FT Kunst Grotesk', sans-serif; font-size: 14px; color: rgba(82,16,0,0.6); line-height: 1.6; margin: 0;">
+  <h3 style="font-family: 'Inter', sans-serif; font-size: 16px; font-weight: 500; color: #521000; margin: 0 0 8px 0;">Lightning Fast</h3>
+  <p style="font-family: 'Inter', sans-serif; font-size: 14px; color: rgba(82,16,0,0.6); line-height: 1.6; margin: 0;">
     Deploy to 300+ locations worldwide. Your code runs milliseconds from your users.
   </p>
 </div>
@@ -1968,8 +1962,8 @@ Statistics card with large number and label.
   <div style="position: absolute; bottom: -4px; left: -4px; width: 8px; height: 8px; border: 1px solid #EBD5C1; border-radius: 1.5px; background: #FFFBF5;"></div>
   <div style="position: absolute; bottom: -4px; right: -4px; width: 8px; height: 8px; border: 1px solid #EBD5C1; border-radius: 1.5px; background: #FFFBF5;"></div>
   
-  <div style="font-family: 'FT Kunst Grotesk', sans-serif; font-size: 30px; font-weight: 500; color: #FF4801; letter-spacing: -0.02em;">$0.015</div>
-  <div style="font-family: 'Apercu Mono Pro', monospace; font-size: 12px; color: rgba(82,16,0,0.6); text-transform: uppercase; letter-spacing: 0.05em; margin-top: 8px;">per GB / month</div>
+  <div style="font-family: 'Inter', sans-serif; font-size: 30px; font-weight: 500; color: #FF4801; letter-spacing: -0.02em;">$0.015</div>
+  <div style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: rgba(82,16,0,0.6); text-transform: uppercase; letter-spacing: 0.05em; margin-top: 8px;">per GB / month</div>
 </div>
 ```
 
@@ -2046,30 +2040,30 @@ Pricing tier card with features list.
   
   <!-- Header -->
   <div style="padding: 24px; border-bottom: 1px solid rgba(235,213,193,0.5);">
-    <h3 style="font-family: 'FT Kunst Grotesk', sans-serif; font-size: 18px; font-weight: 500; color: #521000; margin: 0;">Pro</h3>
+    <h3 style="font-family: 'Inter', sans-serif; font-size: 18px; font-weight: 500; color: #521000; margin: 0;">Pro</h3>
     <div style="margin-top: 8px;">
-      <span style="font-family: 'FT Kunst Grotesk', sans-serif; font-size: 30px; font-weight: 500; color: #521000;">$20</span>
-      <span style="font-family: 'FT Kunst Grotesk', sans-serif; font-size: 14px; color: rgba(82,16,0,0.6);">/month</span>
+      <span style="font-family: 'Inter', sans-serif; font-size: 30px; font-weight: 500; color: #521000;">$20</span>
+      <span style="font-family: 'Inter', sans-serif; font-size: 14px; color: rgba(82,16,0,0.6);">/month</span>
     </div>
-    <p style="font-family: 'FT Kunst Grotesk', sans-serif; font-size: 14px; color: rgba(82,16,0,0.6); margin: 8px 0 0 0;">For growing teams and projects</p>
+    <p style="font-family: 'Inter', sans-serif; font-size: 14px; color: rgba(82,16,0,0.6); margin: 8px 0 0 0;">For growing teams and projects</p>
   </div>
   
   <!-- Features -->
   <div style="padding: 24px;">
     <ul style="list-style: none; margin: 0; padding: 0;">
-      <li style="display: flex; align-items: flex-start; gap: 12px; font-family: 'FT Kunst Grotesk', sans-serif; font-size: 14px; color: #521000; margin-bottom: 12px;">
+      <li style="display: flex; align-items: flex-start; gap: 12px; font-family: 'Inter', sans-serif; font-size: 14px; color: #521000; margin-bottom: 12px;">
         <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="#FF4801" stroke-width="2" style="flex-shrink: 0; margin-top: 2px;">
           <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
         </svg>
         100 GB storage included
       </li>
-      <li style="display: flex; align-items: flex-start; gap: 12px; font-family: 'FT Kunst Grotesk', sans-serif; font-size: 14px; color: #521000; margin-bottom: 12px;">
+      <li style="display: flex; align-items: flex-start; gap: 12px; font-family: 'Inter', sans-serif; font-size: 14px; color: #521000; margin-bottom: 12px;">
         <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="#FF4801" stroke-width="2" style="flex-shrink: 0; margin-top: 2px;">
           <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
         </svg>
         10 million requests/month
       </li>
-      <li style="display: flex; align-items: flex-start; gap: 12px; font-family: 'FT Kunst Grotesk', sans-serif; font-size: 14px; color: #521000;">
+      <li style="display: flex; align-items: flex-start; gap: 12px; font-family: 'Inter', sans-serif; font-size: 14px; color: #521000;">
         <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="#FF4801" stroke-width="2" style="flex-shrink: 0; margin-top: 2px;">
           <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
         </svg>
@@ -2082,7 +2076,7 @@ Pricing tier card with features list.
       margin-top: 24px;
       padding: 12px 16px;
       border-radius: 9999px;
-      font-family: 'FT Kunst Grotesk', sans-serif;
+      font-family: 'Inter', sans-serif;
       font-weight: 500;
       font-size: 16px;
       background: #FF4801;
@@ -2097,9 +2091,9 @@ Pricing tier card with features list.
 
 ---
 
-## CARD-PROVIDER-COMPARISON
+## CARD-COMPARISON-ROW
 
-Provider comparison card for calculators (like R2 calculator).
+Side-by-side comparison row with progress bar — useful for "us vs. them" feature/pricing comparisons.
 
 ### React + Tailwind
 
@@ -2107,18 +2101,20 @@ Provider comparison card for calculators (like R2 calculator).
 <div className="relative bg-[#FFFDFB] border border-[#EBD5C1] p-4">
   <div className="flex items-center justify-between mb-3">
     <div className="flex items-center gap-3">
-      <img src="/cloudflare-logo.svg" alt="Cloudflare R2" className="h-6 w-auto" />
-      <span className="font-medium text-[#521000]">Cloudflare R2</span>
+      <div className="h-6 w-6 rounded bg-[#FF4801]/10 grid place-items-center text-[#FF4801] text-xs font-semibold">
+        Y
+      </div>
+      <span className="font-medium text-[#521000]">Your product</span>
     </div>
     <div className="text-right">
       <span className="text-lg font-medium text-[#521000]">$150.00</span>
       <span className="text-sm text-[#521000]/60">/mo</span>
     </div>
   </div>
-  
-  {/* Progress bar */}
+
+  {/* Progress bar — proportional value shown */}
   <div className="h-3 bg-[#EBD5C1]/30 rounded-full overflow-hidden">
-    <div 
+    <div
       className="h-full bg-[#FF4801] rounded-full transition-all duration-500 ease-out"
       style={{ width: '15%' }}
     />
@@ -2137,15 +2133,15 @@ Provider comparison card for calculators (like R2 calculator).
 ">
   <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
     <div style="display: flex; align-items: center; gap: 12px;">
-      <img src="/cloudflare-logo.svg" alt="Cloudflare R2" style="height: 24px; width: auto;" />
-      <span style="font-family: 'FT Kunst Grotesk', sans-serif; font-weight: 500; color: #521000;">Cloudflare R2</span>
+      <div style="height: 24px; width: 24px; border-radius: 4px; background: rgba(255,72,1,0.1); display: grid; place-items: center; color: #FF4801; font-size: 12px; font-weight: 600;">Y</div>
+      <span style="font-family: 'Inter', sans-serif; font-weight: 500; color: #521000;">Your product</span>
     </div>
     <div style="text-align: right;">
-      <span style="font-family: 'FT Kunst Grotesk', sans-serif; font-size: 18px; font-weight: 500; color: #521000;">$150.00</span>
-      <span style="font-family: 'FT Kunst Grotesk', sans-serif; font-size: 14px; color: rgba(82,16,0,0.6);">/mo</span>
+      <span style="font-family: 'Inter', sans-serif; font-size: 18px; font-weight: 500; color: #521000;">$150.00</span>
+      <span style="font-family: 'Inter', sans-serif; font-size: 14px; color: rgba(82,16,0,0.6);">/mo</span>
     </div>
   </div>
-  
+
   <!-- Progress bar -->
   <div style="height: 12px; background: rgba(235,213,193,0.3); border-radius: 9999px; overflow: hidden;">
     <div style="height: 100%; width: 15%; background: #FF4801; border-radius: 9999px; transition: width 0.5s ease-out;"></div>
@@ -2195,8 +2191,8 @@ Use case preset card for calculators.
       <path stroke-linecap="round" stroke-linejoin="round" d="M9.75 3.104v5.714a2.25 2.25 0 01-.659 1.591L5 14.5M9.75 3.104c-.251.023-.501.05-.75.082m.75-.082a24.301 24.301 0 014.5 0m0 0v5.714c0 .597.237 1.17.659 1.591L19.8 15.3M14.25 3.104c.251.023.501.05.75.082M19.8 15.3l-1.57.393A9.065 9.065 0 0112 15a9.065 9.065 0 00-6.23.693L5 14.5m14.8.8l1.402 1.402c1.232 1.232.65 3.318-1.067 3.611A48.309 48.309 0 0112 21c-2.773 0-5.491-.235-8.135-.687-1.718-.293-2.3-2.379-1.067-3.61L5 14.5" />
     </svg>
   </div>
-  <span style="font-family: 'FT Kunst Grotesk', sans-serif; font-size: 14px; font-weight: 500; color: #521000;">AI/ML Training</span>
-  <span style="font-family: 'FT Kunst Grotesk', sans-serif; font-size: 12px; color: rgba(82,16,0,0.6); margin-top: 2px;">100TB</span>
+  <span style="font-family: 'Inter', sans-serif; font-size: 14px; font-weight: 500; color: #521000;">AI/ML Training</span>
+  <span style="font-family: 'Inter', sans-serif; font-size: 12px; color: rgba(82,16,0,0.6); margin-top: 2px;">100TB</span>
 </button>
 ```
 
@@ -2222,7 +2218,7 @@ Testimonial card with quote, avatar, and attribution.
   </svg>
   
   <blockquote className="text-base text-[#521000] leading-relaxed mb-4">
-    "Switching to Cloudflare R2 cut our storage costs by 60% and eliminated egress fees entirely. The migration was seamless."
+    "We cut our infrastructure costs by 60% and eliminated an entire category of vendor lock-in. The migration was seamless."
   </blockquote>
   
   <div className="flex items-center gap-3">
@@ -2269,7 +2265,7 @@ Text input with label and optional error state.
   <label for="storage" style="
     display: block;
     margin-bottom: 8px;
-    font-family: 'FT Kunst Grotesk', sans-serif;
+    font-family: 'Inter', sans-serif;
     font-size: 16px;
     font-weight: 500;
     color: #521000;
@@ -2286,7 +2282,7 @@ Text input with label and optional error state.
       border: 1px solid #EBD5C1;
       background: #FFFDFB;
       color: #521000;
-      font-family: 'FT Kunst Grotesk', sans-serif;
+      font-family: 'Inter', sans-serif;
       font-size: 14px;
       border-radius: 8px;
       padding: 12px;
@@ -2304,7 +2300,7 @@ Text input with label and optional error state.
 
 ## FORM-INPUT-WITH-UNIT
 
-Input with unit selector dropdown (like R2 calculator).
+Input with unit selector dropdown (e.g., for pricing calculators or quantity inputs).
 
 ### React + Tailwind
 
@@ -2345,7 +2341,7 @@ Input with unit selector dropdown (like R2 calculator).
   <label for="data_stored" style="
     display: block;
     margin-bottom: 8px;
-    font-family: 'FT Kunst Grotesk', sans-serif;
+    font-family: 'Inter', sans-serif;
     font-size: 16px;
     font-weight: 500;
     color: #521000;
@@ -2363,7 +2359,7 @@ Input with unit selector dropdown (like R2 calculator).
         border: 1px solid #EBD5C1;
         background: #FFFDFB;
         color: #521000;
-        font-family: 'FT Kunst Grotesk', sans-serif;
+        font-family: 'Inter', sans-serif;
         font-size: 14px;
         border-radius: 8px;
         padding: 12px;
@@ -2375,7 +2371,7 @@ Input with unit selector dropdown (like R2 calculator).
       <select aria-label="Storage unit" style="
         appearance: none;
         padding: 12px 32px 12px 12px;
-        font-family: 'FT Kunst Grotesk', sans-serif;
+        font-family: 'Inter', sans-serif;
         font-size: 14px;
         color: #521000;
         background: #FEF7ED;
@@ -2400,7 +2396,7 @@ Input with unit selector dropdown (like R2 calculator).
 
 ## FORM-RANGE-SLIDER
 
-Range slider with floating value badge (like R2 calculator egress slider).
+Range slider with floating value badge (useful for usage/pricing inputs).
 
 ### React + Tailwind
 
@@ -2460,7 +2456,7 @@ function RangeSlider() {
   <label for="egress" style="
     display: block;
     margin-bottom: 8px;
-    font-family: 'FT Kunst Grotesk', sans-serif;
+    font-family: 'Inter', sans-serif;
     font-size: 16px;
     font-weight: 500;
     color: #521000;
@@ -2489,7 +2485,7 @@ function RangeSlider() {
       position: absolute;
       top: 0;
       left: calc(15% - 20px);
-      font-family: 'FT Kunst Grotesk', sans-serif;
+      font-family: 'Inter', sans-serif;
       font-size: 12px;
       font-weight: 500;
       color: #FF4801;
@@ -2498,7 +2494,7 @@ function RangeSlider() {
       border-radius: 9999px;
       white-space: nowrap;
     ">75%</div>
-    <div style="display: flex; justify-content: space-between; padding-top: 8px; font-family: 'FT Kunst Grotesk', sans-serif; font-size: 12px; color: rgba(82,16,0,0.6);">
+    <div style="display: flex; justify-content: space-between; padding-top: 8px; font-family: 'Inter', sans-serif; font-size: 12px; color: rgba(82,16,0,0.6);">
       <span>0%</span>
       <span>500%</span>
     </div>
@@ -2587,7 +2583,7 @@ function Toggle({ enabled, onChange, label }) {
       "></div>
     </div>
   </div>
-  <span style="margin-left: 12px; font-family: 'FT Kunst Grotesk', sans-serif; font-size: 14px; font-weight: 500; color: #521000;">Enable feature</span>
+  <span style="margin-left: 12px; font-family: 'Inter', sans-serif; font-size: 14px; font-weight: 500; color: #521000;">Enable feature</span>
 </label>
 
 <script>
@@ -2609,7 +2605,7 @@ function updateToggle(input) {
 
 ## FORM-TOGGLE-GROUP
 
-Toggle button group for month/year selection (like R2 calculator).
+Toggle button group for binary or small-set selection (e.g., month/year billing).
 
 ### React + Tailwind
 
@@ -2652,7 +2648,7 @@ function ToggleGroup({ options, value, onChange }) {
 <div style="display: inline-flex; border-radius: 9999px; border: 1px solid #EBD5C1; overflow: hidden;">
   <button type="button" id="btn-month" onclick="selectPeriod('month')" style="
     padding: 8px 16px;
-    font-family: 'FT Kunst Grotesk', sans-serif;
+    font-family: 'Inter', sans-serif;
     font-size: 14px;
     font-weight: 500;
     background: #FF4801;
@@ -2663,7 +2659,7 @@ function ToggleGroup({ options, value, onChange }) {
   ">month</button>
   <button type="button" id="btn-year" onclick="selectPeriod('year')" style="
     padding: 8px 16px;
-    font-family: 'FT Kunst Grotesk', sans-serif;
+    font-family: 'Inter', sans-serif;
     font-size: 14px;
     font-weight: 500;
     background: #FFFDFB;
@@ -2813,7 +2809,7 @@ Full calculator layout with input panel and results panel.
 
 ## CALC-PRICING-TABLE
 
-Pricing details table (like R2 calculator).
+Pricing details table for showing tiered or itemized costs.
 
 ### React + Tailwind
 
@@ -2822,7 +2818,7 @@ Pricing details table (like R2 calculator).
   <div className="mb-6">
     <h2 className="font-medium text-lg text-[#521000] mb-2">Pricing Details</h2>
     <p className="text-sm text-[#521000]/60">
-      R2 charges based on the total volume of data stored and two classes of operations on that data. You pay zero egress fees.
+      Pricing is based on actual usage. Pay only for what you consume — no commitments, no per-seat fees.
       <a className="underline text-[#FF4801] hover:text-[#FF4801]/80 transition-colors ml-1" href="#">
         View pricing documentation
       </a>
@@ -2880,11 +2876,11 @@ Main site header with logo, navigation links, and CTAs.
   <div className="max-w-5xl mx-auto px-4 py-4 flex justify-between items-center gap-4">
     {/* Logo */}
     <a href="/" className="shrink-0 flex items-center gap-2">
-      <img className="h-[30px]" src="/cf-logo.svg" alt="Cloudflare" />
+      <img className="h-[30px]" src="/logo.svg" alt="Your brand" />
       <div className="hidden lg:flex flex-col items-start -mb-1">
-        <span className="text-[9px] leading-none font-medium text-[#521000] uppercase">Cloudflare</span>
+        <span className="text-[9px] leading-none font-medium text-[#521000] uppercase">Your brand</span>
         <span className="text-[23px] leading-none font-medium text-[#521000] whitespace-nowrap" style={{ letterSpacing: '-0.46px' }}>
-          Workers Platform
+          Product Name
         </span>
       </div>
     </a>
@@ -2928,10 +2924,10 @@ Main site header with logo, navigation links, and CTAs.
   ">
     <!-- Logo -->
     <a href="/" style="flex-shrink: 0; display: flex; align-items: center; gap: 8px; text-decoration: none;">
-      <img src="/cf-logo.svg" alt="Cloudflare" style="height: 30px;" />
+      <img src="/logo.svg" alt="Your brand" style="height: 30px;" />
       <div style="display: flex; flex-direction: column; align-items: flex-start;">
-        <span style="font-family: 'FT Kunst Grotesk', sans-serif; font-size: 9px; font-weight: 500; color: #521000; text-transform: uppercase;">Cloudflare</span>
-        <span style="font-family: 'FT Kunst Grotesk', sans-serif; font-size: 23px; font-weight: 500; color: #521000; white-space: nowrap; letter-spacing: -0.46px;">Workers Platform</span>
+        <span style="font-family: 'Inter', sans-serif; font-size: 9px; font-weight: 500; color: #521000; text-transform: uppercase;">Your brand</span>
+        <span style="font-family: 'Inter', sans-serif; font-size: 23px; font-weight: 500; color: #521000; white-space: nowrap; letter-spacing: -0.46px;">Product Name</span>
       </div>
     </a>
     
@@ -2942,7 +2938,7 @@ Main site header with logo, navigation links, and CTAs.
         border: 1px solid #EBD5C1;
         background: #FFFBF5;
         color: #FF4801;
-        font-family: 'FT Kunst Grotesk', sans-serif;
+        font-family: 'Inter', sans-serif;
         font-weight: 500;
         font-size: 14px;
         padding: 12px 24px;
@@ -2955,7 +2951,7 @@ Main site header with logo, navigation links, and CTAs.
         display: inline-block;
         background: #FF4801;
         color: white;
-        font-family: 'FT Kunst Grotesk', sans-serif;
+        font-family: 'Inter', sans-serif;
         font-weight: 500;
         font-size: 14px;
         padding: 12px 24px;
@@ -2980,7 +2976,7 @@ Site footer with links and legal text.
 ```jsx
 <footer className="mt-8 py-6 bg-[#FFFBF5] border-t border-[#EBD5C1]">
   <ul className="flex flex-col sm:flex-row flex-1 flex-wrap sm:items-center gap-2 max-w-5xl mx-auto px-6 sm:px-8 text-xs text-[#521000]/60">
-    <li>© 2024 Cloudflare, Inc.</li>
+    <li>© 2024 Your Company, Inc.</li>
     <li>
       <a href="/privacy" className="hover:text-[#521000] transition-colors">Privacy Policy</a>
     </li>
@@ -3011,13 +3007,13 @@ Centered hero section with headline, description, and CTAs.
 <section className="pt-8 sm:pt-12 max-w-5xl mx-auto">
   <div className="text-center sm:text-left px-6 sm:px-8">
     <h1 className="font-medium text-2xl sm:text-3xl text-[#521000] mb-3" style={{ letterSpacing: '-0.035em' }}>
-      R2 Pricing Calculator
+      Build faster. Ship more.
     </h1>
     <p className="text-sm sm:text-base text-[#521000]/60 leading-tight">
-      Cloudflare R2 Object Storage is S3-compatible and allows developers to store large amounts of unstructured data without the costly egress bandwidth fees associated with typical cloud storage services.
+      Replace your fragmented toolchain with a single platform that scales with your team. From zero to production in minutes, not days.
     </p>
     <p className="text-sm sm:text-base text-[#521000] font-medium mt-3">
-      Enter your expected usage to estimate your monthly cost.
+      Free to start. No credit card required.
     </p>
   </div>
 </section>
@@ -3037,10 +3033,10 @@ Hero section with accent background for product pages.
     <h1 className="font-medium text-3xl sm:text-4xl lg:text-5xl text-white mb-4" style={{ letterSpacing: '-0.02em' }}>
       Build full-stack applications
       <br />
-      on Cloudflare
+      at the edge
     </h1>
     <p className="text-lg text-white/75 max-w-xl mb-8">
-      Deploy serverless code instantly across the globe for exceptional performance, reliability, and scale.
+      Deploy globally distributed code instantly. Exceptional performance, reliability, and scale — without the ops overhead.
     </p>
     <div className="flex flex-wrap gap-3">
       <a href="/signup" className="inline-flex items-center justify-center px-6 py-3 rounded-full font-medium bg-white text-[#FF4801] transition-all hover:opacity-95">
@@ -3280,1862 +3276,3 @@ Gradient fade overlay for scrollable content.
 ```
 
 ---
-
-*Last updated: Based on workers.cloudflare.com, workershops.cloudflare.com, r2-calculator.cloudflare.com*
-
-
-
-# ===== PROMPTING-GUIDE.md =====
-
-# CF Workers Design - AI Prompting Guide
-
-> **How to instruct Claude (or any AI agent) to use this design system effectively.**
-
----
-
-## 1. Setup Instructions
-
-### 1.1 Loading the Design System
-
-When starting a new conversation or project, include this context:
-
-```
-You are building a [landing page/calculator/tool/etc] using the Cloudflare Workers design system.
-
-Reference these files for guidance:
-- CF-WORKERS-DESIGN.md for color tokens, typography, spacing, and design principles
-- SNIPPETS.md for copy-paste ready component code
-
-Key brand rules:
-- Primary color: #FF4801 (orange)
-- Background: #FFFBF5 (warm cream, NEVER pure white)
-- Text: #521000 (warm brown, NEVER pure black)
-- Borders: #EBD5C1
-- Font: FT Kunst Grotesk (sans), Apercu Mono Pro (mono)
-- Buttons are always fully rounded (border-radius: 9999px)
-- Cards have corner bracket decorations (8px × 8px squares)
-```
-
-### 1.2 Which Files to Reference
-
-| Task | Primary Reference | Secondary Reference |
-|------|-------------------|---------------------|
-| Quick token lookup | CF-WORKERS-DESIGN.md | — |
-| Building components | SNIPPETS.md | CF-WORKERS-DESIGN.md |
-| Full page layouts | EXAMPLES.md | SNIPPETS.md |
-| Understanding design rationale | CF-WORKERS-DESIGN.md | — |
-
-### 1.3 Context Window Considerations
-
-If context is limited, prioritize loading:
-
-1. **Quick Reference section** from CF-WORKERS-DESIGN.md (first 50 lines)
-2. **Specific component snippets** you need from SNIPPETS.md
-3. **CSS Custom Properties** section for token values
-
----
-
-## 2. System Prompts
-
-Copy these prompts at the start of your conversation for specific tasks.
-
-### 2.1 Landing Page System Prompt
-
-```
-You are a front-end developer building a marketing landing page using the Cloudflare Workers design system.
-
-Design System Rules:
-- Use warm cream backgrounds (#FFFBF5), never pure white
-- Use warm brown text (#521000), never pure black
-- Primary accent is orange (#FF4801)
-- Borders are #EBD5C1
-- Buttons are always fully rounded (rounded-full / border-radius: 9999px)
-- Cards have corner bracket decorations (8px squares at each corner)
-- Font family: "FT Kunst Grotesk" for body, "Apercu Mono Pro" for code
-- Spacing uses 4px base unit (8, 12, 16, 24, 32, 48, 64)
-- Border radius: 12px for cards, 8px for inputs, 9999px for buttons
-
-Structure:
-- Header with logo, nav links, and CTA buttons
-- Hero section with headline, subtext, and action buttons
-- Feature grid (3 columns on desktop, 1 on mobile)
-- Stats or social proof section
-- CTA section
-- Footer with legal links
-
-Use Tailwind CSS classes. Output clean, semantic HTML.
-```
-
-### 2.2 Pricing Calculator System Prompt
-
-```
-You are building an interactive pricing calculator similar to r2-calculator.cloudflare.com using the Cloudflare design system.
-
-Design System Rules:
-- Background: #FFFBF5 (warm cream)
-- Text: #521000 (primary), rgba(82,16,0,0.6) (secondary)
-- Accent: #FF4801 (orange)
-- Borders: #EBD5C1
-- Cards have 8px corner bracket decorations
-
-Calculator UI Patterns:
-- Two-column grid for input fields
-- Input fields with labels above, right-aligned values
-- Unit selector dropdowns next to number inputs
-- Range sliders with floating percentage badges
-- Month/year toggle button group
-- Provider comparison cards with progress bars
-- Use case preset buttons (grid of 3)
-- Pricing details table with "Forever Free" and "Monthly Rates" columns
-
-Technical Requirements:
-- React with useState for form state
-- Format numbers with commas (toLocaleString)
-- Calculate costs in real-time as inputs change
-- Animate progress bars with CSS transitions
-- Support both React+Tailwind and Vanilla HTML versions
-
-Output should be a complete, functional calculator component.
-```
-
-### 2.3 Interactive Tool System Prompt
-
-```
-You are building an interactive tool/configurator using the Cloudflare Workers design system.
-
-Design System Rules:
-- Warm cream background (#FFFBF5)
-- Brown text (#521000) with 60% opacity for secondary
-- Orange accent (#FF4801) for interactive elements
-- Cream borders (#EBD5C1)
-
-Tool UI Patterns:
-- Split layout: controls on left, preview/results on right
-- Form inputs with clear labels
-- Toggle switches for boolean options
-- Dropdown selects for enumerated choices
-- Range sliders with value displays
-- Real-time preview updates
-- Corner bracket decorations on panels
-- Monospace font (Apercu Mono Pro) for code/values
-
-Include:
-- State management (React useState or vanilla JS)
-- Input validation
-- Responsive layout (stack on mobile)
-- Loading states where appropriate
-```
-
-### 2.4 Dashboard System Prompt
-
-```
-You are building a dashboard/metrics view using the Cloudflare Workers design system.
-
-Design System Rules:
-- Background: #FFFBF5 (page), #FFFDFB (cards)
-- Text: #521000 (primary), rgba(82,16,0,0.6) (secondary)
-- Accent: #FF4801 for positive metrics, product colors for categories
-- Borders: #EBD5C1
-
-Product Category Colors:
-- Compute (blue): #0A95FF
-- Storage (magenta): #EE0DDB
-- AI (green): #19E306
-- Media (purple): #9616FF
-
-Dashboard Patterns:
-- Stat cards with large numbers and labels
-- Progress bars with percentages
-- Metric badges (inline indicators)
-- Data tables with alternating row backgrounds
-- Grid layouts (2, 3, or 4 columns)
-- Card shadows for elevation hierarchy
-- Corner bracket decorations on key cards
-
-Use semantic HTML, accessible markup, and responsive grid layouts.
-```
-
----
-
-## 3. Task Templates
-
-Fill in the bracketed sections for specific tasks.
-
-### 3.1 Build a Landing Page
-
-```
-Create a landing page for [PRODUCT NAME] with:
-
-Hero section:
-- Headline: "[MAIN HEADLINE]"
-- Subtext: "[SUPPORTING TEXT]"
-- Primary CTA: "[BUTTON TEXT]" linking to [URL]
-- Secondary CTA: "[BUTTON TEXT]" linking to [URL]
-
-Features (3 cards):
-1. [FEATURE 1 TITLE]: [DESCRIPTION]
-2. [FEATURE 2 TITLE]: [DESCRIPTION]
-3. [FEATURE 3 TITLE]: [DESCRIPTION]
-
-Stats section:
-- [STAT 1]: [VALUE]
-- [STAT 2]: [VALUE]
-- [STAT 3]: [VALUE]
-
-Use the Cloudflare Workers design system with warm cream backgrounds, orange accents, and corner bracket decorations on cards.
-```
-
-### 3.2 Build a Pricing Calculator
-
-```
-Create a pricing calculator for [PRODUCT] that calculates [WHAT IT CALCULATES].
-
-Input fields:
-1. [FIELD 1]: [TYPE] (e.g., number with unit selector GB/TB/PB)
-2. [FIELD 2]: [TYPE] (e.g., number input)
-3. [FIELD 3]: [TYPE] (e.g., range slider 0-100%)
-
-Calculations:
-- [FORMULA 1]
-- [FORMULA 2]
-
-Output display:
-- Show [PRODUCT] cost
-- Compare with [COMPETITOR 1] and [COMPETITOR 2]
-- Use progress bars to visualize relative costs
-
-Use case presets:
-1. [USE CASE 1]: [DEFAULT VALUES]
-2. [USE CASE 2]: [DEFAULT VALUES]
-3. [USE CASE 3]: [DEFAULT VALUES]
-
-Include a pricing details table showing free tier and paid rates.
-
-Use the Cloudflare design system with the R2 calculator patterns.
-```
-
-### 3.3 Build a Configuration Tool
-
-```
-Create a configuration tool for [WHAT IT CONFIGURES].
-
-Configuration options:
-1. [OPTION 1]: [TYPE - toggle/select/input]
-2. [OPTION 2]: [TYPE]
-3. [OPTION 3]: [TYPE]
-
-Preview/output should show:
-- [WHAT THE OUTPUT DISPLAYS]
-- [FORMAT - code block/visual/etc]
-
-Real-time updates as options change.
-
-Use the Cloudflare design system with split-panel layout (controls left, preview right).
-```
-
-### 3.4 Build a Comparison Table
-
-```
-Create a comparison table/tool for [WHAT IS BEING COMPARED].
-
-Items to compare:
-1. [ITEM 1]
-2. [ITEM 2]
-3. [ITEM 3]
-
-Comparison criteria:
-- [CRITERION 1]
-- [CRITERION 2]
-- [CRITERION 3]
-- [CRITERION 4]
-
-Highlight [ITEM TO EMPHASIZE] as the recommended option.
-
-Use the Cloudflare design system with provider comparison card patterns.
-```
-
----
-
-## 4. Composition Rules
-
-### 4.1 How Components Combine
-
-**Page Structure:**
-```
-Header (NAV-HEADER)
-├── Hero Section (HERO-CENTERED or HERO-PRODUCT)
-├── Feature Section (LAYOUT-GRID-3 + CARD-FEATURE)
-├── Calculator/Tool Section (CALC-LAYOUT)
-├── Stats Section (LAYOUT-GRID-3 + CARD-STAT)
-├── CTA Section (centered text + BTN-PRIMARY)
-└── Footer (NAV-FOOTER)
-```
-
-**Calculator Structure:**
-```
-CALC-LAYOUT
-├── Input Grid (LAYOUT-GRID-2)
-│   ├── FORM-INPUT-WITH-UNIT
-│   ├── FORM-INPUT
-│   ├── FORM-RANGE-SLIDER
-│   └── FORM-INPUT
-├── FORM-TOGGLE-GROUP (month/year)
-├── Results (space-y-3)
-│   ├── CARD-PROVIDER-COMPARISON (Cloudflare)
-│   ├── CARD-PROVIDER-COMPARISON (AWS)
-│   └── CARD-PROVIDER-COMPARISON (GCP)
-├── Use Cases (LAYOUT-GRID-3 + CARD-USE-CASE)
-└── CALC-PRICING-TABLE
-```
-
-### 4.2 Spacing Between Sections
-
-| Context | Spacing | Tailwind |
-|---------|---------|----------|
-| Between major sections | 48-80px | `py-12` to `py-20` |
-| Between cards in grid | 16-24px | `gap-4` to `gap-6` |
-| Inside cards | 24px | `p-6` |
-| Between form fields | 24px | `gap-6` |
-| Between label and input | 8px | `mb-2` |
-| Between heading and paragraph | 8-12px | `mb-2` to `mb-3` |
-
-### 4.3 Visual Hierarchy Rules
-
-1. **One primary CTA per section** — use `BTN-PRIMARY` (orange background or cream on orange)
-2. **Secondary actions** use `BTN-GHOST` or `BTN-OUTLINE`
-3. **Links** use orange text (`text-[#FF4801]`) with hover underline
-4. **Headings** use `font-medium` (500 weight), never bold
-5. **Body text** uses 60% opacity for secondary content
-6. **Monospace** for numbers, code, and technical values
-
-### 4.4 Color Usage Guidelines
-
-| Element | Light Mode | Dark Mode |
-|---------|------------|-----------|
-| Page background | `#FFFBF5` | `#121212` |
-| Card background | `#FFFDFB` | `#191817` |
-| Hover background | `#FEF7ED` | `#2A2927` |
-| Primary text | `#521000` | `#F0E3DE` |
-| Secondary text | `rgba(82,16,0,0.6)` | `rgba(255,253,251,0.56)` |
-| Accent (interactive) | `#FF4801` | `#F14602` |
-| Borders | `#EBD5C1` | `rgba(240,227,222,0.13)` |
-
-**Never use:**
-- Pure white (`#FFFFFF`) for backgrounds
-- Pure black (`#000000`) for text
-- Blue for links (use orange `#FF4801`)
-- Gray for backgrounds (use warm cream tones)
-
----
-
-## 5. Common Mistakes & Corrections
-
-### 5.1 Color Errors
-
-| Mistake | Correction |
-|---------|------------|
-| Using `#FF6600` for accent | Use `#FF4801` |
-| Using `#FFFFFF` for background | Use `#FFFBF5` (warm cream) |
-| Using `#000000` for text | Use `#521000` (warm brown) |
-| Using gray borders | Use `#EBD5C1` (warm tan) |
-| Using blue for links | Use `#FF4801` (orange) |
-
-### 5.2 Typography Errors
-
-| Mistake | Correction |
-|---------|------------|
-| Using `font-bold` (700) | Use `font-medium` (500) for headings |
-| Using system fonts | Use `FT Kunst Grotesk` for body |
-| Using serif fonts | Always use sans-serif |
-| Using blue underlines | Use orange `#FF4801` or no underline |
-
-### 5.3 Spacing Errors
-
-| Mistake | Correction |
-|---------|------------|
-| Inconsistent padding | Use 4px base unit (8, 12, 16, 24, 32, 48) |
-| Too tight card padding | Use minimum 24px (`p-6`) |
-| Too small touch targets | Buttons minimum 44px height |
-
-### 5.4 Component Errors
-
-| Mistake | Correction |
-|---------|------------|
-| Square buttons | Always use `rounded-full` for buttons |
-| Missing corner brackets | Add 8px corner decorations to cards |
-| Solid borders on hover | Use `border-dashed` for hover states |
-| Missing focus states | Add `focus:ring-2 focus:ring-[#FF4801]/20` |
-
----
-
-## 6. Quality Checklist
-
-Before finalizing any output, verify:
-
-### 6.1 Brand Compliance
-
-- [ ] Background is warm cream (`#FFFBF5`), not pure white
-- [ ] Text is warm brown (`#521000`), not pure black
-- [ ] Accent color is correct orange (`#FF4801`)
-- [ ] Borders use warm tan (`#EBD5C1`)
-- [ ] Font family is FT Kunst Grotesk (or fallback sans-serif)
-- [ ] Headings use `font-medium` (500), not bold
-
-### 6.2 Component Compliance
-
-- [ ] Buttons are fully rounded (`rounded-full`)
-- [ ] Cards have corner bracket decorations
-- [ ] Inputs have proper focus states (orange ring)
-- [ ] Links are orange with hover underline
-- [ ] Icons are 20px or 24px size
-
-### 6.3 Accessibility Check
-
-- [ ] All images have `alt` attributes
-- [ ] Form inputs have associated `<label>` elements
-- [ ] Buttons have descriptive text or `aria-label`
-- [ ] Color contrast meets WCAG AA (4.5:1 for text)
-- [ ] Focus states are visible
-- [ ] Interactive elements are keyboard accessible
-
-### 6.4 Responsive Check
-
-- [ ] Layout stacks properly on mobile
-- [ ] Text is readable at all sizes
-- [ ] Touch targets are minimum 44px
-- [ ] Horizontal scroll is avoided
-- [ ] Images scale appropriately
-
-### 6.5 Dark Mode Check (if applicable)
-
-- [ ] All color tokens switch correctly
-- [ ] Contrast is maintained
-- [ ] Shadows adjust for dark backgrounds
-- [ ] No hard-coded light mode colors
-
----
-
-## 7. Example Conversations
-
-### Example 1: Building a Calculator
-
-**User:** Build me a bandwidth calculator that estimates costs based on data transfer.
-
-**Assistant:** I'll create a bandwidth calculator using the Cloudflare design system. Based on the R2 calculator patterns, I'll include:
-
-1. Input fields for:
-   - Monthly data transfer (with GB/TB selector)
-   - Average file size
-   - Requests per month
-
-2. Output showing:
-   - Cost comparison between Cloudflare, AWS, and GCP
-   - Progress bars visualizing relative costs
-   - Monthly/yearly toggle
-
-3. Use case presets for common scenarios
-
-Let me build this using the CALC-LAYOUT and FORM-INPUT-WITH-UNIT components from SNIPPETS.md...
-
-[Proceeds to build calculator with correct design system tokens]
-
-### Example 2: Creating Feature Cards
-
-**User:** Create 3 feature cards for a serverless platform.
-
-**Assistant:** I'll create 3 feature cards using the CARD-FEATURE pattern from the Cloudflare design system:
-
-```jsx
-<div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-  {/* Card 1 - using CARD-FEATURE pattern */}
-  <div className="relative bg-[#FFFDFB] border border-[#EBD5C1] rounded-xl p-6 transition-all duration-200 hover:bg-[#FEF7ED]">
-    {/* Corner brackets */}
-    <div className="absolute -top-1 -left-1 w-2 h-2 border border-[#EBD5C1] rounded-[1.5px] bg-[#FFFBF5]" />
-    {/* ... other corners ... */}
-    
-    <div className="w-10 h-10 rounded-lg bg-[#FF4801]/10 flex items-center justify-center mb-4">
-      <svg className="w-5 h-5 text-[#FF4801]">...</svg>
-    </div>
-    <h3 className="text-base font-medium text-[#521000] mb-2">Zero Cold Starts</h3>
-    <p className="text-sm text-[#521000]/60">Your code is always warm and ready to execute in milliseconds.</p>
-  </div>
-  
-  {/* Cards 2 and 3 follow same pattern */}
-</div>
-```
-
-[Continues with remaining cards using correct colors, spacing, and decorations]
-
----
-
-## 8. Quick Reference Card
-
-Print this or keep it handy:
-
-```
-╔══════════════════════════════════════════════════════╗
-║           CLOUDFLARE DESIGN QUICK REFERENCE          ║
-╠══════════════════════════════════════════════════════╣
-║                                                      ║
-║  COLORS                                              ║
-║  ───────                                             ║
-║  Orange:      #FF4801                                ║
-║  Background:  #FFFBF5 (cream)                        ║
-║  Text:        #521000 (brown)                        ║
-║  Border:      #EBD5C1 (tan)                          ║
-║  Muted text:  rgba(82,16,0,0.6)                      ║
-║                                                      ║
-║  TYPOGRAPHY                                          ║
-║  ──────────                                          ║
-║  Sans:  "FT Kunst Grotesk", sans-serif              ║
-║  Mono:  "Apercu Mono Pro", monospace                ║
-║  Headings: font-medium (500)                         ║
-║                                                      ║
-║  SPACING (4px base)                                  ║
-║  ─────────────────                                   ║
-║  8px  12px  16px  24px  32px  48px  64px            ║
-║                                                      ║
-║  BORDER RADIUS                                       ║
-║  ─────────────                                       ║
-║  Buttons: 9999px (full)                              ║
-║  Cards:   12px                                       ║
-║  Inputs:  8px                                        ║
-║                                                      ║
-║  KEY PATTERNS                                        ║
-║  ────────────                                        ║
-║  • Corner brackets: 8px squares on card corners     ║
-║  • Hover borders: dashed style                       ║
-║  • Focus rings: 0 0 0 3px rgba(255,72,1,0.2)        ║
-║  • Buttons: always rounded-full                      ║
-║                                                      ║
-╚══════════════════════════════════════════════════════╝
-```
-
----
-
-*This guide is designed to help AI agents produce consistent, on-brand Cloudflare-style interfaces. For complete token values, see CF-WORKERS-DESIGN.md. For component code, see SNIPPETS.md.*
-
-
-
-# ===== EXAMPLES.md =====
-
-# CF Workers Design - Full Examples
-
-> **Complete, working templates** demonstrating the design system in action.
-> Copy these as starting points for your projects.
-
----
-
-## Table of Contents
-
-1. [Pricing Calculator (R2-style)](#1-pricing-calculator)
-2. [Landing Page](#2-landing-page)
-3. [Interactive Tool](#3-interactive-tool)
-
----
-
-# 1. Pricing Calculator
-
-A complete pricing calculator based on r2-calculator.cloudflare.com patterns.
-
-## React + Tailwind Version
-
-```jsx
-import { useState, useEffect } from 'react';
-
-// Pricing constants
-const PRICING = {
-  cloudflare: {
-    storage: 0.015,      // per GB/month
-    classA: 4.50,        // per million
-    classB: 0.36,        // per million
-    egress: 0,           // FREE
-    freeStorage: 10,     // GB
-    freeClassA: 1,       // million
-    freeClassB: 10,      // million
-  },
-  aws: {
-    storage: 0.023,
-    classA: 5.00,
-    classB: 0.40,
-    egress: 0.09,        // per GB
-  },
-  gcp: {
-    storage: 0.020,
-    classA: 5.00,
-    classB: 0.40,
-    egress: 0.12,        // per GB
-  }
-};
-
-// Use case presets
-const USE_CASES = [
-  { name: 'AI/ML Training', icon: '🧪', storage: 100, unit: 'TB', writes: 10000000, egressPercent: 25, reads: 50000000 },
-  { name: 'Data Analytics', icon: '📊', storage: 50, unit: 'TB', writes: 5000000, egressPercent: 50, reads: 100000000 },
-  { name: 'Media Delivery', icon: '🎬', storage: 10, unit: 'TB', writes: 1000000, egressPercent: 200, reads: 500000000 },
-];
-
-function formatNumber(num) {
-  return num.toLocaleString('en-US');
-}
-
-function formatCurrency(num) {
-  return num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-}
-
-function parseNumber(str) {
-  return Number(str.replace(/,/g, '')) || 0;
-}
-
-function convertToGB(value, unit) {
-  switch (unit) {
-    case 'TB': return value * 1000;
-    case 'PB': return value * 1000000;
-    default: return value;
-  }
-}
-
-export default function PricingCalculator() {
-  const [storage, setStorage] = useState('10');
-  const [storageUnit, setStorageUnit] = useState('TB');
-  const [writes, setWrites] = useState('5,000,000');
-  const [egressPercent, setEgressPercent] = useState(75);
-  const [reads, setReads] = useState('25,000,000');
-  const [period, setPeriod] = useState('month');
-  const [costs, setCosts] = useState({ cloudflare: 0, aws: 0, gcp: 0 });
-
-  // Calculate costs whenever inputs change
-  useEffect(() => {
-    const storageGB = convertToGB(parseNumber(storage), storageUnit);
-    const writesNum = parseNumber(writes);
-    const readsNum = parseNumber(reads);
-    const egressGB = storageGB * (egressPercent / 100);
-
-    // Cloudflare R2 (with free tier)
-    const cfStorage = Math.max(0, storageGB - PRICING.cloudflare.freeStorage) * PRICING.cloudflare.storage;
-    const cfClassA = Math.max(0, writesNum / 1000000 - PRICING.cloudflare.freeClassA) * PRICING.cloudflare.classA;
-    const cfClassB = Math.max(0, readsNum / 1000000 - PRICING.cloudflare.freeClassB) * PRICING.cloudflare.classB;
-    const cfEgress = 0; // Always free
-    const cfTotal = cfStorage + cfClassA + cfClassB + cfEgress;
-
-    // AWS S3
-    const awsStorage = storageGB * PRICING.aws.storage;
-    const awsClassA = (writesNum / 1000000) * PRICING.aws.classA;
-    const awsClassB = (readsNum / 1000000) * PRICING.aws.classB;
-    const awsEgress = egressGB * PRICING.aws.egress;
-    const awsTotal = awsStorage + awsClassA + awsClassB + awsEgress;
-
-    // Google Cloud Storage
-    const gcpStorage = storageGB * PRICING.gcp.storage;
-    const gcpClassA = (writesNum / 1000000) * PRICING.gcp.classA;
-    const gcpClassB = (readsNum / 1000000) * PRICING.gcp.classB;
-    const gcpEgress = egressGB * PRICING.gcp.egress;
-    const gcpTotal = gcpStorage + gcpClassA + gcpClassB + gcpEgress;
-
-    const multiplier = period === 'year' ? 12 : 1;
-
-    setCosts({
-      cloudflare: cfTotal * multiplier,
-      aws: awsTotal * multiplier,
-      gcp: gcpTotal * multiplier,
-    });
-  }, [storage, storageUnit, writes, egressPercent, reads, period]);
-
-  const maxCost = Math.max(costs.cloudflare, costs.aws, costs.gcp, 1);
-
-  const applyUseCase = (useCase) => {
-    setStorage(String(useCase.storage));
-    setStorageUnit(useCase.unit);
-    setWrites(formatNumber(useCase.writes));
-    setEgressPercent(useCase.egressPercent);
-    setReads(formatNumber(useCase.reads));
-  };
-
-  return (
-    <div className="min-h-screen bg-[#FFFBF5]">
-      {/* Header */}
-      <header className="border-b border-[#EBD5C1] bg-[#FFFBF5]">
-        <div className="max-w-5xl mx-auto px-4 py-4 flex justify-between items-center">
-          <a href="/" className="flex items-center gap-2">
-            <svg className="h-7 text-[#FF4801]" viewBox="0 0 66 30" fill="currentColor">
-              <path d="M52.688 13.028c-.22 0-.437.008-.654.015a.3.3 0 0 0-.102.024.37.37 0 0 0-.236.255l-.93 3.249c-.401 1.397-.252 2.687.422 3.634.618.876 1.646 1.39 2.894 1.45l5.045.306a.45.45 0 0 1 .435.41.5.5 0 0 1-.025.223.64.64 0 0 1-.547.426l-5.242.306c-2.848.132-5.912 2.456-6.987 5.29l-.378 1a.28.28 0 0 0 .248.382h18.054a.48.48 0 0 0 .464-.35c.32-1.153.482-2.344.48-3.54 0-7.22-5.79-13.072-12.933-13.072M44.807 29.578l.334-1.175c.402-1.397.253-2.687-.42-3.634-.62-.876-1.647-1.39-2.896-1.45l-23.665-.306a.47.47 0 0 1-.374-.199.5.5 0 0 1-.052-.434.64.64 0 0 1 .552-.426l23.886-.306c2.836-.131 5.9-2.456 6.975-5.29l1.362-3.6a.9.9 0 0 0 .04-.477C48.997 5.259 42.789 0 35.367 0c-6.842 0-12.647 4.462-14.73 10.665a6.92 6.92 0 0 0-4.911-1.374c-3.28.33-5.92 3.002-6.246 6.318a7.2 7.2 0 0 0 .18 2.472C4.3 18.241 0 22.679 0 28.133q0 .74.106 1.453a.46.46 0 0 0 .457.402h43.704a.57.57 0 0 0 .54-.418" />
-            </svg>
-            <div className="hidden lg:flex flex-col -mb-1">
-              <span className="text-[9px] font-medium text-[#521000] uppercase">Cloudflare</span>
-              <span className="text-[23px] font-medium text-[#521000]" style={{ letterSpacing: '-0.46px' }}>Workers Platform</span>
-            </div>
-          </a>
-          <div className="flex gap-3">
-            <a href="#" className="hidden sm:block px-6 py-3 rounded-full font-medium text-sm border border-[#EBD5C1] text-[#FF4801] hover:border-dashed transition-all">
-              View docs
-            </a>
-            <a href="#" className="px-6 py-3 rounded-full font-medium text-sm bg-[#FF4801] text-white hover:opacity-95 transition-all">
-              Get started with R2
-            </a>
-          </div>
-        </div>
-      </header>
-
-      {/* Hero */}
-      <section className="pt-8 sm:pt-12 max-w-5xl mx-auto px-6 sm:px-8">
-        <h1 className="font-medium text-2xl sm:text-3xl text-[#521000] mb-3" style={{ letterSpacing: '-0.035em' }}>
-          R2 Pricing Calculator
-        </h1>
-        <p className="text-sm sm:text-base text-[#521000]/60 leading-relaxed">
-          Cloudflare R2 Object Storage is S3-compatible and allows developers to store large amounts of unstructured data without the costly egress bandwidth fees.
-        </p>
-        <p className="text-sm sm:text-base text-[#521000] font-medium mt-3">
-          Enter your expected usage to estimate your monthly cost.
-        </p>
-      </section>
-
-      {/* Calculator */}
-      <main className="max-w-5xl mx-auto px-6 sm:px-8 mt-8">
-        <div className="relative bg-[#FFFDFB] border border-[#EBD5C1] p-6 sm:p-8">
-          {/* Corner brackets */}
-          <div className="absolute -top-1 -left-1 w-2 h-2 border border-[#EBD5C1] rounded-[1.5px] bg-[#FFFBF5]" />
-          <div className="absolute -top-1 -right-1 w-2 h-2 border border-[#EBD5C1] rounded-[1.5px] bg-[#FFFBF5]" />
-          <div className="absolute -bottom-1 -left-1 w-2 h-2 border border-[#EBD5C1] rounded-[1.5px] bg-[#FFFBF5]" />
-          <div className="absolute -bottom-1 -right-1 w-2 h-2 border border-[#EBD5C1] rounded-[1.5px] bg-[#FFFBF5]" />
-
-          {/* Form */}
-          <form onSubmit={(e) => e.preventDefault()}>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-              {/* Storage input */}
-              <div className="flex flex-col">
-                <label className="mb-2 text-base font-medium text-[#521000]">
-                  How much data will you store?
-                </label>
-                <div className="flex">
-                  <input
-                    type="text"
-                    value={storage}
-                    onChange={(e) => setStorage(e.target.value)}
-                    className="flex-1 border border-[#EBD5C1] bg-[#FFFDFB] text-[#521000] text-sm rounded-lg p-3 text-right focus:border-[#FF4801] focus:ring-1 focus:ring-[#FF4801] outline-none"
-                  />
-                  <div className="relative ml-2">
-                    <select
-                      value={storageUnit}
-                      onChange={(e) => setStorageUnit(e.target.value)}
-                      className="appearance-none pl-3 pr-8 py-3 text-sm text-[#521000] bg-[#FEF7ED] border border-[#EBD5C1] rounded-lg cursor-pointer focus:border-[#FF4801] outline-none"
-                    >
-                      <option value="GB">GB</option>
-                      <option value="TB">TB</option>
-                      <option value="PB">PB</option>
-                    </select>
-                    <svg className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#521000]/60" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                    </svg>
-                  </div>
-                </div>
-              </div>
-
-              {/* Writes input */}
-              <div className="flex flex-col">
-                <label className="mb-2 text-base font-medium text-[#521000]">
-                  How many writes per month?
-                </label>
-                <input
-                  type="text"
-                  value={writes}
-                  onChange={(e) => setWrites(e.target.value)}
-                  className="border border-[#EBD5C1] bg-[#FFFDFB] text-[#521000] text-sm rounded-lg p-3 text-right focus:border-[#FF4801] focus:ring-1 focus:ring-[#FF4801] outline-none"
-                />
-              </div>
-
-              {/* Egress slider */}
-              <div className="flex flex-col">
-                <label className="mb-2 text-base font-medium text-[#521000]">
-                  What % of data downloaded monthly?
-                </label>
-                <div className="pt-8 relative">
-                  <input
-                    type="range"
-                    min="0"
-                    max="500"
-                    value={egressPercent}
-                    onChange={(e) => setEgressPercent(Number(e.target.value))}
-                    className="w-full h-2 rounded-full appearance-none cursor-pointer"
-                    style={{
-                      background: `linear-gradient(to right, #FF4801 ${egressPercent / 5}%, #EBD5C1 ${egressPercent / 5}%)`
-                    }}
-                  />
-                  <div
-                    className="absolute -top-1 text-xs font-medium text-[#FF4801] bg-[#FF4801]/10 px-2 py-1 rounded-full"
-                    style={{ left: `calc(${egressPercent / 5}% - 20px)` }}
-                  >
-                    {egressPercent}%
-                  </div>
-                  <div className="flex justify-between pt-2 text-xs text-[#521000]/60">
-                    <span>0%</span>
-                    <span>500%</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Reads input */}
-              <div className="flex flex-col">
-                <label className="mb-2 text-base font-medium text-[#521000]">
-                  How many reads per month?
-                </label>
-                <input
-                  type="text"
-                  value={reads}
-                  onChange={(e) => setReads(e.target.value)}
-                  className="border border-[#EBD5C1] bg-[#FFFDFB] text-[#521000] text-sm rounded-lg p-3 text-right focus:border-[#FF4801] focus:ring-1 focus:ring-[#FF4801] outline-none"
-                />
-              </div>
-            </div>
-          </form>
-
-          {/* Period toggle */}
-          <div className="flex justify-end mt-6 mb-4">
-            <div className="inline-flex rounded-full border border-[#EBD5C1] overflow-hidden">
-              <button
-                type="button"
-                onClick={() => setPeriod('month')}
-                className={`px-4 py-2 text-sm font-medium transition-all ${
-                  period === 'month' ? 'bg-[#FF4801] text-white' : 'bg-[#FFFDFB] text-[#521000] hover:bg-[#FEF7ED]'
-                }`}
-              >
-                month
-              </button>
-              <button
-                type="button"
-                onClick={() => setPeriod('year')}
-                className={`px-4 py-2 text-sm font-medium transition-all ${
-                  period === 'year' ? 'bg-[#FF4801] text-white' : 'bg-[#FFFDFB] text-[#521000] hover:bg-[#FEF7ED]'
-                }`}
-              >
-                year
-              </button>
-            </div>
-          </div>
-
-          {/* Results */}
-          <div className="space-y-3">
-            {/* Cloudflare R2 */}
-            <div className="bg-[#FFFDFB] border border-[#EBD5C1] p-4">
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-3">
-                  <div className="w-6 h-6 rounded bg-[#FF4801] flex items-center justify-center">
-                    <span className="text-white text-xs font-bold">R2</span>
-                  </div>
-                  <span className="font-medium text-[#521000]">Cloudflare R2</span>
-                </div>
-                <div className="text-right">
-                  <span className="text-lg font-medium text-[#521000]">${formatCurrency(costs.cloudflare)}</span>
-                  <span className="text-sm text-[#521000]/60">/{period === 'year' ? 'yr' : 'mo'}</span>
-                </div>
-              </div>
-              <div className="h-3 bg-[#EBD5C1]/30 rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-[#FF4801] rounded-full transition-all duration-500"
-                  style={{ width: `${Math.max(2, (costs.cloudflare / maxCost) * 100)}%` }}
-                />
-              </div>
-            </div>
-
-            {/* AWS S3 */}
-            <div className="bg-[#FFFDFB] border border-[#EBD5C1] p-4">
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-3">
-                  <div className="w-6 h-6 rounded bg-[#FF9900] flex items-center justify-center">
-                    <span className="text-white text-xs font-bold">S3</span>
-                  </div>
-                  <span className="font-medium text-[#521000]">Amazon S3</span>
-                </div>
-                <div className="text-right">
-                  <span className="text-lg font-medium text-[#521000]">${formatCurrency(costs.aws)}</span>
-                  <span className="text-sm text-[#521000]/60">/{period === 'year' ? 'yr' : 'mo'}</span>
-                </div>
-              </div>
-              <div className="h-3 bg-[#EBD5C1]/30 rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-[#FF9900] rounded-full transition-all duration-500"
-                  style={{ width: `${Math.max(2, (costs.aws / maxCost) * 100)}%` }}
-                />
-              </div>
-            </div>
-
-            {/* GCP */}
-            <div className="bg-[#FFFDFB] border border-[#EBD5C1] p-4">
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-3">
-                  <div className="w-6 h-6 rounded bg-[#4285F4] flex items-center justify-center">
-                    <span className="text-white text-xs font-bold">GC</span>
-                  </div>
-                  <span className="font-medium text-[#521000]">Google Cloud Storage</span>
-                </div>
-                <div className="text-right">
-                  <span className="text-lg font-medium text-[#521000]">${formatCurrency(costs.gcp)}</span>
-                  <span className="text-sm text-[#521000]/60">/{period === 'year' ? 'yr' : 'mo'}</span>
-                </div>
-              </div>
-              <div className="h-3 bg-[#EBD5C1]/30 rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-[#4285F4] rounded-full transition-all duration-500"
-                  style={{ width: `${Math.max(2, (costs.gcp / maxCost) * 100)}%` }}
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Use case presets */}
-          <div className="mt-6 pt-6 border-t border-[#EBD5C1]/50">
-            <p className="text-sm text-[#521000]/60 mb-3">Try a use case</p>
-            <div className="grid grid-cols-3 gap-3">
-              {USE_CASES.map((useCase) => (
-                <button
-                  key={useCase.name}
-                  type="button"
-                  onClick={() => applyUseCase(useCase)}
-                  className="flex flex-col items-center p-4 border border-[#EBD5C1] bg-[#FFFDFB] text-center hover:border-dashed hover:border-[#FF4801] transition-all"
-                >
-                  <span className="text-lg mb-2">{useCase.icon}</span>
-                  <span className="text-sm font-medium text-[#521000]">{useCase.name}</span>
-                  <span className="text-xs text-[#521000]/60 mt-0.5">{useCase.storage}{useCase.unit}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        {/* Pricing table */}
-        <div className="bg-[#FFFDFB] border border-[#EBD5C1] p-6 mt-8">
-          <h2 className="font-medium text-lg text-[#521000] mb-2">Pricing Details</h2>
-          <p className="text-sm text-[#521000]/60 mb-6">
-            R2 charges based on storage and operations. You pay zero egress fees.{' '}
-            <a href="#" className="text-[#FF4801] underline hover:text-[#FF4801]/80">View docs</a>
-          </p>
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-[#EBD5C1]">
-                <th className="text-left py-3 pr-4 font-medium text-[#521000]"></th>
-                <th className="text-left py-3 px-4 font-medium text-[#521000]">Forever Free</th>
-                <th className="text-left py-3 pl-4 font-medium text-[#521000]">Monthly Rates</th>
-              </tr>
-            </thead>
-            <tbody className="text-[#521000]/60">
-              <tr className="border-b border-[#EBD5C1]/50">
-                <td className="py-3 pr-4 font-medium text-[#521000]">Storage</td>
-                <td className="py-3 px-4">10 GB / month</td>
-                <td className="py-3 pl-4">$0.015 / GB</td>
-              </tr>
-              <tr className="border-b border-[#EBD5C1]/50">
-                <td className="py-3 pr-4 font-medium text-[#521000]">Class A (writes)</td>
-                <td className="py-3 px-4">1 million / month</td>
-                <td className="py-3 pl-4">$4.50 / million</td>
-              </tr>
-              <tr className="border-b border-[#EBD5C1]/50">
-                <td className="py-3 pr-4 font-medium text-[#521000]">Class B (reads)</td>
-                <td className="py-3 px-4">10 million / month</td>
-                <td className="py-3 pl-4">$0.36 / million</td>
-              </tr>
-              <tr>
-                <td className="py-3 pr-4 font-medium text-[#521000]">Egress</td>
-                <td className="py-3 px-4">Free</td>
-                <td className="py-3 pl-4">Free</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </main>
-
-      {/* Footer */}
-      <footer className="mt-12 py-6 border-t border-[#EBD5C1]">
-        <div className="max-w-5xl mx-auto px-6 sm:px-8 flex flex-wrap gap-4 text-xs text-[#521000]/60">
-          <span>© 2024 Cloudflare, Inc.</span>
-          <a href="#" className="hover:text-[#521000]">Privacy</a>
-          <a href="#" className="hover:text-[#521000]">Terms</a>
-        </div>
-      </footer>
-
-      {/* Custom slider styles */}
-      <style>{`
-        input[type="range"]::-webkit-slider-thumb {
-          -webkit-appearance: none;
-          width: 20px;
-          height: 20px;
-          background: white;
-          border: 2px solid #FF4801;
-          border-radius: 50%;
-          box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-          cursor: grab;
-        }
-        input[type="range"]::-webkit-slider-thumb:active {
-          cursor: grabbing;
-        }
-      `}</style>
-    </div>
-  );
-}
-```
-
----
-
-# 2. Landing Page
-
-A complete marketing landing page template.
-
-## React + Tailwind Version
-
-```jsx
-export default function LandingPage() {
-  return (
-    <div className="min-h-screen bg-[#FFFBF5]">
-      {/* Header */}
-      <header className="border-b border-[#EBD5C1] bg-[#FFFBF5] sticky top-0 z-50">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-4 flex justify-between items-center">
-          <a href="/" className="flex items-center gap-2">
-            <svg className="h-8 text-[#FF4801]" viewBox="0 0 66 30" fill="currentColor">
-              <path d="M52.688 13.028c-.22 0-.437.008-.654.015a.3.3 0 0 0-.102.024.37.37 0 0 0-.236.255l-.93 3.249c-.401 1.397-.252 2.687.422 3.634.618.876 1.646 1.39 2.894 1.45l5.045.306a.45.45 0 0 1 .435.41.5.5 0 0 1-.025.223.64.64 0 0 1-.547.426l-5.242.306c-2.848.132-5.912 2.456-6.987 5.29l-.378 1a.28.28 0 0 0 .248.382h18.054a.48.48 0 0 0 .464-.35c.32-1.153.482-2.344.48-3.54 0-7.22-5.79-13.072-12.933-13.072M44.807 29.578l.334-1.175c.402-1.397.253-2.687-.42-3.634-.62-.876-1.647-1.39-2.896-1.45l-23.665-.306a.47.47 0 0 1-.374-.199.5.5 0 0 1-.052-.434.64.64 0 0 1 .552-.426l23.886-.306c2.836-.131 5.9-2.456 6.975-5.29l1.362-3.6a.9.9 0 0 0 .04-.477C48.997 5.259 42.789 0 35.367 0c-6.842 0-12.647 4.462-14.73 10.665a6.92 6.92 0 0 0-4.911-1.374c-3.28.33-5.92 3.002-6.246 6.318a7.2 7.2 0 0 0 .18 2.472C4.3 18.241 0 22.679 0 28.133q0 .74.106 1.453a.46.46 0 0 0 .457.402h43.704a.57.57 0 0 0 .54-.418" />
-            </svg>
-            <span className="text-xl font-medium text-[#521000]">Workers</span>
-          </a>
-          <nav className="hidden md:flex items-center gap-6">
-            <a href="#features" className="text-sm text-[#521000]/70 hover:text-[#521000]">Features</a>
-            <a href="#pricing" className="text-sm text-[#521000]/70 hover:text-[#521000]">Pricing</a>
-            <a href="#docs" className="text-sm text-[#521000]/70 hover:text-[#521000]">Docs</a>
-          </nav>
-          <div className="flex gap-3">
-            <a href="/login" className="hidden sm:inline-flex px-5 py-2.5 rounded-full text-sm font-medium text-[#FF4801] border border-[#EBD5C1] hover:border-dashed transition-all">
-              Log in
-            </a>
-            <a href="/signup" className="px-5 py-2.5 rounded-full text-sm font-medium bg-[#FF4801] text-white hover:opacity-95 transition-all">
-              Start building
-            </a>
-          </div>
-        </div>
-      </header>
-
-      {/* Hero */}
-      <section className="py-16 sm:py-24 bg-[#FF4801] relative overflow-hidden">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 text-center relative z-10">
-          <h1 className="text-3xl sm:text-4xl lg:text-5xl font-medium text-white mb-6" style={{ letterSpacing: '-0.02em' }}>
-            Build full-stack applications<br />at the edge
-          </h1>
-          <p className="text-lg text-white/75 max-w-2xl mx-auto mb-8">
-            Deploy serverless code instantly across the globe for exceptional performance, reliability, and scale. No cold starts, no configuration.
-          </p>
-          <div className="flex flex-wrap justify-center gap-4">
-            <a href="/signup" className="px-8 py-3.5 rounded-full font-medium bg-white text-[#FF4801] hover:opacity-95 transition-all">
-              Start building for free
-            </a>
-            <a href="/docs" className="px-8 py-3.5 rounded-full font-medium text-white border border-white/40 hover:bg-white/10 transition-all">
-              Read the docs
-            </a>
-          </div>
-        </div>
-        {/* Dot pattern overlay */}
-        <div className="absolute inset-0 opacity-10" style={{
-          backgroundImage: 'radial-gradient(circle, white 1px, transparent 1px)',
-          backgroundSize: '24px 24px'
-        }} />
-      </section>
-
-      {/* Features */}
-      <section id="features" className="py-16 sm:py-24">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6">
-          <div className="text-center mb-12">
-            <h2 className="text-2xl sm:text-3xl font-medium text-[#521000] mb-4">
-              Everything you need to build
-            </h2>
-            <p className="text-[#521000]/60 max-w-2xl mx-auto">
-              From compute to storage to AI — all the primitives you need, integrated and ready to use.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {/* Feature 1 */}
-            <div className="relative bg-[#FFFDFB] border border-[#EBD5C1] p-6 hover:bg-[#FEF7ED] transition-all">
-              <div className="absolute -top-1 -left-1 w-2 h-2 border border-[#EBD5C1] rounded-[1.5px] bg-[#FFFBF5]" />
-              <div className="absolute -top-1 -right-1 w-2 h-2 border border-[#EBD5C1] rounded-[1.5px] bg-[#FFFBF5]" />
-              <div className="absolute -bottom-1 -left-1 w-2 h-2 border border-[#EBD5C1] rounded-[1.5px] bg-[#FFFBF5]" />
-              <div className="absolute -bottom-1 -right-1 w-2 h-2 border border-[#EBD5C1] rounded-[1.5px] bg-[#FFFBF5]" />
-              
-              <div className="w-12 h-12 rounded-lg bg-[#0A95FF]/10 flex items-center justify-center mb-4">
-                <svg className="w-6 h-6 text-[#0A95FF]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" />
-                </svg>
-              </div>
-              <h3 className="text-lg font-medium text-[#521000] mb-2">Workers</h3>
-              <p className="text-sm text-[#521000]/60 leading-relaxed">
-                Deploy serverless functions at the edge. Zero cold starts, automatic scaling, 300+ locations worldwide.
-              </p>
-            </div>
-
-            {/* Feature 2 */}
-            <div className="relative bg-[#FFFDFB] border border-[#EBD5C1] p-6 hover:bg-[#FEF7ED] transition-all">
-              <div className="absolute -top-1 -left-1 w-2 h-2 border border-[#EBD5C1] rounded-[1.5px] bg-[#FFFBF5]" />
-              <div className="absolute -top-1 -right-1 w-2 h-2 border border-[#EBD5C1] rounded-[1.5px] bg-[#FFFBF5]" />
-              <div className="absolute -bottom-1 -left-1 w-2 h-2 border border-[#EBD5C1] rounded-[1.5px] bg-[#FFFBF5]" />
-              <div className="absolute -bottom-1 -right-1 w-2 h-2 border border-[#EBD5C1] rounded-[1.5px] bg-[#FFFBF5]" />
-              
-              <div className="w-12 h-12 rounded-lg bg-[#EE0DDB]/10 flex items-center justify-center mb-4">
-                <svg className="w-6 h-6 text-[#EE0DDB]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M20.25 6.375c0 2.278-3.694 4.125-8.25 4.125S3.75 8.653 3.75 6.375m16.5 0c0-2.278-3.694-4.125-8.25-4.125S3.75 4.097 3.75 6.375m16.5 0v11.25c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125V6.375m16.5 0v3.75m-16.5-3.75v3.75m16.5 0v3.75C20.25 16.153 16.556 18 12 18s-8.25-1.847-8.25-4.125v-3.75m16.5 0c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125" />
-                </svg>
-              </div>
-              <h3 className="text-lg font-medium text-[#521000] mb-2">R2 Storage</h3>
-              <p className="text-sm text-[#521000]/60 leading-relaxed">
-                S3-compatible object storage with zero egress fees. Store unlimited data without bandwidth costs.
-              </p>
-            </div>
-
-            {/* Feature 3 */}
-            <div className="relative bg-[#FFFDFB] border border-[#EBD5C1] p-6 hover:bg-[#FEF7ED] transition-all">
-              <div className="absolute -top-1 -left-1 w-2 h-2 border border-[#EBD5C1] rounded-[1.5px] bg-[#FFFBF5]" />
-              <div className="absolute -top-1 -right-1 w-2 h-2 border border-[#EBD5C1] rounded-[1.5px] bg-[#FFFBF5]" />
-              <div className="absolute -bottom-1 -left-1 w-2 h-2 border border-[#EBD5C1] rounded-[1.5px] bg-[#FFFBF5]" />
-              <div className="absolute -bottom-1 -right-1 w-2 h-2 border border-[#EBD5C1] rounded-[1.5px] bg-[#FFFBF5]" />
-              
-              <div className="w-12 h-12 rounded-lg bg-[#19E306]/10 flex items-center justify-center mb-4">
-                <svg className="w-6 h-6 text-[#19E306]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456zM16.894 20.567L16.5 21.75l-.394-1.183a2.25 2.25 0 00-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 001.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 001.423 1.423l1.183.394-1.183.394a2.25 2.25 0 00-1.423 1.423z" />
-                </svg>
-              </div>
-              <h3 className="text-lg font-medium text-[#521000] mb-2">Workers AI</h3>
-              <p className="text-sm text-[#521000]/60 leading-relaxed">
-                Run AI models at the edge. Access LLMs, image models, and more with simple APIs and pay-per-use pricing.
-              </p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Stats */}
-      <section className="py-16 bg-[#FEF7ED]">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6">
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-8 text-center">
-            <div>
-              <div className="text-4xl font-medium text-[#FF4801] mb-2">300+</div>
-              <div className="text-sm text-[#521000]/60 uppercase tracking-wider">Edge locations</div>
-            </div>
-            <div>
-              <div className="text-4xl font-medium text-[#FF4801] mb-2">0ms</div>
-              <div className="text-sm text-[#521000]/60 uppercase tracking-wider">Cold starts</div>
-            </div>
-            <div>
-              <div className="text-4xl font-medium text-[#FF4801] mb-2">99.99%</div>
-              <div className="text-sm text-[#521000]/60 uppercase tracking-wider">Uptime SLA</div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* CTA */}
-      <section className="py-16 sm:py-24">
-        <div className="max-w-3xl mx-auto px-4 sm:px-6 text-center">
-          <h2 className="text-2xl sm:text-3xl font-medium text-[#521000] mb-4">
-            Ready to build something amazing?
-          </h2>
-          <p className="text-[#521000]/60 mb-8">
-            Get started with our generous free tier. No credit card required.
-          </p>
-          <a href="/signup" className="inline-flex px-8 py-3.5 rounded-full font-medium bg-[#FF4801] text-white hover:opacity-95 transition-all">
-            Start building for free
-          </a>
-        </div>
-      </section>
-
-      {/* Footer */}
-      <footer className="py-8 border-t border-[#EBD5C1]">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 flex flex-wrap justify-between items-center gap-4">
-          <div className="text-sm text-[#521000]/60">
-            © 2024 Cloudflare, Inc.
-          </div>
-          <div className="flex gap-6 text-sm text-[#521000]/60">
-            <a href="#" className="hover:text-[#521000]">Privacy</a>
-            <a href="#" className="hover:text-[#521000]">Terms</a>
-            <a href="#" className="hover:text-[#521000]">Status</a>
-          </div>
-        </div>
-      </footer>
-    </div>
-  );
-}
-```
-
----
-
-# 3. Interactive Tool
-
-A generic configuration/tool template with split-panel layout.
-
-## React + Tailwind Version
-
-```jsx
-import { useState } from 'react';
-
-export default function ConfigTool() {
-  const [config, setConfig] = useState({
-    region: 'us-east',
-    instances: 2,
-    memory: 128,
-    enableLogging: true,
-    enableMetrics: false,
-  });
-
-  const updateConfig = (key, value) => {
-    setConfig(prev => ({ ...prev, [key]: value }));
-  };
-
-  return (
-    <div className="min-h-screen bg-[#FFFBF5]">
-      {/* Header */}
-      <header className="border-b border-[#EBD5C1] bg-[#FFFBF5]">
-        <div className="max-w-6xl mx-auto px-4 py-4 flex justify-between items-center">
-          <h1 className="text-xl font-medium text-[#521000]">Worker Configuration</h1>
-          <button className="px-5 py-2.5 rounded-full text-sm font-medium bg-[#FF4801] text-white hover:opacity-95 transition-all">
-            Deploy
-          </button>
-        </div>
-      </header>
-
-      {/* Main content */}
-      <main className="max-w-6xl mx-auto px-4 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          {/* Configuration Panel */}
-          <div className="relative bg-[#FFFDFB] border border-[#EBD5C1] p-6">
-            {/* Corner brackets */}
-            <div className="absolute -top-1 -left-1 w-2 h-2 border border-[#EBD5C1] rounded-[1.5px] bg-[#FFFBF5]" />
-            <div className="absolute -top-1 -right-1 w-2 h-2 border border-[#EBD5C1] rounded-[1.5px] bg-[#FFFBF5]" />
-            <div className="absolute -bottom-1 -left-1 w-2 h-2 border border-[#EBD5C1] rounded-[1.5px] bg-[#FFFBF5]" />
-            <div className="absolute -bottom-1 -right-1 w-2 h-2 border border-[#EBD5C1] rounded-[1.5px] bg-[#FFFBF5]" />
-
-            <h2 className="text-lg font-medium text-[#521000] mb-6">Settings</h2>
-
-            <div className="space-y-6">
-              {/* Region select */}
-              <div>
-                <label className="block mb-2 text-sm font-medium text-[#521000]">Region</label>
-                <div className="relative">
-                  <select
-                    value={config.region}
-                    onChange={(e) => updateConfig('region', e.target.value)}
-                    className="w-full appearance-none pl-4 pr-10 py-3 text-sm text-[#521000] bg-[#FFFDFB] border border-[#EBD5C1] rounded-lg cursor-pointer focus:border-[#FF4801] outline-none"
-                  >
-                    <option value="us-east">US East (Virginia)</option>
-                    <option value="us-west">US West (Oregon)</option>
-                    <option value="eu-west">EU West (Ireland)</option>
-                    <option value="ap-south">Asia Pacific (Singapore)</option>
-                  </select>
-                  <svg className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-[#521000]/60" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                  </svg>
-                </div>
-              </div>
-
-              {/* Instances */}
-              <div>
-                <label className="block mb-2 text-sm font-medium text-[#521000]">Instances</label>
-                <div className="flex items-center border border-[#EBD5C1] rounded-lg overflow-hidden">
-                  <button
-                    onClick={() => updateConfig('instances', Math.max(1, config.instances - 1))}
-                    className="px-4 py-3 bg-[#FEF7ED] text-[#521000] hover:bg-[#EBD5C1] transition-colors"
-                  >
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M20 12H4" />
-                    </svg>
-                  </button>
-                  <span className="flex-1 text-center text-sm font-medium text-[#521000]">{config.instances}</span>
-                  <button
-                    onClick={() => updateConfig('instances', Math.min(10, config.instances + 1))}
-                    className="px-4 py-3 bg-[#FEF7ED] text-[#521000] hover:bg-[#EBD5C1] transition-colors"
-                  >
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-                    </svg>
-                  </button>
-                </div>
-              </div>
-
-              {/* Memory slider */}
-              <div>
-                <label className="block mb-2 text-sm font-medium text-[#521000]">
-                  Memory: <span className="text-[#FF4801]">{config.memory}MB</span>
-                </label>
-                <input
-                  type="range"
-                  min="128"
-                  max="2048"
-                  step="128"
-                  value={config.memory}
-                  onChange={(e) => updateConfig('memory', Number(e.target.value))}
-                  className="w-full h-2 rounded-full appearance-none cursor-pointer"
-                  style={{
-                    background: `linear-gradient(to right, #FF4801 ${((config.memory - 128) / (2048 - 128)) * 100}%, #EBD5C1 ${((config.memory - 128) / (2048 - 128)) * 100}%)`
-                  }}
-                />
-                <div className="flex justify-between mt-1 text-xs text-[#521000]/60">
-                  <span>128MB</span>
-                  <span>2048MB</span>
-                </div>
-              </div>
-
-              {/* Toggles */}
-              <div className="space-y-4 pt-4 border-t border-[#EBD5C1]/50">
-                <label className="flex items-center justify-between cursor-pointer">
-                  <span className="text-sm font-medium text-[#521000]">Enable logging</span>
-                  <div className="relative">
-                    <input
-                      type="checkbox"
-                      checked={config.enableLogging}
-                      onChange={(e) => updateConfig('enableLogging', e.target.checked)}
-                      className="sr-only peer"
-                    />
-                    <div className="w-11 h-6 bg-[#EBD5C1] rounded-full peer peer-checked:bg-[#FF4801] transition-colors" />
-                    <div className="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow peer-checked:translate-x-5 transition-transform" />
-                  </div>
-                </label>
-
-                <label className="flex items-center justify-between cursor-pointer">
-                  <span className="text-sm font-medium text-[#521000]">Enable metrics</span>
-                  <div className="relative">
-                    <input
-                      type="checkbox"
-                      checked={config.enableMetrics}
-                      onChange={(e) => updateConfig('enableMetrics', e.target.checked)}
-                      className="sr-only peer"
-                    />
-                    <div className="w-11 h-6 bg-[#EBD5C1] rounded-full peer peer-checked:bg-[#FF4801] transition-colors" />
-                    <div className="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow peer-checked:translate-x-5 transition-transform" />
-                  </div>
-                </label>
-              </div>
-            </div>
-          </div>
-
-          {/* Preview Panel */}
-          <div className="relative bg-[#FFFDFB] border border-[#EBD5C1] p-6">
-            {/* Corner brackets */}
-            <div className="absolute -top-1 -left-1 w-2 h-2 border border-[#EBD5C1] rounded-[1.5px] bg-[#FFFBF5]" />
-            <div className="absolute -top-1 -right-1 w-2 h-2 border border-[#EBD5C1] rounded-[1.5px] bg-[#FFFBF5]" />
-            <div className="absolute -bottom-1 -left-1 w-2 h-2 border border-[#EBD5C1] rounded-[1.5px] bg-[#FFFBF5]" />
-            <div className="absolute -bottom-1 -right-1 w-2 h-2 border border-[#EBD5C1] rounded-[1.5px] bg-[#FFFBF5]" />
-
-            <h2 className="text-lg font-medium text-[#521000] mb-6">Configuration Preview</h2>
-
-            {/* Code preview */}
-            <div className="bg-[#1a1209] rounded-lg overflow-hidden">
-              <div className="flex items-center gap-2 px-4 py-3 border-b border-white/10">
-                <div className="w-3 h-3 rounded-full bg-white/20" />
-                <div className="w-3 h-3 rounded-full bg-white/20" />
-                <div className="w-3 h-3 rounded-full bg-white/20" />
-                <span className="ml-2 text-xs text-white/50 font-mono">wrangler.toml</span>
-              </div>
-              <pre className="p-4 text-sm font-mono text-[#f5ede0] overflow-x-auto">
-                <code>{`name = "my-worker"
-main = "src/index.ts"
-compatibility_date = "2024-01-01"
-
-[vars]
-ENVIRONMENT = "production"
-
-[placement]
-mode = "smart"
-
-[[services]]
-binding = "MY_SERVICE"
-service = "my-service"
-
-# Generated configuration
-[limits]
-cpu_ms = 50
-
-[observability]
-enabled = ${config.enableLogging}
-
-[observability.logs]
-enabled = ${config.enableLogging}
-invocation_logs = ${config.enableLogging}
-
-# Region: ${config.region}
-# Instances: ${config.instances}
-# Memory: ${config.memory}MB
-# Metrics: ${config.enableMetrics}`}</code>
-              </pre>
-            </div>
-
-            {/* Estimated cost */}
-            <div className="mt-6 p-4 bg-[#FF4801]/5 rounded-lg border border-[#FF4801]/20">
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-[#521000]">Estimated monthly cost</span>
-                <span className="text-lg font-medium text-[#FF4801]">
-                  ${((config.instances * config.memory * 0.0001) + (config.enableLogging ? 5 : 0) + (config.enableMetrics ? 3 : 0)).toFixed(2)}/mo
-                </span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </main>
-
-      {/* Custom styles */}
-      <style>{`
-        input[type="range"]::-webkit-slider-thumb {
-          -webkit-appearance: none;
-          width: 20px;
-          height: 20px;
-          background: white;
-          border: 2px solid #FF4801;
-          border-radius: 50%;
-          box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-          cursor: grab;
-        }
-      `}</style>
-    </div>
-  );
-}
-```
-
----
-
-## Usage Notes
-
-### Customizing Templates
-
-1. **Replace placeholder content** — Update headings, descriptions, and values
-2. **Adjust calculations** — Modify pricing constants and formulas
-3. **Add/remove sections** — Combine components from SNIPPETS.md
-4. **Change colors** — Use product category colors for feature-specific tools
-
-### Testing Checklist
-
-Before deploying, verify:
-
-- [ ] All interactive elements work (inputs, buttons, toggles)
-- [ ] Calculations update in real-time
-- [ ] Responsive layout works on mobile
-- [ ] Focus states are visible
-- [ ] Colors match the design system
-- [ ] Corner brackets appear on cards
-
----
-
-*These templates are based on workers.cloudflare.com, workershops.cloudflare.com, and r2-calculator.cloudflare.com.*
-
-
-
-# ===== SKILLS.md =====
-
-# CF Workers Design System - AI Skills & Commands
-
-> **Quick-reference commands and skills for AI agents** to generate Cloudflare-style UI components, pages, and tools.
-
----
-
-## Available Skills
-
-### `/cf-design` - Design System Reference
-
-Load the complete CF Workers design tokens and guidelines.
-
-```
-/cf-design
-```
-
-**Use when:** You need to reference colors, typography, spacing, animations, or any design token.
-
-**Returns:** Core design system documentation including:
-- Color palette (light/dark mode)
-- Typography scale
-- Spacing system
-- Border radius values
-- Shadow definitions
-- Animation timing functions
-
----
-
-### `/cf-component [name]` - Generate Component
-
-Generate a specific component in the CF Workers style.
-
-```
-/cf-component button
-/cf-component card
-/cf-component input
-/cf-component calculator
-/cf-component hero
-/cf-component nav
-```
-
-**Available components:**
-| Component | Description |
-|-----------|-------------|
-| `button` | Primary, secondary, ghost, icon buttons |
-| `card` | Basic, feature, pricing, stat cards |
-| `input` | Text input, select, slider, toggle |
-| `calculator` | Pricing calculator with comparison bars |
-| `hero` | Landing page hero section |
-| `nav` | Header navigation with mobile menu |
-| `table` | Data table with CF styling |
-| `badge` | Status badges and pills |
-| `progress` | Progress bars |
-| `tabs` | Tab navigation |
-
-**Options:**
-- `--react` - Generate React + Tailwind version (default)
-- `--html` - Generate vanilla HTML + CSS version
-- `--both` - Generate both versions
-
----
-
-### `/cf-page [type]` - Generate Full Page
-
-Generate a complete page template.
-
-```
-/cf-page landing
-/cf-page calculator
-/cf-page docs
-/cf-page demo
-```
-
-**Page types:**
-| Type | Description |
-|------|-------------|
-| `landing` | Product landing page with hero, features, CTA |
-| `calculator` | Pricing calculator (R2-style) |
-| `docs` | Documentation page with sidebar |
-| `demo` | Interactive demo/playground |
-
----
-
-### `/cf-tokens` - Export Design Tokens
-
-Export design tokens in various formats.
-
-```
-/cf-tokens css
-/cf-tokens tailwind
-/cf-tokens json
-/cf-tokens figma
-```
-
-**Formats:**
-- `css` - CSS custom properties (`:root` block)
-- `tailwind` - Tailwind config extension
-- `json` - JSON token file
-- `figma` - Figma-compatible token format
-
----
-
-## Quick Commands
-
-### Colors
-
-```
-/cf-color primary    → #FF4801
-/cf-color background → #FFFBF5
-/cf-color text       → #521000
-/cf-color border     → #EBD5C1
-/cf-color success    → #16A34A
-/cf-color error      → #DC2626
-```
-
-### Typography
-
-```
-/cf-font sans   → "FT Kunst Grotesk", -apple-system, sans-serif
-/cf-font mono   → "Apercu Mono Pro", monospace
-/cf-size h1     → 32px, weight 500, tracking -0.02em
-/cf-size body   → 16px, weight 400, line-height 1.5
-```
-
-### Spacing
-
-```
-/cf-space sm    → 8px
-/cf-space md    → 16px
-/cf-space lg    → 24px
-/cf-space xl    → 32px
-/cf-space section → 64px
-```
-
-### Radius
-
-```
-/cf-radius button → 9999px (full)
-/cf-radius card   → 12px
-/cf-radius input  → 8px
-```
-
----
-
-## Skill Definitions
-
-### For OpenCode / Claude
-
-Add this skill to your agent configuration:
-
-```yaml
-# ~/.config/opencode/skills/cf-design/SKILL.md
-name: cf-design
-description: Generate Cloudflare Workers-style UI components and pages
-triggers:
-  - /cf-design
-  - /cf-component
-  - /cf-page
-  - /cf-tokens
-resources:
-  - https://cf-workers-design.nireka-96.workers.dev/CF-WORKERS-DESIGN.md
-  - https://cf-workers-design.nireka-96.workers.dev/SNIPPETS.md
-  - https://cf-workers-design.nireka-96.workers.dev/EXAMPLES.md
-```
-
-### System Prompt Addition
-
-Add to your AI agent's system prompt:
-
-```
-## CF Workers Design System
-
-When building UI for Cloudflare-related projects, use the CF Workers Design System:
-
-### Core Design Rules
-1. NEVER use pure white (#FFFFFF) - use warm cream (#FFFBF5)
-2. NEVER use pure black (#000000) - use warm brown (#521000)
-3. Buttons are ALWAYS fully rounded (border-radius: 9999px)
-4. Primary accent is orange (#FF4801)
-5. Use corner bracket decorations on cards (8px squares at corners)
-
-### Quick Reference
-- Background: #FFFBF5
-- Text: #521000
-- Orange: #FF4801
-- Border: #EBD5C1
-- Font: "FT Kunst Grotesk" or system sans-serif
-
-### Resources
-- Design Tokens: https://cf-workers-design.nireka-96.workers.dev/CF-WORKERS-DESIGN.md
-- Components: https://cf-workers-design.nireka-96.workers.dev/SNIPPETS.md
-- Examples: https://cf-workers-design.nireka-96.workers.dev/EXAMPLES.md
-```
-
----
-
-## Usage Examples
-
-### Example 1: Create a Button
-
-**Prompt:**
-```
-/cf-component button --react
-```
-
-**Output:**
-```tsx
-import { cn } from '@/lib/utils';
-
-interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: 'primary' | 'secondary' | 'ghost';
-  size?: 'sm' | 'md' | 'lg';
-}
-
-export function Button({ 
-  variant = 'primary', 
-  size = 'md', 
-  className, 
-  children,
-  ...props 
-}: ButtonProps) {
-  return (
-    <button
-      className={cn(
-        'inline-flex items-center justify-center rounded-full font-medium transition-all',
-        'active:scale-[0.98] active:translate-y-[1px]',
-        {
-          'bg-[#FFFBF5] text-[#FF4801] border border-[#FFFBF5] hover:border-dashed': variant === 'primary',
-          'bg-[#FF4801] text-white hover:opacity-95': variant === 'secondary',
-          'bg-transparent text-[#FF4801] border border-[#EBD5C1] hover:border-dashed': variant === 'ghost',
-          'px-3 py-1.5 text-sm': size === 'sm',
-          'px-6 py-3 text-base': size === 'md',
-          'px-8 py-4 text-lg': size === 'lg',
-        },
-        className
-      )}
-      {...props}
-    >
-      {children}
-    </button>
-  );
-}
-```
-
-### Example 2: Create a Pricing Calculator
-
-**Prompt:**
-```
-/cf-page calculator
-```
-
-**Output:** Full R2-style pricing calculator with:
-- Input fields for storage, operations, egress
-- Slider for usage percentage
-- Comparison bars (Cloudflare vs AWS vs GCP)
-- Corner bracket decorations
-- Responsive layout
-
-### Example 3: Get All CSS Variables
-
-**Prompt:**
-```
-/cf-tokens css
-```
-
-**Output:**
-```css
-:root {
-  --cf-orange: #FF4801;
-  --cf-orange-hover: #FF7038;
-  --cf-text: #521000;
-  --cf-text-muted: rgba(82, 16, 0, 0.7);
-  --cf-bg-page: #FFFBF5;
-  --cf-bg-card: #FFFDFB;
-  --cf-border: #EBD5C1;
-  /* ... */
-}
-```
-
----
-
-## Integration with MCP
-
-For Model Context Protocol (MCP) integration:
-
-```json
-{
-  "name": "cf-workers-design",
-  "description": "Cloudflare Workers Design System",
-  "tools": [
-    {
-      "name": "get_design_tokens",
-      "description": "Get CF Workers design tokens (colors, typography, spacing)",
-      "inputSchema": {
-        "type": "object",
-        "properties": {
-          "category": {
-            "type": "string",
-            "enum": ["colors", "typography", "spacing", "shadows", "animations", "all"]
-          }
-        }
-      }
-    },
-    {
-      "name": "generate_component",
-      "description": "Generate a UI component in CF Workers style",
-      "inputSchema": {
-        "type": "object",
-        "properties": {
-          "component": {
-            "type": "string",
-            "enum": ["button", "card", "input", "calculator", "hero", "nav", "table", "badge"]
-          },
-          "format": {
-            "type": "string",
-            "enum": ["react", "html", "both"],
-            "default": "react"
-          }
-        },
-        "required": ["component"]
-      }
-    },
-    {
-      "name": "generate_page",
-      "description": "Generate a full page template",
-      "inputSchema": {
-        "type": "object",
-        "properties": {
-          "type": {
-            "type": "string",
-            "enum": ["landing", "calculator", "docs", "demo"]
-          }
-        },
-        "required": ["type"]
-      }
-    }
-  ],
-  "resources": [
-    {
-      "uri": "cf-design://tokens",
-      "name": "Design Tokens",
-      "mimeType": "text/markdown"
-    },
-    {
-      "uri": "cf-design://snippets",
-      "name": "Component Snippets",
-      "mimeType": "text/markdown"
-    },
-    {
-      "uri": "cf-design://examples",
-      "name": "Full Examples",
-      "mimeType": "text/markdown"
-    }
-  ]
-}
-```
-
----
-
-## Cheat Sheet
-
-### Must-Have Styles
-
-```css
-/* Warm background - NEVER pure white */
-background-color: #FFFBF5;
-
-/* Warm text - NEVER pure black */
-color: #521000;
-
-/* Orange accent */
-color: #FF4801;
-
-/* Rounded buttons */
-border-radius: 9999px;
-
-/* Card corners */
-border: 1px solid #EBD5C1;
-
-/* Hover: dashed border */
-border-style: dashed;
-
-/* Button press */
-transform: translateY(1px);
-scale: 0.98;
-```
-
-### Don't Do This
-
-```css
-/* ❌ Pure white background */
-background-color: #FFFFFF;
-
-/* ❌ Pure black text */
-color: #000000;
-
-/* ❌ Square buttons */
-border-radius: 4px;
-
-/* ❌ Blue accent (unless product-specific) */
-color: #0066FF;
-
-/* ❌ Heavy shadows */
-box-shadow: 0 10px 40px rgba(0,0,0,0.3);
-```
-
----
-
-## Resources
-
-- **Live Docs**: https://cf-workers-design.nireka-96.workers.dev
-- **Design Tokens**: [CF-WORKERS-DESIGN.md](./CF-WORKERS-DESIGN.md)
-- **Components**: [SNIPPETS.md](./SNIPPETS.md)
-- **AI Guide**: [PROMPTING-GUIDE.md](./PROMPTING-GUIDE.md)
-- **Examples**: [EXAMPLES.md](./EXAMPLES.md)
-- **GitLab**: https://gitlab.cfdata.org/ndalwadi/cf-workers-design
-
----
-
-*Use these skills to quickly generate on-brand Cloudflare interfaces without memorizing the entire design system.*
