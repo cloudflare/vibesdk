@@ -27,14 +27,29 @@ export interface ToolCallResult {
 	result?: unknown;
 }
 
-export interface ToolDefinition<TArgs = unknown, TResult = unknown> {
+/**
+ * Lifecycle hooks for a tool call. Mirrors @cloudflare/think's
+ * `beforeToolCall` / `afterToolCall` / error-propagation pattern
+ * (ADR-011 Option B — selective Think pattern adoption).
+ *
+ * All hooks are optional and silently no-op when absent.
+ * Implemented via `executeToolWithDefinition` in customTools.ts.
+ */
+export interface ToolLifecycle<TArgs = unknown, TResult = unknown> {
+	/** Fires before `implementation`. Use to emit a "start" status event. */
+	onStart?: (toolCall: ChatCompletionMessageFunctionToolCall, args: TArgs) => Promise<void>;
+	/** Fires after `implementation` resolves. Use to emit a "success" status event. */
+	onComplete?: (toolCall: ChatCompletionMessageFunctionToolCall, args: TArgs, result: TResult) => Promise<void>;
+	/** Fires when `implementation` throws. Error is re-thrown after this hook. */
+	onError?: (toolCall: ChatCompletionMessageFunctionToolCall, args: TArgs, error: Error) => Promise<void>;
+}
+
+export interface ToolDefinition<TArgs = unknown, TResult = unknown> extends ToolLifecycle<TArgs, TResult> {
 	name: string;
 	description: string;
 	schema: z.ZodTypeAny;
 	implementation: (args: TArgs) => Promise<TResult>;
 	resources: (args: TArgs) => Resources;
-	onStart?: (toolCall: ChatCompletionMessageFunctionToolCall, args: TArgs) => Promise<void>;
-	onComplete?: (toolCall: ChatCompletionMessageFunctionToolCall, args: TArgs, result: TResult) => Promise<void>;
 	openAISchema: ChatCompletionFunctionTool;
 }
 
@@ -149,7 +164,8 @@ function buildTool<TArgs, TResult>(
 	implementation: (args: TArgs) => Promise<TResult>,
 	resources: (args: TArgs) => Resources,
 	onStart?: (toolCall: ChatCompletionMessageFunctionToolCall, args: TArgs) => Promise<void>,
-	onComplete?: (toolCall: ChatCompletionMessageFunctionToolCall, args: TArgs, result: TResult) => Promise<void>
+	onComplete?: (toolCall: ChatCompletionMessageFunctionToolCall, args: TArgs, result: TResult) => Promise<void>,
+	onError?: (toolCall: ChatCompletionMessageFunctionToolCall, args: TArgs, error: Error) => Promise<void>,
 ): ToolDefinition<TArgs, TResult> {
 	return {
 		name,
@@ -159,6 +175,7 @@ function buildTool<TArgs, TResult>(
 		resources,
 		onStart,
 		onComplete,
+		onError,
 		openAISchema: {
 			type: 'function' as const,
 			function: {
@@ -177,6 +194,7 @@ export function tool<TArgs extends Record<string, unknown>, TResult>(config: {
 	run: (args: TArgs) => Promise<TResult>;
 	onStart?: (toolCall: ChatCompletionMessageFunctionToolCall, args: TArgs) => Promise<void>;
 	onComplete?: (toolCall: ChatCompletionMessageFunctionToolCall, args: TArgs, result: TResult) => Promise<void>;
+	onError?: (toolCall: ChatCompletionMessageFunctionToolCall, args: TArgs, error: Error) => Promise<void>;
 }): ToolDefinition<TArgs, TResult> {
 	const zodSchemaShape: Record<string, z.ZodTypeAny> = {};
 	for (const key in config.args) {
@@ -199,7 +217,8 @@ export function tool<TArgs extends Record<string, unknown>, TResult>(config: {
 		config.run,
 		extractResources,
 		config.onStart,
-		config.onComplete
+		config.onComplete,
+		config.onError,
 	);
 }
 

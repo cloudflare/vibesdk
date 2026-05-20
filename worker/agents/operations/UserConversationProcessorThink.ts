@@ -21,7 +21,7 @@ export class ThinkUserConversationProcessor extends Think {
     // Think provides:
     // - this.session: SQLite-backed message tree (replaces conversationMessages array)
     // - this.workspace: VFS read/write/edit/list/find/grep/delete (replaces virtual-filesystem.ts)
-    // - this.session.withCompaction(): replaces conversationCompactifier.ts
+    // - this.session.onCompaction(fn).compactAfter(threshold): replaces conversationCompactifier.ts
     // - beforeToolCall/afterToolCall hooks: replaces per-tool .onStart/.onComplete closures
     // - ResumableStream: replaces ws-buffer.ts ephemeral buffer
 
@@ -29,7 +29,7 @@ export class ThinkUserConversationProcessor extends Think {
      * WHAT THINK ELIMINATES vs original UCP:
      * - ConversationState manual management (lines 1-50): Think.session owns this
      * - CHUNK_SIZE streaming loop (lines 200-250): Think.ResumableStream owns this
-     * - compactifyContext() call (line ~280): Think.session.withCompaction() owns this
+     * - compactifyContext() call (line ~280): Think.session.onCompaction(fn).compactAfter(threshold) owns this
      * - buildToolCallRenderer() (lines 44-48): Think.afterToolCall hook owns this
      * - Manual duplicate-detection logic (lines 471-482): Think.session deduplicates
      * - Fallback error path state reconstruction (lines 510-527): Think.session rollback owns this
@@ -71,7 +71,7 @@ export function createAnthropicAdapter(apiKey: string) {
  * Delta: -400 lines (-72%) for UCP alone
  *
  * Files eliminated by Think (from ADR-011 full migration):
- * - conversationCompactifier.ts  (~80 lines) — Think.session.withCompaction()
+ * - conversationCompactifier.ts  (~80 lines) — Think.session.onCompaction(fn).compactAfter(threshold)
  * - ws-buffer.ts                 (~120 lines) — Think.ResumableStream
  * Net for UCP cluster: -603 lines (-80%)
  *

@@ -35,8 +35,11 @@ import { WsTicketManager } from '../../utils/wsTicketManager';
 import {
     PendingBroadcast,
     enqueueBroadcast,
-    filterFreshBroadcasts,
-    hasFreshBroadcasts,
+    initWsBroadcastLog,
+    persistBroadcast,
+    replayPersistedBroadcasts,
+    pruneExpiredBroadcasts,
+    mergeBroadcasts,
 } from './ws-buffer';
 
 const DEFAULT_CONVERSATION_SESSION_ID = 'default';
@@ -109,6 +112,8 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
                 
         void this.sql`CREATE TABLE IF NOT EXISTS full_conversations (id TEXT PRIMARY KEY, messages TEXT)`;
         void this.sql`CREATE TABLE IF NOT EXISTS compact_conversations (id TEXT PRIMARY KEY, messages TEXT)`;
+        // ADR-011 Option B: SQLite-backed WS broadcast log for cross-restart replay
+        initWsBroadcastLog(this.sql.bind(this));
 
         // Create StateManager
         const stateManager = new StateManager(
@@ -616,11 +621,20 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
         if (connections.length > 0) {
             broadcastToConnections(this, type, payload);
         } else {
-            // No active connections — buffer for reconnect delivery
+            // No active connections — buffer for reconnect delivery (in-memory + SQLite)
+            const enqueuedAt = Date.now();
             this._pendingBroadcasts = enqueueBroadcast(
                 this._pendingBroadcasts,
                 type,
                 payload as WebSocketMessageData<WebSocketMessageType>,
+                enqueuedAt,
+            );
+            // ADR-011 Option B: persist to SQLite for cross-DO-restart replay
+            persistBroadcast(
+                this.sql.bind(this),
+                type,
+                payload as WebSocketMessageData<WebSocketMessageType>,
+                enqueuedAt,
             );
             this.logger().debug(`WS broadcast buffered (no connections): ${type}`, {
                 bufferSize: this._pendingBroadcasts.length,
@@ -635,20 +649,34 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
      * the client receives any messages emitted during the disconnect window,
      * then sees the current snapshot as ground truth.
      *
-     * Entries older than BROADCAST_BUFFER_TTL_MS are silently dropped.
-     * The buffer is cleared after flushing regardless of delivery success.
+     * Merges two layers (ADR-011 Option B):
+     *  - In-memory: messages from this DO lifetime (network blip recovery)
+     *  - SQLite: messages from before DO hibernation/restart (cross-restart recovery)
+     *
+     * Delivers merged + deduplicated messages in chronological order.
+     * Clears both layers after delivery to prevent duplicate replay.
      */
     private flushPendingBroadcasts(connection: Connection): void {
-        const fresh = filterFreshBroadcasts(this._pendingBroadcasts);
+        const now = Date.now();
+        const inMemory = this._pendingBroadcasts;
         this._pendingBroadcasts = [];
 
-        if (fresh.length === 0) return;
+        // Merge in-memory + SQLite replay; deduplicated and sorted by enqueue time
+        const fromSqlite = replayPersistedBroadcasts(this.sql.bind(this), now);
+        const merged = mergeBroadcasts(inMemory, fromSqlite, now);
 
-        this.logger().info(`Flushing ${fresh.length} buffered WS message(s) to reconnecting client`, {
+        // Always prune SQLite log after reading, even if nothing to deliver
+        pruneExpiredBroadcasts(this.sql.bind(this));
+
+        if (merged.length === 0) return;
+
+        this.logger().info(`Flushing ${merged.length} buffered WS message(s) to reconnecting client`, {
             connectionId: connection.id,
+            fromMemory: inMemory.length,
+            fromSqlite: fromSqlite.length,
         });
 
-        for (const entry of fresh) {
+        for (const entry of merged) {
             sendToConnection(
                 connection,
                 entry.type,

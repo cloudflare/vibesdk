@@ -1,4 +1,5 @@
-import type { ToolDefinition } from './types';
+import type { ToolDefinition, ToolLifecycle } from './types';
+export type { ToolLifecycle };
 import { StructuredLogger } from '../../logger';
 import { RenderToolCall } from '../operations/UserConversationProcessor';
 import { toolWebSearchDefinition } from './toolkit/web-search';
@@ -24,15 +25,26 @@ import { Message } from '../inferutils/common';
 import { ChatCompletionMessageFunctionToolCall } from 'openai/resources';
 import { DeepDebuggerSession } from '../operations/DeepDebugger';
 
+/**
+ * Execute a tool through its full ToolLifecycle: onStart → implementation → onComplete.
+ * On throw, calls onError (if present) then re-throws. Mirrors @cloudflare/think's
+ * beforeToolCall / afterToolCall pattern (ADR-011 Option B).
+ */
 export async function executeToolWithDefinition<TArgs, TResult>(
     toolCall: ChatCompletionMessageFunctionToolCall,
     toolDef: ToolDefinition<TArgs, TResult>,
     args: TArgs
 ): Promise<TResult> {
     await toolDef.onStart?.(toolCall, args);
-    const result = await toolDef.implementation(args);
-    await toolDef.onComplete?.(toolCall, args, result);
-    return result;
+    try {
+        const result = await toolDef.implementation(args);
+        await toolDef.onComplete?.(toolCall, args, result);
+        return result;
+    } catch (error) {
+        const err = error instanceof Error ? error : new Error(String(error));
+        await toolDef.onError?.(toolCall, args, err);
+        throw err;
+    }
 }
 
 /**
