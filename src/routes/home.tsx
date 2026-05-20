@@ -15,6 +15,7 @@ import { ImageAttachmentPreview } from '@/components/image-attachment-preview';
 import { toast } from 'sonner';
 import { apiClient } from '@/lib/api-client';
 import { MatrixBackground } from '@/components/matrix-background';
+import { ByokAnthropicBanner } from '@/components/byok-anthropic-banner';
 import { Switch } from '@/components/ui/switch';
 import {
   DropdownMenu,
@@ -164,6 +165,9 @@ export default function Home() {
 
   return (
     <div className="relative flex flex-col items-center min-h-[calc(100vh-60px)] w-full overflow-hidden bg-gray-50 dark:bg-[#0a0a0a]" data-testid="home-page">
+      {/* Jun-8 Anthropic BYOK trigger banner (date-gated Jun 8–22 2026) */}
+      <ByokAnthropicBanner onOpenByok={() => navigate('/settings#model-configs')} />
+
       {/* Matrix Background */}
       <div className="absolute inset-0 z-0">
         <MatrixBackground />
