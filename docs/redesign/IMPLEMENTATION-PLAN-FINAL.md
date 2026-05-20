@@ -141,11 +141,11 @@ All three must be batched in one deploy:
 All BYOK in-app copy is wired (S17, commit 28839c3). The Jun 8 Anthropic activation email creates peak user confusion. **Jun 3 deploy = T-5d buffer before confusion window.**
 
 Deploy checklist:
-- [ ] `byok-api-keys-modal.tsx` copy verified in staging
-- [ ] `config-modal.tsx` BYOK tab description rendered
-- [ ] `settings/index.tsx` "Provider API Keys (BYOK)" section visible
-- [ ] FAQ additions from BYOK-ONBOARDING-COPY.md merged into FAQ accordion component
-- [ ] Jun-8 trigger banner logic wired (fire when `Date.now()` in [Jun 8, Jun 22] AND no BYOK key configured)
+- [ ] `byok-api-keys-modal.tsx` copy verified in staging (engineering done in 28839c3)
+- [ ] `config-modal.tsx` BYOK tab description rendered (engineering done in 28839c3)
+- [ ] `settings/index.tsx` "Provider API Keys (BYOK)" section visible (engineering done in 28839c3)
+- [x] FAQ additions from BYOK-ONBOARDING-COPY.md merged into FAQ accordion — `ByokFaqSection` wired in pricing/index.tsx (8558ad3)
+- [x] Jun-8 trigger banner logic wired — `ByokAnthropicBanner` in home.tsx (8558ad3). Date window [Jun 8, Jun 22], localStorage dismiss.
 
 ### P1 — Engineering (Option B Think Pattern Adoptions, pre-Jul-1)
 
