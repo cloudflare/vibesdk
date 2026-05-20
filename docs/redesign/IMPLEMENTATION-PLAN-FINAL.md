@@ -150,10 +150,10 @@ Deploy checklist:
 ### P1 — Engineering (Option B Think Pattern Adoptions, pre-Jul-1)
 
 ```
-# schema: item|effort|file|value|status
-Extend ws-buffer.ts to SQLite-backed replay (ResumableStream pattern from ADR-011)|2d|worker/agents/core/ws-buffer.ts|Fixes silent message loss on DO eviction/reconnect|PENDING
-Formal ToolLifecycle interface (formalize existing .onStart/.onComplete closures)|0.5d|worker/agents/tools/customTools.ts|Testable tool hooks, reduces per-tool boilerplate|PENDING
-codeDebugger.ts as true sub-agent DO (agentTool() pattern from Think)|3-4d|worker/agents/assistants/codeDebugger.ts|Isolated storage, independent abort, no shared state|POST-LAUNCH
+# schema: item|effort|file|value|status|commit
+Extend ws-buffer.ts to SQLite-backed replay (ResumableStream pattern from ADR-011)|2d|worker/agents/core/ws-buffer.ts|Fixes silent message loss on DO eviction/restart. 35 tests pass.|DONE|4eb36cb
+Formal ToolLifecycle interface (formalize existing .onStart/.onComplete closures + onError hook)|0.5d|worker/agents/tools/types.ts + customTools.ts|Testable tool hooks, onError propagation. tsc clean.|DONE|4eb36cb
+codeDebugger.ts as true sub-agent DO (agentTool() pattern from Think)|3-4d|worker/agents/assistants/codeDebugger.ts|Isolated storage, independent abort, no shared state|POST-LAUNCH|—
 ```
 
 ### P1 — Sonnet 4.8 Flip (when released)
@@ -233,7 +233,7 @@ ADR-007 Parallel sub-agent merge|DONE|Option A (phase independence, disjoint fil
 ADR-008 AI Gateway streaming resilience|FINAL|App-layer WS buffer (ws-buffer.ts). CF Gateway RFC #1257 still open — not GA.|Monitor #1257; adopt if closes
 ADR-009 Generated app database strategy|DONE|DO SQLite (ctx.storage.sql) scaffold for generated apps|None
 ADR-010 CF single-platform risk (degraded-mode)|DONE|D1 session_snapshots + DegradedModeBanner. Migration 0010 → Jun 15 deploy.|Apply migration Jun 15
-ADR-011 @cloudflare/think evaluation|DECIDED|Option B (selective patterns pre-launch) + 2-day POC post-launch. Full Option A: 14-21d → POST-LAUNCH.|ws-buffer.ts SQLite replay + ToolLifecycle interface pre-Jul-1
+ADR-011 @cloudflare/think evaluation|DONE (pre-Jul-1 items complete)|Option B shipped: ToolLifecycle interface (4eb36cb) + ws-buffer SQLite replay (4eb36cb). API corrections applied (withCompaction→onCompaction/compactAfter; agentTool import path). 2-day POC: post-launch on feature/think-poc-ucp.|codeDebugger.ts sub-agent DO → POST-LAUNCH
 ```
 
 ---
