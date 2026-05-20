@@ -13,7 +13,7 @@ import { generateProjectName } from '../../utils/templateCustomizer';
 import { PreviewType, TemplateDetails } from 'worker/services/sandbox/sandboxTypes';
 import type { SessionEvent, SessionConfigOverrides, StoredMessage, StoredPart } from '@opencode-do/opencode';
 import { DeploymentTarget } from '../types';
-import { getPreviewDomain } from 'worker/utils/urls';
+import { resolvePreviewHost } from 'worker/utils/urls';
 import { isDev } from 'worker/utils/envs';
 
 /**
@@ -272,15 +272,32 @@ export class OpencodeCodingBehavior
     }
 
     /**
+     * The public-facing origin (scheme + host) that user-visible URLs
+     * (preview links, deploy responses) should point at. Used both by
+     * `getBrowserPreviewURL` and as the `Request.url` we send when
+     * RPC-fetching the SessionDO, so opencode's deploy tool prepends a
+     * reachable host (not the previous internal-only
+     * `https://opencode-internal`) to its `preview_url` field.
+     */
+    private getPublicOrigin(): string {
+        if (isDev(this.env)) return 'http://localhost:5173';
+        const host = resolvePreviewHost(this.env, this.state.wsOrigin);
+        return `https://${host}`;
+    }
+
+    /**
      * Browser preview URL for SpaceDO-served HTML. Falls back to the main
      * worker route `/space/<spaceName>/preview/<branch>/`.
+     *
+     * In production we resolve the host from the frontend-supplied
+     * origin first (captured at WS upgrade) so the URL reflects the
+     * actual domain the user is on; in dev we keep `localhost:5173`
+     * so the iframe matches the running dev server.
      */
     public getBrowserPreviewURL(): string {
-        const previewDomain = isDev(this.env) ? 'localhost:5173' : getPreviewDomain(this.env);
-        const scheme = isDev(this.env) ? 'http' : 'https';
         const spaceName = this.state.spaceName || this.getAgentId();
         const branch = encodeURIComponent(this.state.currentBranch || 'main');
-        return `${scheme}://${previewDomain}/space/${spaceName}/preview/${branch}/`;
+        return `${this.getPublicOrigin()}/space/${spaceName}/preview/${branch}/`;
     }
 
     /**
@@ -438,8 +455,13 @@ export class OpencodeCodingBehavior
         // (set by `attachSpace` during `initialize`). No per-prompt
         // injection is required.
         try {
+            // Use the real public origin (not the previous synthetic
+            // `https://opencode-internal`) so opencode-side tools
+            // (notably `deploy`, which prepends `ctx.host` to its
+            // `preview_url`) hand the LLM URLs the user can actually
+            // open in a browser.
             const res = await stub.fetch(
-                `https://opencode-internal/session/${encodeURIComponent(this.state.opencodeSessionId)}/message`,
+                `${this.getPublicOrigin()}/session/${encodeURIComponent(this.state.opencodeSessionId)}/message`,
                 {
                     method: 'POST',
                     headers: { 'content-type': 'application/json' },
@@ -491,7 +513,7 @@ export class OpencodeCodingBehavior
         const accumulated = { text: '' };
         let response: Response;
         try {
-            response = await stub.fetch('https://opencode-internal/event?global=1', { signal });
+            response = await stub.fetch(`${this.getPublicOrigin()}/event?global=1`, { signal });
         } catch (e) {
             this.logger.warn('SessionDO SSE fetch failed', e);
             return;
@@ -664,11 +686,7 @@ export class OpencodeCodingBehavior
                 message: '',
                 conversationId,
                 isStreaming: true,
-                tool: {
-                    name: toolName,
-                    status: 'start',
-                    args: state.input,
-                },
+                tool: this.buildToolBroadcastPayload(toolName, state, 'start'),
             });
 
             // For file writes, also emit FILE_GENERATING so the editor
@@ -694,11 +712,7 @@ export class OpencodeCodingBehavior
                 message: '',
                 conversationId,
                 isStreaming: false,
-                tool: {
-                    name: toolName,
-                    status: 'success',
-                    args: state.input,
-                },
+                tool: this.buildToolBroadcastPayload(toolName, state, 'success'),
             });
             await this.maybeMirrorFile(toolName, state.input, seenWrittenFiles);
         } else if (state.status === 'error' || state.error) {
@@ -706,13 +720,40 @@ export class OpencodeCodingBehavior
                 message: '',
                 conversationId,
                 isStreaming: false,
-                tool: {
-                    name: toolName,
-                    status: 'error',
-                    args: state.input,
-                },
+                tool: this.buildToolBroadcastPayload(toolName, state, 'error'),
             });
         }
+    }
+
+    /**
+     * Build the `tool` payload for a CONVERSATION_RESPONSE broadcast.
+     *
+     * Centralises the wire shape (name / status / args / result) so the
+     * three call sites in `handleToolPart` (start, success, error) stay
+     * tidy and don't drift apart. `args` is `state.input` for every
+     * status; `result` is only meaningful in terminal states — the
+     * tool's `output` on success and the captured `error` on error.
+     */
+    private buildToolBroadcastPayload(
+        toolName: string,
+        state: NonNullable<StoredPart['state']>,
+        status: 'start' | 'success' | 'error',
+    ): { name: string; status: 'start' | 'success' | 'error'; args?: Record<string, unknown>; result?: string } {
+        const payload: { name: string; status: 'start' | 'success' | 'error'; args?: Record<string, unknown>; result?: string } = {
+            name: toolName,
+            status,
+            args: state.input,
+        };
+        if (status === 'success') {
+            if (typeof state.output === 'string') payload.result = state.output;
+        } else if (status === 'error') {
+            // Opencode places the failure description on `state.error`
+            // for `ToolStateError`. Fall back to `state.output` if a
+            // provider chose to surface it there instead.
+            if (typeof state.error === 'string') payload.result = state.error;
+            else if (typeof state.output === 'string') payload.result = state.output;
+        }
+        return payload;
     }
 
     private async maybeMirrorFile(

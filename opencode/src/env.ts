@@ -8,6 +8,18 @@ export interface Env {
   // Durable Object bindings
   SESSION_DO: DurableObjectNamespace
   SPACE_DO: DurableObjectNamespace
+  /**
+   * VibeSDK agent DO. Optional from opencode's perspective — opencode
+   * runs in a worker that may or may not provide this — but when
+   * present, the `get_browser_console_logs` tool routes RPC calls
+   * through it to reuse the agent's capture pipeline.
+   *
+   * Typed as a loose namespace so TS doesn't complain about the
+   * concrete `CodeGeneratorAgent` class shape from VibeSDK (which
+   * lives outside this workspace). The tool casts at the call site
+   * with the expected method signature.
+   */
+  CodeGenObject?: DurableObjectNamespace
 
   // Worker loader for deploy engine (Dynamic Workers)
   LOADER: WorkerLoader

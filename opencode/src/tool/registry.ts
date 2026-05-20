@@ -334,9 +334,126 @@ function buildTools(): ToolInfo[] {
       },
     ),
 
+    // ── Browser console-log debugging (RPC back to VibeSDK agent) ──
+    browserConsoleLogsTool(),
+
     // ── Skill loader (bundled skills served from memory) ───────────
     skillTool(),
   ]
+}
+
+/**
+ * `get_browser_console_logs` — opens the current preview app in a
+ * real headless Chromium (Cloudflare BROWSER binding in prod, local
+ * sidecar in dev) and returns console output, uncaught page errors,
+ * and failed network requests.
+ *
+ * Implemented as a thin DO-RPC pass-through into VibeSDK's agent DO
+ * (`env.CodeGenObject`) so capture logic lives in exactly one place
+ * (worker/services/browser-capture/) and isn't duplicated here.
+ */
+function browserConsoleLogsTool(): ToolInfo {
+  return defineTool(
+    "get_browser_console_logs",
+    [
+      "Open the current preview app in a real headless browser and return its console output, uncaught page errors, and failed network requests captured during page load.",
+      "",
+      "USE THIS FOR client-side bugs invisible to server-side logs (which you don't have access to here anyway): React render/hydration errors, broken client-side fetches, missing assets (4xx/5xx), CSP/CORS violations, JS exceptions in handlers.",
+      "",
+      "DEFAULTS to the current preview URL. Pass 'url' to inspect a specific route. Pass 'wait_seconds' (default 5, max 25) to allow late-firing logs/network calls after page load. Optional 'interact_script' is a JS string evaluated in the page after load (e.g. 'document.querySelector(\"button\").click()') to trigger interactions before logs are collected.",
+      "",
+      "OUTPUT is JSON: { url, captured_at, logs:[{level,text,location}], page_errors:[{message,stack}], request_failures:[{url,failure,status}], truncated, totals, warning? }. If 'warning' is set in dev, the browser sidecar wasn't reachable — instruct the user to run 'npm run dev:browser' and retry. Each category is independently capped at max_lines (default 100, -1 = no limit).",
+    ].join("\n"),
+    z.object({
+      url: z.string().optional().describe("Optional URL to inspect. Defaults to the current preview URL."),
+      wait_seconds: z.number().optional().describe("Seconds to wait after page load for late console output / network calls. Default 5, max 25."),
+      max_lines: z.number().optional().describe("Max entries returned per category (logs, page_errors, request_failures). Default 100. Set -1 for no limit (warning: heavy token usage)."),
+      interact_script: z.string().optional().describe("Optional JS string evaluated in the page after load to trigger interactions before logs are captured."),
+    }),
+    async (args) => {
+      const c = ctx()
+      const ns = c.env.CodeGenObject
+      if (!ns) {
+        return JSON.stringify({
+          error:
+            "Browser console-log capture is unavailable: the host worker did not provide a CodeGenObject binding.",
+        })
+      }
+
+      // The agent DO is keyed by the same name as the session's
+      // working space (set up by VibeSDK's opencode behavior
+      // `initialize()`). Look it up by name and RPC the capture.
+      const agentName = c.spaceStore.current()
+
+      // The VibeSDK agent class lives outside this workspace, so we
+      // type the stub locally to the one RPC method we need.
+      type CaptureResult = {
+        url: string
+        capturedAt: string
+        logs: Array<{ level: string; text: string; location?: { url?: string; lineNumber?: number; columnNumber?: number } }>
+        pageErrors: Array<{ message: string; stack?: string }>
+        requestFailures: Array<{ url: string; method?: string; failure: string; status?: number }>
+        warning?: string
+      }
+      type AgentStub = {
+        captureBrowserConsoleLogs(opts?: {
+          url?: string
+          waitSeconds?: number
+          viewport?: { width: number; height: number }
+          interactScript?: string
+        }): Promise<CaptureResult>
+      }
+
+      let stub: AgentStub
+      try {
+        stub = ns.get(ns.idFromName(agentName)) as unknown as AgentStub
+      } catch (e) {
+        return JSON.stringify({
+          error: `Failed to resolve agent DO stub for "${agentName}": ${e instanceof Error ? e.message : String(e)}`,
+        })
+      }
+
+      let result: CaptureResult
+      try {
+        result = await stub.captureBrowserConsoleLogs({
+          url: args.url,
+          waitSeconds: args.wait_seconds,
+          interactScript: args.interact_script,
+        })
+      } catch (e) {
+        return JSON.stringify({
+          error: `Browser console capture RPC failed: ${e instanceof Error ? e.message : String(e)}`,
+        })
+      }
+
+      const cap = args.max_lines ?? 100
+      const trunc = <T,>(arr: T[]): T[] => (cap === -1 ? arr : arr.slice(-cap))
+      const truncated =
+        cap !== -1 &&
+        (result.logs.length > cap ||
+          result.pageErrors.length > cap ||
+          result.requestFailures.length > cap)
+
+      return JSON.stringify(
+        {
+          url: result.url,
+          captured_at: result.capturedAt,
+          logs: trunc(result.logs),
+          page_errors: trunc(result.pageErrors),
+          request_failures: trunc(result.requestFailures),
+          truncated,
+          totals: {
+            logs: result.logs.length,
+            page_errors: result.pageErrors.length,
+            request_failures: result.requestFailures.length,
+          },
+          ...(result.warning ? { warning: result.warning } : {}),
+        },
+        null,
+        2,
+      )
+    },
+  )
 }
 
 function skillTool(): ToolInfo {
