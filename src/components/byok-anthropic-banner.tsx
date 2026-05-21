@@ -10,38 +10,20 @@
  *
  * Ship by Jun 3 2026 — fires 5 days after deploy, 14 days visible.
  * Copy from BYOK-ONBOARDING-COPY.md §Upgrade Prompt Addition.
+ * Pure window logic in src/lib/byok-window.ts (testable without React).
  */
 
 import { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-
-const BANNER_DISMISS_KEY = 'vibesdk_byok_jun8_banner_dismissed';
-
-// Jun 8 2026 00:00:00 UTC
-const JUN_8_2026_UTC = new Date('2026-06-08T00:00:00Z').getTime();
-// Jun 22 2026 23:59:59 UTC (14-day window)
-const JUN_22_2026_UTC = new Date('2026-06-22T23:59:59Z').getTime();
-
-function isWithinBannerWindow(now: number = Date.now()): boolean {
-    return now >= JUN_8_2026_UTC && now <= JUN_22_2026_UTC;
-}
-
-function isBannerDismissed(): boolean {
-    try {
-        return localStorage.getItem(BANNER_DISMISS_KEY) === 'true';
-    } catch {
-        return false;
-    }
-}
-
-function dismissBanner(): void {
-    try {
-        localStorage.setItem(BANNER_DISMISS_KEY, 'true');
-    } catch {
-        // localStorage unavailable — ignore
-    }
-}
+import {
+    isWithinBannerWindow,
+    isBannerDismissed,
+    dismissBanner,
+    BANNER_DISMISS_KEY,
+    JUN_8_2026_UTC,
+    JUN_22_2026_UTC,
+} from '@/lib/byok-window';
 
 interface ByokAnthropicBannerProps {
     /** Called when user clicks "Connect my key" — should open the BYOK modal. */
@@ -106,5 +88,5 @@ export function ByokAnthropicBanner({ onOpenByok }: ByokAnthropicBannerProps) {
     );
 }
 
-// Export for tests
-export { isWithinBannerWindow, BANNER_DISMISS_KEY, JUN_8_2026_UTC, JUN_22_2026_UTC };
+// Re-export for consumer convenience (tests use src/lib/byok-window.ts directly)
+export { isWithinBannerWindow, BANNER_DISMISS_KEY, JUN_8_2026_UTC, JUN_22_2026_UTC } from '@/lib/byok-window';
