@@ -259,8 +259,8 @@ Drizzle ORM|Current|No change pre-launch
 
 - [ ] Deploy S17 branch changes to staging (`feature/think-poc-ucp` → staging)
 - [ ] Verify byok-api-keys-modal.tsx explainer card renders + dismisses correctly
-- [ ] FAQ accordion entries added from BYOK-ONBOARDING-COPY.md
-- [ ] Jun-8 trigger banner logic wired + tested (window Jun 8–Jun 22, localStorage dismiss)
+- [x] FAQ accordion entries added from BYOK-ONBOARDING-COPY.md (ByokFaqSection, 8558ad3)
+- [x] Jun-8 trigger banner logic wired + tested (ByokAnthropicBanner, 8558ad3 + 988a2e1)
 
 ### T-16d (Jun 15): Compound deploy window
 
@@ -280,7 +280,7 @@ Drizzle ORM|Current|No change pre-launch
 - [ ] @PM QA-PROTOCOL.md Sessions 1-4 manual walkthrough
 - [ ] MULTI_AGENT_ENABLED env var confirmed "true" in staging
 - [ ] Error-rate monitoring dashboard live
-- [ ] GitHub placeholder URLs updated in README
+- [x] GitHub placeholder URLs updated in README (3f21343)
 
 ### T-0 (Jul 1): GA launch
 
