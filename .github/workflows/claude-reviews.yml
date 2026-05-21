@@ -49,11 +49,18 @@ jobs:
           PR_HEAD_REPO: ${{ github.event.pull_request && github.event.pull_request.head && github.event.pull_request.head.repo && github.event.pull_request.head.repo.full_name || '' }}
           PR_HEAD_REF: ${{ github.event.pull_request && github.event.pull_request.head && github.event.pull_request.head.ref || '' }}
           PR_BASE_REF: ${{ github.event.pull_request && github.event.pull_request.base && github.event.pull_request.base.ref || '' }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: |
           set -euo pipefail
 
           # Default: proceed for pull_request events; gate comment-driven runs.
           PROCEED="true"
+
+          # Skip gracefully when the Anthropic API key is not configured.
+          if [ -z "${ANTHROPIC_API_KEY:-}" ]; then
+            echo "ANTHROPIC_API_KEY secret not configured; skipping AI review."
+            PROCEED="false"
+          fi
 
           if [ "$EVENT_NAME" = "issue_comment" ] || [ "$EVENT_NAME" = "pull_request_review_comment" ]; then
             PERM=$(gh api "repos/$REPO/collaborators/$ACTOR/permission" --jq .permission 2>/dev/null || echo "none")
