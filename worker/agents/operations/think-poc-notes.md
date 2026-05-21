@@ -68,7 +68,7 @@ Lines 530-553: processProjectUpdates() + isProjectUpdateType()
 | UCP Pattern | Think Primitive | Notes |
 |---|---|---|
 | conversationState.runningHistory array | this.session (SQLite-backed) | Persists across DO hibernations |
-| compactifyContext() | this.session.withCompaction() | Triggered by token threshold |
+| compactifyContext() | `this.session.onCompaction(fn).compactAfter(threshold)` | Triggered by token threshold |
 | buildToolCallRenderer() closure | this.afterToolCall hook | Declarative, not imperative |
 | executeInference() chunk_size=64 loop | this.ResumableStream | Handles WS reconnect natively |
 | Duplicate assistant message detection | this.session deduplication | Built-in |

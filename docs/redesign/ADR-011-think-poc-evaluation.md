@@ -48,8 +48,8 @@ Think provides out-of-box:
 | WebSocket chat protocol | built-in (`cf_agent_chat_*` wire format) | `handleWebSocketMessage` + `ws-buffer.ts` + PartySocket |
 | Agentic loop + streaming | `streamText` managed w/ `maxSteps`, per-chunk callbacks | `executeInference` + chunk callbacks in `UserConversationProcessor` |
 | Tool lifecycle hooks | `beforeToolCall` / `afterToolCall` / `onStepFinish` / `onChunk` — framework-level | manually attached `.onStart`/`.onComplete` closures per tool build |
-| Conversation compaction | `session.withCompaction()` | `compactifyContext()` in `UserConversationProcessor` |
-| Sub-agents | `agentTool(ChildClass, schema)` — child owns state, resumable stream, storage | none (deep-debugger is inline DO method, not true sub-agent) |
+| Conversation compaction | `session.onCompaction(fn).compactAfter(threshold)` | `compactifyContext()` in `UserConversationProcessor` |
+| Sub-agents | `agentTool(ChildClass, schema)` — child owns state, resumable stream, storage. **Import:** `import { agentTool } from "agents/agent-tools"` (subpath export of `agents` package, NOT from `@cloudflare/think`) | none (deep-debugger is inline DO method, not true sub-agent) |
 | Workspace VFS | `this.workspace` (DO+SQLite, read/write/edit/list/find/grep/delete, multimodal, R2 spillover) | `virtual-filesystem.ts` + `read-files.ts` (list/read/delete only, no write/edit/grep) |
 | Stream resumption | `ResumableStream` built-in | `ws-buffer.ts` (ephemeral flush-on-reconnect only, no full replay) |
 | Code execution | `createExecuteTool()` via `@cloudflare/codemode` | `exec-commands.ts` via sandbox RPC |
@@ -79,7 +79,7 @@ tool layer with Think's base class, Session, and built-in workspace.
 | Conversation agent | `UserConversationProcessor.ts` (553) → Think subclass | system prompt, memory recall, tool set |
 | VFS tools | `virtual-filesystem.ts` (71) + `read-files.ts` (42) → `this.workspace` | — |
 | Agentic loop + streaming | `executeInference` wrapper → Think's `streamText` | — |
-| History compaction | `conversationCompactifier.ts` → `session.withCompaction()` | — |
+| History compaction | `conversationCompactifier.ts` → `session.onCompaction(fn).compactAfter(threshold)` | — |
 | WebSocket buffer | `ws-buffer.ts` → `ResumableStream` | — |
 | Tool hooks | manual `.onStart`/`.onComplete` closures → `beforeToolCall`/`afterToolCall` | — |
 

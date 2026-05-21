@@ -26,10 +26,26 @@ jobs:
       issues: write
       pull-requests: write
     steps:
+      - name: Guard — skip if Cloudflare AI Gateway secrets unset
+        id: cf-guard
+        env:
+          CF_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CF_GATEWAY_ID: ${{ secrets.CLOUDFLARE_AI_GATEWAY_ID }}
+          CF_API_TOKEN: ${{ secrets.CLOUDFLARE_AI_GATEWAY_TOKEN }}
+        run: |
+          if [ -z "${CF_ACCOUNT_ID:-}" ] || [ -z "${CF_GATEWAY_ID:-}" ] || [ -z "${CF_API_TOKEN:-}" ]; then
+            echo "Cloudflare AI Gateway secrets not configured; skipping Bonk review."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Checkout repository
+        if: steps.cf-guard.outputs.skip == 'false'
         uses: actions/checkout@v4
 
       - name: Run Bonk
+        if: steps.cf-guard.outputs.skip == 'false'
         uses: ask-bonk/ask-bonk/github@main
         env:
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}

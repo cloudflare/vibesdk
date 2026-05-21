@@ -141,19 +141,19 @@ All three must be batched in one deploy:
 All BYOK in-app copy is wired (S17, commit 28839c3). The Jun 8 Anthropic activation email creates peak user confusion. **Jun 3 deploy = T-5d buffer before confusion window.**
 
 Deploy checklist:
-- [ ] `byok-api-keys-modal.tsx` copy verified in staging
-- [ ] `config-modal.tsx` BYOK tab description rendered
-- [ ] `settings/index.tsx` "Provider API Keys (BYOK)" section visible
-- [ ] FAQ additions from BYOK-ONBOARDING-COPY.md merged into FAQ accordion component
-- [ ] Jun-8 trigger banner logic wired (fire when `Date.now()` in [Jun 8, Jun 22] AND no BYOK key configured)
+- [ ] `byok-api-keys-modal.tsx` copy verified in staging (engineering done in 28839c3)
+- [ ] `config-modal.tsx` BYOK tab description rendered (engineering done in 28839c3)
+- [ ] `settings/index.tsx` "Provider API Keys (BYOK)" section visible (engineering done in 28839c3)
+- [x] FAQ additions from BYOK-ONBOARDING-COPY.md merged into FAQ accordion — `ByokFaqSection` wired in pricing/index.tsx (8558ad3)
+- [x] Jun-8 trigger banner logic wired — `ByokAnthropicBanner` in home.tsx (8558ad3). Date window [Jun 8, Jun 22], localStorage dismiss.
 
 ### P1 — Engineering (Option B Think Pattern Adoptions, pre-Jul-1)
 
 ```
-# schema: item|effort|file|value|status
-Extend ws-buffer.ts to SQLite-backed replay (ResumableStream pattern from ADR-011)|2d|worker/agents/core/ws-buffer.ts|Fixes silent message loss on DO eviction/reconnect|PENDING
-Formal ToolLifecycle interface (formalize existing .onStart/.onComplete closures)|0.5d|worker/agents/tools/customTools.ts|Testable tool hooks, reduces per-tool boilerplate|PENDING
-codeDebugger.ts as true sub-agent DO (agentTool() pattern from Think)|3-4d|worker/agents/assistants/codeDebugger.ts|Isolated storage, independent abort, no shared state|POST-LAUNCH
+# schema: item|effort|file|value|status|commit
+Extend ws-buffer.ts to SQLite-backed replay (ResumableStream pattern from ADR-011)|2d|worker/agents/core/ws-buffer.ts|Fixes silent message loss on DO eviction/restart. 35 tests pass.|DONE|4eb36cb
+Formal ToolLifecycle interface (formalize existing .onStart/.onComplete closures + onError hook)|0.5d|worker/agents/tools/types.ts + customTools.ts|Testable tool hooks, onError propagation. tsc clean.|DONE|4eb36cb
+codeDebugger.ts as true sub-agent DO (agentTool() pattern from Think)|3-4d|worker/agents/assistants/codeDebugger.ts|Isolated storage, independent abort, no shared state|POST-LAUNCH|—
 ```
 
 ### P1 — Sonnet 4.8 Flip (when released)
@@ -233,7 +233,7 @@ ADR-007 Parallel sub-agent merge|DONE|Option A (phase independence, disjoint fil
 ADR-008 AI Gateway streaming resilience|FINAL|App-layer WS buffer (ws-buffer.ts). CF Gateway RFC #1257 still open — not GA.|Monitor #1257; adopt if closes
 ADR-009 Generated app database strategy|DONE|DO SQLite (ctx.storage.sql) scaffold for generated apps|None
 ADR-010 CF single-platform risk (degraded-mode)|DONE|D1 session_snapshots + DegradedModeBanner. Migration 0010 → Jun 15 deploy.|Apply migration Jun 15
-ADR-011 @cloudflare/think evaluation|DECIDED|Option B (selective patterns pre-launch) + 2-day POC post-launch. Full Option A: 14-21d → POST-LAUNCH.|ws-buffer.ts SQLite replay + ToolLifecycle interface pre-Jul-1
+ADR-011 @cloudflare/think evaluation|DONE (pre-Jul-1 items complete)|Option B shipped: ToolLifecycle interface (4eb36cb) + ws-buffer SQLite replay (4eb36cb). API corrections applied (withCompaction→onCompaction/compactAfter; agentTool import path). 2-day POC: post-launch on feature/think-poc-ucp.|codeDebugger.ts sub-agent DO → POST-LAUNCH
 ```
 
 ---
@@ -259,8 +259,8 @@ Drizzle ORM|Current|No change pre-launch
 
 - [ ] Deploy S17 branch changes to staging (`feature/think-poc-ucp` → staging)
 - [ ] Verify byok-api-keys-modal.tsx explainer card renders + dismisses correctly
-- [ ] FAQ accordion entries added from BYOK-ONBOARDING-COPY.md
-- [ ] Jun-8 trigger banner logic wired + tested (window Jun 8–Jun 22, localStorage dismiss)
+- [x] FAQ accordion entries added from BYOK-ONBOARDING-COPY.md (ByokFaqSection, 8558ad3)
+- [x] Jun-8 trigger banner logic wired + tested (ByokAnthropicBanner, 8558ad3 + 988a2e1)
 
 ### T-16d (Jun 15): Compound deploy window
 
@@ -280,7 +280,7 @@ Drizzle ORM|Current|No change pre-launch
 - [ ] @PM QA-PROTOCOL.md Sessions 1-4 manual walkthrough
 - [ ] MULTI_AGENT_ENABLED env var confirmed "true" in staging
 - [ ] Error-rate monitoring dashboard live
-- [ ] GitHub placeholder URLs updated in README
+- [x] GitHub placeholder URLs updated in README (3f21343)
 
 ### T-0 (Jul 1): GA launch
 

@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Check, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { apiClient } from '@/lib/api-client';
+import { ByokFaqSection } from '@/components/byok-faq-section';
 
 type Cycle = 'monthly' | 'annual';
 type PaidTier = 'pro' | 'team';
@@ -374,6 +375,9 @@ export default function PricingPage() {
                 </p>
             </div>
         </div>
+
+        {/* BYOK FAQ — address Anthropic Jun-15 pricing confusion, ship Jun 3 */}
+        <ByokFaqSection />
     );
 }
 
