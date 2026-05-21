@@ -364,15 +364,70 @@ describe('mergeBroadcasts', () => {
         expect(mergeBroadcasts([], [], NOW)).toHaveLength(0);
     });
 
-    it('deduplicates entries with same enqueuedAt', () => {
+    it('deduplicates identical entries that appear in both sources (same DO lifetime)', () => {
         const entry: PendingBroadcast = {
             type: 'phase_complete',
             data: {} as PendingBroadcast['data'],
             enqueuedAt: NOW,
         };
-        // Same entry appears in both memory and SQLite (same DO lifetime)
+        // Same type + payload + timestamp → composite key matches → deduplicated
         const merged = mergeBroadcasts([entry], [entry], NOW);
         expect(merged).toHaveLength(1);
+    });
+
+    it('P1: preserves distinct broadcasts at the same millisecond (different type)', () => {
+        // GENERATION_STARTED and RUN_STARTED can be emitted back-to-back within the
+        // same synchronous call site, landing on the same ms timestamp.
+        // Timestamp-only dedup would drop one — composite key must keep both.
+        const ts = NOW;
+        const gen: PendingBroadcast = {
+            type: 'generation_started' as PendingBroadcast['type'],
+            data: {} as PendingBroadcast['data'],
+            enqueuedAt: ts,
+        };
+        const run: PendingBroadcast = {
+            type: 'run_started' as PendingBroadcast['type'],
+            data: {} as PendingBroadcast['data'],
+            enqueuedAt: ts,
+        };
+        // gen in SQLite, run in memory — same ms, different types
+        const merged = mergeBroadcasts([run], [gen], NOW + 1_000);
+        expect(merged).toHaveLength(2);
+    });
+
+    it('P1: preserves distinct broadcasts at the same millisecond (same type, different payload)', () => {
+        const ts = NOW;
+        const a: PendingBroadcast = {
+            type: 'state_delta',
+            data: { seq: 1 } as unknown as PendingBroadcast['data'],
+            enqueuedAt: ts,
+        };
+        const b: PendingBroadcast = {
+            type: 'state_delta',
+            data: { seq: 2 } as unknown as PendingBroadcast['data'],
+            enqueuedAt: ts,
+        };
+        const merged = mergeBroadcasts([a], [b], NOW + 1_000);
+        expect(merged).toHaveLength(2);
+    });
+
+    it('P2: applies in-memory TTL (5 min) separate from SQLite TTL (30 min)', () => {
+        // An entry 6 minutes old: stale for in-memory (>5 min), fresh for SQLite (<30 min)
+        const sixMinAgo = NOW - 6 * 60_000;
+        const inMemStale: PendingBroadcast = {
+            type: 'state_delta',
+            data: {} as PendingBroadcast['data'],
+            enqueuedAt: sixMinAgo,
+        };
+        const sqlFresh: PendingBroadcast = {
+            type: 'phase_complete',
+            data: {} as PendingBroadcast['data'],
+            enqueuedAt: sixMinAgo,
+        };
+        // inMemStale dropped by 5-min in-memory TTL; sqlFresh kept by 30-min SQLite TTL
+        const merged = mergeBroadcasts([inMemStale], [sqlFresh], NOW);
+        expect(merged).toHaveLength(1);
+        expect(merged[0].type).toBe('phase_complete');
     });
 
     it('preserves entries unique to each source', () => {

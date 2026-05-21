@@ -17,9 +17,10 @@
  *   Functions: initWsBroadcastLog, persistBroadcast, replayPersistedBroadcasts,
  *              pruneExpiredBroadcasts.
  *
- * On `flushPendingBroadcasts`, both layers are merged, deduplicated by
- * `enqueuedAt` timestamp, and delivered in chronological order. SQLite log is
- * pruned after delivery. ADR-011 Option B — ResumableStream pattern adoption.
+ * On `flushPendingBroadcasts`, both layers are merged, deduplicated by a
+ * composite key (enqueuedAt + type + payload), and delivered in chronological
+ * order. SQLite log is pruned after delivery. ADR-011 Option B — ResumableStream
+ * pattern adoption.
  *
  * Pattern mirrors CF Agents SDK v0.12.4 "server turn persistence"
  * (`cancelOnClientAbort: false`): keep server execution running, deliver
@@ -195,8 +196,15 @@ export function pruneExpiredBroadcasts(sql: SqlExecutor): void {
 
 /**
  * Merge in-memory and SQLite-replayed broadcasts into a single chronologically
- * ordered, deduplicated array. Deduplication key is `enqueuedAt` timestamp
- * (sufficient because messages from the same DO instance share a monotonic clock).
+ * ordered, deduplicated array.
+ *
+ * TTL is applied per-source before merging:
+ * - In-memory: BROADCAST_BUFFER_TTL_MS (5 min) — same as prior behaviour
+ * - SQLite:    SQLITE_BROADCAST_TTL_MS  (30 min) — longer for DO-restart recovery
+ *
+ * Deduplication key is a composite of (enqueuedAt, type, serialised payload).
+ * Timestamp-only dedup silently drops legitimate same-millisecond broadcasts,
+ * e.g. GENERATION_STARTED and RUN_STARTED emitted back-to-back in base.ts.
  *
  * In-memory entries are typically a subset of SQLite entries within the same
  * DO lifetime. On DO restart, in-memory is empty and SQLite provides replay.
@@ -206,22 +214,27 @@ export function mergeBroadcasts(
     fromSqlite: PendingBroadcast[],
     now: number = Date.now(),
 ): PendingBroadcast[] {
-    // Combine both sources
-    const all = [...fromSqlite, ...inMemory];
+    // Apply source-specific TTLs before merging
+    const memoryCutoff = now - BROADCAST_BUFFER_TTL_MS; // 5 min
+    const sqliteCutoff = now - SQLITE_BROADCAST_TTL_MS; // 30 min
 
-    // Deduplicate by enqueuedAt (SQLite and in-memory may overlap within same lifetime)
-    const seen = new Set<number>();
+    const freshMemory = inMemory.filter((e) => e.enqueuedAt >= memoryCutoff);
+    const freshSqlite = fromSqlite.filter((e) => e.enqueuedAt >= sqliteCutoff);
+
+    // Combine, SQLite first so the order is stable when both sources share an entry
+    const all = [...freshSqlite, ...freshMemory];
+
+    // Deduplicate by composite key: timestamp + type + serialised payload.
+    // Using timestamp alone drops distinct same-millisecond events (P1).
+    const seen = new Set<string>();
     const deduped: PendingBroadcast[] = [];
     for (const entry of all) {
-        if (!seen.has(entry.enqueuedAt)) {
-            seen.add(entry.enqueuedAt);
+        const key = `${entry.enqueuedAt}|${entry.type}|${JSON.stringify(entry.data)}`;
+        if (!seen.has(key)) {
+            seen.add(key);
             deduped.push(entry);
         }
     }
 
-    // Apply SQLite TTL (longer than in-memory TTL)
-    const cutoff = now - SQLITE_BROADCAST_TTL_MS;
-    return deduped
-        .filter((e) => e.enqueuedAt >= cutoff)
-        .sort((a, b) => a.enqueuedAt - b.enqueuedAt);
+    return deduped.sort((a, b) => a.enqueuedAt - b.enqueuedAt);
 }
