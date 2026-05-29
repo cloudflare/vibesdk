@@ -3,6 +3,13 @@ export { SessionDO } from "./session/durable-object"
 export { SpaceDO } from "./space/durable-object"
 export type { SessionConfigOverrides } from "./session/durable-object"
 
+// ── Inspector result types (for DB-viewer route handlers) ─────────
+export type {
+  AppDatabaseTable,
+  AppDatabaseColumn,
+  AppDatabaseReadResult,
+} from "./space/app-database"
+
 // ── Environment bindings type ────────────────────────────────────
 export type { Env } from "./env"
 

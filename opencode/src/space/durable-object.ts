@@ -11,6 +11,48 @@ import type { Env } from "../env"
 import { handleInfoRefs, handleUploadPack, handleReceivePack, handleHead, type GitHttpContext } from "./git-smart-http"
 import { handleDeployCommand, type DeployContext } from "./deploy-engine"
 import { handleAssetRequest, buildAssetManifest, createMemoryStorage, type AssetConfig } from "@cloudflare/worker-bundler"
+import {
+  buildInspectorWrapperSource,
+  VIBE_APP_MODULE,
+} from "./inspector-wrapper"
+
+// ─── Inspector result types ────────────────────────────────────────────────
+// These mirror the shapes returned by the wrapper-subclass injected into
+// the dynamic worker (see `inspector-wrapper.ts`). Re-exported at the
+// package boundary so the host controller types match.
+
+export interface AppDatabaseColumn {
+  name: string
+  type: string
+  notnull: number
+  pk: number
+}
+export interface AppDatabaseTable {
+  name: string
+  rowCount: number
+  columns: AppDatabaseColumn[]
+}
+export interface AppDatabaseReadResult {
+  columns: string[]
+  rows: Record<string, unknown>[]
+  totalCount: number
+}
+
+export interface AppTableQueryOpts {
+  limit?: number
+  offset?: number
+  orderBy?: string
+  orderDir?: "asc" | "desc"
+}
+
+interface DeploymentRow {
+  branch: string
+  commitHash: string
+  mainModule: string
+  modules: Record<string, string | Record<string, unknown>>
+  assets: Record<string, string>
+  assetConfig: AssetConfig
+}
 
 // ─── SpaceDO ────────────────────────────────────────────────────────────────
 // Agent space Durable Object backed by @cloudflare/shell.
@@ -284,48 +326,168 @@ export class SpaceDO extends DurableObject<Env> {
     return this.workspace.getWorkspaceInfo()
   }
 
+  // ── Deployment row reader (shared by servePreview + DB-viewer) ──
+
+  private readDeployment(branch: string): DeploymentRow | null {
+    const rows = this.ctx.storage.sql
+      .exec(
+        "SELECT branch, commit_hash, main_module, modules, assets, asset_config FROM deployments WHERE branch = ?",
+        branch,
+      )
+      .toArray()
+    if (rows.length === 0) return null
+    const r = rows[0]
+    return {
+      branch: r.branch as string,
+      commitHash: r.commit_hash as string,
+      mainModule: r.main_module as string,
+      modules: JSON.parse(r.modules as string) as Record<string, string | Record<string, unknown>>,
+      assets: JSON.parse((r.assets as string) || "{}") as Record<string, string>,
+      assetConfig: JSON.parse((r.asset_config as string) || "{}") as AssetConfig,
+    }
+  }
+
   // ── Preview serving via Dynamic Workers ─────────────────────────
+  //
+  // Architecture (matches Cloudflare's Durable Object Facets docs example):
+  //
+  //   - The LLM exports `class App extends DurableObject` from its main
+  //     module. `App.fetch(request)` is the entire backend (Hono /
+  //     itty-router / vanilla — the LLM decides).
+  //   - SpaceDO acts as the supervisor ("AppRunner" in the docs).
+  //     `servePreview` loads the user's worker via the Worker Loader,
+  //     extracts the App class, and hosts it as a Facet keyed
+  //     `app:<branch>`. Static assets are served host-side; everything
+  //     else (including WebSocket upgrades) is forwarded into the Facet.
+  //   - State is the Facet's own `ctx.storage` (SQLite + KV). No env.DB
+  //     binding is injected.
+  //   - To make the DB-viewer work without forcing the LLM to write
+  //     inspector boilerplate, we don't load the user's main directly.
+  //     We load a wrapper module (`inspector-wrapper.ts`) which imports
+  //     the user's `App`, re-exports everything, and exports a subclass
+  //     `App` that adds `__vibeInspectListTables` / `__vibeInspectRead`
+  //     / `__vibeWipe`. The subclass shares the same `ctx.storage`.
 
   async servePreview(branch: string, request: Request): Promise<Response> {
     await this.ensureInit()
 
-    const row = this.ctx.storage.sql
-      .exec(
-        "SELECT branch, commit_hash, main_module, modules, assets, asset_config FROM deployments WHERE branch = ?",
-        branch
-      )
-      .toArray()
-
-    if (row.length === 0) {
+    const dep = this.readDeployment(branch)
+    if (!dep) {
       return new Response(`No deployment found for branch "${branch}"`, { status: 404 })
     }
 
-    const r = row[0]
-    const mainModule = r.main_module as string
-    const modules = JSON.parse(r.modules as string) as Record<string, string | Record<string, unknown>>
-    const commitHash = r.commit_hash as string
-    const assets = JSON.parse((r.assets as string) || "{}") as Record<string, string>
-    const assetConfig = JSON.parse((r.asset_config as string) || "{}") as AssetConfig
-
-    // Serve static assets host-side before forwarding to dynamic worker
-    if (Object.keys(assets).length > 0) {
-      const manifest = await buildAssetManifest(assets)
-      const storage = createMemoryStorage(assets)
-      const assetResponse = await handleAssetRequest(request, manifest, storage, assetConfig)
+    // Serve static assets host-side before forwarding to the Facet.
+    if (Object.keys(dep.assets).length > 0) {
+      const manifest = await buildAssetManifest(dep.assets)
+      const storage = createMemoryStorage(dep.assets)
+      const assetResponse = await handleAssetRequest(request, manifest, storage, dep.assetConfig)
       if (assetResponse) return assetResponse
     }
 
-    // Fall through to dynamic worker for non-asset requests
-    const spaceName = this.ctx.id.name ?? "space"
-    const workerId = `${spaceName}-${branch}-${commitHash}`
+    let appClass: DurableObjectClass
+    try {
+      appClass = this.loadAppClass(dep)
+    } catch (e) {
+      return new Response(
+        `Failed to load App class: ${e instanceof Error ? e.message : String(e)}`,
+        { status: 500 },
+      )
+    }
 
+    const facet = this.ctx.facets.get(facetNameForApp(branch), () => ({ class: appClass }))
+    return facet.fetch(request)
+  }
+
+  // ── App-class loader ────────────────────────────────────────────
+  //
+  // Loads the dynamic worker for `branch`'s latest deployment with the
+  // inspector wrapper as the main module. The wrapper imports the
+  // user's main and exports a subclass of `App` with `__vibeInspect*`
+  // methods (see `inspector-wrapper.ts`).
+  //
+  // `LOADER.get(id, ...)` caches by id. We key on
+  // `<spaceName>-<branch>-<commitHash>` so a redeploy invalidates the
+  // worker (and any Facet still pinned to the old class is aborted
+  // implicitly the next time `ctx.facets.get(...)` runs the callback).
+  private loadAppClass(dep: DeploymentRow): DurableObjectClass {
+    const spaceName = this.ctx.id.name ?? "space"
+    const workerId = `${spaceName}-${dep.branch}-${dep.commitHash}`
+    const wrappedModules: Record<string, string | Record<string, unknown>> = {
+      ...dep.modules,
+      [VIBE_APP_MODULE]: buildInspectorWrapperSource(dep.mainModule),
+    }
     const worker = this.env.LOADER.get(workerId, async () => ({
-      mainModule,
-      modules,
+      mainModule: VIBE_APP_MODULE,
+      modules: wrappedModules,
       compatibilityDate: "2025-04-01",
     }))
+    return (
+      worker as { getDurableObjectClass: (name: string) => DurableObjectClass }
+    ).getDurableObjectClass("App")
+  }
 
-    return worker.getEntrypoint().fetch(request)
+  /**
+   * Returns a Facet stub for the App of `branch`, starting it (loading
+   * the dynamic worker, wrapping the App class) on first call. Used by
+   * the DB-viewer inspector RPCs.
+   *
+   * Returns `null` if there is no deployment yet for the branch.
+   */
+  private getAppFacet(branch: string): Fetcher | null {
+    const dep = this.readDeployment(branch)
+    if (!dep) return null
+    const cls = this.loadAppClass(dep)
+    return this.ctx.facets.get(facetNameForApp(branch), () => ({ class: cls })) as unknown as Fetcher
+  }
+
+  // ── DB-viewer RPC methods ───────────────────────────────────────
+  //
+  // The App's storage lives inside the Facet. The inspector wrapper
+  // (`inspector-wrapper.ts`) extends the user's App class with
+  // `__vibeInspect*` methods, so we just RPC into the Facet stub.
+
+  async listAppTables(branch: string): Promise<AppDatabaseTable[]> {
+    await this.ensureInit()
+    const facet = this.getAppFacet(branch)
+    if (!facet) return []
+    return await (facet as unknown as {
+      __vibeInspectListTables: () => Promise<AppDatabaseTable[]>
+    }).__vibeInspectListTables()
+  }
+
+  async queryAppTable(
+    branch: string,
+    table: string,
+    opts: AppTableQueryOpts = {},
+  ): Promise<AppDatabaseReadResult> {
+    await this.ensureInit()
+    const facet = this.getAppFacet(branch)
+    if (!facet) {
+      return { columns: [], rows: [], totalCount: 0 }
+    }
+    return await (facet as unknown as {
+      __vibeInspectRead: (
+        table: string,
+        opts: AppTableQueryOpts,
+      ) => Promise<AppDatabaseReadResult>
+    }).__vibeInspectRead(table, opts)
+  }
+
+  /**
+   * Drop every user table inside the App Facet's SQLite. We use a
+   * targeted drop rather than `ctx.facets.delete(...)` because the
+   * latter aborts the Facet immediately and breaks any active
+   * WebSocket connections — the user is usually in the middle of
+   * preview-iteration when they hit Reset.
+   */
+  async wipeAppDatabase(branch: string): Promise<{ ok: true }> {
+    await this.ensureInit()
+    const facet = this.getAppFacet(branch)
+    if (!facet) return { ok: true }
+    await (facet as unknown as {
+      __vibeWipe: () => Promise<{ ok: true }>
+    }).__vibeWipe()
+    return { ok: true }
   }
 
   // ── HTTP handler for Git Smart HTTP protocol ────────────────────
@@ -426,6 +588,12 @@ function rewritePreviewResponse(response: Response, basePath: string): Response 
       },
     })
     .transform(response)
+}
+
+// ─── Facet naming ───────────────────────────────────────────────────────────
+
+function facetNameForApp(branch: string): string {
+  return `app:${branch}`
 }
 
 // ─── Helpers ────────────────────────────────────────────────────────────────

@@ -5,19 +5,21 @@
   "description": "OpenCode Durable Objects — SessionDO and SpaceDO for Cloudflare Workers",
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
+      "types": "./types/index.d.ts",
       "import": "./dist/index.js",
       "require": "./dist/index.js"
     }
   },
-  "types": "dist/index.d.ts",
+  "types": "types/index.d.ts",
   "main": "dist/index.js",
   "files": [
     "dist",
-    "src"
+    "src",
+    "types"
   ],
   "scripts": {
     "build": "node scripts/gen-skill-manifest.mjs && node build.mjs",
+    "prepare": "node scripts/gen-skill-manifest.mjs && node build.mjs",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

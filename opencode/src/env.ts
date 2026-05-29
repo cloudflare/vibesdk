@@ -21,7 +21,9 @@ export interface Env {
    */
   CodeGenObject?: DurableObjectNamespace
 
-  // Worker loader for deploy engine (Dynamic Workers)
+  // Worker loader for deploy engine (Dynamic Workers). Typed by
+  // @cloudflare/workers-types — supports `env` field for injected
+  // bindings and `getDurableObjectClass(name)` on the returned stub.
   LOADER: WorkerLoader
 
   // AI binding (optional — for AI Gateway zero-config fallback)

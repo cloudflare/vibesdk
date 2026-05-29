@@ -2,6 +2,11 @@
 // Parses the child project's wrangler.toml / wrangler.json / wrangler.jsonc
 // to extract deployment-relevant configuration.
 
+export interface ParsedDurableObjectBinding {
+  name: string
+  className: string
+}
+
 export interface ParsedWranglerConfig {
   main?: string
   compatibilityDate?: string
@@ -11,6 +16,20 @@ export interface ParsedWranglerConfig {
     binding?: string
     htmlHandling?: "auto-trailing-slash" | "force-trailing-slash" | "drop-trailing-slash" | "none"
     notFoundHandling?: "single-page-application" | "404-page" | "none"
+  }
+  /**
+   * Durable Object bindings declared by the child project (Tier-2 apps).
+   * Each binding must reference a SQLite-backed class exported from `main`.
+   * `script_name`-style externals and KV-backed (`new_classes`) DOs are
+   * rejected upstream of the parser so we keep this shape minimal.
+   */
+  durableObjects?: ParsedDurableObjectBinding[]
+}
+
+export class WranglerConfigError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = "WranglerConfigError"
   }
 }
 
@@ -46,7 +65,69 @@ function parseJsonConfig(content: string): ParsedWranglerConfig {
     if (typeof raw.assets.not_found_handling === "string") cfg.assets.notFoundHandling = raw.assets.not_found_handling
   }
 
+  // ── Durable Objects (Tier 2) ───────────────────────────────────
+  const dos = parseDurableObjectsJson(raw)
+  if (dos && dos.length > 0) cfg.durableObjects = dos
+
   return cfg
+}
+
+function parseDurableObjectsJson(raw: any): ParsedDurableObjectBinding[] | undefined {
+  const block = raw?.durable_objects
+  if (!block || typeof block !== "object") return undefined
+  const bindings = block.bindings
+  if (!Array.isArray(bindings) || bindings.length === 0) return undefined
+
+  // Collect the set of class names allowed by migrations.
+  const sqliteClasses = new Set<string>()
+  const nonSqliteClasses = new Set<string>()
+  const migrations = Array.isArray(raw.migrations) ? raw.migrations : []
+  for (const m of migrations) {
+    if (!m || typeof m !== "object") continue
+    if (Array.isArray(m.new_sqlite_classes)) {
+      for (const c of m.new_sqlite_classes) {
+        if (typeof c === "string") sqliteClasses.add(c)
+      }
+    }
+    if (Array.isArray(m.new_classes)) {
+      for (const c of m.new_classes) {
+        if (typeof c === "string") nonSqliteClasses.add(c)
+      }
+    }
+  }
+
+  const result: ParsedDurableObjectBinding[] = []
+  for (const b of bindings) {
+    if (!b || typeof b !== "object") continue
+    if (typeof b.script_name === "string") {
+      throw new WranglerConfigError(
+        `Durable Object binding "${b.name ?? "?"}" uses script_name. ` +
+        `Generated apps cannot reference Durable Objects from other scripts.`,
+      )
+    }
+    const name = typeof b.name === "string" ? b.name : null
+    const className = typeof b.class_name === "string" ? b.class_name : null
+    if (!name || !className) {
+      throw new WranglerConfigError(
+        `Durable Object binding must have both "name" and "class_name".`,
+      )
+    }
+    if (nonSqliteClasses.has(className)) {
+      throw new WranglerConfigError(
+        `Durable Object class "${className}" uses new_classes (KV storage). ` +
+        `Generated apps must declare it under new_sqlite_classes instead.`,
+      )
+    }
+    if (!sqliteClasses.has(className)) {
+      throw new WranglerConfigError(
+        `Durable Object class "${className}" is not declared in migrations.new_sqlite_classes. ` +
+        `Add a migration tag with new_sqlite_classes: ["${className}"].`,
+      )
+    }
+    result.push({ name, className })
+  }
+
+  return result
 }
 
 function parseTomlConfig(content: string): ParsedWranglerConfig {
@@ -67,6 +148,17 @@ function parseTomlConfig(content: string): ParsedWranglerConfig {
     cfg.assets.binding = extractTomlString(assetsSection, "binding")
     cfg.assets.htmlHandling = extractTomlString(assetsSection, "html_handling") as ParsedWranglerConfig["assets"] extends { htmlHandling?: infer T } ? T : never
     cfg.assets.notFoundHandling = extractTomlString(assetsSection, "not_found_handling") as ParsedWranglerConfig["assets"] extends { notFoundHandling?: infer T } ? T : never
+  }
+
+  // TOML DO parsing is intentionally not supported; the opencode skill
+  // tells the LLM to use wrangler.json (the file the bundler emits). If
+  // a TOML config declares DOs, we surface a clear error so the user
+  // knows to switch to JSON.
+  if (/\[\[durable_objects\.bindings\]\]/.test(content)) {
+    throw new WranglerConfigError(
+      "Durable Object bindings in wrangler.toml are not supported. " +
+      "Use wrangler.json instead.",
+    )
   }
 
   return cfg

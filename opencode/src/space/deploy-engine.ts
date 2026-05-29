@@ -2,7 +2,7 @@ import type { Git } from "@cloudflare/shell/git"
 import type { Workspace } from "@cloudflare/shell"
 import { createApp, createWorker, type AssetConfig, type Modules } from "@cloudflare/worker-bundler"
 import { jsonResponse } from "./git-pack"
-import { parseWranglerConfig } from "./wrangler-config"
+import { parseWranglerConfig, WranglerConfigError } from "./wrangler-config"
 
 // ─── Deploy Engine ──────────────────────────────────────────────────────────
 
@@ -88,7 +88,30 @@ async function deployBranch(
   }
 
   // Parse child project's wrangler config for assets + entry point
-  const wranglerCfg = parseWranglerConfig(files)
+  let wranglerCfg
+  try {
+    wranglerCfg = parseWranglerConfig(files)
+  } catch (e) {
+    if (e instanceof WranglerConfigError) {
+      return jsonResponse({ error: "Invalid wrangler.json", details: e.message }, 400)
+    }
+    throw e
+  }
+
+  // Reject `durable_objects.bindings` in the child wrangler.json. The
+  // platform extracts the LLM's `class App extends DurableObject`
+  // automatically (it runs as a SpaceDO Facet); declaring DO bindings
+  // would do nothing and confuse the user.
+  if (wranglerCfg.durableObjects && wranglerCfg.durableObjects.length > 0) {
+    return jsonResponse(
+      {
+        error: "Durable Object bindings are not allowed in wrangler.json",
+        details:
+          "The platform runs your app as a single Durable Object (`export class App extends DurableObject` from your main module). Do not declare `durable_objects.bindings`.",
+      },
+      400,
+    )
+  }
 
   let mainModule: string
   let serializedModules: Record<string, string | Record<string, unknown>>

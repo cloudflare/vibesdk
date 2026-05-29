@@ -65,34 +65,170 @@ Notes:
 
 TOML works too (`wrangler.toml`), but the parser only handles top-level scalar fields plus an `[assets]` table — no inline tables, no env overrides. Prefer JSON.
 
-## Server entry conventions
+## Server entry: one Durable Object class named `App`
 
-The server must use the standard ES module Worker format:
+**Your entire backend is one Durable Object.** Your main module exports
+a class named `App` extending `DurableObject`. The platform loads it as
+a [Cloudflare Durable Object
+Facet](https://developers.cloudflare.com/dynamic-workers/usage/durable-object-facets/)
+of the host SpaceDO and forwards every non-asset request — including
+WebSocket upgrades — to your `App.fetch(request)`.
+
+**Do not `export default { fetch }`.** A default fetch handler will be
+ignored. There is no separate worker; the DO is the worker.
 
 ```ts
-export default {
-  async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+// src/index.ts
+import { DurableObject } from "cloudflare:workers";
+
+export class App extends DurableObject {
+  async fetch(request: Request): Promise<Response> {
     const url = new URL(request.url);
-    if (url.pathname.startsWith("/api/")) {
-      return new Response(JSON.stringify({ ok: true }), {
-        headers: { "content-type": "application/json" }
-      });
+
+    // Lazy schema init on the first request. Idempotent.
+    this.ctx.storage.sql.exec(`
+      CREATE TABLE IF NOT EXISTS notes (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        body TEXT NOT NULL
+      )
+    `);
+
+    if (url.pathname === "/api/notes" && request.method === "POST") {
+      const { body } = await request.json<{ body: string }>();
+      this.ctx.storage.sql.exec(`INSERT INTO notes (body) VALUES (?)`, body);
+      return new Response(null, { status: 201 });
+    }
+    if (url.pathname === "/api/notes") {
+      const rows = this.ctx.storage.sql
+        .exec(`SELECT id, body FROM notes ORDER BY id DESC`)
+        .toArray();
+      return Response.json(rows);
     }
     return new Response("Not found", { status: 404 });
   }
-};
+}
 ```
 
-Or with Hono:
+Or with Hono inside the DO:
 
 ```ts
+import { DurableObject } from "cloudflare:workers";
 import { Hono } from "hono";
-const app = new Hono();
-app.get("/api/hello", (c) => c.json({ msg: "hi" }));
-export default app;
+
+export class App extends DurableObject {
+  private app = new Hono()
+    .get("/api/hello", (c) => c.json({ msg: "hi" }))
+    .post("/api/notes", async (c) => {
+      const { body } = await c.req.json<{ body: string }>();
+      this.ctx.storage.sql.exec(`INSERT INTO notes (body) VALUES (?)`, body);
+      return c.json({ ok: true });
+    });
+
+  async fetch(request: Request) {
+    return this.app.fetch(request);
+  }
+}
 ```
 
-When `[assets]` is configured, static files take priority — your `fetch` handler only sees requests that didn't match an asset. So for a SPA, put `index.html` in `public/` and the worker only handles `/api/*`.
+When `[assets]` is configured, static files take priority — your `fetch`
+only sees requests that didn't match an asset. For a SPA, put
+`index.html` in `public/` and `App.fetch` only handles `/api/*`.
+
+### State and storage
+
+State lives on `this.ctx.storage`. No `env.DB` exists; you do not need
+to declare any binding. The DO's storage is a per-(space, branch)
+SQLite database that survives redeploys.
+
+- `this.ctx.storage.sql.exec(sql, ...params)` — full SQLite. Returns a
+  cursor with `.toArray()`, `.one()`, `.columnNames`, etc.
+- `this.ctx.storage.kv.get(key)` / `.put(key, value)` — simple KV
+  backed by SQLite.
+- `this.ctx.storage.transactionSync(() => { ... })` — atomic batch
+  inside the same DO instance.
+
+```ts
+// SQL
+this.ctx.storage.sql.exec(`CREATE TABLE IF NOT EXISTS counter (n INTEGER)`);
+const cur = this.ctx.storage.sql.exec(`SELECT n FROM counter LIMIT 1`).toArray();
+const n = (cur[0]?.n as number) ?? 0;
+
+// KV
+const last = this.ctx.storage.kv.get<number>("last_seen") ?? 0;
+this.ctx.storage.kv.put("last_seen", Date.now());
+```
+
+**Use the DO's storage for all persistent state** — users, sessions,
+content, settings, anything that should survive a reload. Do not use
+`localStorage` or `sessionStorage` for primary data; they are
+per-browser, per-origin, and lost on incognito or any other browser.
+
+### WebSockets
+
+The platform forwards `Upgrade: websocket` requests transparently into
+`App.fetch`. Use the standard Durable Object hibernation API:
+
+```ts
+export class App extends DurableObject {
+  async fetch(request: Request) {
+    const upgrade = request.headers.get("Upgrade");
+    if (upgrade === "websocket") {
+      const { 0: client, 1: server } = new WebSocketPair();
+      this.ctx.acceptWebSocket(server);
+      return new Response(null, { status: 101, webSocket: client });
+    }
+    return new Response("not found", { status: 404 });
+  }
+
+  webSocketMessage(ws: WebSocket, message: string | ArrayBuffer) {
+    // Broadcast to every connected client (chat-style fan-out).
+    for (const peer of this.ctx.getWebSockets()) {
+      peer.send(typeof message === "string" ? message : new Uint8Array(message));
+    }
+  }
+
+  webSocketClose(_ws: WebSocket, _code: number, _reason: string, _wasClean: boolean) {
+    // Cleanup if needed.
+  }
+}
+```
+
+`acceptWebSocket` + `webSocketMessage` is the right pattern for
+multi-connection use cases (chat rooms, multiplayer, presence) because
+the DO can hibernate between messages without losing connections.
+
+### Per-entity grouping (chat rooms, per-user records)
+
+You get **one App DO per (space, branch)** — a single instance, not a
+namespace. Do not call `idFromName` or try to declare a DO binding in
+`wrangler.json`; both are rejected. For multi-room / multi-user state,
+**partition rows with a column** in the App's SQLite:
+
+```sql
+CREATE TABLE messages (
+  room_id TEXT NOT NULL,
+  user_id TEXT NOT NULL,
+  body TEXT NOT NULL,
+  ts INTEGER NOT NULL DEFAULT (strftime('%s','now') * 1000)
+);
+CREATE INDEX messages_by_room ON messages (room_id, ts);
+```
+
+Then route by `room_id` inside `App.fetch`. SQLite is fast enough that
+sharing the same table across rooms is fine for prototyping; if you
+later need stronger isolation, attach `room_id` to a tag and use
+`acceptWebSocket(ws, [room_id])` so `getWebSockets(room_id)` returns
+only that room's sockets.
+
+### What you cannot declare
+
+- **`durable_objects.bindings` in `wrangler.json`.** The platform
+  extracts your `App` class automatically. Adding bindings fails the
+  deploy with a clear error.
+- **`new_sqlite_classes` / migrations.** Same reason. Your App's
+  storage is set up by the platform.
+- **`d1_databases`, `r2_buckets`, `kv_namespaces`.** Not available.
+  Everything goes in `this.ctx.storage`.
 
 ## Static asset rules (read this twice)
 
@@ -230,16 +366,14 @@ The bundler installs deps from npm at build time. Limits to respect:
 
 Safe and well-tested deps: `hono`, `zod`, `itty-router`, `nanoid`, `valibot`, `@hono/zod-validator`. Avoid anything that needs node-native modules unless you set `compatibility_flags: ["nodejs_compat"]` and the package is pure JS under that flag.
 
-## Choosing build mode
+## Project shapes
 
-| Project shape                       | What runs                  | What you need                                    |
-| ----------------------------------- | -------------------------- | ------------------------------------------------ |
-| Pure static site (HTML+JS+CSS)      | `createApp` (assets only)  | `wrangler.json` with `[assets]`, files in public |
-| SPA + API                           | `createApp`                | Server `main` + `[assets]` with SPA not-found    |
-| Worker only (JSON API, no frontend) | `createWorker`             | Server `main`, no `[assets]`                     |
-| Worker + DO                         | `createApp` / `createWorker` | Export DO class from `main`; loader picks it up |
-
-If you need a Durable Object inside the deployed app, export it as a named class from the server module. The preview is mounted as a regular Worker fetch, so DOs only work if the app's host code in `main` instantiates them via a binding declared in its own wrangler config — note this is more advanced and most prototypes don't need it.
+| Project shape                       | What you need                                                                          |
+| ----------------------------------- | -------------------------------------------------------------------------------------- |
+| Pure static site (HTML+JS+CSS only) | `wrangler.json` with `[assets]`, files in `public/`. No `main`. No App class.          |
+| SPA + API                           | `[assets]` for the SPA, `main` exporting `class App extends DurableObject`             |
+| API only (JSON, no frontend)        | `main` exporting `class App extends DurableObject`, no `[assets]`                      |
+| Realtime (WebSocket / multiplayer)  | Same as SPA + API; `App.fetch` upgrades to WebSocket and uses `ctx.acceptWebSocket`    |
 
 ## Pre-flight checklist before `deploy_space`
 
@@ -254,7 +388,8 @@ Run through every item — most "preview is broken" reports trace back to one of
 - No binary assets are imported from npm packages. Binaries live in `public/`.
 - `package.json` deps are pure-JS, no native modules, no install scripts.
 - SPA routing? Set `not_found_handling: "single-page-application"`.
-- Server entry uses `export default { fetch }` (or a Hono/itty-router app that exports one).
+- Server entry exports `class App extends DurableObject` from your `main` module (no `export default { fetch }`).
+- No `durable_objects` / `d1_databases` / `kv_namespaces` / `r2_buckets` blocks in `wrangler.json`.
 - `compatibility_date` is set if you use APIs newer than the default.
 
 If any of these are off, fix them in the working tree, commit, and redeploy. The preview will pick up the new build on the next `deploy_space` call (the dynamic worker is keyed by commit hash, so old builds are not reused).
@@ -295,10 +430,27 @@ public/style.css
 `src/index.ts`:
 
 ```ts
+import { DurableObject } from "cloudflare:workers";
 import { Hono } from "hono";
-const app = new Hono();
-app.get("/api/time", (c) => c.json({ now: new Date().toISOString() }));
-export default app;
+
+export class App extends DurableObject {
+  private app = new Hono()
+    .get("/api/time", (c) => c.json({ now: new Date().toISOString() }))
+    .post("/api/visit", async (c) => {
+      this.ctx.storage.sql.exec(
+        `CREATE TABLE IF NOT EXISTS visits (id INTEGER PRIMARY KEY AUTOINCREMENT, ts INTEGER)`
+      );
+      this.ctx.storage.sql.exec(`INSERT INTO visits (ts) VALUES (?)`, Date.now());
+      const cnt = this.ctx.storage.sql
+        .exec(`SELECT COUNT(*) AS c FROM visits`)
+        .one().c as number;
+      return c.json({ count: cnt });
+    });
+
+  async fetch(request: Request) {
+    return this.app.fetch(request);
+  }
+}
 ```
 
 `public/index.html`:
@@ -322,8 +474,12 @@ export default app;
 const res = await fetch("./api/time");
 const data = await res.json();
 document.getElementById("root").textContent = data.now;
+
+// Increment + display visit counter (server state lives in App.ctx.storage.sql)
+const v = await fetch("./api/visit", { method: "POST" }).then((r) => r.json());
+document.getElementById("root").textContent += `  ·  visits: ${v.count}`;
 ```
 
 Note `./api/time` (relative) in JS, `/style.css` (root-relative) in HTML. The HTML href is rewritten by the preview; the JS fetch resolves against the document's base URL.
 
-Commit this, call `deploy_space("main")`, and the preview at `/space/<name>/preview/main/` will render the timestamp.
+Commit this, call `deploy_space("main")`, and the preview at `/space/<name>/preview/main/` will render the timestamp and an incrementing visit counter persisted in the App DO's SQLite.
