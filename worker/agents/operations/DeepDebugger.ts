@@ -191,7 +191,7 @@ export class DeepDebuggerOperation extends AgentOperationWithTools<
 
         return {
             agentActionName: 'deepDebugger' as AgentActionKey,
-            completionSignalName: 'mark_debugging_complete',
+            completionSignalNames: ['mark_debugging_complete'],
             operationalMode: 'initial' as const,
             allowWarningInjection: true,
         };

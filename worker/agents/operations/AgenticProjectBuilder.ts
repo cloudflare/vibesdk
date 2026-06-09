@@ -15,7 +15,7 @@ import { prepareMessagesForInference } from '../utils/common';
 import { createMarkGenerationCompleteTool } from '../tools/toolkit/completion-signals';
 import { AgentOperationWithTools, OperationOptions, ToolSession, ToolCallbacks } from './common';
 import { GenerationContext } from '../domain/values/GenerationContext';
-import getSystemPrompt from './prompts/agenticBuilderPrompts';
+import getSystemPrompt, { type RenderMode } from './prompts/agenticBuilderPrompts';
 import { ToolDefinition } from '../tools/types';
 import { InferResponseString } from '../inferutils/core';
 import { createGenerateBlueprintTool } from '../tools/toolkit/generate-blueprint';
@@ -32,6 +32,7 @@ import { createExecCommandsTool } from '../tools/toolkit/exec-commands';
 import { createWaitTool } from '../tools/toolkit/wait';
 import { createGitTool } from '../tools/toolkit/git';
 import { createGenerateImagesTool } from '../tools/toolkit/generate-images';
+import { createAskPreflightQuestionTool } from '../tools/toolkit/ask-preflight-question';
 
 export interface AgenticProjectBuilderInputs {
     query: string;
@@ -46,6 +47,8 @@ export interface AgenticProjectBuilderInputs {
     toolRenderer: RenderToolCall;
     onToolComplete?: (message: Message) => Promise<void>;
     onAssistantMessage?: (message: Message) => Promise<void>;
+    preflightQuestions?: string;
+    disableGit?: boolean;
 }
 
 export interface AgenticProjectBuilderOutputs {
@@ -58,6 +61,10 @@ export interface AgenticBuilderSession extends ToolSession {
     fileSummaries: string;
     hasFiles: boolean;
     hasPlan: boolean;
+    renderMode: RenderMode;
+    preflightQuestions?: string;
+    preflightQuestionsAsked: number;
+    disableGit?: boolean;
 }
 
 /**
@@ -157,8 +164,10 @@ export class AgenticProjectBuilderOperation extends AgentOperationWithTools<
         const hasMD = filesIndex?.some(f => /\.(md|mdx)$/i.test(f.filePath)) || false;
         const hasPlan = isAgenticBlueprint(blueprint) && blueprint.plan.length > 0;
         const hasTemplate = !!selectedTemplate;
+        const renderMode = context.templateDetails?.renderMode;
         const isPresentationProject = projectType === 'presentation';
-        const needsSandbox = !isPresentationProject && (hasTSX || projectType === 'app');
+        const isBrowserRendered = renderMode === 'browser';
+        const needsSandbox = !isPresentationProject && !isBrowserRendered && (hasTSX || projectType === 'app');
 
         const dynamicHints = [
             !hasPlan
@@ -170,8 +179,11 @@ export class AgenticProjectBuilderOperation extends AgentOperationWithTools<
             isPresentationProject && !hasTemplate
                 ? '- Presentation project detected: Use init_suitable_template() to select presentation template, then create stunning slides with unique design.'
                 : '',
-            hasTSX && !isPresentationProject
+            hasTSX && !isPresentationProject && !isBrowserRendered
                 ? '- UI detected: Use deploy_preview to verify runtime; then run_analysis for quick feedback.'
+                : '',
+            hasTSX && isBrowserRendered
+                ? '- UI detected: Use run_analysis after generating files to catch errors, then deploy_preview to push to browser.'
                 : '',
             isPresentationProject
                 ? '- Presentation mode: Use deploy_preview to sync slides. NO run_analysis needed. Focus on beautiful JSON slides, ask user for feedback.'
@@ -186,6 +198,9 @@ export class AgenticProjectBuilderOperation extends AgentOperationWithTools<
             .filter(Boolean)
             .join('\n');
 
+        const preflightQuestions = inputs.preflightQuestions;
+        const preflightQuestionsAsked = agent.getPreflightState()?.questionsAsked ?? 0;
+
         return {
             agent,
             templateInfo,
@@ -193,6 +208,10 @@ export class AgenticProjectBuilderOperation extends AgentOperationWithTools<
             fileSummaries,
             hasFiles,
             hasPlan,
+            renderMode,
+            preflightQuestions,
+            preflightQuestionsAsked,
+            disableGit: inputs.disableGit,
         };
     }
 
@@ -213,7 +232,7 @@ export class AgenticProjectBuilderOperation extends AgentOperationWithTools<
             });
         }
 
-        let systemPrompt = getSystemPrompt(inputs.projectType, session.dynamicHints);
+        let systemPrompt = getSystemPrompt(inputs.projectType, session.renderMode, session.dynamicHints, session.preflightQuestions, session.preflightQuestionsAsked, { disableGit: session.disableGit });
 
         if (historyMessages.length > 0) {
             systemPrompt += `\n\n# Conversation History\nYou are being provided with the full conversation history from your previous interactions. Review it to understand context and avoid repeating work.`;
@@ -242,6 +261,8 @@ export class AgenticProjectBuilderOperation extends AgentOperationWithTools<
         const toolRenderer = callbacks.toolRenderer;
         const onToolComplete = callbacks.onToolComplete;
 
+        const isBrowserRendered = session.renderMode === 'browser';
+
         let rawTools : ToolDefinition<any, any>[] = [
             // PRD generation + refinement
             createGenerateBlueprintTool(session.agent, logger),
@@ -252,17 +273,24 @@ export class AgenticProjectBuilderOperation extends AgentOperationWithTools<
             createGenerateFilesTool(session.agent, logger),
             createRegenerateFileTool(session.agent, logger),
             createRunAnalysisTool(session.agent, logger),
-            // Runtime + deploy
+            // Deploy preview (works for both sandbox and browser-rendered)
             createDeployPreviewTool(session.agent, logger),
-            createGetRuntimeErrorsTool(session.agent, logger),
-            createGetLogsTool(session.agent, logger),
+            // Sandbox-only tools — excluded for browser-rendered projects
+            ...(!isBrowserRendered ? [
+                createGetRuntimeErrorsTool(session.agent, logger),
+                createGetLogsTool(session.agent, logger),
+                createExecCommandsTool(session.agent, logger),
+            ] : []),
             // Utilities
-            createExecCommandsTool(session.agent, logger),
             createWaitTool(logger),
-            createGitTool(session.agent, logger),
+            ...(!session.disableGit ? [createGitTool(session.agent, logger)] : []),
             // WIP: images
             createGenerateImagesTool(session.agent, logger),
         ];
+
+        if (session.preflightQuestions) {
+            rawTools.push(createAskPreflightQuestionTool(session.agent, logger));
+        }
 
         if (!inputs.selectedTemplate || inputs.selectedTemplate === 'scratch') {
             rawTools.push(createInitSuitableTemplateTool(session.agent, logger));
@@ -289,9 +317,14 @@ export class AgenticProjectBuilderOperation extends AgentOperationWithTools<
             hasPlan,
         });
 
+        const completionSignalNames = ['mark_generation_complete'];
+        if (session.preflightQuestions) {
+            completionSignalNames.push('ask_preflight_question');
+        }
+
         return {
             agentActionName: 'agenticProjectBuilder' as AgentActionKey,
-            completionSignalName: 'mark_generation_complete',
+            completionSignalNames,
             operationalMode: inputs.operationalMode,
             allowWarningInjection: inputs.operationalMode === 'initial',
         };

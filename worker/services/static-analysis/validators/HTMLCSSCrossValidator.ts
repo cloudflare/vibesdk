@@ -65,13 +65,36 @@ export class HTMLCSSCrossValidator implements CrossFileValidator {
 			}
 		}
 
+		// Detect Tailwind v4 CSS layer conflicts
+		const usesTailwindV4 = files.some(
+			(f) =>
+				(f.path.endsWith('.html') || f.path.endsWith('.htm')) &&
+				/@tailwindcss\/browser@4/.test(f.content)
+		);
+
 		// Find undefined selectors
 		const issues: CodeIssue[] = [];
+
+		if (usesTailwindV4) {
+			for (const file of files) {
+				if (file.path.endsWith('.css')) {
+					issues.push(
+						...this.detectTailwindV4LayerConflicts(file.content, file.path)
+					);
+				}
+				if (file.path.endsWith('.html') || file.path.endsWith('.htm')) {
+					issues.push(
+						...this.detectTailwindV4LayerConflictsInHTML(file.content, file.path)
+					);
+				}
+			}
+		}
+
 		for (const usage of usedSelectors) {
 			if (usage.type === 'class' && !definedClasses.has(usage.name)) {
 				if (isLikelyDynamicOrFrameworkClass(usage.name)) continue;
 				issues.push({
-					message: `CSS class "${usage.name}" is used but not defined in any CSS file`,
+					message: `CSS class "${usage.name}" is used but not defined in any CSS file. This is most likely not a framework class.`,
 					filePath: usage.filePath,
 					line: usage.line,
 					column: 0,
@@ -155,6 +178,66 @@ export class HTMLCSSCrossValidator implements CrossFileValidator {
 		while ((match = styleRegex.exec(htmlContent)) !== null) {
 			this.extractCSSDefinitions(match[1], classes, ids);
 		}
+	}
+
+	private detectTailwindV4LayerConflicts(
+		cssContent: string,
+		filePath: string
+	): CodeIssue[] {
+		const issues: CodeIssue[] = [];
+		const cleaned = cssContent.replace(/\/\*[\s\S]*?\*\//g, '');
+		const lines = cleaned.split('\n');
+
+		for (let i = 0; i < lines.length; i++) {
+			const line = lines[i];
+			// Detect universal selector `*` with margin/padding resets outside @layer
+			if (/^\s*\*\s*\{/.test(line) || (/^\s*\*\s*,/.test(line))) {
+				const blockStart = cssContent.indexOf(line);
+				const blockEnd = cssContent.indexOf('}', blockStart);
+				if (blockEnd === -1) continue;
+				const block = cssContent.slice(blockStart, blockEnd + 1);
+				if (/\bpadding\s*:\s*0/.test(block) || /\bmargin\s*:\s*0/.test(block)) {
+					issues.push({
+						message:
+							'Universal selector reset (* { margin: 0; padding: 0; }) conflicts with Tailwind CSS v4. ' +
+							'Tailwind v4 places utilities inside CSS @layer, and unlayered styles always override layered styles. ' +
+							'This will silently break ALL Tailwind spacing utilities (p-*, m-*, px-*, etc.). ' +
+							'Remove the margin/padding reset — Tailwind v4 preflight already handles it.',
+						filePath,
+						line: i + 1,
+						column: 0,
+						severity: 'error',
+						ruleId: 'TAILWIND_V4_LAYER_CONFLICT',
+						source: 'html-css-validator',
+					});
+				}
+			}
+		}
+
+		return issues;
+	}
+
+	private detectTailwindV4LayerConflictsInHTML(
+		htmlContent: string,
+		filePath: string
+	): CodeIssue[] {
+		const issues: CodeIssue[] = [];
+		const styleRegex = /<style[^>]*>([\s\S]*?)<\/style>/gi;
+		let match;
+		while ((match = styleRegex.exec(htmlContent)) !== null) {
+			const styleContent = match[1];
+			const styleStartLine =
+				htmlContent.slice(0, match.index).split('\n').length;
+			const innerIssues = this.detectTailwindV4LayerConflicts(
+				styleContent,
+				filePath
+			);
+			for (const issue of innerIssues) {
+				issue.line += styleStartLine;
+			}
+			issues.push(...innerIssues);
+		}
+		return issues;
 	}
 
 	private extractHTMLUsage(file: FileInput): CSSUsage[] {
