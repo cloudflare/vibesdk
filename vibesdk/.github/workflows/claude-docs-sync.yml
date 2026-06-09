@@ -1,0 +1,212 @@
+# name: Documentation Sync
+
+# Disabled for now
+# on:
+#   push:
+#     # branches:
+#       # - main
+#       # - nightly
+#     paths:
+#       - 'worker/**'
+#       - 'src/**'
+#       - 'shared/**'
+#       - '.github/workflows/**'
+#       - 'package.json'
+#       - 'wrangler.jsonc'
+
+# jobs:
+#   docs-sync:
+#     name: Create PR to Update Documentation
+#     runs-on: ubuntu-latest
+#     permissions:
+#       contents: write
+#       pull-requests: write
+#       id-token: write
+    
+#     steps:
+#       - name: Checkout repository
+#         uses: actions/checkout@v4
+#         with:
+#           fetch-depth: 0
+#           ref: ${{ github.ref }}
+      
+#       - name: Configure Git
+#         run: |
+#           git config user.name "github-actions[bot]"
+#           git config user.email "github-actions[bot]@users.noreply.github.com"
+      
+#       - name: Create documentation update branch
+#         id: create_branch
+#         run: |
+#           BRANCH_NAME="docs/auto-sync-$(date +%Y%m%d-%H%M%S)"
+#           git checkout -b "$BRANCH_NAME"
+#           echo "branch_name=$BRANCH_NAME" >> $GITHUB_OUTPUT
+      
+#       - name: Update documentation with Claude
+#         uses: anthropics/claude-code-action@v1
+#         with:
+#           github_token: ${{ secrets.GITHUB_TOKEN }}
+#           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+#           track_progress: true
+#           prompt: |
+#             📚 Documentation Sync - Code merged to ${{ github.ref_name }}
+            
+#             Recent commits that triggered this workflow:
+#             ```bash
+#             git log -5 --pretty=format:"%h - %s (%an, %ar)" ${{ github.event.before }}..${{ github.event.after }}
+#             ```
+            
+#             ## Your Task
+            
+#             Review recent changes and ensure ALL documentation is accurate and up-to-date:
+            
+#             ### 1. Review Changes
+#             ```bash
+#             git diff ${{ github.event.before }}..${{ github.event.after }} --name-only
+#             git diff ${{ github.event.before }}..${{ github.event.after }} --stat
+#             ```
+            
+#             ### 2. Documentation Files to Update
+            
+#             **CLAUDE.md** - Project conventions and coding guidelines
+#             - Update if: New patterns, conventions, or rules added
+#             - Check: File structure, naming conventions, code style
+            
+#             **docs/llm.md** - Comprehensive architecture and developer guide
+#             - Update if: Architecture changed, new features, new APIs, tools modified
+#             - Sections to check:
+#               - Quick Start (if setup changed)
+#               - Directory Structure (if new files/folders added)
+#               - API Documentation (if routes/controllers changed)
+#               - Deep Debugger (if tools changed in worker/agents/tools/)
+#               - Database Schema (if schema.ts changed)
+#               - WebSocket Messages (if new message types added)
+#               - Troubleshooting (if new common issues discovered)
+            
+#             **README.md** - Main repository overview
+#             - Update if: Setup steps changed, new major features, deployment process changed
+#             - Keep: High-level, user-facing changes only
+            
+#             **docs/setup.md** - Detailed setup instructions
+#             - Update if: Environment variables changed, prerequisites changed, setup steps changed
+            
+#             **docs/architecture-diagrams.md** - Architecture documentation
+#             - Update if: Major architectural changes, new services, data flow changed
+            
+#             ### 3. What to Look For
+            
+#             **Code Changes → Doc Updates:**
+#             - New files in worker/agents/tools/ → Update llm.md tool registry
+#             - Changes to worker/api/routes/ → Update API documentation
+#             - Changes to worker/database/schema.ts → Update schema docs
+#             - New WebSocket message types → Update WebSocket docs
+#             - Changes to package.json dependencies → Update setup docs
+#             - Changes to .github/workflows/ → Update CI/CD docs if user-facing
+#             - New environment variables → Update setup.md and .dev.vars template
+            
+#             **Don't Update If:**
+#             - Only minor bug fixes in existing features
+#             - Internal refactoring with no user-facing changes
+#             - Only test file changes
+#             - Only comment changes
+            
+#             ### 4. Making Updates
+            
+#             For each documentation file that needs updates:
+            
+#             ```bash
+#             # Read current content
+#             cat CLAUDE.md
+#             cat docs/llm.md
+#             cat README.md
+#             cat docs/setup.md
+#             cat docs/architecture-diagrams.md
+#             ```
+            
+#             Edit files using the Edit tool to:
+#             - Add new sections for new features
+#             - Update existing sections with changed information
+#             - Fix outdated examples or references
+#             - Update line numbers if code locations changed
+#             - Keep formatting consistent with existing style
+            
+#             ### 5. Commit and Push
+            
+#             ```bash
+#             # Stage all documentation changes
+#             git add CLAUDE.md docs/llm.md README.md docs/setup.md docs/architecture-diagrams.md
+            
+#             # Commit with descriptive message
+#             git commit -m "docs: sync documentation with latest changes
+            
+#             - Update [specific files] based on changes in [components]
+#             - Add documentation for [new features]
+#             - Fix outdated references to [what changed]
+            
+#             Triggered by: ${{ github.event.head_commit.message }}"
+            
+#             # Push to branch
+#             git push origin ${{ steps.create_branch.outputs.branch_name }}
+#             ```
+            
+#             ### 6. Create Pull Request
+            
+#             ```bash
+#             gh pr create \
+#               --repo ${{ github.repository }} \
+#               --base ${{ github.ref_name }} \
+#               --head ${{ steps.create_branch.outputs.branch_name }} \
+#               --title "📚 Documentation Sync - $(date +%Y-%m-%d)" \
+#               --body "## Documentation Updates
+            
+#             This PR updates documentation to reflect recent changes merged to \`${{ github.ref_name }}\`.
+            
+#             ### Changes Reviewed
+#             Commits: ${{ github.event.before }}...${{ github.event.after }}
+            
+#             ### Documentation Updated
+#             - [ ] CLAUDE.md - Project conventions
+#             - [ ] docs/llm.md - Architecture and developer guide  
+#             - [ ] README.md - Main overview
+#             - [ ] docs/setup.md - Setup instructions
+#             - [ ] docs/architecture-diagrams.md - Architecture docs
+            
+#             ### Summary of Updates
+#             [List what was updated and why]
+            
+#             ### Review Notes
+#             - Please review the changes to ensure accuracy
+#             - Check that examples and code snippets are correct
+#             - Verify line numbers and file paths are current
+            
+#             ---
+            
+#             🤖 This PR was automatically generated by Claude based on code changes.
+#             Triggered by: ${{ github.event.head_commit.message }}"
+#             ```
+            
+#             ## Guidelines
+            
+#             - Be thorough but efficient - read diffs first, then update only what's needed
+#             - Maintain consistency with existing documentation style
+#             - Update examples and code snippets to match current implementation
+#             - Fix line numbers and file paths if they changed
+#             - Don't make stylistic changes unless fixing errors
+#             - If no documentation updates are needed, skip commit/PR creation and add a comment explaining why
+            
+#             ## Decision Logic
+            
+#             1. If significant changes warrant documentation updates → Create PR
+#             2. If only minor internal changes with no doc impact → Skip and comment
+#             3. If unsure → Create PR for manual review (better safe than sorry)
+          
+#           claude_args: |
+#             --allowed-tools "Read,Edit,Write,Bash(git:*),Bash(gh pr:*),Bash(cat:*)"
+#             --max-turns 40
+#             --model claude-sonnet-4-5-20250929
+      
+#       - name: Cleanup on failure
+#         if: failure()
+#         run: |
+#           git checkout ${{ github.ref_name }}
+#           git branch -D ${{ steps.create_branch.outputs.branch_name }} || true

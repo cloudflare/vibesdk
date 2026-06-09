@@ -1,0 +1,10 @@
+# Add common bun installation paths to PATH
+export PATH="/opt/homebrew/bin:$HOME/.bun/bin:$PATH"
+
+# Run commitlint if bunx is available
+if command -v bunx >/dev/null 2>&1; then
+  bunx commitlint --edit $1
+else
+  echo "⚠️  bunx not found in PATH, skipping commitlint"
+  exit 0
+fi

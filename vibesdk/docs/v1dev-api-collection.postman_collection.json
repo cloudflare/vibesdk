@@ -1,0 +1,955 @@
+{
+  "info": {
+    "name": "V1 Dev API Collection - Complete",
+    "description": "Comprehensive API collection for V1 Dev platform - AI-powered webapp generator with Cloudflare Workers backend. Includes OAuth setup, CSRF protection, and all endpoints with proper authentication.",
+    "version": "1.0.0",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "noauth"
+  },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Auto-fetch CSRF token if not present",
+          "if (!pm.globals.get('csrf_token')) {",
+          "    const getCsrfRequest = {",
+          "        url: pm.environment.get('baseUrl') + '/api/auth/csrf-token',",
+          "        method: 'GET',",
+          "        header: {",
+          "            'Content-Type': 'application/json'",
+          "        }",
+          "    };",
+          "    ",
+          "    pm.sendRequest(getCsrfRequest, (error, response) => {",
+          "        if (!error && response.json().success) {",
+          "            pm.globals.set('csrf_token', response.json().data.token);",
+          "        }",
+          "    });",
+          "}"
+        ]
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "{{baseUrl}}",
+      "type": "string",
+      "description": "Base URL for the API"
+    },
+    {
+      "key": "version",
+      "value": "1.0.0",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "🏥 Health Check",
+      "description": "System health and status endpoints",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/health",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "health"]
+            },
+            "description": "Check if the API is healthy and responding"
+          },
+          "response": []
+        }
+      ],
+      "description": "System health check endpoint"
+    },
+    {
+      "name": "🔐 Authentication",
+      "description": "Authentication endpoints including OAuth, email auth, and session management",
+      "item": [
+        {
+          "name": "Get CSRF Token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const response = pm.response.json();",
+                  "    if (response.success && response.data.token) {",
+                  "        pm.globals.set('csrf_token', response.data.token);",
+                  "        pm.test('CSRF token saved', () => {",
+                  "            pm.expect(pm.globals.get('csrf_token')).to.not.be.undefined;",
+                  "        });",
+                  "    }",
+                  "}",
+                  "",
+                  "pm.test('Status code is 200', () => {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/csrf-token",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "csrf-token"]
+            },
+            "description": "Fetch CSRF token required for state-changing operations"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Auth Providers",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/providers",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "providers"]
+            },
+            "description": "Get available authentication providers (Google, GitHub, email)"
+          },
+          "response": []
+        },
+        {
+          "name": "Register User",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const response = pm.response.json();",
+                  "    if (response.success && response.data.user) {",
+                  "        pm.globals.set('user_id', response.data.user.id);",
+                  "        pm.globals.set('session_id', response.data.sessionId);",
+                  "    }",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-CSRF-Token",
+                "value": "{{csrf_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"user@example.com\",\n  \"password\": \"SecurePassword123!\",\n  \"name\": \"Test User\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/register",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "register"]
+            },
+            "description": "Register a new user account"
+          },
+          "response": []
+        },
+        {
+          "name": "Login with Email",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const response = pm.response.json();",
+                  "    if (response.success && response.data.user) {",
+                  "        pm.globals.set('user_id', response.data.user.id);",
+                  "        pm.globals.set('session_id', response.data.sessionId);",
+                  "        pm.test('User logged in successfully', () => {",
+                  "            pm.expect(response.data.user.email).to.not.be.undefined;",
+                  "        });",
+                  "    }",
+                  "}",
+                  "",
+                  "pm.test('Status code is 200', () => {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-CSRF-Token",
+                "value": "{{csrf_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"user@example.com\",\n  \"password\": \"SecurePassword123!\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "login"]
+            },
+            "description": "Login with email and password"
+          },
+          "response": []
+        },
+        {
+          "name": "Get User Profile",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/profile",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "profile"]
+            },
+            "description": "Get current user profile information"
+          },
+          "response": []
+        },
+        {
+          "name": "OAuth - Google (Browser Only)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "// OAuth endpoints redirect to providers - not suitable for direct Postman testing",
+                  "// Use this URL in your browser instead:",
+                  "console.log('Open this URL in browser:', pm.request.url.toString());",
+                  "",
+                  "// Set a simple test for the redirect response",
+                  "pm.test('OAuth redirect received', () => {",
+                  "    pm.expect([200, 302, 301]).to.include(pm.response.code);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/oauth/google",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "oauth", "google"],
+              "query": [
+                {
+                  "key": "redirect_url",
+                  "value": "{{baseUrl}}/dashboard",
+                  "description": "Optional redirect URL after authentication",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "⚠️ IMPORTANT: This endpoint redirects to Google OAuth. Copy the URL and open it in your browser to complete authentication. Postman will show HTML content but won't follow redirects to Google."
+          },
+          "response": []
+        },
+        {
+          "name": "OAuth - GitHub (Browser Only)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "// OAuth endpoints redirect to providers - not suitable for direct Postman testing",
+                  "// Use this URL in your browser instead:",
+                  "console.log('Open this URL in browser:', pm.request.url.toString());",
+                  "",
+                  "// Set a simple test for the redirect response",
+                  "pm.test('OAuth redirect received', () => {",
+                  "    pm.expect([200, 302, 301]).to.include(pm.response.code);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/oauth/github",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "oauth", "github"],
+              "query": [
+                {
+                  "key": "redirect_url",
+                  "value": "{{baseUrl}}/dashboard",
+                  "description": "Optional redirect URL after authentication",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "⚠️ IMPORTANT: This endpoint redirects to GitHub OAuth. Copy the URL and open it in your browser to complete authentication. Postman will show HTML content but won't follow redirects to GitHub."
+          },
+          "response": []
+        },
+        {
+          "name": "🌐 OAuth Helper - Get Google URL",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "// Extract the OAuth URL for manual browser use",
+                  "const baseUrl = pm.environment.get('baseUrl');",
+                  "const googleOAuthUrl = `${baseUrl}/api/auth/oauth/google`;",
+                  "",
+                  "console.log('========================================');",
+                  "console.log('📋 COPY THIS URL TO YOUR BROWSER:');",
+                  "console.log(googleOAuthUrl);",
+                  "console.log('========================================');",
+                  "",
+                  "pm.test('OAuth URL generated', () => {",
+                  "    pm.expect(googleOAuthUrl).to.include('/api/auth/oauth/google');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/providers",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "providers"]
+            },
+            "description": "🚀 USE THIS: Generates OAuth URLs in the console. Check the 'Console' tab after running to get the browser URL for Google OAuth."
+          },
+          "response": []
+        },
+        {
+          "name": "🌐 OAuth Helper - Get GitHub URL", 
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "// Extract the OAuth URL for manual browser use",
+                  "const baseUrl = pm.environment.get('baseUrl');",
+                  "const githubOAuthUrl = `${baseUrl}/api/auth/oauth/github`;",
+                  "",
+                  "console.log('========================================');",
+                  "console.log('📋 COPY THIS URL TO YOUR BROWSER:');",
+                  "console.log(githubOAuthUrl);",
+                  "console.log('========================================');",
+                  "",
+                  "pm.test('OAuth URL generated', () => {",
+                  "    pm.expect(githubOAuthUrl).to.include('/api/auth/oauth/github');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/providers",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "providers"]
+            },
+            "description": "🚀 USE THIS: Generates OAuth URLs in the console. Check the 'Console' tab after running to get the browser URL for GitHub OAuth."
+          },
+          "response": []
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-CSRF-Token",
+                "value": "{{csrf_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/logout",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "logout"]
+            },
+            "description": "Logout current user session"
+          },
+          "response": []
+        }
+      ],
+      "description": "All authentication related endpoints",
+      "auth": {
+        "type": "noauth"
+      }
+    },
+    {
+      "name": "🤖 Agent & Code Generation",
+      "description": "AI agent endpoints for webapp generation and management",
+      "item": [
+        {
+          "name": "Start Code Generation",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const response = pm.response.json();",
+                  "    if (response.success && response.data.agentId) {",
+                  "        pm.globals.set('agent_id', response.data.agentId);",
+                  "        pm.test('Agent ID saved', () => {",
+                  "            pm.expect(pm.globals.get('agent_id')).to.not.be.undefined;",
+                  "        });",
+                  "    }",
+                  "}",
+                  "",
+                  "pm.test('Status code is 200', () => {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-CSRF-Token",
+                "value": "{{csrf_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"query\": \"Create a React todo app with TypeScript and Tailwind CSS\",\n  \"agentMode\": \"smart\",\n  \"language\": \"typescript\",\n  \"frameworks\": [\"react\", \"tailwindcss\"],\n  \"selectedTemplate\": \"react-typescript\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/agent",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "agent"]
+            },
+            "description": "Start a new code generation session with AI agent"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Agent State",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/agent/{{agent_id}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "agent", "{{agent_id}}"]
+            },
+            "description": "Get current state of an AI agent session"
+          },
+          "response": []
+        },
+        {
+          "name": "Deploy Preview",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/agent/{{agent_id}}/preview",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "agent", "{{agent_id}}", "preview"]
+            },
+            "description": "Deploy a preview of the generated app"
+          },
+          "response": []
+        }
+      ],
+      "description": "AI agent and code generation endpoints"
+    },
+    {
+      "name": "📱 Apps Management",
+      "description": "App CRUD operations, public feed, favorites, and visibility management",
+      "item": [
+        {
+          "name": "Get Public Apps",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/apps/public?page=1&limit=20&sort=createdAt&order=desc",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "apps", "public"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1",
+                  "description": "Page number"
+                },
+                {
+                  "key": "limit",
+                  "value": "20",
+                  "description": "Number of apps per page"
+                },
+                {
+                  "key": "sort",
+                  "value": "createdAt",
+                  "description": "Sort field (createdAt, stars, views)"
+                },
+                {
+                  "key": "order",
+                  "value": "desc",
+                  "description": "Sort order (asc, desc)"
+                }
+              ]
+            },
+            "description": "Get public apps feed with pagination and filtering (no auth required)"
+          },
+          "response": []
+        },
+        {
+          "name": "Get User Apps",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/apps",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "apps"]
+            },
+            "description": "Get current user's apps (requires authentication)"
+          },
+          "response": []
+        },
+        {
+          "name": "Get App Details",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const response = pm.response.json();",
+                  "    if (response.success && response.data.app) {",
+                  "        pm.globals.set('app_id', response.data.app.id);",
+                  "    }",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/apps/{{app_id}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "apps", "{{app_id}}"]
+            },
+            "description": "Get detailed app information (public access)"
+          },
+          "response": []
+        },
+        {
+          "name": "Toggle App Star",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-CSRF-Token",
+                "value": "{{csrf_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/apps/{{app_id}}/star",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "apps", "{{app_id}}", "star"]
+            },
+            "description": "Toggle star/bookmark status on any public app"
+          },
+          "response": []
+        },
+        {
+          "name": "Fork App",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-CSRF-Token",
+                "value": "{{csrf_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/apps/{{app_id}}/fork",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "apps", "{{app_id}}", "fork"]
+            },
+            "description": "Fork any public app to your account"
+          },
+          "response": []
+        }
+      ],
+      "description": "App management and interaction endpoints"
+    },
+    {
+      "name": "👤 User Management",
+      "description": "User profile, apps, and account management",
+      "item": [
+        {
+          "name": "Get User Apps with Pagination",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/user/apps?page=1&limit=20&sort=createdAt&order=desc",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "user", "apps"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1",
+                  "description": "Page number"
+                },
+                {
+                  "key": "limit",
+                  "value": "20",
+                  "description": "Items per page"
+                },
+                {
+                  "key": "sort",
+                  "value": "createdAt",
+                  "description": "Sort field"
+                },
+                {
+                  "key": "order",
+                  "value": "desc",
+                  "description": "Sort order"
+                }
+              ]
+            },
+            "description": "Get user's apps with advanced pagination and filtering"
+          },
+          "response": []
+        },
+        {
+          "name": "Update User Profile",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-CSRF-Token",
+                "value": "{{csrf_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"displayName\": \"John Doe\",\n  \"username\": \"johndoe\",\n  \"bio\": \"Full-stack developer passionate about AI and web technologies\",\n  \"timezone\": \"America/New_York\",\n  \"theme\": \"dark\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/user/profile",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "user", "profile"]
+            },
+            "description": "Update user profile information"
+          },
+          "response": []
+        }
+      ],
+      "description": "User profile and account management"
+    },
+    {
+      "name": "📊 Analytics & Stats",
+      "description": "User statistics, activity, and AI Gateway analytics",
+      "item": [
+        {
+          "name": "Get User Stats",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/stats",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "stats"]
+            },
+            "description": "Get user statistics (apps created, stars received, etc.)"
+          },
+          "response": []
+        },
+        {
+          "name": "Get User Analytics",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/user/{{user_id}}/analytics?days=30",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "user", "{{user_id}}", "analytics"],
+              "query": [
+                {
+                  "key": "days",
+                  "value": "30",
+                  "description": "Number of days to fetch analytics for"
+                }
+              ]
+            },
+            "description": "Get AI Gateway analytics for user (costs, usage, etc.)"
+          },
+          "response": []
+        }
+      ],
+      "description": "Analytics and statistics endpoints"
+    },
+    {
+      "name": "🤖 Model Configuration",
+      "description": "AI model configuration and BYOK provider management",
+      "item": [
+        {
+          "name": "Get Model Configs",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/model-configs",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "model-configs"]
+            },
+            "description": "Get all user model configurations"
+          },
+          "response": []
+        },
+        {
+          "name": "Get BYOK Providers",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/model-configs/byok-providers",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "model-configs", "byok-providers"]
+            },
+            "description": "Get available BYOK (Bring Your Own Key) providers and models"
+          },
+          "response": []
+        },
+        {
+          "name": "Update Model Config",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-CSRF-Token",
+                "value": "{{csrf_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"modelName\": \"claude-3-5-sonnet-20241022\",\n  \"maxTokens\": 4096,\n  \"temperature\": 0.7,\n  \"reasoningEffort\": \"medium\",\n  \"fallbackModel\": \"gpt-4o\",\n  \"isUserOverride\": true\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/model-configs/planner",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "model-configs", "planner"]
+            },
+            "description": "Update model configuration for specific agent action"
+          },
+          "response": []
+        }
+      ],
+      "description": "AI model configuration management"
+    },
+    {
+      "name": "🔐 Secrets Management",
+      "description": "User secrets and API keys management with templates",
+      "item": [
+        {
+          "name": "Get All Secrets",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/secrets",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "secrets"]
+            },
+            "description": "Get all user secrets including inactive ones"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Secret Templates",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/secrets/templates",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "secrets", "templates"]
+            },
+            "description": "Get available secret templates for easy setup"
+          },
+          "response": []
+        },
+        {
+          "name": "Store Secret",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-CSRF-Token",
+                "value": "{{csrf_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"templateId\": \"openai_api_key\",\n  \"name\": \"My OpenAI API Key\",\n  \"envVarName\": \"OPENAI_API_KEY\",\n  \"value\": \"sk-your-openai-api-key-here\",\n  \"environment\": \"production\",\n  \"description\": \"OpenAI API key for GPT-4 access\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/secrets",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "secrets"]
+            },
+            "description": "Store a new secret with optional template"
+          },
+          "response": []
+        }
+      ],
+      "description": "Secrets management for API keys and credentials"
+    }
+  ]
+}

@@ -1,0 +1,69 @@
+# Add common bun installation paths to PATH
+export PATH="/opt/homebrew/bin:$HOME/.bun/bin:$PATH"
+
+# Never run SDK integration tests in pre-commit.
+unset VIBESDK_RUN_INTEGRATION_TESTS
+
+# Optional override flags
+# - SKIP_TESTS=1: skip all pre-commit checks
+# - RUN_ALL_TESTS=1: run full suite instead of related
+if [ "${SKIP_TESTS:-}" = "1" ]; then
+  echo "[pre-commit] SKIP_TESTS=1 set; skipping checks"
+  exit 0
+fi
+
+if ! command -v bun >/dev/null 2>&1; then
+  echo "[pre-commit] bun not found; skipping checks"
+  exit 0
+fi
+
+# Determine staged files (only what will be committed)
+STAGED_FILES=$(git diff --name-only --cached --diff-filter=ACMRT)
+
+# 1) Typecheck (only when TS/TSX is staged)
+if command -v rg >/dev/null 2>&1; then
+  HAS_TS=$(printf '%s\n' "$STAGED_FILES" | rg -q "\.(ts|tsx)$" && echo 1 || echo 0)
+else
+  HAS_TS=$(printf '%s\n' "$STAGED_FILES" | grep -Eq "\.(ts|tsx)$" && echo 1 || echo 0)
+fi
+
+if [ "$HAS_TS" = "1" ]; then
+  echo "[pre-commit] Running typecheck (staged TS/TSX detected)"
+  bun run typecheck
+else
+  echo "[pre-commit] No staged TS/TSX; skipping typecheck"
+fi
+
+# 2) Tests
+# Use Vitest 'related' to run only affected tests for staged files.
+# Exclude heavy directories that are not relevant at commit time.
+if [ "${RUN_ALL_TESTS:-}" = "1" ]; then
+  echo "[pre-commit] RUN_ALL_TESTS=1 set; running full test suite"
+  bunx vitest run --passWithNoTests --exclude "container/**" --exclude "generated/**" --exclude "sdk/test/integration/**"
+  exit $?
+fi
+
+if command -v rg >/dev/null 2>&1; then
+  RELATED_INPUT_FILES=$(printf '%s\n' "$STAGED_FILES" | rg "\.(ts|tsx|js|jsx)$" || true)
+else
+  RELATED_INPUT_FILES=$(printf '%s\n' "$STAGED_FILES" | grep -E "\.(ts|tsx|js|jsx)$" || true)
+fi
+
+if [ -z "$RELATED_INPUT_FILES" ]; then
+  echo "[pre-commit] No staged JS/TS files; skipping tests"
+  exit 0
+fi
+
+# Build quoted args safely (handles spaces)
+set --
+while IFS= read -r file; do
+  if [ -n "$file" ]; then
+    set -- "$@" "$file"
+  fi
+done <<EOF
+$RELATED_INPUT_FILES
+EOF
+
+echo "[pre-commit] Running related tests for staged files"
+# Vitest takes file paths as filters.
+bunx vitest related --run --passWithNoTests --exclude "container/**" --exclude "generated/**" --exclude "sdk/test/integration/**" "$@"

@@ -1,0 +1,37 @@
+# Auto-label PRs based on changed files
+
+'worker':
+  - changed-files:
+    - any-glob-to-any-file: 'worker/**/*'
+
+'frontend':
+  - changed-files:
+    - any-glob-to-any-file: 'src/**/*'
+
+'database':
+  - changed-files:
+    - any-glob-to-any-file: 
+      - 'worker/database/**/*'
+      - 'migrations/**/*'
+
+'agent':
+  - changed-files:
+    - any-glob-to-any-file: 'worker/agents/**/*'
+
+'ci/cd':
+  - changed-files:
+    - any-glob-to-any-file: 
+      - '.github/**/*'
+      - 'wrangler.jsonc'
+
+'documentation':
+  - changed-files:
+    - any-glob-to-any-file: 
+      - 'docs/**/*'
+      - '*.md'
+
+'dependencies':
+  - changed-files:
+    - any-glob-to-any-file:
+      - 'package.json'
+      - 'bun.lock'

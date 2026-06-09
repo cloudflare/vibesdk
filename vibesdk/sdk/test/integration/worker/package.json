@@ -1,0 +1,13 @@
+{
+	"name": "sdk-worker-integration-test",
+	"private": true,
+	"scripts": {
+		"dev": "wrangler dev"
+	},
+	"dependencies": {
+		"@cf-vibesdk/sdk": "file:../../.."
+	},
+	"devDependencies": {
+		"wrangler": "^4.16.0"
+	}
+}

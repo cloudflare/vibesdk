@@ -1,0 +1,7 @@
+name = "sdk-worker-integration-test"
+main = "index.ts"
+compatibility_date = "2024-12-01"
+compatibility_flags = ["nodejs_compat"]
+
+# VIBESDK_BASE_URL and VIBESDK_API_KEY are passed via .dev.vars file
+# which is created by the test harness before running wrangler dev

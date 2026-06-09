@@ -1,0 +1,37 @@
+{
+	"name": "@cf-vibesdk/sdk",
+	"version": "0.0.9",
+	"type": "module",
+	"exports": {
+		".": {
+			"types": "./dist/index.d.ts",
+			"default": "./dist/index.js"
+		}
+	},
+	"files": [
+		"dist"
+	],
+	"engines": {
+		"node": ">=22"
+	},
+	"publishConfig": {
+		"access": "public"
+	},
+	"scripts": {
+		"build": "rm -rf ./dist && bun build ./src/index.ts --outdir ./dist --target browser",
+		"bundle-types": "dts-bundle-generator --export-referenced-types false --no-check --project ./tsconfig.protocol.json -o ./dist/index.d.ts ./src/index.ts && bun run scripts/expand-drizzle-types.ts",
+		"typecheck": "tsc -p ./tsconfig.json --noEmit",
+		"test": "bun test test/*.test.ts",
+		"test:integration": "bun test --timeout 600000 test/integration/*.test.ts",
+		"package": "bun run typecheck && bun run test && bun run build && bun run bundle-types"
+	},
+	"devDependencies": {
+		"@cloudflare/workers-types": "^4.20241218.0",
+		"@types/node": "^25.0.3",
+		"dts-bundle-generator": "^9.5.1",
+		"miniflare": "^4.20251217.0",
+		"puppeteer": "^24.8.0",
+		"typescript": "^5.9.3",
+		"wrangler": "^4.14.1"
+	}
+}

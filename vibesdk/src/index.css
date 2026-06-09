@@ -1,0 +1,400 @@
+@import 'tailwindcss';
+@import "tw-animate-css";
+
+@font-face{
+  font-family: "departureMono";
+  src:  url('./assets/fonts/DepartureMono-Regular.woff') 
+}
+
+/* Subtle chat edge throb effect */
+@keyframes chat-edge-throb {
+  0%, 100% {
+    box-shadow:
+      0 0 0 0 rgba(246, 130, 31, 0.10),
+      inset 0 0 0 1px rgba(246, 130, 31, 0.16);
+  }
+  50% {
+    box-shadow:
+      0 0 0 6px rgba(255, 61, 0, 0.08),
+      inset 0 0 0 2px rgba(255, 61, 0, 0.22);
+  }
+}
+
+.chat-edge-throb {
+  animation: chat-edge-throb 1.6s ease-in-out infinite;
+  border-radius: 0.75rem; /* rounded-xl */
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chat-edge-throb { animation: none; }
+}
+
+/* Debug mode pulsing effect - red edges */
+@keyframes debug-pulse {
+  0%, 100% {
+    box-shadow:
+      inset 4px 0 12px rgba(239, 68, 68, 0.1),
+      inset -4px 0 12px rgba(239, 68, 68, 0.1);
+  }
+  50% {
+    box-shadow:
+      inset 4px 0 20px rgba(239, 68, 68, 0.2),
+      inset -4px 0 20px rgba(239, 68, 68, 0.2);
+  }
+}
+
+.animate-debug-pulse {
+  animation: debug-pulse 2s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-debug-pulse { animation: none; }
+}
+
+/* Custom scrollbar for debug bubble */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.05);
+  border-radius: 3px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(239, 68, 68, 0.3);
+  border-radius: 3px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(239, 68, 68, 0.5);
+}
+
+.dark .custom-scrollbar::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.dark .custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(239, 68, 68, 0.4);
+}
+
+.dark .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(239, 68, 68, 0.6);
+}
+
+@custom-variant dark (&:is(.dark *));
+@plugin '@tailwindcss/typography';
+@theme inline {
+	--radius-sm:
+		calc(var(--radius) - 4px);
+	--radius-md:
+		calc(var(--radius) - 2px);
+	--radius-lg:
+		var(--radius);
+	--radius-xl:
+		calc(var(--radius) + 4px);
+	--color-accent:
+		var(--build-accent-color);
+	--color-destructive:
+		var(--destructive);
+	--color-input:
+		var(--input);
+	--color-ring:
+		var(--ring);
+	--shadow-textarea:
+		6px 6px 13px 0px rgba(0, 0, 0, 0.04),
+		24px 24px 24px 0px rgba(0, 0, 0, 0.03),
+		53px 53px 32px 0px rgba(0, 0, 0, 0.02),
+		0px 0px 0px 1px rgba(217, 217, 217, 0.2);
+	--color-bg-1: var(--build-chat-colors-bg-1);
+	--color-bg-2: var(--build-chat-colors-bg-2);
+	--color-bg-3: var(--build-chat-colors-bg-3);
+	--color-bg-4: var(--build-chat-colors-bg-4);
+	--color-border-primary: var(--build-chat-colors-border-primary);
+	--color-border-secondary: var(--build-chat-colors-border-secondary);
+	--color-border-tertiary: var(--build-chat-colors-border-tertiary);
+	--color-danger: var(--build-chat-colors-danger);
+	--color-brand-heavy: var(--build-chat-colors-brand-heavy);
+	--color-brand-primary: var(--build-chat-colors-brand-primary);
+	--color-brand-subtle: var(--build-chat-colors-brand-subtle);
+	--color-text-inverted: var(--build-chat-colors-text-inverted);
+	--color-text-primary: var(--build-chat-colors-text-primary);
+	--color-text-secondary: var(--build-chat-colors-text-secondary);
+	--color-text-tertiary: var(--build-chat-colors-text-tertiary);
+
+	--shadow-textarea:
+		6px 6px 13px 0px rgba(0, 0, 0, 0.04),
+		24px 24px 24px 0px rgba(0, 0, 0, 0.03),
+		53px 53px 32px 0px rgba(0, 0, 0, 0.02),
+		0px 0px 0px 1px rgba(217, 217, 217, 0.2);
+	--animate-typing-dot: typing-dot 1.2s ease-in-out infinite;
+	--animate-shake: shake 1s ease-in-out;
+}
+
+
+:root {
+	--radius:
+		0.625rem;
+	--destructive:
+		oklch(0.577 0.245 27.325);
+	--border:
+		oklch(0.922 0 0);
+	--input:
+		oklch(0.922 0 0);
+	--ring:
+		oklch(0.708 0 0);
+	--build-accent-color: #ff3d00;
+	--build-chat-colors-bg-1: #e7e7e7;
+	--build-chat-colors-bg-2: #f6f6f6;
+	--build-chat-colors-bg-3: #fbfbfc;
+	--build-chat-colors-bg-4: #ffffff;
+	--build-chat-colors-border-primary: #e5e5e5;
+	--build-chat-colors-border-secondary: #eeeeee;
+	--build-chat-colors-border-tertiary: #eeeeee;
+	--build-chat-colors-danger: #950000cc;
+	--build-chat-colors-brand-heavy: #f6821f;
+	--build-chat-colors-brand-primary: #f6821f;
+	--build-chat-colors-brand-subtle: #f6821f;
+	--build-chat-colors-text-inverted: #ffffff;
+	--build-chat-colors-text-primary: #0a0a0a;
+	--build-chat-colors-text-secondary: #171717;
+	--build-chat-colors-text-tertiary: #21212199;
+}
+
+.dark {
+	--destructive:
+		#ef4444; /* Error red */
+	--border:
+		#393939; /* Primary border color */
+	--input:
+		#292929; /* Input background */
+
+	--build-chat-colors-bg-1: #151515;
+	--build-chat-colors-bg-2: #1f2020;
+	--build-chat-colors-bg-3: #292929;
+	--build-chat-colors-bg-4: #3c3c3c;
+	--build-chat-colors-border-primary: #393939;
+	--build-chat-colors-border-secondary: #454746;
+	--build-chat-colors-border-tertiary: #454746;
+	--build-chat-colors-brand-heavy: #f6821f;
+	--build-chat-colors-brand-primary: #f6821f;
+	--build-chat-colors-brand-subtle: #f6821f;
+	--build-chat-colors-text-inverted: #000000;
+	--build-chat-colors-text-primary: #ffffff;
+	--build-chat-colors-text-secondary: #cdcaca;
+	--build-chat-colors-text-tertiary: #bcb9b9;
+
+	--shadow-dialog:
+		0px 18px 60px 0px rgba(6, 6, 5, 0.1),
+		3px 3px 13px 0px rgba(0, 0, 0, 0.04), -3px 3px 13px 0px rgba(0, 0, 0, 0.04),
+		24px 24px 24px 0px rgba(0, 0, 0, 0.03),
+		-24px 24px 24px 0px rgba(0, 0, 0, 0.03),
+		53px 53px 32px 0px rgba(0, 0, 0, 0.02),
+		0px 0px 0px 1px rgba(217, 217, 217, 0.2);
+	--shadow-elevation:
+		6px 6px 13px 0px rgba(0, 0, 0, 0.2),
+		24px 24px 24px 0px rgba(0, 0, 0, 0.17),
+		53px 53px 32px 0px rgba(0, 0, 0, 0.12),
+		0px 0px 0px 1px rgba(217, 217, 217, 0.1);
+}
+
+@layer base {
+	* {
+		@apply border-border-primary outline-ring/50;
+	}
+  	body {
+    	@apply bg-bg-3 text-text-primary h-full;
+	}
+	button {
+		@apply cursor-pointer;
+	}
+	select {
+		@apply cursor-pointer;
+	}
+}
+
+@theme {
+	--font-sans:
+		'Inter', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji',
+		'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
+
+	--color-brand: #0092b8;
+	--color-text: #000;
+	--color-text-on-brand: #fff;
+
+	--shadow-dialog:
+		0px 18px 60px 0px rgba(6, 6, 5, 0.1),
+		3px 3px 13px 0px rgba(0, 0, 0, 0.04), -3px 3px 13px 0px rgba(0, 0, 0, 0.04),
+		24px 24px 24px 0px rgba(0, 0, 0, 0.03),
+		-24px 24px 24px 0px rgba(0, 0, 0, 0.03),
+		53px 53px 32px 0px rgba(0, 0, 0, 0.02),
+		0px 0px 0px 1px rgba(217, 217, 217, 0.2);
+	--shadow-elevation:
+		6px 6px 13px 0px rgba(0, 0, 0, 0.04),
+		24px 24px 24px 0px rgba(0, 0, 0, 0.03),
+		53px 53px 32px 0px rgba(0, 0, 0, 0.02),
+		0px 0px 0px 1px rgba(217, 217, 217, 0.2);
+	--shadow-soft-layered:
+		3px 3px 13px 0px rgba(0, 0, 0, 0.04), 24px 24px 24px 0px rgba(0, 0, 0, 0.03);
+}
+
+
+/* Hack from https://stackoverflow.com/a/71876526 */
+.monaco-editor {
+	position: absolute !important;
+}
+
+@utility bg-graph-paper {
+	background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100' viewBox='0 0 100 100'%3E%3Cg fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.08'%3E%3Cpath opacity='.5' d='M96 95h4v1h-4v4h-1v-4h-9v4h-1v-4h-9v4h-1v-4h-9v4h-1v-4h-9v4h-1v-4h-9v4h-1v-4h-9v4h-1v-4h-9v4h-1v-4h-9v4h-1v-4H0v-1h15v-9H0v-1h15v-9H0v-1h15v-9H0v-1h15v-9H0v-1h15v-9H0v-1h15v-9H0v-1h15v-9H0v-1h15v-9H0v-1h15v-9H0v-1h15v-9H0v-1h15v-9H0v-1h15V0h1v15h9V0h1v15h9V0h1v15h9V0h1v15h9V0h1v15h9V0h1v15h9V0h1v15h9V0h1v15h9V0h1v15h9V0h1v15h4v1h-4v9h4v1h-4v9h4v1h-4v9h4v1h-4v9h4v1h-4v9h4v1h-4v9h4v1h-4v9h4v1h-4v9zm-1 0v-9h-9v9h9zm-10 0v-9h-9v9h9zm-10 0v-9h-9v9h9zm-10 0v-9h-9v9h9zm-10 0v-9h-9v9h9zm-10 0v-9h-9v9h9zm-10 0v-9h-9v9h9zm-10 0v-9h-9v9h9zm-9-10h9v-9h-9v9zm10 0h9v-9h-9v9zm10 0h9v-9h-9v9zm10 0h9v-9h-9v9zm10 0h9v-9h-9v9zm10 0h9v-9h-9v9zm10 0h9v-9h-9v9zm10 0h9v-9h-9v9zm9-10v-9h-9v9h9zm-10 0v-9h-9v9h9zm-10 0v-9h-9v9h9zm-10 0v-9h-9v9h9zm-10 0v-9h-9v9h9zm-10 0v-9h-9v9h9zm-10 0v-9h-9v9h9zm-10 0v-9h-9v9h9zm-9-10h9v-9h-9v9zm10 0h9v-9h-9v9zm10 0h9v-9h-9v9zm10 0h9v-9h-9v9zm10 0h9v-9h-9v9zm10 0h9v-9h-9v9zm10 0h9v-9h-9v9zm10 0h9v-9h-9v9zm9-10v-9h-9v9h9zm-10 0v-9h-9v9h9zm-10 0v-9h-9v9h9zm-10 0v-9h-9v9h9zm-10 0v-9h-9v9h9zm-10 0v-9h-9v9h9zm-10 0v-9h-9v9h9zm-10 0v-9h-9v9h9zm-9-10h9v-9h-9v9zm10 0h9v-9h-9v9zm10 0h9v-9h-9v9zm10 0h9v-9h-9v9zm10 0h9v-9h-9v9zm10 0h9v-9h-9v9zm10 0h9v-9h-9v9zm10 0h9v-9h-9v9z'/%3E%3Cpath d='M6 5V0H5v5H0v1h5v94h1V6h94V5H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+}
+
+::-webkit-scrollbar {
+	width: 8px;
+	height: 8px;
+	background-color: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+	background-color: rgba(0, 0, 0, 0.2);
+	border-radius: 4px;
+	transition: background-color 0.2s ease;
+}
+
+::-webkit-scrollbar-thumb:hover {
+	background-color: rgba(0, 0, 0, 0.3);
+}
+
+.dark ::-webkit-scrollbar-thumb {
+	background-color: rgba(255, 255, 255, 0.2);
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+	background-color: rgba(255, 255, 255, 0.3);
+}
+
+::-webkit-scrollbar-corner {
+	background-color: transparent;
+}
+
+/* Phase Timeline Custom Scrollbar */
+.phase-timeline-scroll::-webkit-scrollbar {
+	width: 6px;
+}
+
+.phase-timeline-scroll::-webkit-scrollbar-track {
+	background: rgba(0, 0, 0, 0.05);
+	border-radius: 3px;
+}
+
+.phase-timeline-scroll::-webkit-scrollbar-thumb {
+	background: rgba(0, 0, 0, 0.2);
+	border-radius: 3px;
+}
+
+.phase-timeline-scroll::-webkit-scrollbar-thumb:hover {
+	background: rgba(0, 0, 0, 0.3);
+}
+
+.dark .phase-timeline-scroll::-webkit-scrollbar-track {
+	background: rgba(255, 255, 255, 0.05);
+}
+
+.dark .phase-timeline-scroll::-webkit-scrollbar-thumb {
+	background: rgba(255, 255, 255, 0.2);
+}
+
+.dark .phase-timeline-scroll::-webkit-scrollbar-thumb:hover {
+	background: rgba(255, 255, 255, 0.3);
+}
+
+.presentation-thumbnail-bg {
+	background:
+		radial-gradient(circle at 20% 80%, rgba(99, 102, 241, 0.15) 0%, transparent 50%),
+		radial-gradient(circle at 80% 20%, rgba(139, 92, 246, 0.15) 0%, transparent 50%),
+		radial-gradient(circle at 40% 40%, rgba(59, 130, 246, 0.1) 0%, transparent 40%),
+		linear-gradient(135deg, #0a0e1a 0%, #0f172a 25%, #1e293b 50%, #0f172a 75%, #0a0e1a 100%);
+	background-size: 100% 100%, 100% 100%, 100% 100%, 400% 400%;
+}
+
+.a-tag a {
+	@apply text-brand;
+}
+
+.prose {
+	/* --tw-prose-invert-counters: rgb(156, 187, 192); */
+	/* --tw-prose-invert-bullets: rgb(156, 187, 192); */
+	--tw-prose-th-headers: --value(var(--color-text));
+	--tw-prose-body: --value(var(--color-text));
+	--tw-prose-headings: --value(var(--color-text));
+	--tw-prose-code: --value(var(--color-text));
+	--tw-prose-bold: --value(var(--color-text));
+	--tw-prose-quotes: --value(var(--color-text));
+	--tw-prose-counters: --value(var(--color-text));
+}
+
+/* Chat messages custom scrollbar */
+.chat-messages-scroll::-webkit-scrollbar {
+	width: 8px;
+}
+
+.chat-messages-scroll::-webkit-scrollbar-track {
+	background: transparent;
+}
+
+.chat-messages-scroll::-webkit-scrollbar-thumb {
+	background: rgba(0, 0, 0, 0.1);
+	border-radius: 4px;
+}
+
+.chat-messages-scroll::-webkit-scrollbar-thumb:hover {
+	background: rgba(0, 0, 0, 0.15);
+}
+
+.dark .chat-messages-scroll::-webkit-scrollbar-thumb {
+	background: rgba(255, 255, 255, 0.15);
+}
+
+.dark .chat-messages-scroll::-webkit-scrollbar-thumb:hover {
+	background: rgba(255, 255, 255, 0.2);
+}
+
+/* Terminal custom scrollbar */
+.terminal-scroll::-webkit-scrollbar {
+	width: 8px;
+}
+
+.terminal-scroll::-webkit-scrollbar-track {
+	background: rgba(0, 0, 0, 0.05);
+	border-radius: 4px;
+}
+
+.terminal-scroll::-webkit-scrollbar-thumb {
+	background: rgba(0, 0, 0, 0.15);
+	border-radius: 4px;
+	transition: background-color 0.2s ease;
+}
+
+.terminal-scroll::-webkit-scrollbar-thumb:hover {
+	background: rgba(0, 0, 0, 0.25);
+}
+
+.dark .terminal-scroll::-webkit-scrollbar-track {
+	background: rgba(255, 255, 255, 0.05);
+}
+
+.dark .terminal-scroll::-webkit-scrollbar-thumb {
+	background: rgba(255, 255, 255, 0.15);
+}
+
+.dark .terminal-scroll::-webkit-scrollbar-thumb:hover {
+	background: rgba(255, 255, 255, 0.25);
+}
+
+/* Hide scrollbar but keep scroll behavior */
+.no-scrollbar {
+-ms-overflow-style: none; /* IE and Edge */
+scrollbar-width: none; /* Firefox */
+}
+.no-scrollbar::-webkit-scrollbar {
+display: none; /* Chrome, Safari, Opera */
+}

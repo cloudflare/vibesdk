@@ -1,0 +1,57 @@
+# Logs
+logs
+*.log*
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules
+dist
+ dist-ssr
+ .tmp
+*.tsbuildinfo
+
+*.local
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# wrangler files
+.wrangler
+.dev.vars*
+.prod.vars
+.env
+.env.*
+
+runner/downloads
+/generated/prisma
+
+/generated/prisma
+test.ts
+temp/
+
+templates
+debugging.ipynb
+
+#bun.lock
+#*.lock
+
+debug-tools/*.json
+# Sentry Config File
+.env.sentry-build-plugin
+data-dump
+debug-tools/extracted
+debug-tools/presentation-tester
+
+.test-data
+cli

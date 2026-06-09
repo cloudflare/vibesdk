@@ -1,0 +1,11 @@
+{
+	"compilerOptions": {
+		"target": "ES2022",
+		"module": "ESNext",
+		"moduleResolution": "bundler",
+		"strict": true,
+		"skipLibCheck": true,
+		"types": ["@cloudflare/workers-types"]
+	},
+	"include": ["index.ts", "../test-flow.ts"]
+}
