@@ -57,6 +57,9 @@ import type{
 	CapabilitiesData,
 	VaultConfigResponse,
 	VaultStatusResponse,
+	ListAppTablesResponse,
+	QueryAppTableResponse,
+	WipeAppDatabaseResponse,
 } from '@/api-types';
 import {
 	RateLimitExceededError,
@@ -1031,6 +1034,72 @@ class ApiClient {
 	): Promise<ApiResponse<AgentPreviewResponse>> {
 		return this.request<AgentPreviewResponse>(
 			`/api/agent/${agentId}/preview`,
+		);
+	}
+
+	// ===============================
+	// App Database (DB tab) API
+	// ===============================
+
+	/**
+	 * List tables in the generated app's Durable Object SQLite storage
+	 * for the current branch.
+	 */
+	async listAppTables(
+		agentId: string,
+		branch?: string,
+	): Promise<ApiResponse<ListAppTablesResponse>> {
+		const params = new URLSearchParams();
+		if (branch) params.set('branch', branch);
+		const qs = params.toString();
+		return this.request<ListAppTablesResponse>(
+			`/api/agent/${agentId}/db/tables${qs ? `?${qs}` : ''}`,
+		);
+	}
+
+	/**
+	 * Read rows from a table inside the App's DO. Paginated, read-only.
+	 */
+	async queryAppTable(
+		agentId: string,
+		args: {
+			table: string;
+			limit?: number;
+			offset?: number;
+			orderBy?: string;
+			orderDir?: 'asc' | 'desc';
+			branch?: string;
+		},
+	): Promise<ApiResponse<QueryAppTableResponse>> {
+		const params = new URLSearchParams();
+		params.set('table', args.table);
+		if (args.limit !== undefined) params.set('limit', String(args.limit));
+		if (args.offset !== undefined) params.set('offset', String(args.offset));
+		if (args.orderBy) params.set('orderBy', args.orderBy);
+		if (args.orderDir) params.set('orderDir', args.orderDir);
+		if (args.branch) params.set('branch', args.branch);
+		return this.request<QueryAppTableResponse>(
+			`/api/agent/${agentId}/db/query?${params.toString()}`,
+		);
+	}
+
+	/**
+	 * Drop every user table inside the App's Durable Object. The next
+	 * request to the App recreates whatever schema its startup `CREATE
+	 * TABLE IF NOT EXISTS` defines.
+	 */
+	async wipeAppDatabase(
+		agentId: string,
+		opts: { branch?: string } = {},
+	): Promise<ApiResponse<WipeAppDatabaseResponse>> {
+		const body: Record<string, unknown> = {};
+		if (opts.branch) body.branch = opts.branch;
+		return this.request<WipeAppDatabaseResponse>(
+			`/api/agent/${agentId}/db/wipe`,
+			{
+				method: 'POST',
+				body: JSON.stringify(body),
+			},
 		);
 	}
 

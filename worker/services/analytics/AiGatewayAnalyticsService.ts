@@ -56,7 +56,7 @@ export class AiGatewayAnalyticsService {
         
         if (isStaging) {
           config.graphqlEndpoint = 'https://api.staging.cloudflare.com/client/v4/graphql';
-          config.apiToken = env.CLOUDFLARE_AI_GATEWAY_TOKEN || '';
+          config.apiToken = env.CLOUDFLARE_AI_GATEWAY_TOKEN || env.CLOUDFLARE_API_TOKEN || '';
         } else {
           config.apiToken = env.CLOUDFLARE_API_TOKEN || '';
         }

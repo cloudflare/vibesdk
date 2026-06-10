@@ -1,4 +1,5 @@
 import { CodingAgentController } from '../controllers/agent/controller';
+import { AppDatabaseController } from '../controllers/appDatabase/controller';
 import { AppEnv } from '../../types/appenv';
 import { Hono } from 'hono';
 import { AuthConfig, setAuthLevel } from '../../middleware/auth/routeAuth';
@@ -30,4 +31,26 @@ export function setupCodegenRoutes(app: Hono<AppEnv>): void {
     app.get('/api/agent/:agentId/connect', setAuthLevel(AuthConfig.ownerOnly), adaptController(CodingAgentController, CodingAgentController.connectToExistingAgent));
 
     app.get('/api/agent/:agentId/preview', setAuthLevel(AuthConfig.authenticated), adaptController(CodingAgentController, CodingAgentController.deployPreview));
+
+    // ========================================
+    // APP DATABASE (DB tab) — read-only viewer
+    // ========================================
+    // Inspect the SQLite storage of the user's App Durable Object,
+    // hosted as a Facet of SpaceDO. Only think-behavior apps have
+    // a SpaceDO; other behaviors will 404 / error harmlessly.
+    app.get(
+        '/api/agent/:agentId/db/tables',
+        setAuthLevel(AuthConfig.ownerOnly),
+        adaptController(AppDatabaseController, AppDatabaseController.listTables),
+    );
+    app.get(
+        '/api/agent/:agentId/db/query',
+        setAuthLevel(AuthConfig.ownerOnly),
+        adaptController(AppDatabaseController, AppDatabaseController.queryTable),
+    );
+    app.post(
+        '/api/agent/:agentId/db/wipe',
+        setAuthLevel(AuthConfig.ownerOnly),
+        adaptController(AppDatabaseController, AppDatabaseController.wipe),
+    );
 }

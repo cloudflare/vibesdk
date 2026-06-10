@@ -8,6 +8,7 @@ import type { ToolEvent } from '../utils/message-helpers';
 import type { ConversationMessage } from '@/api-types';
 import { useState, useEffect, useRef } from 'react';
 import { DebugSessionBubble } from './debug-session-bubble';
+import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
 
 /**
  * Strip internal system tags that should not be displayed to users
@@ -87,10 +88,12 @@ function convertToToolEvent(msg: ConversationMessage, idx: number): ToolEvent | 
 
 export function MessageContentRenderer({ 
 	content, 
-	toolEvents = [] 
+	toolEvents = [],
+	richToolPreview = false,
 }: { 
 	content: string;
 	toolEvents?: ToolEvent[];
+	richToolPreview?: boolean;
 }) {
 	const inlineToolEvents = toolEvents.filter(ev => ev.contentLength !== undefined)
 		.sort((a, b) => (a.contentLength ?? 0) - (b.contentLength ?? 0));
@@ -108,12 +111,100 @@ export function MessageContentRenderer({
 					</Markdown>
 				) : (
 					<div key={item.key} className="my-1">
-						<ToolStatusIndicator event={item.event} />
+						<ToolStatusIndicator event={item.event} richToolPreview={richToolPreview} />
 					</div>
 				)
 			))}
 		</div>
 	);
+}
+
+/** Does the tool event have inspectable input (`args`)? */
+function hasToolInput(event: ToolEvent): boolean {
+	return !!event.args && Object.keys(event.args).length > 0;
+}
+
+/** Does the tool event have inspectable output (`result`)? */
+function hasToolOutput(event: ToolEvent): boolean {
+	return event.status === 'success' && !!event.result;
+}
+
+/**
+ * Short, hover-only preview of a tool event's Input and Output, used
+ * for think-agent tools where rich previews are enabled. Truncates long
+ * values so the popover stays compact — full content is reachable via
+ * click-to-expand below the trigger.
+ */
+function ToolEventHoverPreview({ event }: { event: ToolEvent }) {
+	const inputPreview = event.args ? truncateInline(safeStringifyArgs(event.args)) : null;
+	const outputPreview = event.result ? truncateInline(event.result) : null;
+	return (
+		<div className="flex flex-col gap-2 text-xs">
+			<div className="font-mono font-medium text-text-secondary">{event.name}</div>
+			{inputPreview && (
+				<div className="flex flex-col gap-1">
+					<span className="text-accent font-medium">Input</span>
+					<span className="text-text-primary whitespace-pre-wrap break-words">{inputPreview}</span>
+				</div>
+			)}
+			{outputPreview && (
+				<div className="flex flex-col gap-1">
+					<span className="text-accent font-medium">Output</span>
+					<span className="text-text-primary whitespace-pre-wrap break-words">{outputPreview}</span>
+				</div>
+			)}
+			{(inputPreview || outputPreview) && (
+				<div className="text-text-tertiary italic">Click to expand</div>
+			)}
+		</div>
+	);
+}
+
+/**
+ * Full expanded panel rendered when the user clicks the chevron on a
+ * rich-preview tool widget. Reuses `JsonRenderer` for input and the
+ * existing `ToolResultRenderer` for output so both follow the codebase
+ * conventions for structured data.
+ */
+function ToolEventExpandedPanel({ event }: { event: ToolEvent }) {
+	const showInput = hasToolInput(event);
+	const showOutput = hasToolOutput(event);
+	if (!showInput && !showOutput) return null;
+	return (
+		<div className="flex flex-col gap-3">
+			{showInput && (
+				<div className="flex flex-col gap-1">
+					<div className="text-[10px] uppercase tracking-wide text-text-tertiary">Input</div>
+					<JsonRenderer data={event.args} />
+				</div>
+			)}
+			{showOutput && (
+				<div className="flex flex-col gap-1">
+					<div className="text-[10px] uppercase tracking-wide text-text-tertiary">Output</div>
+					<ToolResultRenderer result={event.result!} toolName={event.name} />
+				</div>
+			)}
+		</div>
+	);
+}
+
+/**
+ * Best-effort JSON serialize for hover previews. Falls back to an
+ * empty object on failure so the preview just renders nothing for
+ * that section instead of crashing.
+ */
+function safeStringifyArgs(args: Record<string, unknown>): string {
+	try {
+		return JSON.stringify(args, null, 2);
+	} catch {
+		return '';
+	}
+}
+
+/** Clamp long strings so hover previews stay compact. */
+function truncateInline(s: string, limit = 220): string {
+	if (s.length <= limit) return s;
+	return `${s.slice(0, limit)}…`;
 }
 
 function DeepDebugTranscript({ transcript }: { transcript: ConversationMessage[] }) {
@@ -182,49 +273,73 @@ function ToolResultRenderer({ result, toolName }: { result: string; toolName: st
 	}
 }
 
-export function ToolStatusIndicator({ event }: { event: ToolEvent }) {
+export function ToolStatusIndicator({ event, richToolPreview = false }: { event: ToolEvent; richToolPreview?: boolean }) {
 	const [isExpanded, setIsExpanded] = useState(false);
-	const hasResult = event.status === 'success' && event.result;
+	const hasResult = event.status === 'success' && !!event.result;
 	const isDeepDebug = event.name === 'deep_debug';
-	
-	const statusText = event.status === 'start' ? 'Running' : 
-	                   event.status === 'success' ? 'Completed' : 
+
+	// Rich preview (think only): allow expanding when *either* args
+	// or result is present, and show a hover-card peek of both.
+	// Default (phasic/agentic): click-to-expand requires a result; no
+	// hover-card. This preserves today's exact UX outside think.
+	const showInputSection = richToolPreview && hasToolInput(event);
+	const canExpand = richToolPreview ? (showInputSection || hasResult) : hasResult;
+
+	const statusText = event.status === 'start' ? 'Running' :
+	                   event.status === 'success' ? 'Completed' :
 	                   'Error';
-	
-	const StatusIcon = event.status === 'start' ? LoaderCircle : 
-	                   event.status === 'success' ? Check : 
+
+	const StatusIcon = event.status === 'start' ? LoaderCircle :
+	                   event.status === 'success' ? Check :
 	                   AlertTriangle;
-	
+
 	const iconClass = event.status === 'start' ? 'size-3 animate-spin' : 'size-3';
-	
+
+	const button = (
+		<button
+			onClick={() => canExpand && setIsExpanded(!isExpanded)}
+			className={clsx(
+				'flex items-center gap-1.5 text-xs',
+				isDeepDebug ? 'text-accent font-medium' : 'text-text-tertiary',
+				canExpand && 'cursor-pointer hover:text-text-secondary transition-colors'
+			)}
+			disabled={!canExpand}
+		>
+			<StatusIcon className={iconClass} />
+			<span className="font-mono tracking-tight">
+				{statusText} {event.name}
+			</span>
+			{canExpand && (
+				isExpanded ? <ChevronDown className="size-3" /> : <ChevronRight className="size-3" />
+			)}
+		</button>
+	);
+
+	const trigger = richToolPreview && canExpand ? (
+		<HoverCard openDelay={150} closeDelay={75}>
+			<HoverCardTrigger asChild>{button}</HoverCardTrigger>
+			<HoverCardContent align="start" className="w-80">
+				<ToolEventHoverPreview event={event} />
+			</HoverCardContent>
+		</HoverCard>
+	) : button;
+
 	return (
 		<div className="flex flex-col gap-2">
-			<button
-				onClick={() => hasResult && setIsExpanded(!isExpanded)}
-				className={clsx(
-					'flex items-center gap-1.5 text-xs',
-					isDeepDebug ? 'text-accent font-medium' : 'text-text-tertiary',
-					hasResult && 'cursor-pointer hover:text-text-secondary transition-colors'
-				)}
-				disabled={!hasResult}
-			>
-				<StatusIcon className={iconClass} />
-				<span className="font-mono tracking-tight">
-					{statusText} {event.name}
-				</span>
-				{hasResult && (
-					isExpanded ? <ChevronDown className="size-3" /> : <ChevronRight className="size-3" />
-				)}
-			</button>
-			
-			{isExpanded && hasResult && event.result && (
+			{trigger}
+
+			{isExpanded && canExpand && (
 				<div className={clsx(
 					'p-3 rounded-md text-xs font-mono border overflow-auto',
-					isDeepDebug 
-						? 'bg-surface-tertiary/30 border-accent/20 max-h-[600px]' 
+					isDeepDebug
+						? 'bg-surface-tertiary/30 border-accent/20 max-h-[600px]'
 						: 'bg-surface-secondary border-border max-h-96'
 				)}>
-					<ToolResultRenderer result={event.result} toolName={event.name} />
+					{richToolPreview ? (
+						<ToolEventExpandedPanel event={event} />
+					) : (
+						event.result && <ToolResultRenderer result={event.result} toolName={event.name} />
+					)}
 				</div>
 			)}
 		</div>
@@ -264,10 +379,17 @@ export function AIMessage({
 	message,
 	isThinking,
 	toolEvents = [],
+	richToolPreview = false,
 }: {
 	message: string;
 	isThinking?: boolean;
 	toolEvents?: ToolEvent[];
+	/**
+	 * Enables the think-only tool widget UX (hover preview of
+	 * Input/Output + click-expand panel with both sections). Defaults
+	 * to `false` so phasic/agentic tool rendering stays untouched.
+	 */
+	richToolPreview?: boolean;
 }) {
 	const sanitizedMessage = sanitizeMessageForDisplay(message);
 	
@@ -354,7 +476,7 @@ export function AIMessage({
 				{/* Message content with inline tool events (from streaming) */}
 				{orderedContent.length > 0 && (
 					<div className={clsx(isThinking && 'animate-pulse')}>
-						<MessageContentRenderer content={sanitizedMessage} toolEvents={inlineToolEvents} />
+						<MessageContentRenderer content={sanitizedMessage} toolEvents={inlineToolEvents} richToolPreview={richToolPreview} />
 					</div>
 				)}
 				
@@ -362,7 +484,7 @@ export function AIMessage({
 				{topToolEvents.length > 0 && (
 					<div className="flex flex-col gap-1.5 mt-1">
 						{topToolEvents.map((ev) => (
-							<ToolStatusIndicator key={`${ev.name}-${ev.timestamp}`} event={ev} />
+							<ToolStatusIndicator key={`${ev.name}-${ev.timestamp}`} event={ev} richToolPreview={richToolPreview} />
 						))}
 					</div>
 				)}

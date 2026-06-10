@@ -1,0 +1,5 @@
+[install]
+# Hoist transitive deps to the top-level node_modules so bundlers
+# (vite/rolldown, esbuild) can resolve externalized imports from
+# workspace packages (e.g. @space-do/space's externals).
+linker = "hoisted"

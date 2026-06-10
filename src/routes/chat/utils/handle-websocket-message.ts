@@ -35,6 +35,41 @@ const isPhasicState = (state: AgentState): state is PhasicState => {
 	return false;
 };
 
+/**
+ * Tool input (args) is think-only UI. Centralised here so the live
+ * (`conversation_response`) and reload (`conversation_state`) paths
+ * stay in sync. For phasic/agentic the FE intentionally drops args so
+ * their tool widgets render with today's exact UX.
+ */
+function shouldAttachToolArgs(behaviorType: BehaviorType): boolean {
+	return behaviorType === 'think';
+}
+
+/**
+ * OpenAI-canonical tool input lives on the assistant message's
+ * `tool_calls[].function.arguments` (a JSON string). Find the entry
+ * matching `toolCallId` on the most recent assistant ChatMessage and
+ * parse it back into an args object. Returns undefined when the
+ * assistant message is missing, the id doesn't match, or the JSON is
+ * malformed — callers gracefully omit the Input section in that case.
+ */
+function lookupToolArgsFromAssistant(
+	assistant: ChatMessage | null,
+	toolCallId: string | undefined,
+): Record<string, unknown> | undefined {
+	if (!assistant || !toolCallId) return undefined;
+	const calls = assistant.tool_calls;
+	if (!calls || calls.length === 0) return undefined;
+	const match = calls.find((tc) => tc && 'id' in tc && tc.id === toolCallId);
+	if (!match || !('function' in match) || !match.function?.arguments) return undefined;
+	try {
+		const parsed = JSON.parse(match.function.arguments);
+		return parsed && typeof parsed === 'object' ? (parsed as Record<string, unknown>) : undefined;
+	} catch {
+		return undefined;
+	}
+}
+
 export interface BackendErrorDialogState {
     isOpen: boolean;
     errorCode?: string;
@@ -449,12 +484,20 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
                         }
                     } else if (msg.role === 'tool' && 'name' in msg && msg.name && currentAssistant) {
                         ensureToolEvents(currentAssistant);
+                        // Restored tool events: omit `contentLength` so they render
+                        // as `topToolEvents` (bottom of bubble) per the convention
+                        // in messages.tsx. Setting contentLength would mark them as
+                        // inline-streaming events and they'd be hidden after reload.
+                        const toolCallId = 'tool_call_id' in msg ? (msg as { tool_call_id?: string }).tool_call_id : undefined;
+                        const args = shouldAttachToolArgs(behaviorType)
+                            ? lookupToolArgsFromAssistant(currentAssistant, toolCallId)
+                            : undefined;
                         currentAssistant.ui!.toolEvents!.push({
                             name: msg.name,
                             status: 'success',
                             timestamp: Date.now(),
                             result: text || undefined,
-                            contentLength: currentAssistant.content.length,
+                            args,
                         });
                     }
                 }
@@ -587,8 +630,16 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
                 setFiles((prev) => setAllFilesCompleted(prev));
                 setProjectStages((prev) => completeStages(prev, ['code']));
 
-                sendMessage(createAIMessage('generation-complete', 'Code generation has been completed.'));
-                
+                // Think runs are conversational — every assistant turn
+                // is its own "completion", so a stand-alone
+                // `Code generation has been completed` banner is
+                // misleading. Phasic/agentic emit this once at the end
+                // of a multi-phase build, which is when the banner
+                // makes sense.
+                if (behaviorType !== 'think') {
+                    sendMessage(createAIMessage('generation-complete', 'Code generation has been completed.'));
+                }
+
                 // Reset all phase indicators
                 setIsPhaseProgressActive(false);
                 setIsThinking(false);
@@ -918,8 +969,27 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
                     setMessages(prev => appendToolEvent(prev, conversationId, { 
                         name: tool.name, 
                         status: tool.status,
-                        result: tool.result 
+                        result: tool.result,
+                        args: shouldAttachToolArgs(behaviorType) ? tool.args : undefined,
                     }));
+
+                    // Refresh the preview iframe when the `deploy` tool
+                    // finishes — the SpaceDO has just produced a new build and
+                    // the existing preview URL now points at stale content.
+                    // Small delay so the dynamic worker has time to publish.
+                    if ((tool.name === 'deploy' || tool.name === 'deploy_space') && tool.status === 'success') {
+                        logger.debug('🔄 Deploy tool succeeded — refreshing preview iframe');
+                        setTimeout(() => {
+                            setShouldRefreshPreview(true);
+                            setTimeout(() => setShouldRefreshPreview(false), 100);
+                            onDebugMessage?.(
+                                'info',
+                                'Preview Auto-Refresh Triggered',
+                                'Preview refreshed after deploy tool completed',
+                                'Preview Auto-Refresh',
+                            );
+                        }, 500);
+                    }
                     break;
                 }
 

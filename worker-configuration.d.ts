@@ -48,6 +48,8 @@ declare namespace Cloudflare {
 		SANDBOX_INSTANCE_TYPE: string;
 		CUSTOM_DOMAIN: string;
 		CUSTOM_PREVIEW_DOMAIN: string;
+		DEV_BROWSER_SIDECAR_URL: string;
+		DEV_BROWSER_PREVIEW_ORIGIN: string;
 		ALLOCATION_STRATEGY: string;
 		GITHUB_EXPORTER_CLIENT_ID: string;
 		GITHUB_EXPORTER_CLIENT_SECRET: string;
@@ -66,6 +68,7 @@ declare namespace Cloudflare {
 		API_RATE_LIMITER: RateLimit;
 		AUTH_RATE_LIMITER: RateLimit;
 		AI: Ai;
+		BROWSER: Fetcher;
 		CF_VERSION_METADATA: WorkerVersionMetadata;
 		ASSETS: Fetcher;
 		ENABLE_CLOUDFLARE_LIMITS: string;

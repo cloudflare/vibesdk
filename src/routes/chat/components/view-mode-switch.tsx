@@ -1,6 +1,6 @@
 import clsx from 'clsx';
 import { AnimatePresence, motion } from 'framer-motion';
-import { Eye, Code, FileText, Presentation } from 'lucide-react';
+import { Eye, Code, FileText, Presentation, Database } from 'lucide-react';
 import { featureRegistry } from '@/features';
 import type { ProjectType } from '@/api-types';
 
@@ -18,14 +18,17 @@ export function ViewModeSwitch({
 	hasDocumentation = false,
 	previewUrl,
 	projectType,
+	databaseAvailable = false,
 }: {
-	view: 'preview' | 'editor' | 'docs' | 'blueprint' | 'presentation'
-	onChange: (mode: 'preview' | 'editor' | 'docs' | 'blueprint' | 'presentation') => void;
+	view: 'preview' | 'editor' | 'docs' | 'blueprint' | 'presentation' | 'database'
+	onChange: (mode: 'preview' | 'editor' | 'docs' | 'blueprint' | 'presentation' | 'database') => void;
 	previewAvailable: boolean;
 	showTooltip: boolean;
 	hasDocumentation: boolean;
 	previewUrl?: string;
 	projectType?: ProjectType;
+	/** When true, the read-only DB viewer tab is shown. Wired only for think-behavior apps. */
+	databaseAvailable?: boolean;
 }) {
 	// Get feature definition to determine icon and label
 	const featureDefinition = projectType ? featureRegistry.getDefinition(projectType) : null;
@@ -98,6 +101,22 @@ export function ViewModeSwitch({
 					title="Docs"
 				>
 					<FileText className="size-4" />
+				</button>
+			)}
+			{/* Database button - think-behavior apps get a singleton env.DB
+			    backed by a SpaceDO Facet. Read-only viewer. */}
+			{databaseAvailable && (
+				<button
+					onClick={() => onChange('database')}
+					className={clsx(
+						'p-1 flex items-center justify-between h-full rounded-md transition-colors',
+						view === 'database'
+							? 'bg-bg-4 text-text-primary'
+							: 'text-text-50/70 hover:text-text-primary hover:bg-accent',
+					)}
+					title="Database (read-only)"
+				>
+					<Database className="size-4" />
 				</button>
 			)}
 			{/* {terminalAvailable && (

@@ -40,9 +40,11 @@ import { GitVersionControl } from '../../git';
 import { DeepDebuggerOperation } from '../../operations/DeepDebugger';
 import type { DeepDebuggerInputs } from '../../operations/DeepDebugger';
 import { generatePortToken } from 'worker/utils/cryptoUtils';
-import { getPreviewDomain, getProtocolForHost } from 'worker/utils/urls';
+import { getProtocolForHost, resolvePreviewHost } from 'worker/utils/urls';
 import { isDev } from 'worker/utils/envs';
 import { InMemoryAnalyzer } from '../../../services/static-analysis';
+import { getBrowserCaptureClient } from '../../../services/browser-capture/factory';
+import type { BrowserConsoleCaptureResult } from '../../../services/browser-capture/types';
 
 // Screenshot capture configuration
 const SCREENSHOT_CONFIG = {
@@ -1143,12 +1145,19 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
     }
 
     /**
-     * Get browser preview URL for file serving
+     * Get browser preview URL for file serving.
+     *
+     * Host resolution order: frontend-supplied origin (captured at WS
+     * upgrade) → configured preview domain → CUSTOM_DOMAIN → localhost
+     * fallback. In dev when the FE is on localhost we keep the dev
+     * server host (`localhost:5173`) so the iframe URL matches.
      */
-    public getBrowserPreviewURL(): string {
+    public async getBrowserPreviewURL(): Promise<string> {
         const token = this.getOrCreateFileServingToken();
         const agentId = this.getAgentId();
-        const previewDomain = isDev(this.env) ? 'localhost:5173' : getPreviewDomain(this.env);
+        const previewDomain = isDev(this.env)
+            ? 'localhost:5173'
+            : resolvePreviewHost(this.env, this.state.wsOrigin);
 
         // Format: b-{agentid}-{token}.{previewDomain}
         return `${getProtocolForHost(previewDomain)}://b-${agentId}-${token}.${previewDomain}`;
@@ -1175,7 +1184,7 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
             this.logger.info('Deploying to browser native sandbox');
             this.broadcast(WebSocketMessageResponses.DEPLOYMENT_STARTED, {});
             const result: PreviewType = {
-                previewURL: this.getBrowserPreviewURL()
+                previewURL: await this.getBrowserPreviewURL()
             }
             this.logger.info('Deployed to browser native sandbox');
             this.broadcast(WebSocketMessageResponses.DEPLOYMENT_COMPLETED, result);
@@ -1722,6 +1731,37 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
             this.logger.error('Error processing user input', error);
             throw error;
         }
+    }
+
+    /**
+     * Capture browser console logs, uncaught page errors and failed
+     * network requests from a real headless Chromium.
+     *
+     * Routing is environment-driven (see
+     * `worker/services/browser-capture/factory.ts`):
+     *   - prod → `@cloudflare/puppeteer` over the BROWSER binding
+     *   - dev  → local Node sidecar (`npm run dev:browser`)
+     *
+     * Both implementations share `runCapture` so behaviour is
+     * identical. Never throws on sidecar unavailability — returns a
+     * result with `warning` populated so the LLM sees the situation.
+     */
+    public async captureBrowserConsoleLogs(opts: {
+        url?: string;
+        waitSeconds?: number;
+        viewport?: { width: number; height: number };
+        interactScript?: string;
+    } = {}): Promise<BrowserConsoleCaptureResult> {
+        const targetUrl = opts.url ?? await this.getBrowserPreviewURL();
+        const waitSeconds = Math.min(Math.max(opts.waitSeconds ?? 5, 0), 25);
+        const viewport = opts.viewport ?? { width: 1280, height: 800 };
+        const client = getBrowserCaptureClient(this.env, this.logger);
+        return client.captureConsoleLogs({
+            url: targetUrl,
+            waitSeconds,
+            viewport,
+            interactScript: opts.interactScript,
+        });
     }
 
     /**

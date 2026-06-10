@@ -50,96 +50,10 @@ interface JSONSchema {
 }
 
 function zodToOpenAIParameters(schema: z.ZodType<unknown>): JSONSchema {
-	if (schema instanceof z.ZodObject) {
-		const shape = schema._def.shape();
-		const properties: Record<string, JSONSchema> = {};
-		const required: string[] = [];
-
-		for (const [key, value] of Object.entries(shape)) {
-			const zodField = value as z.ZodTypeAny;
-			properties[key] = zodTypeToJsonSchema(zodField);
-
-			if (!zodField.isOptional()) {
-				required.push(key);
-			}
-		}
-
-		return {
-			type: 'object' as const,
-			properties,
-			required: required.length > 0 ? required : undefined,
-		};
-	}
-
-	return zodTypeToJsonSchema(schema);
-}
-
-function zodTypeToJsonSchema(schema: z.ZodTypeAny): JSONSchema {
-	const description = schema.description;
-
-	if (schema instanceof z.ZodString) {
-		return { type: 'string' as const, description };
-	}
-
-	if (schema instanceof z.ZodNumber) {
-		return { type: 'number' as const, description };
-	}
-
-	if (schema instanceof z.ZodBoolean) {
-		return { type: 'boolean' as const, description };
-	}
-
-	if (schema instanceof z.ZodArray) {
-		return {
-			type: 'array' as const,
-			items: zodTypeToJsonSchema(schema._def.type),
-			description,
-		};
-	}
-
-	if (schema instanceof z.ZodObject) {
-		const shape = schema._def.shape();
-		const properties: Record<string, JSONSchema> = {};
-		const required: string[] = [];
-
-		for (const [key, value] of Object.entries(shape)) {
-			const zodField = value as z.ZodTypeAny;
-			properties[key] = zodTypeToJsonSchema(zodField);
-
-			if (!zodField.isOptional()) {
-				required.push(key);
-			}
-		}
-
-		return {
-			type: 'object' as const,
-			properties,
-			required: required.length > 0 ? required : undefined,
-			description,
-		};
-	}
-
-	if (schema instanceof z.ZodOptional) {
-		return zodTypeToJsonSchema(schema._def.innerType);
-	}
-
-	if (schema instanceof z.ZodDefault) {
-		const innerSchema = zodTypeToJsonSchema(schema._def.innerType);
-		return {
-			...innerSchema,
-			default: schema._def.defaultValue(),
-		};
-	}
-
-	if (schema instanceof z.ZodEnum) {
-		return {
-			type: 'string' as const,
-			enum: schema._def.values,
-			description,
-		};
-	}
-
-	return { type: 'string' as const, description };
+	// zod 4 ships a native JSON Schema converter. `unrepresentable: 'any'`
+	// keeps the conversion lenient (matches the old hand-rolled fallback of
+	// emitting `{ type: 'string' }` for unknown nodes rather than throwing).
+	return z.toJSONSchema(schema, { unrepresentable: 'any' }) as unknown as JSONSchema;
 }
 
 function buildTool<TArgs, TResult>(

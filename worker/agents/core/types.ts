@@ -5,10 +5,19 @@ import type { ConversationMessage } from '../inferutils/common';
 import type { InferenceContext } from '../inferutils/config.types';
 import type { TemplateDetails } from '../../services/sandbox/sandboxTypes';
 import { TemplateSelection } from '../schemas';
-import { CurrentDevState, PhasicState, AgenticState } from './state';
+import { CurrentDevState, PhasicState, AgenticState, ThinkState } from './state';
 import { ProcessedImageAttachment } from 'worker/types/image-attachment';
 
-export type BehaviorType = 'phasic' | 'agentic';
+export type BehaviorType = 'phasic' | 'agentic' | 'think';
+
+/**
+ * Returns true for behaviors that share the agentic-style UI shell
+ * (conversational, no phase timeline, preview-first layout). Used by both
+ * backend logic and frontend rendering helpers.
+ */
+export function isAgenticLikeBehavior(b: BehaviorType): boolean {
+    return b === 'agentic' || b === 'think';
+}
 
 export type ProjectType = 'app' | 'workflow' | 'presentation' | 'general';
 
@@ -48,11 +57,20 @@ interface AgenticAgentInitArgs extends BaseAgentInitArgs {
     };
 }
 
+/** Think agent initialization arguments — same shape as agentic */
+interface ThinkAgentInitArgs extends BaseAgentInitArgs {
+    templateInfo?: {
+        templateDetails: TemplateDetails;
+        selection: TemplateSelection;
+    };
+}
+
 /** Generic initialization arguments based on state type */
-export type AgentInitArgs<TState extends PhasicState | AgenticState = PhasicState | AgenticState> = 
-    TState extends PhasicState ? PhasicAgentInitArgs : 
-    TState extends AgenticState ? AgenticAgentInitArgs : 
-    PhasicAgentInitArgs | AgenticAgentInitArgs;
+export type AgentInitArgs<TState extends PhasicState | AgenticState | ThinkState = PhasicState | AgenticState | ThinkState> =
+    TState extends PhasicState ? PhasicAgentInitArgs :
+    TState extends AgenticState ? AgenticAgentInitArgs :
+    TState extends ThinkState ? ThinkAgentInitArgs :
+    PhasicAgentInitArgs | AgenticAgentInitArgs | ThinkAgentInitArgs;
 
 export type Plan = string;
 

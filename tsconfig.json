@@ -13,6 +13,11 @@
 	],
 	"compilerOptions": {
 		"composite": true,
+		"baseUrl": ".",
+		"paths": {
+			"shared/*": ["./shared/*"],
+			"worker/*": ["./worker/*"]
+		},
 		"types": [
 			"./worker-configuration.d.ts"
 		]

@@ -7,7 +7,6 @@ import {
     generateTemplateForSchema,
     parseContentForSchema,
 } from './schemaFormatters';
-import { zodResponseFormat } from 'openai/helpers/zod.mjs';
 import {
     ChatCompletionMessageFunctionToolCall,
     type ReasoningEffort,
@@ -28,6 +27,58 @@ import { CompletionDetector } from './completionDetection';
 import { createLogger } from '../../logger';
 
 const logger = createLogger('Inference');
+
+type JsonSchemaNode = Record<string, unknown>;
+
+/**
+ * Recursively sanitize a JSON schema so it satisfies OpenAI strict json_schema mode:
+ * strip unsupported keywords ($schema, default) and force every object to declare
+ * additionalProperties:false with all properties required.
+ */
+function sanitizeStrictJsonSchema(node: unknown): unknown {
+    if (Array.isArray(node)) {
+        return node.map(sanitizeStrictJsonSchema);
+    }
+    if (node && typeof node === 'object') {
+        const obj = node as JsonSchemaNode;
+        delete obj['$schema'];
+        delete obj['default'];
+        if (obj.type === 'object' && obj.properties && typeof obj.properties === 'object') {
+            obj.additionalProperties = false;
+            obj.required = Object.keys(obj.properties as JsonSchemaNode);
+        }
+        for (const key of Object.keys(obj)) {
+            obj[key] = sanitizeStrictJsonSchema(obj[key]);
+        }
+        return obj;
+    }
+    return node;
+}
+
+/**
+ * Build an OpenAI-compatible json_schema response_format using zod 4's native
+ * `z.toJSONSchema`. The OpenAI SDK's `zodResponseFormat` relies on a vendored
+ * zod-v3 converter and silently emits `{ type: "string" }` for zod-v4 schemas,
+ * which makes models return a bare string instead of an object.
+ */
+function buildJsonSchemaResponseFormat(
+    schema: z.ZodType,
+    name: string,
+): OpenAI.Chat.Completions.ChatCompletionCreateParams['response_format'] {
+    const jsonSchema = z.toJSONSchema(schema, {
+        target: 'draft-7',
+        io: 'output',
+        unrepresentable: 'any',
+    }) as JsonSchemaNode;
+    return {
+        type: 'json_schema',
+        json_schema: {
+            name,
+            strict: true,
+            schema: sanitizeStrictJsonSchema(jsonSchema) as Record<string, unknown>,
+        },
+    };
+}
 
 function optimizeInputs(messages: Message[]): Message[] {
     return messages.map((message) => ({
@@ -306,7 +357,7 @@ async function getApiKey(
             // User provided custom gateway
             apiKey = runtimeOverrides.aiGatewayOverride.token ?? '';
         } else {
-            apiKey = runtimeOverrides?.aiGatewayOverride?.token ?? env.CLOUDFLARE_AI_GATEWAY_TOKEN;
+            apiKey = runtimeOverrides?.aiGatewayOverride?.token ?? (env.CLOUDFLARE_AI_GATEWAY_TOKEN || env.CLOUDFLARE_API_TOKEN);
         }
     }
     return apiKey;
@@ -360,7 +411,7 @@ export async function getConfigurationForModel(
 
     const gatewayToken = isUsingCustomGateway
         ? gatewayOverride?.token
-        : (gatewayOverride?.token ?? env.CLOUDFLARE_AI_GATEWAY_TOKEN);  // Platform gateway
+        : (gatewayOverride?.token ?? (env.CLOUDFLARE_AI_GATEWAY_TOKEN || env.CLOUDFLARE_API_TOKEN));  // Platform gateway
 
     // Try to find API key of type <PROVIDER>_API_KEY else default to gateway token
     const apiKey = await getApiKey(modelConfig.provider, env, userId, runtimeOverrides, shouldUseUserKey, userApiToken);
@@ -404,7 +455,7 @@ type InferArgsBase = {
 };
 
 type InferArgsStructured = InferArgsBase & {
-    schema: z.AnyZodObject;
+    schema: z.ZodObject;
     schemaName: string;
 };
 
@@ -486,7 +537,7 @@ const claude_thinking_budget_tokens = {
     minimal: 1000,
 };
 
-export type InferResponseObject<OutputSchema extends z.AnyZodObject> = {
+export type InferResponseObject<OutputSchema extends z.ZodObject> = {
     object: z.infer<OutputSchema>;
     toolCallContext?: ToolCallContext;
 };
@@ -540,14 +591,14 @@ function updateToolCallContext(
     return newToolCallContext;
 }
 
-export function infer<OutputSchema extends z.AnyZodObject>(
+export function infer<OutputSchema extends z.ZodObject>(
     args: InferArgsStructured,
     toolCallContext?: ToolCallContext,
 ): Promise<InferResponseObject<OutputSchema>>;
 
 export function infer(args: InferArgsBase, toolCallContext?: ToolCallContext): Promise<InferResponseString>;
 
-export function infer<OutputSchema extends z.AnyZodObject>(
+export function infer<OutputSchema extends z.ZodObject>(
     args: InferWithCustomFormatArgs,
     toolCallContext?: ToolCallContext,
 ): Promise<InferResponseObject<OutputSchema>>;
@@ -557,7 +608,7 @@ export function infer<OutputSchema extends z.AnyZodObject>(
  * This uses the response_format.schema parameter to ensure the model returns
  * a response that matches the provided schema.
  */
-export async function infer<OutputSchema extends z.AnyZodObject>({
+export async function infer<OutputSchema extends z.ZodObject>({
     env,
     metadata,
     messages,
@@ -644,7 +695,7 @@ export async function infer<OutputSchema extends z.AnyZodObject>({
         const client = new OpenAI({ apiKey, baseURL: baseURL, defaultHeaders });
         const schemaObj =
             schema && schemaName && !format
-                ? { response_format: zodResponseFormat(schema, schemaName) }
+                ? { response_format: buildJsonSchemaResponseFormat(schema, schemaName) }
                 : {};
         const extraBody = modelName.includes('claude')? {
                     extra_body: {

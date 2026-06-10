@@ -45,6 +45,10 @@ export function buildTools(
     toolRenderer: RenderToolCall,
     streamCb: (chunk: string) => void,
 ): ToolDefinition<any, any>[] {
+    // NOTE: `get_browser_console_logs` is registered with the ThinkAgent's
+    // own tool runtime (see `worker/agents/think/ThinkAgent.ts`); the
+    // think behavior bypasses this `buildTools()` path entirely so
+    // adding it here would be unreachable.
     return [
         toolWebSearchDefinition,
         toolFeedbackDefinition,

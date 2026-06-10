@@ -3,6 +3,7 @@ import { BaseController } from '../baseController';
 import { generateId } from '../../../utils/idGenerator';
 import { AgentState } from '../../../agents/core/state';
 import { BehaviorType, ProjectType } from '../../../agents/core/types';
+import { getBehaviorTypeForProject } from '../../../agents/core/features';
 import { getAgentStub, getTemplateForQuery } from '../../../agents';
 import {
     AgentConnectionData,
@@ -35,10 +36,10 @@ const defaultCodeGenArgs: Partial<CodeGenArgs> = {
 
 const resolveBehaviorType = (body: CodeGenArgs): BehaviorType => {
     if (body.behaviorType) return body.behaviorType;
-    const pt = body.projectType;
-    if (pt === 'presentation' || pt === 'workflow' || pt === 'general') return 'agentic';
-    // default (including 'app' and when projectType omitted)
-    return 'phasic';
+    // Defer to the feature-definitions registry (DEFAULT_FEATURE_DEFINITIONS)
+    // so the single source of truth for "what engine drives this project
+    // type" lives alongside the rest of the feature config.
+    return getBehaviorTypeForProject(body.projectType ?? 'app');
 };
 
 const resolveProjectType = (body: CodeGenArgs): ProjectType | 'auto' => {
@@ -198,7 +199,17 @@ export class CodingAgentController extends BaseController {
             });
             this.logger.info(`Creating project of type: ${projectType}`);
 
-            const { templateDetails, selection, projectType: finalProjectType } = await getTemplateForQuery(env, inferenceContext, query, projectType, body.images, this.logger, body.selectedTemplate);
+            // Think bypasses VibeSDK's template catalog entirely — its
+            // companion SpaceDO seeds files via agent-driven writes, and
+            // `ThinkCodingBehavior` ignores `templateInfo` regardless.
+            // Skip the scratch placeholder + selection synthesis on this path.
+            const isThink = behaviorType === 'think';
+            const templateResult = isThink
+                ? undefined
+                : await getTemplateForQuery(env, inferenceContext, query, projectType, body.images, this.logger, body.selectedTemplate);
+            const finalProjectType: Exclude<ProjectType, never> = isThink
+                ? ((projectType === 'auto' ? 'app' : projectType) as Exclude<ProjectType, never>)
+                : templateResult!.projectType;
 
             const websocketUrl = `${url.protocol === 'https:' ? 'wss:' : 'ws:'}//${url.host}/api/agent/${agentId}/ws`;
             const httpStatusUrl = `${url.origin}/api/agent/${agentId}`;
@@ -217,10 +228,12 @@ export class CodingAgentController extends BaseController {
                 httpStatusUrl,
                 behaviorType,
                 projectType: finalProjectType,
-                template: {
-                    name: templateDetails.name,
-                    files: getTemplateImportantFiles(templateDetails),
-                }
+                template: isThink
+                    ? { name: 'think', files: [] }
+                    : {
+                        name: templateResult!.templateDetails.name,
+                        files: getTemplateImportantFiles(templateResult!.templateDetails),
+                    },
             });
             const agentInstance = await getAgentStub(env, agentId, { behaviorType, projectType: finalProjectType });
 
@@ -236,7 +249,9 @@ export class CodingAgentController extends BaseController {
                 },
             } as const;
 
-            const initArgs = { ...baseInitArgs, templateInfo: { templateDetails, selection } }
+            const initArgs = isThink
+                ? baseInitArgs
+                : { ...baseInitArgs, templateInfo: { templateDetails: templateResult!.templateDetails, selection: templateResult!.selection } };
 
             const agentPromise = agentInstance.initialize(initArgs) as Promise<AgentState>;
             agentPromise.then(async (_state: AgentState) => {

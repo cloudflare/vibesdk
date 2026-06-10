@@ -1,8 +1,10 @@
-import { Agent, AgentContext, ConnectionContext } from "agents";
+import { Agent, AgentContext, ConnectionContext, getAgentByName } from "agents";
 import { AgentInitArgs, AgentSummary, DeployOptions, DeployResult, ExportOptions, ExportResult, DeploymentTarget, BehaviorType } from "./types";
-import { AgenticState, AgentState, BaseProjectState, CurrentDevState, MAX_PHASES, PhasicState } from "./state";
+import { AgenticState, AgentState, BaseProjectState, CurrentDevState, MAX_PHASES, ThinkState, PhasicState } from "./state";
 import { Blueprint } from "../schemas";
 import { BaseCodingBehavior } from "./behaviors/base";
+import { ThinkCodingBehavior } from './behaviors/think';
+import { getBehaviorTypeForProject } from './features';
 import { createObjectLogger, StructuredLogger } from '../../logger';
 import { InferenceMetadata } from "../inferutils/config.types";
 import { getMimeType } from 'hono/utils/mime';
@@ -29,6 +31,11 @@ import { ProjectObjective } from "./objectives/base";
 import { FileOutputType } from "../schemas";
 import { SecretsClient, type UserSecretsStoreStub } from '../../services/secrets/SecretsClient';
 import { StateMigration } from './stateMigration';
+import {
+    ConversationMessageLoader,
+    LocalConversationMessageLoader,
+    ThinkMessageLoader,
+} from './conversation/MessageLoader';
 import { PendingWsTicket, TicketConsumptionResult } from '../../types/auth-types';
 import { WsTicketManager } from '../../utils/wsTicketManager';
 import { readTokenCookie } from '../../utils/oauthCookie';
@@ -166,11 +173,35 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
 
         this.logger().info('Bootstrapping CodeGeneratorAgent', { props });
         const agentProps = props as AgentBootstrapProps;
-        const behaviorType = agentProps?.behaviorType ?? this.state.behaviorType ?? 'phasic';
-        const projectType = agentProps?.projectType ?? this.state.projectType ?? 'app';
+        // ProjectType: prefer props → existing state → 'app'. Treat 'unknown'
+        // sentinel from initialState as missing.
+        const projectType =
+            agentProps?.projectType ??
+            (this.state.projectType && this.state.projectType !== ('unknown' as unknown as typeof this.state.projectType)
+                ? this.state.projectType
+                : 'app');
+
+        // BehaviorType resolution order:
+        //   1. explicit props.behaviorType (controller-supplied)
+        //   2. previously persisted state.behaviorType (only if valid)
+        //   3. feature-registry default for projectType
+        // The 'unknown' sentinel and any invalid value falls through to (3).
+        const persistedBehavior = this.state.behaviorType;
+        const isValidPersisted =
+            persistedBehavior === 'phasic' ||
+            persistedBehavior === 'agentic' ||
+            persistedBehavior === 'think';
+        const behaviorType: BehaviorType =
+            agentProps?.behaviorType ??
+            (isValidPersisted ? persistedBehavior : getBehaviorTypeForProject(projectType));
 
         if (behaviorType === 'phasic') {
             this.behavior = new PhasicCodingBehavior(this as AgentInfrastructure<PhasicState>, projectType);
+        } else if (behaviorType === 'think') {
+            this.behavior = new ThinkCodingBehavior(
+                this as AgentInfrastructure<ThinkState>,
+                projectType,
+            ) as unknown as BaseCodingBehavior<AgentState>;
         } else {
             this.behavior = new AgenticCodingBehavior(this as AgentInfrastructure<AgenticState>, projectType);
         }
@@ -232,19 +263,30 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
         } catch (error) {
             this.logger().warn('Failed to capture CF token cookie on WS connect', { error });
         }
-        let previewUrl = '';
-        try {
-            if (this.behavior.getTemplateDetails().renderMode === 'browser') {
-                previewUrl = this.behavior.getBrowserPreviewURL();
+        void (async () => {
+            let previewUrl = '';
+            try {
+                // The think behavior exposes its preview via the
+                // `/space/.../preview/<branch>/` worker route. Only surface it
+                // once a real deploy has happened (`lastDeployedCommit` is set
+                // by `deployCurrentBranch`); the URL is derived purely from the
+                // space name/branch, so without this gate the iframe would
+                // point at an empty, undeployed space before the first deploy.
+                const renderMode = this.behavior.getTemplateDetails().renderMode;
+                const isThink = this.state.behaviorType === 'think';
+                const thinkHasDeployed = isThink && Boolean(this.state.lastDeployedCommit);
+                if (renderMode === 'browser' || thinkHasDeployed) {
+                    previewUrl = await this.behavior.getBrowserPreviewURL();
+                }
+            } catch (error) {
+                this.logger().error('Error getting preview URL:', error);
             }
-        } catch (error) {
-            this.logger().error('Error getting preview URL:', error);
-        }
-        sendToConnection(connection, WebSocketMessageResponses.AGENT_CONNECTED, {
-            state: this.state,
-            templateDetails: this.behavior.getTemplateDetails(),
-            previewUrl: previewUrl
-        });
+            sendToConnection(connection, WebSocketMessageResponses.AGENT_CONNECTED, {
+                state: this.state,
+                templateDetails: this.behavior.getTemplateDetails(),
+                previewUrl: previewUrl
+            });
+        })();
     }
 
     private initLogger(agentId: string, userId: string, sessionId?: string) {
@@ -339,6 +381,22 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
 
     async getSummary(): Promise<AgentSummary> {
         return this.behavior.getSummary();
+    }
+
+    /**
+     * Public RPC entrypoint for the think agent's tools (and any other caller
+     * holding a `CodeGenObject` stub) to capture browser console
+     * output from the current preview app. Delegates straight to the
+     * active behavior, which routes between the BROWSER binding (prod)
+     * and the local dev sidecar.
+     */
+    async captureBrowserConsoleLogs(opts?: {
+        url?: string;
+        waitSeconds?: number;
+        viewport?: { width: number; height: number };
+        interactScript?: string;
+    }) {
+        return this.behavior.captureBrowserConsoleLogs(opts ?? {});
     }
 
     getPreviewUrlCache(): string {
@@ -504,6 +562,36 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
         this.setConversationState(conversationState);
     }
     
+    /**
+     * Pick a conversation message loader based on the active behavior.
+     *
+     *   - `think` → reads from the companion `ThinkAgent` DO (the source of
+     *     truth for think runs; populated by the Think runtime itself).
+     *   - everything else → reads from this agent's local SQLite tables.
+     *
+     * Used by the WebSocket boundary (`GET_CONVERSATION_STATE`) so the
+     * frontend sees the same history the backend actually persists.
+     */
+    public getConversationMessageLoader(): ConversationMessageLoader {
+        const behavior = this.state.behaviorType;
+        if (behavior === 'think') {
+            const thinkState = this.state as ThinkState;
+            const ns = (this.env as unknown as {
+                THINK_DO?: DurableObjectNamespace;
+            }).THINK_DO;
+            const name = thinkState.thinkAgentName || thinkState.metadata?.agentId;
+            if (ns && name) {
+                // Resolve the ThinkAgent via the agents framework helper so its
+                // `_init` runs before we read messages (a raw stub would throw).
+                return new ThinkMessageLoader(async () => {
+                    const stub = await getAgentByName(ns as never, name);
+                    return stub as unknown as Awaited<ReturnType<ConstructorParameters<typeof ThinkMessageLoader>[0]>>;
+                });
+            }
+        }
+        return new LocalConversationMessageLoader(this);
+    }
+
     /**
      * Clear conversation history
      */

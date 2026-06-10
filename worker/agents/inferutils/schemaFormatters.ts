@@ -95,6 +95,39 @@ export function formatSchemaAsMarkdown<T extends z.ZodRawShape>(schema: z.ZodObj
     return formatZodSchemaAsMarkdownFields(schema, headingMarker, data, debug, 'data');
 }
 
+// ── zod 4 compat helpers ───────────────────────────────────────────
+// zod 4 moved schema internals out of `_def` (array element, object shape,
+// wrapper inner type, enum values, default value all relocated). These
+// helpers centralize the casts so the rest of this formatter keeps reading
+// like the original v3 introspection code.
+function zInnerType(schema: z.ZodTypeAny): z.ZodTypeAny {
+    return (schema as unknown as { def: { innerType: z.ZodTypeAny } }).def.innerType;
+}
+function zArrayElement(schema: z.ZodTypeAny): z.ZodTypeAny {
+    return (schema as unknown as { element: z.ZodTypeAny }).element;
+}
+function zObjectShape(schema: z.ZodTypeAny): Record<string, z.ZodTypeAny> {
+    return (schema as unknown as { shape: Record<string, z.ZodTypeAny> }).shape;
+}
+function zEnumValues(schema: z.ZodTypeAny): (string | number)[] {
+    return (schema as unknown as { options?: (string | number)[] }).options ?? [];
+}
+function zDefaultValue(schema: z.ZodTypeAny): unknown {
+    const dv = (schema as unknown as { def: { defaultValue: unknown } }).def.defaultValue;
+    return typeof dv === 'function' ? (dv as () => unknown)() : dv;
+}
+function zStringFormat(schema: z.ZodTypeAny): string | undefined {
+    const checks =
+        (schema as unknown as {
+            _zod?: { def?: { checks?: Array<{ _zod?: { def?: { format?: string; check?: string } } }> } };
+        })._zod?.def?.checks ?? [];
+    for (const c of checks) {
+        const fmt = c?._zod?.def?.format ?? c?._zod?.def?.check;
+        if (fmt) return fmt;
+    }
+    return undefined;
+}
+
 /**
  * Recursive helper to format fields of an object.
  */
@@ -105,7 +138,7 @@ function formatZodSchemaAsMarkdownFields(
     debug: boolean = false,
     mode: 'template' | 'data' = dataObject ? 'data' : 'template'
 ): string {
-    const shape = schema._def.shape();
+    const shape = zObjectShape(schema);
     let result = '';
 
     if (debug) logger.debug(`[Format Data Path: object] Formatting object with keys: ${Object.keys(shape).join(', ')}`);
@@ -126,7 +159,7 @@ function formatZodSchemaAsMarkdownFields(
                 if (checkSchema instanceof z.ZodNullable) isOptional = true;
                 // Consider Default as optional for skipping if value is exactly undefined
                 if (checkSchema instanceof z.ZodDefault && value === undefined) isOptional = true;
-                checkSchema = checkSchema._def.innerType;
+                checkSchema = zInnerType(checkSchema);
             }
     
             if (isOptional && (value === undefined || value === null || value === '') ) {
@@ -143,7 +176,7 @@ function getMarkdownPlaceholderValue(key: string, field: z.ZodTypeAny, headingPr
     let value = '';
     // Base type formatting
     if (field instanceof z.ZodArray) {
-        const innerType = field._def.type;
+        const innerType = zArrayElement(field);
         let example = '';
         // *** CHANGE: Use singularize for item name ***
         const singularKeyName = singularize(key);
@@ -171,19 +204,20 @@ function getMarkdownPlaceholderValue(key: string, field: z.ZodTypeAny, headingPr
         // Recurse with increased heading level
         return formatZodSchemaAsMarkdownFields(field, headingPrefix + '#');
     } else if (field instanceof z.ZodString) {
-        value = field._def.checks?.find(c => c.kind === 'uuid') ? '[UUID string]' :
-        field._def.checks?.find(c => c.kind === 'email') ? '[email string]' :
-        field._def.checks?.find(c => c.kind === 'url') ? 'https://example.com/string' :
+        const stringFormat = zStringFormat(field);
+        value = stringFormat === 'uuid' ? '[UUID string]' :
+        stringFormat === 'email' ? '[email string]' :
+        stringFormat === 'url' ? 'https://example.com/string' :
                     '[String content]';
     }
     else if (field instanceof z.ZodNumber) {
-        value = field._def.checks?.some(c => c.kind === 'int') ? '[Integer value]' : '[Numeric value]';
+        value = '[Numeric value]';
     }
     else if (field instanceof z.ZodBoolean) {
         value = 'true or false';
     }
-    else if (field instanceof z.ZodEnum || field instanceof z.ZodNativeEnum) {
-        const values = field._def.values;
+    else if (field instanceof z.ZodEnum) {
+        const values = zEnumValues(field);
         const placeholder = `[One of: ${values.join(', ')}]`;
         value = placeholder;
     }
@@ -192,7 +226,7 @@ function getMarkdownPlaceholderValue(key: string, field: z.ZodTypeAny, headingPr
     }
     else if (field instanceof z.ZodOptional) {
         // Handle optional fields
-        const innerType = field._def.innerType;
+        const innerType = zInnerType(field);
         if (innerType instanceof z.ZodObject) {
             return formatZodSchemaAsMarkdownFields(innerType, headingPrefix + '#');
         } else {
@@ -225,7 +259,7 @@ function formatZodTypeAsMarkdown(
         if (baseField instanceof z.ZodOptional || baseField instanceof z.ZodDefault || baseField instanceof z.ZodNullable) {
             isOptional = true;
         }
-        baseField = baseField._def.innerType;
+        baseField = zInnerType(baseField);
     }
     // Add the marker directly to the heading text if optional
     if (isOptional && mode === 'template') {
@@ -282,7 +316,7 @@ function formatZodTypeAsMarkdown(
     }
     // --- Array Formatting ---
     else if (baseField instanceof z.ZodArray) {
-        const itemSchema = baseField._def.type;
+        const itemSchema = zArrayElement(baseField);
         const singularKeyName = singularize(key);
         const itemHeadingPrefix = headingPrefix + '#';
         let itemsMarkdown = '';
@@ -338,9 +372,9 @@ function getSimpleTypeDescription(field: z.ZodTypeAny): string {
     if (field instanceof z.ZodString) return 'string value';
     if (field instanceof z.ZodNumber) return 'numeric value';
     if (field instanceof z.ZodBoolean) return 'true or false';
-    if (field instanceof z.ZodEnum || field instanceof z.ZodNativeEnum) return 'enum value';
+    if (field instanceof z.ZodEnum) return 'enum value';
     if (field instanceof z.ZodOptional || field instanceof z.ZodNullable || field instanceof z.ZodDefault) {
-        return getSimpleTypeDescription(field._def.innerType) + " (optional/nullable)";
+        return getSimpleTypeDescription(zInnerType(field)) + " (optional/nullable)";
     }
     return 'value';
 }
@@ -351,12 +385,11 @@ function getDefaultValue(field: z.ZodTypeAny): unknown {
     if (field instanceof z.ZodNullable) return null;
     if (field instanceof z.ZodDefault) {
         try {
-            const defaultValue = field._def.defaultValue;
-            return typeof defaultValue === 'function' ? defaultValue() : defaultValue;
+            return zDefaultValue(field);
         } catch (e) {
             logger.warn(`Error getting default value for field: ${e instanceof Error ? e.message : String(e)}`);
-            let inner = field._def.innerType;
-            while (inner instanceof z.ZodDefault) inner = inner._def.innerType;
+            let inner = zInnerType(field);
+            while (inner instanceof z.ZodDefault) inner = zInnerType(inner);
             return getDefaultValue(inner); // Try getting default from inner type
         }
     }
@@ -366,7 +399,7 @@ function getDefaultValue(field: z.ZodTypeAny): unknown {
     if (field instanceof z.ZodBoolean) return false;
     if (field instanceof z.ZodArray) return [];
     if (field instanceof z.ZodObject) {
-        const shape = field._def.shape();
+        const shape = zObjectShape(field);
         const defaultObj: Record<string, unknown> = {};
         for (const key in shape) {
             // Use the actual field definition from the shape to get the correct default
@@ -375,7 +408,7 @@ function getDefaultValue(field: z.ZodTypeAny): unknown {
         return defaultObj;
     }
     // Enums, Unions, etc., don't have a clear universal default
-    if (field instanceof z.ZodEnum || field instanceof z.ZodNativeEnum) return undefined;
+    if (field instanceof z.ZodEnum) return undefined;
     if (field instanceof z.ZodUnion) return undefined;
     // Add other types as needed
     return undefined;
@@ -407,7 +440,7 @@ function convertToPrimitive(value: any, schema: z.ZodTypeAny, debugInfo?: { path
         // If type already matches base schema type, pass through (validation happens later)
         let baseSchema = schema;
         while (baseSchema instanceof z.ZodOptional || baseSchema instanceof z.ZodNullable || baseSchema instanceof z.ZodDefault) {
-            baseSchema = baseSchema._def.innerType;
+            baseSchema = zInnerType(baseSchema);
         }
         if (baseSchema instanceof z.ZodString && typeof value === 'string') return value; // Already handled string case above
         if (baseSchema instanceof z.ZodNumber && typeof value === 'number') return value;
@@ -424,7 +457,7 @@ function convertToPrimitive(value: any, schema: z.ZodTypeAny, debugInfo?: { path
 
     // 3. Unwrap Zod modifiers (Optional, Nullable, Default) for processing empty/nullish strings
     if (schema instanceof z.ZodOptional || schema instanceof z.ZodNullable || schema instanceof z.ZodDefault) {
-        const innerSchema = schema._def.innerType;
+        const innerSchema = zInnerType(schema);
         const isEmpty = stringValue === '';
         // More robust check for common "empty" values from LLMs
         const isNullish = isEmpty || ['null', 'none', 'n/a', 'undefined', 'nil', 'empty', 'missing', '[no value]', '[not applicable]'].includes(stringValue.toLowerCase());
@@ -483,8 +516,8 @@ function convertToPrimitive(value: any, schema: z.ZodTypeAny, debugInfo?: { path
         // This case should ideally be caught by ZodOptional/Nullable/Default handling above
         if (debug) currentLogger.warn(`[Convert Path: ${pathStr}] Could not parse "${stringValue}" as boolean. Returning default (false).`);
         return getDefaultValue(z.boolean()); // Use boolean default (false) - pass base type
-    } else if (schema instanceof z.ZodEnum || schema instanceof z.ZodNativeEnum) {
-        const enumValues = schema._def.values as (string | number)[];
+    } else if (schema instanceof z.ZodEnum) {
+        const enumValues = zEnumValues(schema) as (string | number)[];
         // Try direct match first
         if (enumValues.includes(stringValue)) return stringValue;
         // Try matching number value
@@ -707,7 +740,7 @@ function preprocessMarkdown(markdown: string, debug: boolean): string {
 
 
 /* --- Public Markdown Parser Entry Point --- */
-export function parseMarkdownContent<OutputSchema extends z.AnyZodObject>(
+export function parseMarkdownContent<OutputSchema extends z.ZodObject>(
     markdownInput: string,
     schema: OutputSchema,
     options: FormatterOptions = {}
@@ -992,8 +1025,8 @@ function mapSectionToSchema(
         if (checkSchema instanceof z.ZodOptional) isOptional = true;
         if (checkSchema instanceof z.ZodNullable) isNullable = true;
         if (checkSchema instanceof z.ZodDefault) hasDefault = true;
-        baseSchema = checkSchema._def.innerType; // Keep updating baseSchema here
-        checkSchema = checkSchema._def.innerType; // Continue unwrapping checkSchema
+        baseSchema = zInnerType(checkSchema); // Keep updating baseSchema here
+        checkSchema = zInnerType(checkSchema); // Continue unwrapping checkSchema
     }
     // If no modifiers were found, baseSchema is the same as the original schema
     if (!isOptional && !isNullable && !hasDefault) {
@@ -1089,7 +1122,7 @@ function mapSectionToSchema(
     /* --- 2b. ZodArray --- */
     if (baseSchema instanceof z.ZodArray) {
         if (debug) logger.debug(`[Map Path: ${currentPath}] Handling ZodArray.`);
-        const itemSchema = baseSchema._def.type;
+        const itemSchema = zArrayElement(baseSchema);
         const results: any[] = [];
 
         // *** CHANGE: Use singularize for item name matching ***
@@ -1257,10 +1290,10 @@ function mapSectionToSchema(
 
 // --- Template Registry (Update parsers) ---
 interface TemplateRegistryEntry {
-    template: (schema: z.AnyZodObject, options?: FormatterOptions) => string;
-    serialize: <OutputSchema extends z.AnyZodObject>(data: z.infer<OutputSchema>, schema: OutputSchema, options?: FormatterOptions) => string;
+    template: (schema: z.ZodObject, options?: FormatterOptions) => string;
+    serialize: <OutputSchema extends z.ZodObject>(data: z.infer<OutputSchema>, schema: OutputSchema, options?: FormatterOptions) => string;
     prompt: (template: string) => string;
-    parser: <OutputSchema extends z.AnyZodObject>(content: string, schema: OutputSchema, options?: FormatterOptions) => z.infer<OutputSchema>;
+    parser: <OutputSchema extends z.ZodObject>(content: string, schema: OutputSchema, options?: FormatterOptions) => z.infer<OutputSchema>;
 }
 
 const markdownPrompt = (template: string) => `
@@ -1294,7 +1327,7 @@ export const TemplateRegistry: Record<SchemaFormat, TemplateRegistryEntry> = {
 
 
 export function generateTemplateForSchema(
-    schema: z.AnyZodObject, 
+    schema: z.ZodObject, 
     schemaFormat: SchemaFormat,
     options?: FormatterOptions
 ): string {
@@ -1303,7 +1336,7 @@ export function generateTemplateForSchema(
     return formatInstructions;
 }
 
-export function parseContentForSchema<OutputSchema extends z.AnyZodObject>(content: string, schemaFormat: SchemaFormat, schema: OutputSchema, options?: FormatterOptions): z.infer<OutputSchema> {
+export function parseContentForSchema<OutputSchema extends z.ZodObject>(content: string, schemaFormat: SchemaFormat, schema: OutputSchema, options?: FormatterOptions): z.infer<OutputSchema> {
     const parser = TemplateRegistry[schemaFormat].parser;
     if (!parser) {
         throw new Error(`No parser function found for format: ${schemaFormat}`);

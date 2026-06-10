@@ -118,4 +118,23 @@ export interface AgenticState extends BaseProjectState {
     currentPlan: Plan;
 }
 
-export type AgentState = PhasicState | AgenticState;
+/**
+ * Think agent state — backed by `@cloudflare/think` (ThinkAgent DO) for the
+ * agentic loop and `@space-do/space` SpaceDO for files/preview/deploy.
+ *
+ * Files are *not* mirrored into `generatedFilesMap`; they live in the
+ * companion `SpaceDO` workspace and are read on demand via RPC. The map is
+ * kept for shape compatibility and used as a small in-memory cache.
+ */
+export interface ThinkState extends BaseProjectState {
+    behaviorType: 'think';
+    blueprint: AgenticBlueprint;
+    /** ThinkAgent DO `idFromName` key (the agent id). */
+    thinkAgentName: string;
+    /** Git branch used for deployment previews. */
+    currentBranch: string;
+    /** Last commit SHA we successfully deployed. */
+    lastDeployedCommit?: string;
+}
+
+export type AgentState = PhasicState | AgenticState | ThinkState;

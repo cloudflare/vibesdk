@@ -4,7 +4,8 @@ import { Loader2 } from 'lucide-react';
 import { useNavigate } from 'react-router';
 import { useAuth } from '@/contexts/auth-context';
 import { ProjectModeSelector, type ProjectModeOption } from '../components/project-mode-selector';
-import { MAX_AGENT_QUERY_LENGTH, SUPPORTED_IMAGE_MIME_TYPES, type ProjectType } from '@/api-types';
+import { BehaviorModeToggle } from '../components/behavior-mode-toggle';
+import { MAX_AGENT_QUERY_LENGTH, SUPPORTED_IMAGE_MIME_TYPES, type ProjectType, type BehaviorType } from '@/api-types';
 import { useFeature } from '@/features';
 import { useAuthGuard } from '../hooks/useAuthGuard';
 import { usePaginatedApps } from '@/hooks/use-paginated-apps';
@@ -22,6 +23,7 @@ export default function Home() {
 	const navigate = useNavigate();
 	const { requireAuth } = useAuthGuard();
 	const [projectMode, setProjectMode] = useState<ProjectType>('app');
+	const [behaviorMode, setBehaviorMode] = useState<Extract<BehaviorType, 'think' | 'phasic'>>('think');
 	const [query, setQuery] = useState('');
 	const { user } = useAuth();
 	const { isLoadingCapabilities, capabilities, getEnabledFeatures } = useFeature();
@@ -105,10 +107,11 @@ export default function Home() {
 
 		const encodedQuery = encodeURIComponent(query);
 		const encodedMode = encodeURIComponent(mode);
+		const behaviorParam = mode === 'app' ? `&behaviorType=${encodeURIComponent(behaviorMode)}` : '';
 
 		// Encode images as JSON if present
 		const imageParam = images.length > 0 ? `&images=${encodeURIComponent(JSON.stringify(images))}` : '';
-		const intendedUrl = `/chat/new?query=${encodedQuery}&projectType=${encodedMode}${imageParam}`;
+		const intendedUrl = `/chat/new?query=${encodedQuery}&projectType=${encodedMode}${behaviorParam}${imageParam}`;
 
 		if (
 			!requireAuth({
@@ -202,13 +205,23 @@ export default function Home() {
 							variant="expanded"
 							submitIcon={user && usageLimitsLoading ? <Loader2 className="animate-spin" /> : <ArrowRight />}
 							leftActions={
-								showModeSelector ? (
-									<ProjectModeSelector
-										value={projectMode}
-										onChange={setProjectMode}
-										modes={modeOptions}
-										className="flex-1"
-									/>
+								(showModeSelector || projectMode === 'app') ? (
+									<div className="flex items-center gap-3">
+										{showModeSelector && (
+											<ProjectModeSelector
+												value={projectMode}
+												onChange={setProjectMode}
+												modes={modeOptions}
+												className="flex-1"
+											/>
+										)}
+										{projectMode === 'app' && (
+											<BehaviorModeToggle
+												value={behaviorMode}
+												onChange={setBehaviorMode}
+											/>
+										)}
+									</div>
 								) : undefined
 							}
 						/>

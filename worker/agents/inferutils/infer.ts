@@ -103,12 +103,12 @@ interface InferenceParamsBase {
     onUsageConsumed?: () => void;
 }
 
-interface InferenceParamsStructured<T extends z.AnyZodObject> extends InferenceParamsBase {
+interface InferenceParamsStructured<T extends z.ZodObject> extends InferenceParamsBase {
     schema: T;
     format?: SchemaFormat;
 }
 
-export async function executeInference<T extends z.AnyZodObject>(
+export async function executeInference<T extends z.ZodObject>(
     params: InferenceParamsStructured<T>
 ): Promise<InferResponseObject<T>>;
 
@@ -117,7 +117,7 @@ export async function executeInference(
 ): Promise<InferResponseString>;
     
 
-export async function executeInference<T extends z.AnyZodObject>(   {
+export async function executeInference<T extends z.ZodObject>(   {
     env,
     messages,
     temperature,
