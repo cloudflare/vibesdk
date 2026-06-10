@@ -38,12 +38,32 @@ export default defineConfig({
 	],
 
 	resolve: {
-		alias: {
-			debug: 'debug/src/browser',
-			'@': path.resolve(__dirname, './src'),
-			'shared': path.resolve(__dirname, './shared'),
-			'worker': path.resolve(__dirname, './worker'),
-		},
+		alias: [
+			{ find: 'debug', replacement: 'debug/src/browser' },
+			// `agents` lazily `import("mimetext")`, which resolves to mimetext's
+			// node build. That build pulls in `safe-buffer` (`require("buffer")`),
+			// and the resulting code-split chunk throws at Workers startup because
+			// `require` is not exposed there (deploy error 10021). The browser
+			// build avoids the `require("buffer")` path. Use an exact-match regex
+			// so `mimetext/browser` itself is not re-aliased.
+			{ find: /^mimetext$/, replacement: 'mimetext/browser' },
+			// `@cloudflare/shell` bundles standard `isomorphic-git`, whose `sha.js`
+			// transitive uses `safe-buffer` (`require("buffer")`). That unguarded
+			// CJS require lands in a code-split chunk and throws at Workers startup
+			// (deploy error 10021). Resolve it to a local ESM shim that statically
+			// re-exports `node:buffer`, so the bundler links the runtime-provided
+			// buffer module instead of emitting a `require()` call.
+			{
+				find: /^safe-buffer$/,
+				replacement: path.resolve(
+					__dirname,
+					'./worker/polyfills/safe-buffer.ts',
+				),
+			},
+			{ find: '@', replacement: path.resolve(__dirname, './src') },
+			{ find: 'shared', replacement: path.resolve(__dirname, './shared') },
+			{ find: 'worker', replacement: path.resolve(__dirname, './worker') },
+		],
 	},
 
 	// Configure for Prisma + Cloudflare Workers compatibility
