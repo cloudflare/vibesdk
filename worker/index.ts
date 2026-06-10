@@ -4,9 +4,10 @@ import { createApp } from './app';
 // import * as Sentry from '@sentry/cloudflare';
 // import { sentryOptions } from './observability/sentry';
 import { DORateLimitStore as BaseDORateLimitStore } from './services/rate-limit/DORateLimitStore';
-import { getPreviewDomain, isSeparatePreviewDomain } from './utils/urls';
+import { getPreviewDomain, getProtocolForHost, isSeparatePreviewDomain } from './utils/urls';
 import { proxyToAiGateway } from './services/aigateway-proxy/controller';
 import { isOriginAllowed } from './config/security';
+import { isDev } from './utils/envs';
 import { proxyToSandbox } from './services/sandbox/request-handler';
 import { handleGitProtocolRequest, isGitProtocolRequest } from './api/handlers/git-protocol';
 import {
@@ -43,6 +44,38 @@ function setOriginControl(env: Env, request: Request, currentHeaders: Headers): 
         currentHeaders.set('Access-Control-Allow-Origin', origin);
     }
     return currentHeaders;
+}
+
+/**
+ * Re-wrap a space-preview response with CORS headers so the main platform
+ * domain can cross-origin `fetch()` it (e.g. the preview-iframe availability
+ * probe). Allowed origins:
+ *  - The main platform domain (prod & staging via `CUSTOM_DOMAIN`).
+ *  - The preview domain itself (same-origin).
+ *  - Any origin in local dev (`isDev`).
+ * WebSocket upgrade responses are returned untouched since their bodies
+ * cannot be reconstructed.
+ */
+function withPreviewCorsHeaders(env: Env, request: Request, response: Response): Response {
+    if (response.headers.get('Upgrade')?.toLowerCase() === 'websocket') {
+        return response;
+    }
+
+    const origin = request.headers.get('Origin');
+    const allowedOrigins = [env.CUSTOM_DOMAIN, getPreviewDomain(env)]
+        .filter((host): host is string => !!host && host.trim() !== '')
+        .map((host) => `${getProtocolForHost(host)}://${host}`);
+
+    const headers = new Headers(response.headers);
+    if (origin && (isDev(env) || allowedOrigins.includes(origin))) {
+        headers.set('Access-Control-Allow-Origin', origin);
+        headers.append('Vary', 'Origin');
+    }
+    return new Response(response.body, {
+        status: response.status,
+        statusText: response.statusText,
+        headers,
+    });
 }
 
 /**
@@ -187,7 +220,8 @@ const worker = {
 			if (!spaceName) {
 				return new Response('Not Found', { status: 404 });
 			}
-			return handleTokenAuthenticatedSpacePreview(request, env, spaceName);
+			const response = await handleTokenAuthenticatedSpacePreview(request, env, spaceName);
+			return withPreviewCorsHeaders(env, request, response);
 		}
 
 		// Route 1: Main Platform Request (e.g., build.cloudflare.dev or localhost)
