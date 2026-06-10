@@ -4,8 +4,8 @@ import { HEADER_STYLES } from './view-header-styles';
 import type { ProjectType } from '@/api-types';
 
 interface ViewHeaderProps {
-	view: 'preview' | 'editor' | 'docs' | 'blueprint' | 'presentation';
-	onViewChange: (mode: 'preview' | 'editor' | 'docs' | 'blueprint' | 'presentation') => void;
+	view: 'preview' | 'editor' | 'docs' | 'blueprint' | 'presentation' | 'database';
+	onViewChange: (mode: 'preview' | 'editor' | 'docs' | 'blueprint' | 'presentation' | 'database') => void;
 	previewAvailable: boolean;
 	showTooltip: boolean;
 	hasDocumentation: boolean;
@@ -13,6 +13,7 @@ interface ViewHeaderProps {
 	centerContent?: ReactNode;
 	rightActions?: ReactNode;
 	projectType?: ProjectType;
+	databaseAvailable?: boolean;
 }
 
 export function ViewHeader({
@@ -25,6 +26,7 @@ export function ViewHeader({
 	centerContent,
 	rightActions,
 	projectType,
+	databaseAvailable,
 }: ViewHeaderProps) {
 	return (
 		<div className={`grid grid-cols-3 ${HEADER_STYLES.padding} ${HEADER_STYLES.container}`}>
@@ -37,6 +39,7 @@ export function ViewHeader({
 					hasDocumentation={hasDocumentation}
 					previewUrl={previewUrl}
 					projectType={projectType}
+					databaseAvailable={databaseAvailable}
 				/>
 			</div>
 			<div className="flex items-center justify-center">

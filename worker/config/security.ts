@@ -6,6 +6,7 @@
 import { DEFAULT_RATE_LIMIT_SETTINGS, RateLimitSettings } from "../services/rate-limit/config";
 import { Context } from "hono";
 import { isDev } from "../utils/envs";
+import { getPreviewDomain, isSeparatePreviewDomain } from "../utils/urls";
 
 // Type definitions for security configurations
 export interface CORSConfig {
@@ -45,6 +46,10 @@ export function getAllowedOrigins(env: Env): string[] {
     // Production domains
     if (env.CUSTOM_DOMAIN) {
         origins.push(`https://${env.CUSTOM_DOMAIN}`);
+    }
+
+    if (isSeparatePreviewDomain(env)) {
+        origins.push(`https://${getPreviewDomain(env)}`);
     }
     
     // Development origins (only in development)
@@ -151,6 +156,21 @@ interface SecureHeadersConfig {
  */
 export function getSecureHeadersConfig(env: Env): SecureHeadersConfig {
     const isDevelopment = isDev(env);
+    const previewDomain = getPreviewDomain(env);
+    const connectSources = [
+        "'self'",
+        // WebSocket connections
+        "ws://localhost:*",
+        "wss://localhost:*",
+        `wss://${env.CUSTOM_DOMAIN || '*'}`,
+        // API endpoints
+        "https://api.github.com",
+        "https://api.cloudflare.com"
+    ];
+
+    if (isSeparatePreviewDomain(env)) {
+        connectSources.push(`wss://${previewDomain}`);
+    }
     
     return {
         // Content Security Policy - strict by default
@@ -182,14 +202,7 @@ export function getSecureHeadersConfig(env: Env): SecureHeadersConfig {
                 "https://*.cloudflare.com" // Cloudflare assets
             ],
             connectSrc: [
-                "'self'",
-                // WebSocket connections
-                "ws://localhost:*",
-                "wss://localhost:*",
-                `wss://${env.CUSTOM_DOMAIN || '*'}`,
-                // API endpoints
-                "https://api.github.com",
-                "https://api.cloudflare.com"
+                ...connectSources
             ],
             frameSrc: ["'none'"],
             objectSrc: ["'none'"],

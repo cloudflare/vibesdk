@@ -47,7 +47,7 @@ export async function validateInput<T extends z.ZodSchema>(
         
         if (!result.success) {
             logger.warn('Validation failed', { 
-                errors: result.error.errors,
+                errors: result.error.issues,
                 path: new URL(request.url).pathname 
             });
             
@@ -150,7 +150,7 @@ function parseQueryParams(request: Request): Record<string, string> {
  * Format Zod validation errors for user-friendly response
  */
 function formatValidationErrors(error: z.ZodError): string {
-    const messages = error.errors.map(err => {
+    const messages = error.issues.map(err => {
         const path = err.path.join('.');
         return path ? `${path}: ${err.message}` : err.message;
     });
@@ -165,32 +165,26 @@ export const commonSchemas = {
     // Email validation using centralized function
     email: z.string().refine(
         (email) => validateEmail(email).valid,
-        (email) => ({ message: validateEmail(email).error || 'Invalid email format' })
+        { error: (issue) => validateEmail(issue.input as string).error || 'Invalid email format' }
     ).transform((email) => email.toLowerCase()),
     
     // Password validation using centralized comprehensive validation
     password: z.string().refine(
         (password) => validatePassword(password).valid,
-        (password) => {
-            const result = validatePassword(password);
-            return { message: result.errors?.[0] || 'Password does not meet requirements' };
-        }
+        { error: (issue) => validatePassword(issue.input as string).errors?.[0] || 'Password does not meet requirements' }
     ),
     
     // Password validation with user context (for preventing personal info in passwords)
     passwordWithUserInfo: (userInfo?: { email?: string; username?: string; name?: string }) => 
         z.string().refine(
             (password) => validatePassword(password, undefined, userInfo).valid,
-            (password) => {
-                const result = validatePassword(password, undefined, userInfo);
-                return { message: result.errors?.[0] || 'Password does not meet requirements' };
-            }
+            { error: (issue) => validatePassword(issue.input as string, undefined, userInfo).errors?.[0] || 'Password does not meet requirements' }
         ),
     
     // Username validation using centralized function
     username: z.string().refine(
         (username) => validateUsername(username).valid,
-        (username) => ({ message: validateUsername(username).error || 'Invalid username format' })
+        { error: (issue) => validateUsername(issue.input as string).error || 'Invalid username format' }
     ),
     
     // UUID validation

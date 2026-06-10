@@ -136,7 +136,7 @@ export function validatePassword(
 	if (!result.success) {
 		return {
 			valid: false,
-			errors: result.error.errors.map(e => e.message),
+			errors: result.error.issues.map(e => e.message),
 			score,
 			requirements,
 			suggestions: suggestions.length > 0 ? suggestions : undefined,

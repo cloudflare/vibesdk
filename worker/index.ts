@@ -4,17 +4,30 @@ import { createApp } from './app';
 // import * as Sentry from '@sentry/cloudflare';
 // import { sentryOptions } from './observability/sentry';
 import { DORateLimitStore as BaseDORateLimitStore } from './services/rate-limit/DORateLimitStore';
-import { getPreviewDomain } from './utils/urls';
+import { getPreviewDomain, isSeparatePreviewDomain } from './utils/urls';
 import { proxyToAiGateway } from './services/aigateway-proxy/controller';
 import { isOriginAllowed } from './config/security';
 import { proxyToSandbox } from './services/sandbox/request-handler';
 import { handleGitProtocolRequest, isGitProtocolRequest } from './api/handlers/git-protocol';
+import {
+	handleCookieAuthenticatedSpacePreview,
+	handleTokenAuthenticatedSpacePreview,
+	matchSpacePreviewPath,
+} from './api/handlers/space-preview';
 import { getAgentStub } from './agents';
 
 // Durable Object and Service exports
 export { UserAppSandboxService } from './services/sandbox/sandboxSdkClient';
 export { CodeGeneratorAgent } from './agents/core/codingAgent';
 export { UserSecretsStore } from './services/secrets/UserSecretsStore';
+// SpaceDO (same-worker integration) — git-backed files + preview/deploy for
+// `think` apps. Re-exported so wrangler can bind it via durable_objects.bindings.
+// AppDatabase is NOT exported here — it lives inside SpaceDO's Worker Loader
+// as a synthetic-worker class. See space/src/space/app-database-source.ts.
+export { SpaceDO } from '@space-do/space';
+// ThinkAgent (@cloudflare/think) — the agentic loop harness (model ↔ tools).
+// Bound as THINK_DO in wrangler.
+export { ThinkAgent } from './agents/think/ThinkAgent';
 
 // export const CodeGeneratorAgent = Sentry.instrumentDurableObjectWithSentry(sentryOptions, CodeGeneratorAgent);
 // export const DORateLimitStore = Sentry.instrumentDurableObjectWithSentry(sentryOptions, BaseDORateLimitStore);
@@ -145,6 +158,7 @@ const worker = {
 
 		// 1. Critical configuration check: Ensure custom domain is set.
         const previewDomain = getPreviewDomain(env);
+		const separatePreviewDomain = isSeparatePreviewDomain(env);
 		if (!previewDomain || previewDomain.trim() === '') {
 			logger.error('FATAL: env.CUSTOM_DOMAIN is not configured in wrangler.toml or the Cloudflare dashboard.');
 			return new Response('Server configuration error: Application domain is not set.', { status: 500 });
@@ -168,8 +182,24 @@ const worker = {
 			hostname.endsWith(`.${previewDomain}`) ||
 			(hostname.endsWith('.localhost') && hostname !== 'localhost');
 
+		if (separatePreviewDomain && hostname === previewDomain) {
+			const spaceName = matchSpacePreviewPath(pathname);
+			if (!spaceName) {
+				return new Response('Not Found', { status: 404 });
+			}
+			return handleTokenAuthenticatedSpacePreview(request, env, spaceName);
+		}
+
 		// Route 1: Main Platform Request (e.g., build.cloudflare.dev or localhost)
 		if (isMainDomainRequest) {
+			const spaceName = matchSpacePreviewPath(pathname);
+			if (spaceName) {
+				if (separatePreviewDomain) {
+					return new Response('Not Found', { status: 404 });
+				}
+				return handleCookieAuthenticatedSpacePreview(request, env, spaceName);
+			}
+
 			// Handle Git protocol endpoints directly
 			// Route: /apps/:id.git/info/refs or /apps/:id.git/git-upload-pack
 			if (isGitProtocolRequest(pathname)) {

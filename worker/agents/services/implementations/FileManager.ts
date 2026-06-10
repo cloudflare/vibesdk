@@ -105,7 +105,15 @@ export class FileManager implements IFileManager {
         const filesMap = { ...this.stateManager.getState().generatedFilesMap };
         const fileStates: FileState[] = [];
 
-        for (const file of files) {
+        for (const rawFile of files) {
+            // Normalize paths: think agent tool calls report absolute-style paths
+            // ("/package.json"), while templates use relative paths
+            // ("package.json"). The mismatch produces a phantom empty-named
+            // folder in the file tree UI. Strip the leading slash so all
+            // entries in generatedFilesMap share the same convention.
+            const file = rawFile.filePath?.startsWith('/')
+                ? { ...rawFile, filePath: rawFile.filePath.replace(/^\/+/, '') }
+                : rawFile;
             if (!isFileModifiable(file.filePath, dontTouchFiles).allowed && !overwrite) {
                 console.warn(`[FileManager] Skipping protected file ${file.filePath}`);
                 continue;

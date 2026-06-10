@@ -52,6 +52,7 @@ export function useChat({
 	query: userQuery,
 	images: userImages,
 	projectType = 'app',
+	behaviorType: explicitBehaviorType,
 	onDebugMessage,
 	onTerminalMessage,
 	onVaultUnlockRequired,
@@ -60,13 +61,14 @@ export function useChat({
 	query: string | null;
 	images?: ImageAttachment[];
 	projectType?: ProjectType;
+	behaviorType?: BehaviorType;
 	onDebugMessage?: (type: 'error' | 'warning' | 'info' | 'websocket', message: string, details?: string, source?: string, messageType?: string, rawMessage?: unknown) => void;
 	onTerminalMessage?: (log: { id: string; content: string; type: 'command' | 'stdout' | 'stderr' | 'info' | 'error' | 'warn' | 'debug'; timestamp: number; source?: string }) => void;
 	onVaultUnlockRequired?: (reason: string) => void;
 }) {
-	// Derive initial behavior type from project type using feature system
+	// Derive initial behavior type from explicit override or project type using feature system
 	const getInitialBehaviorType = (): BehaviorType => {
-		return getBehaviorTypeForProject(projectType);
+		return explicitBehaviorType ?? getBehaviorTypeForProject(projectType);
 	};
 
 	const connectionStatus = useRef<'idle' | 'connecting' | 'connected' | 'failed' | 'retrying'>('idle');
@@ -89,9 +91,15 @@ export function useChat({
 		((wsUrl: string, disableGenerate: boolean, reason: string) => void) | null
 	>(null);
 	const [chatId, setChatId] = useState<string>();
-	const [messages, setMessages] = useState<ChatMessage[]>([
-		createAIMessage('main', 'Thinking...', true),
-	]);
+	// Phasic/agentic flows show a placeholder "Thinking..." message until
+	// the backend streams the first phase. The think behavior streams the user's
+	// prompt and the assistant reply directly, so the placeholder would
+	// linger forever; start with an empty thread for that behavior.
+	const [messages, setMessages] = useState<ChatMessage[]>(
+		getInitialBehaviorType() === 'think'
+			? []
+			: [createAIMessage('main', 'Thinking...', true)],
+	);
 
 	const [bootstrapFiles, setBootstrapFiles] = useState<FileType[]>([]);
 	const [blueprint, setBlueprint] = useState<BlueprintType>();
@@ -474,6 +482,7 @@ export function useChat({
 					const response = await apiClient.createAgentSession({
 						query: userQuery,
 						projectType,
+						behaviorType: explicitBehaviorType,
 						images: userImages, // Pass images from URL params for multi-modal blueprint
 					});
 
@@ -578,10 +587,15 @@ export function useChat({
 					connectionStatus.current = 'connecting';
 
 					setIsBootstrapping(false);
-					// Show starting message with thinking indicator
-					setMessages(() => [
-						createAIMessage('fetching-chat', 'Starting from where you left off...', true)
-					]);
+					// Show a thinking placeholder while we fetch the agent
+					// summary. The think behavior rehydrates from the ThinkAgent DO via
+					// `GET_CONVERSATION_STATE`, which produces the real
+					// thread directly — no placeholder is needed there.
+					if (getBehaviorTypeForProject(projectType) !== 'think') {
+						setMessages(() => [
+							createAIMessage('fetching-chat', 'Starting from where you left off...', true),
+						]);
+					}
 
 					// Fetch existing agent connection details
 					const response = await apiClient.connectToAgent(urlChatId);
@@ -617,6 +631,7 @@ export function useChat({
 		init();
 	}, [
 		projectType,
+		explicitBehaviorType,
 		connectWithRetry,
 		loadBootstrapFiles,
 		onDebugMessage,

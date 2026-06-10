@@ -6,13 +6,24 @@
 	"$schema": "node_modules/wrangler/config-schema.json",
 	"name": "vibesdk-production",
 	"main": "worker/index.ts",
-	"compatibility_date": "2025-08-10",
+	// Facets (durable-object-facets) require a recent compat date — bumped
+	// from 2025-08-10 to enable `ctx.facets.get()` for space-generated
+	// apps' env.DB binding.
+	"compatibility_date": "2026-05-23",
 	"compatibility_flags": ["nodejs_compat"],
+	// Treat imported `.md` files (e.g. Think agent SKILL.md) as Text modules so
+	// `wrangler deploy` can bundle markdown imports. Unlike `.txt`, `.md` has no
+	// built-in esbuild loader. The `?raw` glob is required because wrangler's
+	// module-collection `onResolve` filter matches the raw import specifier
+	// (which ends in `?raw`) before the query string is stripped.
+	"rules": [
+		{ "type": "Text", "globs": ["**/*.md", "**/*.md?raw"], "fallthrough": true }
+	],
     "version_metadata": {
         "binding": "CF_VERSION_METADATA"
     },
 	"assets": {
-		"directory": "dist",
+		"directory": "dist/client",
 		"not_found_handling": "single-page-application",
 		// "run_worker_first": ["!/src/*", "!/api/docs/*"],
         "run_worker_first": true,
@@ -55,6 +66,10 @@
 		"binding": "AI",
         "remote": true
 	},
+	"browser": {
+		"binding": "BROWSER",
+		"remote": true
+	},
     "dispatch_namespaces": [
         {
             "binding": "DISPATCHER",
@@ -86,8 +101,7 @@
 			"binding": "DB",
 			"database_name": "vibesdk-db",
 			"database_id": "c4721a2b-b96a-428a-8b2a-b3d255b307e9",
-			"migrations_dir": "migrations",
-			"remote": true
+			"migrations_dir": "migrations"
 		}
 	],
 	"durable_objects": {
@@ -107,21 +121,32 @@
             {
                 "class_name": "UserSecretsStore",
                 "name": "UserSecretsStore"
+            },
+            {
+                "class_name": "ThinkAgent",
+                "name": "THINK_DO"
+            },
+            {
+                "class_name": "SpaceDO",
+                "name": "SPACE_DO"
             }
 		]
 	},
+    "worker_loaders": [
+        {
+            "binding": "LOADER"
+        }
+    ],
     "r2_buckets": [
       {
         "binding": "TEMPLATES_BUCKET",
-        "bucket_name": "vibesdk-templates",
-        "remote": true
+        "bucket_name": "vibesdk-templates"
       }
     ],
     "kv_namespaces": [
         {
             "binding": "VibecoderStore",
-            "id": "f066f3c2e4824981b48e8586c04db9c1",
-            "remote": true
+            "id": "f066f3c2e4824981b48e8586c04db9c1"
         }
     ],
     // "placement": {
@@ -146,6 +171,18 @@
                 "UserSecretsStore"
             ],
             "tag": "v3"
+        },
+        {
+            "new_sqlite_classes": [
+                "SpaceDO"
+            ],
+            "tag": "v5"
+        },
+        {
+            "new_sqlite_classes": [
+                "ThinkAgent"
+            ],
+            "tag": "v6"
         }
 	],
 	"routes": [
@@ -181,7 +218,9 @@
         },
         "CUSTOM_DOMAIN": "",
         "MAX_SANDBOX_INSTANCES": "10",
-        "SANDBOX_INSTANCE_TYPE": "standard-3"
+        "SANDBOX_INSTANCE_TYPE": "standard-3",
+        "DEV_BROWSER_SIDECAR_URL": "http://127.0.0.1:9223",
+        "DEV_BROWSER_PREVIEW_ORIGIN": "http://localhost:5173"
     },
 	"workers_dev": false,
 	"preview_urls": false

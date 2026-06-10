@@ -8,6 +8,7 @@ import { WebSocketMessageType, WebSocketMessageData } from "worker/api/websocket
 import { GitVersionControl } from "worker/agents/git/git";
 import { OperationOptions } from "worker/agents/operations/common";
 import { TemplateFile } from "worker/services/sandbox/sandboxTypes";
+import type { BrowserConsoleCaptureResult } from "worker/services/browser-capture/types";
 
 export interface ICodingAgent {
     getBehavior(): BehaviorType;
@@ -31,6 +32,13 @@ export interface ICodingAgent {
     clearConversation(): void;
     
     deployPreview(clearLogs?: boolean, forceRedeploy?: boolean): Promise<string>;
+
+    captureBrowserConsoleLogs(opts?: {
+        url?: string;
+        waitSeconds?: number;
+        viewport?: { width: number; height: number };
+        interactScript?: string;
+    }): Promise<BrowserConsoleCaptureResult>;
     
     updateProjectName(newName: string): Promise<boolean>;
 

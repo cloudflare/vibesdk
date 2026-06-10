@@ -108,7 +108,7 @@ export class ModelProvidersController extends BaseController {
             const validation = createProviderSchema.safeParse(bodyResult.data);
             if (!validation.success) {
                 return ModelProvidersController.createErrorResponse<ModelProviderCreateData>(
-                    `Validation error: ${validation.error.errors.map(e => e.message).join(', ')}`, 
+                    `Validation error: ${validation.error.issues.map(e => e.message).join(', ')}`, 
                     400
                 );
             }
@@ -147,7 +147,7 @@ export class ModelProvidersController extends BaseController {
             const validation = updateProviderSchema.safeParse(bodyResult.data);
             if (!validation.success) {
                 return ModelProvidersController.createErrorResponse<ModelProviderUpdateData>(
-                    `Validation error: ${validation.error.errors.map(e => e.message).join(', ')}`, 
+                    `Validation error: ${validation.error.issues.map(e => e.message).join(', ')}`, 
                     400
                 );
             }
@@ -200,7 +200,7 @@ export class ModelProvidersController extends BaseController {
             const validation = testProviderSchema.safeParse(bodyResult.data);
             if (!validation.success) {
                 return ModelProvidersController.createErrorResponse<ModelProviderTestData>(
-                    `Validation error: ${validation.error.errors.map(e => e.message).join(', ')}`, 
+                    `Validation error: ${validation.error.issues.map(e => e.message).join(', ')}`, 
                     400
                 );
             }

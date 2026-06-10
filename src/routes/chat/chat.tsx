@@ -15,7 +15,8 @@ import { PhaseTimeline } from './components/phase-timeline';
 import { type DebugMessage } from './components/debug-panel';
 import { DeploymentControls } from './components/deployment-controls';
 import { useChat } from './hooks/use-chat';
-import { type ModelConfigsInfo, type BlueprintType, type PhasicBlueprint, SUPPORTED_IMAGE_MIME_TYPES, type ProjectType, type FileType } from '@/api-types';
+import { type ModelConfigsInfo, type BlueprintType, type PhasicBlueprint, SUPPORTED_IMAGE_MIME_TYPES, type ProjectType, type FileType, type BehaviorType, isAgenticLikeBehavior } from '@/api-types';
+import type { ChatMessage } from './utils/message-helpers';
 import { featureRegistry } from '@/features';
 import { useFileContentStream } from './hooks/use-file-content-stream';
 import { logger } from '@/utils/logger';
@@ -41,12 +42,30 @@ import { checkCanSendPrompt, getBackendLimitDialog } from '@/utils/usage-limit-c
 const isPhasicBlueprint = (blueprint?: BlueprintType | null): blueprint is PhasicBlueprint =>
 	!!blueprint && 'implementationRoadmap' in blueprint;
 
+/**
+ * The think behavior's reload places the seeded first user prompt at index 0 of
+ * `runningHistory`. That would collide with the always-rendered top
+ * `UserMessage` (driven by `query`/`displayQuery`) and — because the
+ * "main" message slot is rendered unconditionally as an `AIMessage` —
+ * surface again as an assistant bubble below it. Filter only for
+ * think; phasic/agentic rely on the `fetching-chat` placeholder
+ * occupying index 0 and are unaffected.
+ */
+function dropLeadingUserForThink(
+	messages: ChatMessage[],
+	behaviorType: BehaviorType,
+): ChatMessage[] {
+	if (behaviorType !== 'think') return messages;
+	return messages[0]?.role === 'user' ? messages.slice(1) : messages;
+}
+
 export default function Chat() {
 	const { chatId: urlChatId } = useParams();
 
 	const [searchParams] = useSearchParams();
 	const userQuery = searchParams.get('query');
 	const urlProjectType = searchParams.get('projectType') || 'app';
+	const urlBehaviorType = searchParams.get('behaviorType') as BehaviorType | null;
 
 	// Extract images from URL params if present
 	const userImages = useMemo(() => {
@@ -157,6 +176,7 @@ export default function Chat() {
 		query: userQuery,
 		images: userImages,
 		projectType: urlProjectType as ProjectType,
+		behaviorType: urlBehaviorType ?? undefined,
 		onDebugMessage: addDebugMessage,
 		onVaultUnlockRequired: handleVaultUnlockRequired,
 	});
@@ -168,7 +188,7 @@ export default function Chat() {
 	const navigate = useNavigate();
 
 	const [activeFilePath, setActiveFilePath] = useState<string>();
-	const [view, setView] = useState<'editor' | 'preview' | 'docs' | 'blueprint' | 'terminal' | 'presentation'>(
+	const [view, setView] = useState<'editor' | 'preview' | 'docs' | 'blueprint' | 'terminal' | 'presentation' | 'database'>(
 		'editor',
 	);
 
@@ -333,7 +353,7 @@ export default function Chat() {
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, []);
 
-	const handleViewModeChange = useCallback((mode: 'preview' | 'editor' | 'docs' | 'blueprint' | 'presentation') => {
+	const handleViewModeChange = useCallback((mode: 'preview' | 'editor' | 'docs' | 'blueprint' | 'presentation' | 'database') => {
 		setView(mode);
 	}, []);
 
@@ -418,7 +438,7 @@ export default function Chat() {
 	}, [phaseTimeline]);
 
 	const isGitHubExportReady = useMemo(() => {
-		if (behaviorType === 'agentic') {
+		if (isAgenticLikeBehavior(behaviorType)) {
 			return files.length > 0 && !!urlChatId;
 		}
 		return isPhase1Complete && !!urlChatId;
@@ -426,7 +446,7 @@ export default function Chat() {
 
 	// Detect if agentic mode is showing static content (docs, markdown)
 	const isStaticContent = useMemo(() => {
-		if (behaviorType !== 'agentic' || files.length === 0) return false;
+		if (!isAgenticLikeBehavior(behaviorType) || files.length === 0) return false;
 		return files.every(file => isDocumentationPath(file.filePath.toLowerCase()));
 	}, [behaviorType, files]);
 
@@ -446,8 +466,8 @@ export default function Chat() {
 	}, [hasDocumentation, previewUrl]);
 
 	const showMainView = useMemo(() => {
-		// For agentic mode: show preview panel when files exist or preview URL exists
-		if (behaviorType === 'agentic') {
+		// For agentic/think mode: show preview panel when files exist or preview URL exists
+		if (isAgenticLikeBehavior(behaviorType)) {
 			const hasFiles = files.length > 0;
 			const hasPreview = !!previewUrl;
 			const result = hasFiles || hasPreview;
@@ -458,7 +478,12 @@ export default function Chat() {
 		return result;
 	}, [behaviorType, blueprint, files.length, previewUrl, streamedBootstrapFiles.length]);
 
-	const [mainMessage, ...otherMessages] = useMemo(() => messages, [messages]);
+	const messagesForDisplay = useMemo(
+		() => dropLeadingUserForThink(messages, behaviorType),
+		[messages, behaviorType],
+	);
+	const [mainMessage, ...otherMessages] = useMemo(() => messagesForDisplay, [messagesForDisplay]);
+	const richToolPreview = behaviorType === 'think';
 
 	const { scrollToBottom } = useAutoScroll(messagesContainerRef, { behavior: 'smooth', watch: [messages] });
 
@@ -496,7 +521,7 @@ export default function Chat() {
 		} else if (previewUrl) {
 			const isExistingChat = urlChatId !== 'new';
 			const shouldSwitch =
-				behaviorType === 'agentic' ||
+				(isAgenticLikeBehavior(behaviorType) && !isPreviewDeploying) ||
 				(behaviorType === 'phasic' && isPhase1Complete) ||
 				(isExistingChat && behaviorType !== 'phasic');
 
@@ -512,7 +537,7 @@ export default function Chat() {
 
 		// Update ref for next comparison
 		prevMarkdownCountRef.current = markdownFiles.length;
-	}, [previewUrl, isPhase1Complete, isStaticContent, files, activeFilePath, behaviorType, hasDocumentation, projectType, urlChatId]);
+	}, [previewUrl, isPhase1Complete, isStaticContent, files, activeFilePath, behaviorType, hasDocumentation, projectType, urlChatId, isPreviewDeploying]);
 
 	useEffect(() => {
 		if (chatId) {
@@ -701,12 +726,13 @@ export default function Chat() {
 								</>
 							)}
 
-							{mainMessage && (
+							{mainMessage?.role === 'assistant' && (
 							<div className="relative">
 								<AIMessage
 									message={mainMessage.content}
 									isThinking={mainMessage.ui?.isThinking}
 									toolEvents={mainMessage.ui?.toolEvents}
+									richToolPreview={richToolPreview}
 								/>
 								{chatId && (
 									<div className="absolute right-1 top-1">
@@ -746,6 +772,7 @@ export default function Chat() {
 											message={message.content}
 											isThinking={true}
 											toolEvents={message.ui?.toolEvents}
+											richToolPreview={richToolPreview}
 										/>
 									</div>
 								))}
@@ -755,12 +782,13 @@ export default function Chat() {
 									<AIMessage
 										message="Planning next phase..."
 										isThinking={true}
+										richToolPreview={richToolPreview}
 									/>
 								</div>
 							)}
 
 							{/* Only show PhaseTimeline for phasic mode */}
-							{behaviorType !== 'agentic' && (
+							{!isAgenticLikeBehavior(behaviorType) && (
 								<PhaseTimeline
 									projectStages={projectStages}
 									phaseTimeline={phaseTimeline}
@@ -789,7 +817,7 @@ export default function Chat() {
 							)}
 
 							{/* Deployment and Generation Controls - Only for phasic mode */}
-							{chatId && behaviorType !== 'agentic' && (
+							{chatId && !isAgenticLikeBehavior(behaviorType) && (
 								<motion.div
 									ref={deploymentControlsRef}
 									initial={{ opacity: 0, y: 20 }}
@@ -836,6 +864,7 @@ export default function Chat() {
 												message={message.content}
 												isThinking={message.ui?.isThinking}
 												toolEvents={message.ui?.toolEvents}
+												richToolPreview={richToolPreview}
 											/>
 										);
 									}
@@ -912,6 +941,8 @@ export default function Chat() {
 								previewRef={previewRef}
 								editorRef={editorRef}
 								templateDetails={templateDetails}
+								agentId={chatId}
+								databaseAvailable={behaviorType === 'think' && !!chatId}
 							/>
 						</motion.div>
 					)}

@@ -12,13 +12,22 @@
 	"$schema": "node_modules/wrangler/config-schema.json",
 	"name": "vibesdk-staging",
 	"main": "worker/index.ts",
-	"compatibility_date": "2025-08-10",
+	// Bumped for Durable Object Facets (see wrangler.jsonc for context).
+	"compatibility_date": "2026-05-23",
 	"compatibility_flags": ["nodejs_compat"],
+	// Treat imported `.md` files (e.g. Think agent SKILL.md) as Text modules so
+	// `wrangler deploy` can bundle markdown imports. Unlike `.txt`, `.md` has no
+	// built-in esbuild loader. The `?raw` glob is required because wrangler's
+	// module-collection `onResolve` filter matches the raw import specifier
+	// (which ends in `?raw`) before the query string is stripped.
+	"rules": [
+		{ "type": "Text", "globs": ["**/*.md", "**/*.md?raw"], "fallthrough": true }
+	],
     "version_metadata": {
         "binding": "CF_VERSION_METADATA"
     },
 	"assets": {
-		"directory": "dist",
+		"directory": "dist/client",
 		"not_found_handling": "single-page-application",
         "run_worker_first": true,
         "binding": "ASSETS"
@@ -54,6 +63,10 @@
 		"binding": "AI",
         "remote": true
 	},
+	"browser": {
+		"binding": "BROWSER",
+		"remote": true
+	},
     "dispatch_namespaces": [
         {
             "binding": "DISPATCHER",
@@ -66,7 +79,7 @@
 			"class_name": "UserAppSandboxService",
 			"image": "./SandboxDockerfile",
             // Altering max_instances value will have no effect. Please use the MAX_SANDBOX_INSTANCES var instead.
-			"max_instances": 1400,
+			"max_instances": 10,
             // ATTENTION: Altering instance_type value will have no effect. Please use the SANDBOX_INSTANCE_TYPE var instead.
             "instance_type": {
                 "vcpu": 4,
@@ -107,8 +120,8 @@
                 "name": "UserSecretsStore"
             },
             {
-                "class_name": "SessionDO",
-                "name": "SESSION_DO"
+                "class_name": "ThinkAgent",
+                "name": "THINK_DO"
             },
             {
                 "class_name": "SpaceDO",
@@ -121,9 +134,6 @@
             "binding": "LOADER"
         }
     ],
-    "alias": {
-        "@opencode-do/opencode": "./node_modules/@opencode-do/opencode/dist/index.js"
-    },
     "r2_buckets": [
       {
         "binding": "TEMPLATES_BUCKET",
@@ -160,15 +170,15 @@
         },
         {
             "new_sqlite_classes": [
-                "SessionDO"
-            ],
-            "tag": "v4"
-        },
-        {
-            "new_sqlite_classes": [
                 "SpaceDO"
             ],
             "tag": "v5"
+        },
+        {
+            "new_sqlite_classes": [
+                "ThinkAgent"
+            ],
+            "tag": "v6"
         }
 	],
 	"routes": [
@@ -177,7 +187,7 @@
             "custom_domain": true
         },
         {
-            "pattern": "*staging-preview.build.cloudflare.dev/*",
+            "pattern": "*staging.build.cloudflare.dev/*",
             "custom_domain": false,
             "zone_id": "f14aecaf571802180f79dcba9a8d34c3"
         }
@@ -202,7 +212,8 @@
             },
             "version": "1.0.0"
         },
-        "CUSTOM_DOMAIN": "",
+        "CUSTOM_DOMAIN": "staging.build.cloudflare.dev",
+        "CUSTOM_PREVIEW_DOMAIN": "staging.build.cloudflare.dev",
         "MAX_SANDBOX_INSTANCES": "10",
         "SANDBOX_INSTANCE_TYPE": "standard-3",
         "ENVIRONMENT": "staging"

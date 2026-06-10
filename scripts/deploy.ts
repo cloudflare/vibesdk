@@ -781,6 +781,10 @@ class CloudflareDeploymentManager {
 
 			// Update database migration commands
 			const commandsToUpdate = ['db:migrate:local', 'db:migrate:remote'];
+			// When deploying with a non-default wrangler config (e.g. staging),
+			// the migration commands must also target that config or wrangler
+			// will look up the db binding in the default `wrangler.jsonc`.
+			const wranglerConfigArg = this.getWranglerConfigArg();
 
 			let updated = false;
 			commandsToUpdate.forEach((command) => {
@@ -788,10 +792,18 @@ class CloudflareDeploymentManager {
 					const oldCommand = packageJson.scripts[command];
 
 					// Replace any existing database name in the wrangler d1 migrations apply command
-					const newCommand = oldCommand.replace(
+					let newCommand = oldCommand.replace(
 						/wrangler d1 migrations apply [^\s]+ /,
 						`wrangler d1 migrations apply ${databaseName} `,
 					);
+
+					// Inject `--config <path>` once, if needed and not already present.
+					if (wranglerConfigArg && !/--config\s/.test(newCommand)) {
+						newCommand = newCommand.replace(
+							/wrangler d1 migrations apply [^\s]+/,
+							(match: string) => `${match}${wranglerConfigArg}`,
+						);
+					}
 
 					if (newCommand !== oldCommand) {
 						packageJson.scripts[command] = newCommand;

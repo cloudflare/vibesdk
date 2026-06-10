@@ -58,18 +58,21 @@ jobs:
 
       # Staging-specific overrides. These take priority over wrangler.staging.jsonc vars.
       CUSTOM_DOMAIN: staging.build.cloudflare.dev
-      CUSTOM_PREVIEW_DOMAIN: staging-preview.build.cloudflare.dev
+      CUSTOM_PREVIEW_DOMAIN: staging.build.cloudflare.dev
       DISPATCH_NAMESPACE: vibesdk-staging-namespace
       ENVIRONMENT: staging
 
       # Reuse repo-level config vars (same as prod). Anything staging-specific
       # is overridden above.
-      MAX_SANDBOX_INSTANCES: ${{ vars.MAX_SANDBOX_INSTANCES }}
+      # MAX_SANDBOX_INSTANCES intentionally not inherited: the prod quota
+      # (vars.MAX_SANDBOX_INSTANCES) exceeds the staging account's allocation.
+      # Falls back to the value in wrangler.staging.jsonc.
       SANDBOX_INSTANCE_TYPE: ${{ vars.SANDBOX_INSTANCE_TYPE }}
       TEMPLATES_REPOSITORY: ${{ vars.TEMPLATES_REPOSITORY }}
       ALLOCATION_STRATEGY: ${{ vars.ALLOCATION_STRATEGY }}
       PLATFORM_MODEL_PROVIDERS: ${{ vars.PLATFORM_MODEL_PROVIDERS }}
       USE_CLOUDFLARE_IMAGES: ${{ vars.USE_CLOUDFLARE_IMAGES }}
+      CLOUDFLARE_AI_GATEWAY: ${{ vars.CLOUDFLARE_AI_GATEWAY }}
       CLOUDFLARE_AI_GATEWAY_TOKEN: ${{ secrets.CLOUDFLARE_AI_GATEWAY_TOKEN }}
       CLOUDFLARE_AI_GATEWAY_URL: ${{ vars.CLOUDFLARE_AI_GATEWAY_URL }}
 
@@ -107,6 +110,7 @@ jobs:
           # Staging reuses the same Cloudflare account secrets as prod.
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_AI_GATEWAY: ${{ vars.CLOUDFLARE_AI_GATEWAY }}
           CLOUDFLARE_AI_GATEWAY_TOKEN: ${{ secrets.CLOUDFLARE_AI_GATEWAY_TOKEN }}
           CLOUDFLARE_AI_GATEWAY_URL: ${{ secrets.CLOUDFLARE_AI_GATEWAY_URL }}
 

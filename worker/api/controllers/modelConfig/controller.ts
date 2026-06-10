@@ -212,7 +212,7 @@ export class ModelConfigController extends BaseController {
             return ModelConfigController.createSuccessResponse(responseData);
         } catch (error) {
             if (error instanceof z.ZodError) {
-                return ModelConfigController.createErrorResponse<ModelConfigUpdateData>('Validation failed: ' + JSON.stringify(error.errors), 400);
+                return ModelConfigController.createErrorResponse<ModelConfigUpdateData>('Validation failed: ' + JSON.stringify(error.issues), 400);
             }
 
             // Handle constraint violations (thrown by service)
@@ -315,7 +315,7 @@ export class ModelConfigController extends BaseController {
             return ModelConfigController.createSuccessResponse(responseData);
         } catch (error) {
             if (error instanceof z.ZodError) {
-                return ModelConfigController.createErrorResponse<ModelConfigTestData>('Validation failed: ' + JSON.stringify(error.errors), 400);
+                return ModelConfigController.createErrorResponse<ModelConfigTestData>('Validation failed: ' + JSON.stringify(error.issues), 400);
             }
             this.logger.error('Error testing model configuration:', error);
             return ModelConfigController.createErrorResponse<ModelConfigTestData>('Failed to test model configuration', 500);

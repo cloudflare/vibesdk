@@ -8,6 +8,7 @@ export type ToolEvent = {
     timestamp: number;
     contentLength?: number; // Position in content when event was added (for inline rendering)
     result?: string; // Tool execution result (for completed tools)
+    args?: Record<string, unknown>; // Tool invocation input (think only; populated by handle-websocket-message gating)
 };
 
 export type ChatMessage = Omit<ConversationMessage, 'content'> & {
@@ -158,7 +159,7 @@ export function handleStreamingMessage(
 export function appendToolEvent(
     messages: ChatMessage[],
     conversationId: string,
-    tool: { name: string; status: 'start' | 'success' | 'error'; result?: string }
+    tool: { name: string; status: 'start' | 'success' | 'error'; result?: string; args?: Record<string, unknown> }
 ): ChatMessage[] {
     const idx = messages.findIndex(m => m.conversationId === conversationId && m.role === 'assistant');
     const timestamp = Date.now();
@@ -174,7 +175,8 @@ export function appendToolEvent(
                     name: tool.name,
                     status: tool.status,
                     timestamp,
-                    contentLength: 0
+                    contentLength: 0,
+                    args: tool.args,
                 }]
             },
         };
@@ -197,7 +199,8 @@ export function appendToolEvent(
                         name: tool.name,
                         status: 'start',
                         timestamp,
-                        contentLength: currentContentLength
+                        contentLength: currentContentLength,
+                        args: tool.args,
                     }]
                 }
             };
@@ -227,7 +230,8 @@ export function appendToolEvent(
                                     status: 'success' as const,
                                     timestamp,
                                     contentLength: currentContentLength,
-                                    result: tool.result
+                                    result: tool.result,
+                                    args: tool.args ?? startEvent.args,
                                 }
                             ]
                         }
@@ -246,7 +250,12 @@ export function appendToolEvent(
                                     status: 'success' as const, 
                                     timestamp: startEvent.timestamp, // Keep original timestamp for stable React key
                                     contentLength: ev.contentLength, // Keep original position
-                                    result: tool.result // Add result if provided
+                                    result: tool.result, // Add result if provided
+                                    // Carry args from start event if the success
+                                    // broadcast omits them; the think behavior broadcasts
+                                    // args on every status so this usually
+                                    // overwrites with the same payload.
+                                    args: tool.args ?? ev.args,
                                   }
                                 : ev
                         )
@@ -264,7 +273,8 @@ export function appendToolEvent(
                         status: 'success',
                         timestamp,
                         contentLength: currentContentLength,
-                        result: tool.result
+                        result: tool.result,
+                        args: tool.args,
                     }]
                 }
             };
@@ -279,7 +289,9 @@ export function appendToolEvent(
                     name: tool.name,
                     status: 'error',
                     timestamp,
-                    contentLength: currentContentLength
+                    contentLength: currentContentLength,
+                    result: tool.result,
+                    args: tool.args,
                 }]
             }
         };

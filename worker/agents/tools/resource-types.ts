@@ -17,7 +17,9 @@ function buildType<T>(
 	resources: ResourceResolver<T>
 ): Type<T> {
 	return {
-		schema,
+		// zod 4 tightened ZodType variance, so the generic `ZodTypeAny` no
+		// longer flows into `z.ZodType<T>` implicitly; assert the relationship.
+		schema: schema as unknown as z.ZodType<T>,
 		resources,
 		describe: (desc) => buildType(schema.describe(desc), resources),
 		optional: () => buildType(schema.optional(), (value) =>

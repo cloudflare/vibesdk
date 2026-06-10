@@ -182,6 +182,7 @@ export type {
   BehaviorType,
   ProjectType
 } from 'worker/agents/core/types';
+export { isAgenticLikeBehavior } from 'worker/agents/core/types';
 
 export type {
   ConversationMessage,
@@ -204,6 +205,16 @@ export type {
 export type { RateLimitError } from "worker/services/rate-limit/errors";
 export type { AgentPreviewResponse, CodeGenArgs } from 'worker/api/controllers/agent/types';
 export { MAX_AGENT_QUERY_LENGTH } from 'worker/api/controllers/agent/types';
+
+// App Database (DB tab) types
+export type {
+  AppDatabaseColumn,
+  AppDatabaseTable,
+  AppDatabaseReadResult,
+  ListAppTablesResponse,
+  QueryAppTableResponse,
+  WipeAppDatabaseResponse,
+} from 'worker/api/controllers/appDatabase/types';
 export type { RateLimitErrorResponse } from 'worker/api/responses';
 export { RateLimitExceededError, SecurityError, SecurityErrorType } from '../shared/types/errors.js';
 

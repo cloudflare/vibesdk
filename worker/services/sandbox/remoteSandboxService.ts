@@ -89,19 +89,19 @@ export class RemoteSandboxServiceClient extends BaseSandboxService{
                 return {
                     success: false,
                     error: errorText
-                };
+                } as z.infer<T>;
             }
 
             const responseData = await response.json();
-            if(!schema) return responseData;
+            if(!schema) return responseData as z.infer<T>;
             const validation = schema.safeParse(responseData);
 
             if (!validation.success) {
-                this.logger.error('Failed to validate response from runner service', validation.error.errors, { url, responseData });
+                this.logger.error('Failed to validate response from runner service', validation.error.issues, { url, responseData });
                 return {
                     success: false,
                     error: "Failed to validate response"
-                };
+                } as z.infer<T>;
             }
 
             // this.logger.info('Response validated', { url });
@@ -111,7 +111,7 @@ export class RemoteSandboxServiceClient extends BaseSandboxService{
             return {
                 success: false,
                 error: "Failed to validate response"
-            };
+            } as z.infer<T>;
         }
     }
 
@@ -227,11 +227,11 @@ export class RemoteSandboxServiceClient extends BaseSandboxService{
      * List all instances across all sessions
      */
     async listAllInstances(): Promise<ListInstancesResponse> {
-        return this.makeRequest('/instances', 'GET');
+        return this.makeRequest('/instances', 'GET') as Promise<ListInstancesResponse>;
     }
 
     async updateProjectName(instanceId: string, projectName: string): Promise<boolean> {
-        return this.makeRequest(`/instances/${instanceId}/name`, 'POST', undefined, { projectName });
+        return this.makeRequest(`/instances/${instanceId}/name`, 'POST', undefined, { projectName }) as Promise<boolean>;
     }
 
     /**
@@ -242,7 +242,7 @@ export class RemoteSandboxServiceClient extends BaseSandboxService{
         if (onlyRecent) params.append('reset', 'true');
         if (durationSeconds) params.append('duration', durationSeconds.toString());
         const queryString = params.toString() ? `?${params.toString()}` : '';
-        return this.makeRequest(`/instances/${instanceId}/logs${queryString}`, 'GET');
+        return this.makeRequest(`/instances/${instanceId}/logs${queryString}`, 'GET') as Promise<GetLogsResponse>;
     }
 
     // temp, debug

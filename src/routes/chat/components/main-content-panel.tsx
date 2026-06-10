@@ -12,6 +12,7 @@ import { ViewHeader } from './view-header';
 import { PreviewHeaderActions } from './preview-header-actions';
 import { EditorHeaderActions } from './editor-header-actions';
 import { Copy } from './copy';
+import { DatabaseViewer } from './database-viewer';
 import { featureRegistry } from '@/features';
 import type { FileType, BlueprintType, BehaviorType, ModelConfigsInfo, TemplateDetails, ProjectType } from '@/api-types';
 import type { ContentDetectionResult } from '../utils/content-detector';
@@ -20,8 +21,8 @@ import type { Edit } from '../hooks/use-chat';
 
 interface MainContentPanelProps {
 	// View state
-	view: 'editor' | 'preview' | 'docs' | 'blueprint' | 'terminal' | 'presentation';
-	onViewChange: (mode: 'preview' | 'editor' | 'docs' | 'blueprint' | 'presentation') => void;
+	view: 'editor' | 'preview' | 'docs' | 'blueprint' | 'terminal' | 'presentation' | 'database';
+	onViewChange: (mode: 'preview' | 'editor' | 'docs' | 'blueprint' | 'presentation' | 'database') => void;
 
 	// Content detection
 	hasDocumentation: boolean;
@@ -66,6 +67,10 @@ interface MainContentPanelProps {
 	behaviorType?: BehaviorType;
 	websocket?: WebSocket;
 
+	// DB tab (think-behavior only)
+	agentId?: string;
+	databaseAvailable: boolean;
+
 	// Refs
 	previewRef: RefObject<HTMLIFrameElement | null>;
 	editorRef: RefObject<HTMLDivElement | null>;
@@ -102,6 +107,8 @@ export function MainContentPanel(props: MainContentPanelProps) {
 		previewRef,
 		editorRef,
 		templateDetails,
+		agentId,
+		databaseAvailable,
 	} = props;
 
 	// Feature-specific state management
@@ -111,13 +118,14 @@ export function MainContentPanel(props: MainContentPanelProps) {
 	}, []);
 
 	const commonHeaderProps = {
-		view: view as 'preview' | 'editor' | 'docs' | 'blueprint' | 'presentation',
+		view: view as 'preview' | 'editor' | 'docs' | 'blueprint' | 'presentation' | 'database',
 		onViewChange,
 		previewAvailable,
 		showTooltip,
 		hasDocumentation,
 		previewUrl,
 		projectType,
+		databaseAvailable,
 	};
 
 	const renderViewWithHeader = (
@@ -370,6 +378,16 @@ export function MainContentPanel(props: MainContentPanelProps) {
 		);
 	};
 
+	const renderDatabaseView = () => {
+		if (!databaseAvailable || !agentId) return null;
+		return renderViewWithHeader(
+			<div className="flex items-center gap-2">
+				<span className="text-sm font-mono text-text-50/70">Database</span>
+			</div>,
+			<DatabaseViewer agentId={agentId} enabled={view === 'database'} />,
+		);
+	};
+
 	const renderView = () => {
 		switch (view) {
 			case 'docs':
@@ -381,6 +399,8 @@ export function MainContentPanel(props: MainContentPanelProps) {
 				return renderBlueprintView();
 			case 'editor':
 				return renderEditorView();
+			case 'database':
+				return renderDatabaseView();
 			default:
 				return null;
 		}

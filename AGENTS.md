@@ -7,7 +7,7 @@
 - **Test all:** `npm run test`
 - **Test single file:** `npx vitest run path/to/file.test.ts`
 - **Test watch:** `npm run test:watch`
-- **Dev servers:** `npm run dev` (frontend), `npm run dev:worker` (backend)
+- **Dev servers:** `npm run dev` (frontend), `npm run dev:worker` (backend), `npm run dev:browser` (local Chromium sidecar for the `get_browser_console_logs` think-agent tool; optional, prints a warning instead of failing if not running)
 
 ## Code Style
 - **No `any` type** - find or create proper types
