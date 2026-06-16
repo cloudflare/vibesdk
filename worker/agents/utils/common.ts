@@ -110,7 +110,12 @@ export const MAX_BOOTSTRAP_COMMANDS = 50;
  * WHITELIST: Only commands that install/add/remove/update SPECIFIC packages
  * Supports: scoped packages (@org/pkg), versions (pkg@1.2.3), ranges (^, ~, >, <, =), git URLs
  */
-const BOOTSTRAP_COMMAND_PATTERN = /^(?:npm|yarn|pnpm|bun)\s+(add|install|remove|uninstall|update)\s+([\w@/.\-^~><=:]+)/;
+// Anchored at both ends; one or more package-spec or flag tokens.
+const BOOTSTRAP_COMMAND_PATTERN =
+	/^(?:npm|yarn|pnpm|bun)\s+(add|install|remove|uninstall|update)((?:\s+(?:[\w@/.\-^~><=:]+|--?[\w-]+))+)\s*$/;
+
+// Defense-in-depth deny list: any shell metacharacter disqualifies the command.
+const SHELL_METACHAR = /[;&|`$<>(){}[\]"'\\\n\r]/;
 
 /**
  * Check if a command is valid for bootstrap script.
@@ -133,7 +138,9 @@ const BOOTSTRAP_COMMAND_PATTERN = /^(?:npm|yarn|pnpm|bun)\s+(add|install|remove|
  * - Any non-package-manager commands
  */
 export function isValidBootstrapCommand(command: string): boolean {
-	return BOOTSTRAP_COMMAND_PATTERN.test(command.trim());
+	const trimmed = command.trim();
+	if (SHELL_METACHAR.test(trimmed)) return false;
+	return BOOTSTRAP_COMMAND_PATTERN.test(trimmed);
 }
 
 /**
@@ -154,11 +161,14 @@ export function isBootstrapRuntimeCommand(command: string): boolean {
  * getPackageOperationKey("bun add @cloudflare/workers") -> "add:@cloudflare/workers"
  */
 export function getPackageOperationKey(command: string): string | null {
+	if (!isValidBootstrapCommand(command)) return null;
 	const match = command.trim().match(BOOTSTRAP_COMMAND_PATTERN);
 	if (!match) return null;
-	
-	const [, action, pkg] = match;
-	return `${action}:${pkg}`;
+
+	const [, action, rest] = match;
+	// Normalize token order so "add react react-dom" === "add react-dom react".
+	const tokens = rest.trim().split(/\s+/).sort().join(' ');
+	return `${action}:${tokens}`;
 }
 
 /**
