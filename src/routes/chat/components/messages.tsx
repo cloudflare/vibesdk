@@ -3,6 +3,7 @@ import clsx from 'clsx';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeExternalLinks from 'rehype-external-links';
+import { NO_IMAGE_MARKDOWN_COMPONENTS } from './markdown-components';
 import { LoaderCircle, Check, AlertTriangle, ChevronDown, ChevronRight, MessageSquare } from 'lucide-react';
 import type { ToolEvent } from '../utils/message-helpers';
 import type { ConversationMessage } from '@/api-types';
@@ -506,6 +507,7 @@ export function Markdown({ children, className, ...props }: MarkdownProps) {
 			<ReactMarkdown
 				remarkPlugins={[remarkGfm]}
 				rehypePlugins={[[rehypeExternalLinks, { target: '_blank' }]]}
+				components={NO_IMAGE_MARKDOWN_COMPONENTS}
 			>
 				{children}
 			</ReactMarkdown>

@@ -6,7 +6,7 @@ import {
 	useState,
 	type FormEvent,
 } from 'react';
-import { useParams, useSearchParams, useNavigate } from 'react-router';
+import { useParams, useSearchParams, useNavigate, useLocation } from 'react-router';
 import { AnimatePresence, motion } from 'framer-motion';
 import { LoaderCircle, MoreHorizontal, RotateCcw } from 'lucide-react';
 import clsx from 'clsx';
@@ -63,9 +63,18 @@ export default function Chat() {
 	const { chatId: urlChatId } = useParams();
 
 	const [searchParams] = useSearchParams();
+	const location = useLocation();
 	const userQuery = searchParams.get('query');
 	const urlProjectType = searchParams.get('projectType') || 'app';
 	const urlBehaviorType = searchParams.get('behaviorType') as BehaviorType | null;
+
+	// Only auto-start a brand-new session when it originated from in-app
+	// navigation (e.g. the home prompt box sets `fromPrompt`). Sessions opened
+	// from a pasted/external link require explicit confirmation, since the
+	// query is interpolated into the agent's system prompt.
+	const startedFromInApp =
+		(location.state as { fromPrompt?: boolean } | null)?.fromPrompt === true;
+	const autoStart = urlChatId !== 'new' || startedFromInApp;
 
 	// Extract images from URL params if present
 	const userImages = useMemo(() => {
@@ -171,12 +180,16 @@ export default function Chat() {
 		// Backend error dialog state
 		backendErrorDialog,
 		setBackendErrorDialog,
+		// Externally-sourced session start gate
+		awaitingStartConfirmation,
+		confirmStart,
 	} = useChat({
 		chatId: urlChatId,
 		query: userQuery,
 		images: userImages,
 		projectType: urlProjectType as ProjectType,
 		behaviorType: urlBehaviorType ?? undefined,
+		autoStart,
 		onDebugMessage: addDebugMessage,
 		onVaultUnlockRequired: handleVaultUnlockRequired,
 	});
@@ -691,6 +704,31 @@ export default function Chat() {
 			isRunning,
 			projectStages,
 		});
+	}
+
+	if (awaitingStartConfirmation) {
+		return (
+			<div className="size-full flex items-center justify-center p-6 text-text-primary">
+				<div className="max-w-lg w-full flex flex-col gap-4 rounded-xl border border-border-primary bg-bg-2 p-6">
+					<h1 className="text-lg font-medium">Start building this app?</h1>
+					<p className="text-sm text-text-secondary">
+						This link wants to start a new project with the prompt below.
+						Review it before continuing.
+					</p>
+					<div className="rounded-lg border border-border-primary bg-bg-3 p-4 max-h-64 overflow-y-auto">
+						<p className="text-sm text-text-primary whitespace-pre-wrap break-words">
+							{displayQuery}
+						</p>
+					</div>
+					<div className="flex items-center justify-end gap-2">
+						<Button variant="outline" onClick={() => navigate('/')}>
+							Cancel
+						</Button>
+						<Button onClick={confirmStart}>Start building</Button>
+					</div>
+				</div>
+			</div>
+		);
 	}
 
 	return (
