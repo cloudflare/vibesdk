@@ -458,6 +458,20 @@ export type CredentialsPayload = {
 	aiGateway?: { baseUrl: string; token: string };
 };
 
+/**
+ * Validates a user-supplied AI gateway baseUrl. Requires a well-formed
+ * absolute https URL. Returns false for malformed or non-https values so the
+ * override is dropped rather than plumbed downstream.
+ */
+function isValidGatewayBaseUrl(baseUrl: string | undefined): boolean {
+	if (!baseUrl) return false;
+	try {
+		return new URL(baseUrl).protocol === 'https:';
+	} catch {
+		return false;
+	}
+}
+
 export function credentialsToRuntimeOverrides(
 	credentials: CredentialsPayload | undefined,
 ): InferenceRuntimeOverrides | undefined {
@@ -469,9 +483,11 @@ export function credentialsToRuntimeOverrides(
 	}
 
 	const hasKeys = Object.keys(userApiKeys).length > 0;
+	const hasValidGateway =
+		!!credentials.aiGateway && isValidGatewayBaseUrl(credentials.aiGateway.baseUrl);
 	return {
 		...(hasKeys ? { userApiKeys } : {}),
-		...(credentials.aiGateway ? { aiGatewayOverride: credentials.aiGateway } : {}),
+		...(hasValidGateway ? { aiGatewayOverride: credentials.aiGateway } : {}),
 	};
 }
 
