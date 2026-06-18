@@ -93,8 +93,6 @@
 		var(--radius);
 	--radius-xl:
 		calc(var(--radius) + 4px);
-	--color-accent:
-		var(--build-accent-color);
 	--color-destructive:
 		var(--destructive);
 	--color-input:
@@ -114,9 +112,8 @@
 	--color-border-secondary: var(--build-chat-colors-border-secondary);
 	--color-border-tertiary: var(--build-chat-colors-border-tertiary);
 	--color-danger: var(--build-chat-colors-danger);
-	--color-brand-heavy: var(--build-chat-colors-brand-heavy);
 	--color-brand-primary: var(--build-chat-colors-brand-primary);
-	--color-brand-subtle: var(--build-chat-colors-brand-subtle);
+	--color-brand-light: var(--build-chat-colors-brand-light);
 	--color-text-inverted: var(--build-chat-colors-text-inverted);
 	--color-text-primary: var(--build-chat-colors-text-primary);
 	--color-text-secondary: var(--build-chat-colors-text-secondary);
@@ -143,7 +140,6 @@
 		oklch(0.922 0 0);
 	--ring:
 		oklch(0.708 0 0);
-	--build-accent-color: #ff3d00;
 	--build-chat-colors-bg-1: #e7e7e7;
 	--build-chat-colors-bg-2: #f6f6f6;
 	--build-chat-colors-bg-3: #fbfbfc;
@@ -152,9 +148,8 @@
 	--build-chat-colors-border-secondary: #eeeeee;
 	--build-chat-colors-border-tertiary: #eeeeee;
 	--build-chat-colors-danger: #950000cc;
-	--build-chat-colors-brand-heavy: #f6821f;
 	--build-chat-colors-brand-primary: #f6821f;
-	--build-chat-colors-brand-subtle: #f6821f;
+	--build-chat-colors-brand-light: #faae42;
 	--build-chat-colors-text-inverted: #ffffff;
 	--build-chat-colors-text-primary: #0a0a0a;
 	--build-chat-colors-text-secondary: #171717;
@@ -176,9 +171,8 @@
 	--build-chat-colors-border-primary: #393939;
 	--build-chat-colors-border-secondary: #454746;
 	--build-chat-colors-border-tertiary: #454746;
-	--build-chat-colors-brand-heavy: #f6821f;
 	--build-chat-colors-brand-primary: #f6821f;
-	--build-chat-colors-brand-subtle: #f6821f;
+	--build-chat-colors-brand-light: #faae42;
 	--build-chat-colors-text-inverted: #000000;
 	--build-chat-colors-text-primary: #ffffff;
 	--build-chat-colors-text-secondary: #cdcaca;
@@ -218,7 +212,7 @@
 		'Inter', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji',
 		'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
 
-	--color-brand: #0092b8;
+	--color-brand: #ff3d00;
 	--color-text: #000;
 	--color-text-on-brand: #fff;
 
@@ -242,6 +236,39 @@
 /* Hack from https://stackoverflow.com/a/71876526 */
 .monaco-editor {
 	position: absolute !important;
+}
+
+@keyframes spin-border {
+	from { --spin-angle: 0deg; }
+	to { --spin-angle: 360deg; }
+}
+
+@utility animated-border-ring {
+	position: relative;
+
+	&::before {
+		content: '';
+		position: absolute;
+		inset: -2px;
+		border-radius: 9999px;
+		padding: 1.5px;
+		background: conic-gradient(
+			from var(--spin-angle, 0deg),
+			transparent 30%,
+			var(--color-brand) 100%
+		);
+		mask:
+			linear-gradient(#fff 0 0) content-box,
+			linear-gradient(#fff 0 0);
+		mask-composite: exclude;
+		animation: spin-border 1.5s linear infinite;
+	}
+}
+
+@property --spin-angle {
+	syntax: '<angle>';
+	initial-value: 0deg;
+	inherits: false;
 }
 
 @utility bg-graph-paper {

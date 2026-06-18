@@ -543,7 +543,7 @@ function DebugPanelCore({ messages, onClear, chatSessionId }: DebugPanelProps) {
         } ${isOpen ? 'translate-x-0' : 'translate-x-full'}`}
       >
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-border-primary bg-gradient-to-r from-muted to-accent">
+        <div className="flex items-center justify-between p-4 border-b border-border-primary bg-gradient-to-r from-muted to-brand">
           <div className="flex items-center gap-2">
             <Bug className="w-5 h-5 text-text-primary" />
             <h3 className="font-semibold text-text-primary">Debug Console</h3>

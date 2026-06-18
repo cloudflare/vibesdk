@@ -741,7 +741,7 @@ export default function AppView() {
 						>
 							<Eye className={cn(
 								"h-3.5 w-3.5 mr-1.5",
-								activeTab === 'preview' ? 'text-accent' : 'text-accent/60'
+								activeTab === 'preview' ? 'text-brand' : 'text-brand/60'
 							)} />
 							Preview
 						</TabsTrigger>
@@ -751,7 +751,7 @@ export default function AppView() {
 						>
 							<Code2 className={cn(
 								"h-3.5 w-3.5 mr-1.5",
-								activeTab === 'code' ? 'text-accent' : 'text-accent/60'
+								activeTab === 'code' ? 'text-brand' : 'text-brand/60'
 							)} />
 							Code
 						</TabsTrigger>
@@ -761,7 +761,7 @@ export default function AppView() {
 						>
 							<MessageSquare className={cn(
 								"h-3.5 w-3.5 mr-1.5",
-								activeTab === 'prompt' ? 'text-accent' : 'text-accent/60'
+								activeTab === 'prompt' ? 'text-brand' : 'text-brand/60'
 							)} />
 							Prompt
 						</TabsTrigger>
@@ -1042,8 +1042,8 @@ export default function AppView() {
 									<div className="bg-bg-2 rounded-lg p-6 border border-border-primary">
 										<div className="flex items-start gap-3">
 											<div className="flex-shrink-0 mt-1">
-												<div className="rounded-full bg-accent/10 p-2">
-													<MessageSquare className="h-4 w-4 text-accent" />
+												<div className="rounded-full bg-brand/10 p-2">
+													<MessageSquare className="h-4 w-4 text-brand" />
 												</div>
 											</div>
 											<div className="flex-1">

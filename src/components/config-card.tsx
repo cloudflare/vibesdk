@@ -111,7 +111,7 @@ export function ConfigCard({
                 <TooltipProvider>
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <Badge variant="outline" className="text-xs px-1.5 py-0.5 shrink-0 dark:bg-accent/20">
+                      <Badge variant="outline" className="text-xs px-1.5 py-0.5 shrink-0 dark:bg-brand/20">
                         {formatParameterValue(temperature, 'temperature')}
                       </Badge>
                     </TooltipTrigger>
@@ -126,7 +126,7 @@ export function ConfigCard({
                 <TooltipProvider>
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <Badge variant="outline" className="text-xs px-1.5 py-0.5 shrink-0 dark:bg-accent/20">
+                      <Badge variant="outline" className="text-xs px-1.5 py-0.5 shrink-0 dark:bg-brand/20">
                         {formatParameterValue(maxTokens, 'maxTokens')}
                       </Badge>
                     </TooltipTrigger>
@@ -141,7 +141,7 @@ export function ConfigCard({
                 <TooltipProvider>
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <Badge variant="outline" className="text-xs px-1.5 py-0.5 shrink-0 dark:bg-accent/20">
+                      <Badge variant="outline" className="text-xs px-1.5 py-0.5 shrink-0 dark:bg-brand/20">
                         {formatParameterValue(reasoningEffort, 'reasoningEffort')}
                       </Badge>
                     </TooltipTrigger>

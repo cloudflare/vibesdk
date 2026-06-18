@@ -77,7 +77,7 @@ export function PresentationPreview({
 				className="shrink-0 w-[260px] lg:w-[280px] xl:w-[300px] bg-bg-3 border-r border-border-primary h-full overflow-y-auto"
 			>
 				<div className={`${HEADER_STYLES.padding} ${HEADER_STYLES.container} flex items-center gap-2 ${HEADER_STYLES.textBase} font-semibold`}>
-					<Presentation className="size-4 text-accent" />
+					<Presentation className="size-4 text-brand" />
 					<span>Slides</span>
 					<span className="ml-auto text-xs font-mono text-text-50/50">
 						{slideFiles.length}
@@ -91,8 +91,8 @@ export function PresentationPreview({
 							className={clsx(
 								'group relative rounded-lg overflow-hidden transition-all duration-200 border bg-bg-3/80',
 								slide.index === currentSlideIndex
-									? 'border-accent shadow-md'
-									: 'border-border-primary hover:border-accent/50 hover:shadow-sm',
+									? 'border-brand shadow-md'
+									: 'border-border-primary hover:border-brand/50 hover:shadow-sm',
 							)}
 							title={`Slide ${slide.index + 1}: ${slide.fileName}`}
 						>
@@ -101,7 +101,7 @@ export function PresentationPreview({
 								className={clsx(
 									'absolute top-2 left-2 z-10 text-xs font-medium px-2 py-0.5 rounded backdrop-blur-sm',
 									slide.index === currentSlideIndex
-										? 'bg-accent text-text-on-brand'
+										? 'bg-brand text-text-on-brand'
 										: 'bg-bg-4/95 text-text-50/70 border border-border-primary',
 								)}
 							>
@@ -147,7 +147,7 @@ export function PresentationPreview({
 								)}
 
 								{generatingSlides.has(slide.filePath) && (
-									<div className="absolute inset-0 bg-accent/20 backdrop-blur-sm flex items-center justify-center z-20">
+									<div className="absolute inset-0 bg-brand/20 backdrop-blur-sm flex items-center justify-center z-20">
 										<div className="flex flex-col items-center gap-2">
 											<div className="size-4 border-2 border-text-on-brand/30 border-t-text-on-brand rounded-full animate-spin" />
 											<span className="text-xs font-medium text-text-on-brand">
@@ -183,7 +183,7 @@ export function PresentationPreview({
 						<div className="flex flex-col border border-text/10 rounded-lg overflow-hidden">
 							<div className="px-3 py-2 bg-bg-2 border-b border-text/10">
 								<div className="flex items-center gap-2">
-									<Presentation className="size-4 text-accent" />
+									<Presentation className="size-4 text-brand" />
 									<span className="text-sm font-medium text-text-primary">
 										Current Slide
 									</span>
@@ -245,7 +245,7 @@ export function PresentationPreview({
 						<div className="flex flex-col border border-text/10 rounded-lg overflow-hidden">
 							<div className="px-3 py-2 bg-bg-2 border-b border-text/10">
 								<div className="flex items-center gap-2">
-									<Presentation className="size-4 text-accent" />
+									<Presentation className="size-4 text-brand" />
 									<span className="text-sm font-medium text-text-primary">
 										Current
 									</span>

@@ -112,7 +112,7 @@ export function MarkdownDocsPreview({
 							{activeFile?.filePath || 'Documentation'}
 						</span>
 						{activeFile?.isGenerating && (
-							<div className="flex items-center gap-2 text-xs text-accent">
+							<div className="flex items-center gap-2 text-xs text-brand">
 								<Loader className="size-3 animate-spin" />
 								<span>Generating...</span>
 							</div>
@@ -146,7 +146,7 @@ export function MarkdownDocsPreview({
 							</div>
 						) : !markdownContent ? (
 							<div className="flex flex-col items-center justify-center h-full gap-4 text-text-secondary">
-								<Loader className="size-8 animate-spin text-accent" />
+								<Loader className="size-8 animate-spin text-brand" />
 								<p>Waiting for content...</p>
 							</div>
 						) : (

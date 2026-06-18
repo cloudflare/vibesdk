@@ -107,7 +107,7 @@ export default function Profile() {
           <div className="flex flex-col md:flex-row items-center gap-6">
             <Avatar className="h-24 w-24 ring-4 ring-background shadow-xl">
               <AvatarImage src={user?.avatarUrl} />
-              <AvatarFallback className="text-2xl bg-gradient-to-br from-[#f48120] to-[#faae42] text-white">
+						<AvatarFallback className="text-2xl bg-gradient-to-br from-brand-primary to-brand-light text-white">
                 {user?.displayName?.charAt(0).toUpperCase() || user?.email?.charAt(0).toUpperCase() || '?'}
               </AvatarFallback>
             </Avatar>

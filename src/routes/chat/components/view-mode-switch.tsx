@@ -67,7 +67,7 @@ export function ViewModeSwitch({
 						'p-1 flex items-center justify-between h-full rounded-md transition-colors',
 						view === 'preview' || view === 'presentation'
 							? 'bg-bg-4 text-text-primary'
-							: 'text-text-50/70 hover:text-text-primary hover:bg-accent',
+							: 'text-text-50/70 hover:text-text-primary hover:bg-brand',
 					)}
 					title={featureDefinition?.name ?? 'Preview'}
 				>
@@ -81,7 +81,7 @@ export function ViewModeSwitch({
 					'p-1 flex items-center justify-between h-full rounded-md transition-colors',
 					view === 'editor'
 						? 'bg-bg-4 text-text-primary'
-						: 'text-text-50/70 hover:text-text-primary hover:bg-accent',
+						: 'text-text-50/70 hover:text-text-primary hover:bg-brand',
 				)}
 				title="Code"
 			>
@@ -96,7 +96,7 @@ export function ViewModeSwitch({
 						'p-1 flex items-center justify-between h-full rounded-md transition-colors',
 						view === 'docs'
 							? 'bg-bg-4 text-text-primary'
-							: 'text-text-50/70 hover:text-text-primary hover:bg-accent',
+							: 'text-text-50/70 hover:text-text-primary hover:bg-brand',
 					)}
 					title="Docs"
 				>
@@ -112,7 +112,7 @@ export function ViewModeSwitch({
 						'p-1 flex items-center justify-between h-full rounded-md transition-colors',
 						view === 'database'
 							? 'bg-bg-4 text-text-primary'
-							: 'text-text-50/70 hover:text-text-primary hover:bg-accent',
+							: 'text-text-50/70 hover:text-text-primary hover:bg-brand',
 					)}
 					title="Database (read-only)"
 				>
@@ -126,7 +126,7 @@ export function ViewModeSwitch({
 						'p-1 flex items-center justify-between h-full rounded-md transition-colors',
 						view === 'terminal'
 							? 'bg-bg-4 text-text-primary'
-							: 'text-text-50/70 hover:text-text-primary hover:bg-accent',
+							: 'text-text-50/70 hover:text-text-primary hover:bg-brand',
 					)}
 					title="Terminal"
 				>

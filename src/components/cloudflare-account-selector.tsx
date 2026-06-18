@@ -274,7 +274,7 @@ export function CloudflareAccountSelector() {
 						<Button 
 							onClick={handleReconnect}
 							variant="outline"
-							className="w-full gap-2 border-[#f48120] text-[#f48120] bg-white dark:bg-transparent hover:bg-[#f48120]/10"
+							className="w-full gap-2 border-brand-primary text-brand-primary bg-white dark:bg-transparent hover:bg-brand-primary/10"
 						>
 							<CloudflareLogo className="w-4 h-4" />
 							Connect Cloudflare

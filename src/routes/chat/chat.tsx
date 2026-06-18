@@ -736,7 +736,7 @@ export default function Chat() {
 			<div className="flex-1 flex min-h-0 overflow-hidden justify-center">
 				<motion.div
 					layout="position"
-					className="flex-1 shrink-0 flex flex-col basis-0 max-w-lg relative z-10 h-full min-h-0"
+					className="flex-1 shrink-0 flex flex-col basis-0 max-w-2xl relative z-10 h-full min-h-0"
 				>
 					<div 
 					className={clsx(

@@ -40,13 +40,13 @@ const getCompletedPhaseCount = (phases: PhaseTimelineItem[]) =>
 // Consolidated status-specific loader components
 interface StatusLoaderProps {
 	size?: 'sm' | 'md';
-	color?: 'accent' | 'blue' | 'orange' | 'tertiary' | 'green';
+	color?: 'brand' | 'blue' | 'orange' | 'tertiary' | 'green';
 }
 
-const StatusLoader = ({ size = 'md', color = 'accent' }: StatusLoaderProps) => {
+const StatusLoader = ({ size = 'md', color = 'brand' }: StatusLoaderProps) => {
 	const sizeClass = size === 'sm' ? 'size-3' : 'w-4 h-4';
 	const colorMap = {
-		accent: 'text-accent',
+		brand: 'text-brand',
 		blue: 'text-blue-400',
 		orange: 'text-orange-400',
 		tertiary: 'text-text-tertiary',
@@ -58,7 +58,7 @@ const StatusLoader = ({ size = 'md', color = 'accent' }: StatusLoaderProps) => {
 const StatusCheck = ({ size = 'md', color = 'green' }: StatusLoaderProps) => {
 	const sizeClass = size === 'sm' ? 'size-3' : 'w-4 h-4';
 	const colorMap = {
-		accent: 'text-accent',
+		brand: 'text-brand',
 		blue: 'text-blue-400',
 		orange: 'text-orange-400',
 		tertiary: 'text-text-tertiary',
@@ -84,7 +84,7 @@ function StatusIcon({ status, size = 'md', className }: StatusIconProps) {
 
 	switch (status) {
 		case 'generating':
-			return <Loader className={clsx(iconClasses, 'animate-spin text-accent', className)} />;
+			return <Loader className={clsx(iconClasses, 'animate-spin text-brand', className)} />;
 		case 'validating':
 			return <Loader className={clsx(iconClasses, 'animate-spin text-blue-400', className)} />;
 		case 'completed':
@@ -94,7 +94,7 @@ function StatusIcon({ status, size = 'md', className }: StatusIconProps) {
 		case 'error':
 			return <AlertCircle className={clsx(iconClasses, 'text-red-500', className)} />;
 		case 'active':
-			return <Loader className={clsx(iconClasses, 'animate-spin text-accent', className)} />;
+			return <Loader className={clsx(iconClasses, 'animate-spin text-brand', className)} />;
 		case 'pending':
 		default:
 			return <div className={clsx(iconClasses, 'bg-bg-3-foreground/40 dark:bg-bg-3-foreground/30 rounded-full', className)} />;
@@ -136,7 +136,7 @@ function AnimatedStatusIndicator({ status, size = 5 }: AnimatedStatusIndicatorPr
 						transition={commonTransitions.smoothInOut}
 						className={clsx(sizeClass, 'bg-bg-4 dark:bg-bg-2 flex items-center justify-center')}
 					>
-						<Loader className="size-3 text-accent animate-spin" />
+						<Loader className="size-3 text-brand animate-spin" />
 					</motion.div>
 				)}
 				{status === 'completed' && (
@@ -149,7 +149,7 @@ function AnimatedStatusIndicator({ status, size = 5 }: AnimatedStatusIndicatorPr
 						transition={commonTransitions.smoothInOut}
 						className={clsx(sizeClass, 'flex items-center justify-center')}
 					>
-						<div className="size-2 rounded-full bg-accent" />
+						<div className="size-2 rounded-full bg-brand" />
 					</motion.div>
 				)}
 				{status === 'error' && (
@@ -355,7 +355,7 @@ export function PhaseTimeline({
 			return {
 				text: `Implementing: ${truncatePhaseName(generatingPhase.name)}`,
 				subtitle: `${progress}/${total} phases`,
-				icon: <StatusLoader color="accent" />,
+				icon: <StatusLoader color="brand" />,
 				badge: phaseBadge
 			};
 		}
@@ -524,7 +524,7 @@ export function PhaseTimeline({
                                 </div>
                                 {collapsedBarInfo.badge && (
                                     <div className="flex-shrink-0">
-                                        <span className="text-xs font-medium px-2 py-0.5 bg-accent/10 text-accent rounded-full">
+                                        <span className="text-xs font-medium px-2 py-0.5 bg-brand/10 text-brand rounded-full">
                                             {collapsedBarInfo.badge}
                                         </span>
                                     </div>
@@ -536,12 +536,12 @@ export function PhaseTimeline({
                                             handleDeployToCloudflare(chatId);
                                         }}
                                         disabled={!!isDeploying}
-                                        className="ml-2 flex items-center gap-1.5 px-2.5 py-1 bg-accent hover:bg-accent/90 disabled:bg-accent/50 text-white rounded-full text-xs font-medium transition-colors disabled:cursor-not-allowed"
+                                        className="ml-2 flex items-center gap-1.5 px-2.5 py-1 bg-brand hover:bg-brand/90 disabled:bg-brand/50 text-white rounded-full text-xs font-medium transition-colors disabled:cursor-not-allowed"
                                         title={isDeploying ? 'Deploying...' : 'Deploy to Cloudflare'}
                                         aria-label={isDeploying ? 'Deploying' : 'Deploy to Cloudflare'}
                                     >
                                         {isDeploying ? (
-                                            <StatusLoader size="sm" color="accent" />
+                                            <StatusLoader size="sm" color="brand" />
                                         ) : (
                                             <Zap className="w-3 h-3" />
                                         )}
@@ -572,7 +572,7 @@ export function PhaseTimeline({
 															<div key={file.path} className="relative flex items-center gap-2 text-xs py-1">
 																{/* Timeline connection line */}
 																{index > 0 && (
-																	<div className="absolute left-1.5 -top-1 w-px h-2 bg-accent/60" />
+																	<div className="absolute left-1.5 -top-1 w-px h-2 bg-brand/60" />
 																)}
 																{/* Status dot/icon */}
 																<div className="relative z-10 flex-shrink-0">
@@ -584,17 +584,17 @@ export function PhaseTimeline({
 																</span>
 																{/* Bottom connection line */}
 																{index < Math.min(getCurrentPhaseInfo.files.length, 5) - 1 && (
-																	<div className="absolute left-1.5 bottom-0 w-px h-1 bg-accent/60" />
+																	<div className="absolute left-1.5 bottom-0 w-px h-1 bg-brand/60" />
 																)}
 															</div>
 														))}
 														{getCurrentPhaseInfo.files.length > 5 && (
 															<div className="relative flex items-center gap-2 text-xs py-1">
 																{/* Connection line from last file */}
-																<div className="absolute left-1.5 -top-1 w-px h-2 bg-accent/60" />
+																<div className="absolute left-1.5 -top-1 w-px h-2 bg-brand/60" />
 																<div className="relative z-10 flex-shrink-0">
-																	<div className="w-3 h-3 rounded-full bg-accent/20 flex items-center justify-center">
-																		<div className="w-1.5 h-1.5 rounded-full bg-accent/60" />
+																	<div className="w-3 h-3 rounded-full bg-brand/20 flex items-center justify-center">
+																		<div className="w-1.5 h-1.5 rounded-full bg-brand/60" />
 																	</div>
 																</div>
 																<span className="text-text-tertiary ml-1">
@@ -626,10 +626,10 @@ export function PhaseTimeline({
 															handleDeployToCloudflare(chatId);
 														}}
 														disabled={isDeploying}
-														className="flex items-center gap-1.5 px-3 py-1.5 bg-accent hover:bg-accent/90 disabled:bg-accent/50 text-white rounded-lg text-xs font-medium transition-colors disabled:cursor-not-allowed"
+														className="flex items-center gap-1.5 px-3 py-1.5 bg-brand hover:bg-brand/90 disabled:bg-brand/50 text-white rounded-lg text-xs font-medium transition-colors disabled:cursor-not-allowed"
 													>
 														{isDeploying ? (
-															<StatusLoader size="sm" color="accent" />
+															<StatusLoader size="sm" color="brand" />
 														) : (
 															<Zap className="w-3 h-3" />
 														)}
@@ -901,7 +901,7 @@ export function PhaseTimeline({
 												className="flex items-start gap-2 py-1 font-mono w-full text-left group hover:bg-zinc-50/5 rounded px-2 min-h-0"
 											>
 												<span className="flex-shrink-0">
-													{file.isGenerating ? <StatusLoader size="sm" color="accent" /> : <StatusCheck size="sm" color="green" />}
+													{file.isGenerating ? <StatusLoader size="sm" color="brand" /> : <StatusCheck size="sm" color="green" />}
 												</span>
 												<div className="flex-1 min-w-0">
 													<span className={clsx('text-xs block break-all leading-tight', isFileActive ? 'text-brand font-medium' : 'text-text-primary/80')}>
@@ -929,7 +929,7 @@ export function PhaseTimeline({
 							<div className={clsx(
 								'absolute left-[9.25px] w-px h-full top-2.5 z-10',
 								stage.status === 'completed'
-									? 'bg-accent'
+									? 'bg-brand'
 									: 'bg-text/5'
 							)} />
 						)}
@@ -954,7 +954,7 @@ export function PhaseTimeline({
 									className="flex relative w-full gap-2 pb-2.5"
 								>
 									{/* Connecting line from previous stage */}
-									<div className="absolute left-[9.25px] w-px h-[0.875rem] -top-[0.875rem] bg-accent" />
+									<div className="absolute left-[9.25px] w-px h-[0.875rem] -top-[0.875rem] bg-brand" />
 									
 									<AnimatedStatusIndicator status="completed" />
 									
@@ -977,7 +977,7 @@ export function PhaseTimeline({
 									className="flex relative w-full gap-2 pb-2.5"
 								>
 									{/* Connecting line from previous stage */}
-									<div className="absolute left-[9.25px] w-px h-[0.875rem] -top-[0.875rem] bg-accent" />
+									<div className="absolute left-[9.25px] w-px h-[0.875rem] -top-[0.875rem] bg-brand" />
 									
 									<AnimatedStatusIndicator status="active" />
 									
