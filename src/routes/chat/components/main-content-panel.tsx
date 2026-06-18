@@ -6,6 +6,7 @@ import { RefreshCw } from 'lucide-react';
 import { Blueprint } from './blueprint';
 import { FileExplorer } from './file-explorer';
 import { PreviewIframe } from './preview-iframe';
+import { PreviewCompatBanner } from './preview-compat-banner';
 import { MarkdownDocsPreview } from './markdown-docs-preview';
 import { ViewContainer } from './view-container';
 import { ViewHeader } from './view-header';
@@ -282,7 +283,10 @@ export function MainContentPanel(props: MainContentPanelProps) {
 					</button>
 				)}
 			</div>,
-			previewContent,
+			<div className="flex flex-1 min-h-0 flex-col">
+				<PreviewCompatBanner previewUrl={previewUrl} />
+				<div className="relative flex flex-1 min-h-0 flex-col">{previewContent}</div>
+			</div>,
 			headerActions
 		);
 	};
