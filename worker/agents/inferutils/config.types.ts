@@ -337,7 +337,44 @@ const MODELS_MASTER = {
             creditCost: 8, // $0.22
             contextSize: 262144, // 256K Context
         },
-    }
+    },
+
+    // --- MiniMax Models ---
+    // https://platform.minimax.io/docs/api-reference/text-openai-api
+    // MiniMax-M3 is the latest flagship model (default), M2.7 retained for compatibility.
+    MINIMAX_M3: {
+        id: 'minimax/MiniMax-M3',
+        config: {
+            name: 'MiniMax M3',
+            size: ModelSize.LARGE,
+            provider: 'minimax',
+            creditCost: 2.4, // $0.60 input
+            contextSize: 524288, // 512K Context
+            directOverride: true,
+        }
+    },
+    MINIMAX_M2_7: {
+        id: 'minimax/MiniMax-M2.7',
+        config: {
+            name: 'MiniMax M2.7',
+            size: ModelSize.REGULAR,
+            provider: 'minimax',
+            creditCost: 1.2, // $0.30 input
+            contextSize: 204800, // 200K Context
+            directOverride: true,
+        }
+    },
+    MINIMAX_M2_7_HIGHSPEED: {
+        id: 'minimax/MiniMax-M2.7-highspeed',
+        config: {
+            name: 'MiniMax M2.7 High Speed',
+            size: ModelSize.LITE,
+            provider: 'minimax',
+            creditCost: 2.4, // $0.60 input
+            contextSize: 204800, // 200K Context
+            directOverride: true,
+        }
+    },
 } as const;
 
 /**
