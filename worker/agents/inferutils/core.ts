@@ -268,6 +268,12 @@ export async function buildGatewayUrl(
     // Runtime override (SDK): explicit AI Gateway base URL
     if (gatewayOverride?.baseUrl) {
         const url = new URL(gatewayOverride.baseUrl);
+        // Defense in depth: only allow https gateways. The primary protection
+        // against credential leaks is the apiKey<->baseURL coupling in
+        // getConfigurationForModel; this rejects malformed/insecure URLs.
+        if (url.protocol !== 'https:') {
+            throw new Error(`Invalid AI gateway baseUrl: only https is allowed (got ${url.protocol})`);
+        }
         return constructGatewayUrl(url, providerOverride);
     }
 
@@ -308,6 +314,33 @@ function isValidApiKey(apiKey: string): boolean {
     return true;
 }
 
+/**
+ * Single source of truth for resolving the gateway/platform token chain.
+ * When the user supplies a custom gateway, only their own token is used;
+ * otherwise the platform's gateway/CF API token is used.
+ */
+function resolvePlatformGatewayToken(
+    env: Env,
+    gatewayOverride?: { baseUrl: string; token: string },
+    isUsingCustomGateway?: boolean,
+): string {
+    if (isUsingCustomGateway) {
+        return gatewayOverride?.token ?? '';
+    }
+    return gatewayOverride?.token ?? (env.CLOUDFLARE_AI_GATEWAY_TOKEN || env.CLOUDFLARE_API_TOKEN);
+}
+
+interface ResolvedApiKey {
+    apiKey: string;
+    /**
+     * True when the key belongs to the user (SDK BYOK key, decrypted user
+     * gateway token, or the user's own custom-gateway override token). When
+     * false, the key is platform-owned and a user-supplied gateway baseUrl
+     * must NOT be honored.
+     */
+    isUserCredential: boolean;
+}
+
 async function getApiKey(
     provider: string,
     env: Env,
@@ -315,13 +348,13 @@ async function getApiKey(
     runtimeOverrides?: InferenceRuntimeOverrides,
     shouldUseUserKey?: boolean,
     encryptedUserToken?: string | null,
-): Promise<string> {
+): Promise<ResolvedApiKey> {
     logger.debug('Getting API key for provider', { provider });
 
     // First check runtime overrides (SDK)
     const runtimeKey = runtimeOverrides?.userApiKeys?.[provider];
     if (runtimeKey && isValidApiKey(runtimeKey)) {
-        return runtimeKey;
+        return { apiKey: runtimeKey, isUserCredential: true };
     }
 
     // Check if we should use user's token (flag set once at request start)
@@ -335,7 +368,7 @@ async function getApiKey(
                 const accessToken = await getAccessTokenFromBlob(encryptedUserToken, env, userId);
                 if (accessToken && isValidApiKey(accessToken)) {
                     logger.info('Using user decrypted Cloudflare AI Gateway token');
-                    return accessToken;
+                    return { apiKey: accessToken, isUserCredential: true };
                 }
             } catch (error) {
                 logger.warn('Failed to decrypt user token', { error });
@@ -344,23 +377,30 @@ async function getApiKey(
         logger.warn('User exceeded limits but no valid API token found, using free tier anyway');
     }
 
-    // Fallback to environment variables
+    // User supplied a custom gateway baseUrl: the user's gateway uses the
+    // user's credentials only. Resolve to their override token BEFORE any
+    // platform env fallback so a platform-owned secret is never paired with
+    // an attacker-controlled baseUrl.
+    if (runtimeOverrides?.aiGatewayOverride?.baseUrl) {
+        return {
+            apiKey: runtimeOverrides.aiGatewayOverride.token ?? '',
+            isUserCredential: true,
+        };
+    }
+
+    // Fallback to environment variables (platform-owned secret)
     const providerKeyString = provider.toUpperCase().replaceAll('-', '_');
     const envKey = `${providerKeyString}_API_KEY` as keyof Env;
-    let apiKey: string = env[envKey] as string;
-    
-    // Check if apiKey is empty or undefined and is valid
-    if (!isValidApiKey(apiKey)) {
-        // only use platform token if NOT using a custom gateway URL
-        // User's gateway = user's credentials only
-        if (runtimeOverrides?.aiGatewayOverride?.baseUrl) {
-            // User provided custom gateway
-            apiKey = runtimeOverrides.aiGatewayOverride.token ?? '';
-        } else {
-            apiKey = runtimeOverrides?.aiGatewayOverride?.token ?? (env.CLOUDFLARE_AI_GATEWAY_TOKEN || env.CLOUDFLARE_API_TOKEN);
-        }
+    const envApiKey: string = env[envKey] as string;
+    if (isValidApiKey(envApiKey)) {
+        return { apiKey: envApiKey, isUserCredential: false };
     }
-    return apiKey;
+
+    // Final platform fallback: shared gateway/CF API token.
+    return {
+        apiKey: resolvePlatformGatewayToken(env, runtimeOverrides?.aiGatewayOverride, false),
+        isUserCredential: false,
+    };
 }
 
 export async function getConfigurationForModel(
@@ -403,18 +443,28 @@ export async function getConfigurationForModel(
         }
     }
 
-    const gatewayOverride = runtimeOverrides?.aiGatewayOverride;
+    // Resolve the API key first so the baseURL choice can be coupled to key
+    // ownership. A user-supplied gateway baseUrl is only honored when the
+    // resolved key is the user's own credential; if we fall back to a
+    // platform-owned env key, the override is dropped and we route through the
+    // platform gateway instead.
+    const { apiKey, isUserCredential } = await getApiKey(modelConfig.provider, env, userId, runtimeOverrides, shouldUseUserKey, userApiToken);
+
+    const requestedCustomGateway = !!runtimeOverrides?.aiGatewayOverride?.baseUrl;
+    const honorGatewayOverride = requestedCustomGateway && isUserCredential;
+    if (requestedCustomGateway && !honorGatewayOverride) {
+        logger.warn('Ignoring user-supplied AI gateway baseUrl: resolved API key is platform-owned', {
+            provider: modelConfig.provider,
+        });
+    }
+
+    const gatewayOverride = honorGatewayOverride ? runtimeOverrides?.aiGatewayOverride : undefined;
     const isUsingCustomGateway = !!gatewayOverride?.baseUrl;
-    
+
     // Use user's gateway if in BYOK mode, otherwise use platform gateway or runtime override
     const baseURL = await buildGatewayUrl(env, providerForcedOverride, gatewayOverride, useUserGateway ? userGateway : null);
 
-    const gatewayToken = isUsingCustomGateway
-        ? gatewayOverride?.token
-        : (gatewayOverride?.token ?? (env.CLOUDFLARE_AI_GATEWAY_TOKEN || env.CLOUDFLARE_API_TOKEN));  // Platform gateway
-
-    // Try to find API key of type <PROVIDER>_API_KEY else default to gateway token
-    const apiKey = await getApiKey(modelConfig.provider, env, userId, runtimeOverrides, shouldUseUserKey, userApiToken);
+    const gatewayToken = resolvePlatformGatewayToken(env, gatewayOverride, isUsingCustomGateway);
 
     // AI Gateway Wholesaling checks - only needed when using platform gateway with user's key
     // When using user's own gateway, no wholesaling header needed
