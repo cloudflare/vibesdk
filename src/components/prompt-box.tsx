@@ -133,8 +133,8 @@ export function PromptBox({
 	};
 
 	const dragOverlay = isDragging && (
-		<div className="absolute inset-0 flex items-center justify-center bg-accent/10 backdrop-blur-sm rounded-xl z-50 pointer-events-none">
-			<p className="text-accent font-medium">Drop images here</p>
+		<div className="absolute inset-0 flex items-center justify-center bg-brand/10 backdrop-blur-sm rounded-xl z-50 pointer-events-none">
+			<p className="text-brand font-medium">Drop images here</p>
 		</div>
 	);
 
@@ -142,9 +142,9 @@ export function PromptBox({
 		return (
 			<div className={className} {...dragHandlers}>
 				<CreditsBanner limitsData={limitsData} onConnectCloudflare={onConnectCloudflare}>
-					<div className="rounded-xl bg-bg-2 border border-[#f48120]/30 focus-within:border-[#f48120]/70 transition-all duration-200">
+					<div className="rounded-xl transition-all duration-200 bg-bg-4 dark:bg-bg-2 border border-border-secondary">
 						<form ref={formRef} onSubmit={handleSubmit}>
-							<div className="relative">
+							<div className="relative flex items-center">
 								{dragOverlay}
 								{images.length > 0 && (
 									<div className="mb-2">
@@ -172,16 +172,12 @@ export function PromptBox({
 										if (textarea) autoResize(textarea);
 									}}
 								/>
-								<div className="absolute right-1.5 bottom-2.5 flex items-center gap-1">
+								<div className="absolute right-1.5 flex items-center gap-1">
 									{rightActions}
-									<ImageUploadButton
-										onFilesSelected={onAddImages}
-										disabled={disabled || isProcessing}
-									/>
 									<button
 										type="submit"
 										disabled={!value.trim() || disabled || submitDisabled}
-										className="p-1.5 rounded-md bg-accent/90 hover:bg-accent/80 disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-transparent text-white disabled:text-text-primary transition-colors"
+										className="p-1.5 rounded-md bg-brand/90 hover:bg-brand/80 disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-transparent text-white disabled:text-text-primary transition-colors"
 									>
 										{submitIcon ?? <ArrowRight className="size-4" />}
 									</button>
@@ -202,16 +198,16 @@ export function PromptBox({
 			className={clsx('w-full z-10', className)}
 			radius={borderRadius}
 		>
-			<div className="w-full rounded-[18px] bg-bg-4 dark:bg-bg-2 border border-[#f48120]/30 focus-within:border-[#f48120]/70 transition-all duration-200">
+			<div className="w-full rounded-[18px] bg-bg-4 dark:bg-bg-2 border border-border-secondary transition-all duration-200 shadow-sm">
 				<form
 					ref={formRef}
 					onSubmit={handleSubmit}
-					className="flex z-10 flex-col w-full min-h-[150px] bg-bg-4 ring-0 dark:bg-bg-2 rounded-[18px] p-5 transition-all duration-200"
+					className="flex z-10 flex-col w-full min-h-[150px] bg-bg-4 ring-0 dark:bg-bg-2 rounded-[18px] p-4 transition-all duration-200"
 				>
 					<div
 						className={clsx(
 							'flex-1 flex flex-col relative',
-							isDragging && 'ring-2 ring-accent ring-offset-2 rounded-lg',
+							isDragging && 'ring-2 ring-brand ring-offset-2 rounded-lg',
 						)}
 						{...dragHandlers}
 					>
@@ -258,7 +254,7 @@ export function PromptBox({
 							<button
 								type="submit"
 								disabled={!value.trim() || disabled || submitDisabled}
-								className="bg-accent text-white p-1 rounded-md *:size-5 transition-all duration-200 hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
+								className="bg-brand text-white p-1 rounded-md *:size-5 transition-all duration-200 hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
 							>
 								{submitIcon ?? <ArrowRight />}
 							</button>

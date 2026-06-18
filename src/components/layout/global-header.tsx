@@ -20,7 +20,6 @@ export function GlobalHeader() {
 	const hasMaintenanceMessage = Boolean(status.hasActiveMessage && status.globalUserMessage.trim().length > 0);
 	const hasChangeLogs = Boolean(status.changeLogs && status.changeLogs.trim().length > 0);
 	const { pathname } = useLocation();
-
 	useEffect(() => {
 		if (!hasChangeLogs) {
 			setIsChangelogOpen(false);
@@ -66,12 +65,12 @@ export function GlobalHeader() {
 										type="button"
 										onClick={hasChangeLogs ? () => setIsChangelogOpen(true) : undefined}
 										disabled={!hasChangeLogs}
-										className={`flex max-w-full items-center gap-2 rounded-full border border-accent/40 bg-bg-4/80 px-3 ml-4 py-1.5 text-xs text-text-primary shadow-sm backdrop-blur transition-colors hover:bg-accent/10 focus:outline-none focus:ring-2 focus:ring-accent/40 dark:border-accent/30 dark:bg-bg-2/80 md:text-sm${!hasChangeLogs ? ' opacity-50 cursor-not-allowed pointer-events-none' : ''}`}
+										className={`flex max-w-full items-center gap-2 rounded-full border border-brand/40 bg-bg-4/80 px-3 ml-4 py-1.5 text-xs text-text-primary shadow-sm backdrop-blur transition-colors hover:bg-brand/10 focus:outline-none focus:ring-2 focus:ring-brand/40 dark:border-brand/30 dark:bg-bg-2/80 md:text-sm${!hasChangeLogs ? ' opacity-50 cursor-not-allowed pointer-events-none' : ''}`}
 										aria-label="Platform updates"
 									>
-										<AlertCircle className="h-4 w-4 text-accent" />
+										<AlertCircle className="h-4 w-4 text-brand" />
 										<span className="truncate max-w-[46ch] md:max-w-[60ch]">{status.globalUserMessage}</span>
-										<ChevronRight className="ml-1 h-4 w-4 text-accent" />
+										<ChevronRight className="ml-1 h-4 w-4 text-brand" />
 									</button>
 								)}
 							</motion.div>

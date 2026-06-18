@@ -57,7 +57,7 @@ function createNoTokenDialog(onConnect: () => void, onClose: () => void): React.
 							onClose();
 							onConnect();
 						}}
-						className="w-full sm:w-auto bg-[#f48120] hover:bg-[#e0741a] text-white"
+						className="w-full sm:w-auto bg-brand-primary hover:bg-brand-primary/90 text-white"
 					>
 						<CloudflareLogo className="w-4 h-4 mr-2" color1="#fff" color2="#fff" />
 						Connect Cloudflare
@@ -101,7 +101,7 @@ function createNotConfiguredDialog(onClose: () => void): React.ReactElement {
 							onClose();
 							window.location.href = '/settings?config_needed=true';
 						}}
-						className="w-full sm:w-auto bg-[#f48120] hover:bg-[#e0741a] text-white"
+						className="w-full sm:w-auto bg-brand-primary hover:bg-brand-primary/90 text-white"
 					>
 						<CloudflareLogo className="w-4 h-4 mr-2" color1="#fff" color2="#fff" />
 						Configure Gateway
@@ -157,7 +157,7 @@ function createInsufficientBalanceDialog(balance: number, accountId: string | un
 								: 'https://dash.cloudflare.com';
 							window.open(url, '_blank');
 						}}
-						className="w-full sm:w-auto bg-[#f48120] hover:bg-[#e0741a] text-white"
+						className="w-full sm:w-auto bg-brand-primary hover:bg-brand-primary/90 text-white"
 					>
 						<ExternalLink className="w-4 h-4 mr-2" />
 						Add Credits

@@ -102,7 +102,7 @@ function TreeNode({
 						)}
 					/>
 					{isExpanded ? (
-						<FolderOpen className="size-4 flex-shrink-0 text-accent" />
+						<FolderOpen className="size-4 flex-shrink-0 text-brand" />
 					) : (
 						<Folder className="size-4 flex-shrink-0 text-text-tertiary" />
 					)}
@@ -133,7 +133,7 @@ function TreeNode({
 			className={clsx(
 				'w-full flex items-center gap-2 px-3 py-1.5 transition-colors text-sm',
 				isActive
-					? 'bg-accent/10 text-accent border-l-2 border-accent'
+					? 'bg-brand/10 text-brand border-l-2 border-brand'
 					: 'hover:bg-bg-3 text-text-secondary hover:text-text-primary border-l-2 border-transparent'
 			)}
 			style={{ paddingLeft: `${depth * 12 + 12}px` }}
@@ -141,7 +141,7 @@ function TreeNode({
 			<FileText className="size-4 flex-shrink-0" />
 			<span className="truncate flex-1 text-left">{node.name}</span>
 			{isGenerating && (
-				<Loader className="size-3 animate-spin text-accent flex-shrink-0" />
+				<Loader className="size-3 animate-spin text-brand flex-shrink-0" />
 			)}
 		</button>
 	);

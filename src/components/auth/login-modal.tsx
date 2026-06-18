@@ -195,7 +195,7 @@ export function LoginModal({
 								{showCloseButton && (
 									<button
 										onClick={handleClose}
-										className="absolute right-4 top-4 p-2 rounded-lg hover:bg-accent transition-colors"
+										className="absolute right-4 top-4 p-2 rounded-lg hover:bg-brand transition-colors"
 									>
 										<X className="h-4 w-4" />
 									</button>

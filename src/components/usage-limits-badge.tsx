@@ -4,8 +4,7 @@
  */
 
 import { useLimitsContext } from '@/contexts/limits-context';
-import { CloudflareLogo } from './icons/logos';
-import { Loader2 } from 'lucide-react';
+import { Loader2, LucideGlobeLock } from 'lucide-react';
 
 interface UsageLimitsBadgeProps {
 	onConnect: () => void;
@@ -105,19 +104,19 @@ export function UsageLimitsBadge({ onConnect }: UsageLimitsBadgeProps) {
 		<>
 			<button
 				type="button"
+				className="inline-flex items-center rounded-md text-xs overflow-hidden hover:opacity-80"
 				onClick={needsConfiguration || showCredits ? () => window.location.href = '/settings' : onConnect}
-				className="inline-flex items-center rounded-md border border-accent/50 text-xs bg-bg-4 hover:bg-accent/10 overflow-hidden"
 			>
 				{/* Loading state */}
 				{loading && (
-					<div className="flex items-center px-2 py-1 border-r border-accent/30">
+					<div className="flex items-center px-2 py-1">
 						<Loader2 className="w-3 h-3 animate-spin text-muted-foreground" />
 					</div>
 				)}
 
 				{/* Usage badge - on the LEFT */}
 				{!loading && showUsage && !isExhausted && (
-					<div className="flex items-center px-2 py-1 text-text-primary border-r border-[#f48120]/30 font-medium">
+					<div className="flex items-center px-2 py-1 text-text-primary font-medium">
 						<span className="hidden md:inline">{usageText}</span>
 						<span className="md:hidden">{mobileUsageText}</span>
 					</div>
@@ -132,8 +131,8 @@ export function UsageLimitsBadge({ onConnect }: UsageLimitsBadgeProps) {
 				)}
 
 				{/* Connect button / Credits display - on the RIGHT */}
-				<div className="flex items-center gap-1 px-2 py-1 text-text-primary">
-					<CloudflareLogo className="w-4 h-4" />
+				<div className="flex items-center gap-1.5 px-2 py-1 text-text-on-brand bg-brand rounded-md">
+					{!showCredits && <LucideGlobeLock className="w-3 h-3" />}
 					{loading ? (
 						<span className="hidden sm:inline text-muted-foreground">Loading...</span>
 					) : needsConfiguration ? (
@@ -141,7 +140,7 @@ export function UsageLimitsBadge({ onConnect }: UsageLimitsBadgeProps) {
 					) : showCredits ? (
 						<span className="hidden sm:inline font-medium">{creditsText}</span>
 					) : (
-						<span className="hidden sm:inline">Connect</span>
+						<span>Connect</span>
 					)}
 				</div>
 			</button>

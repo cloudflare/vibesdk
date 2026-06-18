@@ -25,7 +25,7 @@ export function UserMessage({ message }: { message: string }) {
 	return (
 		<div className="flex gap-3">
 			<div className="align-text-top pl-1">
-				<div className="size-6 flex items-center justify-center rounded-full bg-accent text-text-on-brand">
+				<div className="size-6 flex items-center justify-center rounded-full bg-brand text-text-on-brand">
 					<span className="text-xs">U</span>
 				</div>
 			</div>
@@ -50,7 +50,7 @@ function JsonRenderer({ data }: { data: unknown }) {
 		<div className="flex flex-col gap-1">
 			{Object.entries(data).map(([key, value]) => (
 				<div key={key} className="flex gap-2">
-					<span className="text-accent font-medium flex-shrink-0">{key}:</span>
+					<span className="text-brand font-medium flex-shrink-0">{key}:</span>
 					{typeof value === 'object' && value !== null ? (
 						<div className="flex-1">
 							<JsonRenderer data={value} />
@@ -144,13 +144,13 @@ function ToolEventHoverPreview({ event }: { event: ToolEvent }) {
 			<div className="font-mono font-medium text-text-secondary">{event.name}</div>
 			{inputPreview && (
 				<div className="flex flex-col gap-1">
-					<span className="text-accent font-medium">Input</span>
+					<span className="text-brand font-medium">Input</span>
 					<span className="text-text-primary whitespace-pre-wrap break-words">{inputPreview}</span>
 				</div>
 			)}
 			{outputPreview && (
 				<div className="flex flex-col gap-1">
-					<span className="text-accent font-medium">Output</span>
+					<span className="text-brand font-medium">Output</span>
 					<span className="text-text-primary whitespace-pre-wrap break-words">{outputPreview}</span>
 				</div>
 			)}
@@ -222,8 +222,8 @@ function DeepDebugTranscript({ transcript }: { transcript: ConversationMessage[]
 	});
 	
 	return (
-		<div className="flex flex-col gap-3 p-3 rounded-md bg-surface-tertiary/50 border-l-2 border-accent/30">
-			<div className="flex items-center gap-2 text-xs font-medium text-accent">
+		<div className="flex flex-col gap-3 p-3 rounded-md bg-surface-tertiary/50 border-l-2 border-brand/30">
+			<div className="flex items-center gap-2 text-xs font-medium text-brand">
 				<MessageSquare className="size-3" />
 				<span>Deep Debugger Transcript</span>
 			</div>
@@ -301,7 +301,7 @@ export function ToolStatusIndicator({ event, richToolPreview = false }: { event:
 			onClick={() => canExpand && setIsExpanded(!isExpanded)}
 			className={clsx(
 				'flex items-center gap-1.5 text-xs',
-				isDeepDebug ? 'text-accent font-medium' : 'text-text-tertiary',
+				isDeepDebug ? 'text-brand font-medium' : 'text-text-tertiary',
 				canExpand && 'cursor-pointer hover:text-text-secondary transition-colors'
 			)}
 			disabled={!canExpand}
@@ -333,7 +333,7 @@ export function ToolStatusIndicator({ event, richToolPreview = false }: { event:
 				<div className={clsx(
 					'p-3 rounded-md text-xs font-mono border overflow-auto',
 					isDeepDebug
-						? 'bg-surface-tertiary/30 border-accent/20 max-h-[600px]'
+						? 'bg-surface-tertiary/30 border-brand/20 max-h-[600px]'
 						: 'bg-surface-secondary border-border max-h-96'
 				)}>
 					{richToolPreview ? (

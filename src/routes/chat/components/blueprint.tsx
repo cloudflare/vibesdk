@@ -18,7 +18,7 @@ export function Blueprint({
 
 	return (
 		<div className={clsx('w-full flex flex-col', className)} {...props}>
-			<div className="bg-accent p-6 rounded-t-xl flex items-center bg-graph-paper">
+			<div className="bg-brand p-6 rounded-t-xl flex items-center bg-graph-paper">
 				<div className="flex flex-col gap-1">
 					<div className="uppercase text-xs tracking-wider text-text-on-brand/90">
 						Blueprint

@@ -153,8 +153,8 @@ export function ModelSelector({
                   setSearch('');
                 }}
                 className={cn(
-                  "relative flex cursor-pointer select-none items-center justify-between rounded-sm px-2 py-1.5 text-sm outline-none transition-colors hover:bg-accent hover:text-text-secondary focus:bg-accent focus:text-text-secondary",
-                  value === 'default' && "bg-accent text-text-secondary"
+                  "relative flex cursor-pointer select-none items-center justify-between rounded-sm px-2 py-1.5 text-sm outline-none transition-colors hover:bg-brand hover:text-text-secondary focus:bg-brand focus:text-text-secondary",
+                  value === 'default' && "bg-brand text-text-secondary"
                 )}
               >
                 <div className="flex items-center gap-2">
@@ -179,8 +179,8 @@ export function ModelSelector({
                   setSearch('');
                 }}
                 className={cn(
-                  "relative flex cursor-pointer select-none items-center justify-between rounded-sm px-2 py-1.5 text-sm outline-none transition-colors hover:bg-accent hover:text-text-secondary focus:bg-accent focus:text-text-secondary",
-                  value === model.value && "bg-accent text-text-secondary"
+                  "relative flex cursor-pointer select-none items-center justify-between rounded-sm px-2 py-1.5 text-sm outline-none transition-colors hover:bg-brand hover:text-text-secondary focus:bg-brand focus:text-text-secondary",
+                  value === model.value && "bg-brand text-text-secondary"
                 )}
               >
                 <div className="flex items-center gap-2 min-w-0 flex-1">

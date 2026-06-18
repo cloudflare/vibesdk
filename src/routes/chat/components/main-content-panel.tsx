@@ -185,7 +185,7 @@ export function MainContentPanel(props: MainContentPanelProps) {
 			<Suspense
 				fallback={
 					<div className="flex-1 w-full h-full flex items-center justify-center bg-bg-3">
-						<RefreshCw className="size-6 text-accent animate-spin" />
+						<RefreshCw className="size-6 text-brand animate-spin" />
 					</div>
 				}
 			>
