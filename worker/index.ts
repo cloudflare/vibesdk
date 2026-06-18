@@ -11,9 +11,8 @@ import { isDev } from './utils/envs';
 import { proxyToSandbox } from './services/sandbox/request-handler';
 import { handleGitProtocolRequest, isGitProtocolRequest } from './api/handlers/git-protocol';
 import {
-	handleCookieAuthenticatedSpacePreview,
-	handleTokenAuthenticatedSpacePreview,
-	matchSpacePreviewPath,
+	handleSpacePreview,
+	matchSpacePreviewParams,
 } from './api/handlers/space-preview';
 import { getAgentStub } from './agents';
 
@@ -69,6 +68,7 @@ function withPreviewCorsHeaders(env: Env, request: Request, response: Response):
     const headers = new Headers(response.headers);
     if (origin && (isDev(env) || allowedOrigins.includes(origin))) {
         headers.set('Access-Control-Allow-Origin', origin);
+        headers.set('Access-Control-Allow-Credentials', 'true');
         headers.append('Vary', 'Origin');
     }
     return new Response(response.body, {
@@ -216,22 +216,23 @@ const worker = {
 			(hostname.endsWith('.localhost') && hostname !== 'localhost');
 
 		if (separatePreviewDomain && hostname === previewDomain) {
-			const spaceName = matchSpacePreviewPath(pathname);
-			if (!spaceName) {
+			const params = matchSpacePreviewParams(pathname);
+			if (!params) {
 				return new Response('Not Found', { status: 404 });
 			}
-			const response = await handleTokenAuthenticatedSpacePreview(request, env, spaceName);
+			const response = await handleSpacePreview(request, env, params.spaceName, params.branch);
 			return withPreviewCorsHeaders(env, request, response);
 		}
 
 		// Route 1: Main Platform Request (e.g., build.cloudflare.dev or localhost)
 		if (isMainDomainRequest) {
-			const spaceName = matchSpacePreviewPath(pathname);
-			if (spaceName) {
+			const params = matchSpacePreviewParams(pathname);
+			if (params) {
 				if (separatePreviewDomain) {
 					return new Response('Not Found', { status: 404 });
 				}
-				return handleCookieAuthenticatedSpacePreview(request, env, spaceName);
+				const response = await handleSpacePreview(request, env, params.spaceName, params.branch);
+				return withPreviewCorsHeaders(env, request, response);
 			}
 
 			// Handle Git protocol endpoints directly
