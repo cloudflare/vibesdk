@@ -908,7 +908,11 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
         }
         const result = await this.getSandboxServiceClient().executeCommands(sandboxInstanceId, commands, timeout);
         if (shouldSave) {
-            this.saveExecutedCommands(commands);
+            // Only persist commands that actually succeeded in the sandbox. Saving the requested
+            // commands unconditionally would let a command that failed here still be embedded in
+            // the bootstrap history and re-run on a victim's machine (VEC-C).
+            const successfulCommands = result.results.filter(r => r.success).map(r => r.command);
+            this.saveExecutedCommands(successfulCommands);
         }
         return result;
     }

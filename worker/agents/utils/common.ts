@@ -106,11 +106,34 @@ export function extractCommands(rawOutput: string, onlyInstallCommands: boolean 
 export const MAX_BOOTSTRAP_COMMANDS = 50;
 
 /**
- * Regex pattern for bootstrap commands with capture groups
- * WHITELIST: Only commands that install/add/remove/update SPECIFIC packages
- * Supports: scoped packages (@org/pkg), versions (pkg@1.2.3), ranges (^, ~, >, <, =), git URLs
+ * WHITELIST: Only commands that install/add/remove/update SPECIFIC packages.
+ * Supports: scoped packages (@org/pkg), versions (pkg@1.2.3), ranges (^, ~, =).
  */
-const BOOTSTRAP_COMMAND_PATTERN = /^(?:npm|yarn|pnpm|bun)\s+(add|install|remove|uninstall|update)\s+([\w@/.\-^~><=:]+)/;
+const PACKAGE_MANAGERS = new Set(['npm', 'yarn', 'pnpm', 'bun']);
+const PACKAGE_ACTIONS = new Set(['add', 'install', 'remove', 'uninstall', 'update']);
+
+/**
+ * Flag allowlist. Only flags that cannot alter lifecycle-script / trust behaviour are
+ * permitted. Flags such as --trust, --unsafe-perm, --allow-scripts, --foreground-scripts
+ * are deliberately excluded so they can never reach the bootstrap argv (VEC-A).
+ */
+const ALLOWED_FLAGS = new Set([
+	'-D', '--save-dev', '-d', '--dev',
+	'-E', '--save-exact', '--exact',
+	'-P', '--save-prod', '--save',
+	'-O', '--save-optional', '--save-peer',
+	'--no-save', '--legacy-peer-deps',
+]);
+
+/**
+ * A valid package spec: bare/scoped name with optional version or range.
+ * Must NOT contain a protocol (://), which blocks remote URL / git installs that can run
+ * untrusted postinstall scripts (VEC-A / VEC-B).
+ */
+const PACKAGE_SPEC = /^[\w@][\w@/.\-^~=]*$/;
+
+// Defense-in-depth deny list: any shell metacharacter disqualifies the command.
+const SHELL_METACHAR = /[;&|`$<>(){}[\]"'\\\n\r]/;
 
 /**
  * Check if a command is valid for bootstrap script.
@@ -133,7 +156,29 @@ const BOOTSTRAP_COMMAND_PATTERN = /^(?:npm|yarn|pnpm|bun)\s+(add|install|remove|
  * - Any non-package-manager commands
  */
 export function isValidBootstrapCommand(command: string): boolean {
-	return BOOTSTRAP_COMMAND_PATTERN.test(command.trim());
+	const trimmed = command.trim();
+	if (SHELL_METACHAR.test(trimmed)) return false;
+
+	const tokens = trimmed.split(/\s+/);
+	if (tokens.length < 3) return false;
+
+	const [manager, action, ...rest] = tokens;
+	if (!PACKAGE_MANAGERS.has(manager)) return false;
+	if (!PACKAGE_ACTIONS.has(action)) return false;
+
+	let hasPackageSpec = false;
+	for (const token of rest) {
+		if (token.startsWith('-')) {
+			// Only allowlisted flags may pass; everything else (e.g. --trust) is rejected.
+			if (!ALLOWED_FLAGS.has(token)) return false;
+		} else {
+			// Reject remote URL / git installs and any malformed spec.
+			if (token.includes('://') || !PACKAGE_SPEC.test(token)) return false;
+			hasPackageSpec = true;
+		}
+	}
+	// At least one concrete package spec is required (rejects "bun install", "bun add --trust").
+	return hasPackageSpec;
 }
 
 /**
@@ -154,11 +199,12 @@ export function isBootstrapRuntimeCommand(command: string): boolean {
  * getPackageOperationKey("bun add @cloudflare/workers") -> "add:@cloudflare/workers"
  */
 export function getPackageOperationKey(command: string): string | null {
-	const match = command.trim().match(BOOTSTRAP_COMMAND_PATTERN);
-	if (!match) return null;
-	
-	const [, action, pkg] = match;
-	return `${action}:${pkg}`;
+	if (!isValidBootstrapCommand(command)) return null;
+
+	const [, action, ...rest] = command.trim().split(/\s+/);
+	// Normalize token order so "add react react-dom" === "add react-dom react".
+	const tokens = rest.slice().sort().join(' ');
+	return `${action}:${tokens}`;
 }
 
 /**
