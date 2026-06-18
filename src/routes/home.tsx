@@ -136,8 +136,10 @@ export default function Home() {
 			return;
 		}
 
-		// User is already authenticated, navigate immediately
-		navigate(intendedUrl);
+		// User is already authenticated, navigate immediately. Mark the
+		// navigation as in-app so the chat session can auto-start without the
+		// external-link confirmation gate.
+		navigate(intendedUrl, { state: { fromPrompt: true } });
 		// Clear images after navigation
 		clearImages();
 	};

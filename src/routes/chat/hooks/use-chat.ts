@@ -53,6 +53,7 @@ export function useChat({
 	images: userImages,
 	projectType = 'app',
 	behaviorType: explicitBehaviorType,
+	autoStart = true,
 	onDebugMessage,
 	onTerminalMessage,
 	onVaultUnlockRequired,
@@ -62,6 +63,14 @@ export function useChat({
 	images?: ImageAttachment[];
 	projectType?: ProjectType;
 	behaviorType?: BehaviorType;
+	/**
+	 * Whether a brand-new session may be created automatically on mount.
+	 * In-app navigation (e.g. the home prompt box) sets this true. Sessions
+	 * opened from an external/pasted link leave it false so the query — which
+	 * is interpolated into the LLM system prompt — requires an explicit user
+	 * gesture before it runs, preventing zero-click prompt injection.
+	 */
+	autoStart?: boolean;
 	onDebugMessage?: (type: 'error' | 'warning' | 'info' | 'websocket', message: string, details?: string, source?: string, messageType?: string, rawMessage?: unknown) => void;
 	onTerminalMessage?: (log: { id: string; content: string; type: 'command' | 'stdout' | 'stderr' | 'info' | 'error' | 'warn' | 'debug'; timestamp: number; source?: string }) => void;
 	onVaultUnlockRequired?: (reason: string) => void;
@@ -108,6 +117,17 @@ export function useChat({
 	const [behaviorType, setBehaviorType] = useState<BehaviorType>(getInitialBehaviorType());
 	const [internalProjectType, setInternalProjectType] = useState<ProjectType>(projectType);
 	const [templateDetails, setTemplateDetails] = useState<TemplateDetails | null>(null);
+	// Gate for externally-sourced new sessions: true while awaiting the user's
+	// explicit confirmation before the query is sent to the agent.
+	const [awaitingStartConfirmation, setAwaitingStartConfirmation] = useState(false);
+	const startConfirmedRef = useRef(false);
+	const [startTrigger, setStartTrigger] = useState(0);
+
+	const confirmStart = useCallback(() => {
+		startConfirmedRef.current = true;
+		setAwaitingStartConfirmation(false);
+		setStartTrigger((n) => n + 1);
+	}, []);
 
 	const [websocket, setWebsocket] = useState<WebSocket>();
 
@@ -475,6 +495,14 @@ export function useChat({
 						return;
 					}
 
+					// Gate externally-sourced sessions: the query feeds the agent's
+					// system prompt, so require an explicit user gesture before it
+					// runs when the session was not started from in-app navigation.
+					if (!autoStart && !startConfirmedRef.current) {
+						setAwaitingStartConfirmation(true);
+						return;
+					}
+
 					// Prevent duplicate session creation on rerenders while streaming
 					connectionStatus.current = 'connecting';
 
@@ -640,6 +668,8 @@ export function useChat({
 		urlChatId,
 		userImages,
 		userQuery,
+		autoStart,
+		startTrigger,
 	]);
 
     // Mount/unmount: enable/disable reconnection and clear pending retries
@@ -805,5 +835,8 @@ export function useChat({
 		// Backend error dialog state
 		backendErrorDialog,
 		setBackendErrorDialog,
+		// Externally-sourced session start gate
+		awaitingStartConfirmation,
+		confirmStart,
 	};
 }

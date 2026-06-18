@@ -4,6 +4,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeExternalLinks from 'rehype-external-links';
 import { DocsSidebar } from './docs-sidebar';
+import { NO_IMAGE_MARKDOWN_COMPONENTS } from './markdown-components';
 import { ExportButton } from './export-button';
 import { exportMarkdownAsFile } from '@/utils/markdown-export';
 import type { FileType } from '@/api-types';
@@ -154,6 +155,7 @@ export function MarkdownDocsPreview({
 									remarkPlugins={[remarkGfm]}
 									rehypePlugins={[[rehypeExternalLinks, { target: '_blank' }]]}
 									components={{
+										...NO_IMAGE_MARKDOWN_COMPONENTS,
 										h1: ({ node, ...props }) => (
 											<h1 id={createId(props.children)} {...props} />
 										),

@@ -24,6 +24,24 @@ export const PROMPT_UTILS = {
         return result;
     },
 
+    /**
+     * Sanitize a user-supplied query before it is interpolated into an LLM
+     * system prompt. CommonMark link reference definitions (e.g. `[a]: # "..."`)
+     * render as nothing in the chat UI but are passed verbatim to the model,
+     * making them a vehicle for hidden prompt-injection instructions. Strip any
+     * such line so injected directives never reach the system prompt.
+     */
+    sanitizeUserQueryForPrompt(query: string): string {
+        if (!query) {
+            return query;
+        }
+        const linkReferenceDefinition = /^ {0,3}\[[^\]\n]+\]:\s+\S.*$/;
+        return query
+            .split('\n')
+            .filter((line) => !linkReferenceDefinition.test(line))
+            .join('\n');
+    },
+
     serializeTreeNodes(node: FileTreeNode): string {
         // The output starts with the root node's name.
         const outputParts: string[] = [node.path.split('/').pop() || node.path];
@@ -870,9 +888,10 @@ export function generalSystemPromptBuilder(
     prompt: string,
     params: GeneralSystemPromptBuilderParams
 ): string {
-    // Base variables always present
+    // Base variables always present. The query is user-supplied and may carry
+    // hidden prompt-injection payloads, so sanitize before interpolation.
     const variables: Record<string, string> = {
-        query: params.query,
+        query: PROMPT_UTILS.sanitizeUserQueryForPrompt(params.query),
     };
     
     // Template context (optional)
