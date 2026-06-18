@@ -1,17 +1,28 @@
-import { AppService } from '../../database';
-import { authMiddleware } from '../../middleware/auth/auth';
-import { verifySpacePreviewToken } from '../../utils/spacePreviewToken';
+import {
+	buildPreviewCookie,
+	readPreviewCookie,
+	verifySpacePreviewToken,
+} from '../../utils/spacePreviewToken';
+import { isSeparatePreviewDomain } from '../../utils/urls';
 
-const SPACE_PREVIEW_ROUTE_PATTERN = /^\/space\/([^/]+)\/preview\/[^/]+(?:\/.*)?$/;
+const SPACE_PREVIEW_ROUTE_PATTERN = /^\/space\/([^/]+)\/preview\/([^/]+)(?:\/.*)?$/;
 
 type SpaceNamespace = {
 	SPACE_DO?: DurableObjectNamespace;
 };
 
-export function matchSpacePreviewPath(pathname: string): string | null {
+export interface SpacePreviewParams {
+	spaceName: string;
+	branch: string;
+}
+
+export function matchSpacePreviewParams(pathname: string): SpacePreviewParams | null {
 	const match = pathname.match(SPACE_PREVIEW_ROUTE_PATTERN);
 	if (!match) return null;
-	return decodeURIComponent(match[1]);
+	return {
+		spaceName: decodeURIComponent(match[1]),
+		branch: decodeURIComponent(match[2]),
+	};
 }
 
 function getSpaceNamespace(env: Env): DurableObjectNamespace | null {
@@ -19,14 +30,22 @@ function getSpaceNamespace(env: Env): DurableObjectNamespace | null {
 	return spaceNamespace ?? null;
 }
 
-async function forwardToSpacePreview(request: Request, env: Env, spaceName: string): Promise<Response> {
+async function forwardToSpacePreview(
+	request: Request,
+	env: Env,
+	spaceName: string,
+): Promise<Response> {
 	const namespace = getSpaceNamespace(env);
 	if (!namespace) {
 		return new Response('Preview unavailable', { status: 404 });
 	}
+	// Strip `?t=` so the generated app never sees the token.
+	const forwardedUrl = new URL(request.url);
+	forwardedUrl.searchParams.delete('t');
+	const forwardedRequest = new Request(forwardedUrl.toString(), request);
 	const stub = namespace.get(namespace.idFromName(spaceName));
 	try {
-		return await stub.fetch(request);
+		return await stub.fetch(forwardedRequest);
 	} catch (e) {
 		// A SpaceDO failure (e.g. no deployment yet, or a build error in the
 		// generated app) must not escape as an unhandled exception — that
@@ -52,42 +71,54 @@ export function createPreviewAccessResponse(status: 401 | 403, title: string, me
 	);
 }
 
-export async function handleCookieAuthenticatedSpacePreview(
-	request: Request,
-	env: Env,
-	spaceName: string,
-): Promise<Response> {
-	const userSession = await authMiddleware(request, env);
-	if (!userSession) {
-		return createPreviewAccessResponse(401, 'Login required', 'You must be signed in as the app owner to view this preview.');
-	}
-
-	const appService = new AppService(env);
-	const ownershipResult = await appService.checkAppOwnership(spaceName, userSession.user.id);
-	if (!ownershipResult.isOwner) {
-		return createPreviewAccessResponse(403, 'Preview access denied', 'Only the owner of this app can view this preview.');
-	}
-
-	return forwardToSpacePreview(request, env, spaceName);
+function isWebSocketResponse(response: Response): boolean {
+	return response.status === 101 || response.headers.get('Upgrade')?.toLowerCase() === 'websocket';
 }
 
-export async function handleTokenAuthenticatedSpacePreview(
+/**
+ * Unified, token-only preview auth. A request is authorized if it carries a
+ * valid path/branch-scoped preview cookie, or a valid `?t=` token (which then
+ * bootstraps the cookie). No session cookie / DB ownership check (claims-only).
+ */
+export async function handleSpacePreview(
 	request: Request,
 	env: Env,
 	spaceName: string,
+	branch: string,
 ): Promise<Response> {
-	const token = new URL(request.url).searchParams.get('t') ?? '';
-	if (!token) {
-		return createPreviewAccessResponse(401, 'Access denied', 'This preview link is missing an access token.');
+	const url = new URL(request.url);
+	const crossSite = isSeparatePreviewDomain(env);
+	const secure = url.protocol === 'https:';
+
+	// 1. Existing preview cookie (covers iframe sub-resources / client fetches).
+	const cookieToken = readPreviewCookie(request);
+	if (cookieToken) {
+		const claims = await verifySpacePreviewToken(env, cookieToken, spaceName, branch);
+		if (claims) {
+			return forwardToSpacePreview(request, env, spaceName);
+		}
 	}
 
-	const claims = await verifySpacePreviewToken(env, token, spaceName);
-	if (!claims) {
+	// 2. `?t=` token: forward and bootstrap the cookie (serve-in-place).
+	const queryToken = url.searchParams.get('t') ?? '';
+	if (queryToken) {
+		const claims = await verifySpacePreviewToken(env, queryToken, spaceName, branch);
+		if (claims) {
+			const response = await forwardToSpacePreview(request, env, spaceName);
+			if (isWebSocketResponse(response)) {
+				return response;
+			}
+			const withCookie = new Response(response.body, response);
+			withCookie.headers.append(
+				'Set-Cookie',
+				buildPreviewCookie({ token: queryToken, spaceName, branch, crossSite, secure }),
+			);
+			return withCookie;
+		}
+	}
+
+	if (queryToken || cookieToken) {
 		return createPreviewAccessResponse(401, 'Access denied', 'This preview link is invalid or has expired.');
 	}
-
-	const forwardedUrl = new URL(request.url);
-	forwardedUrl.searchParams.delete('t');
-	const forwardedRequest = new Request(forwardedUrl.toString(), request);
-	return forwardToSpacePreview(forwardedRequest, env, spaceName);
+	return createPreviewAccessResponse(401, 'Access denied', 'This preview link is missing an access token.');
 }

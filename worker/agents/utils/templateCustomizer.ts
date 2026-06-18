@@ -86,7 +86,13 @@ function customizeWranglerJsonc(content: string, projectName: string): string {
 export function generateBootstrapScript(projectName: string, commands: string[]): string {
     // Escape strings for safe embedding in JavaScript
     const safeProjectName = JSON.stringify(projectName);
-    const safeCommands = JSON.stringify(commands, null, 4);
+    // Pre-split each validated command into argv; the whitelist guarantees no quoting/metachars,
+    // so whitespace-splitting is unambiguous.
+    const safeCommandArgvs = JSON.stringify(
+        commands.map((c) => c.trim().split(/\s+/)),
+        null,
+        4
+    );
     
     return `#!/usr/bin/env bun
 /**
@@ -96,7 +102,7 @@ export function generateBootstrapScript(projectName: string, commands: string[])
  */
 
 const fs = require('fs');
-const { execSync } = require('child_process');
+const { execFileSync } = require('child_process');
 
 const PROJECT_NAME = ${safeProjectName};
 const BOOTSTRAP_MARKER = '.bootstrap-complete';
@@ -141,6 +147,14 @@ function updatePackageJson() {
         if (pkg.scripts && pkg.scripts.prepare) {
             delete pkg.scripts.prepare;
         }
+
+        // Strip trust escalations that would let a dependency's postinstall scripts run
+        // unprompted on the victim's machine after clone (VEC-B).
+        delete pkg.trustedDependencies;
+        if (pkg.pnpm) {
+            delete pkg.pnpm.onlyBuiltDependencies;
+            delete pkg.pnpm.neverBuiltDependencies;
+        }
         
         fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2));
         console.log('✓ Updated package.json with project name: ' + PROJECT_NAME);
@@ -167,9 +181,10 @@ function updateWranglerJsonc() {
 }
 
 function runSetupCommands() {
-    const commands = ${safeCommands};
+    const commandArgvs = ${safeCommandArgvs};
+    const ALLOWED = new Set(['npm', 'yarn', 'pnpm', 'bun']);
     
-    if (commands.length === 0) {
+    if (commandArgvs.length === 0) {
         console.log('⊘ No setup commands to run');
         return;
     }
@@ -179,17 +194,24 @@ function runSetupCommands() {
     let successCount = 0;
     let failCount = 0;
     
-    for (const cmd of commands) {
-        console.log(\`▸ \${cmd}\`);
+    for (const argv of commandArgvs) {
+        const [file, ...args] = argv;
+        console.log(\`▸ \${argv.join(' ')}\`);
+        if (!ALLOWED.has(file)) {
+            failCount++;
+            console.warn(\`⚠️  Skipping disallowed command: \${file}\`);
+            continue;
+        }
         try {
-            execSync(cmd, { 
+            execFileSync(file, args, {
                 stdio: 'inherit',
+                shell: false,
                 cwd: process.cwd()
             });
             successCount++;
         } catch (error) {
             failCount++;
-            console.warn(\`⚠️  Command failed: \${cmd}\`);
+            console.warn(\`⚠️  Command failed: \${argv.join(' ')}\`);
             console.warn(\`   Error: \${error.message}\`);
         }
     }

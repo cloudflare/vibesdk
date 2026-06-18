@@ -345,11 +345,13 @@ export class ThinkCodingBehavior
 		const spaceName = this.getAgentId();
 		const branch = this.state.currentBranch || 'main';
 		const previewBaseUrl = `${await this.getPublicOrigin()}${buildSpacePreviewPath(spaceName, branch)}`;
-		if (isDev(this.env) || !isSeparatePreviewDomain(this.env)) {
-			return previewBaseUrl;
-		}
+		// Always append a signed, branch-scoped preview token. It bootstraps the
+		// path-scoped HttpOnly preview cookie on first load (so iframe sub-resources
+		// authenticate), and authenticates machine clients like the headless
+		// `get_browser_console_logs` browser, which carry no cookie.
 		const token = await signSpacePreviewToken(this.env, {
 			spaceName,
+			branch,
 			userId: this.state.metadata.userId,
 		});
 		return `${previewBaseUrl}?t=${encodeURIComponent(token)}`;
