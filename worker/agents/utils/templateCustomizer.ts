@@ -147,6 +147,14 @@ function updatePackageJson() {
         if (pkg.scripts && pkg.scripts.prepare) {
             delete pkg.scripts.prepare;
         }
+
+        // Strip trust escalations that would let a dependency's postinstall scripts run
+        // unprompted on the victim's machine after clone (VEC-B).
+        delete pkg.trustedDependencies;
+        if (pkg.pnpm) {
+            delete pkg.pnpm.onlyBuiltDependencies;
+            delete pkg.pnpm.neverBuiltDependencies;
+        }
         
         fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2));
         console.log('✓ Updated package.json with project name: ' + PROJECT_NAME);
