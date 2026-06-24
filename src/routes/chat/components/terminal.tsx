@@ -96,7 +96,7 @@ export function Terminal({
 	const getLogTypeColor = (type: TerminalLog['type']) => {
 		switch (type) {
 			case 'command':
-				return 'text-[#f6821f] dark:text-[#f6821f]'; // Cloudflare orange
+				return 'text-brand-primary'; // Cloudflare orange
 			case 'stdout':
 				return 'text-green-600 dark:text-green-400';
 			case 'stderr':
@@ -116,12 +116,12 @@ export function Terminal({
 	return (
 		<div className={clsx(
 			'flex flex-col h-full font-mono text-sm',
-			'bg-white dark:bg-[#1d1e1e]',
+			'bg-white dark:bg-bg-2',
 			className
 		)}>
 
 			{/* Terminal Output */}
-			<div className="flex-1 min-h-0 overflow-hidden bg-gray-25 dark:bg-[#1d1e1e]">
+			<div className="flex-1 min-h-0 overflow-hidden bg-gray-25 dark:bg-bg-2">
 				<ScrollArea 
 					ref={scrollAreaRef}
 					className="h-full terminal-scroll"
@@ -146,7 +146,7 @@ export function Terminal({
 									key={log.id}
 									className={clsx(
 										'group flex items-start gap-3 py-1.5 px-2 -mx-2 rounded-md',
-										'hover:bg-gray-50 dark:hover:bg-[#292929]/50',
+										'hover:bg-gray-50 dark:hover:bg-bg-3/50',
 										'transition-colors duration-150'
 									)}
 								>
@@ -166,7 +166,7 @@ export function Terminal({
 											getLogTypeColor(log.type)
 										)}>
 											{log.type === 'command' && (
-												<span className="text-[#f6821f] font-semibold mr-1">$</span>
+												<span className="text-brand-primary font-semibold mr-1">$</span>
 											)}
 											{log.type === 'stderr' && (
 												<span className="text-red-500 dark:text-red-400 mr-1">❌</span>
@@ -197,7 +197,7 @@ export function Terminal({
 			{/* Command Input */}
 			<div className={clsx(
 				'flex-shrink-0 px-4 py-3',
-				'bg-gray-50 dark:bg-[#1f2020]',
+				'bg-gray-50 dark:bg-bg-2',
 				'border-t border-gray-200 dark:border-gray-700'
 			)}>
 				<div className="flex items-center gap-3">
@@ -205,7 +205,7 @@ export function Terminal({
 						<span className={clsx(
 							"text-lg font-bold select-none",
 							isConnected 
-								? "text-[#f6821f]" 
+								? "text-brand-primary" 
 								: "text-gray-400 dark:text-gray-600"
 						)}>
 							$

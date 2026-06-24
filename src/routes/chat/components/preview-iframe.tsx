@@ -380,7 +380,7 @@ export const PreviewIframe = forwardRef<HTMLIFrameElement, PreviewIframeProps>(
                         />
                     )}
 					<div className="text-center p-8 max-w-md">
-						<RefreshCw className="size-8 text-accent animate-spin mx-auto mb-4" />
+						<RefreshCw className="size-8 text-brand animate-spin mx-auto mb-4" />
 						<h3 className="text-lg font-medium text-text-primary mb-2">
 							Loading Preview
 						</h3>
@@ -391,7 +391,7 @@ export const PreviewIframe = forwardRef<HTMLIFrameElement, PreviewIframeProps>(
 							}
 						</p>
 						{loadState.attempt >= REDEPLOY_AFTER_ATTEMPT && (
-							<p className="text-xs text-accent/70">
+							<p className="text-xs text-brand/70">
 								Auto-redeployment triggered to refresh the preview
 							</p>
 						)}
@@ -417,7 +417,7 @@ export const PreviewIframe = forwardRef<HTMLIFrameElement, PreviewIframeProps>(
 					<div className="space-y-3">
 						<button
 							onClick={forceReload}
-							className="flex items-center justify-center gap-2 px-6 py-3 bg-accent hover:bg-accent/90 text-white rounded-lg transition-colors text-sm mx-auto font-medium w-full"
+							className="flex items-center justify-center gap-2 px-6 py-3 bg-brand hover:bg-brand/90 text-white rounded-lg transition-colors text-sm mx-auto font-medium w-full"
 						>
 							<RefreshCw className="size-4" />
 							Try Again

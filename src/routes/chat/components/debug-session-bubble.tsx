@@ -67,7 +67,7 @@ className="my-4"
 >
 <div className={clsx(
 "rounded-lg border overflow-hidden bg-bg-2",
-isActive && "border-accent/30",
+			isActive && "border-brand/30",
 !isActive && hasError && "border-red-500/30",
 !isActive && !hasError && "border-green-500/30"
 )}>
@@ -83,7 +83,7 @@ isExpanded && "border-b border-border-primary/30"
 <div className="flex items-center gap-2.5 flex-1 min-w-0">
 {/* Status icon - minimal */}
 {isActive ? (
-<Loader className="size-4 text-accent animate-spin shrink-0" />
+					<Loader className="size-4 text-brand animate-spin shrink-0" />
 ) : hasError ? (
 <AlertTriangle className="size-4 text-red-500 shrink-0" />
 ) : (
@@ -93,7 +93,7 @@ isExpanded && "border-b border-border-primary/30"
 {/* Title */}
 <span className={clsx(
 "text-sm font-medium",
-isActive && "text-accent",
+					isActive && "text-brand",
 hasError && !isActive && "text-red-500",
 !isActive && !hasError && "text-green-500"
 )}>

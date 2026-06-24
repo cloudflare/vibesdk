@@ -273,7 +273,7 @@ export function SecretsManager({ className, compact = false, id }: Props) {
 							return (
 								<div
 									key={secret.id}
-									className="flex items-center justify-between p-3 rounded-lg border bg-card hover:bg-accent/50 transition-colors"
+									className="flex items-center justify-between p-3 rounded-lg border bg-card hover:bg-brand/50 transition-colors"
 								>
 									<div className="flex items-center gap-3 min-w-0">
 										{ProviderLogo ? (

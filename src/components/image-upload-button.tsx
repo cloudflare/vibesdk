@@ -1,5 +1,5 @@
 import { useRef, type ChangeEvent } from 'react';
-import { ImagePlus } from 'lucide-react';
+import { Image } from 'lucide-react';
 import { SUPPORTED_IMAGE_MIME_TYPES } from '@/api-types';
 
 export interface ImageUploadButtonProps {
@@ -18,7 +18,6 @@ export function ImageUploadButton({
 	disabled = false,
 	multiple = true,
 	className = '',
-	iconClassName = 'size-4',
 }: ImageUploadButtonProps) {
 	const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -52,11 +51,11 @@ export function ImageUploadButton({
 				type="button"
 				onClick={handleClick}
 				disabled={disabled}
-				className={`p-1 rounded-md bg-transparent hover:bg-bg-3 text-text-secondary hover:text-text-primary transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed ${className}`}
+				className={`p-1 *:size-5 rounded-md border border-border-primary hover:bg-bg-3 text-text-secondary hover:text-text-primary transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed ${className}`}
 				aria-label="Upload image"
 				title="Upload image (PNG, JPEG, WEBP, HEIC, HEIF)"
 			>
-				<ImagePlus className={iconClassName} strokeWidth={1.5} />
+				<Image strokeWidth={1.5} className='text-neutral-400' />
 			</button>
 		</>
 	);

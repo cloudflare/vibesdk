@@ -48,7 +48,7 @@ export function ProjectModeSelector({
 						>
 							{mode.label}
 							{isSelected && (
-								<div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-accent" />
+								<div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-brand" />
 							)}
 							{isHovered && !disabled && (
 								<div className="absolute -bottom-8 left-1/2 -translate-x-1/2 whitespace-nowrap px-2 py-1 bg-bg-2/95 backdrop-blur-sm border border-text-primary/10 rounded-md text-xs text-text-secondary pointer-events-none z-50">

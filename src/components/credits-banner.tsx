@@ -218,9 +218,9 @@ function BannerContent({
 	return (
 		<div
 			style={style}
-			className={`flex items-center justify-between px-3 py-1.5 bg-bg-2 border border-[#f48120]/30 shadow-md ${style?.borderTopLeftRadius !== undefined ? '' : 'rounded-lg'} ${className ?? ''}`}
+			className={`flex items-center justify-between px-3 py-1.5 bg-bg-2 border border-brand-primary/30 shadow-md ${style?.borderTopLeftRadius !== undefined ? '' : 'rounded-lg'} ${className ?? ''}`}
 		>
-			<span className="text-xs font-medium text-[#f48120]">
+			<span className="text-xs font-medium text-brand-primary">
 				{bannerInfo.content}
 			</span>
 			<div className="flex items-center gap-1.5">
@@ -228,7 +228,7 @@ function BannerContent({
 					<button
 						type="button"
 						onClick={onConnectCloudflare}
-						className="inline-flex items-center gap-1.5 text-xs font-medium px-2 py-0.5 rounded-sm text-white bg-accent/25 hover:bg-accent transition-colors duration-200"
+						className="inline-flex items-center gap-1.5 text-xs font-medium px-2 py-0.5 rounded-sm text-white bg-brand/25 hover:bg-brand transition-colors duration-200"
 					>
 						<CloudflareLogo className="w-3.5 h-3.5" color1="#fff" color2="#fff" />
 						Connect

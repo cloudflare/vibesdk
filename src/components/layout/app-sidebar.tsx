@@ -224,8 +224,8 @@ export function AppSidebar() {
 													className={cn(
 														'group flex w-full border-[0.5px] border-bg-2 items-center gap-2 font-medium hover:opacity-80 hover:cursor-pointer p-2 rounded-md cursor-hand text-text-secondary hover:text-text-primary',
 														isCollapsed
-															? 'justify-center bg-accent'
-															: 'justify-start bg-accent',
+? 'justify-center bg-brand'
+														: 'justify-start bg-brand',
 													)}
 													onClick={() => {
 														// Collapse sidebar when starting a new build

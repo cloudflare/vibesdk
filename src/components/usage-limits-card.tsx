@@ -34,7 +34,7 @@ export function UsageLimitsCard({ className, onConnectToken }: UsageLimitsCardPr
 			<Card className={cn('dark:bg-bg-4/50', className)}>
 				<CardHeader className="border-b">
 					<div className="flex items-center gap-2">
-						<Zap className="h-5 w-5 text-[#f48120]" />
+						<Zap className="h-5 w-5 text-brand-primary" />
 						<CardTitle>Usage Limits</CardTitle>
 					</div>
 					<CardDescription>Your free tier usage</CardDescription>
@@ -52,7 +52,7 @@ export function UsageLimitsCard({ className, onConnectToken }: UsageLimitsCardPr
 			<Card className={cn('dark:bg-bg-4/50', className)}>
 				<CardHeader className="border-b">
 					<div className="flex items-center gap-2">
-						<Zap className="h-5 w-5 text-[#f48120]" />
+						<Zap className="h-5 w-5 text-brand-primary" />
 						<CardTitle>Usage Limits</CardTitle>
 					</div>
 				</CardHeader>
@@ -139,7 +139,7 @@ export function UsageLimitsCard({ className, onConnectToken }: UsageLimitsCardPr
 			<CardHeader className="border-b">
 				<div className="flex items-center justify-between">
 					<div className="flex items-center gap-2">
-						<Zap className="h-5 w-5 text-[#f48120]" />
+						<Zap className="h-5 w-5 text-brand-primary" />
 						<CardTitle>Free Tier Usage</CardTitle>
 					</div>
 					<Button 
@@ -245,7 +245,7 @@ export function UsageLimitsCard({ className, onConnectToken }: UsageLimitsCardPr
 								<div className="space-y-3">
 									<Button 
 										onClick={onConnectToken}
-										className="w-full lg:w-auto gap-2 bg-gradient-to-r from-[#f48120] to-[#faae42] hover:from-[#f48120]/90 hover:to-[#faae42]/90"
+										className="w-full lg:w-auto gap-2 bg-gradient-to-r from-brand-primary to-brand-light hover:from-brand-primary/90 hover:to-brand-light/90"
 										size="lg"
 									>
 										<CloudflareLogo className="h-5 w-5" />

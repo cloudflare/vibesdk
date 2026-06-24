@@ -1,6 +1,6 @@
 import { type FormEvent, type RefObject } from 'react';
 import { WebSocket } from 'partysocket';
-import { X } from 'lucide-react';
+import { Square } from 'lucide-react';
 import { PromptBox } from '@/components/prompt-box';
 import { sendWebSocketMessage } from '../utils/websocket-helpers';
 import type { ImageAttachment } from '@/api-types';
@@ -56,7 +56,6 @@ export function ChatInput({
 	isChatDragging,
 	chatDragHandlers,
 	isChatDisabled,
-	isRunning,
 	isGenerating,
 	isGeneratingBlueprint,
 	isDebugging,
@@ -75,22 +74,17 @@ export function ChatInput({
 		? 'Deep debugging in progress... Please abort to continue'
 		: isChatDisabled
 			? 'Please wait for blueprint completion...'
-			: isRunning
-				? 'Chat with AI while generating...'
-				: 'Chat with AI...';
+			: 'Send a message';
 
 	const stopButton = (isGenerating || isGeneratingBlueprint || isDebugging) ? (
 		<button
 			type="button"
 			onClick={handleStopGeneration}
-			className="p-1.5 rounded-md hover:bg-red-500/10 text-text-tertiary hover:text-red-500 transition-all duration-200 group relative"
+			className="p-0.5 rounded-full hover:bg-red-500/10 text-text-tertiary hover:text-red-500 transition-all duration-200 group animated-border-ring"
 			aria-label="Stop generation"
 			title="Stop generation"
 		>
-			<X className="size-4" strokeWidth={2} />
-			<span className="absolute -top-8 right-0 px-2 py-1 bg-bg-1 border border-border-primary rounded text-xs text-text-secondary whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-				Stop
-			</span>
+			<Square className="size-2.5 fill-brand/90 text-brand/80" />
 		</button>
 	) : undefined;
 

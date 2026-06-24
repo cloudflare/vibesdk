@@ -53,7 +53,7 @@ export const VisibilityFilter: React.FC<VisibilityFilterProps> = ({
             onClick={() => onChange(option.value)}
             className={cn(
               "relative inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium transition-all duration-200",
-              "outline-none focus-visible:ring-1 focus-visible:ring-accent/30",
+              "outline-none focus-visible:ring-1 focus-visible:ring-brand/30",
               isActive
                 ? "text-text-primary"
                 : "text-text-tertiary hover:text-text-secondary",
@@ -78,7 +78,7 @@ export const VisibilityFilter: React.FC<VisibilityFilterProps> = ({
             <span className="relative flex items-center gap-1.5">
               <Icon className={cn(
                 "h-3 w-3 transition-colors duration-200",
-                isActive && "text-accent"
+                isActive && "text-brand"
               )} />
               <span>{option.label}</span>
             </span>
