@@ -15,6 +15,7 @@ import {
   buildInspectorWrapperSource,
   VIBE_APP_MODULE,
 } from "./inspector-wrapper"
+import { stripPreviewSecurityHeaders } from "./preview-headers"
 
 // ─── Inspector result types ────────────────────────────────────────────────
 // These mirror the shapes returned by the wrapper-subclass injected into
@@ -542,9 +543,14 @@ export class SpaceDO extends DurableObject<Env> {
       const previewRequest = new Request(previewUrl.toString(), request)
       const response = await this.servePreview(branch, previewRequest)
 
+      // Strip headers a generated app must not be able to set on the shared
+      // preview origin (e.g. Service-Worker-Allowed scope expansion) before
+      // any further rewriting.
+      const safeResponse = stripPreviewSecurityHeaders(response)
+
       // Rewrite root-relative paths in HTML responses so they resolve
       // correctly when the preview is mounted on a sub-path
-      return rewritePreviewResponse(response, basePath)
+      return rewritePreviewResponse(safeResponse, basePath)
     }
 
     const gitCtx: GitHttpContext = {
