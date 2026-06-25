@@ -32,7 +32,6 @@ GOOGLE_AI_STUDIO_API_KEY=""
 
 # Secrets for various internal services of this platform
 JWT_SECRET="" 
-WEBHOOK_SECRET="" 
 
 # AI Gateway URL Override (Leave as-is if not going to set it)
 #CLOUDFLARE_AI_GATEWAY_URL=""

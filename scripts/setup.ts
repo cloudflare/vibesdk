@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import { execSync } from 'child_process';
+import { randomBytes } from 'crypto';
 import { existsSync, readFileSync, writeFileSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
@@ -465,7 +466,6 @@ class SetupManager {
 
 		// Generate or preserve required secrets
 		devVars.JWT_SECRET = this.existingConfig.JWT_SECRET || this.generateRandomSecret(64);
-		devVars.WEBHOOK_SECRET = this.existingConfig.WEBHOOK_SECRET || this.generateRandomSecret(32);
 		devVars.USE_TUNNEL_FOR_PREVIEW = 'true';
 
 		// Auto-set AI Gateway token if using AI Gateway
@@ -495,9 +495,17 @@ class SetupManager {
 
 	private generateRandomSecret(length: number): string {
 		const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+		// Use a CSPRNG (crypto.randomBytes) with rejection sampling to avoid modulo bias.
+		const max = 256 - (256 % chars.length);
 		let result = '';
-		for (let i = 0; i < length; i++) {
-			result += chars.charAt(Math.floor(Math.random() * chars.length));
+		while (result.length < length) {
+			const bytes = randomBytes(length);
+			for (let i = 0; i < bytes.length && result.length < length; i++) {
+				const byte = bytes[i];
+				if (byte < max) {
+					result += chars.charAt(byte % chars.length);
+				}
+			}
 		}
 		return result;
 	}
@@ -1138,7 +1146,7 @@ class SetupManager {
 		'SANDBOX_SERVICE_API_KEY', 'SANDBOX_SERVICE_TYPE', 'SANDBOX_SERVICE_URL',
 		'CLOUDFLARE_API_TOKEN', 'CLOUDFLARE_ACCOUNT_ID', 'CLOUDFLARE_AI_GATEWAY_URL', 'CLOUDFLARE_AI_GATEWAY_TOKEN',
 		'SERPAPI_KEY', 'GOOGLE_CLIENT_SECRET', 'GOOGLE_CLIENT_ID', 'GITHUB_CLIENT_ID', 'GITHUB_CLIENT_SECRET',
-		'JWT_SECRET', 'ENTROPY_KEY', 'ENVIRONMENT', 'SECRETS_ENCRYPTION_KEY',
+		'JWT_SECRET', 'ENVIRONMENT',
 		'MAX_SANDBOX_INSTANCES', 'SANDBOX_INSTANCE_TYPE', 'CUSTOM_DOMAIN', 'CUSTOM_PREVIEW_DOMAIN',
 		'ALLOCATION_STRATEGY', 'GITHUB_EXPORTER_CLIENT_ID', 'GITHUB_EXPORTER_CLIENT_SECRET',
 		'CF_ACCESS_ID', 'CF_ACCESS_SECRET', 'SENTRY_DSN'
@@ -1206,7 +1214,7 @@ class SetupManager {
 			'ANTHROPIC_API_KEY', 'OPENAI_API_KEY', 'GOOGLE_AI_STUDIO_API_KEY', 'OPENROUTER_API_KEY', 'GROQ_API_KEY',
 			'GOOGLE_CLIENT_ID', 'GOOGLE_CLIENT_SECRET', 'GITHUB_CLIENT_ID', 'GITHUB_CLIENT_SECRET',
 			'GITHUB_EXPORTER_CLIENT_ID', 'GITHUB_EXPORTER_CLIENT_SECRET',
-			'JWT_SECRET', 'WEBHOOK_SECRET'
+			'JWT_SECRET'
 		]);
 
 		// Collect unmanaged variables to preserve (anything not in worker config or setup managed)
@@ -1279,7 +1287,6 @@ class SetupManager {
 		// Required secrets
 		content += '# Required secrets\n';
 		content += `JWT_SECRET="${this.config.devVars.JWT_SECRET}"\n`;
-		content += `WEBHOOK_SECRET="${this.config.devVars.WEBHOOK_SECRET}"\n`;
 		if (this.config.devVars.USE_TUNNEL_FOR_PREVIEW) {
 			content += `USE_TUNNEL_FOR_PREVIEW="${this.config.devVars.USE_TUNNEL_FOR_PREVIEW}"\n`;
 		}
@@ -1345,7 +1352,7 @@ class SetupManager {
 			'ANTHROPIC_API_KEY', 'OPENAI_API_KEY', 'GOOGLE_AI_STUDIO_API_KEY', 'OPENROUTER_API_KEY', 'GROQ_API_KEY',
 			'GOOGLE_CLIENT_ID', 'GOOGLE_CLIENT_SECRET', 'GITHUB_CLIENT_ID', 'GITHUB_CLIENT_SECRET',
 			'GITHUB_EXPORTER_CLIENT_ID', 'GITHUB_EXPORTER_CLIENT_SECRET',
-			'JWT_SECRET', 'WEBHOOK_SECRET'
+			'JWT_SECRET'
 			// Note: USE_TUNNEL_FOR_PREVIEW is intentionally excluded - it's dev-only
 		]);
 
@@ -1403,7 +1410,6 @@ class SetupManager {
 		// Required secrets
 		content += '# Required secrets\n';
 		content += `JWT_SECRET="${this.config.prodVars.JWT_SECRET}"\n`;
-		content += `WEBHOOK_SECRET="${this.config.prodVars.WEBHOOK_SECRET}"\n`;
 
 		writeFileSync(prodVarsPath, content, 'utf-8');
 		console.log('✅ .prod.vars file created successfully for production deployment');

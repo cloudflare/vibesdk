@@ -86,17 +86,11 @@ export function extractTokenWithMetadata(
 		}
 	}
 
-	// Priority 3: Query parameter (for WebSocket connections and special cases)
-	const url = new URL(request.url);
-	const queryToken =
-		url.searchParams.get('token') || url.searchParams.get('access_token');
-	if (queryToken && queryToken.length > 0) {
-		return {
-			token: queryToken,
-			method: TokenExtractionMethod.QUERY_PARAMETER,
-		};
-	}
-
+	// NOTE: JWTs are intentionally NOT accepted from the URL query string.
+	// URL components leak into access logs, browser history, Referer headers and
+	// error-reporting breadcrumbs, where a captured token would remain valid until
+	// its natural expiry. WebSocket handshakes use the one-time ticket flow instead
+	// (see worker/middleware/auth/ticketAuth.ts).
 	return { token: null };
 }
 

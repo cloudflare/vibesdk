@@ -8,6 +8,7 @@ import { eq, and, sql, or, lt, isNull } from 'drizzle-orm';
 import { JWTUtils } from '../../utils/jwtUtils';
 import { generateSecureToken } from '../../utils/cryptoUtils';
 import { SessionService } from './SessionService';
+import { ApiKeyService } from './ApiKeyService';
 import { PasswordService } from '../../utils/passwordService';
 import { GoogleOAuthProvider } from '../../services/oauth/google';
 import { GitHubOAuthProvider } from '../../services/oauth/github';
@@ -53,6 +54,7 @@ export interface RegistrationData {
  */
 export class AuthService extends BaseService {
     private readonly sessionService: SessionService;
+    private readonly apiKeyService: ApiKeyService;
     private readonly passwordService: PasswordService;
     
     constructor(
@@ -60,6 +62,7 @@ export class AuthService extends BaseService {
     ) {
         super(env);
         this.sessionService = new SessionService(env);
+        this.apiKeyService = new ApiKeyService(env);
         this.passwordService = new PasswordService();
     }
     
@@ -670,7 +673,13 @@ export class AuthService extends BaseService {
                 .where(
                     and(
                         eq(schema.users.id, userId),
-                        isNull(schema.users.deletedAt)
+                        isNull(schema.users.deletedAt),
+                        eq(schema.users.isActive, true),
+                        eq(schema.users.isSuspended, false),
+                        or(
+                            isNull(schema.users.lockedUntil),
+                            lt(schema.users.lockedUntil, new Date())
+                        )
                     )
                 )
                 .get()
@@ -686,7 +695,7 @@ export class AuthService extends BaseService {
                 });
             
             if (!user) {
-                logger.debug('User not found for auth', { userId });
+                logger.debug('User not found or not eligible for auth', { userId });
                 return null;
             }
             
@@ -701,9 +710,28 @@ export class AuthService extends BaseService {
             return null;
         }
     }
+
+    /**
+     * Whether an API key id still corresponds to an active, unexpired key.
+     */
+    private async isApiKeyActive(apiKeyId: string): Promise<boolean> {
+        const apiKey = await this.apiKeyService.getApiKeyById(apiKeyId);
+        if (!apiKey || !apiKey.isActive) {
+            return false;
+        }
+        if (apiKey.expiresAt && apiKey.expiresAt.getTime() < Date.now()) {
+            return false;
+        }
+        return true;
+    }
     
     /**
-     * Validate token and return user (for middleware)
+     * Validate token and return user (for middleware).
+     *
+     * Treats the JWT as a pointer, not a self-contained credential: every token
+     * is cross-checked against the live session / API key behind it, so logout,
+     * session revoke, and API-key revoke all take effect immediately rather than
+     * at token exp.
      */
     async validateTokenAndGetUser(token: string, env: Env): Promise<AuthUserSession | null> {
         try {
@@ -719,8 +747,30 @@ export class AuthService extends BaseService {
                 logger.debug('Token expired', { exp: payload.exp });
                 return null;
             }
+
+            if (!payload.sessionId) {
+                return null;
+            }
+
+            // Cross-check the session / API key behind this token is still live.
+            if (payload.sessionId.startsWith('api_key:')) {
+                // API-key-derived token: resolve the synthetic sessionId back to the
+                // source key and require it to still be active.
+                const apiKeyId = payload.sessionId.slice('api_key:'.length);
+                if (!(await this.isApiKeyActive(apiKeyId))) {
+                    return null;
+                }
+            } else {
+                const session = await this.sessionService.getSessionById(payload.sessionId);
+                if (!session || session.isRevoked) {
+                    return null;
+                }
+                if (session.expiresAt && session.expiresAt.getTime() < Date.now()) {
+                    return null;
+                }
+            }
             
-            // Get user from database
+            // Get user (also enforces account status)
             const user = await this.getUserForAuth(payload.sub);
             if (!user) {
                 return null;

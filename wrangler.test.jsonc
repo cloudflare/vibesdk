@@ -20,7 +20,5 @@
 			"tag": "v1"
 		}
 	],
-	"vars": {
-		"SECRETS_ENCRYPTION_KEY": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
-	}
+	"vars": {}
 }

@@ -112,6 +112,25 @@ export class ApiKeyService extends BaseService {
             return false;
         }
     }
+
+    /**
+     * Find an API key by its id (no isActive filter – callers decide).
+     * Used at auth time to verify an API-key-derived token's source key.
+     */
+    async getApiKeyById(keyId: string): Promise<schema.ApiKey | null> {
+        try {
+            const key = await this.database
+                .select()
+                .from(schema.apiKeys)
+                .where(eq(schema.apiKeys.id, keyId))
+                .get();
+
+            return key || null;
+        } catch (error) {
+            logger.error('Error finding API key by id', error);
+            return null;
+        }
+    }
     
     /**
      * Find API key by hash

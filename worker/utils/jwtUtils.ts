@@ -12,9 +12,7 @@ export class JWTUtils {
     private readonly algorithm = 'HS256';
 
     private constructor(jwtSecret: string) {
-        // this.validateJWTSecret(jwtSecret);
-        // No need to validate jwt secrets for others 
-        // as everyone else would 1 click deploy. And we would use secure secrets for our deployment anyways.
+        this.validateJWTSecret(jwtSecret);
         this.jwtSecret = new TextEncoder().encode(jwtSecret);
     }
 
@@ -29,32 +27,32 @@ export class JWTUtils {
         return JWTUtils.instance;
     }
 
-    // private validateJWTSecret(secret: string): void {
-    //     if (secret.length < 32) {
-    //         throw new Error('JWT_SECRET must be at least 32 characters long for security');
-    //     }
-        
-    //     const weakSecrets = ['default', 'secret', 'password', 'changeme', 'admin', 'test'];
-    //     if (weakSecrets.includes(secret.toLowerCase())) {
-    //         throw new Error('JWT_SECRET contains a weak/default value. Please use a cryptographically secure random string');
-    //     }
-        
-    //     const hasLowercase = /[a-z]/.test(secret);
-    //     const hasUppercase = /[A-Z]/.test(secret);
-    //     const hasNumbers = /[0-9]/.test(secret);
-    //     const hasSpecial = /[^a-zA-Z0-9]/.test(secret);
-        
-    //     const characterTypes = [hasLowercase, hasUppercase, hasNumbers, hasSpecial].filter(Boolean).length;
-        
-    //     if (characterTypes < 3) {
-    //         throw new Error('JWT_SECRET must contain at least 3 different character types');
-    //     }
-        
-    //     const hasRepeatingChars = /(.)\1{3,}/.test(secret);
-    //     if (hasRepeatingChars) {
-    //         throw new Error('JWT_SECRET contains repetitive patterns');
-    //     }
-    // }
+    private validateJWTSecret(secret: string): void {
+        if (secret.length < 32) {
+            throw new Error('JWT_SECRET must be at least 32 characters long for security');
+        }
+
+        const weakSecrets = ['default', 'secret', 'password', 'changeme', 'admin', 'test'];
+        if (weakSecrets.includes(secret.toLowerCase())) {
+            throw new Error('JWT_SECRET contains a weak/default value. Please use a cryptographically secure random string');
+        }
+
+        const hasLowercase = /[a-z]/.test(secret);
+        const hasUppercase = /[A-Z]/.test(secret);
+        const hasNumbers = /[0-9]/.test(secret);
+        const hasSpecial = /[^a-zA-Z0-9]/.test(secret);
+
+        const characterTypes = [hasLowercase, hasUppercase, hasNumbers, hasSpecial].filter(Boolean).length;
+
+        if (characterTypes < 3) {
+            throw new Error('JWT_SECRET must contain at least 3 different character types');
+        }
+
+        const hasRepeatingChars = /(.)\1{3,}/.test(secret);
+        if (hasRepeatingChars) {
+            throw new Error('JWT_SECRET contains repetitive patterns');
+        }
+    }
 
     async signPayload(payload: Record<string, unknown>, expiresIn: number): Promise<string> {
         const now = Math.floor(Date.now() / 1000);

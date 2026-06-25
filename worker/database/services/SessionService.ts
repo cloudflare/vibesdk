@@ -321,6 +321,24 @@ export class SessionService extends BaseService {
         
         return user?.email || '';
     }
+
+    /**
+     * Look up a session row by its id (used for auth-time revocation checks)
+     */
+    async getSessionById(sessionId: string): Promise<schema.Session | null> {
+        try {
+            const session = await this.db.db
+                .select()
+                .from(schema.sessions)
+                .where(eq(schema.sessions.id, sessionId))
+                .get();
+
+            return session || null;
+        } catch (error) {
+            logger.error('Error fetching session by id', error);
+            return null;
+        }
+    }
     
     /**
      * Get security status and recent events for a user

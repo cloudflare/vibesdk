@@ -115,8 +115,6 @@ jobs:
           GITHUB_CLIENT_SECRET: ${{ secrets.GITHUB_CLIENT_SECRET }}
 
           JWT_SECRET: ${{ secrets.JWT_SECRET }}
-          WEBHOOK_SECRET: ${{ secrets.WEBHOOK_SECRET }}
-          SECRETS_ENCRYPTION_KEY: ${{ secrets.SECRETS_ENCRYPTION_KEY }}
           SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
           AI_PROXY_JWT_SECRET: ${{ secrets.AI_PROXY_JWT_SECRET }}
         run: bun scripts/deploy.ts
