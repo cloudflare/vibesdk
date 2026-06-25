@@ -2842,7 +2842,7 @@ CSRF tokens stored in `oauthStates` table:
 
 **1. Hierarchical Key Derivation**
 ```
-Master Encryption Key (MEK) [from env.SECRETS_ENCRYPTION_KEY]
+Master Encryption Key (MEK)
     ↓ PBKDF2 with userId salt
 User Master Key (UMK)
     ↓ PBKDF2 with secret-specific salt
@@ -3101,12 +3101,6 @@ bun run test:bun test/worker/services/secrets
 - Error handling
 
 ### **Configuration**
-
-**Environment Variables:**
-```bash
-# Required: 64 hex characters (32 bytes)
-SECRETS_ENCRYPTION_KEY=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
-```
 
 **Wrangler Configuration:**
 ```jsonc

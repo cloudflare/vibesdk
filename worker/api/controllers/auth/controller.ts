@@ -555,7 +555,9 @@ export class AuthController extends BaseController {
      * POST /api/auth/exchange-api-key
      *
      * Security notes:
-     * - Does not create a D1 session row.
+     * - Does not create a D1 session row; the token carries a synthetic
+     *   'api_key:<id>' sessionId that validateTokenAndGetUser resolves back to the
+     *   source key, so revoking the key invalidates the token at auth time.
      * - Accepts API key only via Authorization Bearer or X-API-Key.
      * - Performs basic format/size checks to reduce abuse.
      */
@@ -610,6 +612,9 @@ export class AuthController extends BaseController {
             const expiresIn = 15 * 60; // 15 minutes
             const expiresAt = new Date(Date.now() + expiresIn * 1000).toISOString();
 
+            // The synthetic 'api_key:<id>' sessionId is resolved at auth time:
+            // validateTokenAndGetUser checks the source API key is still active,
+            // so revoking the key takes effect immediately rather than at expiry.
             const sessionId = `api_key:${apiKey.id}`;
             const accessToken = await jwtUtils.createToken(
                 {

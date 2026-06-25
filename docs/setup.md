@@ -171,7 +171,6 @@ CLOUDFLARE_ACCOUNT_ID="your-account-id"
 
 # Security
 JWT_SECRET="generated-secret"
-WEBHOOK_SECRET="generated-secret"
 
 # Domain (optional)
 CUSTOM_DOMAIN="your-domain.com"
