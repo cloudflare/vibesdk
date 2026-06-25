@@ -11,7 +11,7 @@ Local first time setup guide for VibSDK - get your AI coding platform running lo
 Before getting started, make sure you have:
 
 ### Required
-- **Node.js** (v18 or later)
+- **Node.js** (v22 or later)
 - **Cloudflare account** with API access  
 - **Cloudflare API Token** with appropriate permissions
 
