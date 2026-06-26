@@ -63,7 +63,7 @@ export function AuthModalProvider({ children }: AuthModalProviderProps) {
     }
   }, [isAuthenticated, pendingAction, isAuthModalOpen, hideAuthModal]);
 
-  const handleLogin = useCallback((provider: 'google' | 'github', redirectUrl?: string) => {
+  const handleLogin = useCallback((provider: 'google' | 'github' | 'cloudflare', redirectUrl?: string) => {
     // Use the intended URL if available, otherwise use the provided redirect URL
     const finalRedirectUrl = intendedUrl || redirectUrl;
     login(provider, finalRedirectUrl);

@@ -7,7 +7,7 @@ import type { ApiKey, AuthAttempt as SchemaAuthAttempt, AuditLog, OAuthState } f
 /**
  * OAuth provider types
  */
-export type OAuthProvider = 'google' | 'github';
+export type OAuthProvider = 'google' | 'github' | 'cloudflare';
 
 /**
  * Authenticated user for middleware and session context
@@ -71,6 +71,12 @@ export interface AuthResult extends AuthUserSession {
 	isNewUser?: boolean;
 	requiresEmailVerification?: boolean;
 	redirectUrl?: string;
+	/**
+	 * Raw provider OAuth tokens. Only populated for the Cloudflare login flow so
+	 * the controller can perform best-effort AI Gateway auto-connect (encrypt the
+	 * token cookie + provision gateways). Never populated for other providers.
+	 */
+	oauthTokens?: OAuthTokens;
 };
 
 /**

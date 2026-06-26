@@ -146,6 +146,56 @@ The script will also ask for OAuth credentials:
 
 **If you don't provide OAuth credentials, by default at login, you will only be able to use email-based registration/login.**
 
+### Login with Cloudflare
+
+You can let users sign in with their Cloudflare account. The same consent also
+connects their Cloudflare AI Gateway, so generations can run on their own credits
+("Use my AI Gateway" toggle in settings).
+
+**1. Create an OAuth client**
+
+Create an OAuth client in the Cloudflare dashboard:
+<https://dash.cloudflare.com/?to=/:account/oauth-clients>
+
+Configure these **redirect URLs** on the client (replace the origin with your
+deployment's URL; for local development this is `http://localhost:5173`):
+
+- `https://your-domain.com/api/auth/callback/cloudflare` — "Login with Cloudflare"
+- `https://your-domain.com/auth/callback` — connect AI Gateway (from settings)
+
+Grant the client these **scopes** (Cloudflare uses dotted identifiers, not OIDC
+`email`/`profile`):
+
+```
+openid user-details.read ai.read ai.write aig.read aig.run aig.write offline_access
+```
+
+The scopes and the Cloudflare OAuth endpoint URLs are hardcoded in the worker
+(`worker/services/oauth/cloudflare-connect.ts`) and are not configurable — just make
+sure the OAuth client is authorized for all of these scopes, or the authorization
+request fails with `invalid_scope`.
+
+**2. Set the environment variables**
+
+Add the client credentials to `.dev.vars` (and `.prod.vars` for production):
+
+```bash
+CLOUDFLARE_OAUTH_CLIENT_ID="<your-oauth-client-id>"        # required for Login with Cloudflare
+CLOUDFLARE_OAUTH_CLIENT_SECRET="<your-oauth-client-secret>"
+ENABLE_CLOUDFLARE_LIMITS="true"                            # enables the AI Gateway connect feature
+CF_OAUTH_ENCRYPTION_KEY="<32-byte base64 key>"             # required for AI Gateway; encrypts the token cookie
+```
+
+The **"Login with Cloudflare" button** appears as soon as `CLOUDFLARE_OAUTH_CLIENT_ID`
+and `CLOUDFLARE_OAUTH_CLIENT_SECRET` are set — identity login needs nothing else.
+
+The **AI Gateway connect/auto-connect** (running generations on the user's own
+credits) additionally requires `ENABLE_CLOUDFLARE_LIMITS="true"` and
+`CF_OAUTH_ENCRYPTION_KEY` (generate with `openssl rand -base64 32`). If the key is
+missing, the gateway feature is disabled (same as leaving `ENABLE_CLOUDFLARE_LIMITS`
+unset) and login simply skips the gateway auto-connect — users fall back to the free
+tier and can connect later.
+
 ### Docker Requirement
 
 For local development with sandbox instances, Docker is required. Make sure Docker is installed and running on your machine before running the platform.

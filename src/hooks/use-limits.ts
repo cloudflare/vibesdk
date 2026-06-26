@@ -59,6 +59,12 @@ export interface UsageSummary {
 	limitCheck: LimitCheckResult;
 	hasUserToken: boolean;
 	hasCloudflareConfigured: boolean;
+	/** Whether a Cloudflare AI Gateway is connected, regardless of the toggle. */
+	aiGatewayConnected: boolean;
+	/** Resolved AI Gateway usage toggle (effective value). */
+	aiGatewayEnabled: boolean;
+	/** Whether the toggle was explicitly set by the user vs. derived default. */
+	aiGatewayPreferenceExplicit: boolean;
 	cloudflareCredits?: {
 		credits: number;
 		currency: string;

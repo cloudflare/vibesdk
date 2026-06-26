@@ -123,6 +123,42 @@ export class UserService extends BaseService {
     }
 
     /**
+     * Resolve whether the user's own Cloudflare AI Gateway should be used for inference.
+     *
+     * The stored column is nullable; null means "use the derived default", which is OFF
+     * for users who signed in with Cloudflare (gateway auto-connected without explicit
+     * opt-in) and ON for everyone else (who connected the gateway deliberately).
+     *
+     * Returns `enabled` (the effective value) and `isExplicit` (whether the user has set
+     * the preference, vs. falling back to the default) so callers/UI can distinguish.
+     */
+    async getAiGatewayPreference(userId: string): Promise<{ enabled: boolean; isExplicit: boolean }> {
+        const row = await this.database
+            .select({ provider: schema.users.provider, aiGatewayEnabled: schema.users.aiGatewayEnabled })
+            .from(schema.users)
+            .where(eq(schema.users.id, userId))
+            .get();
+
+        if (!row) {
+            return { enabled: false, isExplicit: false };
+        }
+        if (row.aiGatewayEnabled === null) {
+            return { enabled: row.provider !== 'cloudflare', isExplicit: false };
+        }
+        return { enabled: row.aiGatewayEnabled, isExplicit: true };
+    }
+
+    /**
+     * Persist the user's explicit AI Gateway usage preference.
+     */
+    async setAiGatewayPreference(userId: string, enabled: boolean): Promise<void> {
+        await this.database
+            .update(schema.users)
+            .set({ aiGatewayEnabled: enabled, updatedAt: new Date() })
+            .where(eq(schema.users.id, userId));
+    }
+
+    /**
      * Check if username is available
      */
     async isUsernameAvailable(username: string, excludeUserId?: string): Promise<boolean> {

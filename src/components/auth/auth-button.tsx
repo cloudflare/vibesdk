@@ -62,7 +62,7 @@ export function AuthButton({ className }: AuthButtonProps) {
 				<LoginModal
 					isOpen={showLoginModal}
 					onClose={() => setShowLoginModal(false)}
-					onLogin={(provider) => {
+					onLogin={(provider: 'google' | 'github' | 'cloudflare') => {
 						// For backward compatibility with original login interface
 						login(provider);
 						setShowLoginModal(false);
@@ -73,7 +73,7 @@ export function AuthButton({ className }: AuthButtonProps) {
 							setShowLoginModal(false);
 						}
 					}}
-					onOAuthLogin={(provider) => {
+					onOAuthLogin={(provider: 'google' | 'github' | 'cloudflare') => {
 						login(provider);
 						setShowLoginModal(false);
 					}}

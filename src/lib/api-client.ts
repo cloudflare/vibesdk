@@ -1316,6 +1316,23 @@ class ApiClient {
 			method: 'DELETE',
 		});
 	}
+
+	/**
+	 * Get the user's resolved AI Gateway usage preference.
+	 */
+	async getAiGatewayPreference(): Promise<ApiResponse<{ enabled: boolean; isExplicit: boolean }>> {
+		return this.request<{ enabled: boolean; isExplicit: boolean }>('/api/cloudflare/ai-gateway-preference');
+	}
+
+	/**
+	 * Set whether the user's own AI Gateway is used for inference.
+	 */
+	async setAiGatewayPreference(enabled: boolean): Promise<ApiResponse<{ enabled: boolean; isExplicit: boolean }>> {
+		return this.request<{ enabled: boolean; isExplicit: boolean }>('/api/cloudflare/ai-gateway-preference', {
+			method: 'PUT',
+			body: { enabled },
+		});
+	}
 }
 
 // Export singleton instance

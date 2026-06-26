@@ -43,6 +43,13 @@
       "when": 1777015990625,
       "tag": "0005_cloudflare_oauth_connect",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1782466201924,
+      "tag": "0006_free_wiccan",
+      "breakpoints": true
     }
   ]
 }

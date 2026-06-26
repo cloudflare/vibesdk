@@ -7,6 +7,7 @@ import { BaseController } from '../baseController';
 import { RouteContext } from '../../types/route-context';
 import { checkUsageAndBalance, isCloudflareGatewayLimitsEnabled } from '../../../services/rate-limit';
 import { CloudflareAccountService } from '../../../services/cloudflare/CloudflareAccountService';
+import { UserService } from '../../../database/services/UserService';
 import { createLogger } from '../../../logger';
 
 export class LimitsController extends BaseController {
@@ -30,11 +31,17 @@ export class LimitsController extends BaseController {
 		try {
 			// Token is read from the HttpOnly cookie inside checkUsageAndBalance.
 			const accountService = new CloudflareAccountService(env);
-			const [usageResult, selectedGateway] = await Promise.all([
+			const userService = new UserService(env);
+			const [usageResult, selectedGateway, aiGatewayPref] = await Promise.all([
 				checkUsageAndBalance(env, user.id, request),
 				accountService.getSelectedGatewayWithAccount(user.id),
+				userService.getAiGatewayPreference(user.id),
 			]);
-			const hasCfConfigured = !!selectedGateway;
+			// A gateway is "configured" for usage purposes only when one is connected
+			// AND the user has the AI Gateway toggle enabled; otherwise platform limits
+			// apply. The raw connection state is surfaced separately for the toggle UI.
+			const aiGatewayConnected = !!selectedGateway;
+			const hasCfConfigured = aiGatewayConnected && aiGatewayPref.enabled;
 
 			const window = usageResult.windowKind ?? 'rolling';
 			const unlimited = !Number.isFinite(usageResult.limit);
@@ -78,6 +85,9 @@ export class LimitsController extends BaseController {
 				},
 				hasUserToken: usageResult.hasUserToken,
 				hasCloudflareConfigured: hasCfConfigured,
+				aiGatewayConnected,
+				aiGatewayEnabled: aiGatewayPref.enabled,
+				aiGatewayPreferenceExplicit: aiGatewayPref.isExplicit,
 				cloudflareCredits: usageResult.balance !== null ? {
 					credits: usageResult.balance,
 					currency: 'USD',
