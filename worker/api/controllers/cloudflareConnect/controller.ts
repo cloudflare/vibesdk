@@ -2,11 +2,8 @@ import { BaseController } from '../baseController';
 import { RouteContext } from '../../types/route-context';
 import { CloudflareConnectOAuthProvider } from '../../../services/oauth/cloudflare-connect';
 import { BaseOAuthProvider } from '../../../services/oauth/base';
-import {
-	CloudflareAccountService,
-	type AIGateway,
-	type CloudflareAccount,
-} from '../../../services/cloudflare/CloudflareAccountService';
+import { CloudflareProvisioningService } from '../../../services/cloudflare/CloudflareProvisioningService';
+import { SessionService } from '../../../database/services/SessionService';
 import { createLogger } from '../../../logger';
 import { encryptTokens, type EncryptedTokenData } from '../../../utils/tokenEncryption';
 import { signState, verifyState } from '../../../utils/stateSigning';
@@ -16,6 +13,16 @@ import {
 	buildClearVerifierCookie,
 	readVerifierCookie,
 } from '../../../utils/oauthCookie';
+
+/**
+ * Account linking is the highest-leverage authenticated action in the system, so
+ * we refuse to start it from a session that was minted within this window (e.g. a
+ * just-issued OAuth-callback session). This blocks the login-CSRF -> auto-link chain
+ * even if the upstream session cookie is attacker-controlled.
+ * The Cloudflare-login auto-connect path does NOT use this initiator; it links using
+ * the identity proven in the same OAuth round-trip.
+ */
+const SESSION_FRESHNESS_THRESHOLD_MS = 5 * 60 * 1000;
 
 /**
  * Signed state payload. The PKCE code_verifier is intentionally NOT included here;
@@ -64,6 +71,23 @@ export class CloudflareConnectController extends BaseController {
 			if (fetchSite && fetchSite !== 'same-origin' && fetchSite !== 'none') {
 				this.logger.warn('Rejecting cross-site /oauth/login', { fetchSite, userId: user.id });
 				return CloudflareConnectController.createErrorResponse('Cross-site request blocked', 403);
+			}
+
+			// Freshness gate: refuse to start linking from a just-minted session. This breaks
+			// the login-CSRF -> auto-link chain (the attacker's fixated session is brand new).
+			const sessionCreatedAt = context.sessionId
+				? await new SessionService(env).getSessionCreatedAt(context.sessionId)
+				: null;
+			if (sessionCreatedAt && Date.now() - sessionCreatedAt.getTime() < SESSION_FRESHNESS_THRESHOLD_MS) {
+				this.logger.warn('Rejecting Cloudflare linking from a freshly-issued session', {
+					userId: user.id,
+					sessionAgeMs: Date.now() - sessionCreatedAt.getTime(),
+				});
+				const baseUrl = new URL(request.url).origin;
+				return Response.redirect(
+					`${baseUrl}/settings?cloudflare=error&reason=reauth_required`,
+					302,
+				);
 			}
 
 			const url = new URL(request.url);
@@ -169,24 +193,13 @@ export class CloudflareConnectController extends BaseController {
 				});
 			}
 
-			// Fetch accounts and gateways to save metadata (not tokens)
-			const accountService = new CloudflareAccountService(env);
-
-			const accounts = await accountService.fetchCloudflareAccounts(tokens.accessToken);
-			this.logger.info('Fetched Cloudflare accounts', { 
-				userId: parsedState.userId, 
-				accountCount: accounts.length 
-			});
-
-			await this.processAllAccounts(
-				accounts,
-				accountService,
+			// Fetch accounts and gateways to save metadata (not tokens) via the shared
+			// provisioning service (also used by the Cloudflare-login auto-connect path).
+			const provisioning = new CloudflareProvisioningService(env);
+			const { accountCount, hasActiveGateway } = await provisioning.provisionFromToken(
 				tokens.accessToken,
-				parsedState.userId
+				parsedState.userId,
 			);
-
-			// Check if user has an active gateway configured after processing
-			const hasActiveGateway = await accountService.getSelectedGatewayWithAccount(parsedState.userId) !== null;
 
 			// Encrypt tokens on the backend before sending to browser
 			// Include userId to bind token to this specific user (prevents token theft/replay)
@@ -208,7 +221,7 @@ export class CloudflareConnectController extends BaseController {
 
 			const successUrl = new URL(finalRedirectUrl);
 			successUrl.searchParams.set('cloudflare', 'connected');
-			successUrl.searchParams.set('accounts', accounts.length.toString());
+			successUrl.searchParams.set('accounts', accountCount.toString());
 			if (!hasActiveGateway) {
 				successUrl.searchParams.set('config_needed', 'true');
 			}
@@ -237,159 +250,5 @@ export class CloudflareConnectController extends BaseController {
 				headers: { Location: errorUrl.toString(), 'Set-Cookie': clearVerifierCookie },
 			});
 		}
-	}
-
-	/**
-	 * Process all accounts and their gateways
-	 */
-	private static async processAllAccounts(
-		accounts: CloudflareAccount[],
-		accountService: CloudflareAccountService,
-		accessToken: string,
-		userId: string
-	): Promise<void> {
-		// Check once: should we activate the first gateway?
-		const hasExistingGateways = await accountService.hasExistingGateways(userId);
-		const shouldActivateFirstGateway = !hasExistingGateways;
-
-		let totalGatewaysSoFar = 0;
-
-		for (let i = 0; i < accounts.length; i++) {
-			const account = accounts[i];
-			const accountDbId = await accountService.saveAccount(
-				userId,
-				account.id,
-				account.name,
-				account.email
-			);
-
-			const { gatewayCount } = await this.processAccountGateways(
-				accountService,
-				accessToken,
-				userId,
-				account,
-				accountDbId,
-				shouldActivateFirstGateway && totalGatewaysSoFar === 0
-			);
-
-			// Count gateways to know when to stop activating
-			totalGatewaysSoFar += gatewayCount;
-		}
-	}
-
-	/**
-	 * Process gateways for a single account
-	 */
-	private static async processAccountGateways(
-		accountService: CloudflareAccountService,
-		accessToken: string,
-		userId: string,
-		account: CloudflareAccount,
-		accountDbId: string,
-		shouldActivateFirst: boolean
-	): Promise<{ savedGateways: string[]; gatewayCount: number }> {
-		// Fetch or create gateways
-		const { gateways, autoCreatedGatewayId } = await this.ensureAccountHasGateways(
-			accountService,
-			accessToken,
-			userId,
-			account
-		);
-
-		// Only auto-activate if there's exactly 1 gateway AND user has no existing gateways
-		// If there are multiple gateways, user should manually select
-		const shouldActivate = shouldActivateFirst && gateways.length === 1;
-
-		// Save all gateways
-		const savedGateways = await this.saveGateways(
-			accountService,
-			accessToken,
-			userId,
-			accountDbId,
-			account.id,
-			gateways,
-			autoCreatedGatewayId,
-			shouldActivate
-		);
-
-		return { savedGateways, gatewayCount: gateways.length };
-	}
-
-	/**
-	 * Ensure account has at least one gateway (auto-create if needed)
-	 */
-	private static async ensureAccountHasGateways(
-		accountService: CloudflareAccountService,
-		accessToken: string,
-		userId: string,
-		account: CloudflareAccount
-	): Promise<{ gateways: AIGateway[]; autoCreatedGatewayId: string | null }> {
-		let gateways = await accountService.fetchAIGateways(accessToken, account.id);
-		let autoCreatedGatewayId: string | null = null;
-
-		if (gateways.length === 0) {
-			this.logger.info('No gateways found, auto-creating one', {
-				userId,
-				accountId: account.id
-			});
-
-			const newGateway = await accountService.createAIGateway(
-				accessToken,
-				account.id,
-				`${account.name.toLowerCase().replace(/[^a-z0-9]/g, '-')}-gateway`
-			);
-
-			if (newGateway) {
-				gateways = [newGateway];
-				autoCreatedGatewayId = newGateway.id;
-				this.logger.info('Successfully auto-created gateway', {
-					gatewayId: newGateway.id
-				});
-			}
-		}
-
-		return { gateways, autoCreatedGatewayId };
-	}
-
-	/**
-	 * Save all gateways for an account
-	 */
-	private static async saveGateways(
-		accountService: CloudflareAccountService,
-		accessToken: string,
-		userId: string,
-		accountDbId: string,
-		accountId: string,
-		gateways: AIGateway[],
-		autoCreatedGatewayId: string | null,
-		shouldActivateFirst: boolean
-	): Promise<string[]> {
-		const savedGatewayIds: string[] = [];
-
-		for (let i = 0; i < gateways.length; i++) {
-			const gateway = gateways[i];
-			const autoCreated = gateway.id === autoCreatedGatewayId;
-
-			const credits = await accountService.fetchGatewayCredits(
-				accessToken,
-				accountId,
-				gateway.id
-			);
-
-			const savedGatewayId = await accountService.saveGateway(
-				userId,
-				accountDbId,
-				gateway.id,
-				gateway.name,
-				gateway.slug,
-				autoCreated,
-				credits,
-				shouldActivateFirst && i === 0
-			);
-
-			savedGatewayIds.push(savedGatewayId);
-		}
-
-		return savedGatewayIds;
 	}
 }

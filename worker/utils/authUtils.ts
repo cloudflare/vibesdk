@@ -309,9 +309,23 @@ export function validateRedirectUrl(redirectUrl: string, request: Request): stri
 			return null;
 		}
 
-		const forbiddenPaths = ['/api/auth/', '/logout', '/api/github-exporter/'];
+		// Block paths that themselves initiate privileged/auth-mutating flows. Notably
+		// `/oauth/` and `/auth/` (Cloudflare account linking) — without these, a post-login
+		// open-forward can chain straight into account linking.
+		const forbiddenPaths = ['/api/auth/', '/logout', '/api/github-exporter/', '/oauth/', '/auth/'];
 		if (forbiddenPaths.some(path => redirectUrlObj.pathname.startsWith(path))) {
 			logger.warn('Redirect URL rejected: forbidden path', {
+				redirectUrl,
+				pathname: redirectUrlObj.pathname
+			});
+			return null;
+		}
+
+		// Reject nested redirect parameters that could re-trigger another flow after this
+		// redirect resolves (e.g. /oauth/login?return_url=/settings smuggled via a path).
+		const nestedRedirectParams = ['return_url', 'redirect_url', 'continue'];
+		if (nestedRedirectParams.some(param => redirectUrlObj.searchParams.has(param))) {
+			logger.warn('Redirect URL rejected: nested redirect parameter', {
 				redirectUrl,
 				pathname: redirectUrlObj.pathname
 			});

@@ -21,13 +21,14 @@ interface AuthContextType {
   authProviders: {
     google: boolean;
     github: boolean;
+    cloudflare: boolean;
     email: boolean;
   } | null;
   hasOAuth: boolean;
   requiresEmailAuth: boolean;
   
   // OAuth login method with redirect support
-  login: (provider: 'google' | 'github', redirectUrl?: string) => void;
+  login: (provider: 'google' | 'github' | 'cloudflare', redirectUrl?: string) => void;
   
   // Email/password login method
   loginWithEmail: (credentials: { email: string; password: string }) => Promise<void>;
@@ -54,7 +55,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<AuthSession | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [authProviders, setAuthProviders] = useState<{ google: boolean; github: boolean; email: boolean; } | null>(null);
+  const [authProviders, setAuthProviders] = useState<{ google: boolean; github: boolean; cloudflare: boolean; email: boolean; } | null>(null);
   const [hasOAuth, setHasOAuth] = useState<boolean>(false);
   const [requiresEmailAuth, setRequiresEmailAuth] = useState<boolean>(true);
   const navigate = useNavigate();
@@ -106,7 +107,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch (error) {
       console.warn('Failed to fetch auth providers:', error);
       // Fallback to defaults
-      setAuthProviders({ google: false, github: false, email: true });
+      setAuthProviders({ google: false, github: false, cloudflare: false, email: true });
       setHasOAuth(false);
       setRequiresEmailAuth(true);
     }
@@ -189,7 +190,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [fetchAuthProviders, checkAuth]);
 
   // OAuth login method with redirect support
-  const login = useCallback((provider: 'google' | 'github', redirectUrl?: string) => {
+  const login = useCallback((provider: 'google' | 'github' | 'cloudflare', redirectUrl?: string) => {
     // Store intended redirect URL if provided, otherwise use current location
     const intendedUrl = redirectUrl || window.location.pathname + window.location.search;
     setIntendedUrl(intendedUrl);

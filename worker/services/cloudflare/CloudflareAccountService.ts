@@ -241,6 +241,20 @@ export class CloudflareAccountService extends BaseService {
 	}
 
 	/**
+	 * Permanently remove all of a user's Cloudflare account + gateway rows.
+	 *
+	 * Used by disconnect so a revoked connection leaves no stale server-side state
+	 * (closes the persistence half of the account-hijack chain).
+	 * Runs both deletes in a single D1 batch so partial failure cannot leave orphans.
+	 */
+	async deleteAllForUser(userId: string): Promise<void> {
+		await this.database.batch([
+			this.database.delete(schema.aiGateways).where(eq(schema.aiGateways.userId, userId)),
+			this.database.delete(schema.cloudflareAccounts).where(eq(schema.cloudflareAccounts.userId, userId)),
+		]);
+	}
+
+	/**
 	 * Check if user has any existing accounts
 	 */
 	async hasExistingAccounts(userId: string): Promise<boolean> {

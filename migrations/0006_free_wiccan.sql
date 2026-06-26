@@ -1,0 +1,1 @@
+ALTER TABLE `users` ADD `ai_gateway_enabled` integer;

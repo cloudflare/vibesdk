@@ -18,6 +18,20 @@ const DEV_COOKIE = 'cf_oauth_token';
 const VERIFIER_COOKIE = '__cf_oauth_verifier';
 export const VERIFIER_COOKIE_TTL_SECONDS = 10 * 60;
 
+/**
+ * Short-lived nonce cookie that binds an OAuth login `state` to the browser that
+ * initiated the flow. Prevents login-CSRF / session fixation:
+ * a callback replayed in a different browser will not carry the matching nonce.
+ * Prod uses the `__Host-` prefix; dev drops it (and Secure) for plain http.
+ */
+const PROD_NONCE_COOKIE = '__Host-oauth_nonce';
+const DEV_NONCE_COOKIE = 'oauth_nonce';
+export const NONCE_COOKIE_TTL_SECONDS = 10 * 60;
+
+function nonceCookieName(env: Env): string {
+	return isDev(env) ? DEV_NONCE_COOKIE : PROD_NONCE_COOKIE;
+}
+
 /** Default to 30 days; callers can override based on the refresh-token lifetime. */
 const DEFAULT_MAX_AGE_SECONDS = 30 * 24 * 60 * 60;
 
@@ -68,4 +82,19 @@ export function buildClearVerifierCookie(env: Env): string {
 /** Read the PKCE verifier cookie value, if present. */
 export function readVerifierCookie(request: Request | undefined | null): string | null {
 	return readRequestCookie(request, VERIFIER_COOKIE);
+}
+
+/** Build a Set-Cookie header value that installs the OAuth state nonce. */
+export function buildOAuthNonceCookie(env: Env, nonce: string, maxAgeSeconds: number = NONCE_COOKIE_TTL_SECONDS): string {
+	return `${nonceCookieName(env)}=${encodeURIComponent(nonce)}; ${baseAttributes(env)}; Max-Age=${maxAgeSeconds}`;
+}
+
+/** Build a Set-Cookie header value that clears the OAuth state nonce cookie. */
+export function buildClearOAuthNonceCookie(env: Env): string {
+	return `${nonceCookieName(env)}=; ${baseAttributes(env)}; Max-Age=0`;
+}
+
+/** Read the OAuth state nonce cookie value, if present. */
+export function readOAuthNonceCookie(request: Request | undefined | null, env: Env): string | null {
+	return readRequestCookie(request, nonceCookieName(env));
 }

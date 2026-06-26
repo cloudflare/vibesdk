@@ -31,4 +31,16 @@ export function setupCloudflareAccountRoutes(app: Hono<AppEnv>): void {
 		setAuthLevel(AuthConfig.authenticated),
 		adaptController(CloudflareAccountController, CloudflareAccountController.disconnect)
 	);
+
+	// Get/set whether the user's own AI Gateway is used for inference
+	app.get(
+		'/api/cloudflare/ai-gateway-preference',
+		setAuthLevel(AuthConfig.authenticated),
+		adaptController(CloudflareAccountController, CloudflareAccountController.getAiGatewayPreference)
+	);
+	app.put(
+		'/api/cloudflare/ai-gateway-preference',
+		setAuthLevel(AuthConfig.authenticated),
+		adaptController(CloudflareAccountController, CloudflareAccountController.setAiGatewayPreference)
+	);
 }

@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
+import { Switch } from '@/components/ui/switch';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { toast } from 'sonner';
 import { apiClient } from '@/lib/api-client';
@@ -54,6 +55,35 @@ export function CloudflareAccountSelector() {
 	// transparently, so the client only needs to know if it still exists.
 	const { data: limitsData, refetch: refreshLimits } = useLimitsContext();
 	const isConnected = !!limitsData?.hasUserToken;
+
+	// AI Gateway usage toggle. Reflects the resolved server preference; updates optimistically.
+	const [aiGatewayEnabled, setAiGatewayEnabled] = useState<boolean>(false);
+	const [togglingGateway, setTogglingGateway] = useState(false);
+	useEffect(() => {
+		if (typeof limitsData?.aiGatewayEnabled === 'boolean') {
+			setAiGatewayEnabled(limitsData.aiGatewayEnabled);
+		}
+	}, [limitsData?.aiGatewayEnabled]);
+
+	const handleToggleAiGateway = async (next: boolean) => {
+		const previous = aiGatewayEnabled;
+		setAiGatewayEnabled(next);
+		setTogglingGateway(true);
+		try {
+			const response = await apiClient.setAiGatewayPreference(next);
+			if (response.success && response.data) {
+				setAiGatewayEnabled(response.data.enabled);
+			} else {
+				setAiGatewayEnabled(previous);
+			}
+			await refreshLimits?.();
+		} catch (error) {
+			console.error('Error updating AI Gateway preference:', error);
+			setAiGatewayEnabled(previous);
+		} finally {
+			setTogglingGateway(false);
+		}
+	};
 
 	// Fetch accounts and gateways
 	useEffect(() => {
@@ -282,6 +312,25 @@ export function CloudflareAccountSelector() {
 					</div>
 				) : (
 					<>
+						<div className="flex items-start justify-between gap-4 rounded-lg border p-3">
+							<div className="space-y-0.5">
+								<Label htmlFor="ai-gateway-toggle" className="text-sm font-medium">
+									Use my AI Gateway
+								</Label>
+								<p className="text-xs text-muted-foreground">
+									When enabled, requests run through your Cloudflare AI Gateway and
+									use your own credits. When disabled, the platform's free tier and
+									limits apply.
+								</p>
+							</div>
+							<Switch
+								id="ai-gateway-toggle"
+								checked={aiGatewayEnabled}
+								disabled={togglingGateway}
+								onCheckedChange={handleToggleAiGateway}
+							/>
+						</div>
+
 						<div className="space-y-2">
 							<Label htmlFor="account-select">Cloudflare Account</Label>
 							<Select value={selectedAccountId || undefined} onValueChange={handleAccountChange}>

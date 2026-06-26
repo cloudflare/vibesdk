@@ -36,6 +36,10 @@ export const users = sqliteTable('users', {
     preferences: text('preferences', { mode: 'json' }).default('{}'),
     theme: text('theme', { enum: ['light', 'dark', 'system'] }).default('system'),
     timezone: text('timezone').default('UTC'),
+    // Whether the user's own Cloudflare AI Gateway should be used for inference.
+    // Nullable on purpose: null means "use the derived default" (off for users who
+    // signed in with Cloudflare, on for everyone else who explicitly connected).
+    aiGatewayEnabled: integer('ai_gateway_enabled', { mode: 'boolean' }),
     
     // Account Status
     isActive: integer('is_active', { mode: 'boolean' }).default(true),
@@ -361,7 +365,7 @@ export const authAttempts = sqliteTable('auth_attempts', {
     id: integer('id').primaryKey({ autoIncrement: true }),
     identifier: text('identifier').notNull(),
     attemptType: text('attempt_type', { 
-        enum: ['login', 'register', 'oauth_google', 'oauth_github', 'refresh', 'reset_password'] 
+        enum: ['login', 'register', 'oauth_google', 'oauth_github', 'oauth_cloudflare', 'refresh', 'reset_password'] 
     }).notNull(),
     success: integer('success', { mode: 'boolean' }).notNull(),
     ipAddress: text('ip_address').notNull(),
