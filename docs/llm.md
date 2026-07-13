@@ -73,7 +73,7 @@
 **Prerequisites:**
 - Node.js 18+
 - Cloudflare account (for D1, Durable Objects)
-- API keys: OpenAI, Anthropic, Google AI Studio
+- API keys: OpenAI, Anthropic, Google AI Studio, MiniMax
 
 **Environment Variables:**
 Create `.dev.vars` in project root:
@@ -82,6 +82,7 @@ Create `.dev.vars` in project root:
 OPENAI_API_KEY=sk-...
 ANTHROPIC_API_KEY=sk-ant-...
 GOOGLE_AI_STUDIO_API_KEY=...
+MINIMAX_API_KEY=ey...
 
 # Authentication
 JWT_SECRET=your-secret-key

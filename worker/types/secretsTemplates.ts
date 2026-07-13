@@ -160,6 +160,20 @@ export function getTemplatesData(): SecretTemplate[] {
 			required: false,
 			category: 'byok',
 		},
+		{
+			id: 'MINIMAX_API_KEY_BYOK',
+			displayName: 'MiniMax (BYOK)',
+			envVarName: 'MINIMAX_API_KEY_BYOK',
+			provider: 'minimax',
+			icon: 'M',
+			description:
+				'Use your MiniMax API key for MiniMax models',
+			instructions: 'Go to MiniMax Platform → API Keys → Create new key',
+			placeholder: 'Your MiniMax API key',
+			validation: '^.{10,}$',
+			required: false,
+			category: 'byok',
+		},
 
 		// Development Tools
 		{
