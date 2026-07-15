@@ -1706,7 +1706,8 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
                         message: string,
                         conversationId: string,
                         isStreaming: boolean,
-                        tool?: { name: string; status: 'start' | 'success' | 'error'; args?: Record<string, unknown> }
+                        tool?: { name: string; status: 'start' | 'success' | 'error'; args?: Record<string, unknown> },
+                        reasoning?: { delta?: string; done?: boolean }
                     ) => {
                         // Track conversationId when deep_debug starts
                         if (tool?.name === 'deep_debug' && tool.status === 'start') {
@@ -1718,6 +1719,7 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
                             conversationId,
                             isStreaming,
                             tool,
+                            reasoning,
                         });
                     },
                     errors,

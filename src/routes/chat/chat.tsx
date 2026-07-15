@@ -768,6 +768,7 @@ export default function Chat() {
 							<div className="relative">
 								<AIMessage
 									message={mainMessage.content}
+									parts={mainMessage.parts}
 									isThinking={mainMessage.ui?.isThinking}
 									toolEvents={mainMessage.ui?.toolEvents}
 									richToolPreview={richToolPreview}
@@ -808,6 +809,7 @@ export default function Chat() {
 									<div key={message.conversationId} className="mb-4">
 										<AIMessage
 											message={message.content}
+											parts={message.parts}
 											isThinking={true}
 											toolEvents={message.ui?.toolEvents}
 											richToolPreview={richToolPreview}
@@ -900,6 +902,7 @@ export default function Chat() {
 											<AIMessage
 												key={message.conversationId}
 												message={message.content}
+												parts={message.parts}
 												isThinking={message.ui?.isThinking}
 												toolEvents={message.ui?.toolEvents}
 												richToolPreview={richToolPreview}

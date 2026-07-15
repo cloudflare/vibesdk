@@ -8,11 +8,25 @@ export type ToolEvent = {
     timestamp: number;
     contentLength?: number; // Position in content when event was added (for inline rendering)
     result?: string; // Tool execution result (for completed tools)
-    args?: Record<string, unknown>; // Tool invocation input (think only; populated by handle-websocket-message gating)
+    args?: Record<string, unknown>; // Tool invocation input
+    id?: string; // Provider tool-call id, used to match start->success/error updates
 };
+
+/**
+ * Ordered render model for an assistant turn. `parts` is the single source of
+ * truth for rendering: text, reasoning ("thinking") and tool calls are stored
+ * in true emission order so the live stream and a page reload produce the exact
+ * same sequence. `content` and `ui.toolEvents` are derived mirrors kept in sync
+ * for legacy consumers (dedup, copy actions, the deep-debug bubble).
+ */
+export type MessagePart =
+    | { type: 'text'; text: string }
+    | { type: 'reasoning'; text: string; done?: boolean }
+    | { type: 'tool'; event: ToolEvent };
 
 export type ChatMessage = Omit<ConversationMessage, 'content'> & {
     content: string;
+    parts?: MessagePart[];
     ui?: {
         isThinking?: boolean;
         toolEvents?: ToolEvent[];
@@ -20,6 +34,50 @@ export type ChatMessage = Omit<ConversationMessage, 'content'> & {
     status?: 'queued' | 'active';
     queuePosition?: number;
 };
+
+/** Join the text parts of a message into a single string (dedup/copy/legacy). */
+export function getMessageText(parts: MessagePart[] | undefined): string {
+    if (!parts) return '';
+    return parts
+        .filter((p): p is Extract<MessagePart, { type: 'text' }> => p.type === 'text')
+        .map((p) => p.text)
+        .filter((t) => t.length > 0)
+        .join('\n\n');
+}
+
+/**
+ * Recompute the derived `content` and `ui.toolEvents` mirrors from `parts`.
+ * Called after every part mutation so legacy consumers keep working while
+ * `parts` stays authoritative for ordering.
+ */
+function syncDerived(message: ChatMessage): ChatMessage {
+    const parts = message.parts ?? [];
+    const content = getMessageText(parts);
+    const toolEvents = parts
+        .filter((p): p is Extract<MessagePart, { type: 'tool' }> => p.type === 'tool')
+        .map((p) => p.event);
+    const ui = message.ui ?? {};
+    return {
+        ...message,
+        content,
+        ui: { ...ui, toolEvents: toolEvents.length > 0 ? toolEvents : ui.toolEvents },
+    };
+}
+
+/** Build an assistant ChatMessage from an ordered parts array. */
+export function createAssistantFromParts(
+    conversationId: string,
+    parts: MessagePart[],
+    extra?: Partial<ChatMessage>,
+): ChatMessage {
+    return syncDerived({
+        role: 'assistant',
+        conversationId,
+        content: '',
+        parts,
+        ...extra,
+    });
+}
 
 /**
  * Check if a message ID should appear in conversational chat
@@ -53,6 +111,7 @@ export function createAIMessage(
         role: 'assistant',
         conversationId,
         content,
+        parts: content ? [{ type: 'text', text: content }] : [],
         ui: { isThinking },
     };
 }
@@ -127,173 +186,137 @@ export function addOrUpdateMessage(
     return [...messages, newMessage];
 }
 
-/**
- * Handle streaming conversation messages
- */
-export function handleStreamingMessage(
+/** Find the index of the assistant message for a conversation id, or -1. */
+function findAssistant(messages: ChatMessage[], conversationId: string): number {
+    return messages.findIndex(m => m.conversationId === conversationId && m.role === 'assistant');
+}
+
+/** Mutate the assistant message at `idx` via `fn`, returning a new array. */
+function updateAssistant(
     messages: ChatMessage[],
-    conversationId: string,
-    chunk: string,
-    isNewMessage: boolean
+    idx: number,
+    fn: (parts: MessagePart[]) => MessagePart[],
 ): ChatMessage[] {
-    const existingMessageIndex = messages.findIndex(m => m.conversationId === conversationId && m.role === 'assistant');
-    if (existingMessageIndex !== -1 && !isNewMessage) {
-        // Append chunk to existing assistant message
-        return messages.map((msg, index) =>
-            index === existingMessageIndex
-                ? { ...msg, content: msg.content + chunk }
-                : msg
-        );
-    } else {
-        // Create new streaming assistant message
-        return [...messages, createAIMessage(conversationId, chunk, false)];
-    }
+    return messages.map((m, i) => {
+        if (i !== idx) return m;
+        return syncDerived({ ...m, parts: fn(m.parts ?? []) });
+    });
 }
 
 /**
- * Append or update a tool event
- * - Tool 'start': Add with current position for inline rendering
- * - Tool 'success': Update matching 'start' to 'success' in place (always updates, never adds new)
- * - Tool 'error': Add error event with position for inline rendering
+ * Append a streamed text delta to a conversation's assistant turn. The delta is
+ * concatenated onto the trailing text part (a new text part is opened if the
+ * last part is a reasoning/tool boundary), preserving interleaving with tools.
+ */
+export function appendTextDelta(
+    messages: ChatMessage[],
+    conversationId: string,
+    delta: string,
+): ChatMessage[] {
+    const idx = findAssistant(messages, conversationId);
+    if (idx === -1) {
+        return [...messages, createAssistantFromParts(conversationId, [{ type: 'text', text: delta }])];
+    }
+    return updateAssistant(messages, idx, (parts) => {
+        const last = parts[parts.length - 1];
+        if (last && last.type === 'text') {
+            return [...parts.slice(0, -1), { type: 'text', text: last.text + delta }];
+        }
+        return [...parts, { type: 'text', text: delta }];
+    });
+}
+
+/**
+ * Set the full text of a conversation's assistant turn (finalize path). When the
+ * turn already streamed text parts, this is a no-op for ordering — the streamed
+ * parts already hold the interleaved text. Only used to seed text when nothing
+ * streamed (e.g. a single non-streamed response).
+ */
+export function setAssistantText(
+    messages: ChatMessage[],
+    conversationId: string,
+    fullText: string,
+): ChatMessage[] {
+    const idx = findAssistant(messages, conversationId);
+    if (idx === -1) {
+        return [...messages, createAIMessage(conversationId, fullText)];
+    }
+    return updateAssistant(messages, idx, (parts) => {
+        const hasText = parts.some(p => p.type === 'text' && p.text.length > 0);
+        if (hasText) return parts; // streamed text already present; keep order
+        return [...parts, { type: 'text', text: fullText }];
+    });
+}
+
+/**
+ * Append a streamed reasoning ("thinking") delta. Concatenated onto the trailing
+ * reasoning part unless it was closed (`done`) or a different part type follows,
+ * in which case a new reasoning part is opened.
+ */
+export function appendReasoningDelta(
+    messages: ChatMessage[],
+    conversationId: string,
+    delta: string,
+    done?: boolean,
+): ChatMessage[] {
+    const idx = findAssistant(messages, conversationId);
+    const mkPart = (): MessagePart => ({ type: 'reasoning', text: delta, done });
+    if (idx === -1) {
+        return [...messages, createAssistantFromParts(conversationId, [mkPart()])];
+    }
+    return updateAssistant(messages, idx, (parts) => {
+        const last = parts[parts.length - 1];
+        if (last && last.type === 'reasoning' && !last.done) {
+            return [...parts.slice(0, -1), { type: 'reasoning', text: last.text + delta, done }];
+        }
+        return [...parts, mkPart()];
+    });
+}
+
+/**
+ * Add or update a tool part in emission order.
+ * - `start`: append a new running tool part.
+ * - `success`/`error`: update the matching part in place (matched by tool-call
+ *   `id` when present, else the most recent running part with the same name),
+ *   or append if no prior part exists.
  */
 export function appendToolEvent(
     messages: ChatMessage[],
     conversationId: string,
-    tool: { name: string; status: 'start' | 'success' | 'error'; result?: string; args?: Record<string, unknown> }
+    tool: { name: string; status: 'start' | 'success' | 'error'; result?: string; args?: Record<string, unknown>; id?: string },
 ): ChatMessage[] {
-    const idx = messages.findIndex(m => m.conversationId === conversationId && m.role === 'assistant');
+    const idx = findAssistant(messages, conversationId);
     const timestamp = Date.now();
+    const mkEvent = (existing?: ToolEvent): ToolEvent => ({
+        name: tool.name,
+        status: tool.status,
+        timestamp: existing?.timestamp ?? timestamp,
+        result: tool.result ?? existing?.result,
+        args: tool.args ?? existing?.args,
+        id: tool.id ?? existing?.id,
+    });
 
-    // If message is not present, create a new placeholder assistant message with tool event
     if (idx === -1) {
-        const newMsg: ChatMessage = {
-            role: 'assistant',
-            conversationId,
-            content: '',
-            ui: {
-                toolEvents: [{
-                    name: tool.name,
-                    status: tool.status,
-                    timestamp,
-                    contentLength: 0,
-                    args: tool.args,
-                }]
-            },
-        };
-        return [...messages, newMsg];
+        return [...messages, createAssistantFromParts(conversationId, [{ type: 'tool', event: mkEvent() }])];
     }
 
-    return messages.map((m, i) => {
-        if (i !== idx) return m;
-        
-        const current = m.ui?.toolEvents ?? [];
-        const currentContentLength = m.content.length;
-        
+    return updateAssistant(messages, idx, (parts) => {
         if (tool.status === 'start') {
-            // Add new tool start event with current position
-            return {
-                ...m,
-                ui: {
-                    ...m.ui,
-                    toolEvents: [...current, {
-                        name: tool.name,
-                        status: 'start',
-                        timestamp,
-                        contentLength: currentContentLength,
-                        args: tool.args,
-                    }]
-                }
-            };
+            return [...parts, { type: 'tool', event: mkEvent() }];
         }
-        
-        if (tool.status === 'success') {
-            // Find the matching 'start' event
-            const startEventIndex = current.findIndex(ev => ev.name === tool.name && ev.status === 'start');
-            
-            if (startEventIndex !== -1) {
-                const startEvent = current[startEventIndex];
-                const contentChanged = startEvent.contentLength !== currentContentLength;
-                const isDeepDebug = tool.name === 'deep_debug';
-                
-                // For deep_debug with content changes: add new success event at end (chronological)
-                // For other tools: update in place (avoid duplication)
-                if (isDeepDebug && contentChanged) {
-                    // Remove start event and add success event at current position
-                    return {
-                        ...m,
-                        ui: {
-                            ...m.ui,
-                            toolEvents: [
-                                ...current.filter((_, j) => j !== startEventIndex),
-                                {
-                                    name: tool.name,
-                                    status: 'success' as const,
-                                    timestamp,
-                                    contentLength: currentContentLength,
-                                    result: tool.result,
-                                    args: tool.args ?? startEvent.args,
-                                }
-                            ]
-                        }
-                    };
-                }
-                
-                // Update in place for other tools or when no content changed
-                return {
-                    ...m,
-                    ui: {
-                        ...m.ui,
-                        toolEvents: current.map((ev, j) =>
-                            j === startEventIndex
-                                ? { 
-                                    name: ev.name, 
-                                    status: 'success' as const, 
-                                    timestamp: startEvent.timestamp, // Keep original timestamp for stable React key
-                                    contentLength: ev.contentLength, // Keep original position
-                                    result: tool.result, // Add result if provided
-                                    // Carry args from start event if the success
-                                    // broadcast omits them; the think behavior broadcasts
-                                    // args on every status so this usually
-                                    // overwrites with the same payload.
-                                    args: tool.args ?? ev.args,
-                                  }
-                                : ev
-                        )
-                    }
-                };
-            }
-            
-            // No prior start found, just add success event with position
-            return {
-                ...m,
-                ui: {
-                    ...m.ui,
-                    toolEvents: [...current, {
-                        name: tool.name,
-                        status: 'success',
-                        timestamp,
-                        contentLength: currentContentLength,
-                        result: tool.result,
-                        args: tool.args,
-                    }]
-                }
-            };
+        // Locate the matching tool part to finalize.
+        let matchIndex = -1;
+        for (let i = parts.length - 1; i >= 0; i--) {
+            const p = parts[i];
+            if (p.type !== 'tool') continue;
+            const idMatch = tool.id && p.event.id === tool.id;
+            const nameMatch = !tool.id && p.event.name === tool.name && p.event.status === 'start';
+            if (idMatch || nameMatch) { matchIndex = i; break; }
         }
-        
-        // Error status - add with position for inline rendering
-        return {
-            ...m,
-            ui: {
-                ...m.ui,
-                toolEvents: [...current, {
-                    name: tool.name,
-                    status: 'error',
-                    timestamp,
-                    contentLength: currentContentLength,
-                    result: tool.result,
-                    args: tool.args,
-                }]
-            }
-        };
+        if (matchIndex !== -1) {
+            const existing = (parts[matchIndex] as Extract<MessagePart, { type: 'tool' }>).event;
+            return parts.map((p, i) => (i === matchIndex ? { type: 'tool', event: mkEvent(existing) } : p));
+        }
+        return [...parts, { type: 'tool', event: mkEvent() }];
     });
 }

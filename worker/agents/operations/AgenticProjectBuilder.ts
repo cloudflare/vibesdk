@@ -43,6 +43,7 @@ export interface AgenticProjectBuilderInputs {
     operationalMode: 'initial' | 'followup';
     conversationHistory?: ConversationMessage[];
     streamCb?: (chunk: string) => void;
+    reasoningCb?: (delta: string) => void;
     toolRenderer: RenderToolCall;
     onToolComplete?: (message: Message) => Promise<void>;
     onAssistantMessage?: (message: Message) => Promise<void>;
@@ -114,9 +115,10 @@ export class AgenticProjectBuilderOperation extends AgentOperationWithTools<
         inputs: AgenticProjectBuilderInputs,
         _options: OperationOptions<GenerationContext>
     ): ToolCallbacks {
-        const { streamCb, toolRenderer, onToolComplete, onAssistantMessage } = inputs;
+        const { streamCb, reasoningCb, toolRenderer, onToolComplete, onAssistantMessage } = inputs;
         return {
             streamCb,
+            reasoningCb,
             toolRenderer,
             onToolComplete,
             onAssistantMessage,
