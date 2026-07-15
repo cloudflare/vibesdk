@@ -34,6 +34,7 @@ import { mergeFiles } from '@/utils/file-helpers';
 import { ChatModals } from './components/chat-modals';
 import { MainContentPanel } from './components/main-content-panel';
 import { ChatInput } from './components/chat-input';
+import { ClarifyingQuestionsPopup } from './components/clarifying-questions-popup';
 import { useVault } from '@/hooks/use-vault';
 import { VaultUnlockModal } from '@/components/vault';
 import { useLimitsContext } from '@/contexts/limits-context';
@@ -183,6 +184,10 @@ export default function Chat() {
 		// Externally-sourced session start gate
 		awaitingStartConfirmation,
 		confirmStart,
+		// Clarifying questions popup state
+		clarifyingQuestions,
+		submitClarifyingAnswers,
+		dismissClarifyingQuestions,
 	} = useChat({
 		chatId: urlChatId,
 		query: userQuery,
@@ -940,6 +945,14 @@ export default function Chat() {
 					chatFormRef={chatFormRef}
 					limitsData={limitsData}
 					onConnectCloudflare={() => { window.location.href = `/oauth/login?return_url=${encodeURIComponent(window.location.href)}`; }}
+					aboveContent={
+						<ClarifyingQuestionsPopup
+							questions={clarifyingQuestions ?? []}
+							open={clarifyingQuestions !== null && clarifyingQuestions.length > 0}
+							onSubmit={submitClarifyingAnswers}
+							onDismiss={dismissClarifyingQuestions}
+						/>
+					}
 				/>
 				</motion.div>
 

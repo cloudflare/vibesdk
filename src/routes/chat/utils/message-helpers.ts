@@ -12,6 +12,69 @@ export type ToolEvent = {
     id?: string; // Provider tool-call id, used to match start->success/error updates
 };
 
+export type ClarifyingQuestion = {
+    question: string;
+    options?: string[];
+    allow_multiple?: boolean;
+    allow_custom?: boolean;
+};
+
+export type ClarifyingQuestionsPayload = {
+    questions: ClarifyingQuestion[];
+};
+
+/** Best-effort extraction of `ask_questions` arguments from a tool event. */
+export function parseClarifyingQuestions(event: ToolEvent): ClarifyingQuestion[] {
+    if (!event.args || typeof event.args !== 'object') return [];
+    const { args } = event;
+    const raw = (('questions' in args) && args.questions) || undefined;
+    if (!Array.isArray(raw)) return [];
+    return raw
+        .filter((q): q is Record<string, unknown> => q && typeof q === 'object')
+        .map((q) => ({
+            question: typeof q.question === 'string' ? q.question : '',
+            options: Array.isArray(q.options)
+                ? q.options.filter((o): o is string => typeof o === 'string')
+                : undefined,
+            allow_multiple: typeof q.allow_multiple === 'boolean' ? q.allow_multiple : undefined,
+            allow_custom: typeof q.allow_custom === 'boolean' ? q.allow_custom : undefined,
+        }))
+        .filter((q) => q.question.trim().length > 0);
+}
+
+/**
+ * Locate the most recent `ask_questions` tool event in a list of chat messages.
+ * Returns the parsed questions plus the message index that owns the event so the
+ * popup can reopen if the user has not yet answered.
+ */
+export function findPendingClarifyingQuestions(messages: ChatMessage[]): {
+    questions: ClarifyingQuestion[];
+    messageIndex: number;
+} | null {
+    for (let i = messages.length - 1; i >= 0; i--) {
+        const m = messages[i];
+        if (m.role !== 'assistant' || !m.parts) continue;
+        for (let j = m.parts.length - 1; j >= 0; j--) {
+            const part = m.parts[j];
+            if (part.type !== 'tool' || part.event.name !== 'ask_questions') continue;
+            if (part.event.status !== 'success') continue;
+            const questions = parseClarifyingQuestions(part.event);
+            if (questions.length > 0) {
+                return { questions, messageIndex: i };
+            }
+        }
+    }
+    return null;
+}
+
+/**
+ * Returns true if the user has already submitted an answer after the given
+ * assistant message index. Used on reload to decide whether to reopen the popup.
+ */
+export function hasAnswerAfterMessage(messages: ChatMessage[], messageIndex: number): boolean {
+    return messages.some((m, idx) => idx > messageIndex && m.role === 'user');
+}
+
 /**
  * Ordered render model for an assistant turn. `parts` is the single source of
  * truth for rendering: text, reasoning ("thinking") and tool calls are stored

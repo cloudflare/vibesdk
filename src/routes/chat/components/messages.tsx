@@ -4,8 +4,9 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeExternalLinks from 'rehype-external-links';
 import { NO_IMAGE_MARKDOWN_COMPONENTS } from './markdown-components';
-import { LoaderCircle, Check, AlertTriangle, ChevronDown, ChevronRight, MessageSquare, Brain, Wrench, Sparkles, CircleX } from 'lucide-react';
+import { LoaderCircle, Check, AlertTriangle, ChevronDown, ChevronRight, MessageSquare, Brain, Wrench, Sparkles, CircleX, HelpCircle } from 'lucide-react';
 import type { ToolEvent, MessagePart } from '../utils/message-helpers';
+import { parseClarifyingQuestions } from '../utils/message-helpers';
 import type { ConversationMessage } from '@/api-types';
 import { useState, useEffect, useRef } from 'react';
 import { DebugSessionBubble } from './debug-session-bubble';
@@ -182,7 +183,7 @@ function ToolEventExpandedPanel({ event }: { event: ToolEvent }) {
 			{showOutput && (
 				<div className="flex flex-col gap-1">
 					<div className="text-[10px] uppercase tracking-wide text-text-tertiary">Output</div>
-					<ToolResultRenderer result={event.result!} toolName={event.name} />
+					<ToolResultRenderer result={event.result!} toolName={event.name} event={event} />
 				</div>
 			)}
 		</div>
@@ -259,13 +260,41 @@ function DeepDebugTranscript({ transcript }: { transcript: ConversationMessage[]
 	);
 }
 
-function ToolResultRenderer({ result, toolName }: { result: string; toolName: string }) {
+function ClarifyingQuestionsResult({ event }: { event: ToolEvent }) {
+	const questions = parseClarifyingQuestions(event);
+	if (questions.length === 0) return <JsonRenderer data={event.args ?? event.result} />;
+
+	return (
+		<div className="flex flex-col gap-3">
+			{questions.map((q, i) => (
+				<div key={i} className="flex flex-col gap-1.5">
+					<div className="flex items-center gap-1.5 text-text-primary font-medium">
+						<HelpCircle className="size-3.5 text-brand" />
+						<span>{q.question}</span>
+					</div>
+					{q.options && q.options.length > 0 && (
+						<div className="text-xs text-text-secondary pl-5">
+							Options: {q.options.join(', ')}
+						</div>
+					)}
+				</div>
+			))}
+		</div>
+	);
+}
+
+function ToolResultRenderer({ result, toolName, event }: { result: string; toolName: string; event?: ToolEvent }) {
 	try {
 		const parsed = JSON.parse(result);
 		
 		// Special handling for deep_debug transcript
 		if (toolName === 'deep_debug' && Array.isArray(parsed.transcript)) {
 			return <DeepDebugTranscript transcript={parsed.transcript} />;
+		}
+		
+		// Special handling for ask_questions clarifying questions
+		if (toolName === 'ask_questions' && event) {
+			return <ClarifyingQuestionsResult event={event} />;
 		}
 		
 		return <JsonRenderer data={parsed} />;
@@ -339,7 +368,7 @@ export function ToolStatusIndicator({ event, richToolPreview = false }: { event:
 					{richToolPreview ? (
 						<ToolEventExpandedPanel event={event} />
 					) : (
-						event.result && <ToolResultRenderer result={event.result} toolName={event.name} />
+						event.result && <ToolResultRenderer result={event.result} toolName={event.name} event={event} />
 					)}
 				</div>
 			)}
@@ -488,7 +517,7 @@ function ToolCard({ event }: { event: ToolEvent }) {
 					{hasOutput && (
 						<div className="flex flex-col gap-1">
 							<div className="text-[10px] uppercase tracking-wide text-text-tertiary">Output</div>
-							<ToolResultRenderer result={event.result!} toolName={event.name} />
+							<ToolResultRenderer result={event.result!} toolName={event.name} event={event} />
 						</div>
 					)}
 				</div>

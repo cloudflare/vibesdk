@@ -22,6 +22,9 @@ import {
     type ChatMessage,
     type MessagePart,
     type ToolEvent,
+    parseClarifyingQuestions,
+    findPendingClarifyingQuestions,
+    hasAnswerAfterMessage,
 } from './message-helpers';
 import { completeStages, type ProjectStage } from './project-stage-helpers';
 import { sendWebSocketMessage } from './websocket-helpers';
@@ -77,6 +80,7 @@ export interface HandleMessageDeps {
     clearDeploymentTimeout?: () => void;
 
     setBackendErrorDialog: React.Dispatch<React.SetStateAction<BackendErrorDialogState>>;
+    setClarifyingQuestions?: React.Dispatch<React.SetStateAction<import('./message-helpers').ClarifyingQuestion[] | null>>;
     
     // Current state
     isInitialStateRestored: boolean;
@@ -156,6 +160,7 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
             setInternalProjectType,
             setTemplateDetails,
             setBackendErrorDialog,
+            setClarifyingQuestions,
             isInitialStateRestored,
             blueprint,
             query,
@@ -562,6 +567,13 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
                 if (restoredMessages.length > 0) {
                     // Deduplicate assistant messages with identical content (even if separated by tool messages)
                     const deduplicated = deduplicateMessages(restoredMessages);
+
+                    // Reopen the clarifying questions popup if an unanswered
+                    // `ask_questions` tool exists in the restored transcript.
+                    const pending = findPendingClarifyingQuestions(deduplicated);
+                    if (pending && !hasAnswerAfterMessage(deduplicated, pending.messageIndex)) {
+                        setClarifyingQuestions?.(pending.questions);
+                    }
                     
                     logger.debug('Merging conversation_state with', deduplicated.length, 'messages (', restoredMessages.length - deduplicated.length, 'duplicates removed)');
                     setMessages(prev => {
@@ -984,6 +996,14 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
                         args: tool.args,
                         id: tool.id,
                     }));
+
+                    // Surface clarifying questions to the frontend popup.
+                    if (tool.name === 'ask_questions' && tool.status === 'success' && tool.args) {
+                        const questions = parseClarifyingQuestions({ name: tool.name, status: tool.status, args: tool.args, timestamp: Date.now() });
+                        if (questions.length > 0 && setClarifyingQuestions) {
+                            setClarifyingQuestions(questions);
+                        }
+                    }
 
                     // Refresh the preview iframe when the `deploy` tool
                     // finishes — the SpaceDO has just produced a new build and

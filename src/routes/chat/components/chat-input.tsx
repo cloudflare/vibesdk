@@ -1,4 +1,4 @@
-import { type FormEvent, type RefObject } from 'react';
+import { type FormEvent, type ReactNode, type RefObject } from 'react';
 import { WebSocket } from 'partysocket';
 import { Square } from 'lucide-react';
 import { PromptBox } from '@/components/prompt-box';
@@ -43,6 +43,9 @@ interface ChatInputProps {
 	// Usage limits
 	limitsData?: UsageSummary | null;
 	onConnectCloudflare?: () => void;
+
+	// Content tucked behind the top of the input box
+	aboveContent?: ReactNode;
 }
 
 export function ChatInput({
@@ -63,6 +66,7 @@ export function ChatInput({
 	chatFormRef,
 	limitsData,
 	onConnectCloudflare,
+	aboveContent,
 }: ChatInputProps) {
 	const handleStopGeneration = () => {
 		if (websocket) {
@@ -106,6 +110,7 @@ export function ChatInput({
 			onConnectCloudflare={onConnectCloudflare}
 			variant="compact"
 			rightActions={stopButton}
+			aboveContent={aboveContent}
 			maxWords={4000}
 			formRef={chatFormRef}
 			className="shrink-0 p-4 pb-5 bg-transparent"
