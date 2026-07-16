@@ -629,7 +629,7 @@ export function AIMessage({
 			<div className="align-text-top pl-1">
 				<AIAvatar className="size-6 text-orange-500" />
 			</div>
-			<div className="flex flex-col gap-2 min-w-0">
+			<div className="flex flex-col gap-2 min-w-0 flex-1">
 				<div className="font-mono font-medium text-text-50 flex items-center gap-2">
 					Orange
 					{isThinking && <Sparkles className="size-3 text-orange-400 animate-pulse" />}
