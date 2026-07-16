@@ -1,10 +1,17 @@
 import type { Git } from "@cloudflare/shell/git"
 import type { Workspace } from "@cloudflare/shell"
 import { createApp, createWorker, type AssetConfig, type Modules } from "@cloudflare/worker-bundler"
-import { jsonResponse } from "./git-pack"
 import { parseWranglerConfig, WranglerConfigError } from "./wrangler-config"
 
 // ─── Deploy Engine ──────────────────────────────────────────────────────────
+
+/** Shared JSON response helper for the internal deploy command handlers. */
+function jsonResponse(data: unknown, status: number = 200): Response {
+  return new Response(JSON.stringify(data), {
+    status,
+    headers: { "Content-Type": "application/json" },
+  })
+}
 
 export interface DeployContext {
   sql: SqlStorage
@@ -57,7 +64,10 @@ async function readBranchFiles(
 
   for (const fileInfo of allFiles) {
     if (fileInfo.type !== "file") continue
+    // Skip git's object store and the ArtifactsFileSystem bookkeeping dir —
+    // neither is part of the app and must never ship in a deploy bundle.
     if (fileInfo.path.startsWith("/.git/") || fileInfo.path === "/.git") continue
+    if (fileInfo.path.startsWith("/.afs/") || fileInfo.path === "/.afs") continue
 
     const content = await ctx.workspace.readFile(fileInfo.path)
     if (content !== null) {

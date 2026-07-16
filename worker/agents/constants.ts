@@ -101,6 +101,9 @@ export const WebSocketMessageRequests = {
     CAPTURE_SCREENSHOT: 'capture_screenshot',
     STOP_GENERATION: 'stop_generation',
     RESUME_GENERATION: 'resume_generation',
+
+    // Restore a prior commit (think/SpaceDO only)
+    ROLLBACK_TO_COMMIT: 'rollback_to_commit',
     
     // GitHub export request
     GITHUB_EXPORT: 'github_export',

@@ -77,6 +77,12 @@
             "remote": true
         }
     ],
+    "artifacts": [
+        {
+            "binding": "ARTIFACTS",
+            "namespace": "vibesdk-production"
+        }
+    ],
 	"containers": [
 		{
 			"class_name": "UserAppSandboxService",

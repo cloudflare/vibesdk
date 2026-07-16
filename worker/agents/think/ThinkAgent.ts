@@ -18,6 +18,7 @@ import { createThinkSkillSource } from './skills';
 import { createAskQuestionsTool } from './ask-questions-tool';
 import { createBrowserConsoleLogsTool } from './browser-logs-tool';
 import { createDeploySpaceTool } from './deploy-tool';
+import { createCommitTool } from './commit-tool';
 import { createSetTitleTool } from './set-title-tool';
 
 /**
@@ -299,6 +300,8 @@ export class ThinkAgent extends Think<Env> {
 			find: createFindTool({ ops }),
 			grep: createGrepTool({ ops }),
 			delete: createDeleteTool({ ops }),
+			// Save a restore point without deploying. The model decides when.
+			commit: createCommitTool({ getStub: () => this.getSpaceStub() }),
 			// Commit + deploy the SpaceDO branch so the preview rebuilds.
 			deploy_space: createDeploySpaceTool({ getStub: () => this.getSpaceStub() }),
 			// Set the project's short display title (host observes the output).

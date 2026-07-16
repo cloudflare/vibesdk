@@ -302,6 +302,9 @@ export class ThinkCodingBehavior
 			'2. Then call `get_browser_console_logs` to inspect the running preview for client-side errors (JS exceptions, failed fetches, missing assets, hydration errors).',
 			'3. If the deploy reports build errors or the console shows errors, fix the code and repeat from step 1 until the deploy succeeds and the console is clean.',
 			'A building turn should finish with a successful `deploy_space` and a clean `get_browser_console_logs` check.',
+			'',
+			'## Commits & restore points',
+			'Each commit is a restore point the user can roll back to, and YOU decide when to create them. Use the `commit` tool to snapshot a coherent unit of work with a short, descriptive message (e.g. before a risky refactor, or after finishing a feature). You do not need to `commit` right before `deploy_space` — deploying already commits. Do not commit after every tiny edit; group related changes into meaningful restore points.',
 		].join('\n');
 	}
 
@@ -464,9 +467,9 @@ export class ThinkCodingBehavior
 				this.setMVPGenerated();
 			}
 
-			// Deploys (and the preview) are driven entirely by the model calling
-			// `deploy_space`; its tool output surfaces the preview via
-			// `handleDeploySpaceOutput`. The harness no longer deploys on its own.
+			// Commits (and deploys) are driven entirely by the model: it calls the
+			// `commit` tool to snapshot a restore point when it decides, and
+			// `deploy_space` to build/preview. The harness does neither on its own.
 		}
 	}
 
@@ -711,6 +714,45 @@ export class ThinkCodingBehavior
 			this.broadcast(WebSocketMessageResponses.DEPLOYMENT_COMPLETED, { previewURL: url });
 		} catch (e) {
 			this.logger.warn('Failed to surface preview after deploy_space', e);
+		}
+	}
+
+	/**
+	 * Restore the SpaceDO to a prior commit and redeploy. Driven by the FE
+	 * "Rollback" control on a commit/deploy tool event. Refuses while a
+	 * generation turn is active, then reuses `handleDeploySpaceOutput` so the
+	 * preview + deploy status surface exactly like a model-driven deploy.
+	 */
+	async rollbackToCommit(commitHash: string): Promise<void> {
+		const hash = (commitHash ?? '').trim();
+		if (!hash) {
+			this.broadcast(WebSocketMessageResponses.DEPLOYMENT_FAILED, { error: 'Missing commit hash for rollback' });
+			return;
+		}
+		if (this.isCodeGenerating()) {
+			this.broadcast(WebSocketMessageResponses.DEPLOYMENT_FAILED, {
+				error: 'Cannot roll back while a turn is in progress. Stop generation first.',
+			});
+			return;
+		}
+
+		const branch = this.state.currentBranch || 'main';
+		const space = this.getSpaceStub() as unknown as {
+			rollbackToCommit: (branch: string, commitHash: string) => Promise<unknown>;
+		};
+		try {
+			const output = await space.rollbackToCommit(branch, hash);
+			await this.handleDeploySpaceOutput(output);
+			this.broadcast(WebSocketMessageResponses.CONVERSATION_RESPONSE, {
+				message: `Rolled back to commit \`${hash.slice(0, 8)}\` and redeployed.`,
+				conversationId: IdGenerator.generateConversationId(),
+				isStreaming: false,
+			});
+		} catch (e) {
+			this.logger.warn('SpaceDO.rollbackToCommit failed', e);
+			this.broadcast(WebSocketMessageResponses.DEPLOYMENT_FAILED, {
+				error: e instanceof Error ? e.message : String(e),
+			});
 		}
 	}
 

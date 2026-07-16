@@ -25,6 +25,7 @@ export interface SpaceWorkspaceStub extends DurableObjectStub {
 	): Promise<{ sha: string; message: string }>;
 	gitStatus(): Promise<unknown>;
 	deploy(branch: string): Promise<unknown>;
+	rollbackToCommit(branch: string, commitHash: string): Promise<unknown>;
 }
 
 export type SpaceWorkspaceOps = ReadOperations &
