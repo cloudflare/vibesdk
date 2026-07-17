@@ -50,15 +50,20 @@ function enoent(path: string): Error {
 }
 
 export interface ArtifactsFileSystemOptions {
-  /** Base layer; when omitted or it yields `null`, the FS is a plain overlay. */
-  source?: BaseSnapshotSource
+  /**
+   * Base layer. Always required: the SpaceDO is Artifacts-backed, so the FS is
+   * never a plain overlay. `loadSnapshot()` may still yield `null` for a repo
+   * with no commits yet (a legitimately empty base), in which case the FS acts
+   * as an overlay over nothing until the first commit.
+   */
+  source: BaseSnapshotSource
   /** Branch this FS mirrors (recorded for diagnostics). */
   branch?: string
 }
 
 export class ArtifactsFileSystem implements FileSystem {
   private readonly overlay: FileSystem
-  private readonly source: BaseSnapshotSource | null
+  private readonly source: BaseSnapshotSource
 
   private base: Map<string, BaseEntry> | null = null
   private headOid: string | null = null
@@ -67,9 +72,9 @@ export class ArtifactsFileSystem implements FileSystem {
   private readyPromise: Promise<void> | null = null
   private materializePromise: Promise<void> | null = null
 
-  constructor(overlay: FileSystem, options: ArtifactsFileSystemOptions = {}) {
+  constructor(overlay: FileSystem, options: ArtifactsFileSystemOptions) {
     this.overlay = overlay
-    this.source = options.source ?? null
+    this.source = options.source
   }
 
   // ── Readiness / hydration ───────────────────────────────────────
@@ -112,12 +117,9 @@ export class ArtifactsFileSystem implements FileSystem {
       }
     }
 
-    if (!this.source) {
-      this.base = null
-      return
-    }
     const snapshot = await this.source.loadSnapshot()
     if (!snapshot) {
+      // Repo has no commits yet — a legitimately empty base.
       this.base = null
       return
     }
@@ -128,7 +130,7 @@ export class ArtifactsFileSystem implements FileSystem {
 
   private async materializeAll(): Promise<void> {
     await this.ready()
-    if (!this.base || !this.source) return
+    if (!this.base) return
     for (const [path, entry] of this.base) {
       if (this.whiteouts.has(path)) continue
       if (await this.overlay.exists(path)) continue
@@ -139,7 +141,7 @@ export class ArtifactsFileSystem implements FileSystem {
 
   private async materializeUnder(prefix: string): Promise<void> {
     await this.ready()
-    if (!this.base || !this.source) return
+    if (!this.base) return
     const dirPrefix = prefix.endsWith("/") ? prefix : prefix + "/"
     for (const [path, entry] of this.base) {
       if (path !== prefix && !path.startsWith(dirPrefix)) continue
@@ -153,7 +155,7 @@ export class ArtifactsFileSystem implements FileSystem {
   /** Copy a single base file into the overlay if needed. Returns true if the path is now a file. */
   private async materialize(path: string): Promise<boolean> {
     if (await this.overlay.exists(path)) return true
-    if (isReserved(path) || !this.base || !this.source) return false
+    if (isReserved(path) || !this.base) return false
     if (this.whiteouts.has(path)) return false
     const entry = this.base.get(path)
     if (!entry) return false
@@ -180,7 +182,6 @@ export class ArtifactsFileSystem implements FileSystem {
 
   private async computeSize(entry: BaseEntry): Promise<number> {
     if (entry.size !== undefined) return entry.size
-    if (!this.source) return 0
     const bytes = await this.source.readBlob(entry.oid)
     entry.size = bytes.length
     return entry.size

@@ -26,11 +26,10 @@ export interface Env {
 
   /**
    * Cloudflare Artifacts binding — versioned, git-compatible remote storage
-   * used as the source of truth for each app's history. Optional: when the
-   * host worker doesn't provide it (e.g. local dev), the SpaceDO falls back to
-   * its local git only and skips Artifacts sync.
+   * used as the source of truth for each app's history. Required: the SpaceDO
+   * is Artifacts-backed and throws at construction if this binding is absent.
    */
-  ARTIFACTS?: Artifacts
+  ARTIFACTS: Artifacts
 
   // AI binding (optional — for AI Gateway zero-config fallback)
   AI?: Ai

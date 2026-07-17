@@ -34,18 +34,23 @@ function runContractCase(kase: FsCase) {
 	it(kase.name, async () => {
 		const stub = uniqueStub(kase.name);
 		await runInDurableObject(stub, async (_i, state) => {
-			// No source => the FS must behave exactly like the overlay.
-			const fs = new ArtifactsFileSystem(overlayFor(state.storage.sql));
+			// Empty base => the FS must behave exactly like the overlay. This is the
+			// drop-in-equivalence guarantee: an Artifacts repo with no commits yet
+			// is indistinguishable from a plain WorkspaceFileSystem.
+			const fs = new ArtifactsFileSystem(overlayFor(state.storage.sql), {
+				source: new FakeBaseSource({}),
+				branch: 'main',
+			});
 			await kase.run(fs);
 		});
 	});
 }
 
-describe('ArtifactsFileSystem (no base) — FileSystem contract', () => {
+describe('ArtifactsFileSystem (empty base) — FileSystem contract', () => {
 	for (const kase of fileSystemContractCases) runContractCase(kase);
 });
 
-describe('ArtifactsFileSystem (no base) — git-on-FS contract', () => {
+describe('ArtifactsFileSystem (empty base) — git-on-FS contract', () => {
 	for (const kase of gitOnFsCases) runContractCase(kase);
 });
 

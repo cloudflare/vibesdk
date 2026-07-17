@@ -19,6 +19,7 @@ export const WebSocketMessageResponses: Record<string, WebSocketMessageType> = {
     FILE_CHUNK_GENERATED: 'file_chunk_generated',
     FILE_GENERATING: 'file_generating',
     FILE_GENERATED: 'file_generated',
+    FILE_DELETED: 'file_deleted',
     FILE_REGENERATING: 'file_regenerating',
     FILE_REGENERATED: 'file_regenerated',
 

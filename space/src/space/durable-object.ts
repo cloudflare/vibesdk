@@ -93,17 +93,16 @@ const ASSET_CACHE_TTL_MS = 5 * 60 * 1000 // 5 minutes
 export class SpaceDO extends DurableObject<Env> {
   private workspace: Workspace
   private fs: FileSystem
-  // Non-null only when the Artifacts binding is present: the base-aware overlay
-  // FS whose readiness/materialization gates the DO drives explicitly.
-  private afs: ArtifactsFileSystem | null = null
+  // The base-aware overlay FS whose readiness/materialization gates the DO
+  // drives explicitly. Always present: the SpaceDO requires the Artifacts binding.
+  private afs: ArtifactsFileSystem
   private git: Git
   private stateBackend: FileSystemStateBackend
   private initialized = false
   // Keyed by `${branch}:${commitHash}` — commitHash makes redeploys self-invalidate.
   private assetCache = new Map<string, CachedAssets>()
-  // Lazily constructed once we know the Artifacts binding is present. `null`
-  // means "resolved to unavailable" (no binding) so we don't retry every call.
-  private artifactsSync?: ArtifactsSync | null
+  // Lazily constructed on first use (bound to the overlay-aware git/FS).
+  private artifactsSync?: ArtifactsSync
 
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env)
@@ -113,37 +112,38 @@ export class SpaceDO extends DurableObject<Env> {
       name: () => ctx.id.name ?? "space",
     })
 
-    const overlay = new WorkspaceFileSystem(this.workspace)
-    if (env.ARTIFACTS) {
-      // Base = the app's Artifacts branch, fetched into the overlay `.git` by a
-      // dedicated sync bound to the overlay (kept separate from the push-sync so
-      // fetch never re-enters the overlay-aware FS mid-initialization).
-      const repoName = ctx.id.name ?? "space"
-      const fetchSync = new ArtifactsSync(env.ARTIFACTS, createGit(overlay), repoName)
-      const source = createArtifactsBaseSource({
-        overlay,
-        branch: ARTIFACTS_BASE_BRANCH,
-        fetchBranch: () => fetchSync.fetch(ARTIFACTS_BASE_BRANCH),
-      })
-      this.afs = new ArtifactsFileSystem(overlay, { source, branch: ARTIFACTS_BASE_BRANCH })
-      this.fs = this.afs
-    } else {
-      this.fs = overlay
+    if (!env.ARTIFACTS) {
+      // The SpaceDO is Artifacts-backed; there is no plain-overlay fallback.
+      throw new Error("SpaceDO requires the ARTIFACTS binding")
     }
+
+    const overlay = new WorkspaceFileSystem(this.workspace)
+    // Base = the app's Artifacts branch, fetched into the overlay `.git` by a
+    // dedicated sync bound to the overlay (kept separate from the push-sync so
+    // fetch never re-enters the overlay-aware FS mid-initialization).
+    const repoName = ctx.id.name ?? "space"
+    const fetchSync = new ArtifactsSync(env.ARTIFACTS, createGit(overlay), repoName)
+    const source = createArtifactsBaseSource({
+      overlay,
+      branch: ARTIFACTS_BASE_BRANCH,
+      fetchBranch: () => fetchSync.fetch(ARTIFACTS_BASE_BRANCH),
+    })
+    this.afs = new ArtifactsFileSystem(overlay, { source, branch: ARTIFACTS_BASE_BRANCH })
+    this.fs = this.afs
     this.git = createGit(this.fs)
     this.stateBackend = createWorkspaceStateBackend(this.workspace)
   }
 
-  // ── ArtifactsFileSystem hydration helpers (no-ops without the binding) ──
+  // ── ArtifactsFileSystem hydration helpers ──
 
   /** Hydrate one path from the Artifacts base into the overlay, on demand. */
   private async hydrate(path: string): Promise<void> {
-    if (this.afs) await this.afs.hydrate(path)
+    await this.afs.hydrate(path)
   }
 
   /** Ensure the entire base tree is materialized into the overlay Workspace. */
   private async materializeAll(): Promise<void> {
-    if (this.afs) await this.afs.whenFullyMaterialized()
+    await this.afs.whenFullyMaterialized()
   }
 
   private async ensureInit(): Promise<void> {
@@ -177,12 +177,12 @@ export class SpaceDO extends DurableObject<Env> {
     }
 
     // Build the Artifacts base index (fast; no blob copies). Best-effort: a
-    // failure here just leaves the FS as a plain overlay.
-    if (this.afs) {
+    // transient fetch failure leaves the base empty until the next init.
+    {
       try {
         await this.afs.ready()
       } catch {
-        // Base unavailable — continue with overlay-only behavior.
+        // Base fetch failed this time — proceed with whatever is local.
       }
     }
   }
@@ -337,15 +337,16 @@ export class SpaceDO extends DurableObject<Env> {
   // ── Artifacts sync ──────────────────────────────────────────────
 
   /**
-   * Lazily resolve the Artifacts sync helper. Returns `null` when the binding
-   * is absent (e.g. local dev) so callers can skip sync cleanly.
+   * Lazily resolve the Artifacts sync helper. The ARTIFACTS binding is required
+   * (asserted in the constructor), so this always returns a helper.
    */
-  private getArtifactsSync(): ArtifactsSync | null {
+  private getArtifactsSync(): ArtifactsSync {
     if (this.artifactsSync !== undefined) return this.artifactsSync
-    const artifacts = this.env.ARTIFACTS
-    this.artifactsSync = artifacts
-      ? new ArtifactsSync(artifacts, this.git, this.ctx.id.name ?? "space")
-      : null
+    this.artifactsSync = new ArtifactsSync(
+      this.env.ARTIFACTS,
+      this.git,
+      this.ctx.id.name ?? "space",
+    )
     return this.artifactsSync
   }
 
@@ -379,14 +380,12 @@ export class SpaceDO extends DurableObject<Env> {
     // Mirror to Artifacts so the commit becomes a durable restore point.
     // Fire-and-forget: pushing must never block or fail the commit.
     const sync = this.getArtifactsSync()
-    if (sync) {
-      this.ctx.waitUntil(
-        (async () => {
-          const branch = await this.currentBranch()
-          if (branch) await sync.push(branch)
-        })(),
-      )
-    }
+    this.ctx.waitUntil(
+      (async () => {
+        const branch = await this.currentBranch()
+        if (branch) await sync.push(branch)
+      })(),
+    )
 
     return { sha: result.oid, message: result.message }
   }
@@ -432,8 +431,7 @@ export class SpaceDO extends DurableObject<Env> {
     // Reconcile the local mirror with Artifacts (source of truth) before
     // verifying, so a rollback still works if this DO lost/never-had the commit
     // locally. Best-effort: falls back to local history if the fetch fails.
-    const sync = this.getArtifactsSync()
-    if (sync) await sync.fetch(branch)
+    await this.getArtifactsSync().fetch(branch)
 
     // Verify the target commit exists on this branch's history.
     const history = await this.git.log({ ref: branch, depth: 1000 })
@@ -507,8 +505,7 @@ export class SpaceDO extends DurableObject<Env> {
 
     // Mirror the deployed commit to Artifacts (best-effort) only on success.
     if (!data.error) {
-      const sync = this.getArtifactsSync()
-      if (sync) await sync.push(branch)
+      await this.getArtifactsSync().push(branch)
     }
 
     return data
