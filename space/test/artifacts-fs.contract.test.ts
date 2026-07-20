@@ -7,42 +7,33 @@
  * 2. Base mode (fake in-memory source): verifies the overlay/base/whiteout and
  *    on-demand hydration semantics that make Artifacts the source of truth.
  *
- * Real SqlStorage for the overlay comes from the empty `FsHarnessDO` via
- * `runInDurableObject`; each case gets a fresh DO instance.
+ * The overlay is an in-memory `InMemoryFs` — the same backing store SpaceDO
+ * uses in production (no SQLite for file storage).
  */
 import { describe, it, expect } from 'vitest';
-import { env, runInDurableObject } from 'cloudflare:test';
-import { Workspace, WorkspaceFileSystem, type FileSystem } from '@cloudflare/shell';
-import type { SqlStorage } from '@cloudflare/workers-types';
+import { InMemoryFs, type FileSystem } from '@cloudflare/shell';
 import { ArtifactsFileSystem } from '../src/space/artifacts-fs';
+import { globInfos } from '../src/space/fileinfo';
 import type { BaseEntry, BaseSnapshot, BaseSnapshotSource } from '../src/space/git-objects';
 import { fileSystemContractCases, gitOnFsCases, type FsCase } from './fs-contract';
 import type {} from './test-env';
 
-function uniqueStub(name: string) {
-	const id = env.FsHarnessDO.idFromName(`afs-${name}-${Date.now()}-${Math.random()}`);
-	return env.FsHarnessDO.get(id);
-}
-
-function overlayFor(sql: SqlStorage): FileSystem {
-	return new WorkspaceFileSystem(new Workspace({ sql, name: 'test' }));
+function overlayFor(): FileSystem {
+	return new InMemoryFs();
 }
 
 // ── 1. No-base mode: shared contract equivalence ────────────────────
 
 function runContractCase(kase: FsCase) {
 	it(kase.name, async () => {
-		const stub = uniqueStub(kase.name);
-		await runInDurableObject(stub, async (_i, state) => {
-			// Empty base => the FS must behave exactly like the overlay. This is the
-			// drop-in-equivalence guarantee: an Artifacts repo with no commits yet
-			// is indistinguishable from a plain WorkspaceFileSystem.
-			const fs = new ArtifactsFileSystem(overlayFor(state.storage.sql), {
-				source: new FakeBaseSource({}),
-				branch: 'main',
-			});
-			await kase.run(fs);
+		// Empty base => the FS must behave exactly like the overlay. This is the
+		// drop-in-equivalence guarantee: an Artifacts repo with no commits yet
+		// is indistinguishable from a plain in-memory overlay.
+		const fs = new ArtifactsFileSystem(overlayFor(), {
+			source: new FakeBaseSource({}),
+			branch: 'main',
 		});
+		await kase.run(fs);
 	});
 }
 
@@ -52,6 +43,18 @@ describe('ArtifactsFileSystem (empty base) — FileSystem contract', () => {
 
 describe('ArtifactsFileSystem (empty base) — git-on-FS contract', () => {
 	for (const kase of gitOnFsCases) runContractCase(kase);
+});
+
+describe('globInfos', () => {
+	it('includes root-level files for relative glob patterns', async () => {
+		const fs = overlayFor();
+		await fs.writeFile('/wrangler.json', '{}');
+		await fs.writeFile('/src/index.ts', 'export default {}');
+
+		const infos = await globInfos(fs, '**/*');
+
+		expect(infos.map((info) => info.path)).toEqual(['/src', '/src/index.ts', '/wrangler.json']);
+	});
 });
 
 // ── 2. Base mode: overlay/base/whiteout/hydration ───────────────────
@@ -93,12 +96,9 @@ function withBase(
 	run: (fs: ArtifactsFileSystem, source: FakeBaseSource) => Promise<void>,
 ) {
 	it(name, async () => {
-		const stub = uniqueStub(name);
-		await runInDurableObject(stub, async (_i, state) => {
-			const source = new FakeBaseSource(entries);
-			const fs = new ArtifactsFileSystem(overlayFor(state.storage.sql), { source, branch: 'main' });
-			await run(fs, source);
-		});
+		const source = new FakeBaseSource(entries);
+		const fs = new ArtifactsFileSystem(overlayFor(), { source, branch: 'main' });
+		await run(fs, source);
 	});
 }
 

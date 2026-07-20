@@ -1,26 +1,31 @@
 import { DurableObject } from "cloudflare:workers"
 import {
-  Workspace,
-  WorkspaceFileSystem,
-  createWorkspaceStateBackend,
+  InMemoryFs,
+  FileSystemStateBackend,
   type FileSystem,
-  type FileSystemStateBackend,
   type FileInfo,
 } from "@cloudflare/shell"
 import { createGit, type Git, type GitLogEntry, type GitStatusEntry } from "@cloudflare/shell/git"
 import type { Env } from "../env"
 import { handleDeployCommand, type DeployContext } from "./deploy-engine"
+import { globInfos, readDirInfos, toFileInfo } from "./fileinfo"
 import { handleAssetRequest, buildAssetManifest, createMemoryStorage, type AssetConfig } from "@cloudflare/worker-bundler"
 import {
   buildInspectorWrapperSource,
   VIBE_APP_MODULE,
 } from "./inspector-wrapper"
-import { ArtifactsSync } from "./artifacts-sync"
+import { ArtifactsSync, type ArtifactsRemoteStore } from "./artifacts-sync"
 import { ArtifactsFileSystem } from "./artifacts-fs"
 import { createArtifactsBaseSource } from "./git-objects"
 
 /** Default branch imported as the ArtifactsFileSystem base on a fresh DO. */
 const ARTIFACTS_BASE_BRANCH = "main"
+
+// Durable DO-storage key holding the app's Artifacts git remote URL. Persisted
+// so a cold-started DO (empty in-memory FS) can push/fetch without re-reading
+// it off a `get()` handle, whose data properties are unreadable via the
+// local-dev remote-binding proxy.
+const ARTIFACTS_REMOTE_URL_KEY = "artifacts:remoteUrl"
 
 // ─── Inspector result types ────────────────────────────────────────────────
 // These mirror the shapes returned by the wrapper-subclass injected into
@@ -91,7 +96,11 @@ const ASSET_CACHE_MAX_ENTRIES = 8
 const ASSET_CACHE_TTL_MS = 5 * 60 * 1000 // 5 minutes
 
 export class SpaceDO extends DurableObject<Env> {
-  private workspace: Workspace
+  // Raw in-memory overlay (the writable layer under `afs`). Cloudflare
+  // Artifacts is the only durable store for app files; uncommitted edits are
+  // lost on DO eviction. Used directly where a base-unaware view is wanted
+  // (after an explicit hydrate/materialize).
+  private overlay: FileSystem
   private fs: FileSystem
   // The base-aware overlay FS whose readiness/materialization gates the DO
   // drives explicitly. Always present: the SpaceDO requires the Artifacts binding.
@@ -103,26 +112,31 @@ export class SpaceDO extends DurableObject<Env> {
   private assetCache = new Map<string, CachedAssets>()
   // Lazily constructed on first use (bound to the overlay-aware git/FS).
   private artifactsSync?: ArtifactsSync
+  private artifactsRemoteStore: ArtifactsRemoteStore
 
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env)
-
-    this.workspace = new Workspace({
-      sql: ctx.storage.sql,
-      name: () => ctx.id.name ?? "space",
-    })
 
     if (!env.ARTIFACTS) {
       // The SpaceDO is Artifacts-backed; there is no plain-overlay fallback.
       throw new Error("SpaceDO requires the ARTIFACTS binding")
     }
 
-    const overlay = new WorkspaceFileSystem(this.workspace)
+    // In-memory overlay: no SQLite for file storage. The Artifacts base is
+    // fetched into the overlay `.git` and rehydrated on cold start.
+    const overlay = new InMemoryFs()
+    this.overlay = overlay
     // Base = the app's Artifacts branch, fetched into the overlay `.git` by a
     // dedicated sync bound to the overlay (kept separate from the push-sync so
     // fetch never re-enters the overlay-aware FS mid-initialization).
     const repoName = ctx.id.name ?? "space"
-    const fetchSync = new ArtifactsSync(env.ARTIFACTS, createGit(overlay), repoName)
+    // Durable persistence for the Artifacts remote URL (survives DO eviction).
+    const remoteStore: ArtifactsRemoteStore = {
+      read: () => ctx.storage.get<string>(ARTIFACTS_REMOTE_URL_KEY).then((v) => v ?? null),
+      write: (url) => ctx.storage.put(ARTIFACTS_REMOTE_URL_KEY, url).then(() => undefined),
+    }
+    this.artifactsRemoteStore = remoteStore
+    const fetchSync = new ArtifactsSync(env.ARTIFACTS, createGit(overlay), repoName, remoteStore)
     const source = createArtifactsBaseSource({
       overlay,
       branch: ARTIFACTS_BASE_BRANCH,
@@ -131,7 +145,7 @@ export class SpaceDO extends DurableObject<Env> {
     this.afs = new ArtifactsFileSystem(overlay, { source, branch: ARTIFACTS_BASE_BRANCH })
     this.fs = this.afs
     this.git = createGit(this.fs)
-    this.stateBackend = createWorkspaceStateBackend(this.workspace)
+    this.stateBackend = new FileSystemStateBackend(overlay)
   }
 
   // ── ArtifactsFileSystem hydration helpers ──
@@ -229,8 +243,8 @@ export class SpaceDO extends DurableObject<Env> {
       throw new Error(`old_string not found in ${path}`)
     }
     // Read back size
-    const content = await this.workspace.readFile(path)
-    return { path, size: content?.length ?? 0 }
+    const content = await this.fs.readFile(path)
+    return { path, size: content.length }
   }
 
   async deleteFile(path: string): Promise<void> {
@@ -243,9 +257,9 @@ export class SpaceDO extends DurableObject<Env> {
   async glob(pattern: string): Promise<string[]> {
     await this.ensureInit()
     await this.materializeAll()
-    const files = await this.workspace.glob(pattern)
+    const files = await globInfos(this.overlay, pattern)
     return files
-      .filter((f: FileInfo) => f.type === "file" && !f.path.startsWith("/.afs"))
+      .filter((f: FileInfo) => f.type === "file" && !isReservedPath(f.path))
       .sort((a: FileInfo, b: FileInfo) => b.updatedAt - a.updatedAt)
       .map((f: FileInfo) => f.path)
   }
@@ -271,9 +285,9 @@ export class SpaceDO extends DurableObject<Env> {
     await this.ensureInit()
     await this.materializeAll()
     const pattern = prefix ? `${prefix.replace(/^\//, "")}/**/*` : "**/*"
-    const files = await this.workspace.glob(pattern)
+    const files = await globInfos(this.overlay, pattern)
     return files
-      .filter((f: FileInfo) => f.type === "file" && !f.path.startsWith("/.afs"))
+      .filter((f: FileInfo) => f.type === "file" && !isReservedPath(f.path))
       .map((f: FileInfo) => ({ path: f.path, mtime: f.updatedAt }))
   }
 
@@ -285,7 +299,11 @@ export class SpaceDO extends DurableObject<Env> {
   async stat(path: string): Promise<FileInfo | null> {
     await this.ensureInit()
     await this.hydrate(path)
-    return this.workspace.stat(path)
+    try {
+      return toFileInfo(path, await this.overlay.stat(path))
+    } catch {
+      return null
+    }
   }
 
   async readFileBytes(path: string): Promise<Uint8Array | null> {
@@ -302,7 +320,7 @@ export class SpaceDO extends DurableObject<Env> {
   async readDir(dir?: string, opts?: { limit?: number; offset?: number }): Promise<FileInfo[]> {
     await this.ensureInit()
     await this.materializeAll()
-    return this.workspace.readDir(dir, opts)
+    return readDirInfos(this.overlay, dir, opts)
   }
 
   async mkdir(path: string, opts?: { recursive?: boolean }): Promise<void> {
@@ -346,6 +364,7 @@ export class SpaceDO extends DurableObject<Env> {
       this.env.ARTIFACTS,
       this.git,
       this.ctx.id.name ?? "space",
+      this.artifactsRemoteStore,
     )
     return this.artifactsSync
   }
@@ -450,26 +469,26 @@ export class SpaceDO extends DurableObject<Env> {
     // SQLITE_TOOBIG (only reproduced on rollback, since normal deploys never
     // rewrite these files).
     await this.git.checkout({ ref: target.oid })
-    const targetFiles = new Map<string, { bytes: Uint8Array; mimeType: string }>()
-    for (const info of await this.workspace.glob("**/*")) {
+    const targetFiles = new Map<string, Uint8Array>()
+    for (const info of await globInfos(this.overlay, "**/*")) {
       if (info.type !== "file") continue
       if (isReservedPath(info.path)) continue
-      const bytes = await this.workspace.readFileBytes(info.path)
-      if (bytes) targetFiles.set(info.path, { bytes, mimeType: info.mimeType })
+      const bytes = await this.overlay.readFileBytes(info.path)
+      if (bytes) targetFiles.set(info.path, bytes)
     }
 
     // Return to the branch HEAD and reconcile the working tree: remove files
     // that are absent from the target, then (over)write the captured files.
     await this.git.checkout({ ref: branch })
-    for (const info of await this.workspace.glob("**/*")) {
+    for (const info of await globInfos(this.overlay, "**/*")) {
       if (info.type !== "file") continue
       if (isReservedPath(info.path)) continue
       if (!targetFiles.has(info.path)) {
-        await this.workspace.rm(info.path, { force: true })
+        await this.overlay.rm(info.path, { force: true })
       }
     }
-    for (const [path, { bytes, mimeType }] of targetFiles) {
-      await this.workspace.writeFileBytes(path, bytes, mimeType)
+    for (const [path, bytes] of targetFiles) {
+      await this.overlay.writeFileBytes(path, bytes)
     }
 
     // Commit the restored tree (no-op if nothing changed) and redeploy.
@@ -496,7 +515,7 @@ export class SpaceDO extends DurableObject<Env> {
     const ctx: DeployContext = {
       sql: this.ctx.storage.sql,
       git: this.git,
-      workspace: this.workspace,
+      fs: this.fs,
     }
     const res = await handleDeployCommand(ctx, "deploy", fakeRequest)
     const data = await res.json() as Record<string, unknown>
@@ -521,7 +540,7 @@ export class SpaceDO extends DurableObject<Env> {
     const ctx: DeployContext = {
       sql: this.ctx.storage.sql,
       git: this.git,
-      workspace: this.workspace,
+      fs: this.overlay,
     }
     const res = await handleDeployCommand(ctx, "undeploy", fakeRequest)
     return res.json()
@@ -533,7 +552,7 @@ export class SpaceDO extends DurableObject<Env> {
     const ctx: DeployContext = {
       sql: this.ctx.storage.sql,
       git: this.git,
-      workspace: this.workspace,
+      fs: this.overlay,
     }
     const res = await handleDeployCommand(ctx, "list_deployments", fakeRequest)
     return res.json()
@@ -545,7 +564,7 @@ export class SpaceDO extends DurableObject<Env> {
     const ctx: DeployContext = {
       sql: this.ctx.storage.sql,
       git: this.git,
-      workspace: this.workspace,
+      fs: this.overlay,
     }
     const res = await handleDeployCommand(ctx, "get_deployment", fakeRequest)
     return res.json()
@@ -555,7 +574,20 @@ export class SpaceDO extends DurableObject<Env> {
 
   async getInfo(): Promise<{ fileCount: number; directoryCount: number; totalBytes: number }> {
     await this.ensureInit()
-    return this.workspace.getWorkspaceInfo()
+    await this.materializeAll()
+    let fileCount = 0
+    let directoryCount = 0
+    let totalBytes = 0
+    for (const info of await globInfos(this.overlay, "**/*")) {
+      if (isReservedPath(info.path)) continue
+      if (info.type === "file") {
+        fileCount++
+        totalBytes += info.size
+      } else if (info.type === "directory") {
+        directoryCount++
+      }
+    }
+    return { fileCount, directoryCount, totalBytes }
   }
 
   // ── Deployment row reader (shared by servePreview + DB-viewer) ──
@@ -792,7 +824,7 @@ export class SpaceDO extends DurableObject<Env> {
       const deployCtx: DeployContext = {
         sql: this.ctx.storage.sql,
         git: this.git,
-        workspace: this.workspace,
+        fs: this.overlay,
       }
       return handleDeployCommand(deployCtx, cmd, request)
     }

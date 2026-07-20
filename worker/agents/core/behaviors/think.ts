@@ -843,7 +843,7 @@ export class ThinkCodingBehavior
 		try {
 			const space = this.getSpaceStub() as unknown as {
 				gitCommit: (msg: string, author?: { name: string; email: string }) => Promise<{ sha?: string }>;
-				deploy: (branch: string) => Promise<{ preview_url?: string; commit_hash?: string }>;
+				deploy: (branch: string) => Promise<{ preview_url?: string; commit_hash?: string; error?: string; details?: string }>;
 			};
 			const branch = this.state.currentBranch || 'main';
 			this.broadcast(WebSocketMessageResponses.DEPLOYMENT_STARTED, {});
@@ -857,6 +857,18 @@ export class ThinkCodingBehavior
 			}
 
 			const result = await space.deploy(branch);
+
+			// SpaceDO.deploy reports build/config failures in the payload rather
+			// than throwing (and still fills in preview_url). Surface those as a
+			// real deployment failure so the FE/agent sees the build error (e.g.
+			// a syntax error in the generated code) instead of a broken preview.
+			if (result?.error) {
+				const message = result.details ? `${result.error}: ${result.details}` : result.error;
+				this.logger.warn('SpaceDO.deploy reported a build failure', { branch, error: message });
+				this.broadcast(WebSocketMessageResponses.DEPLOYMENT_FAILED, { error: message });
+				return null;
+			}
+
 			if (result?.commit_hash) {
 				this.setState({ ...this.state, lastDeployedCommit: result.commit_hash });
 			}

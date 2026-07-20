@@ -3,9 +3,9 @@
  * branch.
  *
  * It composes two layers:
- *   - overlay (writable): a real `WorkspaceFileSystem` (SQLite). Holds all
- *     writes/edits, the `.git` dir, hydrated file contents, and its own
- *     bookkeeping under `/.afs`.
+ *   - overlay (writable): an in-memory `InMemoryFs`. Holds all writes/edits,
+ *     the `.git` dir, hydrated file contents, and its own bookkeeping under
+ *     `/.afs`. Not durable across DO eviction — Artifacts is the source of truth.
  *   - base (read-only): an immutable snapshot of the imported Artifacts branch
  *     (`path -> { oid, mode }`) whose blobs live in the overlay's `.git` object
  *     store after one packfile fetch.
@@ -15,9 +15,9 @@
  * directory listing (or `whenFullyMaterialized()`) copies the whole base into
  * the overlay. Once fully materialized, the FS behaves as a plain overlay.
  *
- * When no base source is available (local dev without the ARTIFACTS binding),
- * every operation passes straight through to the overlay — an exact
- * `WorkspaceFileSystem` equivalent.
+ * When the base snapshot is empty (an Artifacts repo with no commits yet),
+ * every operation passes straight through to the overlay — an exact in-memory
+ * overlay equivalent — until the first commit establishes a base.
  */
 import type { FileSystem, FsStat, EntryType } from "@cloudflare/shell"
 import type { BaseEntry, BaseSnapshotSource } from "./git-objects"

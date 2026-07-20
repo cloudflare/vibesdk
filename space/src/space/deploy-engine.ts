@@ -1,7 +1,8 @@
 import type { Git } from "@cloudflare/shell/git"
-import type { Workspace } from "@cloudflare/shell"
+import type { FileSystem } from "@cloudflare/shell"
 import { createApp, createWorker, type AssetConfig, type Modules } from "@cloudflare/worker-bundler"
 import { parseWranglerConfig, WranglerConfigError } from "./wrangler-config"
+import { globInfos } from "./fileinfo"
 
 // ─── Deploy Engine ──────────────────────────────────────────────────────────
 
@@ -16,7 +17,7 @@ function jsonResponse(data: unknown, status: number = 200): Response {
 export interface DeployContext {
   sql: SqlStorage
   git: Git
-  workspace: Workspace
+  fs: FileSystem
 }
 
 export async function handleDeployCommand(
@@ -56,10 +57,10 @@ async function readBranchFiles(
   const commitHash = log[0].oid
 
   // Checkout the branch to populate working tree
-  await ctx.git.checkout({ ref: branch })
+  await ctx.git.checkout({ ref: branch, force: true })
 
   // Read all files recursively (readDir is non-recursive, glob is)
-  const allFiles = await ctx.workspace.glob("**/*")
+  const allFiles = await globInfos(ctx.fs, "**/*")
   const files: Record<string, string> = {}
 
   for (const fileInfo of allFiles) {
@@ -69,11 +70,14 @@ async function readBranchFiles(
     if (fileInfo.path.startsWith("/.git/") || fileInfo.path === "/.git") continue
     if (fileInfo.path.startsWith("/.afs/") || fileInfo.path === "/.afs") continue
 
-    const content = await ctx.workspace.readFile(fileInfo.path)
-    if (content !== null) {
-      const path = fileInfo.path.startsWith("/") ? fileInfo.path.slice(1) : fileInfo.path
-      files[path] = content
+    let content: string
+    try {
+      content = await ctx.fs.readFile(fileInfo.path)
+    } catch {
+      continue
     }
+    const path = fileInfo.path.startsWith("/") ? fileInfo.path.slice(1) : fileInfo.path
+    files[path] = content
   }
 
   return { commitHash, files }
