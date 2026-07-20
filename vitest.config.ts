@@ -1,4 +1,5 @@
 import { defineWorkersConfig } from '@cloudflare/vitest-pool-workers/config';
+import { fileURLToPath } from 'node:url';
 
 const runIntegrationTests = process.env.VIBESDK_RUN_INTEGRATION_TESTS === '1';
 
@@ -6,6 +7,7 @@ export default defineWorkersConfig({
   resolve: {
     alias: {
       'bun:test': 'vitest',
+      '@': fileURLToPath(new URL('./src', import.meta.url)),
     },
   },
   test: {

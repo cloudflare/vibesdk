@@ -335,11 +335,17 @@ type ConversationResponseMessage = {
 	enhancedRequest?: string;
 	pendingInputsCount?: number;
 	isStreaming?: boolean;
+	isDelta?: boolean;
+	reasoning?: {
+		delta?: string;
+		done?: boolean;
+	};
 	tool?: {
 		name: string;
 		status: 'start' | 'success' | 'error';
 		args?: Record<string, unknown>;
 		result?: string;
+		id?: string;
 	};
 };
 

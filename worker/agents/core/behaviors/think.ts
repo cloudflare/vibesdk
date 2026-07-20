@@ -43,6 +43,9 @@ type ThinkAgentStub = {
 /** Subset of AI-SDK `UIMessageChunk` shapes this behavior reacts to. */
 type ThinkChunk =
 	| { type: 'text-delta'; id: string; delta: string }
+	| { type: 'reasoning-start'; id: string }
+	| { type: 'reasoning-delta'; id: string; delta: string }
+	| { type: 'reasoning-end'; id: string }
 	| { type: 'tool-input-start'; toolCallId: string; toolName: string }
 	| { type: 'tool-input-available'; toolCallId: string; toolName: string; input: unknown }
 	| { type: 'tool-output-available'; toolCallId: string; output: unknown }
@@ -289,8 +292,8 @@ export class ThinkCodingBehavior
 			'## Clarify before building',
 			'If the request is underspecified or ambiguous (e.g. a one-line idea with no details on features, scope, data, or design), do NOT start writing files yet. Instead, on this turn:',
 			'1. Briefly state the assumptions you would make to proceed.',
-			'2. Ask a few concise, targeted clarifying questions about the most important unknowns.',
-			'3. End your turn and wait for the user. Do not write/edit files or deploy until the scope is clear or the user tells you to proceed with your assumptions.',
+			'2. Call the `ask_questions` tool with all the concise, targeted clarifying questions you need answered. Each question can include predefined options and can allow multiple selections and/or a custom free-text answer.',
+			'3. End your turn after calling `ask_questions`. Do not write/edit files or deploy until the scope is clear or the user tells you to proceed with your assumptions.',
 			'If the request is already clear and specific, skip this and go straight to building.',
 			'',
 			'## Deploy & verify workflow (VibeSDK-specific)',
@@ -535,6 +538,27 @@ export class ThinkCodingBehavior
 				}
 				return;
 			}
+			case 'reasoning-delta': {
+				const delta = (chunk as { delta?: string }).delta;
+				if (typeof delta === 'string' && delta.length > 0) {
+					this.broadcast(WebSocketMessageResponses.CONVERSATION_RESPONSE, {
+						message: '',
+						conversationId,
+						isStreaming: true,
+						reasoning: { delta },
+					});
+				}
+				return;
+			}
+			case 'reasoning-end': {
+				this.broadcast(WebSocketMessageResponses.CONVERSATION_RESPONSE, {
+					message: '',
+					conversationId,
+					isStreaming: true,
+					reasoning: { done: true },
+				});
+				return;
+			}
 			case 'tool-input-start': {
 				const { toolCallId, toolName } = chunk as { toolCallId: string; toolName: string };
 				toolNames.set(toolCallId, toolName);
@@ -542,7 +566,7 @@ export class ThinkCodingBehavior
 					message: '',
 					conversationId,
 					isStreaming: true,
-					tool: this.buildToolBroadcastPayload(toolName, undefined, 'start'),
+					tool: this.buildToolBroadcastPayload(toolName, undefined, 'start', toolCallId),
 				});
 				return;
 			}
@@ -574,7 +598,7 @@ export class ThinkCodingBehavior
 					message: '',
 					conversationId,
 					isStreaming: false,
-					tool: this.buildToolBroadcastPayload(toolName, { input: args, output }, 'success'),
+					tool: this.buildToolBroadcastPayload(toolName, { input: args, output }, 'success', toolCallId),
 				});
 				if (toolName === 'deploy_space') {
 					await this.handleDeploySpaceOutput(output);
@@ -593,7 +617,7 @@ export class ThinkCodingBehavior
 					message: '',
 					conversationId,
 					isStreaming: false,
-					tool: this.buildToolBroadcastPayload(toolName, { input: args, error: errorText }, 'error'),
+					tool: this.buildToolBroadcastPayload(toolName, { input: args, error: errorText }, 'error', toolCallId),
 				});
 				return;
 			}
@@ -606,11 +630,13 @@ export class ThinkCodingBehavior
 		toolName: string,
 		state: { input?: Record<string, unknown>; output?: unknown; error?: string } | undefined,
 		status: 'start' | 'success' | 'error',
-	): { name: string; status: 'start' | 'success' | 'error'; args?: Record<string, unknown>; result?: string } {
-		const payload: { name: string; status: 'start' | 'success' | 'error'; args?: Record<string, unknown>; result?: string } = {
+		id?: string,
+	): { name: string; status: 'start' | 'success' | 'error'; args?: Record<string, unknown>; result?: string; id?: string } {
+		const payload: { name: string; status: 'start' | 'success' | 'error'; args?: Record<string, unknown>; result?: string; id?: string } = {
 			name: toolName,
 			status,
 			args: state?.input,
+			id,
 		};
 		if (status === 'success') {
 			if (typeof state?.output === 'string') payload.result = state.output;

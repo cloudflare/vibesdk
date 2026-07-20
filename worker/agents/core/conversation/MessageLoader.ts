@@ -125,57 +125,33 @@ function isToolUIPart(part: AnyUIPart): boolean {
 	return typeof part.type === 'string' && (part.type.startsWith('tool-') || part.type === 'dynamic-tool');
 }
 
+function isReasoningUIPart(part: AnyUIPart): boolean {
+	return part.type === 'reasoning';
+}
+
 function toolNameOf(part: AnyUIPart): string {
 	if (part.type === 'dynamic-tool') return (part as { toolName?: string }).toolName ?? 'tool';
 	return part.type.startsWith('tool-') ? part.type.slice('tool-'.length) : 'tool';
 }
 
-function collectToolCalls(message: UIMessage): ToolCall[] {
-	const calls: ToolCall[] = [];
-	for (const part of message.parts) {
-		if (!isToolUIPart(part)) continue;
-		const p = part as { toolCallId?: string; input?: unknown };
-		if (!p.toolCallId) continue;
-		calls.push({
-			id: p.toolCallId,
-			type: 'function',
-			function: {
-				name: toolNameOf(part),
-				arguments: safeStringifyInput((p.input as Record<string, unknown>) ?? {}),
-			},
-		});
+function toolReplyContent(part: AnyUIPart): string | null {
+	const p = part as { state?: string; output?: unknown; errorText?: string };
+	if (p.state === 'output-available') {
+		return typeof p.output === 'string' ? p.output : safeStringifyInput((p.output as Record<string, unknown>) ?? {});
 	}
-	return calls;
-}
-
-function buildToolReplies(message: UIMessage): ConversationMessage[] {
-	const replies: ConversationMessage[] = [];
-	for (const part of message.parts) {
-		if (!isToolUIPart(part)) continue;
-		const p = part as { toolCallId?: string; state?: string; output?: unknown; errorText?: string };
-		if (!p.toolCallId) continue;
-		let content = '';
-		if (p.state === 'output-available') {
-			content = typeof p.output === 'string' ? p.output : safeStringifyInput((p.output as Record<string, unknown>) ?? {});
-		} else if (p.state === 'output-error') {
-			content = p.errorText ?? '';
-		} else {
-			continue;
-		}
-		replies.push({
-			role: 'tool',
-			name: toolNameOf(part),
-			tool_call_id: p.toolCallId,
-			content,
-			conversationId: `${message.id}:${p.toolCallId}`,
-		});
+	if (p.state === 'output-error') {
+		return p.errorText ?? '';
 	}
-	return replies;
+	return null;
 }
 
 /**
- * Expand an AI-SDK `UIMessage` into one or more VibeSDK `ConversationMessage`
- * entries (user → text; assistant → text + tool_calls + per-tool replies).
+ * Expand an AI-SDK `UIMessage` into ordered VibeSDK `ConversationMessage`
+ * entries, preserving the true text ↔ reasoning ↔ tool interleaving so the
+ * chat UI reconstructs the same sequence on reload as it showed live.
+ *
+ * Each assistant text/reasoning/tool part is emitted as its own message in
+ * order; contiguous parts are merged back into one bubble by the frontend.
  */
 function uiMessageToConversations(message: UIMessage): ConversationMessage[] {
 	if (message.role === 'user') {
@@ -184,20 +160,62 @@ function uiMessageToConversations(message: UIMessage): ConversationMessage[] {
 	}
 	if (message.role !== 'assistant') return [];
 
-	const text = collectText(message);
-	const toolCalls = collectToolCalls(message);
-	if (!text && toolCalls.length === 0) return [];
+	const out: ConversationMessage[] = [];
+	let partIndex = 0;
 
-	const assistant: ConversationMessage = {
-		role: 'assistant',
-		content: text,
-		conversationId: message.id,
-	};
-	if (toolCalls.length > 0) {
-		assistant.tool_calls = toolCalls;
+	for (const part of message.parts) {
+		if (isReasoningUIPart(part)) {
+			const reasoning = (part as { text?: string }).text ?? '';
+			if (reasoning.trim().length > 0) {
+				out.push({
+					role: 'assistant',
+					content: '',
+					reasoning,
+					conversationId: `${message.id}:r${partIndex}`,
+				});
+			}
+		} else if (isToolUIPart(part)) {
+			const p = part as { toolCallId?: string; input?: unknown };
+			if (!p.toolCallId) { partIndex++; continue; }
+			const name = toolNameOf(part);
+			const toolCall: ToolCall = {
+				id: p.toolCallId,
+				type: 'function',
+				function: {
+					name,
+					arguments: safeStringifyInput((p.input as Record<string, unknown>) ?? {}),
+				},
+			};
+			out.push({
+				role: 'assistant',
+				content: '',
+				tool_calls: [toolCall],
+				conversationId: `${message.id}:a${partIndex}`,
+			});
+			const replyContent = toolReplyContent(part);
+			if (replyContent !== null) {
+				out.push({
+					role: 'tool',
+					name,
+					tool_call_id: p.toolCallId,
+					content: replyContent,
+					conversationId: `${message.id}:${p.toolCallId}`,
+				});
+			}
+		} else {
+			const text = partText(part);
+			if (text.trim().length > 0) {
+				out.push({
+					role: 'assistant',
+					content: text,
+					conversationId: `${message.id}:t${partIndex}`,
+				});
+			}
+		}
+		partIndex++;
 	}
 
-	return [assistant, ...buildToolReplies(message)];
+	return out;
 }
 
 /** Defensive `JSON.stringify` — never blow up reload on a serialization error. */

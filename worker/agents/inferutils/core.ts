@@ -96,6 +96,24 @@ function synthIdForIndex(i: number): string {
     return `tool_${Date.now()}_${i}_${Math.random().toString(36).slice(2)}`;
 }
 
+/**
+ * Extract a reasoning ("thinking") delta from a streaming chunk delta. Providers
+ * expose reasoning outside the OpenAI TS types under `reasoning` or
+ * `reasoning_content` (string, or `{ text }` object), so read it defensively.
+ */
+function extractReasoningDelta(delta: unknown): string {
+    if (!delta || typeof delta !== 'object') return '';
+    const record = delta as Record<string, unknown>;
+    for (const key of ['reasoning', 'reasoning_content'] as const) {
+        const value = record[key];
+        if (typeof value === 'string') return value;
+        if (value && typeof value === 'object' && typeof (value as { text?: unknown }).text === 'string') {
+            return (value as { text: string }).text;
+        }
+    }
+    return '';
+}
+
 function accumulateToolCallDelta(
     byIndex: Map<number, ToolAccumulatorEntry>,
     byId: Map<string, ToolAccumulatorEntry>,
@@ -491,6 +509,7 @@ type InferArgsBase = {
     stream?: {
         chunk_size: number;
         onChunk: (chunk: string) => void;
+        onReasoning?: (delta: string) => void;
     };
     tools?: ToolDefinition<any, any>[];
     providerOverride?: 'cloudflare' | 'direct';
@@ -899,6 +918,7 @@ export async function infer<OutputSchema extends z.ZodObject>({
         */
 
         let content = '';
+        let reasoning = '';
         if (stream) {
             // If streaming is enabled, handle the stream response
             if (response instanceof Stream) {
@@ -926,7 +946,16 @@ export async function infer<OutputSchema extends z.ZodObject>({
                             console.error('Error processing tool calls in streaming:', error);
                         }
                     }
-                    
+
+                    // Capture provider reasoning ("thinking") deltas when present. Not part
+                    // of the OpenAI TS types, so read them off the raw delta record. Different
+                    // providers use `reasoning` or `reasoning_content`.
+                    const reasoningDelta = extractReasoningDelta(delta);
+                    if (reasoningDelta) {
+                        reasoning += reasoningDelta;
+                        stream.onReasoning?.(reasoningDelta);
+                    }
+
                     // Process content
                     content += delta?.content || '';
                     const slice = content.slice(streamIndex);
@@ -991,7 +1020,10 @@ export async function infer<OutputSchema extends z.ZodObject>({
             console.log(`Total tokens used in prompt: ${totalTokens}`);
         }
 
-        const assistantMessage = { role: "assistant" as MessageRole, content, tool_calls: toolCalls };
+        const assistantMessage: Message = { role: "assistant" as MessageRole, content, tool_calls: toolCalls };
+        if (reasoning) {
+            assistantMessage.reasoning = reasoning;
+        }
 
         if (onAssistantMessage) {
             await onAssistantMessage(assistantMessage);

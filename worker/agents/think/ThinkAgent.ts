@@ -15,6 +15,7 @@ import type { SkillSource } from 'agents/skills';
 import { createSpaceWorkspaceOps, type SpaceWorkspaceStub } from './space-workspace-ops';
 import { selectSystemPrompt, PROMPT_MAX_STEPS } from './prompts';
 import { createThinkSkillSource } from './skills';
+import { createAskQuestionsTool } from './ask-questions-tool';
 import { createBrowserConsoleLogsTool } from './browser-logs-tool';
 import { createDeploySpaceTool } from './deploy-tool';
 import { createSetTitleTool } from './set-title-tool';
@@ -302,6 +303,8 @@ export class ThinkAgent extends Think<Env> {
 			deploy_space: createDeploySpaceTool({ getStub: () => this.getSpaceStub() }),
 			// Set the project's short display title (host observes the output).
 			set_title: createSetTitleTool(),
+			// Ask the user clarifying questions via a frontend popup.
+			ask_questions: createAskQuestionsTool(),
 			// Client-side debugging via a real headless browser.
 			get_browser_console_logs: createBrowserConsoleLogsTool({
 				env: this.env,

@@ -57,6 +57,8 @@ export interface PromptBoxProps {
 	leftActions?: ReactNode;
 	rightActions?: ReactNode;
 	submitIcon?: ReactNode;
+	/** Content tucked behind the top of the input box (compact variant only). */
+	aboveContent?: ReactNode;
 
 	// Text limits
 	maxWords?: number;
@@ -90,6 +92,7 @@ export function PromptBox({
 	leftActions,
 	rightActions,
 	submitIcon,
+	aboveContent,
 	maxWords,
 	formRef,
 	className,
@@ -140,7 +143,8 @@ export function PromptBox({
 
 	if (isCompact) {
 		return (
-			<div className={className} {...dragHandlers}>
+			<div className={clsx('flex flex-col', className)} {...dragHandlers}>
+				{aboveContent}
 				<CreditsBanner limitsData={limitsData} onConnectCloudflare={onConnectCloudflare}>
 					<div className="rounded-xl transition-all duration-200 bg-bg-4 dark:bg-bg-2 border border-border-secondary">
 						<form ref={formRef} onSubmit={handleSubmit}>

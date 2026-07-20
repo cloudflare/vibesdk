@@ -4,8 +4,9 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeExternalLinks from 'rehype-external-links';
 import { NO_IMAGE_MARKDOWN_COMPONENTS } from './markdown-components';
-import { LoaderCircle, Check, AlertTriangle, ChevronDown, ChevronRight, MessageSquare } from 'lucide-react';
-import type { ToolEvent } from '../utils/message-helpers';
+import { LoaderCircle, Check, AlertTriangle, ChevronDown, ChevronRight, MessageSquare, Brain, Wrench, Sparkles, CircleX, HelpCircle } from 'lucide-react';
+import type { ToolEvent, MessagePart } from '../utils/message-helpers';
+import { parseClarifyingQuestions } from '../utils/message-helpers';
 import type { ConversationMessage } from '@/api-types';
 import { useState, useEffect, useRef } from 'react';
 import { DebugSessionBubble } from './debug-session-bubble';
@@ -182,7 +183,7 @@ function ToolEventExpandedPanel({ event }: { event: ToolEvent }) {
 			{showOutput && (
 				<div className="flex flex-col gap-1">
 					<div className="text-[10px] uppercase tracking-wide text-text-tertiary">Output</div>
-					<ToolResultRenderer result={event.result!} toolName={event.name} />
+					<ToolResultRenderer result={event.result!} toolName={event.name} event={event} />
 				</div>
 			)}
 		</div>
@@ -259,13 +260,41 @@ function DeepDebugTranscript({ transcript }: { transcript: ConversationMessage[]
 	);
 }
 
-function ToolResultRenderer({ result, toolName }: { result: string; toolName: string }) {
+function ClarifyingQuestionsResult({ event }: { event: ToolEvent }) {
+	const questions = parseClarifyingQuestions(event);
+	if (questions.length === 0) return <JsonRenderer data={event.args ?? event.result} />;
+
+	return (
+		<div className="flex flex-col gap-3">
+			{questions.map((q, i) => (
+				<div key={i} className="flex flex-col gap-1.5">
+					<div className="flex items-center gap-1.5 text-text-primary font-medium">
+						<HelpCircle className="size-3.5 text-brand" />
+						<span>{q.question}</span>
+					</div>
+					{q.options && q.options.length > 0 && (
+						<div className="text-xs text-text-secondary pl-5">
+							Options: {q.options.join(', ')}
+						</div>
+					)}
+				</div>
+			))}
+		</div>
+	);
+}
+
+function ToolResultRenderer({ result, toolName, event }: { result: string; toolName: string; event?: ToolEvent }) {
 	try {
 		const parsed = JSON.parse(result);
 		
 		// Special handling for deep_debug transcript
 		if (toolName === 'deep_debug' && Array.isArray(parsed.transcript)) {
 			return <DeepDebugTranscript transcript={parsed.transcript} />;
+		}
+		
+		// Special handling for ask_questions clarifying questions
+		if (toolName === 'ask_questions' && event) {
+			return <ClarifyingQuestionsResult event={event} />;
 		}
 		
 		return <JsonRenderer data={parsed} />;
@@ -339,7 +368,7 @@ export function ToolStatusIndicator({ event, richToolPreview = false }: { event:
 					{richToolPreview ? (
 						<ToolEventExpandedPanel event={event} />
 					) : (
-						event.result && <ToolResultRenderer result={event.result} toolName={event.name} />
+						event.result && <ToolResultRenderer result={event.result} toolName={event.name} event={event} />
 					)}
 				</div>
 			)}
@@ -376,76 +405,213 @@ function buildOrderedContent(message: string, inlineToolEvents: ToolEvent[]): Co
 	return items;
 }
 
+/** Trace parts (reasoning + tool) are the collapsible, out-of-band steps. */
+type TracePart = Extract<MessagePart, { type: 'reasoning' } | { type: 'tool' }>;
+
+function isTracePart(part: MessagePart): part is TracePart {
+	return part.type === 'reasoning' || part.type === 'tool';
+}
+
+type RenderUnit =
+	| { kind: 'text'; text: string; key: string }
+	| { kind: 'trace'; items: TracePart[]; key: string };
+
+/**
+ * Walk an assistant turn's ordered parts and group contiguous reasoning/tool
+ * steps into a single trace unit, flushing on each text block. This mirrors the
+ * emission order exactly, so live and reloaded renders are identical.
+ */
+function bucketParts(parts: MessagePart[]): RenderUnit[] {
+	const units: RenderUnit[] = [];
+	let buffer: TracePart[] = [];
+	let bufferStart = 0;
+
+	const flush = () => {
+		if (buffer.length === 0) return;
+		units.push({ kind: 'trace', items: buffer, key: `trace-${bufferStart}` });
+		buffer = [];
+	};
+
+	parts.forEach((part, i) => {
+		if (isTracePart(part)) {
+			if (buffer.length === 0) bufferStart = i;
+			buffer.push(part);
+			return;
+		}
+		const text = sanitizeMessageForDisplay(part.text);
+		if (!text) return;
+		flush();
+		units.push({ kind: 'text', text, key: `text-${i}` });
+	});
+	flush();
+	return units;
+}
+
+function ToolStatusGlyph({ status }: { status: ToolEvent['status'] }) {
+	if (status === 'start') return <LoaderCircle className="size-3.5 shrink-0 text-brand animate-spin" />;
+	if (status === 'error') return <CircleX className="size-3.5 shrink-0 text-red-500" />;
+	return <Check className="size-3.5 shrink-0 text-emerald-500" />;
+}
+
+/** Collapsible reasoning ("thinking") block. Opens while streaming. */
+function ReasoningBlock({ part, streaming }: { part: Extract<MessagePart, { type: 'reasoning' }>; streaming: boolean }) {
+	const active = streaming && !part.done;
+	const [open, setOpen] = useState(active);
+	const text = part.text.trim();
+	if (!text) return null;
+
+	return (
+		<div className="rounded-lg border border-border bg-surface-secondary/40">
+			<button
+				type="button"
+				onClick={() => setOpen(o => !o)}
+				className="flex w-full items-center gap-2 px-3 py-2 text-left"
+			>
+				{active
+					? <LoaderCircle className="size-3.5 shrink-0 text-brand animate-spin" />
+					: <Brain className="size-3.5 shrink-0 text-text-tertiary" />}
+				<span className={clsx('flex-1 text-xs font-medium text-text-secondary', active && 'animate-pulse')}>
+					{active ? 'Thinking' : 'Thoughts'}
+				</span>
+				<ChevronDown className={clsx('size-3.5 shrink-0 text-text-tertiary transition-transform', open && 'rotate-180')} />
+			</button>
+			{open && (
+				<div className="px-3 pb-3 max-h-96 overflow-y-auto text-xs text-text-tertiary">
+					<Markdown className="a-tag">{text}</Markdown>
+				</div>
+			)}
+		</div>
+	);
+}
+
+/** Collapsible tool-call card with an expandable Input/Output panel. */
+function ToolCard({ event }: { event: ToolEvent }) {
+	const [open, setOpen] = useState(false);
+	const hasInput = !!event.args && Object.keys(event.args).length > 0;
+	const hasOutput = event.status !== 'start' && !!event.result;
+	const canExpand = hasInput || hasOutput;
+
+	return (
+		<div className="rounded-lg border border-border bg-surface-secondary/40">
+			<button
+				type="button"
+				onClick={() => canExpand && setOpen(o => !o)}
+				disabled={!canExpand}
+				className={clsx('flex w-full items-center gap-2 px-3 py-2 text-left', canExpand && 'cursor-pointer')}
+			>
+				<Wrench className="size-3.5 shrink-0 text-text-tertiary" />
+				<span className="flex-1 min-w-0 truncate font-mono text-xs text-text-secondary">{event.name}</span>
+				{canExpand && (
+					<ChevronDown className={clsx('size-3.5 shrink-0 text-text-tertiary transition-transform', open && 'rotate-180')} />
+				)}
+				<ToolStatusGlyph status={event.status} />
+			</button>
+			{open && canExpand && (
+				<div className="px-3 pb-3 flex flex-col gap-3 text-xs font-mono max-h-96 overflow-auto">
+					{hasInput && (
+						<div className="flex flex-col gap-1">
+							<div className="text-[10px] uppercase tracking-wide text-text-tertiary">Input</div>
+							<JsonRenderer data={event.args} />
+						</div>
+					)}
+					{hasOutput && (
+						<div className="flex flex-col gap-1">
+							<div className="text-[10px] uppercase tracking-wide text-text-tertiary">Output</div>
+							<ToolResultRenderer result={event.result!} toolName={event.name} event={event} />
+						</div>
+					)}
+				</div>
+			)}
+		</div>
+	);
+}
+
+/** Render a contiguous run of reasoning/tool steps as a vertical trace. */
+function TraceGroup({ items, streaming }: { items: TracePart[]; streaming: boolean }) {
+	return (
+		<div className="flex flex-col gap-1.5">
+			{items.map((item, i) =>
+				item.type === 'reasoning'
+					? <ReasoningBlock key={`r-${i}`} part={item} streaming={streaming && i === items.length - 1} />
+					: <ToolCard key={item.event.id ?? `t-${i}`} event={item.event} />,
+			)}
+		</div>
+	);
+}
+
+/** Render an assistant turn's ordered parts (text + reasoning/tool traces). */
+function AssistantParts({ parts, streaming }: { parts: MessagePart[]; streaming: boolean }) {
+	const units = bucketParts(parts);
+	if (units.length === 0) return null;
+	return (
+		<div className="flex flex-col gap-2">
+			{units.map(unit =>
+				unit.kind === 'text'
+					? <Markdown key={unit.key} className="a-tag">{unit.text}</Markdown>
+					: <TraceGroup key={unit.key} items={unit.items} streaming={streaming} />,
+			)}
+		</div>
+	);
+}
+
 export function AIMessage({
-	message,
+	message = '',
+	parts,
 	isThinking,
 	toolEvents = [],
-	richToolPreview = false,
 }: {
-	message: string;
+	message?: string;
+	parts?: MessagePart[];
 	isThinking?: boolean;
 	toolEvents?: ToolEvent[];
-	/**
-	 * Enables the think-only tool widget UX (hover preview of
-	 * Input/Output + click-expand panel with both sections). Defaults
-	 * to `false` so phasic/agentic tool rendering stays untouched.
-	 */
+	/** @deprecated Input/Output is now shown for all behaviors; kept for call-site compat. */
 	richToolPreview?: boolean;
 }) {
 	const sanitizedMessage = sanitizeMessageForDisplay(message);
-	
+
+	// Ordered parts are authoritative; fall back to a single text part for the
+	// few literal placeholder messages that are constructed without parts.
+	const resolvedParts: MessagePart[] = parts && parts.length > 0
+		? parts
+		: (sanitizedMessage ? [{ type: 'text', text: sanitizedMessage }] : []);
+
 	// Check if this is a debug session (active or just completed in this session)
 	const debugEvent = toolEvents.find(ev => ev.name === 'deep_debug');
 	const isActiveDebug = debugEvent?.status === 'start';
 	const isCompletedDebug = debugEvent?.status === 'success' || debugEvent?.status === 'error';
-	
-	// Check if this is a live session with actual content
-	const hasInlineEvents = toolEvents.some(ev => ev.contentLength !== undefined);
 	const hasToolCalls = toolEvents.some(ev => ev.name !== 'deep_debug');
-	
-	// Only show bubble if: actively debugging OR (completed/errored with actual content/tool calls and inline events)
-	const isLiveDebugSession = debugEvent && (
-		isActiveDebug || 
-		(isCompletedDebug && hasInlineEvents && hasToolCalls)
-	);
-	
+	const isLiveDebugSession = debugEvent && (isActiveDebug || (isCompletedDebug && hasToolCalls));
+
 	// Calculate elapsed time for active debug sessions
 	const [elapsedSeconds, setElapsedSeconds] = useState(0);
 	const startTimeRef = useRef<number | null>(null);
-	
+
 	useEffect(() => {
 		if (!isActiveDebug) {
 			startTimeRef.current = null;
 			setElapsedSeconds(0);
 			return;
 		}
-		
 		if (!startTimeRef.current) {
 			startTimeRef.current = Date.now();
 		}
-		
 		const interval = setInterval(() => {
 			if (startTimeRef.current) {
-				const elapsed = Math.floor((Date.now() - startTimeRef.current) / 1000);
-				setElapsedSeconds(elapsed);
+				setElapsedSeconds(Math.floor((Date.now() - startTimeRef.current) / 1000));
 			}
 		}, 1000);
-		
 		return () => clearInterval(interval);
 	}, [isActiveDebug]);
-	
-	// Render debug bubble for live debug sessions (active or just completed)
-	// Don't show for old messages after page refresh (no inline events)
+
 	if (isLiveDebugSession) {
 		const toolCallCount = toolEvents.filter(e => e.name !== 'deep_debug').length;
-		
 		return (
 			<DebugSessionBubble
 				message={{
 					conversationId: 'debug-session',
 					role: 'assistant' as const,
 					content: sanitizedMessage,
-					ui: { toolEvents }
+					ui: { toolEvents },
 				}}
 				isActive={isActiveDebug}
 				elapsedSeconds={elapsedSeconds}
@@ -453,42 +619,24 @@ export function AIMessage({
 			/>
 		);
 	}
-	
-	// Separate: events without contentLength = top (restored), with contentLength = inline (streaming)
-	const topToolEvents = toolEvents.filter(ev => ev.contentLength === undefined);
-	const inlineToolEvents = toolEvents.filter(ev => ev.contentLength !== undefined)
-		.sort((a, b) => (a.contentLength ?? 0) - (b.contentLength ?? 0));
-	
-	const orderedContent = buildOrderedContent(sanitizedMessage, inlineToolEvents);
-	
-	// Don't render if completely empty
-	if (!sanitizedMessage && !topToolEvents.length && !orderedContent.length) {
+
+	if (resolvedParts.length === 0) {
 		return null;
 	}
-	
+
 	return (
 		<div className="flex gap-3">
 			<div className="align-text-top pl-1">
 				<AIAvatar className="size-6 text-orange-500" />
 			</div>
-			<div className="flex flex-col gap-2 min-w-0">
-				<div className="font-mono font-medium text-text-50">Orange</div>
-				
-				{/* Message content with inline tool events (from streaming) */}
-				{orderedContent.length > 0 && (
-					<div className={clsx(isThinking && 'animate-pulse')}>
-						<MessageContentRenderer content={sanitizedMessage} toolEvents={inlineToolEvents} richToolPreview={richToolPreview} />
-					</div>
-				)}
-				
-				{/* Completed tools (from restoration) - shown at end */}
-				{topToolEvents.length > 0 && (
-					<div className="flex flex-col gap-1.5 mt-1">
-						{topToolEvents.map((ev) => (
-							<ToolStatusIndicator key={`${ev.name}-${ev.timestamp}`} event={ev} richToolPreview={richToolPreview} />
-						))}
-					</div>
-				)}
+			<div className="flex flex-col gap-2 min-w-0 flex-1">
+				<div className="font-mono font-medium text-text-50 flex items-center gap-2">
+					Orange
+					{isThinking && <Sparkles className="size-3 text-orange-400 animate-pulse" />}
+				</div>
+				<div className={clsx(isThinking && 'animate-pulse')}>
+					<AssistantParts parts={resolvedParts} streaming={!!isThinking} />
+				</div>
 			</div>
 		</div>
 	);

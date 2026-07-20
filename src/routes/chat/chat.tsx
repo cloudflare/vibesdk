@@ -34,6 +34,7 @@ import { mergeFiles } from '@/utils/file-helpers';
 import { ChatModals } from './components/chat-modals';
 import { MainContentPanel } from './components/main-content-panel';
 import { ChatInput } from './components/chat-input';
+import { ClarifyingQuestionsPopup } from './components/clarifying-questions-popup';
 import { useVault } from '@/hooks/use-vault';
 import { VaultUnlockModal } from '@/components/vault';
 import { useLimitsContext } from '@/contexts/limits-context';
@@ -183,6 +184,10 @@ export default function Chat() {
 		// Externally-sourced session start gate
 		awaitingStartConfirmation,
 		confirmStart,
+		// Clarifying questions popup state
+		clarifyingQuestions,
+		submitClarifyingAnswers,
+		dismissClarifyingQuestions,
 	} = useChat({
 		chatId: urlChatId,
 		query: userQuery,
@@ -768,6 +773,7 @@ export default function Chat() {
 							<div className="relative">
 								<AIMessage
 									message={mainMessage.content}
+									parts={mainMessage.parts}
 									isThinking={mainMessage.ui?.isThinking}
 									toolEvents={mainMessage.ui?.toolEvents}
 									richToolPreview={richToolPreview}
@@ -808,6 +814,7 @@ export default function Chat() {
 									<div key={message.conversationId} className="mb-4">
 										<AIMessage
 											message={message.content}
+											parts={message.parts}
 											isThinking={true}
 											toolEvents={message.ui?.toolEvents}
 											richToolPreview={richToolPreview}
@@ -900,6 +907,7 @@ export default function Chat() {
 											<AIMessage
 												key={message.conversationId}
 												message={message.content}
+												parts={message.parts}
 												isThinking={message.ui?.isThinking}
 												toolEvents={message.ui?.toolEvents}
 												richToolPreview={richToolPreview}
@@ -937,6 +945,14 @@ export default function Chat() {
 					chatFormRef={chatFormRef}
 					limitsData={limitsData}
 					onConnectCloudflare={() => { window.location.href = `/oauth/login?return_url=${encodeURIComponent(window.location.href)}`; }}
+					aboveContent={
+						<ClarifyingQuestionsPopup
+							questions={clarifyingQuestions ?? []}
+							open={clarifyingQuestions !== null && clarifyingQuestions.length > 0}
+							onSubmit={submitClarifyingAnswers}
+							onDismiss={dismissClarifyingQuestions}
+						/>
+					}
 				/>
 				</motion.div>
 

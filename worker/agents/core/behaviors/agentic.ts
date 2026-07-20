@@ -368,6 +368,14 @@ export class AgenticCodingBehavior extends BaseCodingBehavior<AgenticState> impl
                         isStreaming: true
                     });
                 },
+                reasoningCb: (delta: string) => {
+                    this.broadcast(WebSocketMessageResponses.CONVERSATION_RESPONSE, {
+                        message: '',
+                        conversationId: aiConversationId,
+                        isStreaming: true,
+                        reasoning: { delta },
+                    });
+                },
                 toolRenderer: toolCallRenderer,
                 onToolComplete,
                 onAssistantMessage,
