@@ -1,5 +1,5 @@
 import { Think } from '@cloudflare/think';
-import type { PrepareStepContext, StepConfig, Session } from '@cloudflare/think';
+import type { PrepareStepContext, StepConfig, Session, TurnContext, TurnConfig } from '@cloudflare/think';
 import { createOpenAI } from '@ai-sdk/openai';
 import type { LanguageModel, ToolSet } from 'ai';
 import {
@@ -20,6 +20,7 @@ import { createBrowserConsoleLogsTool } from './browser-logs-tool';
 import { createDeploySpaceTool } from './deploy-tool';
 import { createCommitTool } from './commit-tool';
 import { createSetTitleTool } from './set-title-tool';
+import { selectThinkContextMessages } from './context-selector';
 
 /**
  * Per-instance configuration pushed into a {@link ThinkAgent} by the host
@@ -40,6 +41,7 @@ export interface ThinkAgentConfig {
 		baseURL: string;
 		apiKey: string;
 		modelName: string;
+		contextSize?: number;
 		headers?: Record<string, string>;
 		/**
 		 * When true, the AI Gateway holds the provider keys (BYOK / stored
@@ -279,6 +281,17 @@ export class ThinkAgent extends Think<Env> {
 		const base = selectSystemPrompt(cfg?.model.modelName ?? '');
 		const projectContext = cfg?.systemPrompt ?? DEFAULT_SYSTEM_PROMPT;
 		return `${base}\n\n${projectContext}`;
+	}
+
+	override beforeTurn(ctx: TurnContext): TurnConfig {
+		const messages = selectThinkContextMessages(ctx.messages);
+		console.info('Think context selected', {
+			model: this.getConfig<ThinkAgentConfig>()?.model.modelName,
+			contextSize: this.getConfig<ThinkAgentConfig>()?.model.contextSize,
+			originalMessageCount: ctx.messages.length,
+			selectedMessageCount: messages.length,
+		});
+		return { messages };
 	}
 
 	override getSkills(): SkillSource[] {

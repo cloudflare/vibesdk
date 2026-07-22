@@ -24,10 +24,9 @@ import {
 import { isDev } from 'worker/utils/envs';
 import { signSpacePreviewToken } from 'worker/utils/spacePreviewToken';
 import { AppService } from 'worker/database/services/AppService';
-import { AGENT_CONFIG } from '../../inferutils/config';
-import { AI_MODEL_CONFIG, AIModels, AIModelConfig, ModelSize } from '../../inferutils/config.types';
 import { getConfigurationForModel } from '../../inferutils/core';
 import type { ThinkAgentConfig } from '../../think/ThinkAgent';
+import { THINK_MODEL_CONFIG, THINK_MODEL_ID } from '../../think/model-config';
 
 /**
  * Minimal stub shape for the `ThinkAgent` DO (see `worker/agents/think/ThinkAgent.ts`).
@@ -183,21 +182,8 @@ export class ThinkCodingBehavior
 		const inf = this.getInferenceContext();
 		const userId = this.state.metadata.userId;
 
-		const modelConfig =
-			inf.userModelConfigs?.agenticProjectBuilder ?? AGENT_CONFIG.agenticProjectBuilder;
-		const modelName = String(modelConfig.name);
-
-		// Map to an AIModelConfig (provider/etc.) for gateway resolution. Fall
-		// back to deriving the provider from the `provider/model` id for any
-		// model not in the platform catalog.
-		const aiModelConfig: AIModelConfig =
-			AI_MODEL_CONFIG[modelName as AIModels] ?? {
-				name: modelName,
-				size: ModelSize.REGULAR,
-				provider: modelName.includes('/') ? modelName.split('/')[0] : 'google-ai-studio',
-				creditCost: 0,
-				contextSize: 0,
-			};
+		const modelName = THINK_MODEL_ID;
+		const aiModelConfig = THINK_MODEL_CONFIG;
 
 		let conf: { baseURL: string; apiKey: string; defaultHeaders?: Record<string, string> };
 		try {
@@ -251,6 +237,7 @@ export class ThinkCodingBehavior
 				baseURL,
 				apiKey: conf.apiKey,
 				modelName,
+				contextSize: aiModelConfig.contextSize,
 				headers: Object.keys(headers).length > 0 ? headers : undefined,
 				useStoredKeys: usesStoredKeys,
 			},
