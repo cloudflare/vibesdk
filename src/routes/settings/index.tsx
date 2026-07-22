@@ -432,7 +432,7 @@ export default function SettingsPage() {
 				<div className="space-y-8">
 					{/* Page Header */}
 					<div>
-						<h1 className="text-4xl font-bold font-[departureMono] text-red-500">
+						<h1 className="text-4xl font-bold font-funky-mono text-red-500">
 							SETTINGS
 						</h1>
 						<p className="text-text-tertiary mt-2">

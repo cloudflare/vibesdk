@@ -73,7 +73,7 @@ export default function AppsPage() {
 				>
 					{/* Header */}
 					<div className="mb-8">
-						<h1 className="text-6xl font-bold mb-3 font-[departureMono] text-brand">
+						<h1 className="text-6xl font-bold mb-3 font-funky-mono text-brand">
 							MY APPS
 						</h1>
 						<p className="text-text-tertiary text-lg">
@@ -90,7 +90,7 @@ export default function AppsPage() {
 								onChange={handleVisibilityChange}
 							/>
 						</div>
-						
+
 						<div className="flex items-start gap-4 justify-between">
 							{/* Search and Filters */}
 							<AppFiltersForm

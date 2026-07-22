@@ -206,15 +206,15 @@ export function AppSidebar() {
 					'bg-bg-2 transition-all duration-300 ease-in-out',
 				)}
 			>
-				<SidebarContent className="mt-2">
+				<SidebarContent className={cn("pt-2", isCollapsed ? 'px-2' : 'px-3')}>
 					{/* Build Button */}
 					<SidebarGroup>
 						<SidebarGroupContent>
-	
+
 							{location.pathname !== '/' && (
 								<div
 									className={cn(
-										isCollapsed ? ' pr-2' : 'px-1',
+										isCollapsed ? '' : 'px-1',
 									)}
 								>
 									<TooltipProvider delayDuration={0}>
@@ -222,7 +222,7 @@ export function AppSidebar() {
 											<TooltipTrigger asChild>
 												<button
 													className={cn(
-														'group flex w-full border-[0.5px] border-bg-2 items-center gap-2 font-medium hover:opacity-80 hover:cursor-pointer p-2 rounded-md cursor-hand text-text-secondary hover:text-text-primary',
+														'group flex w-full border-[0.5px] border-bg-2 items-center gap-2 font-medium hover:opacity-80 hover:cursor-pointer p-2 rounded-md cursor-hand text-text-secondary hover:text-text-primary shrink-0',
 														isCollapsed
 ? 'justify-center bg-brand'
 														: 'justify-start bg-brand',
@@ -252,8 +252,6 @@ export function AppSidebar() {
 
 					{!isCollapsed && (
 						<ScrollArea className="flex-1 px-1 relative">
-							{/* Gradient fade overlay for app names at sidebar edge */}
-							<div className="absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-bg-2 to-transparent pointer-events-none z-10"></div>
 							{/* Navigation */}
 							<SidebarGroup>
 								{expandedGroups.includes('apps') && (
@@ -409,7 +407,7 @@ export function AppSidebar() {
 										>
 											{!isCollapsed && 'Bookmarked'}
 											<Bookmark className="h-5 w-5 fill-yellow-500 text-yellow-500" />
-											
+
 										</SidebarGroupLabel>
 										<SidebarGroupContent>
 											<SidebarMenu>
