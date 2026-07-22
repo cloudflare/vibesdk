@@ -9,6 +9,10 @@
 			{
 				"class_name": "UserSecretsStore",
 				"name": "UserSecretsStore"
+			},
+			{
+				"class_name": "FsHarnessDO",
+				"name": "FsHarnessDO"
 			}
 		]
 	},
@@ -18,6 +22,12 @@
 				"UserSecretsStore"
 			],
 			"tag": "v1"
+		},
+		{
+			"new_sqlite_classes": [
+				"FsHarnessDO"
+			],
+			"tag": "v2"
 		}
 	],
 	"vars": {}

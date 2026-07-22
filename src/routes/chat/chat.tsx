@@ -29,6 +29,8 @@ import { useDragDrop } from '@/hooks/use-drag-drop';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { sendWebSocketMessage } from './utils/websocket-helpers';
+import { RollbackContext, type RollbackHandler } from './contexts/rollback-context';
+import { toast } from 'sonner';
 import { detectContentType, isDocumentationPath, isMarkdownFile } from './utils/content-detector';
 import { mergeFiles } from '@/utils/file-helpers';
 import { ChatModals } from './components/chat-modals';
@@ -380,6 +382,21 @@ export default function Chat() {
 		sendWebSocketMessage(websocket, 'clear_conversation');
 		setIsResetDialogOpen(false);
 	}, [websocket]);
+
+	// Rollback is think-only. Disabled (null) for other behaviors so the tool
+	// cards hide the control. Blocks while a turn/deploy is in flight.
+	const rollbackHandler = useMemo<RollbackHandler>(() => {
+		if (behaviorType !== 'think') return null;
+		return (commitHash: string) => {
+			if (!websocket) return;
+			if (isGenerating || isDeploying) {
+				toast.error('Please wait for the current action to finish before rolling back.');
+				return;
+			}
+			sendWebSocketMessage(websocket, 'rollback_to_commit', { commitHash });
+			toast.info('Rolling back and redeploying…');
+		};
+	}, [behaviorType, websocket, isGenerating, isDeploying]);
 
 	// // Terminal functions
 	// const handleTerminalCommand = useCallback((command: string) => {
@@ -737,6 +754,7 @@ export default function Chat() {
 	}
 
 	return (
+		<RollbackContext.Provider value={rollbackHandler}>
 		<div className="size-full flex flex-col min-h-0 text-text-primary">
 			<div className="flex-1 flex min-h-0 overflow-hidden justify-center">
 				<motion.div
@@ -1046,5 +1064,6 @@ export default function Chat() {
 				return null;
 			})()}
 		</div>
+		</RollbackContext.Provider>
 	);
 }

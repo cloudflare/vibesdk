@@ -19,6 +19,7 @@ export const WebSocketMessageResponses: Record<string, WebSocketMessageType> = {
     FILE_CHUNK_GENERATED: 'file_chunk_generated',
     FILE_GENERATING: 'file_generating',
     FILE_GENERATED: 'file_generated',
+    FILE_DELETED: 'file_deleted',
     FILE_REGENERATING: 'file_regenerating',
     FILE_REGENERATED: 'file_regenerated',
 
@@ -101,6 +102,9 @@ export const WebSocketMessageRequests = {
     CAPTURE_SCREENSHOT: 'capture_screenshot',
     STOP_GENERATION: 'stop_generation',
     RESUME_GENERATION: 'resume_generation',
+
+    // Restore a prior commit (think/SpaceDO only)
+    ROLLBACK_TO_COMMIT: 'rollback_to_commit',
     
     // GitHub export request
     GITHUB_EXPORT: 'github_export',

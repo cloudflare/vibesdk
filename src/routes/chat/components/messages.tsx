@@ -4,9 +4,10 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeExternalLinks from 'rehype-external-links';
 import { NO_IMAGE_MARKDOWN_COMPONENTS } from './markdown-components';
-import { LoaderCircle, Check, AlertTriangle, ChevronDown, ChevronRight, MessageSquare, Brain, Wrench, Sparkles, CircleX, HelpCircle } from 'lucide-react';
+import { LoaderCircle, Check, AlertTriangle, ChevronDown, ChevronRight, MessageSquare, Brain, Wrench, Sparkles, CircleX, HelpCircle, RotateCcw } from 'lucide-react';
 import type { ToolEvent, MessagePart } from '../utils/message-helpers';
 import { parseClarifyingQuestions } from '../utils/message-helpers';
+import { useRollback } from '../contexts/rollback-context';
 import type { ConversationMessage } from '@/api-types';
 import { useState, useEffect, useRef } from 'react';
 import { DebugSessionBubble } from './debug-session-bubble';
@@ -484,12 +485,71 @@ function ReasoningBlock({ part, streaming }: { part: Extract<MessagePart, { type
 	);
 }
 
+/**
+ * Extract a git commit sha from a successful `commit`/`deploy_space` tool
+ * result, so the tool card can offer a rollback-to-this-commit control.
+ */
+function getRollbackCommitHash(event: ToolEvent): string | null {
+	if (event.status !== 'success') return null;
+	if (event.name !== 'commit' && event.name !== 'deploy_space') return null;
+	if (!event.result) return null;
+	try {
+		const parsed = JSON.parse(event.result) as Record<string, unknown>;
+		const hash = parsed.commit_hash;
+		return typeof hash === 'string' && hash.length > 0 ? hash : null;
+	} catch {
+		return null;
+	}
+}
+
+/** Inline "Rollback" control shown on commit/deploy tool cards. */
+function RollbackButton({ commitHash }: { commitHash: string }) {
+	const onRollback = useRollback();
+	const [confirming, setConfirming] = useState(false);
+	if (!onRollback) return null;
+
+	if (confirming) {
+		return (
+			<span className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
+				<span className="text-[10px] text-text-tertiary">Roll back?</span>
+				<button
+					type="button"
+					onClick={() => { onRollback(commitHash); setConfirming(false); }}
+					className="rounded px-1.5 py-0.5 text-[10px] font-medium text-red-500 hover:bg-red-500/10"
+				>
+					Confirm
+				</button>
+				<button
+					type="button"
+					onClick={() => setConfirming(false)}
+					className="rounded px-1.5 py-0.5 text-[10px] font-medium text-text-tertiary hover:bg-surface-tertiary/40"
+				>
+					Cancel
+				</button>
+			</span>
+		);
+	}
+
+	return (
+		<button
+			type="button"
+			onClick={e => { e.stopPropagation(); setConfirming(true); }}
+			title={`Roll back to ${commitHash.slice(0, 8)}`}
+			className="flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-medium text-text-tertiary hover:bg-surface-tertiary/40 hover:text-text-secondary"
+		>
+			<RotateCcw className="size-3 shrink-0" />
+			Rollback
+		</button>
+	);
+}
+
 /** Collapsible tool-call card with an expandable Input/Output panel. */
 function ToolCard({ event }: { event: ToolEvent }) {
 	const [open, setOpen] = useState(false);
 	const hasInput = !!event.args && Object.keys(event.args).length > 0;
 	const hasOutput = event.status !== 'start' && !!event.result;
 	const canExpand = hasInput || hasOutput;
+	const rollbackHash = getRollbackCommitHash(event);
 
 	return (
 		<div className="rounded-lg border border-border bg-surface-secondary/40">
@@ -501,6 +561,7 @@ function ToolCard({ event }: { event: ToolEvent }) {
 			>
 				<Wrench className="size-3.5 shrink-0 text-text-tertiary" />
 				<span className="flex-1 min-w-0 truncate font-mono text-xs text-text-secondary">{event.name}</span>
+				{rollbackHash && <RollbackButton commitHash={rollbackHash} />}
 				{canExpand && (
 					<ChevronDown className={clsx('size-3.5 shrink-0 text-text-tertiary transition-transform', open && 'rotate-180')} />
 				)}

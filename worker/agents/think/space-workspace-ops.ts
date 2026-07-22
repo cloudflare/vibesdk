@@ -25,6 +25,7 @@ export interface SpaceWorkspaceStub extends DurableObjectStub {
 	): Promise<{ sha: string; message: string }>;
 	gitStatus(): Promise<unknown>;
 	deploy(branch: string): Promise<unknown>;
+	rollbackToCommit(branch: string, commitHash: string): Promise<unknown>;
 }
 
 export type SpaceWorkspaceOps = ReadOperations &
@@ -38,6 +39,29 @@ export type SpaceWorkspaceOps = ReadOperations &
 function isFileInfo(value: FileInfo | null): value is FileInfo {
 	return value !== null;
 }
+
+// ── TEMP DIAGNOSTIC (write-escape-diag) ──────────────────────────────────────
+// The deploy build has been failing on generated files that contain literal
+// backslash-escaped quotes/backticks (e.g. `\" + \"`), which is a double-escape
+// signature. This detector flags when such sequences arrive at writeFile so we
+// can tell whether the corruption is present in the content the tool receives
+// (i.e. upstream of the SpaceDO write) or introduced later. Remove once the
+// source is confirmed.
+const ESCAPE_DIAG_RE = /\\["'`]/;
+function logSuspiciousEscaping(path: string, content: string): void {
+	if (!ESCAPE_DIAG_RE.test(content)) return;
+	const m = ESCAPE_DIAG_RE.exec(content);
+	const idx = m ? m.index : 0;
+	const snippet = content.slice(Math.max(0, idx - 40), idx + 40);
+	// Count occurrences to gauge whether it's pervasive (double-escape) vs a
+	// single legitimately-escaped char inside a normal string.
+	const count = (content.match(/\\["'`]/g) ?? []).length;
+	console.warn(
+		`[write-escape-diag] path="${path}" len=${content.length} escapedQuoteCount=${count} firstAt=${idx}\n` +
+			`  contextJSON=${JSON.stringify(snippet)}`,
+	);
+}
+// ─────────────────────────────────────────────────────────────────────────────
 
 function compareByPath(a: FileInfo, b: FileInfo): number {
 	return a.path.localeCompare(b.path);
@@ -70,6 +94,8 @@ export function createSpaceWorkspaceOps(stub: SpaceWorkspaceStub): SpaceWorkspac
 		},
 
 		async writeFile(path: string, content: string): Promise<void> {
+			// TEMP: flag double-escaped content arriving at the write boundary.
+			logSuspiciousEscaping(path, content);
 			await stub.writeFile(path, content);
 		},
 

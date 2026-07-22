@@ -24,6 +24,13 @@ export interface Env {
   // bindings and `getDurableObjectClass(name)` on the returned stub.
   LOADER: WorkerLoader
 
+  /**
+   * Cloudflare Artifacts binding — versioned, git-compatible remote storage
+   * used as the source of truth for each app's history. Required: the SpaceDO
+   * is Artifacts-backed and throws at construction if this binding is absent.
+   */
+  ARTIFACTS: Artifacts
+
   // AI binding (optional — for AI Gateway zero-config fallback)
   AI?: Ai
 

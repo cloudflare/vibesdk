@@ -9,6 +9,7 @@ import {
     appendFileChunk,
     setFileCompleted,
     setAllFilesCompleted,
+    removeFileFromArray,
     updatePhaseFileStatus,
 } from './file-state-helpers';
 import {
@@ -608,6 +609,11 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
 			case 'file_chunk_generated': {
 				setFiles((prev) => appendFileChunk(prev, message.filePath, message.chunk));
 				deps.onPresentationFileEvent?.({ type: 'file_chunk', path: message.filePath, chunk: message.chunk });
+				break;
+			}
+
+			case 'file_deleted': {
+				setFiles((prev) => removeFileFromArray(prev, message.filePath));
 				break;
 			}
 

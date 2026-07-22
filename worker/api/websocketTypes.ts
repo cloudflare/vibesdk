@@ -70,6 +70,11 @@ type FileGeneratedMessage = {
 	file: FileOutputType;
 };
 
+type FileDeletedMessage = {
+	type: 'file_deleted';
+	filePath: string;
+};
+
 type FileRegeneratedMessage = {
 	type: 'file_regenerated';
 	file: FileOutputType;
@@ -585,6 +590,7 @@ export type WebSocketMessage =
 	| FileRegeneratingMessage
 	| FileChunkGeneratedMessage
 	| FileGeneratedMessage
+	| FileDeletedMessage
 	| FileRegeneratedMessage
 	| GenerationCompleteMessage
 	| DeploymentStartedMessage

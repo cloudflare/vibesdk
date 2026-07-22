@@ -33,6 +33,16 @@ export function updateFileInArray(
 }
 
 /**
+ * Remove a file from the files array (e.g. when the agent deletes it)
+ */
+export function removeFileFromArray(
+    files: FileType[],
+    filePath: string
+): FileType[] {
+    return files.filter(f => f.filePath !== filePath);
+}
+
+/**
  * Update file status in phase timeline
  */
 export function updatePhaseFileStatus(

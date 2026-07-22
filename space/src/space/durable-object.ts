@@ -1,20 +1,31 @@
 import { DurableObject } from "cloudflare:workers"
 import {
-  Workspace,
-  WorkspaceFileSystem,
-  createWorkspaceStateBackend,
-  type FileSystemStateBackend,
+  InMemoryFs,
+  FileSystemStateBackend,
+  type FileSystem,
   type FileInfo,
 } from "@cloudflare/shell"
 import { createGit, type Git, type GitLogEntry, type GitStatusEntry } from "@cloudflare/shell/git"
 import type { Env } from "../env"
-import { handleInfoRefs, handleUploadPack, handleReceivePack, handleHead, type GitHttpContext } from "./git-smart-http"
 import { handleDeployCommand, type DeployContext } from "./deploy-engine"
+import { globInfos, readDirInfos, toFileInfo } from "./fileinfo"
 import { handleAssetRequest, buildAssetManifest, createMemoryStorage, type AssetConfig } from "@cloudflare/worker-bundler"
 import {
   buildInspectorWrapperSource,
   VIBE_APP_MODULE,
 } from "./inspector-wrapper"
+import { ArtifactsSync, type ArtifactsRemoteStore } from "./artifacts-sync"
+import { ArtifactsFileSystem } from "./artifacts-fs"
+import { createArtifactsBaseSource } from "./git-objects"
+
+/** Default branch imported as the ArtifactsFileSystem base on a fresh DO. */
+const ARTIFACTS_BASE_BRANCH = "main"
+
+// Durable DO-storage key holding the app's Artifacts git remote URL. Persisted
+// so a cold-started DO (empty in-memory FS) can push/fetch without re-reading
+// it off a `get()` handle, whose data properties are unreadable via the
+// local-dev remote-binding proxy.
+const ARTIFACTS_REMOTE_URL_KEY = "artifacts:remoteUrl"
 
 // ─── Inspector result types ────────────────────────────────────────────────
 // These mirror the shapes returned by the wrapper-subclass injected into
@@ -54,12 +65,24 @@ interface DeploymentRow {
   assetConfig: AssetConfig
 }
 
+// Overlay-only paths that must never leak into a deploy, rollback tree, or any
+// file listing: git's object store and the ArtifactsFileSystem bookkeeping dir.
+function isReservedPath(path: string): boolean {
+  return (
+    path === "/.git" ||
+    path.startsWith("/.git/") ||
+    path === "/.afs" ||
+    path.startsWith("/.afs/")
+  )
+}
+
 // ─── SpaceDO ────────────────────────────────────────────────────────────────
 // Agent space Durable Object backed by @cloudflare/shell.
 //
 // Each named instance provides an isolated filesystem + git repo.
 // The host worker calls methods via DO RPC (same worker, no HTTP).
-// External git clients can use Smart HTTP via the forwarded routes.
+// Commits/deploys are mirrored to a per-app Cloudflare Artifacts repo
+// (see artifacts-sync.ts), which is the durable source of truth for history.
 
 // Built asset manifest + in-memory storage for a single deployment. Rebuilding
 // these on every request is wasteful (CWE-770 amplification under a preview
@@ -73,32 +96,77 @@ const ASSET_CACHE_MAX_ENTRIES = 8
 const ASSET_CACHE_TTL_MS = 5 * 60 * 1000 // 5 minutes
 
 export class SpaceDO extends DurableObject<Env> {
-  private workspace: Workspace
-  private fs: WorkspaceFileSystem
+  // Raw in-memory overlay (the writable layer under `afs`). Cloudflare
+  // Artifacts is the only durable store for app files; uncommitted edits are
+  // lost on DO eviction. Used directly where a base-unaware view is wanted
+  // (after an explicit hydrate/materialize).
+  private overlay: FileSystem
+  private fs: FileSystem
+  // The base-aware overlay FS whose readiness/materialization gates the DO
+  // drives explicitly. Always present: the SpaceDO requires the Artifacts binding.
+  private afs: ArtifactsFileSystem
   private git: Git
   private stateBackend: FileSystemStateBackend
   private initialized = false
   // Keyed by `${branch}:${commitHash}` — commitHash makes redeploys self-invalidate.
   private assetCache = new Map<string, CachedAssets>()
+  // Lazily constructed on first use (bound to the overlay-aware git/FS).
+  private artifactsSync?: ArtifactsSync
+  private artifactsRemoteStore: ArtifactsRemoteStore
 
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env)
 
-    this.workspace = new Workspace({
-      sql: ctx.storage.sql,
-      name: () => ctx.id.name ?? "space",
-    })
+    if (!env.ARTIFACTS) {
+      // The SpaceDO is Artifacts-backed; there is no plain-overlay fallback.
+      throw new Error("SpaceDO requires the ARTIFACTS binding")
+    }
 
-    this.fs = new WorkspaceFileSystem(this.workspace)
+    // In-memory overlay: no SQLite for file storage. The Artifacts base is
+    // fetched into the overlay `.git` and rehydrated on cold start.
+    const overlay = new InMemoryFs()
+    this.overlay = overlay
+    // Base = the app's Artifacts branch, fetched into the overlay `.git` by a
+    // dedicated sync bound to the overlay (kept separate from the push-sync so
+    // fetch never re-enters the overlay-aware FS mid-initialization).
+    const repoName = ctx.id.name ?? "space"
+    // Durable persistence for the Artifacts remote URL (survives DO eviction).
+    const remoteStore: ArtifactsRemoteStore = {
+      read: () => ctx.storage.get<string>(ARTIFACTS_REMOTE_URL_KEY).then((v) => v ?? null),
+      write: (url) => ctx.storage.put(ARTIFACTS_REMOTE_URL_KEY, url).then(() => undefined),
+    }
+    this.artifactsRemoteStore = remoteStore
+    const fetchSync = new ArtifactsSync(env.ARTIFACTS, createGit(overlay), repoName, remoteStore)
+    const source = createArtifactsBaseSource({
+      overlay,
+      branch: ARTIFACTS_BASE_BRANCH,
+      fetchBranch: () => fetchSync.fetch(ARTIFACTS_BASE_BRANCH),
+    })
+    this.afs = new ArtifactsFileSystem(overlay, { source, branch: ARTIFACTS_BASE_BRANCH })
+    this.fs = this.afs
     this.git = createGit(this.fs)
-    this.stateBackend = createWorkspaceStateBackend(this.workspace)
+    this.stateBackend = new FileSystemStateBackend(overlay)
+  }
+
+  // ── ArtifactsFileSystem hydration helpers ──
+
+  /** Hydrate one path from the Artifacts base into the overlay, on demand. */
+  private async hydrate(path: string): Promise<void> {
+    await this.afs.hydrate(path)
+  }
+
+  /** Ensure the entire base tree is materialized into the overlay Workspace. */
+  private async materializeAll(): Promise<void> {
+    await this.afs.whenFullyMaterialized()
   }
 
   private async ensureInit(): Promise<void> {
     if (this.initialized) return
     this.initialized = true
 
-    // Create extra tables needed for deploy engine and git smart HTTP
+    // Table needed by the deploy engine. (Git objects/refs live in the
+    // Workspace FS under `.git/`, managed by isomorphic-git — the old `refs`
+    // and `git_internal` tables from the retired smart-HTTP server are gone.)
     this.ctx.storage.sql.exec(`
       CREATE TABLE IF NOT EXISTS deployments (
         branch TEXT PRIMARY KEY,
@@ -115,25 +183,21 @@ export class SpaceDO extends DurableObject<Env> {
     try { this.ctx.storage.sql.exec(`ALTER TABLE deployments ADD COLUMN assets TEXT NOT NULL DEFAULT '{}'`) } catch {}
     try { this.ctx.storage.sql.exec(`ALTER TABLE deployments ADD COLUMN asset_config TEXT NOT NULL DEFAULT '{}'`) } catch {}
 
-    this.ctx.storage.sql.exec(`
-      CREATE TABLE IF NOT EXISTS refs (
-        name TEXT PRIMARY KEY,
-        hash TEXT NOT NULL
-      )
-    `)
-
-    this.ctx.storage.sql.exec(`
-      CREATE TABLE IF NOT EXISTS git_internal (
-        path TEXT PRIMARY KEY,
-        content BLOB NOT NULL
-      )
-    `)
-
     // Initialize git repo if not already done
     try {
       await this.git.init({ defaultBranch: "main" })
     } catch {
       // Already initialized — ignore
+    }
+
+    // Build the Artifacts base index (fast; no blob copies). Best-effort: a
+    // transient fetch failure leaves the base empty until the next init.
+    {
+      try {
+        await this.afs.ready()
+      } catch {
+        // Base fetch failed this time — proceed with whatever is local.
+      }
     }
   }
 
@@ -141,8 +205,14 @@ export class SpaceDO extends DurableObject<Env> {
 
   async readFile(path: string, opts?: { offset?: number; limit?: number }): Promise<string> {
     await this.ensureInit()
-    const content = await this.workspace.readFile(path)
-    if (content === null) throw new Error(`File not found: ${path}`)
+    // Read through the overlay FS: it hydrates the blob from the Artifacts base
+    // on demand and honours whiteouts (a deleted base file stays deleted).
+    let content: string
+    try {
+      content = await this.fs.readFile(path)
+    } catch {
+      throw new Error(`File not found: ${path}`)
+    }
 
     if (opts?.offset !== undefined || opts?.limit !== undefined) {
       const lines = content.split("\n")
@@ -159,37 +229,44 @@ export class SpaceDO extends DurableObject<Env> {
 
   async writeFile(path: string, content: string): Promise<{ path: string; size: number }> {
     await this.ensureInit()
-    await this.workspace.writeFile(path, content)
+    // Route through the overlay FS so a write to a previously-deleted base path
+    // clears its whiteout tombstone and makes the file visible again.
+    await this.fs.writeFile(path, content)
     return { path, size: content.length }
   }
 
   async editFile(path: string, oldString: string, newString: string): Promise<{ path: string; size: number }> {
     await this.ensureInit()
+    await this.hydrate(path)
     const result = await this.stateBackend.replaceInFile(path, oldString, newString)
     if (result.replaced === 0) {
       throw new Error(`old_string not found in ${path}`)
     }
     // Read back size
-    const content = await this.workspace.readFile(path)
-    return { path, size: content?.length ?? 0 }
+    const content = await this.fs.readFile(path)
+    return { path, size: content.length }
   }
 
   async deleteFile(path: string): Promise<void> {
     await this.ensureInit()
-    await this.workspace.deleteFile(path)
+    // Route through the overlay-aware FS so a base file is tombstoned
+    // (whiteout), not silently resurrected by later hydration.
+    await this.fs.rm(path, { force: true })
   }
 
   async glob(pattern: string): Promise<string[]> {
     await this.ensureInit()
-    const files = await this.workspace.glob(pattern)
+    await this.materializeAll()
+    const files = await globInfos(this.overlay, pattern)
     return files
-      .filter((f: FileInfo) => f.type === "file")
+      .filter((f: FileInfo) => f.type === "file" && !isReservedPath(f.path))
       .sort((a: FileInfo, b: FileInfo) => b.updatedAt - a.updatedAt)
       .map((f: FileInfo) => f.path)
   }
 
   async grep(query: string, include?: string): Promise<Array<{ path: string; line: number; content: string }>> {
     await this.ensureInit()
+    await this.materializeAll()
     const results = await this.stateBackend.searchFiles(include ?? "**/*", query)
     const matches: Array<{ path: string; line: number; content: string }> = []
     for (const file of results) {
@@ -206,10 +283,11 @@ export class SpaceDO extends DurableObject<Env> {
 
   async list(prefix?: string): Promise<Array<{ path: string; mtime: number }>> {
     await this.ensureInit()
+    await this.materializeAll()
     const pattern = prefix ? `${prefix.replace(/^\//, "")}/**/*` : "**/*"
-    const files = await this.workspace.glob(pattern)
+    const files = await globInfos(this.overlay, pattern)
     return files
-      .filter((f: FileInfo) => f.type === "file")
+      .filter((f: FileInfo) => f.type === "file" && !isReservedPath(f.path))
       .map((f: FileInfo) => ({ path: f.path, mtime: f.updatedAt }))
   }
 
@@ -220,27 +298,40 @@ export class SpaceDO extends DurableObject<Env> {
 
   async stat(path: string): Promise<FileInfo | null> {
     await this.ensureInit()
-    return this.workspace.stat(path)
+    await this.hydrate(path)
+    try {
+      return toFileInfo(path, await this.overlay.stat(path))
+    } catch {
+      return null
+    }
   }
 
   async readFileBytes(path: string): Promise<Uint8Array | null> {
     await this.ensureInit()
-    return this.workspace.readFileBytes(path)
+    // Overlay FS hydrates from the base on demand and honours whiteouts; it
+    // throws ENOENT for a missing path, but this RPC's contract returns null.
+    try {
+      return await this.fs.readFileBytes(path)
+    } catch {
+      return null
+    }
   }
 
   async readDir(dir?: string, opts?: { limit?: number; offset?: number }): Promise<FileInfo[]> {
     await this.ensureInit()
-    return this.workspace.readDir(dir, opts)
+    await this.materializeAll()
+    return readDirInfos(this.overlay, dir, opts)
   }
 
   async mkdir(path: string, opts?: { recursive?: boolean }): Promise<void> {
     await this.ensureInit()
-    await this.workspace.mkdir(path, opts)
+    await this.fs.mkdir(path, opts)
   }
 
   async rm(path: string, opts?: { recursive?: boolean; force?: boolean }): Promise<void> {
     await this.ensureInit()
-    await this.workspace.rm(path, opts)
+    // Route through the overlay-aware FS so base files are tombstoned.
+    await this.fs.rm(path, opts)
   }
 
   async patch(diff: string): Promise<{ applied: string[]; failed: string[] }> {
@@ -251,7 +342,7 @@ export class SpaceDO extends DurableObject<Env> {
 
     for (const edit of edits) {
       try {
-        await this.workspace.writeFile(edit.path, edit.content)
+        await this.fs.writeFile(edit.path, edit.content)
         applied.push(edit.path)
       } catch {
         failed.push(edit.path)
@@ -261,6 +352,34 @@ export class SpaceDO extends DurableObject<Env> {
     return { applied, failed }
   }
 
+  // ── Artifacts sync ──────────────────────────────────────────────
+
+  /**
+   * Lazily resolve the Artifacts sync helper. The ARTIFACTS binding is required
+   * (asserted in the constructor), so this always returns a helper.
+   */
+  private getArtifactsSync(): ArtifactsSync {
+    if (this.artifactsSync !== undefined) return this.artifactsSync
+    this.artifactsSync = new ArtifactsSync(
+      this.env.ARTIFACTS,
+      this.git,
+      this.ctx.id.name ?? "space",
+      this.artifactsRemoteStore,
+    )
+    return this.artifactsSync
+  }
+
+  /** Resolve the branch HEAD currently points at (best-effort). */
+  private async currentBranch(): Promise<string | null> {
+    try {
+      const result = await this.git.branch({ list: true })
+      if ("current" in result && result.current) return result.current
+    } catch {
+      // ignore — treat as unknown
+    }
+    return null
+  }
+
   // ── Git RPC methods ─────────────────────────────────────────────
 
   async gitCommit(
@@ -268,11 +387,25 @@ export class SpaceDO extends DurableObject<Env> {
     author?: { name: string; email: string }
   ): Promise<{ sha: string; message: string }> {
     await this.ensureInit()
+    // `git add .` stages the whole tree; ensure the Artifacts base is
+    // materialized so the commit captures every file, not just overlay writes.
+    await this.materializeAll()
     await this.git.add({ filepath: "." })
     const result = await this.git.commit({
       message,
       author: author ?? { name: "Agent", email: "agent@vibesdk.local" },
     })
+
+    // Mirror to Artifacts so the commit becomes a durable restore point.
+    // Fire-and-forget: pushing must never block or fail the commit.
+    const sync = this.getArtifactsSync()
+    this.ctx.waitUntil(
+      (async () => {
+        const branch = await this.currentBranch()
+        if (branch) await sync.push(branch)
+      })(),
+    )
+
     return { sha: result.oid, message: result.message }
   }
 
@@ -301,10 +434,79 @@ export class SpaceDO extends DurableObject<Env> {
     return this.git.diff()
   }
 
+  /**
+   * Roll back `branch` to the tree of `commitHash` and redeploy. This is a
+   * forward restore (not a destructive reset): it captures the file tree at the
+   * target commit, reconciles the branch working tree to match it, then creates
+   * a new commit on `branch` and deploys — so history stays intact and the
+   * preview rebuilds from the restored files.
+   */
+  async rollbackToCommit(branch: string, commitHash: string): Promise<unknown> {
+    await this.ensureInit()
+    // Reads/walks the whole working tree below, so the Artifacts base must be
+    // fully materialized into the overlay first.
+    await this.materializeAll()
+
+    // Reconcile the local mirror with Artifacts (source of truth) before
+    // verifying, so a rollback still works if this DO lost/never-had the commit
+    // locally. Best-effort: falls back to local history if the fetch fails.
+    await this.getArtifactsSync().fetch(branch)
+
+    // Verify the target commit exists on this branch's history.
+    const history = await this.git.log({ ref: branch, depth: 1000 })
+    const target = history.find(
+      (entry) => entry.oid === commitHash || entry.oid.startsWith(commitHash),
+    )
+    if (!target) {
+      return { error: `Commit ${commitHash} not found on branch "${branch}"` }
+    }
+
+    // Capture the file tree at the target commit as raw bytes. Reading and
+    // rewriting via bytes (not strings) keeps binary assets — fonts, images,
+    // favicons — byte-for-byte intact. Round-tripping them through UTF-8
+    // corrupts them and inflates each invalid byte into a 3-byte replacement
+    // char, which can push a file past the SQLite inline-value limit and throw
+    // SQLITE_TOOBIG (only reproduced on rollback, since normal deploys never
+    // rewrite these files).
+    await this.git.checkout({ ref: target.oid })
+    const targetFiles = new Map<string, Uint8Array>()
+    for (const info of await globInfos(this.overlay, "**/*")) {
+      if (info.type !== "file") continue
+      if (isReservedPath(info.path)) continue
+      const bytes = await this.overlay.readFileBytes(info.path)
+      if (bytes) targetFiles.set(info.path, bytes)
+    }
+
+    // Return to the branch HEAD and reconcile the working tree: remove files
+    // that are absent from the target, then (over)write the captured files.
+    await this.git.checkout({ ref: branch })
+    for (const info of await globInfos(this.overlay, "**/*")) {
+      if (info.type !== "file") continue
+      if (isReservedPath(info.path)) continue
+      if (!targetFiles.has(info.path)) {
+        await this.overlay.rm(info.path, { force: true })
+      }
+    }
+    for (const [path, bytes] of targetFiles) {
+      await this.overlay.writeFileBytes(path, bytes)
+    }
+
+    // Commit the restored tree (no-op if nothing changed) and redeploy.
+    try {
+      await this.gitCommit(`rollback: restore ${target.oid.slice(0, 8)}`)
+    } catch {
+      // Clean tree (already at target) — proceed to redeploy existing HEAD.
+    }
+    return this.deploy(branch)
+  }
+
   // ── Deploy RPC methods ──────────────────────────────────────────
 
   async deploy(branch: string): Promise<unknown> {
     await this.ensureInit()
+    // The deploy engine reads the full branch tree, so ensure the Artifacts
+    // base is materialized into the overlay first.
+    await this.materializeAll()
     const fakeRequest = new Request("http://internal/?cmd=deploy", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -313,12 +515,18 @@ export class SpaceDO extends DurableObject<Env> {
     const ctx: DeployContext = {
       sql: this.ctx.storage.sql,
       git: this.git,
-      workspace: this.workspace,
+      fs: this.fs,
     }
     const res = await handleDeployCommand(ctx, "deploy", fakeRequest)
     const data = await res.json() as Record<string, unknown>
     const spaceName = this.ctx.id.name ?? "space"
     data.preview_url = `/space/${spaceName}/preview/${encodeURIComponent(branch)}/`
+
+    // Mirror the deployed commit to Artifacts (best-effort) only on success.
+    if (!data.error) {
+      await this.getArtifactsSync().push(branch)
+    }
+
     return data
   }
 
@@ -332,7 +540,7 @@ export class SpaceDO extends DurableObject<Env> {
     const ctx: DeployContext = {
       sql: this.ctx.storage.sql,
       git: this.git,
-      workspace: this.workspace,
+      fs: this.overlay,
     }
     const res = await handleDeployCommand(ctx, "undeploy", fakeRequest)
     return res.json()
@@ -344,7 +552,7 @@ export class SpaceDO extends DurableObject<Env> {
     const ctx: DeployContext = {
       sql: this.ctx.storage.sql,
       git: this.git,
-      workspace: this.workspace,
+      fs: this.overlay,
     }
     const res = await handleDeployCommand(ctx, "list_deployments", fakeRequest)
     return res.json()
@@ -356,7 +564,7 @@ export class SpaceDO extends DurableObject<Env> {
     const ctx: DeployContext = {
       sql: this.ctx.storage.sql,
       git: this.git,
-      workspace: this.workspace,
+      fs: this.overlay,
     }
     const res = await handleDeployCommand(ctx, "get_deployment", fakeRequest)
     return res.json()
@@ -366,7 +574,20 @@ export class SpaceDO extends DurableObject<Env> {
 
   async getInfo(): Promise<{ fileCount: number; directoryCount: number; totalBytes: number }> {
     await this.ensureInit()
-    return this.workspace.getWorkspaceInfo()
+    await this.materializeAll()
+    let fileCount = 0
+    let directoryCount = 0
+    let totalBytes = 0
+    for (const info of await globInfos(this.overlay, "**/*")) {
+      if (isReservedPath(info.path)) continue
+      if (info.type === "file") {
+        fileCount++
+        totalBytes += info.size
+      } else if (info.type === "directory") {
+        directoryCount++
+      }
+    }
+    return { fileCount, directoryCount, totalBytes }
   }
 
   // ── Deployment row reader (shared by servePreview + DB-viewer) ──
@@ -570,7 +791,7 @@ export class SpaceDO extends DurableObject<Env> {
     return { ok: true }
   }
 
-  // ── HTTP handler for Git Smart HTTP protocol ────────────────────
+  // ── HTTP handler: preview serving + internal deploy commands ────
 
   async fetch(request: Request): Promise<Response> {
     await this.ensureInit()
@@ -597,38 +818,13 @@ export class SpaceDO extends DurableObject<Env> {
       return rewritePreviewResponse(response, basePath)
     }
 
-    const gitCtx: GitHttpContext = {
-      fs: this.fs,
-      sql: this.ctx.storage.sql,
-    }
-
-    // Git Smart HTTP routes
-    if (path.endsWith("/info/refs")) {
-      const service = url.searchParams.get("service") ?? ""
-      if (service === "git-upload-pack" || service === "git-receive-pack") {
-        return handleInfoRefs(gitCtx, service)
-      }
-    }
-
-    if (path.endsWith("/git-upload-pack") && request.method === "POST") {
-      return handleUploadPack(gitCtx, request)
-    }
-
-    if (path.endsWith("/git-receive-pack") && request.method === "POST") {
-      return handleReceivePack(gitCtx, request)
-    }
-
-    if (path.endsWith("/HEAD")) {
-      return handleHead(gitCtx)
-    }
-
     // Deploy command routes
     const cmd = url.searchParams.get("cmd")
     if (cmd && ["deploy", "get_deployment", "list_deployments", "undeploy"].includes(cmd)) {
       const deployCtx: DeployContext = {
         sql: this.ctx.storage.sql,
         git: this.git,
-        workspace: this.workspace,
+        fs: this.overlay,
       }
       return handleDeployCommand(deployCtx, cmd, request)
     }
