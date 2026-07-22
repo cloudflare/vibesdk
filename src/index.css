@@ -1,9 +1,14 @@
-@import 'tailwindcss';
+@source "../node_modules/@cloudflare/kumo/dist/**/*.{js,jsx,ts,tsx}";
+@import "@cloudflare/kumo/styles/tailwind";
+@import "tailwindcss";
 @import "tw-animate-css";
 
-@font-face{
-  font-family: "departureMono";
-  src:  url('./assets/fonts/DepartureMono-Regular.woff') 
+@custom-variant dark (&:where([data-mode=dark], [data-mode=dark] *));
+@plugin '@tailwindcss/typography';
+
+@font-face {
+  font-family: "Departure Mono";
+  src:  url('./assets/fonts/DepartureMono-Regular.woff')
 }
 
 /* Subtle chat edge throb effect */
@@ -70,20 +75,18 @@
   background: rgba(239, 68, 68, 0.5);
 }
 
-.dark .custom-scrollbar::-webkit-scrollbar-track {
+[data-mode=dark] .custom-scrollbar::-webkit-scrollbar-track {
   background: rgba(255, 255, 255, 0.05);
 }
 
-.dark .custom-scrollbar::-webkit-scrollbar-thumb {
+[data-mode=dark] .custom-scrollbar::-webkit-scrollbar-thumb {
   background: rgba(239, 68, 68, 0.4);
 }
 
-.dark .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+[data-mode=dark] .custom-scrollbar::-webkit-scrollbar-thumb:hover {
   background: rgba(239, 68, 68, 0.6);
 }
 
-@custom-variant dark (&:is(.dark *));
-@plugin '@tailwindcss/typography';
 @theme inline {
 	--radius-sm:
 		calc(var(--radius) - 4px);
@@ -156,7 +159,7 @@
 	--build-chat-colors-text-tertiary: #21212199;
 }
 
-.dark {
+[data-mode=dark] {
 	--destructive:
 		#ef4444; /* Error red */
 	--border:
@@ -211,6 +214,7 @@
 	--font-sans:
 		'Inter', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji',
 		'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
+	--font-funky-mono: 'Departure Mono', var(--font-mono);
 
 	--color-brand: #ff3d00;
 	--color-text: #000;
@@ -291,11 +295,11 @@
 	background-color: rgba(0, 0, 0, 0.3);
 }
 
-.dark ::-webkit-scrollbar-thumb {
+[data-mode=dark] ::-webkit-scrollbar-thumb {
 	background-color: rgba(255, 255, 255, 0.2);
 }
 
-.dark ::-webkit-scrollbar-thumb:hover {
+[data-mode=dark] ::-webkit-scrollbar-thumb:hover {
 	background-color: rgba(255, 255, 255, 0.3);
 }
 
@@ -322,15 +326,15 @@
 	background: rgba(0, 0, 0, 0.3);
 }
 
-.dark .phase-timeline-scroll::-webkit-scrollbar-track {
+[data-mode=dark] .phase-timeline-scroll::-webkit-scrollbar-track {
 	background: rgba(255, 255, 255, 0.05);
 }
 
-.dark .phase-timeline-scroll::-webkit-scrollbar-thumb {
+[data-mode=dark] .phase-timeline-scroll::-webkit-scrollbar-thumb {
 	background: rgba(255, 255, 255, 0.2);
 }
 
-.dark .phase-timeline-scroll::-webkit-scrollbar-thumb:hover {
+[data-mode=dark] .phase-timeline-scroll::-webkit-scrollbar-thumb:hover {
 	background: rgba(255, 255, 255, 0.3);
 }
 
@@ -377,11 +381,11 @@
 	background: rgba(0, 0, 0, 0.15);
 }
 
-.dark .chat-messages-scroll::-webkit-scrollbar-thumb {
+[data-mode=dark] .chat-messages-scroll::-webkit-scrollbar-thumb {
 	background: rgba(255, 255, 255, 0.15);
 }
 
-.dark .chat-messages-scroll::-webkit-scrollbar-thumb:hover {
+[data-mode=dark] .chat-messages-scroll::-webkit-scrollbar-thumb:hover {
 	background: rgba(255, 255, 255, 0.2);
 }
 
@@ -405,15 +409,15 @@
 	background: rgba(0, 0, 0, 0.25);
 }
 
-.dark .terminal-scroll::-webkit-scrollbar-track {
+[data-mode=dark] .terminal-scroll::-webkit-scrollbar-track {
 	background: rgba(255, 255, 255, 0.05);
 }
 
-.dark .terminal-scroll::-webkit-scrollbar-thumb {
+[data-mode=dark] .terminal-scroll::-webkit-scrollbar-thumb {
 	background: rgba(255, 255, 255, 0.15);
 }
 
-.dark .terminal-scroll::-webkit-scrollbar-thumb:hover {
+[data-mode=dark] .terminal-scroll::-webkit-scrollbar-thumb:hover {
 	background: rgba(255, 255, 255, 0.25);
 }
 

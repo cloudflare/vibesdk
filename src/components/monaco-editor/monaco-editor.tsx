@@ -136,7 +136,7 @@ export const MonacoEditor = memo<MonacoEditorProps>(function MonacoEditor({
 	const editor = useRef<monaco.editor.IStandaloneCodeEditor>(undefined);
 	const prevValue = useRef<string>(createOptions.value || '');
 	const stickyScroll = useRef(true);
-	const { theme } = useTheme();
+	const { resolvedTheme } = useTheme();
 
 	const shouldEnableTypeScript = React.useMemo(() => {
 		if (enableTypeScriptFeatures === 'auto') {
@@ -197,14 +197,10 @@ export const MonacoEditor = memo<MonacoEditorProps>(function MonacoEditor({
 
 
 	useEffect(() => {
-		let configuredTheme = theme;
-		if (theme === 'system') {
-			configuredTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
-		}
 		editor.current = monaco.editor.create(containerRef.current!, {
 			language: createOptions.language || 'typescript',
 			minimap: { enabled: false },
-			theme: configuredTheme === 'dark' ? 'vibesdk-dark' : 'vibesdk',
+			theme: resolvedTheme === 'dark' ? 'vibesdk-dark' : 'vibesdk',
 			automaticLayout: true,
 			value: defaultCode,
 			fontSize: 13,
@@ -333,9 +329,9 @@ export const MonacoEditor = memo<MonacoEditorProps>(function MonacoEditor({
 	// Update theme when app theme changes
 	useEffect(() => {
 		if (editor.current) {
-			monaco.editor.setTheme(theme === 'dark' ? 'vibesdk-dark' : 'vibesdk');
+			monaco.editor.setTheme(resolvedTheme === 'dark' ? 'vibesdk-dark' : 'vibesdk');
 		}
-	}, [theme]);
+	}, [resolvedTheme]);
 
 	return <div {...props} ref={containerRef}></div>;
 });
