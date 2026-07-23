@@ -36,7 +36,7 @@ interface LoginModalProps {
 	}) => Promise<void>;
 	error?: string | null;
 	onClearError?: () => void;
-	
+
 	// Contextual messaging
 	actionContext?: string; // e.g., "to star this app", "to fork this project"
 	showCloseButton?: boolean;
@@ -122,20 +122,27 @@ export function LoginModal({
 			errors.password = 'Password must be at least 8 characters';
 		}
 
-		// Additional validation for registration
-		if (mode === 'register') {
-			// Name validation
-			if (!name.trim()) {
-				errors.name = 'Name is required';
-			} else if (name.trim().length < 2) {
-				errors.name = 'Name must be at least 2 characters';
-			}
+			// Additional validation for registration
+			if (mode === 'register') {
+				// Name validation
+				if (!name.trim()) {
+					errors.name = 'Name is required';
+				} else if (name.trim().length < 2) {
+					errors.name = 'Name must be at least 2 characters';
+				}
 
-			// Confirm password validation
-			if (password !== confirmPassword) {
-				errors.confirmPassword = 'Passwords do not match';
+				const passwordStrengthRegex =
+					/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).+$/;
+				if (!passwordStrengthRegex.test(password)) {
+					errors.password =
+						'Password must include at least one uppercase letter, one lowercase letter, one number, and one special character';
+				}
+
+				// Confirm password validation
+				if (password !== confirmPassword) {
+					errors.confirmPassword = 'Passwords do not match';
+				}
 			}
-		}
 
 		setValidationErrors(errors);
 		return Object.keys(errors).length === 0;
@@ -435,7 +442,7 @@ export function LoginModal({
 											disabled={isLoading}
 											className="w-full bg-primary hover:bg-primary/90 text-primary-foreground p-3 rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
 										>
-											{isLoading 
+											{isLoading
 												? (mode === 'register' ? 'Creating account...' : 'Signing in...')
 												: (mode === 'register' ? 'Create account' : 'Sign in')
 											}
@@ -460,8 +467,8 @@ export function LoginModal({
 											}
 											className="text-sm text-text-tertiary hover:text-text-primary transition-colors"
 										>
-											{mode === 'login' 
-												? "Don't have an account? Sign up" 
+											{mode === 'login'
+												? "Don't have an account? Sign up"
 												: "Already have an account? Sign in"
 											}
 										</button>
