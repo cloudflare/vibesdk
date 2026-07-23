@@ -102,9 +102,9 @@ export default function Home() {
 		loading,
 	} = usePaginatedApps({
 		type: 'public',
-		defaultSort: 'popular',
+		defaultSort: 'recent',
 		defaultPeriod: 'week',
-		limit: 6,
+		limit: 24,
 	});
 
 	// Discover section should appear only when enough apps are available and loading is done
