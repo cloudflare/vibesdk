@@ -64,7 +64,7 @@ export default function AppsPage() {
 	};
 
 	return (
-		<div className="min-h-screen bg-bg-3">
+		<div className="min-h-screen bg-kumo-base">
 			<div className="container mx-auto px-4 py-8">
 				<motion.div
 					initial={{ opacity: 0, y: -20 }}

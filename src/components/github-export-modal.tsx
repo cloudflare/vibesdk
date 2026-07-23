@@ -1,13 +1,13 @@
 import React, { useState, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
-    X, 
-    Github, 
-    Lock, 
-    Globe, 
-    Upload, 
-    CheckCircle, 
-    AlertCircle, 
+import {
+    X,
+    Github,
+    Lock,
+    Globe,
+    Upload,
+    CheckCircle,
+    AlertCircle,
     Loader
 } from 'lucide-react';
 import { apiClient } from '@/lib/api-client';
@@ -15,14 +15,14 @@ import { apiClient } from '@/lib/api-client';
 // Shared button styles
 const BUTTON_STYLES = {
     primary: 'bg-brand hover:bg-brand/90 text-text-on-brand py-2 px-4 rounded-lg transition-colors',
-    secondary: 'bg-bg-2 hover:bg-border text-text-primary py-2 px-4 rounded-lg transition-colors',
-    ghost: 'bg-transparent hover:bg-bg-2 text-text-primary/60 hover:text-text-primary py-2 px-4 rounded-lg transition-colors',
+    secondary: 'bg-kumo-elevated hover:bg-border text-text-primary py-2 px-4 rounded-lg transition-colors',
+    ghost: 'bg-transparent hover:bg-kumo-elevated text-text-primary/60 hover:text-text-primary py-2 px-4 rounded-lg transition-colors',
     warning: 'bg-yellow-500 hover:bg-yellow-600 text-white py-2 px-4 rounded-lg font-medium transition-colors',
     danger: 'bg-red-500 hover:bg-red-600 text-white py-2 px-4 rounded-lg transition-colors'
 } as const;
 
 // Helper functions
-const getInitialMode = (existingUrl: string | null | undefined): 'first_export' | 'sync' => 
+const getInitialMode = (existingUrl: string | null | undefined): 'first_export' | 'sync' =>
     existingUrl ? 'sync' : 'first_export';
 
 const extractRepoName = (url: string): string => url.split('/').pop() || '';
@@ -73,11 +73,11 @@ interface GitHubExportModalProps {
 }
 
 // Sub-components
-const ModalHeader: React.FC<{ mode: string; existingUrl?: string | null; onClose: () => void; disabled?: boolean }> = 
+const ModalHeader: React.FC<{ mode: string; existingUrl?: string | null; onClose: () => void; disabled?: boolean }> =
     ({ mode, existingUrl, onClose, disabled }) => (
     <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
-            <div className="p-2 bg-bg-2 rounded-lg">
+            <div className="p-2 bg-kumo-elevated rounded-lg">
                 <Github className="w-5 h-5 text-text-secondary" />
             </div>
             <div>
@@ -93,14 +93,14 @@ const ModalHeader: React.FC<{ mode: string; existingUrl?: string | null; onClose
             </div>
         </div>
         {!disabled && (
-            <button onClick={onClose} className="p-1 hover:bg-bg-2 rounded-md transition-colors">
+            <button onClick={onClose} className="p-1 hover:bg-kumo-elevated rounded-md transition-colors">
                 <X className="w-5 h-5 text-text-primary/60" />
             </button>
         )}
     </div>
 );
 
-const StatusMessage: React.FC<{ icon: React.ComponentType<any>; iconColor: string; title: string; message: string; children?: React.ReactNode }> = 
+const StatusMessage: React.FC<{ icon: React.ComponentType<any>; iconColor: string; title: string; message: string; children?: React.ReactNode }> =
     ({ icon: Icon, iconColor, title, message, children }) => (
     <div className="text-center py-8">
         <Icon className={`w-12 h-12 ${iconColor} mx-auto mb-4`} />
@@ -110,7 +110,7 @@ const StatusMessage: React.FC<{ icon: React.ComponentType<any>; iconColor: strin
     </div>
 );
 
-const ProgressStep: React.FC<{ label: string; isActive: boolean; isComplete: boolean }> = 
+const ProgressStep: React.FC<{ label: string; isActive: boolean; isComplete: boolean }> =
     ({ label, isActive, isComplete }) => (
     <div className={`flex items-center gap-1 ${
         isActive ? 'text-brand' : isComplete ? 'text-green-500' : 'text-text-primary/40'
@@ -120,7 +120,7 @@ const ProgressStep: React.FC<{ label: string; isActive: boolean; isComplete: boo
     </div>
 );
 
-const StatusIndicator: React.FC<{ type: 'success' | 'warning' | 'error'; message: string }> = 
+const StatusIndicator: React.FC<{ type: 'success' | 'warning' | 'error'; message: string }> =
     ({ type, message }) => {
     const colors = {
         success: 'text-green-500',
@@ -128,7 +128,7 @@ const StatusIndicator: React.FC<{ type: 'success' | 'warning' | 'error'; message
         error: 'text-red-500'
     };
     const Icon = type === 'success' ? CheckCircle : AlertCircle;
-    
+
     return (
         <div className={`flex items-center gap-1.5 text-xs ${colors[type]}`}>
             <Icon className="w-3.5 h-3.5" />
@@ -184,7 +184,7 @@ export function GitHubExportModal({
         }
     }, [exportResult]);
 
-    const exportOptions = useMemo(() => 
+    const exportOptions = useMemo(() =>
         createExportOptions(repositoryName, isPrivate, description),
         [repositoryName, isPrivate, description]
     );
@@ -205,11 +205,11 @@ export function GitHubExportModal({
             setMode(getInitialMode(existingGithubUrl));
             setRepositoryName('');
             setDescription('');
-            
+
             if (lastExportSuccess && Date.now() - lastExportSuccess.timestamp > 10000) {
                 setLastExportSuccess(null);
             }
-            
+
             onClose();
         }
     }, [isExporting, onClose, existingGithubUrl, lastExportSuccess]);
@@ -229,7 +229,7 @@ export function GitHubExportModal({
             setIsCheckingRemote(true);
             setShowConflictWarning(false);
             setRemoteStatus(null);
-            
+
             apiClient.checkRemoteStatus({
                 repositoryUrl: existingGithubUrl,
                 agentId
@@ -269,11 +269,11 @@ export function GitHubExportModal({
                     className="bg-bg-4 border border-border-primary rounded-xl max-w-md w-full p-6"
                     onClick={(e) => e.stopPropagation()}
                 >
-                    <ModalHeader 
-                        mode={mode} 
-                        existingUrl={existingGithubUrl} 
-                        onClose={handleClose} 
-                        disabled={isExporting} 
+                    <ModalHeader
+                        mode={mode}
+                        existingUrl={existingGithubUrl}
+                        onClose={handleClose}
+                        disabled={isExporting}
                     />
 
                     {showConflictWarning && remoteStatus && remoteStatus.aheadBy > 0 ? (
@@ -287,11 +287,11 @@ export function GitHubExportModal({
                                     Remote has <strong>{remoteStatus.aheadBy} commit(s)</strong> not in your app.
                                     Your app has <strong>{remoteStatus.behindBy} commit(s)</strong> not on GitHub.
                                 </p>
-                                
+
                                 {remoteStatus.divergedCommits.length > 0 && (
                                     <div>
                                         <p className="font-medium mb-2">Commits that will be lost:</p>
-                                        <div className="bg-bg-2 rounded-lg p-3 max-h-32 overflow-y-auto space-y-2">
+                                        <div className="bg-kumo-elevated rounded-lg p-3 max-h-32 overflow-y-auto space-y-2">
                                             {remoteStatus.divergedCommits.slice(0, 5).map((commit, i) => (
                                                 <div key={i} className="text-xs">
                                                     <div className="font-medium">{commit.message}</div>
@@ -303,7 +303,7 @@ export function GitHubExportModal({
                                         </div>
                                     </div>
                                 )}
-                                
+
                                 <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-lg p-3">
                                     <p className="text-yellow-600 dark:text-yellow-400 font-medium">
                                         ⚠️ Force pushing will replace GitHub's history with yours.
@@ -311,7 +311,7 @@ export function GitHubExportModal({
                                     </p>
                                 </div>
                             </div>
-                            
+
                             <div className="flex gap-3 mt-6">
                                 <button
                                     onClick={() => {
@@ -358,7 +358,7 @@ export function GitHubExportModal({
                                 title="Repository Already Exists"
                                 message="A repository with this name already exists on your GitHub account:"
                             >
-                                    <a 
+                                    <a
                                         href={exportResult.existingRepositoryUrl}
                                         target="_blank"
                                         rel="noopener noreferrer"
@@ -408,13 +408,13 @@ export function GitHubExportModal({
                                 <h3 className="text-lg font-semibold text-text-primary mb-2">Exporting to GitHub</h3>
                                 <p className="text-sm text-text-primary/60">{exportProgress.message}</p>
                             </div>
-                            
+
                             <div className="mb-4">
                                 <div className="flex justify-between text-xs text-text-primary/60 mb-2">
                                     <span>Progress</span>
                                     <span>{exportProgress.progress}%</span>
                                 </div>
-                                <div className="w-full bg-bg-2 rounded-full h-2">
+                                <div className="w-full bg-kumo-elevated rounded-full h-2">
                                     <motion.div
                                         className="bg-brand h-2 rounded-full"
                                         initial={{ width: 0 }}
@@ -423,22 +423,22 @@ export function GitHubExportModal({
                                     />
                                 </div>
                             </div>
-                            
+
                             <div className="flex justify-between text-xs">
-                                <ProgressStep 
-                                    label="Creating Repository" 
-                                    isActive={exportProgress.step === 'creating_repository'} 
-                                    isComplete={exportProgress.progress > 30} 
+                                <ProgressStep
+                                    label="Creating Repository"
+                                    isActive={exportProgress.step === 'creating_repository'}
+                                    isComplete={exportProgress.progress > 30}
                                 />
-                                <ProgressStep 
-                                    label="Uploading Files" 
-                                    isActive={exportProgress.step === 'uploading_files'} 
-                                    isComplete={exportProgress.progress > 70} 
+                                <ProgressStep
+                                    label="Uploading Files"
+                                    isActive={exportProgress.step === 'uploading_files'}
+                                    isComplete={exportProgress.progress > 70}
                                 />
-                                <ProgressStep 
-                                    label="Finalizing" 
-                                    isActive={exportProgress.step === 'finalizing'} 
-                                    isComplete={exportProgress.progress > 90} 
+                                <ProgressStep
+                                    label="Finalizing"
+                                    isActive={exportProgress.step === 'finalizing'}
+                                    isComplete={exportProgress.progress > 90}
                                 />
                             </div>
                         </div>
@@ -452,9 +452,9 @@ export function GitHubExportModal({
                                             <p className="text-sm font-medium text-green-600 dark:text-green-400">
                                                 Last sync successful
                                             </p>
-                                            <a 
-                                                href={lastExportSuccess.repositoryUrl} 
-                                                target="_blank" 
+                                            <a
+                                                href={lastExportSuccess.repositoryUrl}
+                                                target="_blank"
                                                 rel="noopener noreferrer"
                                                 className="text-xs text-green-600/80 dark:text-green-400/80 hover:underline break-all"
                                             >
@@ -481,13 +481,13 @@ export function GitHubExportModal({
                                     value={repositoryName}
                                     onChange={(e) => setRepositoryName(e.target.value)}
                                     placeholder="my-awesome-app"
-                                    className="w-full px-3 py-2 bg-bg-2 border border-border-primary rounded-lg text-text-primary placeholder:text-text-primary/40 focus:outline-none focus:ring-2 focus:ring-brand/50 focus:border-brand"
+                                    className="w-full px-3 py-2 bg-kumo-elevated border border-border-primary rounded-lg text-text-primary placeholder:text-text-primary/40 focus:outline-none focus:ring-2 focus:ring-brand/50 focus:border-brand"
                                     required
                                 />
                             </div>
 
                             {mode === 'sync' && existingGithubUrl && (
-                                <div className="p-3 bg-bg-2 rounded-lg space-y-2">
+                                <div className="p-3 bg-kumo-elevated rounded-lg space-y-2">
                                     <div className="flex items-center justify-between">
                                         <p className="text-xs font-medium text-text-primary/60">
                                             Remote Repository
@@ -500,10 +500,10 @@ export function GitHubExportModal({
                                             Change
                                         </button>
                                     </div>
-                                    
-                                    <a 
-                                        href={existingGithubUrl} 
-                                        target="_blank" 
+
+                                    <a
+                                        href={existingGithubUrl}
+                                        target="_blank"
                                         rel="noopener noreferrer"
                                         className="text-xs text-text-primary/60 hover:text-brand transition-colors break-all flex items-center gap-1"
                                     >
@@ -524,23 +524,23 @@ export function GitHubExportModal({
                                                 ) : (
                                                     <div className="space-y-1">
                                                         {remoteStatus.behindBy > 0 && (
-                                                            <StatusIndicator 
-                                                                type="warning" 
-                                                                message={`Local has ${remoteStatus.behindBy} unpushed commit${remoteStatus.behindBy !== 1 ? 's' : ''}`} 
+                                                            <StatusIndicator
+                                                                type="warning"
+                                                                message={`Local has ${remoteStatus.behindBy} unpushed commit${remoteStatus.behindBy !== 1 ? 's' : ''}`}
                                                             />
                                                         )}
                                                         {remoteStatus.aheadBy > 0 && (
-                                                            <StatusIndicator 
-                                                                type="warning" 
-                                                                message={`Remote has ${remoteStatus.aheadBy} newer commit${remoteStatus.aheadBy !== 1 ? 's' : ''}`} 
+                                                            <StatusIndicator
+                                                                type="warning"
+                                                                message={`Remote has ${remoteStatus.aheadBy} newer commit${remoteStatus.aheadBy !== 1 ? 's' : ''}`}
                                                             />
                                                         )}
                                                     </div>
                                                 )
                                             ) : (
-                                                <StatusIndicator 
-                                                    type="error" 
-                                                    message="Incompatible histories - force push required" 
+                                                <StatusIndicator
+                                                    type="error"
+                                                    message="Incompatible histories - force push required"
                                                 />
                                             )}
                                         </div>
@@ -548,7 +548,7 @@ export function GitHubExportModal({
                                 </div>
                             )}
 
-                            
+
                             {mode !== 'sync' && (
                                 <div>
                                     <label className="block text-sm font-medium text-text-primary mb-2">
@@ -559,7 +559,7 @@ export function GitHubExportModal({
                                         onChange={(e) => setDescription(e.target.value)}
                                         placeholder="A brief description of your app..."
                                         rows={3}
-                                        className="w-full px-3 py-2 bg-bg-2 border border-border-primary rounded-lg text-text-primary placeholder:text-text-primary/40 focus:outline-none focus:ring-2 focus:ring-brand/50 focus:border-brand resize-none"
+                                        className="w-full px-3 py-2 bg-kumo-elevated border border-border-primary rounded-lg text-text-primary placeholder:text-text-primary/40 focus:outline-none focus:ring-2 focus:ring-brand/50 focus:border-brand resize-none"
                                     />
                                 </div>
                             )}
@@ -570,7 +570,7 @@ export function GitHubExportModal({
                                         Repository Privacy
                                     </label>
                                     <div className="space-y-2">
-                                        <label className="flex items-center gap-3 p-3 bg-bg-2 rounded-lg cursor-pointer hover:bg-border transition-colors">
+                                        <label className="flex items-center gap-3 p-3 bg-kumo-elevated rounded-lg cursor-pointer hover:bg-border transition-colors">
                                             <input
                                                 type="radio"
                                                 name="privacy"
@@ -584,7 +584,7 @@ export function GitHubExportModal({
                                                 <p className="text-xs text-text-primary/60">Anyone can see this repository</p>
                                             </div>
                                         </label>
-                                        <label className="flex items-center gap-3 p-3 bg-bg-2 rounded-lg cursor-pointer hover:bg-border transition-colors">
+                                        <label className="flex items-center gap-3 p-3 bg-kumo-elevated rounded-lg cursor-pointer hover:bg-border transition-colors">
                                             <input
                                                 type="radio"
                                                 name="privacy"

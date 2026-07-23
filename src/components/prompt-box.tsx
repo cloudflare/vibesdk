@@ -146,7 +146,7 @@ export function PromptBox({
 			<div className={clsx('flex flex-col', className)} {...dragHandlers}>
 				{aboveContent}
 				<CreditsBanner limitsData={limitsData} onConnectCloudflare={onConnectCloudflare}>
-					<div className="rounded-xl transition-all duration-200 bg-bg-4 dark:bg-bg-2 border border-border-secondary">
+					<div className="rounded-xl transition-all duration-200 bg-bg-4 dark:bg-kumo-elevated border border-border-secondary">
 						<form ref={formRef} onSubmit={handleSubmit}>
 							<div className="relative flex items-center">
 								{dragOverlay}
@@ -202,11 +202,11 @@ export function PromptBox({
 			className={clsx('w-full z-10', className)}
 			radius={borderRadius}
 		>
-			<div className="w-full rounded-[18px] bg-bg-4 dark:bg-bg-2 border border-border-secondary transition-all duration-200 shadow-sm">
+			<div className="w-full rounded-[18px] bg-bg-4 dark:bg-kumo-elevated border border-border-secondary transition-all duration-200 shadow-sm">
 				<form
 					ref={formRef}
 					onSubmit={handleSubmit}
-					className="flex z-10 flex-col w-full min-h-[150px] bg-bg-4 ring-0 dark:bg-bg-2 rounded-[18px] p-4 transition-all duration-200"
+					className="flex z-10 flex-col w-full min-h-[150px] bg-bg-4 ring-0 dark:bg-kumo-elevated rounded-[18px] p-4 transition-all duration-200"
 				>
 					<div
 						className={clsx(

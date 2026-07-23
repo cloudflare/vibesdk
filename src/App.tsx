@@ -8,26 +8,29 @@ import { Toaster } from './components/ui/sonner';
 import { AppLayout } from './components/layout/app-layout';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { FeatureProvider } from './features';
+import { Toasty } from '@cloudflare/kumo';
 
 export default function App() {
-  return (
-    <ErrorBoundary>
-      <ThemeProvider>
-        <FeatureProvider>
-          <AuthProvider>
-            <VaultProvider>
-              <LimitsProvider>
-                <AuthModalProvider>
-                  <AppLayout>
-                    <Outlet />
-                  </AppLayout>
-                  <Toaster richColors position="top-right" />
-                </AuthModalProvider>
-              </LimitsProvider>
-            </VaultProvider>
-          </AuthProvider>
-        </FeatureProvider>
-      </ThemeProvider>
-    </ErrorBoundary>
-  );
+	return (
+		<ErrorBoundary>
+			<ThemeProvider>
+				<FeatureProvider>
+					<AuthProvider>
+						<VaultProvider>
+							<LimitsProvider>
+								<AuthModalProvider>
+									<AppLayout>
+										<Toasty>
+											<Outlet />
+										</Toasty>
+									</AppLayout>
+									<Toaster richColors position="top-right" />
+								</AuthModalProvider>
+							</LimitsProvider>
+						</VaultProvider>
+					</AuthProvider>
+				</FeatureProvider>
+			</ThemeProvider>
+		</ErrorBoundary>
+	);
 }

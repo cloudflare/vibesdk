@@ -38,7 +38,7 @@ export function DocsSidebar({ files, activeFile, onFileSelect }: DocsSidebarProp
 	};
 
 	return (
-		<div className="w-64 bg-bg-2 border-r border-border-primary flex flex-col overflow-hidden">
+		<div className="w-64 bg-kumo-elevated border-r border-border-primary flex flex-col overflow-hidden">
 			{/* Header */}
 			<div className="px-4 py-3 border-b border-border-primary">
 				<h3 className="text-sm font-medium text-text-primary">Documentation</h3>
@@ -92,7 +92,7 @@ function TreeNode({
 			<div>
 				<button
 					onClick={() => onToggleFolder(node.path)}
-					className="w-full flex items-center gap-2 px-3 py-1.5 hover:bg-bg-3 transition-colors text-sm text-text-secondary hover:text-text-primary"
+					className="w-full flex items-center gap-2 px-3 py-1.5 hover:bg-kumo-base transition-colors text-sm text-text-secondary hover:text-text-primary"
 					style={{ paddingLeft: `${depth * 12 + 12}px` }}
 				>
 					<ChevronRight
@@ -134,7 +134,7 @@ function TreeNode({
 				'w-full flex items-center gap-2 px-3 py-1.5 transition-colors text-sm',
 				isActive
 					? 'bg-brand/10 text-brand border-l-2 border-brand'
-					: 'hover:bg-bg-3 text-text-secondary hover:text-text-primary border-l-2 border-transparent'
+					: 'hover:bg-kumo-base text-text-secondary hover:text-text-primary border-l-2 border-transparent'
 			)}
 			style={{ paddingLeft: `${depth * 12 + 12}px` }}
 		>

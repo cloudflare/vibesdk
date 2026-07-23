@@ -95,7 +95,7 @@ function DebugPanelCore({ messages, onClear, chatSessionId }: DebugPanelProps) {
   const [viewMode, setViewMode] = useState<'list' | 'timeline' | 'analytics'>('list');
   const [bookmarkedMessages, setBookmarkedMessages] = useState<Set<string>>(new Set());
   // notifications removed per design request
-  
+
   // Helper functions defined first to avoid hoisting issues
   const calculateOperationMetrics = (wsMessages: DebugMessage[]) => {
     try {
@@ -105,40 +105,40 @@ function DebugPanelCore({ messages, onClear, chatSessionId }: DebugPanelProps) {
         cfDeployment: [] as number[],
         runnerDeployment: [] as number[]
       };
-      
+
       // Track phase lifecycle: phase_generating → phase_generated → phase_implementing → phase_implemented
       const phaseStarts = wsMessages.filter(m => m.messageType === 'phase_generating');
       const phaseCompletes = wsMessages.filter(m => m.messageType === 'phase_implemented');
-      
+
       phaseStarts.forEach(start => {
         const complete = phaseCompletes.find(c => c.timestamp > start.timestamp);
         if (complete) {
           operations.phaseGeneration.push(complete.timestamp - start.timestamp);
         }
       });
-      
+
       // Enhanced file generation tracking with content analysis
       const fileStarts = wsMessages.filter(m => m.messageType === 'file_generating');
       const fileCompletes = wsMessages.filter(m => m.messageType === 'file_generated');
-      
+
       fileStarts.forEach(start => {
         const complete = fileCompletes.find(c => c.timestamp > start.timestamp);
         if (complete) {
           const duration = complete.timestamp - start.timestamp;
-          
+
           // Extract file content info from message if available
           let lines = 0;
           let chars = 0;
-          
+
           try {
             // Try to extract content metrics from the complete message
             const content = complete.message || '';
-            
+
             // Look for content indicators in the message
             const linesMatch = content.match(/(\d+)\s*lines?/i);
             const charsMatch = content.match(/(\d+)\s*characters?/i);
             const sizeMatch = content.match(/(\d+)\s*bytes?/i);
-            
+
             if (linesMatch) {
               lines = parseInt(linesMatch[1]);
             } else {
@@ -148,7 +148,7 @@ function DebugPanelCore({ messages, onClear, chatSessionId }: DebugPanelProps) {
                 lines = fileContentMatch[0].split('\n').length - 2; // Subtract code fence lines
               }
             }
-            
+
             if (charsMatch) {
               chars = parseInt(charsMatch[1]);
             } else if (sizeMatch) {
@@ -162,7 +162,7 @@ function DebugPanelCore({ messages, onClear, chatSessionId }: DebugPanelProps) {
                 chars = content.length;
               }
             }
-            
+
             // Fallback estimates if no metrics found
             if (lines === 0 && chars > 0) {
               lines = Math.max(1, Math.floor(chars / 50)); // Estimate ~50 chars per line
@@ -170,54 +170,54 @@ function DebugPanelCore({ messages, onClear, chatSessionId }: DebugPanelProps) {
             if (chars === 0 && lines > 0) {
               chars = lines * 50; // Estimate 50 chars per line
             }
-            
+
           } catch (parseError) {
             // Use default estimates for unknown content
             lines = 50; // Default estimate
             chars = 2500; // Default estimate
           }
-          
+
           operations.fileGeneration.push({ duration, lines, chars });
         }
       });
-      
+
       // Track CF deployment: cloudflare_deployment_started → cloudflare_deployment_completed
       const cfStarts = wsMessages.filter(m => m.messageType === 'cloudflare_deployment_started');
       const cfCompletes = wsMessages.filter(m => m.messageType === 'cloudflare_deployment_completed');
-      
+
       cfStarts.forEach(start => {
         const complete = cfCompletes.find(c => c.timestamp > start.timestamp);
         if (complete) {
           operations.cfDeployment.push(complete.timestamp - start.timestamp);
         }
       });
-      
+
       // Track runner deployment: phase_implemented → deployment_completed
       const runnerStarts = wsMessages.filter(m => m.messageType === 'phase_implemented');
       const runnerCompletes = wsMessages.filter(m => m.messageType === 'deployment_completed');
-      
+
       runnerStarts.forEach(start => {
         const complete = runnerCompletes.find(c => c.timestamp > start.timestamp);
         if (complete) {
           operations.runnerDeployment.push(complete.timestamp - start.timestamp);
         }
       });
-      
+
       // Calculate statistics for duration-only operations
       const getStats = (durations: number[]) => {
         if (durations.length === 0) return { avg: 0, median: 0, p99: 0, count: 0 };
-        
+
         const sorted = [...durations].sort((a, b) => a - b);
         const avg = durations.reduce((a, b) => a + b, 0) / durations.length;
-        const median = sorted.length % 2 === 0 ? 
+        const median = sorted.length % 2 === 0 ?
           (sorted[sorted.length/2-1] + sorted[sorted.length/2]) / 2 :
           sorted[Math.floor(sorted.length/2)];
         const p99Index = Math.ceil(sorted.length * 0.99) - 1;
         const p99 = sorted[Math.max(0, p99Index)];
-        
+
         return { avg, median, p99, count: durations.length };
       };
-      
+
       // Calculate enhanced file generation statistics
       const getFileStats = (fileOps: { duration: number; lines: number; chars: number }[]) => {
         if (fileOps.length === 0) {
@@ -229,25 +229,25 @@ function DebugPanelCore({ messages, onClear, chatSessionId }: DebugPanelProps) {
             totalChars: 0
           };
         }
-        
+
         const durations = fileOps.map(op => op.duration);
         const linesPerSec = fileOps.map(op => op.duration > 0 ? (op.lines / (op.duration / 1000)) : 0);
         const charsPerSec = fileOps.map(op => op.duration > 0 ? (op.chars / (op.duration / 1000)) : 0);
-        
+
         const totalLines = fileOps.reduce((sum, op) => sum + op.lines, 0);
         const totalChars = fileOps.reduce((sum, op) => sum + op.chars, 0);
-        
+
         const calcStats = (values: number[]) => {
           const sorted = [...values].sort((a, b) => a - b);
           const avg = values.reduce((a, b) => a + b, 0) / values.length;
-          const median = sorted.length % 2 === 0 ? 
+          const median = sorted.length % 2 === 0 ?
             (sorted[sorted.length/2-1] + sorted[sorted.length/2]) / 2 :
             sorted[Math.floor(sorted.length/2)];
           const p99Index = Math.ceil(sorted.length * 0.99) - 1;
           const p99 = sorted[Math.max(0, p99Index)];
           return { avg, median, p99 };
         };
-        
+
         return {
           duration: { ...getStats(durations), count: fileOps.length },
           linesPerSecond: calcStats(linesPerSec),
@@ -256,7 +256,7 @@ function DebugPanelCore({ messages, onClear, chatSessionId }: DebugPanelProps) {
           totalChars
         };
       };
-      
+
       return {
         phaseGeneration: getStats(operations.phaseGeneration),
         fileGeneration: getFileStats(operations.fileGeneration),
@@ -279,42 +279,42 @@ function DebugPanelCore({ messages, onClear, chatSessionId }: DebugPanelProps) {
       };
     }
   };
-  
+
   const categorizeWebSocketMessage = useCallback((messageType?: string): 'generation' | 'phase' | 'file' | 'deployment' | 'system' | undefined => {
     if (!messageType) return undefined;
-    
+
     // Generation messages
     if (['generation_started', 'generation_complete', 'generation_errors'].includes(messageType)) {
       return 'generation';
     }
-    
-    // Phase messages  
+
+    // Phase messages
     if (['phase_generating', 'phase_generated', 'phase_implementing', 'phase_implemented'].includes(messageType)) {
       return 'phase';
     }
-    
+
     // File operation messages
     if (['file_generating', 'file_generated', 'file_regenerated', 'file_chunk_generated', 'file_enhanced', 'file_regenerating'].includes(messageType)) {
       return 'file';
     }
-    
+
     // Deployment messages
     if (['cloudflare_deployment_started', 'cloudflare_deployment_completed', 'cloudflare_deployment_error', 'deployment_completed'].includes(messageType)) {
       return 'deployment';
     }
-    
+
     // System/Runtime messages
     if (['runtime_error_found', 'command_executing', 'code_review', 'error'].includes(messageType)) {
       return 'system';
     }
-    
+
     return 'system'; // Default fallback
   }, []);
 
   const processTimelineData = useCallback((messages: DebugMessage[]) => {
     try {
       if (!messages || messages.length === 0) return { events: [], lanes: [] };
-      
+
       const events = messages.map((msg, index) => ({
         id: msg.id || `msg-${index}`,
         timestamp: msg.timestamp || Date.now(),
@@ -325,7 +325,7 @@ function DebugPanelCore({ messages, onClear, chatSessionId }: DebugPanelProps) {
         duration: index > 0 ? (msg.timestamp || 0) - (messages[index - 1]?.timestamp || 0) : 0,
         isBookmarked: bookmarkedMessages.has(msg.id || '')
       }));
-      
+
       // Group events into lanes by category for better visualization
       const lanes = [
         { id: 'generation', label: 'Generation', color: 'bg-blue-100 border-blue-300' },
@@ -334,44 +334,44 @@ function DebugPanelCore({ messages, onClear, chatSessionId }: DebugPanelProps) {
         { id: 'deployment', label: 'Deployment', color: 'bg-orange-100 border-orange-300' },
         { id: 'system', label: 'System', color: 'bg-red-100 border-red-300' }
       ];
-      
+
       return { events, lanes };
     } catch (error) {
       console.error('Error processing timeline data:', error);
       return { events: [], lanes: [] };
     }
   }, [bookmarkedMessages, categorizeWebSocketMessage]);
-  
+
   // Advanced performance analytics - only compute when panel is open
   const analyticsData = useMemo(() => {
     try {
       if (!isOpen) return null; // Performance optimization: don't compute when closed
-      
+
       const now = Date.now();
       const last24h = messages.filter(m => now - m.timestamp < 24 * 60 * 60 * 1000);
       const errors = messages.filter(m => m.type === 'error');
       const warnings = messages.filter(m => m.type === 'warning');
       const wsMessages = messages.filter(m => m.type === 'websocket');
-      
+
       // Calculate statistical metrics for message intervals
       const intervals = [];
       for (let i = 1; i < messages.length; i++) {
         intervals.push(messages[i].timestamp - messages[i-1].timestamp);
       }
-      
+
       const sortedIntervals = [...intervals].sort((a, b) => a - b);
-      const median = sortedIntervals.length > 0 ? 
-        sortedIntervals.length % 2 === 0 ? 
+      const median = sortedIntervals.length > 0 ?
+        sortedIntervals.length % 2 === 0 ?
           (sortedIntervals[sortedIntervals.length/2-1] + sortedIntervals[sortedIntervals.length/2]) / 2 :
           sortedIntervals[Math.floor(sortedIntervals.length/2)] : 0;
-      
+
       const p99Index = Math.ceil(sortedIntervals.length * 0.99) - 1;
       const p99 = sortedIntervals.length > 0 ? sortedIntervals[Math.max(0, p99Index)] : 0;
       const avgInterval = intervals.length > 0 ? intervals.reduce((a, b) => a + b, 0) / intervals.length : 0;
-      
+
       // Track operation-specific durations
       const operationMetrics = calculateOperationMetrics(wsMessages);
-      
+
       return {
         totalMessages: messages.length,
         last24h: last24h.length,
@@ -390,21 +390,21 @@ function DebugPanelCore({ messages, onClear, chatSessionId }: DebugPanelProps) {
       return null;
     }
   }, [messages, isOpen]);
-  
+
   // Timeline data processing - optimized for performance
   const timelineData = useMemo(() => {
     try {
       if (!isOpen || viewMode !== 'timeline') return null; // Only compute when timeline is active
-      
+
       return processTimelineData(messages);
     } catch (error) {
       console.error('Error processing timeline data:', error);
       return null;
     }
   }, [messages, isOpen, viewMode, processTimelineData]);
-  
+
   // notifications logic removed
-  
+
   // Message bookmarking functionality
   const toggleBookmark = (messageId: string) => {
     const newBookmarks = new Set(bookmarkedMessages);
@@ -415,21 +415,21 @@ function DebugPanelCore({ messages, onClear, chatSessionId }: DebugPanelProps) {
     }
     setBookmarkedMessages(newBookmarks);
   };
-  
 
-  
+
+
   const panelRef = useRef<HTMLDivElement>(null);
 
   const filteredMessages = messages.filter(msg => {
     // Basic type filtering
     if (filter !== 'all' && msg.type !== filter) return false;
-    
+
     // WebSocket category filtering
     if (filter === 'websocket' && wsFilter !== 'all') {
       const category = msg.wsCategory || categorizeWebSocketMessage(msg.messageType);
       if (category !== wsFilter) return false;
     }
-    
+
     // Search filtering
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
@@ -462,7 +462,7 @@ function DebugPanelCore({ messages, onClear, chatSessionId }: DebugPanelProps) {
 
   const generateDebugDump = async (): Promise<DebugDump> => {
     const screenshot = await captureScreenshot();
-    
+
     return {
       timestamp: Date.now(),
       chatSessionId: chatSessionId || 'unknown',
@@ -503,7 +503,7 @@ function DebugPanelCore({ messages, onClear, chatSessionId }: DebugPanelProps) {
       const dump = await generateDebugDump();
       const subject = `Debug Dump - ${chatSessionId || 'Unknown Session'}`;
       const body = `Debug dump generated at ${new Date().toISOString()}\n\nDump data attached as JSON.`;
-      
+
       // Create mailto link with dump as attachment workaround
       const mailtoLink = `mailto:ashishsingh@cloudflare.com?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body + '\n\n' + JSON.stringify(dump, null, 2))}`;
       window.open(mailtoLink);
@@ -538,7 +538,7 @@ function DebugPanelCore({ messages, onClear, chatSessionId }: DebugPanelProps) {
       {/* Debug Panel */}
       <div
         ref={panelRef}
-        className={`fixed right-0 top-0 h-full bg-bg-3 dark:bg-bg-4 shadow-2xl border-l border-border-primary z-[60] transform transition-all duration-300 ease-in-out flex flex-col ${
+        className={`fixed right-0 top-0 h-full bg-kumo-base dark:bg-bg-4 shadow-2xl border-l border-border-primary z-[60] transform transition-all duration-300 ease-in-out flex flex-col ${
           isMaximized ? 'w-[80vw]' : 'w-[600px]'
         } ${isOpen ? 'translate-x-0' : 'translate-x-full'}`}
       >
@@ -559,7 +559,7 @@ function DebugPanelCore({ messages, onClear, chatSessionId }: DebugPanelProps) {
           </div>
           <div className="flex items-center gap-2 flex-wrap justify-end">
             {/* View Mode Toggle */}
-            <div className="flex bg-bg-3 dark:bg-zinc-800 rounded p-0.5">
+            <div className="flex bg-kumo-base dark:bg-zinc-800 rounded p-0.5">
               {[
                 { key: 'list' as const, icon: Bug, label: 'List' },
                 { key: 'analytics' as const, icon: BarChart3, label: 'Analytics' },
@@ -570,7 +570,7 @@ function DebugPanelCore({ messages, onClear, chatSessionId }: DebugPanelProps) {
                   onClick={() => setViewMode(key)}
                   className={`px-2 py-1 text-xs rounded transition-all flex items-center gap-1 ${
                     viewMode === key
-                      ? 'bg-bg-3 text-text-primary shadow-sm'
+                      ? 'bg-kumo-base text-text-primary shadow-sm'
                       : 'text-text-tertiary hover:text-text-primary'
                   }`}
                   title={`${label} view`}
@@ -580,7 +580,7 @@ function DebugPanelCore({ messages, onClear, chatSessionId }: DebugPanelProps) {
                 </button>
               ))}
             </div>
-            
+
             {/* Notifications removed per design */}
             <div className="flex items-center gap-2 basis-full justify-end pt-2">
               <Button
@@ -603,20 +603,20 @@ function DebugPanelCore({ messages, onClear, chatSessionId }: DebugPanelProps) {
             <div className="flex items-center gap-2 w-full sm:w-auto pt-2 sm:pt-0">
               <button
                 onClick={() => setIsMaximized(!isMaximized)}
-                className="text-text-tertiary hover:text-text-primary p-1 hover:bg-bg-3 rounded transition-colors"
+                className="text-text-tertiary hover:text-text-primary p-1 hover:bg-kumo-base rounded transition-colors"
                 title={isMaximized ? 'Minimize panel' : 'Maximize panel'}
               >
                 {isMaximized ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
               </button>
               <button
                 onClick={onClear}
-                className="text-xs text-text-tertiary hover:text-text-primary px-2 py-1 hover:bg-bg-3 rounded transition-colors"
+                className="text-xs text-text-tertiary hover:text-text-primary px-2 py-1 hover:bg-kumo-base rounded transition-colors"
               >
                 Clear
               </button>
               <button
                 onClick={() => setIsOpen(false)}
-                className="text-text-tertiary hover:text-text-primary p-1 hover:bg-bg-3 rounded transition-colors"
+                className="text-text-tertiary hover:text-text-primary p-1 hover:bg-kumo-base rounded transition-colors"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -625,7 +625,7 @@ function DebugPanelCore({ messages, onClear, chatSessionId }: DebugPanelProps) {
         </div>
 
         {/* Filters */}
-        <div className="p-3 border-b border-border-primary dark:border-border-primary bg-bg-3/30 dark:bg-bg-3/20">
+        <div className="p-3 border-b border-border-primary dark:border-border-primary bg-kumo-base/30 dark:bg-kumo-base/20">
           <div className="flex gap-2 mb-3">
             <input
               type="text"
@@ -654,14 +654,14 @@ function DebugPanelCore({ messages, onClear, chatSessionId }: DebugPanelProps) {
                 className={`px-3 py-1 text-xs rounded-full transition-all ${
                   filter === key
                     ? 'bg-blue-500 text-white'
-                    : 'bg-bg-3 text-text-primary hover:bg-bg-3 border border-border-primary'
+                    : 'bg-kumo-base text-text-primary hover:bg-kumo-base border border-border-primary'
                 }`}
               >
                 {label} ({count})
               </button>
             ))}
           </div>
-          
+
           {/* WebSocket Category Filters - Show only when WebSocket filter is active */}
           {filter === 'websocket' && (
             <div className="mt-3 pt-3 border-t border-border-primary">
@@ -717,10 +717,10 @@ function DebugPanelCore({ messages, onClear, chatSessionId }: DebugPanelProps) {
                       <div className="text-sm text-green-800">Avg Interval</div>
                     </div>
                   </div>
-                  
+
                   {/* Statistical Analysis */}
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div className="bg-bg-3/50 p-4 rounded-lg">
+                    <div className="bg-kumo-base/50 p-4 rounded-lg">
                       <h4 className="font-medium text-text-primary mb-2">Response Time Statistics</h4>
                       <div className="space-y-1 text-sm">
                         <div>Average: <span className="font-mono">{analyticsData.intervals.avg}</span></div>
@@ -744,11 +744,11 @@ function DebugPanelCore({ messages, onClear, chatSessionId }: DebugPanelProps) {
                       <div className="text-sm text-amber-700">System Health</div>
                     </div>
                   </div>
-                  
+
                   {/* Enhanced Operation-Specific Metrics */}
                   <div className="space-y-6">
                     <h4 className="font-medium text-text-primary text-lg">🚀 Operation Performance Metrics</h4>
-                    
+
                     {/* File Generation - Special Enhanced Display */}
                     {analyticsData.operations.fileGeneration.duration.count > 0 && (
                       <div className="bg-gradient-to-br from-purple-50 to-indigo-50 border border-purple-200 rounded-xl p-6">
@@ -756,7 +756,7 @@ function DebugPanelCore({ messages, onClear, chatSessionId }: DebugPanelProps) {
                           <div className="w-3 h-3 bg-purple-500 rounded-full"></div>
                           <h5 className="font-bold text-purple-900 text-lg">📝 File Generation Performance</h5>
                         </div>
-                        
+
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
                           <div className="bg-bg-4/70 dark:bg-bg-4/50 rounded-lg p-4 text-center">
                             <div className="text-2xl font-bold text-purple-600">
@@ -783,7 +783,7 @@ function DebugPanelCore({ messages, onClear, chatSessionId }: DebugPanelProps) {
                             <div className="text-sm text-teal-800">Files Generated</div>
                           </div>
                         </div>
-                        
+
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                           <div className="bg-bg-4/70 dark:bg-bg-4/50 rounded-lg p-4">
                             <h6 className="font-medium text-text-primary mb-2">⚡ Generation Speed</h6>
@@ -812,7 +812,7 @@ function DebugPanelCore({ messages, onClear, chatSessionId }: DebugPanelProps) {
                         </div>
                       </div>
                     )}
-                    
+
                     {/* Other Operations */}
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                       {Object.entries(analyticsData.operations)
@@ -824,7 +824,7 @@ function DebugPanelCore({ messages, onClear, chatSessionId }: DebugPanelProps) {
                             cfDeployment: { icon: '☁️', color: 'orange', label: 'CF Deployment' },
                             runnerDeployment: { icon: '🚀', color: 'blue', label: 'Runner Deployment' }
                           }[operation] || { icon: '⚙️', color: 'gray', label: operation };
-                          
+
                           return (
                             <div key={operation} className={`bg-${operationConfig.color}-50 border border-${operationConfig.color}-200 rounded-lg p-4`}>
                               <div className="flex items-center gap-2 mb-3">
@@ -868,7 +868,7 @@ function DebugPanelCore({ messages, onClear, chatSessionId }: DebugPanelProps) {
                   <p className="text-sm">Analytics loading...</p>
                 </div>
               )}
-              
+
               {bookmarkedMessages.size > 0 && (
                 <div className="bg-amber-50 p-4 rounded-lg">
                   <h4 className="font-medium text-amber-800 mb-3 flex items-center gap-2">
@@ -901,12 +901,12 @@ function DebugPanelCore({ messages, onClear, chatSessionId }: DebugPanelProps) {
                       Message Timeline ({timelineData.events.length} events)
                     </h4>
                     <div className="text-sm text-text-tertiary">
-                      Duration: {((timelineData.events[timelineData.events.length - 1]?.timestamp || 0) - (timelineData.events[0]?.timestamp || 0)) > 1000 ? 
-                        `${(((timelineData.events[timelineData.events.length - 1]?.timestamp || 0) - (timelineData.events[0]?.timestamp || 0)) / 1000).toFixed(1)}s` : 
+                      Duration: {((timelineData.events[timelineData.events.length - 1]?.timestamp || 0) - (timelineData.events[0]?.timestamp || 0)) > 1000 ?
+                        `${(((timelineData.events[timelineData.events.length - 1]?.timestamp || 0) - (timelineData.events[0]?.timestamp || 0)) / 1000).toFixed(1)}s` :
                         `${((timelineData.events[timelineData.events.length - 1]?.timestamp || 0) - (timelineData.events[0]?.timestamp || 0)).toFixed(0)}ms`}
                     </div>
                   </div>
-                  
+
                   {/* Lane Legend */}
                   <div className="flex flex-wrap gap-2 mb-4">
                     {timelineData.lanes.map(lane => (
@@ -915,17 +915,17 @@ function DebugPanelCore({ messages, onClear, chatSessionId }: DebugPanelProps) {
                       </div>
                     ))}
                   </div>
-                  
+
                   {/* Timeline Events */}
                   <div className="relative">
                     {/* Vertical timeline line */}
                     <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-border"></div>
-                    
+
                     <div className="space-y-4">
                       {timelineData.events.map((event, index) => {
                         const lane = timelineData.lanes.find(l => l.id === event.category) || timelineData.lanes[4]; // Default to system
                         const relativeTime = index > 0 ? event.timestamp - timelineData.events[0].timestamp : 0;
-                        
+
                         return (
                           <div key={event.id} className="relative flex items-start">
                             {/* Timeline marker */}
@@ -940,7 +940,7 @@ function DebugPanelCore({ messages, onClear, chatSessionId }: DebugPanelProps) {
                                 <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
                               )}
                             </div>
-                            
+
                             {/* Event content */}
                             <div className="ml-4 flex-1 min-w-0">
                               <div className="flex items-center justify-between">
@@ -949,7 +949,7 @@ function DebugPanelCore({ messages, onClear, chatSessionId }: DebugPanelProps) {
                                     {lane.label}
                                   </span>
                                   {event.messageType && (
-                                    <span className="px-2 py-1 text-xs bg-bg-3 text-text-tertiary rounded font-mono">
+                                    <span className="px-2 py-1 text-xs bg-kumo-base text-text-tertiary rounded font-mono">
                                       {event.messageType}
                                     </span>
                                   )}
@@ -962,11 +962,11 @@ function DebugPanelCore({ messages, onClear, chatSessionId }: DebugPanelProps) {
                                   <span>{new Date(event.timestamp).toLocaleTimeString()}</span>
                                 </div>
                               </div>
-                              
+
                               <div className="mt-2 text-sm text-text-primary truncate" title={event.message}>
                                 {event.message}
                               </div>
-                              
+
                               {event.duration > 0 && (
                                 <div className="mt-1 text-xs text-text-tertiary">
                                   Duration: {event.duration > 1000 ? `${(event.duration/1000).toFixed(1)}s` : `${event.duration.toFixed(0)}ms`}
@@ -1059,7 +1059,7 @@ function DebugPanelCore({ messages, onClear, chatSessionId }: DebugPanelProps) {
                           {isExpanded ? 'Hide details' : 'Show details'}
                         </button>
                         {isExpanded && (
-                          <pre className="mt-2 text-xs bg-bg-3 dark:bg-zinc-900 p-2 rounded overflow-x-auto text-text-tertiary whitespace-pre-wrap max-h-40">
+                          <pre className="mt-2 text-xs bg-kumo-base dark:bg-zinc-900 p-2 rounded overflow-x-auto text-text-tertiary whitespace-pre-wrap max-h-40">
                             {message.details}
                           </pre>
                         )}

@@ -24,29 +24,31 @@ import {
 	Trash2,
 	Github,
 	GitBranch,
+	MoreHorizontal,
 } from 'lucide-react';
+import {
+	Badge,
+	Button,
+	DropdownMenu,
+	LayerCard,
+	Tabs,
+	useKumoToastManager,
+} from '@cloudflare/kumo';
 import { MonacoEditor } from '@/components/monaco-editor/monaco-editor';
 import { getFileType } from '@/utils/string';
-import { Button } from '@/components/ui/button';
-import {
-	Card,
-	CardContent,
-	CardDescription,
-	CardHeader,
-	CardTitle,
-} from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '@/contexts/auth-context';
 import { toggleFavorite } from '@/hooks/use-apps';
 import { formatDistanceToNow, isValid } from 'date-fns';
-import { toast } from 'sonner';
 import { capitalizeFirstLetter, cn, getPreviewUrl } from '@/lib/utils';
 import { ConfirmDeleteDialog } from '@/components/shared/ConfirmDeleteDialog';
 import { GitCloneModal } from '@/components/shared/GitCloneModal';
-import { GitCloneCommand, GitClonePrivatePrompt } from '@/components/shared/GitCloneInline';
+import {
+	GitCloneCommand,
+	GitClonePrivatePrompt,
+} from '@/components/shared/GitCloneInline';
 import { useAuthGuard } from '@/hooks/useAuthGuard';
 import { PreviewIframe } from '../chat/components/preview-iframe';
+import { useAppsData } from '@/contexts/apps-data-context';
 
 // Use proper types from API types
 type AppDetails = AppDetailsData;
@@ -91,8 +93,12 @@ export default function AppView() {
 	const [isFavorited, setIsFavorited] = useState(false);
 	const [isStarred, setIsStarred] = useState(false);
 	const { copied: urlCopied, copy: copyUrl } = useCopyToClipboard();
-	const { copy: copyFile } = useCopyToClipboard({ successMessage: 'Code copied to clipboard' });
-	const { copy: copyPrompt } = useCopyToClipboard({ successMessage: 'Prompt copied to clipboard' });
+	const { copy: copyFile } = useCopyToClipboard({
+		successMessage: 'Code copied to clipboard',
+	});
+	const { copy: copyPrompt } = useCopyToClipboard({
+		successMessage: 'Prompt copied to clipboard',
+	});
 	const [activeTab, setActiveTab] = useState('preview');
 	const [isDeploying, setIsDeploying] = useState(false);
 	const [deploymentProgress, setDeploymentProgress] = useState<string>('');
@@ -180,12 +186,14 @@ export default function AppView() {
 		};
 	}, [app, user]);
 
-
 	// Convert agent files to chat FileType format
 	const files = useMemo<FileType[]>(() => {
 		if (!app?.agentSummary?.generatedCode) return [];
 		return app.agentSummary.generatedCode
-			.filter((file) => file && file.filePath && typeof file.filePath === 'string')
+			.filter(
+				(file) =>
+					file && file.filePath && typeof file.filePath === 'string',
+			)
 			.map((file) => ({
 				filePath: file.filePath,
 				fileContents: file.fileContents || '',
@@ -214,6 +222,8 @@ export default function AppView() {
 		setActiveFilePath(file.filePath);
 	}, []);
 
+	const toast = useKumoToastManager();
+
 	// Action configuration for reusability
 	const actionConfigs: Record<string, ActionConfig> = useMemo(
 		() => ({
@@ -224,11 +234,12 @@ export default function AppView() {
 					if (!app) return;
 					const newState = await toggleFavorite(app.id);
 					setIsFavorited(newState);
-					toast.success(
-						newState
+					toast.add({
+						title: newState
 							? 'Added to bookmarks'
 							: 'Removed from bookmarks',
-					);
+						variant: 'success',
+					});
 				},
 				errorMessage: 'Failed to update bookmarks',
 			},
@@ -245,15 +256,21 @@ export default function AppView() {
 							prev
 								? {
 										...prev,
-										starCount: response.data?.starCount || 0,
+										starCount:
+											response.data?.starCount || 0,
 									}
 								: null,
 						);
-						toast.success(
-							response.data.isStarred ? 'Starred!' : 'Unstarred',
-						);
+						toast.add({
+							title: response.data.isStarred
+								? 'Starred!'
+								: 'Unstarred',
+							variant: 'success',
+						});
 					} else {
-						throw new Error(response.error?.message || 'Failed to star app');
+						throw new Error(
+							response.error?.message || 'Failed to star app',
+						);
 					}
 				},
 				errorMessage: 'Failed to update star',
@@ -266,10 +283,12 @@ export default function AppView() {
 			// 		const response = await apiClient.forkApp(app.id);
 
 			// 		if (response.success && response.data) {
-			// 			toast.success(
-			// 				response.data.message ||
+			// 			toast.add({
+			// 				title:
+			// 					response.data.message ||
 			// 					'App remixed successfully!',
-			// 			);
+			// 				variant: 'success',
+			// 			});
 
 			// 			// Emit app-created event for sidebar updates
 			// 			appEvents.emitAppCreated(response.data.forkedAppId, {
@@ -288,7 +307,7 @@ export default function AppView() {
 			// 	errorMessage: 'Failed to remix app',
 			// },
 		}),
-		[app],
+		[app, toast],
 	);
 
 	// Reusable authenticated action handler
@@ -318,22 +337,27 @@ export default function AppView() {
 					await config.handler();
 				} catch (error) {
 					console.error(`${config.action} error:`, error);
-					toast.error(
-						error instanceof ApiError
-							? error.message
-							: config.errorMessage,
-					);
+					toast.add({
+						title:
+							error instanceof ApiError
+								? error.message
+								: config.errorMessage,
+						variant: 'error',
+					});
 				}
 			};
 		},
-		[actionConfigs, app, requireAuth],
+		[actionConfigs, app, requireAuth, toast],
 	);
+
+	const { refetchAll } = useAppsData();
 
 	// Create action handlers using the reusable pattern
 	const handleFavorite = useMemo(
 		() => createAuthenticatedHandler('favorite'),
 		[createAuthenticatedHandler],
 	);
+
 	const handleStar = useMemo(
 		() => createAuthenticatedHandler('star'),
 		[createAuthenticatedHandler],
@@ -368,14 +392,16 @@ export default function AppView() {
 					action,
 					error,
 				);
-				toast.error(
-					error instanceof ApiError
-						? error.message
-						: config.errorMessage,
-				);
+				toast.add({
+					title:
+						error instanceof ApiError
+							? error.message
+							: config.errorMessage,
+					variant: 'error',
+				});
 			}
 		},
-		[actionConfigs, app],
+		[actionConfigs, app, toast],
 	);
 
 	// Effect to handle pending actions after OAuth redirect
@@ -426,38 +452,44 @@ export default function AppView() {
 		try {
 			setIsDeploying(true);
 			setDeploymentProgress('Connecting to agent...');
-            const response = await apiClient.deployPreview(app.id);
-            if (response.success && response.data) {
-                const data = response.data;
-                if (data.previewURL || data.tunnelURL) {
-                    const newUrl = getPreviewUrl(
-                        data.previewURL,
-                        data.tunnelURL,
-                    );
-                    setApp((prev) =>
-                        prev
-                            ? {
-                                    ...prev,
-                                    cloudflareUrl: newUrl,
-                                    previewUrl: newUrl,
-                                }
-                            : null,
-                    );
-                    setDeploymentProgress('Deployment complete!');
-                }
-            }
-            setIsDeploying(false);
+			const response = await apiClient.deployPreview(app.id);
+			if (response.success && response.data) {
+				const data = response.data;
+				if (data.previewURL || data.tunnelURL) {
+					const newUrl = getPreviewUrl(
+						data.previewURL,
+						data.tunnelURL,
+					);
+					setApp((prev) =>
+						prev
+							? {
+									...prev,
+									cloudflareUrl: newUrl,
+									previewUrl: newUrl,
+								}
+							: null,
+					);
+					setDeploymentProgress('Deployment complete!');
+				}
+			}
+			setIsDeploying(false);
 		} catch (error) {
 			console.error('Error starting deployment:', error);
 			setDeploymentProgress('Failed to start deployment');
 			setIsDeploying(false);
-			toast.error('Failed to start deployment');
+			toast.add({
+				title: 'Failed to start deployment',
+				variant: 'error',
+			});
 		}
 	};
 
 	const handleToggleVisibility = async () => {
 		if (!app || !user || !isOwner) {
-			toast.error('You can only change visibility of your own apps');
+			toast.add({
+				title: 'You can only change visibility of your own apps',
+				variant: 'error',
+			});
 			return;
 		}
 
@@ -477,10 +509,12 @@ export default function AppView() {
 					prev ? { ...prev, visibility: newVisibility } : null,
 				);
 
-				toast.success(
-					response.data.message ||
+				toast.add({
+					title:
+						response.data.message ||
 						`App is now ${newVisibility === 'private' ? 'private' : 'public'}`,
-				);
+					variant: 'success',
+				});
 			} else {
 				throw new Error(
 					response.error?.message || 'Failed to update visibility',
@@ -488,11 +522,13 @@ export default function AppView() {
 			}
 		} catch (error) {
 			console.error('Error updating app visibility:', error);
-			toast.error(
-				error instanceof ApiError
-					? error.message
-					: 'Failed to update visibility',
-			);
+			toast.add({
+				title:
+					error instanceof ApiError
+						? error.message
+						: 'Failed to update visibility',
+				variant: 'error',
+			});
 		} finally {
 			setIsUpdatingVisibility(false);
 		}
@@ -506,7 +542,10 @@ export default function AppView() {
 			const response = await apiClient.deleteApp(app.id);
 
 			if (response.success) {
-				toast.success('App deleted successfully');
+				toast.add({
+					title: 'App deleted successfully',
+					variant: 'success',
+				});
 				setIsDeleteDialogOpen(false);
 
 				// Emit global app deleted event
@@ -521,10 +560,13 @@ export default function AppView() {
 					// No history available, go to apps page
 					navigate('/apps');
 				}
-            }
+			}
 		} catch (error) {
 			console.error('Error deleting app:', error);
-			toast.error('An unexpected error occurred while deleting the app');
+			toast.add({
+				title: 'An unexpected error occurred while deleting the app',
+				variant: 'error',
+			});
 		} finally {
 			setIsDeleting(false);
 		}
@@ -532,10 +574,10 @@ export default function AppView() {
 
 	if (loading) {
 		return (
-			<div className="min-h-screen bg-bg-3 flex items-center justify-center">
+			<div className="h-full bg-kumo-base flex items-center justify-center">
 				<div className="text-center">
 					<Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-text-tertiary" />
-					<p className="text-text-tertiary">Loading app...</p>
+					<p className="text-sm text-text-tertiary">Loading app...</p>
 				</div>
 			</div>
 		);
@@ -543,24 +585,30 @@ export default function AppView() {
 
 	if (error || !app) {
 		return (
-			<div className="min-h-screen bg-bg-3 flex items-center justify-center">
-				<Card className="max-w-md">
-					<CardContent className="pt-6">
-						<div className="text-center">
-							<h2 className="text-xl font-semibold mb-2">
+			<div className="h-full bg-kumo-base flex items-center justify-center p-4">
+				<LayerCard className="max-w-md w-full px-5 py-6">
+					<div className="text-center grid gap-4">
+						<div className="grid gap-1.5">
+							<h2 className="text-lg font-semibold text-text-primary">
 								App not found
 							</h2>
-							<p className="text-text-tertiary mb-4">
+							<p className="text-sm text-text-tertiary">
 								{error ||
 									"The app you're looking for doesn't exist."}
 							</p>
-							<Button onClick={() => navigate('/apps')}>
-								<ChevronLeft className="mr-2 h-4 w-4" />
-								Back to Apps
+						</div>
+						<div className="flex justify-center">
+							<Button
+								variant="secondary"
+								size="sm"
+								icon={<ChevronLeft className="h-4 w-4" />}
+								onClick={() => navigate('/apps')}
+							>
+								Back to apps
 							</Button>
 						</div>
-					</CardContent>
-				</Card>
+					</div>
+				</LayerCard>
 			</div>
 		);
 	}
@@ -568,244 +616,269 @@ export default function AppView() {
 	const isOwner = app.userId === user?.id;
 	const appUrl = getAppUrl();
 	const createdDate = app.createdAt ? new Date(app.createdAt) : new Date();
+	const promptText = app?.agentSummary?.query || app?.originalPrompt || '';
 
 	return (
-		<div className="min-h-screen bg-bg-3 flex flex-col">
-			<div className="container mx-auto px-4 pb-6 space-y-6 flex flex-col flex-1">
-				{/* Back button */}
-				<button
-					onClick={() => history.back()}
-					className="gap-2 flex items-center text-text-primary/80"
-				>
-					<ChevronLeft className="h-4 w-4" />
-					Back
-				</button>
-
-				{/* App Info Section */}
-				<div className="flex flex-col items-start justify-between gap-4 text-bg-4 w-fit rounded-lg p-5">
-					<div className="flex-1">
-						<div className="flex rounded w-fit pb-3 pt-2 flex-col mb-6">
-							<div className="flex items-center gap-3 mb-2">
-								<h1 className="text-4xl font-semibold tracking-tight text-text-primary">
+		<div className="h-full bg-kumo-base flex flex-col min-h-0">
+			{/* Compact header — GitHub repo style */}
+			<header className="shrink-0 border-b border-kumo-line bg-kumo-base">
+				<div className="px-4 sm:px-6 py-3 flex flex-col gap-3">
+					{/* Title row */}
+					<div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+						<div className="min-w-0 flex-1 grid gap-1.5">
+							<div className="flex flex-wrap items-center gap-2 min-w-0">
+								<h1 className="text-xl sm:text-2xl font-semibold text-text-primary truncate">
 									{app.title}
 								</h1>
-
-								<div className="flex items-center gap-2 border rounded-xl">
-									<Badge variant={'default'}>
-										<Globe />
-										{capitalizeFirstLetter(app.visibility)}
+								<div className="flex items-center gap-1 shrink-0">
+									<Badge
+										variant={
+											app.visibility === 'private'
+												? 'secondary'
+												: 'success'
+										}
+									>
+										<span className="inline-flex items-center gap-1">
+											<Globe className="h-3 w-3" />
+											{capitalizeFirstLetter(
+												app.visibility,
+											)}
+										</span>
 									</Badge>
 									{isOwner && (
 										<Button
 											variant="ghost"
 											size="sm"
+											shape="square"
+											aria-label={`Make ${app.visibility === 'private' ? 'public' : 'private'}`}
+											title={`Make ${app.visibility === 'private' ? 'public' : 'private'}`}
 											onClick={handleToggleVisibility}
 											disabled={isUpdatingVisibility}
-											className="h-6 w-6 p-0 hover:bg-bg-3/50 -ml-1.5 !mr-1.5"
-											title={`Make ${app.visibility === 'private' ? 'public' : 'private'}`}
-										>
-											{isUpdatingVisibility ? (
-												<Loader2 className="h-3 w-3 animate-spin text-text-primary" />
-											) : app.visibility === 'private' ? (
-												<Unlock className="h-3 w-3 text-text-primary" />
-											) : (
-												<Lock className="h-3 w-3 text-text-primary" />
-											)}
-										</Button>
+											loading={isUpdatingVisibility}
+											icon={
+												app.visibility === 'private' ? (
+													<Unlock className="h-3.5 w-3.5" />
+												) : (
+													<Lock className="h-3.5 w-3.5" />
+												)
+											}
+										/>
 									)}
 								</div>
 							</div>
-							<div className="flex flex-wrap gap-2">
-								<Button
-									variant="outline"
-									size="sm"
-									onClick={handleFavorite}
-									className={cn(
-										'gap-2 text-text-primary',
-									)}
-								>
-									<Bookmark
-										className={cn(
-											'h-4 w-4',
-											isFavorited && 'fill-current',
-										)}
-									/>
-									{isFavorited ? 'Bookmarked' : 'Bookmark'}
-								</Button>
 
-								<Button
-									variant="outline"
-									size="sm"
-									onClick={handleStar}
-									className={cn('gap-2 text-text-primary')}
-								>
-									<Star
-										className={cn(
-											'h-4 w-4',
-											isStarred && 'fill-current',
-										)}
-									/>
-									{isStarred ? 'Starred' : 'Star'}
-								</Button>
-
-								{/* Git Clone Button */}
-								<Button
-									variant="outline"
-									size="sm"
-									onClick={() => setIsGitCloneModalOpen(true)}
-									className="gap-2 text-text-primary"
-								>
-									<GitBranch className="h-4 w-4" />
-									Git Clone
-								</Button>
-
-								{/* GitHub Repository Button */}
-								{app.githubRepositoryUrl && (
-									<Button
-										variant="outline"
-										size="sm"
-										onClick={() => {
-											if (app.githubRepositoryUrl) {
-												window.open(
-													app.githubRepositoryUrl,
-													'_blank',
-													'noopener,noreferrer',
-												);
-											}
-										}}
-										className={cn('gap-2 text-text-primary')}
-										title={`View on GitHub (${app.githubRepositoryVisibility || 'public'})`}
-									>
-										<Github className="h-4 w-4" />
-										View on GitHub
-										{app.githubRepositoryVisibility ===
-											'private' && (
-											<Lock className="h-3 w-3 opacity-70" />
-										)}
-									</Button>
-								)}
-
-								{isOwner ? (
-									<>
-										<Button
-											size="sm"
-											onClick={() =>
-												navigate(`/chat/${app.id}`)
-											}
-											className="gap-2 bg-text-primary text-bg-4 border-bg-4 border"
-										>
-											<Code2 className="h-4 w-4" />
-											Continue Editing
-										</Button>
-										<Button
-											variant="outline"
-											size="sm"
-											onClick={() =>
-												setIsDeleteDialogOpen(true)
-											}
-											className="gap-2 text-text-on-brand !border-0 bg-destructive hover:opacity-90 transition-colors"
-										>
-											<Trash2 className="h-4 w-4" />
-											Delete App
-										</Button>
-									</>
-								) 
-                                : (
-									<>
-										{/*
-										<Button
-											size="sm"
-											variant="secondary"
-											onClick={handleFork}
-											className="gap-2 bg-text-primary text-bg-1"
-										>
-											<Shuffle className="h-4 w-4" />
-											Remix
-										</Button>
-										*/}
-									</>
-								)
-                                }
-							</div>
-						</div>
-
-						{app.description && (
-							<p className="text-text-primary my-3 max-w-4xl">
-								{app.description}
-							</p>
-						)}
-
-						<div className="flex flex-wrap items-center gap-4 text-sm text-text-secondary">
-							{app.user && (
-								<div className="flex items-center gap-2">
-									<User className="h-4 w-4" />
-									<span>{app.user.displayName}</span>
-								</div>
+							{app.description && (
+								<p className="text-sm text-text-secondary line-clamp-2 max-w-3xl">
+									{app.description}
+								</p>
 							)}
-							<div className="flex items-center gap-2">
-								<Calendar className="h-4 w-4" />
-								<span>
+
+							<div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-text-tertiary">
+								{app.user && (
+									<span className="inline-flex items-center gap-1.5">
+										<span className="h-lh flex items-center">
+											<User className="h-3.5 w-3.5" />
+										</span>
+										{app.user.displayName}
+									</span>
+								)}
+								<span className="inline-flex items-center gap-1.5">
+									<span className="h-lh flex items-center">
+										<Calendar className="h-3.5 w-3.5" />
+									</span>
 									{isValid(createdDate)
 										? formatDistanceToNow(createdDate, {
 												addSuffix: true,
 											})
 										: 'recently'}
 								</span>
-							</div>
-							<div className="flex items-center gap-2">
-								<Eye className="h-4 w-4" />
-								<span>{app.viewCount || 0}</span>
-							</div>
-							<div className="flex items-center gap-2">
-								<Star className="h-4 w-4" />
-								<span>{app.starCount || 0}</span>
+								<span className="inline-flex items-center gap-1.5">
+									<span className="h-lh flex items-center">
+										<Eye className="h-3.5 w-3.5" />
+									</span>
+									{app.viewCount || 0}
+								</span>
+								<span className="inline-flex items-center gap-1.5">
+									<span className="h-lh flex items-center">
+										<Star className="h-3.5 w-3.5" />
+									</span>
+									{app.starCount || 0}
+								</span>
+								{files.length > 0 && (
+									<span className="inline-flex items-center gap-1.5">
+										<span className="h-lh flex items-center">
+											<Code2 className="h-3.5 w-3.5" />
+										</span>
+										{files.length} files
+									</span>
+								)}
 							</div>
 						</div>
+
+						{/* Actions */}
+						<div className="flex flex-wrap items-center gap-1.5 shrink-0">
+							<Button
+								variant="secondary"
+								size="sm"
+								icon={
+									<Bookmark
+										className={cn(
+											'h-3.5 w-3.5',
+											isFavorited && 'fill-current',
+										)}
+									/>
+								}
+								onClick={async () => {
+									await handleFavorite();
+									refetchAll();
+								}}
+							>
+								{isFavorited ? 'Bookmarked' : 'Bookmark'}
+							</Button>
+
+							<Button
+								variant="secondary"
+								size="sm"
+								icon={
+									<Star
+										className={cn(
+											'h-3.5 w-3.5',
+											isStarred && 'fill-current',
+										)}
+									/>
+								}
+								onClick={handleStar}
+							>
+								{isStarred ? 'Starred' : 'Star'}
+								{(app.starCount || 0) > 0 && (
+									<span className="text-text-tertiary tabular-nums">
+										{app.starCount}
+									</span>
+								)}
+							</Button>
+
+							<Button
+								variant="secondary"
+								size="sm"
+								icon={<GitBranch className="h-3.5 w-3.5" />}
+								onClick={() => setIsGitCloneModalOpen(true)}
+							>
+								Code
+							</Button>
+
+							{app.githubRepositoryUrl && (
+								<Button
+									variant="secondary"
+									size="sm"
+									icon={<Github className="h-3.5 w-3.5" />}
+									title={`View on GitHub (${app.githubRepositoryVisibility || 'public'})`}
+									onClick={() => {
+										if (app.githubRepositoryUrl) {
+											window.open(
+												app.githubRepositoryUrl,
+												'_blank',
+												'noopener,noreferrer',
+											);
+										}
+									}}
+								>
+									GitHub
+									{app.githubRepositoryVisibility ===
+										'private' && (
+										<Lock className="h-3 w-3 opacity-70" />
+									)}
+								</Button>
+							)}
+
+							{isOwner && (
+								<>
+									<Button
+										variant="primary"
+										size="sm"
+										icon={<Code2 className="h-3.5 w-3.5" />}
+										onClick={() =>
+											navigate(`/chat/${app.id}`)
+										}
+									>
+										Continue editing
+									</Button>
+
+									<DropdownMenu>
+										<DropdownMenu.Trigger
+											render={
+												<Button
+													variant="secondary"
+													size="sm"
+													shape="square"
+													aria-label="More actions"
+													icon={
+														<MoreHorizontal className="h-4 w-4" />
+													}
+												/>
+											}
+										/>
+										<DropdownMenu.Content align="end">
+											<DropdownMenu.Item
+												icon={
+													<Trash2 className="h-4 w-4" />
+												}
+												variant="danger"
+												onClick={() =>
+													setIsDeleteDialogOpen(true)
+												}
+											>
+												Delete app
+											</DropdownMenu.Item>
+										</DropdownMenu.Content>
+									</DropdownMenu>
+								</>
+							)}
+						</div>
 					</div>
-				</div>
-				<Tabs
-					value={activeTab}
-					onValueChange={setActiveTab}
-					className="flex flex-col flex-1 gap-2"
-				>
-					{/* Tab switcher and Git Clone inline */}
-					<div className="flex items-center gap-4">
-						{/* Using proper TabsList and TabsTrigger components */}
-						<TabsList className="inline-flex h-auto w-fit items-center gap-0.5 bg-bg-2 dark:bg-bg-1 rounded-md p-0.5 border border-border-primary/30">
-						<TabsTrigger 
-							value="preview" 
-							className="px-3 py-1.5 rounded text-xs font-medium data-[state=active]:bg-bg-4 dark:data-[state=active]:bg-bg-3 data-[state=active]:text-text-primary data-[state=active]:shadow-sm"
-						>
-							<Eye className={cn(
-								"h-3.5 w-3.5 mr-1.5",
-								activeTab === 'preview' ? 'text-brand' : 'text-brand/60'
-							)} />
-							Preview
-						</TabsTrigger>
-						<TabsTrigger 
-							value="code" 
-							className="px-3 py-1.5 rounded text-xs font-medium data-[state=active]:bg-bg-4 dark:data-[state=active]:bg-bg-3 data-[state=active]:text-text-primary data-[state=active]:shadow-sm"
-						>
-							<Code2 className={cn(
-								"h-3.5 w-3.5 mr-1.5",
-								activeTab === 'code' ? 'text-brand' : 'text-brand/60'
-							)} />
-							Code
-						</TabsTrigger>
-						<TabsTrigger 
-							value="prompt" 
-							className="px-3 py-1.5 rounded text-xs font-medium data-[state=active]:bg-bg-4 dark:data-[state=active]:bg-bg-3 data-[state=active]:text-text-primary data-[state=active]:shadow-sm"
-						>
-							<MessageSquare className={cn(
-								"h-3.5 w-3.5 mr-1.5",
-								activeTab === 'prompt' ? 'text-brand' : 'text-brand/60'
-							)} />
-							Prompt
-						</TabsTrigger>
-						</TabsList>
-						
-						{/* Git Clone - Inline with tabs */}
-						<div className="flex-shrink-0">
+
+					{/* Tabs + clone bar */}
+					<div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+						<Tabs
+							value={activeTab}
+							onValueChange={setActiveTab}
+							className="w-fit"
+							tabs={[
+								{
+									value: 'preview',
+									label: (
+										<span className="inline-flex items-center gap-1.5">
+											<Eye className="h-3.5 w-3.5" />
+											Preview
+										</span>
+									),
+								},
+								{
+									value: 'code',
+									label: (
+										<span className="inline-flex items-center gap-1.5">
+											<Code2 className="h-3.5 w-3.5" />
+											Code
+											{files.length > 0 && (
+												<span className="text-text-tertiary tabular-nums">
+													{files.length}
+												</span>
+											)}
+										</span>
+									),
+								},
+								{
+									value: 'prompt',
+									label: (
+										<span className="inline-flex items-center gap-1.5">
+											<MessageSquare className="h-3.5 w-3.5" />
+											Prompt
+										</span>
+									),
+								},
+							]}
+						/>
+
+						<div className="shrink-0 max-w-full">
 							{app.visibility === 'public' ? (
 								<GitCloneCommand
 									cloneUrl={`${window.location.protocol}//${window.location.host}/apps/${app.id}.git`}
@@ -813,321 +886,300 @@ export default function AppView() {
 								/>
 							) : isOwner ? (
 								<GitClonePrivatePrompt
-									onOpenModal={() => setIsGitCloneModalOpen(true)}
+									onOpenModal={() =>
+										setIsGitCloneModalOpen(true)
+									}
 								/>
 							) : null}
 						</div>
 					</div>
+				</div>
+			</header>
 
-					<TabsContent value="preview" className="flex-1">
-						<Card className="px-2">
-							<CardHeader className="overflow-hidden rounded-t">
-								<div className="flex items-center gap-4 min-w-0">
-									<CardTitle className="text-base flex-shrink-0">
-										Live Preview
-									</CardTitle>
-									{/* Preview URL action buttons */}
-									{appUrl && (
-										<div className="ml-auto flex items-center gap-0 flex-shrink-0">
+			{/* Full-bleed workspace */}
+			<div className="flex-1 min-h-0 flex flex-col p-3 sm:p-4">
+				{activeTab === 'preview' && (
+					<div className="flex-1 min-h-0 flex flex-col rounded-xl ring ring-kumo-line bg-kumo-base overflow-hidden">
+						<div className="shrink-0 flex items-center gap-2 px-3 py-2 border-b border-kumo-line bg-kumo-elevated/40">
+							<span className="text-sm font-medium text-text-primary shrink-0">
+								Live preview
+							</span>
+							{appUrl && (
+								<>
+									<code className="min-w-0 flex-1 truncate font-mono text-[0.9em] text-text-tertiary px-2">
+										{appUrl}
+									</code>
+									<div className="flex items-center gap-0.5 shrink-0">
+										<Button
+											variant="ghost"
+											size="sm"
+											shape="square"
+											aria-label={
+												urlCopied
+													? 'Copied'
+													: 'Copy URL'
+											}
+											title={
+												urlCopied
+													? 'Copied'
+													: 'Copy URL'
+											}
+											onClick={handleCopyUrl}
+											icon={
+												urlCopied ? (
+													<Check className="h-3.5 w-3.5" />
+												) : (
+													<Copy className="h-3.5 w-3.5" />
+												)
+											}
+										/>
+										<Button
+											variant="ghost"
+											size="sm"
+											shape="square"
+											aria-label="Open in new tab"
+											title="Open in new tab"
+											onClick={() =>
+												window.open(appUrl, '_blank')
+											}
+											icon={
+												<ExternalLink className="h-3.5 w-3.5" />
+											}
+										/>
+									</div>
+								</>
+							)}
+						</div>
+						<div className="flex-1 min-h-0 relative">
+							{appUrl ? (
+								<PreviewIframe
+									ref={previewIframeRef}
+									src={appUrl}
+									className="absolute inset-0 w-full h-full"
+									title={`${app.title} Preview`}
+								/>
+							) : (
+								<div className="absolute inset-0 flex items-center justify-center">
+									<div className="absolute inset-0 opacity-[0.04]">
+										<div
+											className="w-full h-full"
+											style={{
+												backgroundImage: `url("data:image/svg+xml,%3Csvg width='40' height='40' viewBox='0 0 40 40' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23000' fill-opacity='1'%3E%3Cpath d='M20 20c0 11.046-8.954 20-20 20V0c11.046 0 20 8.954 20 20z'/%3E%3C/g%3E%3C/svg%3E")`,
+												backgroundSize: '40px 40px',
+											}}
+										/>
+									</div>
+									<div className="relative z-10 text-center p-8 grid gap-4 max-w-md">
+										<div className="grid gap-1.5">
+											<h3 className="text-lg font-semibold text-text-primary">
+												Run app
+											</h3>
+											<p className="text-sm text-text-tertiary">
+												Deploy a preview to see this app
+												live.
+											</p>
+											{deploymentProgress && (
+												<p className="text-sm text-text-secondary">
+													{deploymentProgress}
+												</p>
+											)}
+										</div>
+										<div className="flex justify-center">
 											<Button
-												variant="ghost"
+												variant="primary"
 												size="sm"
-												onClick={handleCopyUrl}
-												className="gap-2"
-															>
-																{urlCopied ? (
-																	<>
-																		<Check className="h-3 w-3" />
-																		Copied!
-																	</>
-																) : (
-																	<>
-																		<Copy className="h-3 w-3" />
-																	</>
-																)}
-															</Button>
-											<Button
-												variant="ghost"
-												size="sm"
-												onClick={() =>
-													window.open(
-														appUrl,
-														'_blank',
-													)
+												onClick={handlePreviewDeploy}
+												disabled={isDeploying}
+												loading={isDeploying}
+												icon={
+													!isDeploying ? (
+														<Play className="h-4 w-4" />
+													) : undefined
 												}
-												className="gap-2"
 											>
-												<ExternalLink className="h-3 w-3" />
+												{isDeploying
+													? 'Deploying...'
+													: 'Deploy for preview'}
 											</Button>
 										</div>
-									)}
+									</div>
 								</div>
-							</CardHeader>
-							<CardContent className="p-0">
-								<div className="border-t relative">
-									{appUrl ? (
-										<PreviewIframe
-											ref={previewIframeRef}
-											src={appUrl}
-											className="w-full h-[600px] lg:h-[800px]"
-											title={`${app.title} Preview`}
-										/>
-									) : (
-										<div className="relative w-full h-[400px] bg-gray-50 flex items-center justify-center">
-											{/* Frosted glass overlay */}
-											<div className="absolute inset-0 bg-white/80 backdrop-blur-sm flex items-center justify-center z-10">
-												<div className="text-center p-8">
-													<h3 className="text-xl font-semibold mb-2 text-gray-700">
-														Run App
-													</h3>
-													<p className="text-gray-500 mb-6 max-w-md">
-														Run the app to see a
-														live preview.
-													</p>
-													{deploymentProgress && (
-														<p className="text-sm text-gray-800 mb-4">
-															{deploymentProgress}
-														</p>
+							)}
+						</div>
+					</div>
+				)}
+
+				{activeTab === 'code' && (
+					<div className="flex-1 min-h-0 flex flex-col rounded-xl ring ring-kumo-line bg-kumo-base overflow-hidden">
+						<div className="shrink-0 flex items-center justify-between gap-2 px-3 py-2 border-b border-kumo-line bg-kumo-elevated/40">
+							<div className="min-w-0 flex items-center gap-2">
+								<span className="text-sm font-medium text-text-primary shrink-0">
+									Generated code
+								</span>
+								{app?.agentSummary && (
+									<span className="text-xs text-text-tertiary">
+										{files.length} files
+									</span>
+								)}
+								{activeFile && (
+									<code className="min-w-0 truncate font-mono text-[0.9em] text-text-tertiary">
+										{activeFile.filePath}
+									</code>
+								)}
+							</div>
+							{activeFile && (
+								<Button
+									variant="ghost"
+									size="sm"
+									icon={<Copy className="h-3.5 w-3.5" />}
+									onClick={() => {
+										void copyFile(activeFile.fileContents);
+									}}
+								>
+									Copy file
+								</Button>
+							)}
+						</div>
+
+						{files.length > 0 ? (
+							<div className="flex-1 min-h-0 flex">
+								<aside className="w-56 sm:w-64 shrink-0 border-r border-kumo-line flex flex-col min-h-0 bg-kumo-elevated/20">
+									<div className="shrink-0 px-3 py-2 text-xs font-medium text-text-tertiary border-b border-kumo-line flex items-center gap-1.5">
+										<Code2 className="h-3.5 w-3.5" />
+										Files
+									</div>
+									<div className="flex-1 min-h-0 overflow-y-auto">
+										{files.map((file) => {
+											const selected =
+												activeFile?.filePath ===
+												file.filePath;
+											return (
+												<button
+													key={file.filePath}
+													type="button"
+													onClick={() =>
+														handleFileClick(file)
+													}
+													className={cn(
+														'flex items-center w-full gap-2 py-1.5 px-3 text-left text-sm',
+														selected
+															? 'bg-kumo-tint text-text-primary border-r-2 border-brand'
+															: 'text-text-tertiary hover:bg-kumo-tint hover:text-text-primary',
 													)}
-													<div className="flex gap-3 justify-center">
-														<Button
-															onClick={
-																handlePreviewDeploy
-															}
-															disabled={
-																isDeploying
-															}
-															className="gap-2"
-														>
-															{isDeploying ? (
-																<>
-																	<Loader2 className="h-4 w-4 animate-spin" />
-																	Deploying...
-																</>
-															) : (
-																<>
-																	<Play className="h-4 w-4" />
-																	Deploy for
-																	Preview
-																</>
-															)}
-														</Button>
-													</div>
+												>
+													<Code2 className="h-3.5 w-3.5 shrink-0 opacity-60" />
+													<span className="truncate font-mono text-[0.9em]">
+														{file.filePath}
+													</span>
+												</button>
+											);
+										})}
+									</div>
+								</aside>
+
+								<div className="flex-1 min-w-0 min-h-0 flex flex-col">
+									{activeFile ? (
+										<>
+											{activeFile.explanation && (
+												<div className="shrink-0 px-3 py-1.5 border-b border-kumo-line text-xs text-text-tertiary truncate">
+													{activeFile.explanation}
 												</div>
-											</div>
-											{/* Background pattern */}
-											<div className="absolute inset-0 opacity-10">
-												<div
-													className="w-full h-full"
-													style={{
-														backgroundImage: `url("data:image/svg+xml,%3Csvg width='40' height='40' viewBox='0 0 40 40' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23000' fill-opacity='0.1'%3E%3Cpath d='M20 20c0 11.046-8.954 20-20 20V0c11.046 0 20 8.954 20 20z'/%3E%3C/g%3E%3C/svg%3E")`,
-														backgroundSize:
-															'40px 40px',
+											)}
+											<div className="flex-1 min-h-0">
+												<MonacoEditor
+													className="h-full"
+													createOptions={{
+														value: activeFile.fileContents,
+														language:
+															activeFile.language ||
+															'plaintext',
+														readOnly: true,
+														minimap: {
+															enabled: false,
+														},
+														lineNumbers: 'on',
+														scrollBeyondLastLine: false,
+														fontSize: 13,
+														theme: 'vibesdk',
+														automaticLayout: true,
 													}}
 												/>
 											</div>
-										</div>
-									)}
-								</div>
-							</CardContent>
-						</Card>
-					</TabsContent>
-
-					<TabsContent value="code" className="flex-1">
-						<Card className="flex flex-col" style={{ maxHeight: '600px' }}>
-							<CardHeader>
-								<div className="flex items-center justify-between">
-									<div>
-										<CardTitle>Generated Code</CardTitle>
-										{app?.agentSummary && (
-											<p className="text-sm text-muted-foreground">
-												{files.length} files generated
+										</>
+									) : (
+										<div className="flex-1 flex items-center justify-center">
+											<p className="text-sm text-text-tertiary">
+												Select a file to view
 											</p>
-										)}
-									</div>
-									{activeFile && (
-										<Button
-											variant="ghost"
-																			size="sm"
-																			onClick={() => {
-																			void copyFile(activeFile.fileContents);
-																		}}
-																			className="gap-2"
-										>
-											<Copy className="h-3 w-3" />
-											Copy File
-										</Button>
+										</div>
 									)}
 								</div>
-							</CardHeader>
-							<CardContent className="p-0 flex-1 flex flex-col overflow-hidden">
-								{files.length > 0 ? (
-									<div className="h-[450px] relative bg-bg-3 overflow-hidden">
-										<div className="h-full flex">
-											<div className="w-full max-w-[250px] bg-bg-3 border-r border-text/10 h-full overflow-y-auto">
-												<div className="p-2 px-3 text-sm flex items-center gap-1 text-text-primary/50 font-medium border-b bg-bg-3">
-													<Code2 className="size-4" />
-													Files
-												</div>
-												<div className="flex flex-col">
-													{files.map((file) => (
-														<button
-															key={file.filePath}
-															onClick={() =>
-																handleFileClick(
-																	file,
-																)
-															}
-															className={cn(
-																'flex items-center w-full gap-2 py-2 px-3 text-left text-sm transition-colors',
-																activeFile?.filePath ===
-																	file.filePath
-																	? 'bg-blue-100 text-blue-900 border-r-2 border-blue-500'
-																	: 'hover:bg-bg-3 text-text-tertiary hover:text-text-primary',
-															)}
-														>
-															<Code2 className="h-4 w-4 flex-shrink-0" />
-															<span className="truncate font-mono text-xs">
-																{file.filePath}
-															</span>
-														</button>
-													))}
-												</div>
-											</div>
+							</div>
+						) : (
+							<div className="flex-1 flex items-center justify-center">
+								<p className="text-sm text-text-tertiary">
+									{app?.agentSummary === null
+										? 'Loading code...'
+										: 'No code has been generated yet.'}
+								</p>
+							</div>
+						)}
+					</div>
+				)}
 
-											<div className="flex-1 flex flex-col">
-												{activeFile ? (
-													<>
-														<div className="flex items-center justify-between p-3 border-b bg-bg-3">
-															<div className="flex items-center gap-2 flex-1">
-																<Code2 className="h-4 w-4" />
-																<span className="text-sm font-mono">
-																	{
-																		activeFile.filePath
-																	}
-																</span>
-																{activeFile.explanation && (
-																	<span className="text-xs text-text-tertiary ml-3">
-																		{
-																			activeFile.explanation
-																		}
-																	</span>
-																)}
-															</div>
-														</div>
-
-														<div className="flex-1 min-h-0">
-															<MonacoEditor
-																className="h-full"
-																createOptions={{
-																	value: activeFile.fileContents,
-																	language:
-																		activeFile.language ||
-																		'plaintext',
-																	readOnly: true,
-																	minimap: {
-																		enabled: false,
-																	},
-																	lineNumbers:
-																		'on',
-																	scrollBeyondLastLine: false,
-																	fontSize: 13,
-																	theme: 'vibesdk',
-																	automaticLayout: true,
-																}}
-															/>
-														</div>
-													</>
-												) : (
-													<div className="flex-1 flex items-center justify-center">
-														<p className="text-text-tertiary">
-															Select a file to
-															view
-														</p>
-													</div>
-												)}
-											</div>
-										</div>
-									</div>
-								) : (
-									<div className="flex items-center justify-center h-[400px]">
-										<p className="text-muted-foreground">
-											{app?.agentSummary === null 
-												? 'Loading code...' 
-												: 'No code has been generated yet.'
-											}
-										</p>
-									</div>
-								)}
-							</CardContent>
-						</Card>
-					</TabsContent>
-
-					<TabsContent
-						value="prompt"
-						className="flex-1"
-					>
-						<Card>
-							<CardHeader>
-								<CardTitle>Original Prompt</CardTitle>
-								<CardDescription>
+				{activeTab === 'prompt' && (
+					<div className="flex-1 min-h-0 flex flex-col rounded-xl ring ring-kumo-line bg-kumo-base overflow-hidden">
+						<div className="shrink-0 flex items-center justify-between gap-2 px-3 py-2 border-b border-kumo-line bg-kumo-elevated/40">
+							<div className="grid gap-0.5 min-w-0">
+								<span className="text-sm font-medium text-text-primary">
+									Original prompt
+								</span>
+								<span className="text-xs text-text-tertiary">
 									The initial prompt used to create this app
-								</CardDescription>
-							</CardHeader>
-							<CardContent>
-								{app?.agentSummary?.query || app?.originalPrompt ? (
-									<div className="bg-bg-2 rounded-lg p-6 border border-border-primary">
-										<div className="flex items-start gap-3">
-											<div className="flex-shrink-0 mt-1">
-												<div className="rounded-full bg-brand/10 p-2">
-													<MessageSquare className="h-4 w-4 text-brand" />
-												</div>
-											</div>
-											<div className="flex-1">
-												<p className="text-sm text-text-secondary mb-2 font-medium">Prompt</p>
-												<p className="text-text-primary whitespace-pre-wrap">
-													{app?.agentSummary?.query || app?.originalPrompt}
-												</p>
-											</div>
-										</div>
-										
-										{/* Copy button */}
-										<div className="mt-4 flex justify-end">
-											<Button
-												variant="outline"
-												size="sm"
-												onClick={() => {
-													const prompt = app?.agentSummary?.query || app?.originalPrompt;
-																		if (prompt) {
-																			void copyPrompt(prompt);
-																		}
-
-												}}
-												className="gap-2"
-											>
-												<Copy className="h-3 w-3" />
-												Copy Prompt
-											</Button>
-										</div>
-									</div>
-								) : (
-									<div className="flex items-center justify-center py-12 text-text-tertiary">
-										<MessageSquare className="h-8 w-8 mr-3" />
-										<p>
-											{app?.agentSummary === null 
-												? 'Loading prompt...' 
-												: 'No prompt available'
-											}
+								</span>
+							</div>
+							{promptText && (
+								<Button
+									variant="secondary"
+									size="sm"
+									icon={<Copy className="h-3.5 w-3.5" />}
+									onClick={() => {
+										void copyPrompt(promptText);
+									}}
+								>
+									Copy prompt
+								</Button>
+							)}
+						</div>
+						<div className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-6">
+							{promptText ? (
+								<div className="max-w-3xl mx-auto">
+									<div className="flex items-start gap-3 rounded-lg bg-kumo-elevated ring ring-kumo-line px-4 py-4">
+										<span className="h-lh flex items-center shrink-0 mt-0.5">
+											<span className="rounded-full bg-brand/10 p-2">
+												<MessageSquare className="h-4 w-4 text-brand" />
+											</span>
+										</span>
+										<p className="text-sm text-text-primary whitespace-pre-wrap leading-relaxed">
+											{promptText}
 										</p>
 									</div>
-								)}
-							</CardContent>
-						</Card>
-					</TabsContent>
-				</Tabs>
+								</div>
+							) : (
+								<div className="h-full flex items-center justify-center text-text-tertiary gap-2">
+									<MessageSquare className="h-5 w-5" />
+									<p className="text-sm">
+										{app?.agentSummary === null
+											? 'Loading prompt...'
+											: 'No prompt available'}
+									</p>
+								</div>
+							)}
+						</div>
+					</div>
+				)}
 			</div>
 
-			{/* Delete Confirmation Dialog */}
 			<ConfirmDeleteDialog
 				open={isDeleteDialogOpen}
 				onOpenChange={setIsDeleteDialogOpen}
@@ -1136,7 +1188,6 @@ export default function AppView() {
 				appTitle={app?.title}
 			/>
 
-			{/* Git Clone Modal */}
 			<GitCloneModal
 				open={isGitCloneModalOpen}
 				onOpenChange={setIsGitCloneModalOpen}

@@ -1,17 +1,14 @@
 import { useEffect, useState } from 'react';
-import { SidebarTrigger } from '@/components/ui/sidebar';
-import { AuthButton } from '../auth/auth-button';
-import { ThemeToggle } from '../theme-toggle';
+import { SidebarTrigger } from '@cloudflare/kumo';
 import { motion } from 'framer-motion';
 import { useAuth } from '@/contexts/auth-context';
 import { ChevronRight, AlertCircle } from 'lucide-react';
-import { CloudflareLogo } from '../icons/logos';
 import { usePlatformStatus } from '@/hooks/use-platform-status';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useLocation } from 'react-router';
 import clsx from 'clsx';
-import { UsageLimitsBadge } from '../usage-limits-badge';
+import { AuthButton } from '../auth/auth-button';
 
 export function GlobalHeader() {
 	const { user } = useAuth();
@@ -32,14 +29,14 @@ export function GlobalHeader() {
 				initial={{ y: -10, opacity: 0 }}
 				animate={{ y: 0, opacity: 1 }}
 				transition={{ duration: 0.2, ease: 'easeOut' }}
-				className={clsx("sticky top-0 z-50", pathname !== "/" && "bg-bg-3")}
+				className={clsx("sticky top-0 z-50", pathname !== "/" && "bg-kumo-base")}
 			>
 				<div className="relative">
 					{/* Subtle gradient accent */}
 					<div className="absolute inset-0 z-0" />
 
 					{/* Main content */}
-					<div className="relative z-10 grid grid-cols-[auto_1fr_auto] items-center gap-4 px-5 py-2">
+					<div className="relative z-10 grid h-12 grid-cols-[auto_1fr_auto] items-center gap-4 border-b border-kumo-line px-5">
 						{/* Left section */}
 						{user ? (
 							<motion.div
@@ -51,21 +48,13 @@ export function GlobalHeader() {
 								}}
 								className='flex items-center'
 							>
-								<SidebarTrigger className="h-8 w-8 text-text-primary rounded-md hover:bg-orange-50/40 transition-colors duration-200" />
-								<CloudflareLogo
-									className="flex-shrink-0 mx-auto transition-all duration-300"
-									style={{
-										width: '28px',
-										height: '28px',
-										marginLeft: '8px',
-									}}
-								/>
+								<SidebarTrigger className="md:hidden" />
 								{hasMaintenanceMessage && (
 									<button
 										type="button"
 										onClick={hasChangeLogs ? () => setIsChangelogOpen(true) : undefined}
 										disabled={!hasChangeLogs}
-										className={`flex max-w-full items-center gap-2 rounded-full border border-brand/40 bg-bg-4/80 px-3 ml-4 py-1.5 text-xs text-text-primary shadow-sm backdrop-blur transition-colors hover:bg-brand/10 focus:outline-none focus:ring-2 focus:ring-brand/40 dark:border-brand/30 dark:bg-bg-2/80 md:text-sm${!hasChangeLogs ? ' opacity-50 cursor-not-allowed pointer-events-none' : ''}`}
+										className={`flex max-w-full items-center gap-2 rounded-full border border-brand/40 bg-bg-4/80 px-3 ml-4 py-1.5 text-xs text-text-primary shadow-sm backdrop-blur transition-colors hover:bg-brand/10 focus:outline-none focus:ring-2 focus:ring-brand/40 dark:border-brand/30 dark:bg-kumo-elevated/80 md:text-sm${!hasChangeLogs ? ' opacity-50 cursor-not-allowed pointer-events-none' : ''}`}
 										aria-label="Platform updates"
 									>
 										<AlertCircle className="h-4 w-4 text-brand" />
@@ -95,17 +84,16 @@ export function GlobalHeader() {
 								variant="inline"
 							/>
 						)} */}
-							{user && (
-								<UsageLimitsBadge 
+							{/*{user && (
+								<UsageLimitsBadge
 									onConnect={() => {
 										const url = new URL('/oauth/login', window.location.origin);
 										url.searchParams.set('return_url', window.location.pathname + window.location.search);
 										window.location.href = url.toString();
 									}}
 								/>
-							)}
-							<ThemeToggle />
-							<AuthButton />
+							)}*/}
+							{!user && <AuthButton />}
 						</motion.div>
 					</div>
 				</div>

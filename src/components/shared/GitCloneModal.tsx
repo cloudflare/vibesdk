@@ -257,7 +257,7 @@ export function GitCloneModal({
 											{!tokenRevealed && (
 												<button
 													onClick={() => setTokenRevealed(true)}
-													className="absolute inset-0 flex items-center justify-center bg-bg-3/80 rounded-lg backdrop-blur-sm"
+													className="absolute inset-0 flex items-center justify-center bg-kumo-base/80 rounded-lg backdrop-blur-sm"
 												>
 													<div className="flex items-center gap-2 text-text-primary">
 														<Eye className="h-4 w-4" />

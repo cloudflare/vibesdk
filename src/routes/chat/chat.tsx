@@ -225,7 +225,7 @@ export default function Chat() {
 	// Usage limits state
 	const { data: limitsData, loading: limitsLoading } = useLimitsContext();
 	const [showLimitDialog, setShowLimitDialog] = useState<React.ReactElement | null>(null);
-	
+
 	// Debug: Log when backend error dialog state changes
 	useEffect(() => {
 		console.log('🔍 Backend error dialog state changed:', backendErrorDialog);
@@ -626,7 +626,7 @@ export default function Chat() {
 			setView('editor');
 		}
 	}, [isGeneratingBlueprint, view]);
-    
+
 	const isRunning = useMemo(() => {
 		return (
 			isBootstrapping || isGeneratingBlueprint // || codeGenState === 'active'
@@ -731,13 +731,13 @@ export default function Chat() {
 	if (awaitingStartConfirmation) {
 		return (
 			<div className="size-full flex items-center justify-center p-6 text-text-primary">
-				<div className="max-w-lg w-full flex flex-col gap-4 rounded-xl border border-border-primary bg-bg-2 p-6">
+				<div className="max-w-lg w-full flex flex-col gap-4 rounded-xl border border-border-primary bg-kumo-elevated p-6">
 					<h1 className="text-lg font-medium">Start building this app?</h1>
 					<p className="text-sm text-text-secondary">
 						This link wants to start a new project with the prompt below.
 						Review it before continuing.
 					</p>
-					<div className="rounded-lg border border-border-primary bg-bg-3 p-4 max-h-64 overflow-y-auto">
+					<div className="rounded-lg border border-border-primary bg-kumo-base p-4 max-h-64 overflow-y-auto">
 						<p className="text-sm text-text-primary whitespace-pre-wrap break-words">
 							{displayQuery}
 						</p>
@@ -761,11 +761,11 @@ export default function Chat() {
 					layout="position"
 					className="flex-1 shrink-0 flex flex-col basis-0 max-w-2xl relative z-10 h-full min-h-0"
 				>
-					<div 
+					<div
 					className={clsx(
 						'flex-1 overflow-y-auto min-h-0 chat-messages-scroll',
 						isDebugging && 'animate-debug-pulse'
-					)} 
+					)}
 					ref={messagesContainerRef}
 				>
 						<div className="pt-5 px-4 pb-4 text-sm flex flex-col gap-5">
@@ -803,7 +803,7 @@ export default function Chat() {
 												<Button
 													variant="ghost"
 													size="icon"
-													className="hover:bg-bg-3/80 cursor-pointer"
+													className="hover:bg-kumo-base/80 cursor-pointer"
 												>
 													<MoreHorizontal className="h-4 w-4" />
 													<span className="sr-only">Chat actions</span>
@@ -1046,7 +1046,7 @@ export default function Chat() {
 
 			{/* Usage limit dialogs */}
 			{showLimitDialog}
-			
+
 			{/* Backend error dialog - shows when backend blocks request due to limits */}
 			{(() => {
 				if (backendErrorDialog.isOpen && backendErrorDialog.errorCode === 'USAGE_LIMIT_EXCEEDED') {
@@ -1058,7 +1058,7 @@ export default function Chat() {
 						},
 						() => setBackendErrorDialog({ isOpen: false })
 					);
-					
+
 					return limitCheckResult.dialogComponent || null;
 				}
 				return null;

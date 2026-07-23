@@ -11,7 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs } from '@cloudflare/kumo';
 import {
 	Dialog,
 	DialogContent,
@@ -350,24 +350,35 @@ export function ByokApiKeysModal({ isOpen, onClose, onKeyAdded }: ByokApiKeysMod
 						</DialogDescription>
 					</DialogHeader>
 
-					<Tabs
-						value={activeTab}
-						onValueChange={(value) => setActiveTab(value as 'add' | 'manage')}
-						className="space-y-6"
-					>
-						<TabsList className="grid w-full grid-cols-2">
-							<TabsTrigger value="add" className="flex items-center gap-2">
-								<Plus className="h-4 w-4" />
-								Add Keys
-							</TabsTrigger>
-							<TabsTrigger value="manage" className="flex items-center gap-2">
-								<Settings className="h-4 w-4" />
-								Manage Keys
-							</TabsTrigger>
-						</TabsList>
+					<div className="space-y-6">
+						<Tabs
+							value={activeTab}
+							onValueChange={(value) => setActiveTab(value as 'add' | 'manage')}
+							tabs={[
+								{
+									value: 'add',
+									label: (
+										<span className="inline-flex items-center gap-2">
+											<Plus className="h-4 w-4" />
+											Add Keys
+										</span>
+									),
+								},
+								{
+									value: 'manage',
+									label: (
+										<span className="inline-flex items-center gap-2">
+											<Settings className="h-4 w-4" />
+											Manage Keys
+										</span>
+									),
+								},
+							]}
+						/>
 
 						{/* Add Keys Tab */}
-						<TabsContent value="add" className="space-y-6">
+						{activeTab === 'add' && (
+						<div className="space-y-6">
 							{/* Provider Selection - Clean List */}
 							<div className="space-y-3">
 								<Label className="text-sm font-medium">Select Provider</Label>
@@ -447,10 +458,12 @@ export function ByokApiKeysModal({ isOpen, onClose, onKeyAdded }: ByokApiKeysMod
 									)}
 								</div>
 							)}
-						</TabsContent>
+						</div>
+						)}
 
 						{/* Manage Keys Tab */}
-						<TabsContent value="manage" className="space-y-4">
+						{activeTab === 'manage' && (
+						<div className="space-y-4">
 							{state.status === 'not_setup' ? (
 								renderVaultNotSetupState()
 							) : !isUnlocked ? (
@@ -488,7 +501,7 @@ export function ByokApiKeysModal({ isOpen, onClose, onKeyAdded }: ByokApiKeysMod
 											return (
 												<div
 													key={secret.id}
-													className="flex items-center gap-4 p-4 rounded-lg border transition-colors hover:bg-bg-3/50"
+													className="flex items-center gap-4 p-4 rounded-lg border transition-colors hover:bg-kumo-base/50"
 												>
 													{/* Provider Logo */}
 													<div className="flex items-center justify-center w-8 h-8 rounded-md border shadow-sm bg-white">
@@ -527,8 +540,9 @@ export function ByokApiKeysModal({ isOpen, onClose, onKeyAdded }: ByokApiKeysMod
 									</div>
 								</div>
 							)}
-						</TabsContent>
-					</Tabs>
+						</div>
+						)}
+					</div>
 
 					<DialogFooter>
 						<Button variant="outline" onClick={onClose}>

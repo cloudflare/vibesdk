@@ -11,6 +11,7 @@ import tsWorker from 'monaco-editor/esm/vs/language/typescript/ts.worker?worker'
 
 import defaultCode from '../../routes?raw';
 import './monaco-editor.module.css';
+import { vesperTheme } from './vesper-theme';
 
 self.MonacoEnvironment = {
 	getWorker(_, label) {
@@ -35,47 +36,7 @@ self.MonacoEnvironment = {
 	},
 };
 
-// From GitHub Dark theme
-monaco.editor.defineTheme('vibesdk-dark', {
-	base: 'vs-dark',
-	inherit: true,
-	rules: [
-		{ token: '', foreground: 'c9d1d9', background: '0d1117' },
-		{ token: 'comment', foreground: '8b949e', fontStyle: 'italic' },
-		{ token: 'keyword', foreground: 'ff7b72' },
-		{ token: 'number', foreground: '79c0ff' },
-		{ token: 'string', foreground: 'a5d6ff' },
-		{ token: 'type', foreground: 'ffa657' },
-		{ token: 'class', foreground: 'd2a8ff' },
-		{ token: 'interface', foreground: 'ffdf5d' },
-		{ token: 'function', foreground: 'd2a8ff' },
-		{ token: 'member', foreground: '79c0ff' },
-		{ token: 'variable', foreground: 'c9d1d9' },
-		{ token: 'constant', foreground: 'ffab70' },
-		{ token: 'operator', foreground: 'ff7b72' },
-		{ token: 'namespace', foreground: 'ffab70' },
-		{ token: 'predefined', foreground: 'ffa657' },
-		{ token: 'invalid', foreground: 'ffffff', background: 'f85149' },
-	],
-	colors: {
-		// default backgorund, overriden to match theme
-		// 'editor.background': '#0d1117',
-		'editor.background': '#171512',
-		'editor.foreground': '#c9d1d9',
-		'editorLineNumber.foreground': '#444c56',
-		'editorLineNumber.activeForeground': '#8b949e',
-		'editorCursor.foreground': '#58a6ff',
-		'editorIndentGuide.background': '#21262d',
-		'editorIndentGuide.activeBackground': '#30363d',
-		'editor.selectionBackground': '#264f78',
-		'editor.inactiveSelectionBackground': '#1f6feb44',
-		'editor.lineHighlightBackground': '#161b22',
-		'editor.wordHighlightBackground': '#3fb95040',
-		'editor.wordHighlightStrongBackground': '#ff7b7240',
-		'editor.findMatchBackground': '#ffd33d44',
-		'editor.findMatchHighlightBackground': '#ffd33d22',
-	},
-});
+monaco.editor.defineTheme('vesper', vesperTheme);
 
 monaco.editor.defineTheme('vibesdk', {
 	base: 'vs',
@@ -200,7 +161,7 @@ export const MonacoEditor = memo<MonacoEditorProps>(function MonacoEditor({
 		editor.current = monaco.editor.create(containerRef.current!, {
 			language: createOptions.language || 'typescript',
 			minimap: { enabled: false },
-			theme: resolvedTheme === 'dark' ? 'vibesdk-dark' : 'vibesdk',
+			theme: resolvedTheme === 'dark' ? 'vesper' : 'vibesdk',
 			automaticLayout: true,
 			value: defaultCode,
 			fontSize: 13,
@@ -329,7 +290,7 @@ export const MonacoEditor = memo<MonacoEditorProps>(function MonacoEditor({
 	// Update theme when app theme changes
 	useEffect(() => {
 		if (editor.current) {
-			monaco.editor.setTheme(resolvedTheme === 'dark' ? 'vibesdk-dark' : 'vibesdk');
+			monaco.editor.setTheme(resolvedTheme === 'dark' ? 'vesper' : 'vibesdk');
 		}
 	}, [resolvedTheme]);
 

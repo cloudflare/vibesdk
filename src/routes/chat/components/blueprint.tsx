@@ -28,7 +28,7 @@ export function Blueprint({
 					</div>
 				</div>
 			</div>
-			<div className="flex flex-col px-6 py-4 bg-bg-2 rounded-b-xl space-y-8">
+			<div className="flex flex-col px-6 py-4 bg-kumo-elevated rounded-b-xl space-y-8">
 				{/* Basic Info */}
 				<div className="grid grid-cols-[120px_1fr] gap-4 text-sm">
 					<div className="text-text-50/70 font-mono">Description</div>

@@ -185,7 +185,7 @@ export function ConnectedAccounts() {
 								className="flex items-center justify-between gap-4 rounded-lg border border-bg-4 p-3"
 							>
 								<div className="flex items-center gap-3 min-w-0">
-									<div className="flex h-9 w-9 items-center justify-center rounded-full bg-bg-3 text-text-primary shrink-0">
+									<div className="flex h-9 w-9 items-center justify-center rounded-full bg-kumo-base text-text-primary shrink-0">
 										{meta.icon}
 									</div>
 									<div className="min-w-0">

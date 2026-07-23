@@ -1,6 +1,6 @@
-import { Check, Lock, ArrowRight } from 'lucide-react';
-import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard';
+import { Lock, ArrowRight } from 'lucide-react';
 import { normalizeAppTitle } from '@/utils/string';
+import { ClipboardText } from '@cloudflare/kumo';
 
 interface GitCloneCommandProps {
 	cloneUrl: string;
@@ -8,47 +8,19 @@ interface GitCloneCommandProps {
 }
 
 export function GitCloneCommand({ cloneUrl, appTitle }: GitCloneCommandProps) {
-	const { copied, copy } = useCopyToClipboard({
-		successMessage: 'Clone command copied!',
-	});
-
 	const normalizedTitle = normalizeAppTitle(appTitle);
 	const fullCommand = `git clone ${cloneUrl} ${normalizedTitle}`;
 
-	const handleCopy = () => {
-		copy(fullCommand);
-	};
-
-	return (
-		<div
-			className="group relative flex items-center gap-2 px-2.5 py-1.5 rounded-md bg-bg-4 border border-border-primary/50 hover:border-border-primary transition-all cursor-pointer"
-			onClick={handleCopy}
-			role="button"
-			tabIndex={0}
-			onKeyDown={(e) => {
-				if (e.key === 'Enter' || e.key === ' ') {
-					e.preventDefault();
-					handleCopy();
-				}
-			}}
-			aria-label="Click to copy git clone command"
-			title="Click to copy"
-		>
-			<code className="flex-1 text-xs font-mono text-text-secondary truncate select-all min-w-0">
-				{fullCommand}
-			</code>
-			{copied && (
-				<Check className="size-3 text-green-400 flex-shrink-0" />
-			)}
-		</div>
-	);
+	return <ClipboardText text={fullCommand} className="max-w-lg text-xs" />;
 }
 
 interface GitClonePrivatePromptProps {
 	onOpenModal: () => void;
 }
 
-export function GitClonePrivatePrompt({ onOpenModal }: GitClonePrivatePromptProps) {
+export function GitClonePrivatePrompt({
+	onOpenModal,
+}: GitClonePrivatePromptProps) {
 	return (
 		<button
 			className="flex items-center gap-2 px-2.5 py-1.5 rounded-md bg-bg-4 border border-border-primary/50 hover:border-brand-primary transition-all text-left w-full group"

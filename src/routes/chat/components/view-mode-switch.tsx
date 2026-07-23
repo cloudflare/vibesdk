@@ -52,7 +52,7 @@ export function ViewModeSwitch({
 						initial={{ opacity: 0, scale: 0.4 }}
 						animate={{ opacity: 1, scale: 1 }}
 						exit={{ opacity: 0, scale: 0 }}
-						className="absolute z-50 top-10 left-0 bg-bg-2 text-text-primary text-xs px-2 py-1 rounded whitespace-nowrap animate-fade-in"
+						className="absolute z-50 top-10 left-0 bg-kumo-elevated text-text-primary text-xs px-2 py-1 rounded whitespace-nowrap animate-fade-in"
 					>
 						You can view code anytime from here
 					</motion.div>
