@@ -194,26 +194,27 @@ export function AppSidebar() {
 		return allApps.filter(
 			(app) =>
 				!favoriteAppIds.has(app.id) &&
+				!app.isFavorite &&
 				app.title.toLowerCase().includes(normalizedSearchQuery),
 		);
 	}, [allApps, favoriteAppIds, normalizedSearchQuery]);
 
 	const appsWithoutBookmarks = React.useMemo(
-		() => recentApps.filter((app) => !favoriteAppIds.has(app.id)),
+		() =>
+			recentApps.filter(
+				(app) => !favoriteAppIds.has(app.id) && !app.isFavorite,
+			),
 		[recentApps, favoriteAppIds],
 	);
 
-	const showBookmarksSection = isSearching || favoriteApps.length > 0;
+	const showBookmarksSection = favoriteApps.length > 0;
 
 	const showAppsSection =
 		isSearching ||
 		appsWithoutBookmarks.length > 0 ||
 		moreAvailable;
 
-	const bookmarkSearchEmptyMessage =
-		favoriteApps.length === 0
-			? 'No bookmarked apps yet'
-			: `No bookmarks found for "${trimmedSearchQuery}"`;
+	const bookmarkSearchEmptyMessage = `No bookmarks found for "${trimmedSearchQuery}"`;
 
 	const appSearchEmptyMessage =
 		allApps.length === 0
@@ -329,37 +330,19 @@ export function AppSidebar() {
 											</div>
 										</SidebarMenuItem>
 									) : favoriteSearchResults.length > 0 ? (
-										<>
-											<SidebarMenuItem>
-												<div className="px-3 pb-1 text-xs text-kumo-subtle">
-													Found{' '}
-													{favoriteSearchResults.length}{' '}
-													bookmark
-													{favoriteSearchResults.length !==
-													1
-														? 's'
-														: ''}
-												</div>
-											</SidebarMenuItem>
-											{favoriteSearchResults.map((app) => (
-												<AppMenuItem
-													key={app.id}
-													app={app}
-													active={
-														pathname ===
-														`/app/${app.id}`
-													}
-													onClick={(id) =>
-														navigate(`/app/${id}`)
-													}
-													variant="bookmarked"
-													isCollapsed={isCollapsed}
-													getVisibilityIcon={
-														getVisibilityIcon
-													}
-												/>
-											))}
-										</>
+										favoriteSearchResults.map((app) => (
+											<AppMenuItem
+												key={app.id}
+												app={app}
+												active={
+													pathname === `/app/${app.id}`
+												}
+												onClick={(id) => navigate(`/app/${id}`)}
+												variant="bookmarked"
+												isCollapsed={isCollapsed}
+												getVisibilityIcon={getVisibilityIcon}
+											/>
+										))
 									) : (
 										<SidebarMenuItem>
 											<div className="px-3 py-3 text-sm text-kumo-subtle">
@@ -404,40 +387,22 @@ export function AppSidebar() {
 												</div>
 											</SidebarMenuItem>
 										) : appSearchResults.length > 0 ? (
-											<>
-												<SidebarMenuItem>
-													<div className="px-3 pb-1 text-xs text-kumo-subtle">
-														Found{' '}
-														{appSearchResults.length}{' '}
-														app
-														{appSearchResults.length !==
-														1
-															? 's'
-															: ''}
-													</div>
-												</SidebarMenuItem>
-												{appSearchResults.map((app) => (
-													<AppMenuItem
-														key={app.id}
-														app={app}
-														active={
-															pathname ===
-															`/app/${app.id}`
-														}
-														onClick={(id) =>
-															navigate(
-																`/app/${id}`,
-															)
-														}
-														isCollapsed={
-															isCollapsed
-														}
-														getVisibilityIcon={
-															getVisibilityIcon
-														}
-													/>
-												))}
-											</>
+											appSearchResults.map((app) => (
+												<AppMenuItem
+													key={app.id}
+													app={app}
+													active={
+														pathname === `/app/${app.id}`
+													}
+													onClick={(id) =>
+														navigate(`/app/${id}`)
+													}
+													isCollapsed={isCollapsed}
+													getVisibilityIcon={
+														getVisibilityIcon
+													}
+												/>
+											))
 										) : (
 											<SidebarMenuItem>
 												<div className="px-3 py-3 text-sm text-kumo-subtle">
