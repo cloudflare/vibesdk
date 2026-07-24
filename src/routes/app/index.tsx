@@ -1,11 +1,4 @@
-import {
-	useState,
-	useEffect,
-	useRef,
-	useCallback,
-	useMemo,
-	type CSSProperties,
-} from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router';
 import type { AppDetailsData, FileType } from '@/api-types';
 import { apiClient, ApiError } from '@/lib/api-client';
@@ -23,12 +16,7 @@ import {
 	Play,
 } from 'lucide-react';
 import {
-	RocketLaunch,
-	GlobeHemisphereWest,
 	Code,
-	Sparkle,
-	Lightning,
-	Cloud,
 	Star,
 	BookmarkSimple,
 	GitBranch,
@@ -38,6 +26,7 @@ import {
 	Globe,
 	Trash,
 	DotsThree,
+	CopyIcon,
 } from '@phosphor-icons/react';
 import {
 	Badge,
@@ -53,6 +42,7 @@ import { useAuth } from '@/contexts/auth-context';
 import { toggleFavorite } from '@/hooks/use-apps';
 import { capitalizeFirstLetter, cn, getPreviewUrl } from '@/lib/utils';
 import { ConfirmDeleteDialog } from '@/components/shared/ConfirmDeleteDialog';
+import { FloatingBackgroundIcons } from '@/components/shared/FloatingBackgroundIcons';
 import { GitCloneModal } from '@/components/shared/GitCloneModal';
 import {
 	GitCloneCommand,
@@ -932,563 +922,13 @@ export default function AppView() {
 								<PreviewIframe
 									ref={previewIframeRef}
 									src={appUrl}
-									className="absolute inset-0 w-full h-full"
+									className="absolute inset-0 size-full"
 									title={`${app.title} Preview`}
 								/>
 							) : (
 								<div className="absolute inset-0 flex items-center justify-center">
-									<div className="run-app-icons" aria-hidden>
-										{(
-											[
-												// rocket
-												{
-													Icon: RocketLaunch,
-													left: '6%',
-													top: '10%',
-													size: '3.4rem',
-													rot: '-16deg',
-													op: 0.28,
-													dur: '7.5s',
-													delay: '0s',
-													bob: '-8px',
-													color: '#f6821f',
-												},
-												{
-													Icon: RocketLaunch,
-													left: '72%',
-													top: '62%',
-													size: '1.7rem',
-													rot: '22deg',
-													op: 0.2,
-													dur: '6.4s',
-													delay: '1.4s',
-													bob: '-5px',
-													color: '#f6821f',
-												},
-												{
-													Icon: RocketLaunch,
-													left: '40%',
-													top: '84%',
-													size: '2.3rem',
-													rot: '-8deg',
-													op: 0.22,
-													dur: '8.1s',
-													delay: '2.2s',
-													bob: '-7px',
-													color: '#fb923c',
-												},
-												{
-													Icon: RocketLaunch,
-													left: '88%',
-													top: '28%',
-													size: '1.4rem',
-													rot: '12deg',
-													op: 0.18,
-													dur: '5.8s',
-													delay: '0.8s',
-													bob: '-4px',
-													color: '#f97316',
-												},
-												{
-													Icon: RocketLaunch,
-													left: '28%',
-													top: '38%',
-													size: '1.9rem',
-													rot: '-24deg',
-													op: 0.2,
-													dur: '7.1s',
-													delay: '3s',
-													bob: '-6px',
-													color: '#ea580c',
-												},
-												{
-													Icon: RocketLaunch,
-													left: '56%',
-													top: '6%',
-													size: '1.3rem',
-													rot: '28deg',
-													op: 0.17,
-													dur: '6s',
-													delay: '1.7s',
-													bob: '-4px',
-													color: '#fdba74',
-												},
-												{
-													Icon: RocketLaunch,
-													left: '16%',
-													top: '92%',
-													size: '2.6rem',
-													rot: '4deg',
-													op: 0.21,
-													dur: '8.8s',
-													delay: '0.4s',
-													bob: '-7px',
-													color: '#f6821f',
-												},
-												// globe
-												{
-													Icon: GlobeHemisphereWest,
-													left: '78%',
-													top: '8%',
-													size: '3.6rem',
-													rot: '14deg',
-													op: 0.26,
-													dur: '8.2s',
-													delay: '0.5s',
-													bob: '-10px',
-													color: '#3b82f6',
-												},
-												{
-													Icon: GlobeHemisphereWest,
-													left: '14%',
-													top: '48%',
-													size: '1.6rem',
-													rot: '-20deg',
-													op: 0.2,
-													dur: '6.9s',
-													delay: '1.8s',
-													bob: '-5px',
-													color: '#60a5fa',
-												},
-												{
-													Icon: GlobeHemisphereWest,
-													left: '52%',
-													top: '18%',
-													size: '2.1rem',
-													rot: '6deg',
-													op: 0.18,
-													dur: '7.7s',
-													delay: '2.6s',
-													bob: '-6px',
-													color: '#2563eb',
-												},
-												{
-													Icon: GlobeHemisphereWest,
-													left: '30%',
-													top: '88%',
-													size: '2.8rem',
-													rot: '-12deg',
-													op: 0.22,
-													dur: '9s',
-													delay: '1.1s',
-													bob: '-8px',
-													color: '#38bdf8',
-												},
-												{
-													Icon: GlobeHemisphereWest,
-													left: '94%',
-													top: '42%',
-													size: '1.5rem',
-													rot: '18deg',
-													op: 0.19,
-													dur: '6.3s',
-													delay: '2.9s',
-													bob: '-5px',
-													color: '#93c5fd',
-												},
-												{
-													Icon: GlobeHemisphereWest,
-													left: '44%',
-													top: '66%',
-													size: '1.8rem',
-													rot: '-8deg',
-													op: 0.17,
-													dur: '7.4s',
-													delay: '0.9s',
-													bob: '-4px',
-													color: '#1d4ed8',
-												},
-												{
-													Icon: GlobeHemisphereWest,
-													left: '2%',
-													top: '68%',
-													size: '2.4rem',
-													rot: '10deg',
-													op: 0.21,
-													dur: '8.5s',
-													delay: '1.5s',
-													bob: '-7px',
-													color: '#3b82f6',
-												},
-												// code
-												{
-													Icon: Code,
-													left: '20%',
-													top: '72%',
-													size: '3rem',
-													rot: '8deg',
-													op: 0.24,
-													dur: '6.8s',
-													delay: '0.9s',
-													bob: '-7px',
-													color: '#22c55e',
-												},
-												{
-													Icon: Code,
-													left: '64%',
-													top: '36%',
-													size: '1.5rem',
-													rot: '-18deg',
-													op: 0.2,
-													dur: '5.6s',
-													delay: '2s',
-													bob: '-4px',
-													color: '#4ade80',
-												},
-												{
-													Icon: Code,
-													left: '8%',
-													top: '30%',
-													size: '2rem',
-													rot: '16deg',
-													op: 0.19,
-													dur: '7.2s',
-													delay: '0.3s',
-													bob: '-6px',
-													color: '#16a34a',
-												},
-												{
-													Icon: Code,
-													left: '90%',
-													top: '78%',
-													size: '2.4rem',
-													rot: '-6deg',
-													op: 0.22,
-													dur: '8.4s',
-													delay: '1.6s',
-													bob: '-7px',
-													color: '#86efac',
-												},
-												{
-													Icon: Code,
-													left: '48%',
-													top: '48%',
-													size: '1.4rem',
-													rot: '24deg',
-													op: 0.16,
-													dur: '6.1s',
-													delay: '2.7s',
-													bob: '-3px',
-													color: '#22c55e',
-												},
-												{
-													Icon: Code,
-													left: '76%',
-													top: '48%',
-													size: '2rem',
-													rot: '-14deg',
-													op: 0.2,
-													dur: '7.6s',
-													delay: '0.6s',
-													bob: '-5px',
-													color: '#15803d',
-												},
-												{
-													Icon: Code,
-													left: '34%',
-													top: '28%',
-													size: '1.7rem',
-													rot: '4deg',
-													op: 0.18,
-													dur: '5.9s',
-													delay: '3.2s',
-													bob: '-4px',
-													color: '#4ade80',
-												},
-												// sparkle
-												{
-													Icon: Sparkle,
-													left: '86%',
-													top: '48%',
-													size: '2.6rem',
-													rot: '-12deg',
-													op: 0.28,
-													dur: '5.9s',
-													delay: '0.4s',
-													bob: '-9px',
-													color: '#a855f7',
-												},
-												{
-													Icon: Sparkle,
-													left: '36%',
-													top: '6%',
-													size: '1.5rem',
-													rot: '20deg',
-													op: 0.22,
-													dur: '6.2s',
-													delay: '1.5s',
-													bob: '-5px',
-													color: '#c084fc',
-												},
-												{
-													Icon: Sparkle,
-													left: '58%',
-													top: '74%',
-													size: '3.2rem',
-													rot: '-4deg',
-													op: 0.2,
-													dur: '7.8s',
-													delay: '2.4s',
-													bob: '-8px',
-													color: '#9333ea',
-												},
-												{
-													Icon: Sparkle,
-													left: '4%',
-													top: '82%',
-													size: '1.8rem',
-													rot: '14deg',
-													op: 0.24,
-													dur: '5.4s',
-													delay: '0.7s',
-													bob: '-6px',
-													color: '#d8b4fe',
-												},
-												{
-													Icon: Sparkle,
-													left: '62%',
-													top: '52%',
-													size: '1.3rem',
-													rot: '-26deg',
-													op: 0.18,
-													dur: '6.6s',
-													delay: '1.9s',
-													bob: '-4px',
-													color: '#e9d5ff',
-												},
-												{
-													Icon: Sparkle,
-													left: '22%',
-													top: '58%',
-													size: '2.2rem',
-													rot: '8deg',
-													op: 0.2,
-													dur: '7.3s',
-													delay: '2.5s',
-													bob: '-6px',
-													color: '#a855f7',
-												},
-												{
-													Icon: Sparkle,
-													left: '96%',
-													top: '16%',
-													size: '1.6rem',
-													rot: '-10deg',
-													op: 0.19,
-													dur: '5.5s',
-													delay: '3.1s',
-													bob: '-5px',
-													color: '#c084fc',
-												},
-												// lightning
-												{
-													Icon: Lightning,
-													left: '4%',
-													top: '40%',
-													size: '3.1rem',
-													rot: '22deg',
-													op: 0.26,
-													dur: '6.4s',
-													delay: '1.2s',
-													bob: '-7px',
-													color: '#eab308',
-												},
-												{
-													Icon: Lightning,
-													left: '70%',
-													top: '14%',
-													size: '1.6rem',
-													rot: '-14deg',
-													op: 0.2,
-													dur: '5.7s',
-													delay: '2.1s',
-													bob: '-5px',
-													color: '#facc15',
-												},
-												{
-													Icon: Lightning,
-													left: '46%',
-													top: '54%',
-													size: '2.2rem',
-													rot: '10deg',
-													op: 0.18,
-													dur: '7s',
-													delay: '0.6s',
-													bob: '-6px',
-													color: '#ca8a04',
-												},
-												{
-													Icon: Lightning,
-													left: '82%',
-													top: '88%',
-													size: '2.7rem',
-													rot: '-22deg',
-													op: 0.22,
-													dur: '8s',
-													delay: '1.9s',
-													bob: '-8px',
-													color: '#fde047',
-												},
-												{
-													Icon: Lightning,
-													left: '38%',
-													top: '42%',
-													size: '1.4rem',
-													rot: '30deg',
-													op: 0.17,
-													dur: '5.3s',
-													delay: '2.8s',
-													bob: '-4px',
-													color: '#eab308',
-												},
-												{
-													Icon: Lightning,
-													left: '12%',
-													top: '16%',
-													size: '1.9rem',
-													rot: '-6deg',
-													op: 0.2,
-													dur: '6.7s',
-													delay: '1s',
-													bob: '-5px',
-													color: '#fbbf24',
-												},
-												{
-													Icon: Lightning,
-													left: '54%',
-													top: '92%',
-													size: '2rem',
-													rot: '16deg',
-													op: 0.19,
-													dur: '7.9s',
-													delay: '0.2s',
-													bob: '-6px',
-													color: '#a16207',
-												},
-												// cloud
-												{
-													Icon: Cloud,
-													left: '48%',
-													top: '40%',
-													size: '1.7rem',
-													rot: '-8deg',
-													op: 0.16,
-													dur: '9s',
-													delay: '1s',
-													bob: '-4px',
-													color: '#38bdf8',
-												},
-												{
-													Icon: Cloud,
-													left: '24%',
-													top: '18%',
-													size: '2.9rem',
-													rot: '6deg',
-													op: 0.22,
-													dur: '8.6s',
-													delay: '0.2s',
-													bob: '-7px',
-													color: '#0ea5e9',
-												},
-												{
-													Icon: Cloud,
-													left: '68%',
-													top: '82%',
-													size: '3.4rem',
-													rot: '-10deg',
-													op: 0.2,
-													dur: '9.4s',
-													delay: '2.8s',
-													bob: '-6px',
-													color: '#7dd3fc',
-												},
-												{
-													Icon: Cloud,
-													left: '92%',
-													top: '58%',
-													size: '1.9rem',
-													rot: '18deg',
-													op: 0.18,
-													dur: '7.3s',
-													delay: '1.3s',
-													bob: '-5px',
-													color: '#0284c7',
-												},
-												{
-													Icon: Cloud,
-													left: '42%',
-													top: '76%',
-													size: '1.5rem',
-													rot: '-16deg',
-													op: 0.17,
-													dur: '8s',
-													delay: '2.3s',
-													bob: '-4px',
-													color: '#bae6fd',
-												},
-												{
-													Icon: Cloud,
-													left: '84%',
-													top: '36%',
-													size: '2.3rem',
-													rot: '4deg',
-													op: 0.2,
-													dur: '9.2s',
-													delay: '0.8s',
-													bob: '-6px',
-													color: '#0ea5e9',
-												},
-												{
-													Icon: Cloud,
-													left: '60%',
-													top: '28%',
-													size: '1.6rem',
-													rot: '12deg',
-													op: 0.16,
-													dur: '7.5s',
-													delay: '3.3s',
-													bob: '-3px',
-													color: '#38bdf8',
-												},
-											] as const
-										).map(
-											(
-												{
-													Icon,
-													left,
-													top,
-													size,
-													rot,
-													op,
-													dur,
-													delay,
-													bob,
-													color,
-												},
-												i,
-											) => (
-												<span
-													key={i}
-													style={
-														{
-															left,
-															top,
-															fontSize: size,
-															'--rot': rot,
-															'--op': op,
-															'--dur': dur,
-															'--delay': delay,
-															'--bob': bob,
-															'--icon-color':
-																color,
-														} as CSSProperties
-													}
-												>
-													<Icon weight="duotone" />
-												</span>
-											),
-										)}
-									</div>
+									<FloatingBackgroundIcons />
+
 									<div className="relative z-10 text-center p-8 grid gap-4 max-w-md">
 										<div className="grid gap-1.5">
 											<h3 className="text-xl font-semibold">
@@ -1533,24 +973,24 @@ export default function AppView() {
 						<div className="shrink-0 flex items-center justify-between gap-2 px-3 py-2 border-b border-kumo-line bg-kumo-elevated/40">
 							<div className="min-w-0 flex items-center gap-2">
 								<span className="text-sm font-medium text-text-primary shrink-0">
-									Generated code
+									Project files
 								</span>
-								{app?.agentSummary && (
+								{/*{app?.agentSummary && (
 									<span className="text-xs text-text-tertiary">
 										{files.length} files
 									</span>
-								)}
-								{activeFile && (
-									<code className="min-w-0 truncate font-mono text-[0.9em] text-text-tertiary">
-										{activeFile.filePath}
-									</code>
-								)}
+								)}*/}
 							</div>
 							{activeFile && (
 								<Button
 									variant="ghost"
 									size="sm"
-									icon={<Copy className="h-3.5 w-3.5" />}
+									icon={
+										<CopyIcon
+											weight="duotone"
+											className="size-3.5"
+										/>
+									}
 									onClick={() => {
 										void copyFile(activeFile.fileContents);
 									}}
@@ -1647,51 +1087,66 @@ export default function AppView() {
 				)}
 
 				{activeTab === 'prompt' && (
-					<div className="flex-1 min-h-0 flex flex-col bg-kumo-base overflow-hidden">
-						<div className="shrink-0 flex items-center justify-between gap-2 px-3 py-2 border-b border-kumo-line bg-kumo-elevated/40">
-							<div className="grid gap-0.5 min-w-0">
-								<span className="text-sm font-medium text-text-primary">
-									Original prompt
-								</span>
-								<span className="text-xs text-text-tertiary">
-									The initial prompt used to create this app
-								</span>
-							</div>
-							{promptText && (
-								<Button
-									variant="secondary"
-									size="sm"
-									icon={<Copy className="h-3.5 w-3.5" />}
-									onClick={() => {
-										void copyPrompt(promptText);
-									}}
-								>
-									Copy prompt
-								</Button>
-							)}
-						</div>
-						<div className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-6">
+					<div className="flex-1 min-h-0 flex flex-col bg-kumo-base overflow-hidden relative">
+						<div className="flex-1 min-h-0 overflow-y-auto flex items-center justify-center p-6 sm:p-10">
 							{promptText ? (
-								<div className="max-w-3xl mx-auto">
-									<div className="flex items-start gap-3 rounded-lg bg-kumo-elevated ring ring-kumo-line px-4 py-4">
-										<span className="h-lh flex items-center shrink-0 mt-0.5">
-											<span className="rounded-full bg-brand/10 p-2">
-												<MessageSquare className="h-4 w-4 text-brand" />
-											</span>
-										</span>
-										<p className="text-sm text-text-primary whitespace-pre-wrap leading-relaxed">
+								<div className="w-full max-w-2xl grid gap-5">
+									<div className="flex items-end justify-between gap-4">
+										<div className="grid gap-1 min-w-0">
+											<div className="flex items-center gap-2">
+												<span className="h-lh flex items-center shrink-0">
+													<span className="rounded-md bg-brand/10 p-1.5">
+														<MessageSquare className="size-3.5 text-brand" />
+													</span>
+												</span>
+												<h2 className="text-base font-semibold text-text-primary">
+													Original prompt
+												</h2>
+											</div>
+											<p className="text-sm text-text-tertiary pl-9">
+												The idea that started this app
+											</p>
+										</div>
+										<Button
+											variant="secondary"
+											size="sm"
+											icon={
+												<CopyIcon
+													className="size-3.5"
+													weight="duotone"
+												/>
+											}
+											onClick={() => {
+												void copyPrompt(promptText);
+											}}
+										>
+											Copy
+										</Button>
+									</div>
+									<div className="max-h-[min(60vh,28rem)] overflow-auto rounded-xl bg-kumo-elevated ring ring-kumo-line px-5 py-4">
+										<p className="text-sm text-text-primary whitespace-pre-wrap break-words leading-relaxed">
 											{promptText}
 										</p>
 									</div>
 								</div>
 							) : (
-								<div className="h-full flex items-center justify-center text-text-tertiary gap-2">
-									<MessageSquare className="h-5 w-5" />
-									<p className="text-sm">
-										{app?.agentSummary === null
-											? 'Loading prompt...'
-											: 'No prompt available'}
-									</p>
+								<div className="grid place-items-center gap-3 text-center">
+									<span className="rounded-full bg-kumo-elevated ring ring-kumo-line p-3">
+										<MessageSquare className="size-5 text-text-tertiary" />
+									</span>
+									<div className="grid gap-1">
+										<p className="text-sm font-medium text-text-primary">
+											{app?.agentSummary === null
+												? 'Loading prompt'
+												: 'No prompt available'}
+										</p>
+										{app?.agentSummary !== null && (
+											<p className="text-sm text-text-tertiary">
+												This app has no saved original
+												prompt
+											</p>
+										)}
+									</div>
 								</div>
 							)}
 						</div>
