@@ -161,15 +161,17 @@ export class ThinkCodingBehavior
 			currentBranch: 'main',
 		});
 
-		// Push model/space/prompt config into the ThinkAgent DO.
+		const configureStartedAt = performance.now();
 		await this.configureThinkAgent();
+		const configureDurationMs = performance.now() - configureStartedAt;
 
-		// Materialize the SpaceDO (git init + main branch) so file tools and the
-		// preview/deploy path have a valid HEAD from the first turn.
+		const seedStartedAt = performance.now();
 		await this.seedEmptySpace();
+		const seedDurationMs = performance.now() - seedStartedAt;
 
 		this.logger.info(
 			`Think agent ${this.getAgentId()} initialized (space=${agentName})`,
+			{ configureDurationMs, seedDurationMs },
 		);
 		return this.state;
 	}
@@ -242,7 +244,7 @@ export class ThinkCodingBehavior
 				useStoredKeys: usesStoredKeys,
 			},
 			systemPrompt: this.buildSystemPrompt(modelName, aiModelConfig.provider),
-			previewUrl: await this.getBrowserPreviewURL().catch(() => undefined),
+			previewUrl: await this.getBrowserPreviewURL(0).catch(() => undefined),
 		};
 
 		try {
@@ -302,7 +304,7 @@ export class ThinkCodingBehavior
 	private async seedEmptySpace(): Promise<void> {
 		const space = this.getSpaceStub() as unknown as {
 			writeFile: (path: string, content: string) => Promise<unknown>;
-			gitCommit: (msg: string, author?: { name: string; email: string }) => Promise<unknown>;
+			gitCommitLocal: (msg: string, author?: { name: string; email: string }) => Promise<unknown>;
 		};
 		const marker = JSON.stringify(
 			{ agentId: this.getAgentId(), createdAt: new Date().toISOString(), seededBy: 'vibesdk-think' },
@@ -311,7 +313,7 @@ export class ThinkCodingBehavior
 		);
 		try {
 			await space.writeFile('.think/space.json', marker);
-			await space.gitCommit('chore: initialize think space');
+			await space.gitCommitLocal('chore: initialize think space');
 		} catch (e) {
 			this.logger.warn('SpaceDO empty-seed failed (continuing)', e);
 		}
@@ -339,7 +341,7 @@ export class ThinkCodingBehavior
 		return `https://${host}`;
 	}
 
-	public async getBrowserPreviewURL(): Promise<string> {
+	public async getBrowserPreviewURL(previewVersionOverride?: number): Promise<string> {
 		const spaceName = this.getAgentId();
 		const branch = this.state.currentBranch || 'main';
 		const previewBaseUrl = `${await this.getPublicOrigin()}${buildSpacePreviewPath(spaceName, branch)}`;
@@ -349,7 +351,7 @@ export class ThinkCodingBehavior
 		// `get_browser_console_logs` browser, which carry no cookie.
 		// Embed the app's current preview-token revocation epoch so a later
 		// visibility toggle (which bumps it) invalidates this token.
-		const previewVersion =
+		const previewVersion = previewVersionOverride ??
 			(await new AppService(this.env).getPreviewVersion(spaceName)) ?? 0;
 		const token = await signSpacePreviewToken(this.env, {
 			spaceName,
@@ -494,6 +496,11 @@ export class ThinkCodingBehavior
 		try {
 			await stub.chat(text, forwarder);
 		} finally {
+			const disposeSymbol = (Symbol as unknown as { dispose?: symbol }).dispose;
+			if (disposeSymbol) {
+				const dispose = (forwarder as unknown as Record<symbol, unknown>)[disposeSymbol];
+				if (typeof dispose === 'function') dispose.call(forwarder);
+			}
 			// Think's non-streaming finalize: the FE replaces content with this
 			// terminal payload, so only send it when we actually accumulated text.
 			if (accumulated.text) {

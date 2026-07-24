@@ -26,6 +26,21 @@ const ARTIFACTS_BASE_BRANCH = "main"
 // it off a `get()` handle, whose data properties are unreadable via the
 // local-dev remote-binding proxy.
 const ARTIFACTS_REMOTE_URL_KEY = "artifacts:remoteUrl"
+const ARTIFACTS_INIT_TIMEOUT_MS = 10_000
+
+async function withTimeout<T>(operation: Promise<T>, timeoutMs: number): Promise<T> {
+  let timeout: ReturnType<typeof setTimeout> | undefined
+  try {
+    return await Promise.race([
+      operation,
+      new Promise<never>((_, reject) => {
+        timeout = setTimeout(() => reject(new Error("Operation timed out")), timeoutMs)
+      }),
+    ])
+  } finally {
+    if (timeout) clearTimeout(timeout)
+  }
+}
 
 // ─── Inspector result types ────────────────────────────────────────────────
 // These mirror the shapes returned by the wrapper-subclass injected into
@@ -107,7 +122,7 @@ export class SpaceDO extends DurableObject<Env> {
   private afs: ArtifactsFileSystem
   private git: Git
   private stateBackend: FileSystemStateBackend
-  private initialized = false
+  private initializationPromise: Promise<void> | null = null
   // Keyed by `${branch}:${commitHash}` — commitHash makes redeploys self-invalidate.
   private assetCache = new Map<string, CachedAssets>()
   // Lazily constructed on first use (bound to the overlay-aware git/FS).
@@ -140,7 +155,14 @@ export class SpaceDO extends DurableObject<Env> {
     const source = createArtifactsBaseSource({
       overlay,
       branch: ARTIFACTS_BASE_BRANCH,
-      fetchBranch: () => fetchSync.fetch(ARTIFACTS_BASE_BRANCH),
+      fetchBranch: async () => {
+        if (!(await remoteStore.read())) return false
+        try {
+          return await withTimeout(fetchSync.fetch(ARTIFACTS_BASE_BRANCH), ARTIFACTS_INIT_TIMEOUT_MS)
+        } catch {
+          return false
+        }
+      },
     })
     this.afs = new ArtifactsFileSystem(overlay, { source, branch: ARTIFACTS_BASE_BRANCH })
     this.fs = this.afs
@@ -161,9 +183,16 @@ export class SpaceDO extends DurableObject<Env> {
   }
 
   private async ensureInit(): Promise<void> {
-    if (this.initialized) return
-    this.initialized = true
+    if (!this.initializationPromise) {
+      this.initializationPromise = this.initializeSpace().catch((error) => {
+        this.initializationPromise = null
+        throw error
+      })
+    }
+    await this.initializationPromise
+  }
 
+  private async initializeSpace(): Promise<void> {
     // Table needed by the deploy engine. (Git objects/refs live in the
     // Workspace FS under `.git/`, managed by isomorphic-git — the old `refs`
     // and `git_internal` tables from the retired smart-HTTP server are gone.)
@@ -381,6 +410,19 @@ export class SpaceDO extends DurableObject<Env> {
   }
 
   // ── Git RPC methods ─────────────────────────────────────────────
+
+  async gitCommitLocal(
+    message: string,
+    author?: { name: string; email: string }
+  ): Promise<{ sha: string; message: string }> {
+    await this.ensureInit()
+    await this.git.add({ filepath: "." })
+    const result = await this.git.commit({
+      message,
+      author: author ?? { name: "Agent", email: "agent@vibesdk.local" },
+    })
+    return { sha: result.oid, message: result.message }
+  }
 
   async gitCommit(
     message: string,
