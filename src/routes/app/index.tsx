@@ -40,7 +40,7 @@ import { MonacoEditor } from '@/components/monaco-editor/monaco-editor';
 import { getFileType } from '@/utils/string';
 import { useAuth } from '@/contexts/auth-context';
 import { toggleFavorite } from '@/hooks/use-apps';
-import { capitalizeFirstLetter, cn, getPreviewUrl } from '@/lib/utils';
+import { capitalizeFirstLetter, getPreviewUrl } from '@/lib/utils';
 import { ConfirmDeleteDialog } from '@/components/shared/ConfirmDeleteDialog';
 import { FloatingBackgroundIcons } from '@/components/shared/FloatingBackgroundIcons';
 import { GitCloneModal } from '@/components/shared/GitCloneModal';
@@ -50,6 +50,7 @@ import {
 } from '@/components/shared/GitCloneInline';
 import { useAuthGuard } from '@/hooks/useAuthGuard';
 import { PreviewIframe } from '../chat/components/preview-iframe';
+import { FileExplorer } from '../chat/components/file-explorer';
 import { useAppsData } from '@/contexts/apps-data-context';
 
 // Use proper types from API types
@@ -215,9 +216,13 @@ export default function AppView() {
 		return files.find((file) => file.filePath === activeFilePath);
 	}, [files, activeFilePath]);
 
-	// Auto-select first file when files are loaded
+	// Auto-select first file; recover if selected path vanished from the list
 	useEffect(() => {
-		if (files.length > 0 && !activeFilePath) {
+		if (files.length === 0) return;
+		const stillThere = files.some(
+			(file) => file.filePath === activeFilePath,
+		);
+		if (!activeFilePath || !stillThere) {
 			setActiveFilePath(files[0].filePath);
 		}
 	}, [files, activeFilePath]);
@@ -1002,39 +1007,12 @@ export default function AppView() {
 
 						{files.length > 0 ? (
 							<div className="flex-1 min-h-0 flex">
-								<aside className="w-56 sm:w-64 shrink-0 border-r border-kumo-line flex flex-col min-h-0 bg-kumo-elevated/20">
-									<div className="shrink-0 px-3 py-2 text-xs font-medium text-text-tertiary border-b border-kumo-line flex items-center gap-1.5">
-										<Code2 className="h-3.5 w-3.5" />
-										Files
-									</div>
-									<div className="flex-1 min-h-0 overflow-y-auto">
-										{files.map((file) => {
-											const selected =
-												activeFile?.filePath ===
-												file.filePath;
-											return (
-												<button
-													key={file.filePath}
-													type="button"
-													onClick={() =>
-														handleFileClick(file)
-													}
-													className={cn(
-														'flex items-center w-full gap-2 py-1.5 px-3 text-left text-sm',
-														selected
-															? 'bg-kumo-tint text-text-primary border-r-2 border-brand'
-															: 'text-text-tertiary hover:bg-kumo-tint hover:text-text-primary',
-													)}
-												>
-													<Code2 className="h-3.5 w-3.5 shrink-0 opacity-60" />
-													<span className="truncate font-mono text-[0.9em]">
-														{file.filePath}
-													</span>
-												</button>
-											);
-										})}
-									</div>
-								</aside>
+								<FileExplorer
+									files={files}
+									currentFile={activeFile}
+									onFileClick={handleFileClick}
+									className="w-56 sm:w-64 max-w-none shrink-0 bg-kumo-elevated/20"
+								/>
 
 								<div className="flex-1 min-w-0 min-h-0 flex flex-col">
 									{activeFile ? (
@@ -1047,6 +1025,7 @@ export default function AppView() {
 											<div className="flex-1 min-h-0">
 												<MonacoEditor
 													className="h-full"
+													path={activeFile.filePath}
 													createOptions={{
 														value: activeFile.fileContents,
 														language:
@@ -1059,7 +1038,6 @@ export default function AppView() {
 														lineNumbers: 'on',
 														scrollBeyondLastLine: false,
 														fontSize: 13,
-														theme: 'vibesdk',
 														automaticLayout: true,
 													}}
 												/>

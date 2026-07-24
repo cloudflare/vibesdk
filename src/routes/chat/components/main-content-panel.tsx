@@ -358,6 +358,8 @@ export function MainContentPanel(props: MainContentPanelProps) {
 					<div className="flex-1">
 						<MonacoEditor
 							className="h-full"
+							path={activeFile.filePath}
+							stickToBottom={!!activeFile.isGenerating}
 							createOptions={{
 								value: activeFile.fileContents || '',
 								language: activeFile.language || 'plaintext',
@@ -366,7 +368,6 @@ export function MainContentPanel(props: MainContentPanelProps) {
 								lineNumbers: 'on',
 								scrollBeyondLastLine: false,
 								fontSize: 13,
-								theme: 'vibesdk',
 								automaticLayout: true,
 							}}
 							find={edit?.filePath === activeFile.filePath ? edit.search : undefined}
