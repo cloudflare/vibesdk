@@ -1,16 +1,16 @@
 import { useCallback, useRef, useState, useEffect, useMemo } from 'react';
 import { ArrowRight, Info } from 'react-feather';
-import { Loader2 } from 'lucide-react';
+import { ArrowUpRight, Loader2 } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router';
 import { useAuth } from '@/contexts/auth-context';
 import { ProjectModeSelector, type ProjectModeOption } from '../components/project-mode-selector';
-import { BehaviorModeToggle } from '../components/behavior-mode-toggle';
 import { MAX_AGENT_QUERY_LENGTH, SUPPORTED_IMAGE_MIME_TYPES, type ProjectType, type BehaviorType } from '@/api-types';
 import { useFeature } from '@/features';
 import { useAuthGuard } from '../hooks/useAuthGuard';
 import { usePaginatedApps } from '@/hooks/use-paginated-apps';
 import { AnimatePresence, LayoutGroup, motion } from 'framer-motion';
 import { AppCard } from '@/components/shared/AppCard';
+import { Button } from '@/components/ui/button';
 import clsx from 'clsx';
 import { useImageUpload } from '@/hooks/use-image-upload';
 import { useDragDrop } from '@/hooks/use-drag-drop';
@@ -23,7 +23,7 @@ export default function Home() {
 	const navigate = useNavigate();
 	const { requireAuth } = useAuthGuard();
 	const [projectMode, setProjectMode] = useState<ProjectType>('app');
-	const [behaviorMode, setBehaviorMode] = useState<Extract<BehaviorType, 'think' | 'phasic'>>('think');
+	const behaviorMode: Extract<BehaviorType, 'think' | 'phasic'> = 'think';
 	const [query, setQuery] = useState('');
 	const { user } = useAuth();
 	const { isLoadingCapabilities, capabilities, getEnabledFeatures } = useFeature();
@@ -108,7 +108,8 @@ export default function Home() {
 	});
 
 	// Discover section should appear only when enough apps are available and loading is done
-	const discoverReady = useMemo(() => !loading && (apps?.length ?? 0) > 5, [loading, apps]);
+	const discoverReady = useMemo(() => !loading && (apps?.length ?? 0) > 0, [loading, apps]);
+	const discoverApps = useMemo(() => (apps ?? []).slice(0, 9), [apps]);
 
 	const handleCreateApp = (query: string, mode: ProjectType) => {
 		if (query.length > MAX_AGENT_QUERY_LENGTH) {
@@ -165,34 +166,7 @@ export default function Home() {
 	const discoverLinkRef = useRef<HTMLDivElement>(null);
 
 	return (
-		<div className="relative flex flex-col items-center size-full">
-			{/* Dotted background pattern - extends to full viewport */}
-			<div className="fixed inset-0 z-0 opacity-20 pointer-events-none" style={{ color: '#ff3d00' }}>
-				<svg width="100%" height="100%">
-					<defs>
-						<pattern
-							id=":S2:"
-							viewBox="-6 -6 12 12"
-							patternUnits="userSpaceOnUse"
-							width="12"
-							height="12"
-						>
-							<circle
-								cx="0"
-								cy="0"
-								r="1"
-								fill="currentColor"
-							></circle>
-						</pattern>
-					</defs>
-					<rect
-						width="100%"
-						height="100%"
-						fill="url(#:S2:)"
-					></rect>
-				</svg>
-			</div>
-
+		<div className="relative flex flex-col items-center w-full min-h-full">
 			<LayoutGroup>
 				<div className="rounded-md w-full max-w-2xl overflow-hidden">
 					<motion.div
@@ -202,7 +176,7 @@ export default function Home() {
 							"px-6 p-8 flex flex-col items-center z-10",
 							discoverReady ? "mt-48" : "mt-[20vh] sm:mt-[24vh] md:mt-[28vh]"
 						)}>
-						<h1 className="text-shadow-sm text-shadow-red-200 dark:text-shadow-red-900 font-medium leading-[1.1] tracking-tight text-5xl w-full mb-4 bg-clip-text bg-gradient-to-r from-text-primary to-text-primary/90" style={{ color: '#ff3d00' }}>
+						<h1 className="text-shadow-sm text-shadow-red-200 dark:text-shadow-red-900 font-medium leading-[1.1] text-5xl w-full mb-4 bg-clip-text bg-gradient-to-r from-text-primary tracking-tighter to-text-primary/90" style={{ color: '#ff3d00' }}>
 							What should we build today?
 						</h1>
 						<PromptBox
@@ -224,7 +198,7 @@ export default function Home() {
 							variant="expanded"
 							submitIcon={user && usageLimitsLoading ? <Loader2 className="animate-spin" /> : <ArrowRight />}
 							leftActions={
-								(showModeSelector || projectMode === 'app') ? (
+								showModeSelector ? (
 									<div className="flex items-center gap-3">
 										{showModeSelector && (
 											<ProjectModeSelector
@@ -232,12 +206,6 @@ export default function Home() {
 												onChange={setProjectMode}
 												modes={modeOptions}
 												className="flex-1"
-											/>
-										)}
-										{projectMode === 'app' && (
-											<BehaviorModeToggle
-												value={behaviorMode}
-												onChange={setBehaviorMode}
 											/>
 										)}
 									</div>
@@ -275,18 +243,40 @@ export default function Home() {
 							animate={{ opacity: 1, height: "auto" }}
 							exit={{ opacity: 0, height: 0 }}
 							transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
-							className={clsx('max-w-6xl mx-auto px-4 z-10', images.length > 0 ? 'mt-10' : 'mt-16 mb-8')}
+							className={clsx(
+								'w-full max-w-7xl mx-auto px-5 sm:px-6 z-10',
+								images.length > 0 ? 'mt-10' : 'mt-20 mb-12',
+							)}
 						>
-							<div className='flex flex-col items-start'>
-								<h2 className="text-2xl font-medium text-text-secondary/80">Discover Apps built by the community</h2>
-								<div ref={discoverLinkRef} className="text-md font-light mb-4 text-text-tertiary hover:underline underline-offset-4 select-text cursor-pointer" onClick={() => navigate('/discover')} >View All</div>
+							<div className="flex flex-col gap-6">
+								<div className="flex items-end justify-between gap-4">
+									<div className="grid gap-1.5 min-w-0">
+										<h2 className="text-2xl sm:text-3xl font-semibold text-kumo-strong">
+											Discover apps
+										</h2>
+										<p className="text-sm text-kumo-subtle">
+											Fresh builds from the community this week
+										</p>
+									</div>
+									<div ref={discoverLinkRef}>
+										<Button
+											variant="outline"
+											size="sm"
+											onClick={() => navigate('/discover')}
+											className="shrink-0 rounded-full px-3.5 gap-1.5 text-sm text-kumo-default ring-1 ring-kumo-line border-0 shadow-sm bg-kumo-base hover:bg-kumo-tint hover:text-kumo-strong"
+										>
+											View all
+											<ArrowUpRight className="size-3.5 opacity-70" />
+										</Button>
+									</div>
+								</div>
 								<motion.div
 									layout
 									transition={{ duration: 0.4 }}
-									className="grid grid-cols-2 xl:grid-cols-3 gap-6"
+									className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3"
 								>
 									<AnimatePresence mode="popLayout">
-										{apps.map(app => (
+										{discoverApps.map(app => (
 											<AppCard
 												key={app.id}
 												app={app}
@@ -303,9 +293,6 @@ export default function Home() {
 					)}
 				</AnimatePresence>
 			</LayoutGroup>
-
-			{/* Nudge towards Discover */}
-			{user && <CurvedArrow sourceRef={discoverLinkRef} target={{ x: 50, y: window.innerHeight - 60 }} />}
 
 			{/* Usage limit dialogs */}
 			{showLimitDialog}

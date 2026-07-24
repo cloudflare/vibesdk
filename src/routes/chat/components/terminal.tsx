@@ -22,16 +22,16 @@ interface TerminalProps {
 	onCopyLogs?: () => void;
 }
 
-export function Terminal({ 
-	logs, 
-	onCommand, 
-	isConnected, 
-	className 
+export function Terminal({
+	logs,
+	onCommand,
+	isConnected,
+	className
 }: TerminalProps) {
 	const [command, setCommand] = useState('');
 	const [commandHistory, setCommandHistory] = useState<string[]>([]);
 	const [historyIndex, setHistoryIndex] = useState(-1);
-	
+
 	const inputRef = useRef<HTMLInputElement>(null);
 	const scrollAreaRef = useRef<HTMLDivElement>(null);
 	const endOfLogsRef = useRef<HTMLDivElement>(null);
@@ -56,7 +56,7 @@ export function Terminal({
 		// Add to command history
 		setCommandHistory(prev => [...prev.slice(-49), cmd]); // Keep last 50 commands
 		setHistoryIndex(-1);
-		
+
 		// Send command
 		onCommand(cmd.trim());
 		setCommand('');
@@ -69,8 +69,8 @@ export function Terminal({
 		} else if (e.key === 'ArrowUp') {
 			e.preventDefault();
 			if (commandHistory.length > 0) {
-				const newIndex = historyIndex === -1 
-					? commandHistory.length - 1 
+				const newIndex = historyIndex === -1
+					? commandHistory.length - 1
 					: Math.max(0, historyIndex - 1);
 				setHistoryIndex(newIndex);
 				setCommand(commandHistory[newIndex]);
@@ -116,13 +116,13 @@ export function Terminal({
 	return (
 		<div className={clsx(
 			'flex flex-col h-full font-mono text-sm',
-			'bg-white dark:bg-bg-2',
+			'bg-white dark:bg-kumo-elevated',
 			className
 		)}>
 
 			{/* Terminal Output */}
-			<div className="flex-1 min-h-0 overflow-hidden bg-gray-25 dark:bg-bg-2">
-				<ScrollArea 
+			<div className="flex-1 min-h-0 overflow-hidden bg-gray-25 dark:bg-kumo-elevated">
+				<ScrollArea
 					ref={scrollAreaRef}
 					className="h-full terminal-scroll"
 				>
@@ -146,7 +146,7 @@ export function Terminal({
 									key={log.id}
 									className={clsx(
 										'group flex items-start gap-3 py-1.5 px-2 -mx-2 rounded-md',
-										'hover:bg-gray-50 dark:hover:bg-bg-3/50',
+										'hover:bg-gray-50 dark:hover:bg-kumo-base/50',
 										'transition-colors duration-150'
 									)}
 								>
@@ -197,15 +197,15 @@ export function Terminal({
 			{/* Command Input */}
 			<div className={clsx(
 				'flex-shrink-0 px-4 py-3',
-				'bg-gray-50 dark:bg-bg-2',
+				'bg-gray-50 dark:bg-kumo-elevated',
 				'border-t border-gray-200 dark:border-gray-700'
 			)}>
 				<div className="flex items-center gap-3">
 					<div className="flex items-center gap-2">
 						<span className={clsx(
 							"text-lg font-bold select-none",
-							isConnected 
-								? "text-brand-primary" 
+							isConnected
+								? "text-brand-primary"
 								: "text-gray-400 dark:text-gray-600"
 						)}>
 							$
@@ -232,7 +232,7 @@ export function Terminal({
 						{isConnected ? (
 							<div className="flex items-center gap-4">
 								<span className="flex items-center gap-1">
-									Press 
+									Press
 									<kbd className="px-1.5 py-0.5 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded text-xs font-mono">↑</kbd>
 									<kbd className="px-1.5 py-0.5 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded text-xs font-mono">↓</kbd>
 									for history

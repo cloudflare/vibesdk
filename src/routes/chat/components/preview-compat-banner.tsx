@@ -67,7 +67,7 @@ export function PreviewCompatBanner({ previewUrl }: PreviewCompatBannerProps) {
 				type="button"
 				aria-label="Dismiss"
 				onClick={dismiss}
-				className="p-1 rounded hover:bg-bg-2 transition-colors"
+				className="p-1 rounded hover:bg-kumo-elevated transition-colors"
 			>
 				<X className="size-4 text-text-primary/60" />
 			</button>

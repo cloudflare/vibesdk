@@ -51,7 +51,7 @@ export function ImageUploadButton({
 				type="button"
 				onClick={handleClick}
 				disabled={disabled}
-				className={`p-1 *:size-5 rounded-md border border-border-primary hover:bg-bg-3 text-text-secondary hover:text-text-primary transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed ${className}`}
+				className={`p-1 *:size-5 rounded-md border border-border-primary hover:bg-kumo-base text-text-secondary hover:text-text-primary transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed ${className}`}
 				aria-label="Upload image"
 				title="Upload image (PNG, JPEG, WEBP, HEIC, HEIF)"
 			>

@@ -427,7 +427,7 @@ export default function SettingsPage() {
 	}, [user]);
 
 	return (
-		<div className="min-h-screen bg-bg-3 relative">
+		<div className="min-h-screen bg-kumo-base relative">
 			<main className="container mx-auto px-4 py-8 max-w-4xl">
 				<div className="space-y-8">
 					{/* Page Header */}
@@ -497,7 +497,7 @@ export default function SettingsPage() {
 							) : (
 								<div className="flex items-center justify-between">
 									<div className="flex items-center gap-3">
-										<div className="h-10 w-10 rounded-full bg-bg-2 border-bg-1 dark:border-bg-4 border flex items-center justify-center">
+										<div className="h-10 w-10 rounded-full bg-kumo-elevated border-bg-1 dark:border-bg-4 border flex items-center justify-center">
 											<Github className="h-5 w-5 text-text-tertiary" />
 										</div>
 										<div>
@@ -743,9 +743,9 @@ export default function SettingsPage() {
 									<span className="text-sm text-text-tertiary">Loading API keys...</span>
 								</div>
 							) : apiKeys.keys.length === 0 ? (
-								<div className="rounded-lg border border-dashed border-bg-4 bg-bg-2/50 p-6">
+								<div className="rounded-lg border border-dashed border-bg-4 bg-kumo-elevated/50 p-6">
 									<div className="flex items-start gap-3">
-										<div className="h-10 w-10 rounded-full bg-bg-3 flex items-center justify-center">
+										<div className="h-10 w-10 rounded-full bg-kumo-base flex items-center justify-center">
 											<Key className="h-5 w-5 text-text-tertiary" />
 										</div>
 										<div className="space-y-1">

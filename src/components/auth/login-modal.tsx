@@ -201,7 +201,7 @@ export function LoginModal({
 						transition={{ type: 'spring', duration: 0.5 }}
 						className="relative z-10 w-full max-w-md mx-auto my-8"
 					>
-						<div className="bg-bg-3/95 backdrop-blur-xl text-text-primary border border-border-primary/50 rounded-2xl shadow-2xl overflow-hidden">
+						<div className="bg-kumo-base/95 backdrop-blur-xl text-text-primary border border-border-primary/50 rounded-2xl shadow-2xl overflow-hidden">
 							{/* Header */}
 							<div className="relative p-6 pb-0">
 								{showCloseButton && (

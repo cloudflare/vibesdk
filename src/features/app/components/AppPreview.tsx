@@ -23,7 +23,7 @@ export const AppPreview = forwardRef<HTMLIFrameElement, PreviewComponentProps>(
 	) => {
 		if (!previewUrl) {
 			return (
-				<div className={`${className ?? ''} flex items-center justify-center bg-bg-3 border border-text/10 rounded-lg`}>
+				<div className={`${className ?? ''} flex items-center justify-center bg-kumo-base border border-text/10 rounded-lg`}>
 					<div className="text-center p-8">
 						<p className="text-text-primary/70 text-sm">
 							No preview URL available yet. The preview will appear once your app is deployed.

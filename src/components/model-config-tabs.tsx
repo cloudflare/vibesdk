@@ -1,8 +1,8 @@
 import { useState, useCallback } from 'react';
 import { Search, RotateCcw, Play, Settings } from 'lucide-react';
+import { Tabs } from '@cloudflare/kumo';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { ConfigCard } from './config-card';
@@ -162,37 +162,38 @@ export function ModelConfigTabs({
       </div>
 
       {/* Tabbed interface */}
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-5 h-12 items-center border-2 border-bg-2 dark:border-bg-4">
-          {Object.values(WORKFLOW_TABS).map((tab) => {
+      <div className="w-full">
+        <Tabs
+          value={activeTab}
+          onValueChange={setActiveTab}
+          tabs={Object.values(WORKFLOW_TABS).map((tab) => {
             const Icon = tab.icon;
             const customizedCount = getCustomizedCountForTab(tab.id);
-            
-            return (
-              <TabsTrigger 
-                key={tab.id} 
-                value={tab.id}
-                className="flex flex-col gap-1 py-1 relative h-[calc(100%-4px)] min-h-[calc(100%-4px)] justify-center"
-              >
-                <div className="flex items-center gap-2">
+
+            return {
+              value: tab.id,
+              label: (
+                <span className="inline-flex items-center gap-2">
                   <Icon className="h-4 w-4" />
                   <span className="hidden sm:inline">{tab.label}</span>
-                </div>
-                {customizedCount > 0 && (
-                  <Badge variant="secondary" className="text-xs absolute -top-1 -right-1 h-5 w-5 rounded-full p-0 flex items-center justify-center">
-                    {customizedCount}
-                  </Badge>
-                )}
-              </TabsTrigger>
-            );
+                  {customizedCount > 0 && (
+                    <Badge variant="secondary" className="text-xs h-5 w-5 rounded-full p-0 flex items-center justify-center">
+                      {customizedCount}
+                    </Badge>
+                  )}
+                </span>
+              ),
+            };
           })}
-        </TabsList>
+        />
 
         {Object.values(WORKFLOW_TABS).map((tab) => {
+          if (tab.id !== activeTab) return null;
+
           const agents = getAgentsForTab(tab.id);
-          
+           
           return (
-            <TabsContent key={tab.id} value={tab.id} className="mt-6">
+            <div key={tab.id} className="mt-6">
               <div className="space-y-4">
                 {/* Tab description */}
                 <div className="text-sm text-text-tertiary">
@@ -226,10 +227,10 @@ export function ModelConfigTabs({
                   </div>
                 )}
               </div>
-            </TabsContent>
+            </div>
           );
         })}
-      </Tabs>
+      </div>
 
       {/* Configuration Modal */}
       {selectedConfigKey && (

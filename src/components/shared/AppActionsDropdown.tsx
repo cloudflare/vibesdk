@@ -1,12 +1,6 @@
 import { useState } from 'react';
-import { MoreVertical, Trash2 } from 'lucide-react';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import { Button } from '@/components/ui/button';
+import { DotsThreeVertical, Trash } from '@phosphor-icons/react';
+import { Button, DropdownMenu } from '@cloudflare/kumo';
 import { ConfirmDeleteDialog } from './ConfirmDeleteDialog';
 import { apiClient } from '@/lib/api-client';
 import { toast } from 'sonner';
@@ -38,11 +32,11 @@ export function AppActionsDropdown({
     try {
       setIsDeleting(true);
       const response = await apiClient.deleteApp(appId);
-      
+
       if (response.success) {
         toast.success('App deleted successfully');
         setIsDeleteDialogOpen(false);
-        
+
         appEvents.emitAppDeleted(appId);
         onAppDeleted?.();
       }
@@ -54,41 +48,47 @@ export function AppActionsDropdown({
     }
   };
 
-  const buttonClasses = showOnHover 
-    ? `opacity-0 group-hover:opacity-100 transition-all duration-200 hover:bg-bg-3/80 cursor-pointer ${className}`
-    : `hover:bg-bg-3/80 cursor-pointer ${className}`;
+  const buttonClasses = showOnHover
+    ? `opacity-0 transition-all duration-200 group-hover:opacity-100 ${className}`
+    : className;
+
+  const kumoSize = size === 'default' ? 'base' : 'sm';
+  const kumoVariant = variant === 'default' ? 'secondary' : variant;
 
   return (
     <>
       <DropdownMenu>
-        <DropdownMenuTrigger asChild>
+        <DropdownMenu.Trigger
+          render={
           <Button
-            variant={variant}
-            size={size}
+            variant={kumoVariant}
+            size={kumoSize}
+            shape="square"
+            aria-label="App actions"
             className={buttonClasses}
             onClick={(e) => {
               e.stopPropagation();
               e.preventDefault();
             }}
           >
-            <MoreVertical className="h-4 w-4" />
-            <span className="sr-only">App actions</span>
+            <DotsThreeVertical className="h-4 w-4" weight="bold" />
           </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-48">
-          <DropdownMenuItem
+          }
+        />
+        <DropdownMenu.Content align="start">
+          <DropdownMenu.Item
+            icon={Trash}
+            variant="danger"
             onClick={(e) => {
               e.stopPropagation();
               e.preventDefault();
               setIsDeleteDialogOpen(true);
             }}
-            className="text-destructive focus:text-destructive focus:bg-destructive/10"
           >
-            <Trash2 className="h-4 w-4 mr-2" />
             Delete app
-          </DropdownMenuItem>
+          </DropdownMenu.Item>
 
-        </DropdownMenuContent>
+        </DropdownMenu.Content>
       </DropdownMenu>
 
       <ConfirmDeleteDialog

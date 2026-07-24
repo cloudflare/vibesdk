@@ -199,7 +199,7 @@ class ApiClient {
 				method: 'GET',
 				credentials: 'include',
 			});
-			
+
 			if (response.ok) {
 				const data: ApiResponse<CsrfTokenResponseData> = await response.json();
 				if (data.data?.token) {
@@ -242,12 +242,12 @@ class ApiClient {
 		if (!['POST', 'PUT', 'DELETE', 'PATCH'].includes(method.toUpperCase())) {
 			return true;
 		}
-		
+
 		// Fetch new token if none exists or current one is expired
 		if (!this.csrfTokenInfo || this.isCSRFTokenExpired()) {
 			return await this.fetchCsrfToken();
 		}
-		
+
 		return true;
 	}
 
@@ -317,7 +317,7 @@ class ApiClient {
         noToast: boolean = false,
 	): Promise<{ response: Response; data: ApiResponse<T> | null }> {
 		this.ensureSessionToken();
-		
+
 		if (!await this.ensureCsrfToken(options.method || 'GET')) {
 			throw new ApiError(
 				500,
@@ -348,12 +348,12 @@ class ApiClient {
 
 		try {
 			const response = await fetch(url, config);
-			
+
 			// For streaming responses, skip JSON parsing if response is ok
 			if (options.skipJsonParsing && response.ok) {
 				return { response, data: null };
 			}
-			
+
 			const data = await response.json() as ApiResponse<T>;
 
 			if (!response.ok) {
@@ -625,7 +625,7 @@ class ApiClient {
 				false,
 				true,
 			);
-			
+
 			// Check if response is ok
 			if (!response.ok) {
 				// Check if this is a usage limit error
@@ -638,16 +638,16 @@ class ApiClient {
 							hasUserToken: data.error.hasUserToken,
 						}
 					}));
-					
+
 					const errorMessage = data.error.message || 'Free tier limits exceeded';
 					throw new Error(errorMessage);
 				}
-				
+
 				// Parse error response if available
 				const errorMessage = data?.error?.message || `Agent creation failed with status: ${response.status}`;
 				throw new Error(errorMessage);
 			}
-			
+
 			return {
 				success: true,
 				stream: response
@@ -656,7 +656,7 @@ class ApiClient {
 			// Handle any network or parsing errors
 			const errorMessage = error instanceof Error ? error.message : 'Failed to create agent session';
 			toast.error(errorMessage);
-			
+
             throw new Error(errorMessage);
 		}
 	}
@@ -989,7 +989,7 @@ class ApiClient {
 		description?: string;
 		isPrivate?: boolean;
 		agentId: string;
-	}): Promise<ApiResponse<{ 
+	}): Promise<ApiResponse<{
 		authUrl?: string;
 		success?: boolean;
 		repositoryUrl?: string;

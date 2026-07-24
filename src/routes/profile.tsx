@@ -3,13 +3,13 @@ import { useAuth } from '@/contexts/auth-context';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs } from '@cloudflare/kumo';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { 
-  Mail, 
+import {
+  Mail,
   Calendar,
   Shield,
   Activity,
@@ -42,6 +42,7 @@ export default function Profile() {
     timezone: user?.timezone || 'UTC'
   });
   const [isSaving, setIsSaving] = React.useState(false);
+  const [activeTab, setActiveTab] = React.useState('about');
 
   // Update profile data when user changes
   React.useEffect(() => {
@@ -64,17 +65,17 @@ export default function Profile() {
 
   const handleSave = async () => {
     if (isSaving) return;
-    
+
     try {
       setIsSaving(true);
-      
+
       const response = await apiClient.updateProfile({
         displayName: profileData.displayName,
         username: profileData.username,
         bio: profileData.bio,
         timezone: profileData.timezone
       });
-      
+
       if (response.success) {
         toast.success('Profile updated successfully');
         // Refresh user data in auth context
@@ -100,7 +101,7 @@ export default function Profile() {
   };
 
   return (
-    <div className="min-h-screen bg-bg-3">
+    <div className="min-h-screen bg-kumo-base">
       {/* Profile Header */}
       <div className="container mx-auto px-4 py-8">
         <div className="pb-8">
@@ -111,7 +112,7 @@ export default function Profile() {
                 {user?.displayName?.charAt(0).toUpperCase() || user?.email?.charAt(0).toUpperCase() || '?'}
               </AvatarFallback>
             </Avatar>
-            
+
             <div className="flex-1 text-center md:text-left">
               <div className="flex flex-col md:flex-row items-center gap-4 mb-2">
                 <h1 className="text-3xl font-bold">{user?.displayName}</h1>
@@ -171,7 +172,7 @@ export default function Profile() {
               <p className="text-md text-gray-500">Total Apps</p>
             </CardContent>
           </Card>
-          
+
           <Card className="text-center hover:shadow-lg hover:scale-[1.02] transition-all dark:bg-bg-4/50">
             <CardContent className="pt-6 relative overflow-hidden">
               <Globe className="h-32 w-32 text-green-500 absolute -top-10 -left-6 opacity-20" />
@@ -179,7 +180,7 @@ export default function Profile() {
               <p className="text-md text-gray-500">Public Apps</p>
             </CardContent>
           </Card>
-          
+
           <Card className="text-center hover:shadow-lg hover:scale-[1.02] transition-all dark:bg-bg-4/50">
             <CardContent className="pt-6 relative overflow-hidden">
               <Activity className="h-32 w-32 text-purple-500 absolute -top-10 -left-6 opacity-10" />
@@ -187,7 +188,7 @@ export default function Profile() {
               <p className="text-md text-gray-500">Total Views</p>
             </CardContent>
           </Card>
-          
+
           <Card className="text-center hover:shadow-lg hover:scale-[1.02] transition-all dark:bg-bg-4/50">
             <CardContent className="pt-6 relative overflow-hidden">
               <Star className="h-32 w-32 text-yellow-500 absolute -top-10 -left-6 opacity-20" />
@@ -195,18 +196,24 @@ export default function Profile() {
               <p className="text-md text-gray-500">Total Likes</p>
             </CardContent>
           </Card>
-          
+
         </div>
 
-        <Tabs defaultValue="about" className="space-y-6">
-          <TabsList className="grid w-full max-w-md grid-cols-4">
-            <TabsTrigger value="about">About</TabsTrigger>
-            <TabsTrigger value="apps">Apps</TabsTrigger>
-            <TabsTrigger value="achievements">Achievements</TabsTrigger>
-            <TabsTrigger value="activity">Activity</TabsTrigger>
-          </TabsList>
+        <div className="space-y-6">
+          <Tabs
+            value={activeTab}
+            onValueChange={setActiveTab}
+            className="w-full max-w-md"
+            tabs={[
+              { value: 'about', label: 'About' },
+              { value: 'apps', label: 'Apps' },
+              { value: 'achievements', label: 'Achievements' },
+              { value: 'activity', label: 'Activity' },
+            ]}
+          />
 
-          <TabsContent value="about" className="space-y-6">
+          {activeTab === 'about' && (
+          <div className="space-y-6">
             <Card className="dark:bg-bg-4/50 max-w-xl">
               <CardHeader className='border-b'>
                 <CardTitle>Profile Information</CardTitle>
@@ -275,9 +282,11 @@ export default function Profile() {
                 </div>
               </CardContent>
             </Card>
-          </TabsContent>
+          </div>
+          )}
 
-          <TabsContent value="apps">
+          {activeTab === 'apps' && (
+          <div>
             <Card className="dark:bg-bg-4/50 max-w-xl">
               <CardHeader className='border-b'>
                 <CardTitle>Recent Applications</CardTitle>
@@ -293,13 +302,13 @@ export default function Profile() {
                 ) : recentApps && recentApps.length > 0 ? (
                   <div className="space-y-4">
                     {recentApps.slice(0, 5).map((app) => (
-                      <div 
+                      <div
                         key={app.id}
-                        className="flex items-center justify-between p-4 rounded-lg border hover:bg-bg-3/50 transition-colors cursor-pointer"
+                        className="flex items-center justify-between p-4 rounded-lg border hover:bg-kumo-base/50 transition-colors cursor-pointer"
                         onClick={() => navigate(`/app/${app.id}`)}
                       >
                         <div className="flex items-center gap-4">
-                          <div className="h-12 w-12 rounded-lg bg-bg-3 flex items-center justify-center">
+                          <div className="h-12 w-12 rounded-lg bg-kumo-base flex items-center justify-center">
                             <Code2 className="h-6 w-6" />
                           </div>
                           <div>
@@ -331,9 +340,11 @@ export default function Profile() {
                 )}
               </CardContent>
             </Card>
-          </TabsContent>
+          </div>
+          )}
 
-          <TabsContent value="achievements">
+          {activeTab === 'achievements' && (
+          <div>
             <Card className="dark:bg-bg-4/50 max-w-xl">
               <CardHeader>
                 <CardTitle>Achievements</CardTitle>
@@ -352,7 +363,7 @@ export default function Profile() {
                       return (
                         <div key={index} className="p-4 rounded-lg border hover:shadow-md transition-shadow">
                           <div className="flex items-start gap-4">
-                            <div className="p-3 rounded-lg bg-bg-3 text-text-tertiary">
+                            <div className="p-3 rounded-lg bg-kumo-base text-text-tertiary">
                               <Trophy className="h-6 w-6" />
                             </div>
                             <div className="flex-1">
@@ -375,9 +386,11 @@ export default function Profile() {
                 )}
               </CardContent>
             </Card>
-          </TabsContent>
+          </div>
+          )}
 
-          <TabsContent value="activity">
+          {activeTab === 'activity' && (
+          <div>
             <Card className="dark:bg-bg-4/50 max-w-xl">
               <CardHeader>
                 <CardTitle>Activity Timeline</CardTitle>
@@ -429,8 +442,9 @@ export default function Profile() {
                 )}
               </CardContent>
             </Card>
-          </TabsContent>
-        </Tabs>
+          </div>
+          )}
+        </div>
       </div>
     </div>
   );

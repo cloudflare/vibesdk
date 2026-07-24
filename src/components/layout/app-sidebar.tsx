@@ -1,52 +1,48 @@
 import React from 'react';
 import {
-	Users,
-	Settings,
-	Plus,
 	ChevronRight,
+	Plus,
+	PlusIcon,
 	Search,
-	Globe,
-	Lock,
-	Users2,
-	Bookmark,
-	// LayoutGrid,
-	Compass,
+	Users,
 } from 'lucide-react';
-import './sidebar-overrides.css';
-import { useRecentApps, useFavoriteApps, useApps } from '@/hooks/use-apps';
 import {
+	BookmarkSimpleIcon,
+	CompassIcon,
+	GlobeHemisphereWestIcon,
+	LockKey,
+	UsersThree,
+} from '@phosphor-icons/react';
+import { isValid } from 'date-fns';
+import { useLocation, useNavigate } from 'react-router';
+import {
+	CloudflareLogo,
+	InputGroup,
 	Sidebar,
 	SidebarContent,
+	SidebarFooter,
 	SidebarGroup,
-	SidebarGroupContent,
+	SidebarHeader,
 	SidebarGroupLabel,
 	SidebarMenu,
-	SidebarMenuItem,
 	SidebarMenuButton,
-	SidebarMenuAction,
+	SidebarMenuItem,
 	SidebarSeparator,
-	SidebarFooter,
+	SidebarTrigger,
 	useSidebar,
-} from '@/components/ui/sidebar';
-import { Input } from '@/components/ui/input';
-import { ScrollArea } from '@/components/ui/scroll-area';
+} from '@cloudflare/kumo';
 import { useAuth } from '@/contexts/auth-context';
-import { useNavigate } from 'react-router';
-import { cn } from '@/lib/utils';
-import {
-	Tooltip,
-	TooltipContent,
-	TooltipProvider,
-	TooltipTrigger,
-} from '@/components/ui/tooltip';
-import { formatDistanceToNow, isValid } from 'date-fns';
+import { useApps, useFavoriteApps, useRecentApps } from '@/hooks/use-apps';
 import { AppActionsDropdown } from '@/components/shared/AppActionsDropdown';
+import { AuthButton } from '@/components/auth/auth-button';
+import { ThemeToggle } from '@/components/theme-toggle';
+import { cn } from '@/lib/utils';
 
 interface App {
 	id: string;
 	title: string;
 	framework?: string | null;
-	updatedAt: Date | null;
+	updatedAt: Date | string | null;
 	updatedAtFormatted?: string;
 	visibility: 'private' | 'team' | 'board' | 'public';
 	isFavorite?: boolean;
@@ -61,10 +57,10 @@ interface Board {
 	iconUrl?: string | null;
 }
 
-// Reusable AppMenuItem component for consistent app display
 interface AppMenuItemProps {
 	app: App;
 	onClick: (id: string) => void;
+	active?: boolean;
 	variant?: 'recent' | 'bookmarked';
 	showActions?: boolean;
 	isCollapsed: boolean;
@@ -74,73 +70,84 @@ interface AppMenuItemProps {
 function AppMenuItem({
 	app,
 	onClick,
+	active = false,
 	variant = 'recent',
 	showActions = true,
 	isCollapsed,
 	getVisibilityIcon,
 }: AppMenuItemProps) {
 	const formatTimestamp = () => {
-		if (app.updatedAtFormatted) return app.updatedAtFormatted;
-		if (app.updatedAt && isValid(app.updatedAt)) {
-			return formatDistanceToNow(app.updatedAt, { addSuffix: true });
+		const updatedAt =
+			app.updatedAt instanceof Date
+				? app.updatedAt
+				: app.updatedAt
+					? new Date(app.updatedAt)
+					: null;
+
+		if (updatedAt && isValid(updatedAt)) {
+			const diffInSeconds = Math.floor(
+				(Date.now() - updatedAt.getTime()) / 1000,
+			);
+
+			if (diffInSeconds < 60) return 'now';
+			if (diffInSeconds < 3600)
+				return `${Math.floor(diffInSeconds / 60)}m ago`;
+			if (diffInSeconds < 86400)
+				return `${Math.floor(diffInSeconds / 3600)}h ago`;
+			if (diffInSeconds < 604800)
+				return `${Math.floor(diffInSeconds / 86400)}d ago`;
+			if (diffInSeconds < 2592000)
+				return `${Math.floor(diffInSeconds / 604800)}w ago`;
+			if (diffInSeconds < 31536000)
+				return `${Math.floor(diffInSeconds / 2592000)}mo ago`;
+			return `${Math.floor(diffInSeconds / 31536000)}y ago`;
 		}
+		if (app.updatedAtFormatted) return app.updatedAtFormatted;
 		return 'Recently';
 	};
 
 	return (
 		<SidebarMenuItem className="group/app-item">
 			<SidebarMenuButton
-				asChild
+				active={active}
+				href={`/app/${app.id}`}
 				tooltip={app.title}
-				className="cursor-pointer transition-opacity hover:opacity-75 pr-0"
+				className="min-h-12 items-start py-2 pr-9 text-sm"
+				onClick={(event) => {
+					event.preventDefault();
+					onClick(app.id);
+				}}
 			>
-				<a
-					href={`/app/${app.id}`}
-					onClick={(e) => {
-						e.preventDefault();
-						onClick(app.id);
-					}}
-					className="w-full no-underline"
-				>
-					<div className="flex-1 min-w-0 pr-2">
-						<div className="flex items-center gap-2 min-w-0">
-							{variant === 'bookmarked' && (
-								<Bookmark className="h-3 w-3 fill-yellow-500 text-yellow-500 flex-shrink-0" />
-							)}
-
-							<div className="relative flex-1 min-w-0 overflow-hidden">
-								<span className="font-medium flex justify-start  items-center  gap-2 text-text-primary/80 whitespace-nowrap">
-									<span className="text-ellipsis w-fit overflow-hidden">
-										{app.title}{' '}
-									</span>
-									<div className="flex-shrink-0 min-w-6">
-										{getVisibilityIcon(app.visibility)}
-									</div>
-								</span>
-
-								<div className="absolute inset-y-0 right-0 w-4 bg-gradient-to-l from-bg-2 to-transparent pointer-events-none" />
-							</div>
-						</div>
-						<p className="text-xs text-text-tertiary truncate">
-							{formatTimestamp()}
-						</p>
-					</div>
-				</a>
+				<span className="flex min-w-0 flex-1 flex-col gap-1">
+					<span className="flex min-w-0 items-center gap-1.5 text-kumo-default">
+						{variant === 'bookmarked' && (
+							<BookmarkSimpleIcon
+								className="size-3.5 shrink-0"
+								weight="duotone"
+							/>
+						)}
+						<span className="truncate">{app.title}</span>
+					</span>
+					<span className="flex min-w-0 items-center gap-1.5 truncate text-xs font-normal text-kumo-subtle">
+						<span className="shrink-0">
+							{getVisibilityIcon(app.visibility)}
+						</span>
+						<span className="shrink-0">•</span>
+						<span className="truncate">{formatTimestamp()}</span>
+					</span>
+				</span>
 			</SidebarMenuButton>
 
 			{!isCollapsed && showActions && (
-				<SidebarMenuAction
-					asChild
-					className="opacity-0 -mr-2 group-hover/app-item:opacity-100 transition-opacity"
-				>
+				<div className="absolute right-1.5 top-1/2 z-10 -translate-y-1/2 opacity-0 transition-opacity group-hover/app-item:opacity-100 focus-within:opacity-100">
 					<AppActionsDropdown
 						appId={app.id}
 						appTitle={app.title}
 						size="sm"
-						className="h-6 w-6"
+						className="size-7"
 						showOnHover={false}
 					/>
-				</SidebarMenuAction>
+				</div>
 			)}
 		</SidebarMenuItem>
 	);
@@ -149,42 +156,93 @@ function AppMenuItem({
 export function AppSidebar() {
 	const { user } = useAuth();
 	const navigate = useNavigate();
+	const { pathname } = useLocation();
 	const [searchQuery, setSearchQuery] = React.useState('');
 	const [expandedGroups, setExpandedGroups] = React.useState<string[]>([
 		'apps',
 		'boards',
 	]);
-	const { state, setOpen } = useSidebar();
+	const { state } = useSidebar();
 	const isCollapsed = state === 'collapsed';
 
-	// Fetch real data from API
 	const { apps: recentApps, moreAvailable } = useRecentApps();
-	const { apps: favoriteApps } = useFavoriteApps();
+	const { apps: favoriteApps, loading: favoriteAppsLoading } = useFavoriteApps();
 	const { apps: allApps, loading: allAppsLoading } = useApps();
 
-	const boards: Board[] = []; // Remove mock boards
+	const boards: Board[] = [];
 
-	// Search functionality - filter all apps based on search query
-	const searchResults = React.useMemo(() => {
-		if (!searchQuery.trim()) return [];
+	const normalizedSearchQuery = searchQuery.toLowerCase().trim();
+	const trimmedSearchQuery = searchQuery.trim();
+	const isSearching = normalizedSearchQuery.length > 0;
 
-		return allApps.filter((app) =>
-			app.title.toLowerCase().includes(searchQuery.toLowerCase().trim()),
+	const favoriteAppIds = React.useMemo(
+		() => new Set(favoriteApps.map((app) => app.id)),
+		[favoriteApps],
+	);
+
+	const favoriteSearchResults = React.useMemo(() => {
+		if (!normalizedSearchQuery) return [];
+
+		return favoriteApps.filter((app) =>
+			app.title.toLowerCase().includes(normalizedSearchQuery),
 		);
-	}, [allApps, searchQuery]);
+	}, [favoriteApps, normalizedSearchQuery]);
 
-	const isSearching = searchQuery.trim().length > 0;
+	const appSearchResults = React.useMemo(() => {
+		if (!normalizedSearchQuery) return [];
+
+		return allApps.filter(
+			(app) =>
+				!favoriteAppIds.has(app.id) &&
+				!app.isFavorite &&
+				app.title.toLowerCase().includes(normalizedSearchQuery),
+		);
+	}, [allApps, favoriteAppIds, normalizedSearchQuery]);
+
+	const appsWithoutBookmarks = React.useMemo(
+		() =>
+			recentApps.filter(
+				(app) => !favoriteAppIds.has(app.id) && !app.isFavorite,
+			),
+		[recentApps, favoriteAppIds],
+	);
+
+	const showBookmarksSection = favoriteApps.length > 0;
+
+	const showAppsSection =
+		isSearching ||
+		appsWithoutBookmarks.length > 0 ||
+		moreAvailable;
+
+	const bookmarkSearchEmptyMessage = `No bookmarks found for "${trimmedSearchQuery}"`;
+
+	const appSearchEmptyMessage =
+		allApps.length === 0
+			? 'No apps yet'
+			: favoriteSearchResults.length > 0
+				? `No other apps found for "${trimmedSearchQuery}"`
+				: `No apps found for "${trimmedSearchQuery}"`;
 
 	const getVisibilityIcon = (visibility: App['visibility']) => {
 		switch (visibility) {
 			case 'private':
-				return <Lock className="h-3 w-3" />;
+				return <LockKey className="size-3.5" weight="duotone" />;
 			case 'team':
-				return <Users2 className="h-3 w-3" />;
+				return <UsersThree className="size-3.5" weight="duotone" />;
 			case 'board':
-				return <Globe className="h-3 w-3" />;
+				return (
+					<GlobeHemisphereWestIcon
+						className="size-3.5"
+						weight="duotone"
+					/>
+				);
 			case 'public':
-				return <Globe className="h-3 w-3" />;
+				return (
+					<GlobeHemisphereWestIcon
+						className="size-3.5"
+						weight="duotone"
+					/>
+				);
 		}
 	};
 
@@ -196,411 +254,291 @@ export function AppSidebar() {
 		);
 	};
 
-	if (!user) return;
+	// if (!user) return null;
 
 	return (
-		<>
-			<Sidebar
-				collapsible="icon"
-				className={cn(
-					'bg-bg-2 transition-all duration-300 ease-in-out',
-				)}
-			>
-				<SidebarContent className={cn("pt-2", isCollapsed ? 'px-2' : 'px-3')}>
-					{/* Build Button */}
-					<SidebarGroup>
-						<SidebarGroupContent>
-
-							{location.pathname !== '/' && (
-								<div
-									className={cn(
-										isCollapsed ? '' : 'px-1',
-									)}
-								>
-									<TooltipProvider delayDuration={0}>
-										<Tooltip>
-											<TooltipTrigger asChild>
-												<button
-													className={cn(
-														'group flex w-full border-[0.5px] border-bg-2 items-center gap-2 font-medium hover:opacity-80 hover:cursor-pointer p-2 rounded-md cursor-hand text-text-secondary hover:text-text-primary shrink-0',
-														isCollapsed
-? 'justify-center bg-brand'
-														: 'justify-start bg-brand',
-													)}
-													onClick={() => {
-														// Collapse sidebar when starting a new build
-														if (!isCollapsed) {
-															setOpen(false);
-														}
-														navigate('/');
-													}}
-												>
-													<Plus className="h-4 w-4 text-neutral-50" />
-													{!isCollapsed && (
-														<span className="font-medium text-neutral-50">
-															New build
-														</span>
-													)}
-												</button>
-											</TooltipTrigger>
-										</Tooltip>
-									</TooltipProvider>
-								</div>
-							)}
-						</SidebarGroupContent>
-					</SidebarGroup>
-
-					{!isCollapsed && (
-						<ScrollArea className="flex-1 px-1 relative">
-							{/* Navigation */}
-							<SidebarGroup>
-								{expandedGroups.includes('apps') && (
-									<SidebarGroupContent>
-										{/* Search */}
-										<div className="relative bg-bg-3 mb-4 mt-2">
-											<Search className="absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-text-tertiary" />
-											<Input
-												placeholder="Search apps..."
-												value={searchQuery}
-												onChange={(e) =>
-													setSearchQuery(
-														e.target.value,
-													)
-												}
-												className="h-10 w-full pl-8 placeholder:text-primary/40"
-											/>
-										</div>
-										<SidebarMenu>
-											{isSearching ? (
-												// Search Results
-												<>
-													{allAppsLoading ? (
-														<SidebarMenuItem>
-															<div className="flex items-center justify-center py-4">
-																<div className="text-sm text-text-tertiary">
-																	Searching...
-																</div>
-															</div>
-														</SidebarMenuItem>
-													) : searchResults.length >
-													  0 ? (
-														<>
-															<SidebarMenuItem>
-																<div className="px-2 py-1 text-xs text-text-tertiary">
-																	Found{' '}
-																	{
-																		searchResults.length
-																	}{' '}
-																	app
-																	{searchResults.length !==
-																	1
-																		? 's'
-																		: ''}
-																</div>
-															</SidebarMenuItem>
-															{searchResults.map(
-																(app) => (
-																	<AppMenuItem
-																		key={
-																			app.id
-																		}
-																		app={
-																			app
-																		}
-																		onClick={(
-																			id,
-																		) =>
-																			navigate(
-																				`/app/${id}`,
-																			)
-																		}
-																		variant="recent"
-																		showActions={
-																			true
-																		}
-																		isCollapsed={
-																			isCollapsed
-																		}
-																		getVisibilityIcon={
-																			getVisibilityIcon
-																		}
-																	/>
-																),
-															)}
-														</>
-													) : (
-														<SidebarMenuItem>
-															<div className="flex items-center justify-center py-4">
-																<div className="text-sm text-text-tertiary">
-																	No apps
-																	found for "
-																	{
-																		searchQuery
-																	}
-																	"
-																</div>
-															</div>
-														</SidebarMenuItem>
-													)}
-												</>
-											) : (
-												// Normal Recent Apps View
-												<>
-													{recentApps.map((app) => (
-														<AppMenuItem
-															key={app.id}
-															app={app}
-															onClick={(id) =>
-																navigate(
-																	`/app/${id}`,
-																)
-															}
-															variant="recent"
-															showActions={true}
-															isCollapsed={
-																isCollapsed
-															}
-															getVisibilityIcon={
-																getVisibilityIcon
-															}
-														/>
-													))}
-													{moreAvailable && (
-														<SidebarMenuItem>
-															<SidebarMenuButton
-																onClick={() =>
-																	navigate(
-																		'/apps',
-																	)
-																}
-																tooltip="View all apps"
-																className="text-text-tertiary hover:text-text-primary view-all-button"
-															>
-																<ChevronRight className="h-4 w-4" />
-																{!isCollapsed && (
-																	<span className="font-medium text-text-primary/80">
-																		View all
-																		apps →
-																	</span>
-																)}
-															</SidebarMenuButton>
-														</SidebarMenuItem>
-													)}
-												</>
-											)}
-										</SidebarMenu>
-									</SidebarGroupContent>
+		<Sidebar contentClassName="bg-kumo-elevated">
+			<SidebarHeader className="h-12 justify-start px-4">
+				<div className="flex items-center gap-2.5 text-kumo-strong">
+					<CloudflareLogo
+						variant="glyph"
+						className="size-7 shrink-0"
+					/>
+					<span className="truncate text-sm font-black font-funky-mono uppercase tracking-[0.25em] group-data-[state=collapsed]/sidebar:hidden group-data-[mobile=true]/sidebar:inline">
+						Build
+					</span>
+				</div>
+			</SidebarHeader>
+			<SidebarContent>
+				<SidebarGroup className="gap-2 py-1">
+					<SidebarMenu className="gap-1">
+						{pathname !== '/' && (
+							<Sidebar.MenuButton
+								icon={PlusIcon}
+								className={cn(
+									'bg-brand/80 text-white',
 								)}
-							</SidebarGroup>
+								tooltip="New build"
+								onClick={() => navigate('/')}
+							>
+								New build
+							</Sidebar.MenuButton>
+						)}
 
-							{/* Favorites */}
-							{favoriteApps.length > 0 && (
+						<Sidebar.MenuButton
+							active={pathname === '/discover'}
+							icon={CompassIcon}
+							id="discover-link"
+							tooltip="Discover"
+							onClick={() => navigate('/discover')}
+						>
+							Discover
+						</Sidebar.MenuButton>
+
+						{!isCollapsed && user && (
+							<InputGroup>
+								<InputGroup.Addon>
+									<Search className="size-3.5 text-kumo-subtle" />
+								</InputGroup.Addon>
+								<InputGroup.Input
+									aria-label="Search apps"
+									placeholder="Search apps"
+									value={searchQuery}
+									onChange={(event) =>
+										setSearchQuery(event.target.value)
+									}
+								/>
+							</InputGroup>
+						)}
+					</SidebarMenu>
+				</SidebarGroup>
+
+				{!isCollapsed && showBookmarksSection && (
+					<SidebarGroup className="">
+						<SidebarGroupLabel className="flex items-center">
+							<span className="text-xs font-funky-mono">
+								Bookmarked
+							</span>
+						</SidebarGroupLabel>
+						<SidebarMenu>
+							{isSearching ? (
 								<>
-									<SidebarSeparator />
-									<SidebarGroup className='mt-4'>
-										<SidebarGroupLabel
-											className={cn(
-												'flex items-center gap-2 text-md text-text-primary',
-												isCollapsed &&
-													'justify-center px-0',
-											)}
-										>
-											{!isCollapsed && 'Bookmarked'}
-											<Bookmark className="h-5 w-5 fill-yellow-500 text-yellow-500" />
-
-										</SidebarGroupLabel>
-										<SidebarGroupContent>
-											<SidebarMenu>
-												{favoriteApps.map((app) => (
-													<AppMenuItem
-														key={app.id}
-														app={app}
-														onClick={(id) =>
-															navigate(
-																`/app/${id}`,
-															)
-														}
-														showActions={true}
-														isCollapsed={
-															isCollapsed
-														}
-														getVisibilityIcon={
-															getVisibilityIcon
-														}
-													/>
-												))}
-											</SidebarMenu>
-										</SidebarGroupContent>
-									</SidebarGroup>
+									{favoriteAppsLoading ? (
+										<SidebarMenuItem>
+											<div className="px-3 py-3 text-sm text-kumo-subtle">
+												Searching bookmarks...
+											</div>
+										</SidebarMenuItem>
+									) : favoriteSearchResults.length > 0 ? (
+										favoriteSearchResults.map((app) => (
+											<AppMenuItem
+												key={app.id}
+												app={app}
+												active={
+													pathname === `/app/${app.id}`
+												}
+												onClick={(id) => navigate(`/app/${id}`)}
+												variant="bookmarked"
+												isCollapsed={isCollapsed}
+												getVisibilityIcon={getVisibilityIcon}
+											/>
+										))
+									) : (
+										<SidebarMenuItem>
+											<div className="px-3 py-3 text-sm text-kumo-subtle">
+												{bookmarkSearchEmptyMessage}
+											</div>
+										</SidebarMenuItem>
+									)}
 								</>
+							) : (
+								favoriteApps.map((app) => (
+									<AppMenuItem
+										key={app.id}
+										app={app}
+										active={pathname === `/app/${app.id}`}
+										onClick={(id) => navigate(`/app/${id}`)}
+										variant="bookmarked"
+										isCollapsed={isCollapsed}
+										getVisibilityIcon={getVisibilityIcon}
+									/>
+								))
 							)}
+						</SidebarMenu>
+					</SidebarGroup>
+				)}
 
-							{/* Boards */}
-							{boards.length > 0 && (
-								<>
-									<SidebarSeparator />
-									<SidebarGroup>
-										<SidebarGroupLabel
-											className={cn(
-												'flex items-center cursor-pointer hover:text-text-primary transition-colors',
-												isCollapsed
-													? 'justify-center px-0'
-													: 'justify-between',
-											)}
+				{!isCollapsed &&
+					showAppsSection &&
+					expandedGroups.includes('apps') && (
+						<SidebarGroup className="">
+							<SidebarMenu>
+								<SidebarGroupLabel className="flex items-center">
+									<span className="text-xs font-funky-mono">
+										Apps
+									</span>
+								</SidebarGroupLabel>
+								{isSearching ? (
+									<>
+										{allAppsLoading ? (
+											<SidebarMenuItem>
+												<div className="px-3 py-3 text-sm text-kumo-subtle">
+													Searching apps...
+												</div>
+											</SidebarMenuItem>
+										) : appSearchResults.length > 0 ? (
+											appSearchResults.map((app) => (
+												<AppMenuItem
+													key={app.id}
+													app={app}
+													active={
+														pathname === `/app/${app.id}`
+													}
+													onClick={(id) =>
+														navigate(`/app/${id}`)
+													}
+													isCollapsed={isCollapsed}
+													getVisibilityIcon={
+														getVisibilityIcon
+													}
+												/>
+											))
+										) : (
+											<SidebarMenuItem>
+												<div className="px-3 py-3 text-sm text-kumo-subtle">
+													{appSearchEmptyMessage}
+												</div>
+											</SidebarMenuItem>
+										)}
+									</>
+								) : (
+									<>
+										{appsWithoutBookmarks.map((app) => (
+											<AppMenuItem
+												key={app.id}
+												app={app}
+												active={
+													pathname ===
+													`/app/${app.id}`
+												}
+												onClick={(id) =>
+													navigate(`/app/${id}`)
+												}
+												isCollapsed={isCollapsed}
+												getVisibilityIcon={
+													getVisibilityIcon
+												}
+											/>
+										))}
+										{moreAvailable && (
+											<SidebarMenuButton
+												active={pathname === '/apps'}
+												icon={
+													<ChevronRight className="size-4 text-kumo-subtle" />
+												}
+												tooltip="View all apps"
+												onClick={() =>
+													navigate('/apps')
+												}
+											>
+												View all apps
+											</SidebarMenuButton>
+										)}
+									</>
+								)}
+							</SidebarMenu>
+						</SidebarGroup>
+					)}
+
+				{!isCollapsed && boards.length > 0 && (
+					<>
+						<SidebarSeparator />
+						<SidebarGroup className="py-2">
+							<SidebarGroupLabel
+								className="cursor-pointer"
+								onClick={() => toggleGroup('boards')}
+							>
+								<span className="flex items-center justify-between">
+									<span className="flex items-center gap-2">
+										<Users className="size-3.5" />
+										<span>My Boards</span>
+									</span>
+									<ChevronRight
+										className={cn(
+											'size-3.5 transition-transform',
+											expandedGroups.includes('boards') &&
+												'rotate-90',
+										)}
+									/>
+								</span>
+							</SidebarGroupLabel>
+							{expandedGroups.includes('boards') && (
+								<SidebarMenu>
+									{boards.map((board) => (
+										<SidebarMenuButton
+											key={board.id}
+											icon={
+												<UsersThree
+													className="size-4"
+													weight="duotone"
+												/>
+											}
+											tooltip={board.name}
 											onClick={() =>
-												toggleGroup('boards')
+												navigate(
+													`/boards/${board.slug}`,
+												)
 											}
 										>
-											{isCollapsed ? (
-												<TooltipProvider
-													delayDuration={0}
-												>
-													<Tooltip>
-														<TooltipTrigger>
-															<Users className="h-4 w-4" />
-														</TooltipTrigger>
-														<TooltipContent
-															side="right"
-															className="ml-2"
-														>
-															My Boards
-														</TooltipContent>
-													</Tooltip>
-												</TooltipProvider>
-											) : (
-												<>
-													<div className="flex items-center gap-2">
-														<Users className="h-4 w-4" />
-														<span>My Boards</span>
-													</div>
-													<ChevronRight
-														className={cn(
-															'h-4 w-4 transition-transform',
-															expandedGroups.includes(
-																'boards',
-															) && 'rotate-90',
-														)}
-													/>
-												</>
-											)}
-										</SidebarGroupLabel>
-										{expandedGroups.includes('boards') && (
-											<SidebarGroupContent>
-												<SidebarMenu>
-													{boards.map((board) => (
-														<SidebarMenuItem
-															key={board.id}
-														>
-															<SidebarMenuButton
-																onClick={() =>
-																	navigate(
-																		`/boards/${board.slug}`,
-																	)
-																}
-																tooltip={
-																	board.name
-																}
-																className="board-item-button"
-															>
-																<div
-																	className={cn(
-																		'rounded-lg flex-shrink-0 flex items-center justify-center transition-colors',
-																		'h-8 w-8',
-																		isCollapsed
-																			? 'bg-sidebar-accent'
-																			: 'bg-sidebar-accent/50',
-																	)}
-																>
-																	<Users2 className="h-4 w-4 text-sidebar-accent-foreground" />
-																</div>
-																{!isCollapsed && (
-																	<div className="flex-1 min-w-0">
-																		<p className="text-sm font-medium truncate">
-																			{
-																				board.name
-																			}
-																		</p>
-																		<p className="text-xs text-text-tertiary truncate">
-																			{
-																				board.memberCount
-																			}{' '}
-																			members
-																			•{' '}
-																			{
-																				board.appCount
-																			}{' '}
-																			apps
-																		</p>
-																	</div>
-																)}
-															</SidebarMenuButton>
-														</SidebarMenuItem>
-													))}
-													<SidebarMenuItem>
-														<SidebarMenuButton
-															onClick={() =>
-																navigate(
-																	'/boards',
-																)
-															}
-															tooltip="Browse all boards"
-															className="text-text-tertiary hover:text-text-primary view-all-button"
-														>
-															<Plus className="h-4 w-4" />
-															{!isCollapsed && (
-																<span className="font-medium text-text-primary/80 ml-2">
-																	Browse all
-																	boards
-																</span>
-															)}
-														</SidebarMenuButton>
-													</SidebarMenuItem>
-												</SidebarMenu>
-											</SidebarGroupContent>
-										)}
-									</SidebarGroup>
-								</>
+											<span className="flex min-w-0 flex-col gap-0.5">
+												<span className="truncate">
+													{board.name}
+												</span>
+												<span className="truncate text-xs font-normal text-kumo-subtle">
+													{board.memberCount} members
+													/ {board.appCount} apps
+												</span>
+											</span>
+										</SidebarMenuButton>
+									))}
+									<SidebarMenuButton
+										icon={
+											<Plus className="size-4 text-kumo-subtle" />
+										}
+										tooltip="Browse all boards"
+										onClick={() => navigate('/boards')}
+									>
+										Browse all boards
+									</SidebarMenuButton>
+								</SidebarMenu>
 							)}
-						</ScrollArea>
-					)}
-				</SidebarContent>
+						</SidebarGroup>
+					</>
+				)}
+			</SidebarContent>
 
-				<SidebarFooter>
-					{user && (
-						<SidebarMenu>
-							<SidebarMenuItem>
-								<SidebarMenuButton
-									id="discover-link"
-									onClick={() => navigate('/discover')}
-									tooltip="Discover"
-									className="group hover:opacity-80 hover:cursor-pointer hover:bg-bg-1/50 transition-all duration-200"
-								>
-									<Compass className="h-6 w-6 text-text-primary/60 group-hover:text-primary/80 transition-colors" />
-									{!isCollapsed && (
-										<span className="text-text-primary/80 font-medium group-hover:text-primary transition-colors">
-											Discover
-										</span>
-									)}
-								</SidebarMenuButton>
-							</SidebarMenuItem>
-							<SidebarMenuItem>
-								<SidebarMenuButton
-									onClick={() => navigate('/settings')}
-									tooltip="Settings"
-									className="group hover:opacity-80 hover:cursor-pointer hover:bg-bg-1/50 transition-all duration-200"
-								>
-									<Settings className="h-6 w-6 text-text-primary/60 group-hover:text-primary/80 transition-colors" />
-									{!isCollapsed && (
-										<span className="font-medium text-text-primary/80 group-hover:text-primary transition-colors">
-											Settings
-										</span>
-									)}
-								</SidebarMenuButton>
-							</SidebarMenuItem>
-						</SidebarMenu>
+			<SidebarFooter className="h-auto border-t border-kumo-line p-3">
+				<div className="flex min-w-0 w-full items-center gap-2 group-data-[state=collapsed]/sidebar:flex-col">
+					{(!isCollapsed || user) && (
+						<div className="flex-1">
+							<AuthButton
+								display="sidebar"
+								className="group-data-[state=collapsed]/sidebar:size-9 group-data-[state=collapsed]/sidebar:flex-none group-data-[state=collapsed]/sidebar:justify-center group-data-[state=collapsed]/sidebar:px-0 w-full"
+							/>
+						</div>
 					)}
-				</SidebarFooter>
-			</Sidebar>
-		</>
+					<ThemeToggle
+						align="end"
+						className="size-9 shrink-0 rounded-lg group-data-[state=collapsed]/sidebar:ml-0"
+					/>
+					<SidebarTrigger
+						aria-label={
+							isCollapsed ? 'Open sidebar' : 'Collapse sidebar'
+						}
+						className="ml-auto size-9 shrink-0 rounded-lg border border-kumo-line bg-kumo-base text-kumo-subtle shadow-none hover:bg-kumo-tint hover:text-kumo-default group-data-[state=collapsed]/sidebar:ml-0"
+					/>
+				</div>
+			</SidebarFooter>
+		</Sidebar>
 	);
 }

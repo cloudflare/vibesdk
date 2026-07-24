@@ -105,7 +105,7 @@ export function MarkdownDocsPreview({
 			{/* Main content area */}
 			<div className="flex-1 flex flex-col overflow-hidden">
 				{/* Header */}
-				<div className="flex items-center gap-3 px-6 h-12 bg-bg-2 border-b border-border-primary">
+				<div className="flex items-center gap-3 px-6 h-12 bg-kumo-elevated border-b border-border-primary">
 					{/* Left: File name and status */}
 					<div className="flex items-center gap-3 flex-1">
 						<span className="text-sm font-medium text-text-primary">
@@ -175,7 +175,7 @@ export function MarkdownDocsPreview({
 
 					{/* Table of contents (if headings exist) */}
 					{tableOfContents.length > 0 && (
-						<div className="w-56 border-l border-border-primary bg-bg-2 overflow-y-auto py-6 px-4">
+						<div className="w-56 border-l border-border-primary bg-kumo-elevated overflow-y-auto py-6 px-4">
 							<h4 className="text-xs font-semibold text-text-secondary uppercase tracking-wider mb-3">
 								On This Page
 							</h4>
