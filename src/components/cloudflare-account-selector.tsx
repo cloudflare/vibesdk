@@ -4,12 +4,10 @@
  */
 
 import { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Button } from '@/components/ui/button';
+import { Button, DropdownMenu, LayerCard } from '@cloudflare/kumo';
 import { Switch } from '@/components/ui/switch';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { toast } from 'sonner';
 import { apiClient } from '@/lib/api-client';
 import CloudflareLogo from '@/assets/provider-logos/cloudflare.svg?react';
@@ -206,144 +204,151 @@ export function CloudflareAccountSelector() {
 		}
 	};
 
-	if (loading) {
-		return (
-			<Card>
-				<CardHeader variant="minimal">
-					<div className="flex items-center gap-3 border-b w-full py-3 text-text-primary">
-						<CloudflareLogo className="w-5 h-5" />
-						<div>
-							<CardTitle>Cloudflare AI Gateway</CardTitle>
-						</div>
-					</div>
-				</CardHeader>
-				<CardContent className="px-6 mt-6">
-					<div className="flex items-center justify-center py-8">
-						<Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
-					</div>
-				</CardContent>
-			</Card>
-		);
-	}
-
-	if (accounts.length === 0) {
-		return (
-			<Card>
-				<CardHeader variant="minimal">
-					<div className="flex items-center gap-3 border-b w-full py-3 text-text-primary">
-						<CloudflareLogo className="w-5 h-5" />
-						<div>
-							<CardTitle>Cloudflare AI Gateway</CardTitle>
-						</div>
-					</div>
-				</CardHeader>
-				<CardContent className="px-6 mt-6">
-					<p className="text-sm text-muted-foreground mb-4">
-						You haven't connected any Cloudflare accounts yet. Click the Cloudflare button in the top bar to connect your account.
-					</p>
-				</CardContent>
-			</Card>
-		);
-	}
-
-	const selectedAccount = accounts.find(a => a.id === selectedAccountId);
-	const selectedGateway = availableGateways.find(g => g.id === selectedGatewayId);
-
 	const handleReconnect = () => {
 		const url = new URL('/oauth/login', window.location.origin);
 		url.searchParams.set('return_url', window.location.pathname + window.location.search);
 		window.location.href = url.toString();
 	};
 
+	const cardHeader = (
+		<div className="flex items-center gap-2">
+			<span className="h-lh flex items-center">
+				<CloudflareLogo className="size-4" />
+			</span>
+			<span>Cloudflare AI Gateway</span>
+		</div>
+	);
+
+	if (loading) {
+		return (
+			<LayerCard>
+				<LayerCard.Secondary>{cardHeader}</LayerCard.Secondary>
+				<LayerCard.Primary>
+					<div className="flex items-center justify-center py-8">
+						<Loader2 className="size-5 animate-spin text-kumo-subtle" />
+					</div>
+				</LayerCard.Primary>
+			</LayerCard>
+		);
+	}
+
+	if (accounts.length === 0) {
+		return (
+			<LayerCard>
+				<LayerCard.Secondary>{cardHeader}</LayerCard.Secondary>
+				<LayerCard.Primary>
+					<div className="grid gap-4">
+						<p className="text-sm text-kumo-subtle">
+							You haven't connected any Cloudflare accounts yet.
+						</p>
+						<div>
+							<Button onClick={handleReconnect} variant="secondary" className="gap-2">
+								<CloudflareLogo className="size-4" />
+								Connect Cloudflare
+							</Button>
+						</div>
+					</div>
+				</LayerCard.Primary>
+			</LayerCard>
+		);
+	}
+
+	const selectedAccount = accounts.find(a => a.id === selectedAccountId);
+	const selectedGateway = availableGateways.find(g => g.id === selectedGatewayId);
+
 	const gatewayDashUrl = selectedAccount && selectedGateway
 		? `https://dash.cloudflare.com/${selectedAccount.accountId}/ai/ai-gateway/gateways/${selectedGateway.gatewaySlug}`
 		: null;
 
 	return (
-		<Card>
-			<CardHeader variant="minimal">
-				<div className="flex items-center justify-between gap-3 border-b w-full py-3 text-text-primary">
-					<div className="flex items-center gap-3">
-						<CloudflareLogo className="w-5 h-5" />
-						<div>
-							<CardTitle>Cloudflare AI Gateway</CardTitle>
+		<LayerCard>
+			<LayerCard.Secondary className="flex items-center justify-between gap-3">
+				{cardHeader}
+				<div className="flex items-center gap-2">
+					{isConnected && (
+						<div className="flex items-center gap-1.5 text-xs text-green-600 dark:text-green-400">
+							<span className="h-lh flex items-center">
+								<CheckCircle2 className="size-3.5" />
+							</span>
+							<span>Connected</span>
 						</div>
-					</div>
-					<div className="flex items-center gap-2">
-						{isConnected && (
-							<div className="flex items-center gap-1.5 text-xs">
-								<CheckCircle2 className="w-3.5 h-3.5 text-green-500" />
-								<span className="text-green-600 dark:text-green-400">Connected</span>
-							</div>
-						)}
-						{!isConnected && accounts.length > 0 && (
-							<div className="flex items-center gap-1.5 text-xs">
-								<AlertCircle className="w-3.5 h-3.5 text-amber-500" />
-								<span className="text-amber-600 dark:text-amber-400">Not connected</span>
-							</div>
-						)}
-						{isConnected && (
+					)}
+					{!isConnected && (
+						<div className="flex items-center gap-1.5 text-xs text-amber-600 dark:text-amber-400">
+							<span className="h-lh flex items-center">
+								<AlertCircle className="size-3.5" />
+							</span>
+							<span>Not connected</span>
+						</div>
+					)}
+					{isConnected && (
+						<>
 							<Button
 								variant="ghost"
-								size="icon"
-								className="h-7 w-7"
+								size="sm"
+								shape="square"
 								onClick={handleRefresh}
 								disabled={refreshing}
-								title="Refresh accounts and gateways"
+								aria-label="Refresh accounts and gateways"
 							>
-								<RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
+								<RefreshCw className={`size-4 ${refreshing ? 'animate-spin' : ''}`} />
 							</Button>
-						)}
-						{isConnected && (
 							<DropdownMenu>
-								<DropdownMenuTrigger asChild>
-									<Button variant="ghost" size="icon" className="h-7 w-7">
-										<MoreVertical className="h-4 w-4" />
-									</Button>
-								</DropdownMenuTrigger>
-								<DropdownMenuContent align="end">
+								<DropdownMenu.Trigger
+									render={
+										<Button
+											variant="ghost"
+											size="sm"
+											shape="square"
+											aria-label="Account actions"
+										>
+											<MoreVertical className="size-4" />
+										</Button>
+									}
+								/>
+								<DropdownMenu.Content align="end">
 									{gatewayDashUrl && (
-										<DropdownMenuItem onClick={() => window.open(gatewayDashUrl, '_blank')}>
-											<ExternalLink className="w-4 h-4 mr-2" />
-											View Gateway
-										</DropdownMenuItem>
+										<DropdownMenu.Item
+											onClick={() => window.open(gatewayDashUrl, '_blank')}
+										>
+											<ExternalLink className="size-4" />
+											View gateway
+										</DropdownMenu.Item>
 									)}
-									<DropdownMenuItem
+									<DropdownMenu.Item
 										onClick={handleDisconnect}
-										className="text-red-600 focus:text-red-600"
+										variant="danger"
 									>
-										<LogOut className="w-4 h-4 mr-2" />
+										<LogOut className="size-4" />
 										Disconnect
-									</DropdownMenuItem>
-								</DropdownMenuContent>
+									</DropdownMenu.Item>
+								</DropdownMenu.Content>
 							</DropdownMenu>
-						)}
-					</div>
+						</>
+					)}
 				</div>
-			</CardHeader>
-			<CardContent className="space-y-4 px-6 mt-6">
+			</LayerCard.Secondary>
+			<LayerCard.Primary>
 				{!isConnected ? (
-					<div className="space-y-4">
-						<p className="text-sm text-muted-foreground">
+					<div className="grid gap-4">
+						<p className="text-sm text-kumo-subtle">
 							Connect your Cloudflare account to use your own AI Gateway and credits.
 						</p>
-						<Button 
-							onClick={handleReconnect}
-							variant="outline"
-							className="w-full gap-2 border-brand-primary text-brand-primary bg-white dark:bg-transparent hover:bg-brand-primary/10"
-						>
-							<CloudflareLogo className="w-4 h-4" />
-							Connect Cloudflare
-						</Button>
+						<div>
+							<Button onClick={handleReconnect} variant="secondary" className="gap-2">
+								<CloudflareLogo className="size-4" />
+								Connect Cloudflare
+							</Button>
+						</div>
 					</div>
 				) : (
-					<>
-						<div className="flex items-start justify-between gap-4 rounded-lg border p-3">
-							<div className="space-y-0.5">
+					<div className="grid gap-4">
+						<div className="flex items-start justify-between gap-4 rounded-lg ring ring-kumo-line px-4 py-3">
+							<div className="grid gap-1.5">
 								<Label htmlFor="ai-gateway-toggle" className="text-sm font-medium">
 									Use my AI Gateway
 								</Label>
-								<p className="text-xs text-muted-foreground">
+								<p className="text-sm text-kumo-subtle">
 									When enabled, requests run through your Cloudflare AI Gateway and
 									use your own credits. When disabled, the platform's free tier and
 									limits apply.
@@ -357,8 +362,8 @@ export function CloudflareAccountSelector() {
 							/>
 						</div>
 
-						<div className="space-y-2">
-							<Label htmlFor="account-select">Cloudflare Account</Label>
+						<div className="grid gap-1.5">
+							<Label htmlFor="account-select">Cloudflare account</Label>
 							<Select value={selectedAccountId || undefined} onValueChange={handleAccountChange}>
 								<SelectTrigger id="account-select" className="w-full">
 									<SelectValue placeholder="Select an account" />
@@ -369,7 +374,7 @@ export function CloudflareAccountSelector() {
 											<div className="flex flex-col">
 												<span className="font-medium">{account.accountName}</span>
 												{account.accountEmail && (
-													<span className="text-xs text-muted-foreground">{account.accountEmail}</span>
+													<span className="text-xs text-kumo-subtle">{account.accountEmail}</span>
 												)}
 											</div>
 										</SelectItem>
@@ -378,10 +383,10 @@ export function CloudflareAccountSelector() {
 							</Select>
 						</div>
 
-						<div className="space-y-2">
+						<div className="grid gap-1.5">
 							<Label htmlFor="gateway-select">AI Gateway</Label>
-							<Select 
-								value={selectedGatewayId || undefined} 
+							<Select
+								value={selectedGatewayId || undefined}
 								onValueChange={setSelectedGatewayId}
 								disabled={availableGateways.length === 0}
 							>
@@ -397,34 +402,35 @@ export function CloudflareAccountSelector() {
 								</SelectContent>
 							</Select>
 							{selectedGateway && selectedGateway.creditsRemaining !== null && (
-								<p className="text-xs text-muted-foreground">
+								<p className="text-sm text-kumo-subtle">
 									Current balance: ${selectedGateway.creditsRemaining.toFixed(2)}
 								</p>
 							)}
 							{availableGateways.length === 0 && selectedAccountId && (
-								<p className="text-xs text-amber-600">
+								<p className="text-sm text-amber-600">
 									No gateways available for this account. Please create one in your Cloudflare dashboard.
 								</p>
 							)}
 						</div>
 
-						<Button 
-							onClick={handleSave} 
-							disabled={saving || !selectedAccountId || !selectedGatewayId}
-							className="w-full"
-						>
-							{saving ? (
-								<>
-									<Loader2 className="w-4 h-4 mr-2 animate-spin" />
-									Saving...
-								</>
-							) : (
-								'Save Configuration'
-							)}
-						</Button>
-					</>
+						<div>
+							<Button
+								onClick={handleSave}
+								disabled={saving || !selectedAccountId || !selectedGatewayId}
+							>
+								{saving ? (
+									<>
+										<Loader2 className="size-4 animate-spin" />
+										Saving...
+									</>
+								) : (
+									'Save configuration'
+								)}
+							</Button>
+						</div>
+					</div>
 				)}
-			</CardContent>
-		</Card>
+			</LayerCard.Primary>
+		</LayerCard>
 	);
 }
