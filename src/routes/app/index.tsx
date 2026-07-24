@@ -36,7 +36,7 @@ import {
 	Tabs,
 	useKumoToastManager,
 } from '@cloudflare/kumo';
-import { MonacoEditor } from '@/components/monaco-editor/monaco-editor';
+import { MonacoEditor } from '@/components/monaco-editor/lazy-monaco-editor';
 import { getFileType } from '@/utils/string';
 import { useAuth } from '@/contexts/auth-context';
 import { toggleFavorite } from '@/hooks/use-apps';
