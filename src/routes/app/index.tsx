@@ -636,10 +636,14 @@ export default function AppView() {
 		<div className="h-full bg-kumo-base flex flex-col min-h-0">
 			<header className="h-12 shrink-0 flex items-center gap-3 px-4 border-b border-border-primary">
 				<div className="min-w-0 flex-1 flex items-center gap-2">
-					<h1 className="text-sm font-semibold truncate">
+					<h1
+						className="text-sm font-semibold truncate min-w-0"
+						title={app.title}
+					>
 						{app.title}
 					</h1>
 					<Badge
+						className="shrink-0"
 						variant={
 							app.visibility === 'private'
 								? 'secondary'
@@ -651,13 +655,13 @@ export default function AppView() {
 							{capitalizeFirstLetter(app.visibility)}
 						</span>
 					</Badge>
+				</div>
+
+				<div className="flex items-center gap-1.5 shrink-0">
 					{isOwner && (
 						<Button
-							variant="ghost"
+							variant="secondary"
 							size="sm"
-							shape="square"
-							aria-label={`Make ${app.visibility === 'private' ? 'public' : 'private'}`}
-							title={`Make ${app.visibility === 'private' ? 'public' : 'private'}`}
 							onClick={handleToggleVisibility}
 							disabled={isUpdatingVisibility}
 							loading={isUpdatingVisibility}
@@ -674,11 +678,13 @@ export default function AppView() {
 									/>
 								)
 							}
-						/>
+						>
+							{app.visibility === 'private'
+								? 'Make public'
+								: 'Make private'}
+						</Button>
 					)}
-				</div>
 
-				<div className="flex items-center gap-1.5 shrink-0">
 					<Button
 						variant="secondary"
 						size="sm"

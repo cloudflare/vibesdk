@@ -764,7 +764,7 @@ export default function Chat() {
 							Loading app...
 						</div>
 					) : (
-						<div className="flex min-w-0 items-center gap-2">
+						<div className="flex min-w-0 flex-1 items-center max-w-md gap-2">
 							{app?.visibility === 'private' ? (
 								<LockKey
 									className="size-4 shrink-0 text-text-tertiary"
@@ -778,7 +778,10 @@ export default function Chat() {
 									aria-label="Public"
 								/>
 							)}
-							<div className="text-sm font-semibold truncate">
+							<div
+								className="text-sm font-semibold truncate min-w-0"
+								title={blueprint?.title || appTitle || undefined}
+							>
 								{blueprint?.title || appTitle}
 							</div>
 						</div>
