@@ -131,8 +131,8 @@ export function PromptBox({
 	const borderRadius = isCompact ? 12 : 18;
 
 	const autoResize = (el: HTMLTextAreaElement) => {
-		el.style.height = 'auto';
-		el.style.height = Math.min(el.scrollHeight, maxHeight) + 'px';
+		el.style.height = '0px';
+		el.style.height = Math.min(Math.max(el.scrollHeight, isCompact ? 40 : 0), maxHeight) + 'px';
 	};
 
 	const dragOverlay = isDragging && (
@@ -146,9 +146,9 @@ export function PromptBox({
 			<div className={clsx('flex flex-col', className)} {...dragHandlers}>
 				{aboveContent}
 				<CreditsBanner limitsData={limitsData} onConnectCloudflare={onConnectCloudflare}>
-					<div className="rounded-xl transition-all duration-200 bg-bg-4 dark:bg-kumo-elevated border border-border-secondary">
+					<div className="min-h-10 rounded-xl transition-all duration-200 bg-bg-4 dark:bg-kumo-elevated border border-border-secondary box-border">
 						<form ref={formRef} onSubmit={handleSubmit}>
-							<div className="relative flex items-center">
+							<div className="relative flex min-h-10 items-center">
 								{dragOverlay}
 								{images.length > 0 && (
 									<div className="mb-2">
@@ -169,14 +169,14 @@ export function PromptBox({
 									disabled={disabled}
 									placeholder={resolvedPlaceholder}
 									rows={1}
-									className="w-full bg-transparent rounded-xl px-3 pr-20 py-2 text-sm ring-0 outline-none text-text-primary placeholder:text-text-primary/50! disabled:opacity-50 disabled:cursor-not-allowed resize-none overflow-y-auto no-scrollbar min-h-[36px] max-h-[120px] group"
-									style={{ height: 'auto', minHeight: '36px' }}
+									className="w-full bg-transparent rounded-xl px-3 pr-20 py-2 text-sm leading-5 ring-0 outline-none text-text-primary placeholder:text-text-primary/50! disabled:opacity-50 disabled:cursor-not-allowed resize-none overflow-y-auto no-scrollbar min-h-10 max-h-[120px] group"
+									style={{ height: '40px', minHeight: '40px' }}
 									ref={(textarea) => {
 										(internalTextareaRef as React.MutableRefObject<HTMLTextAreaElement | null>).current = textarea;
 										if (textarea) autoResize(textarea);
 									}}
 								/>
-								<div className="absolute right-1.5 flex items-center gap-1">
+								<div className="absolute right-1.5 top-1/2 -translate-y-1/2 flex items-center gap-1">
 									{rightActions}
 									<button
 										type="submit"

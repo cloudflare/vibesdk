@@ -294,9 +294,6 @@ export default function Home() {
 				</AnimatePresence>
 			</LayoutGroup>
 
-			{/* Nudge towards Discover */}
-			{user && <CurvedArrow sourceRef={discoverLinkRef} target={{ x: 50, y: window.innerHeight - 60 }} />}
-
 			{/* Usage limit dialogs */}
 			{showLimitDialog}
 		</div>

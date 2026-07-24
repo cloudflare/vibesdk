@@ -31,8 +31,8 @@ export function FileTreeItem({
 				onClick={() => onFileClick(item.file!)}
 				className={`flex items-center w-full gap-2 py-1 px-3 transition-colors text-sm ${
 					isCurrentFile
-						? 'text-brand bg-zinc-100'
-						: 'text-text-primary/80 hover:bg-brand hover:text-text-primary'
+						? 'bg-kumo-tint text-text-primary border-r-2 border-brand'
+						: 'text-text-tertiary hover:bg-kumo-tint hover:text-text-primary'
 				}`}
 				style={{ paddingLeft: `${level * 12 + 12}px` }}
 			>
@@ -55,7 +55,7 @@ export function FileTreeItem({
 		<div>
 			<button
 				onClick={() => setIsExpanded(!isExpanded)}
-				className="flex items-center gap-2 py-1 px-3 transition-colors text-sm text-text-primary/80 hover:bg-brand hover:text-text-primary w-full"
+				className="flex items-center gap-2 py-1 px-3 transition-colors text-sm text-text-tertiary hover:bg-kumo-tint hover:text-text-primary w-full"
 				style={{ paddingLeft: `${level * 12 + 12}px` }}
 			>
 				<ChevronRight

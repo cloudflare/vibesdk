@@ -14,8 +14,6 @@ import {
 	Check,
 	Loader2,
 	MessageSquare,
-	Calendar,
-	User,
 	Play,
 	Lock,
 	Unlock,
@@ -38,7 +36,6 @@ import { MonacoEditor } from '@/components/monaco-editor/monaco-editor';
 import { getFileType } from '@/utils/string';
 import { useAuth } from '@/contexts/auth-context';
 import { toggleFavorite } from '@/hooks/use-apps';
-import { formatDistanceToNow, isValid } from 'date-fns';
 import { capitalizeFirstLetter, cn, getPreviewUrl } from '@/lib/utils';
 import { ConfirmDeleteDialog } from '@/components/shared/ConfirmDeleteDialog';
 import { GitCloneModal } from '@/components/shared/GitCloneModal';
@@ -615,291 +612,222 @@ export default function AppView() {
 
 	const isOwner = app.userId === user?.id;
 	const appUrl = getAppUrl();
-	const createdDate = app.createdAt ? new Date(app.createdAt) : new Date();
 	const promptText = app?.agentSummary?.query || app?.originalPrompt || '';
 
 	return (
 		<div className="h-full bg-kumo-base flex flex-col min-h-0">
-			{/* Compact header — GitHub repo style */}
-			<header className="shrink-0 border-b border-kumo-line bg-kumo-base">
-				<div className="px-4 sm:px-6 py-3 flex flex-col gap-3">
-					{/* Title row */}
-					<div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-						<div className="min-w-0 flex-1 grid gap-1.5">
-							<div className="flex flex-wrap items-center gap-2 min-w-0">
-								<h1 className="text-xl sm:text-2xl font-semibold text-text-primary truncate">
-									{app.title}
-								</h1>
-								<div className="flex items-center gap-1 shrink-0">
-									<Badge
-										variant={
-											app.visibility === 'private'
-												? 'secondary'
-												: 'success'
-										}
-									>
-										<span className="inline-flex items-center gap-1">
-											<Globe className="h-3 w-3" />
-											{capitalizeFirstLetter(
-												app.visibility,
-											)}
-										</span>
-									</Badge>
-									{isOwner && (
+			<header className="h-12 shrink-0 flex items-center gap-3 px-4 border-b border-border-primary">
+				<div className="min-w-0 flex-1 flex items-center gap-2">
+					<h1 className="text-sm font-semibold truncate">
+						{app.title}
+					</h1>
+					<Badge
+						variant={
+							app.visibility === 'private'
+								? 'secondary'
+								: 'success'
+						}
+					>
+						<span className="inline-flex items-center gap-1">
+							<Globe className="h-3 w-3" />
+							{capitalizeFirstLetter(app.visibility)}
+						</span>
+					</Badge>
+					{isOwner && (
+						<Button
+							variant="ghost"
+							size="sm"
+							shape="square"
+							aria-label={`Make ${app.visibility === 'private' ? 'public' : 'private'}`}
+							title={`Make ${app.visibility === 'private' ? 'public' : 'private'}`}
+							onClick={handleToggleVisibility}
+							disabled={isUpdatingVisibility}
+							loading={isUpdatingVisibility}
+							icon={
+								app.visibility === 'private' ? (
+									<Unlock className="h-3.5 w-3.5" />
+								) : (
+									<Lock className="h-3.5 w-3.5" />
+								)
+							}
+						/>
+					)}
+				</div>
+
+				<div className="flex items-center gap-1.5 shrink-0">
+					<Button
+						variant="secondary"
+						size="sm"
+						icon={
+							<Bookmark
+								className={cn(
+									'h-3.5 w-3.5',
+									isFavorited && 'fill-current',
+								)}
+							/>
+						}
+						onClick={async () => {
+							await handleFavorite();
+							refetchAll();
+						}}
+					>
+						{isFavorited ? 'Bookmarked' : 'Bookmark'}
+					</Button>
+
+					<Button
+						variant="secondary"
+						size="sm"
+						icon={
+							<Star
+								className={cn(
+									'h-3.5 w-3.5',
+									isStarred && 'fill-current',
+								)}
+							/>
+						}
+						onClick={handleStar}
+					>
+						{isStarred ? 'Starred' : 'Star'}
+						{(app.starCount || 0) > 0 && (
+							<span className="text-text-tertiary tabular-nums">
+								{app.starCount}
+							</span>
+						)}
+					</Button>
+
+					<Button
+						variant="secondary"
+						size="sm"
+						icon={<GitBranch className="h-3.5 w-3.5" />}
+						onClick={() => setIsGitCloneModalOpen(true)}
+					>
+						Code
+					</Button>
+
+					{app.githubRepositoryUrl && (
+						<Button
+							variant="secondary"
+							size="sm"
+							icon={<Github className="h-3.5 w-3.5" />}
+							title={`View on GitHub (${app.githubRepositoryVisibility || 'public'})`}
+							onClick={() => {
+								if (app.githubRepositoryUrl) {
+									window.open(
+										app.githubRepositoryUrl,
+										'_blank',
+										'noopener,noreferrer',
+									);
+								}
+							}}
+						>
+							GitHub
+							{app.githubRepositoryVisibility === 'private' && (
+								<Lock className="h-3 w-3 opacity-70" />
+							)}
+						</Button>
+					)}
+
+					{isOwner && (
+						<>
+							<Button
+								variant="primary"
+								size="sm"
+								icon={<Code2 className="h-3.5 w-3.5" />}
+								onClick={() => navigate(`/chat/${app.id}`)}
+							>
+								Continue editing
+							</Button>
+
+							<DropdownMenu>
+								<DropdownMenu.Trigger
+									render={
 										<Button
-											variant="ghost"
+											variant="secondary"
 											size="sm"
 											shape="square"
-											aria-label={`Make ${app.visibility === 'private' ? 'public' : 'private'}`}
-											title={`Make ${app.visibility === 'private' ? 'public' : 'private'}`}
-											onClick={handleToggleVisibility}
-											disabled={isUpdatingVisibility}
-											loading={isUpdatingVisibility}
+											aria-label="More actions"
 											icon={
-												app.visibility === 'private' ? (
-													<Unlock className="h-3.5 w-3.5" />
-												) : (
-													<Lock className="h-3.5 w-3.5" />
-												)
+												<MoreHorizontal className="h-4 w-4" />
 											}
 										/>
-									)}
-								</div>
-							</div>
-
-							{app.description && (
-								<p className="text-sm text-text-secondary line-clamp-2 max-w-3xl">
-									{app.description}
-								</p>
-							)}
-
-							<div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-text-tertiary">
-								{app.user && (
-									<span className="inline-flex items-center gap-1.5">
-										<span className="h-lh flex items-center">
-											<User className="h-3.5 w-3.5" />
-										</span>
-										{app.user.displayName}
-									</span>
-								)}
-								<span className="inline-flex items-center gap-1.5">
-									<span className="h-lh flex items-center">
-										<Calendar className="h-3.5 w-3.5" />
-									</span>
-									{isValid(createdDate)
-										? formatDistanceToNow(createdDate, {
-												addSuffix: true,
-											})
-										: 'recently'}
-								</span>
-								<span className="inline-flex items-center gap-1.5">
-									<span className="h-lh flex items-center">
-										<Eye className="h-3.5 w-3.5" />
-									</span>
-									{app.viewCount || 0}
-								</span>
-								<span className="inline-flex items-center gap-1.5">
-									<span className="h-lh flex items-center">
-										<Star className="h-3.5 w-3.5" />
-									</span>
-									{app.starCount || 0}
-								</span>
-								{files.length > 0 && (
-									<span className="inline-flex items-center gap-1.5">
-										<span className="h-lh flex items-center">
-											<Code2 className="h-3.5 w-3.5" />
-										</span>
-										{files.length} files
-									</span>
-								)}
-							</div>
-						</div>
-
-						{/* Actions */}
-						<div className="flex flex-wrap items-center gap-1.5 shrink-0">
-							<Button
-								variant="secondary"
-								size="sm"
-								icon={
-									<Bookmark
-										className={cn(
-											'h-3.5 w-3.5',
-											isFavorited && 'fill-current',
-										)}
-									/>
-								}
-								onClick={async () => {
-									await handleFavorite();
-									refetchAll();
-								}}
-							>
-								{isFavorited ? 'Bookmarked' : 'Bookmark'}
-							</Button>
-
-							<Button
-								variant="secondary"
-								size="sm"
-								icon={
-									<Star
-										className={cn(
-											'h-3.5 w-3.5',
-											isStarred && 'fill-current',
-										)}
-									/>
-								}
-								onClick={handleStar}
-							>
-								{isStarred ? 'Starred' : 'Star'}
-								{(app.starCount || 0) > 0 && (
-									<span className="text-text-tertiary tabular-nums">
-										{app.starCount}
-									</span>
-								)}
-							</Button>
-
-							<Button
-								variant="secondary"
-								size="sm"
-								icon={<GitBranch className="h-3.5 w-3.5" />}
-								onClick={() => setIsGitCloneModalOpen(true)}
-							>
-								Code
-							</Button>
-
-							{app.githubRepositoryUrl && (
-								<Button
-									variant="secondary"
-									size="sm"
-									icon={<Github className="h-3.5 w-3.5" />}
-									title={`View on GitHub (${app.githubRepositoryVisibility || 'public'})`}
-									onClick={() => {
-										if (app.githubRepositoryUrl) {
-											window.open(
-												app.githubRepositoryUrl,
-												'_blank',
-												'noopener,noreferrer',
-											);
-										}
-									}}
-								>
-									GitHub
-									{app.githubRepositoryVisibility ===
-										'private' && (
-										<Lock className="h-3 w-3 opacity-70" />
-									)}
-								</Button>
-							)}
-
-							{isOwner && (
-								<>
-									<Button
-										variant="primary"
-										size="sm"
-										icon={<Code2 className="h-3.5 w-3.5" />}
-										onClick={() =>
-											navigate(`/chat/${app.id}`)
-										}
-									>
-										Continue editing
-									</Button>
-
-									<DropdownMenu>
-										<DropdownMenu.Trigger
-											render={
-												<Button
-													variant="secondary"
-													size="sm"
-													shape="square"
-													aria-label="More actions"
-													icon={
-														<MoreHorizontal className="h-4 w-4" />
-													}
-												/>
-											}
-										/>
-										<DropdownMenu.Content align="end">
-											<DropdownMenu.Item
-												icon={
-													<Trash2 className="h-4 w-4" />
-												}
-												variant="danger"
-												onClick={() =>
-													setIsDeleteDialogOpen(true)
-												}
-											>
-												Delete app
-											</DropdownMenu.Item>
-										</DropdownMenu.Content>
-									</DropdownMenu>
-								</>
-							)}
-						</div>
-					</div>
-
-					{/* Tabs + clone bar */}
-					<div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-						<Tabs
-							value={activeTab}
-							onValueChange={setActiveTab}
-							className="w-fit"
-							tabs={[
-								{
-									value: 'preview',
-									label: (
-										<span className="inline-flex items-center gap-1.5">
-											<Eye className="h-3.5 w-3.5" />
-											Preview
-										</span>
-									),
-								},
-								{
-									value: 'code',
-									label: (
-										<span className="inline-flex items-center gap-1.5">
-											<Code2 className="h-3.5 w-3.5" />
-											Code
-											{files.length > 0 && (
-												<span className="text-text-tertiary tabular-nums">
-													{files.length}
-												</span>
-											)}
-										</span>
-									),
-								},
-								{
-									value: 'prompt',
-									label: (
-										<span className="inline-flex items-center gap-1.5">
-											<MessageSquare className="h-3.5 w-3.5" />
-											Prompt
-										</span>
-									),
-								},
-							]}
-						/>
-
-						<div className="shrink-0 max-w-full">
-							{app.visibility === 'public' ? (
-								<GitCloneCommand
-									cloneUrl={`${window.location.protocol}//${window.location.host}/apps/${app.id}.git`}
-									appTitle={app.title}
-								/>
-							) : isOwner ? (
-								<GitClonePrivatePrompt
-									onOpenModal={() =>
-										setIsGitCloneModalOpen(true)
 									}
 								/>
-							) : null}
-						</div>
-					</div>
+								<DropdownMenu.Content align="end">
+									<DropdownMenu.Item
+										icon={<Trash2 className="h-4 w-4" />}
+										variant="danger"
+										onClick={() =>
+											setIsDeleteDialogOpen(true)
+										}
+									>
+										Delete app
+									</DropdownMenu.Item>
+								</DropdownMenu.Content>
+							</DropdownMenu>
+						</>
+					)}
 				</div>
 			</header>
 
+			<div className="shrink-0 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between px-4 py-2 border-b border-border-primary">
+				<Tabs
+					value={activeTab}
+					onValueChange={setActiveTab}
+					className="w-fit"
+					tabs={[
+						{
+							value: 'preview',
+							label: (
+								<span className="inline-flex items-center gap-1.5">
+									<Eye className="h-3.5 w-3.5" />
+									Preview
+								</span>
+							),
+						},
+						{
+							value: 'code',
+							label: (
+								<span className="inline-flex items-center gap-1.5">
+									<Code2 className="h-3.5 w-3.5" />
+									Code
+									{files.length > 0 && (
+										<span className="text-text-tertiary tabular-nums">
+											{files.length}
+										</span>
+									)}
+								</span>
+							),
+						},
+						{
+							value: 'prompt',
+							label: (
+								<span className="inline-flex items-center gap-1.5">
+									<MessageSquare className="h-3.5 w-3.5" />
+									Prompt
+								</span>
+							),
+						},
+					]}
+				/>
+
+				<div className="shrink-0 max-w-full">
+					{app.visibility === 'public' ? (
+						<GitCloneCommand
+							cloneUrl={`${window.location.protocol}//${window.location.host}/apps/${app.id}.git`}
+							appTitle={app.title}
+						/>
+					) : isOwner ? (
+						<GitClonePrivatePrompt
+							onOpenModal={() => setIsGitCloneModalOpen(true)}
+						/>
+					) : null}
+				</div>
+			</div>
+
 			{/* Full-bleed workspace */}
-			<div className="flex-1 min-h-0 flex flex-col p-3 sm:p-4">
+			<div className="flex-1 min-h-0 flex flex-col">
 				{activeTab === 'preview' && (
-					<div className="flex-1 min-h-0 flex flex-col rounded-xl ring ring-kumo-line bg-kumo-base overflow-hidden">
+					<div className="flex-1 min-h-0 flex flex-col bg-kumo-base overflow-hidden">
 						<div className="shrink-0 flex items-center gap-2 px-3 py-2 border-b border-kumo-line bg-kumo-elevated/40">
 							<span className="text-sm font-medium text-text-primary shrink-0">
 								Live preview
@@ -1010,7 +938,7 @@ export default function AppView() {
 				)}
 
 				{activeTab === 'code' && (
-					<div className="flex-1 min-h-0 flex flex-col rounded-xl ring ring-kumo-line bg-kumo-base overflow-hidden">
+					<div className="flex-1 min-h-0 flex flex-col bg-kumo-base overflow-hidden">
 						<div className="shrink-0 flex items-center justify-between gap-2 px-3 py-2 border-b border-kumo-line bg-kumo-elevated/40">
 							<div className="min-w-0 flex items-center gap-2">
 								<span className="text-sm font-medium text-text-primary shrink-0">
@@ -1128,7 +1056,7 @@ export default function AppView() {
 				)}
 
 				{activeTab === 'prompt' && (
-					<div className="flex-1 min-h-0 flex flex-col rounded-xl ring ring-kumo-line bg-kumo-base overflow-hidden">
+					<div className="flex-1 min-h-0 flex flex-col bg-kumo-base overflow-hidden">
 						<div className="shrink-0 flex items-center justify-between gap-2 px-3 py-2 border-b border-kumo-line bg-kumo-elevated/40">
 							<div className="grid gap-0.5 min-w-0">
 								<span className="text-sm font-medium text-text-primary">

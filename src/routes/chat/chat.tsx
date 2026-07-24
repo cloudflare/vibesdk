@@ -9,6 +9,8 @@ import {
 import { useParams, useSearchParams, useNavigate, useLocation } from 'react-router';
 import { AnimatePresence, motion } from 'framer-motion';
 import { LoaderCircle, MoreHorizontal, RotateCcw } from 'lucide-react';
+import { GlobeHemisphereWestIcon, LockKey } from '@phosphor-icons/react';
+import { Button, DropdownMenu } from '@cloudflare/kumo';
 import clsx from 'clsx';
 import { UserMessage, AIMessage } from './components/messages';
 import { PhaseTimeline } from './components/phase-timeline';
@@ -26,8 +28,6 @@ import { useGitHubExport } from '@/hooks/use-github-export';
 import { useAutoScroll } from '@/hooks/use-auto-scroll';
 import { useImageUpload } from '@/hooks/use-image-upload';
 import { useDragDrop } from '@/hooks/use-drag-drop';
-import { Button } from '@/components/ui/button';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { sendWebSocketMessage } from './utils/websocket-helpers';
 import { RollbackContext, type RollbackHandler } from './contexts/rollback-context';
 import { toast } from 'sonner';
@@ -743,10 +743,10 @@ export default function Chat() {
 						</p>
 					</div>
 					<div className="flex items-center justify-end gap-2">
-						<Button variant="outline" onClick={() => navigate('/')}>
+						<Button variant="secondary" onClick={() => navigate('/')}>
 							Cancel
 						</Button>
-						<Button onClick={confirmStart}>Start building</Button>
+						<Button variant="primary" onClick={confirmStart}>Start building</Button>
 					</div>
 				</div>
 			</div>
@@ -756,6 +756,35 @@ export default function Chat() {
 	return (
 		<RollbackContext.Provider value={rollbackHandler}>
 		<div className="size-full flex flex-col min-h-0 text-text-primary">
+			{(blueprint?.title || appTitle || chatId || appLoading) && (
+				<div className="h-12 shrink-0 flex items-center px-4 border-b border-border-primary">
+					{appLoading ? (
+						<div className="flex items-center gap-2 text-text-tertiary text-sm">
+							<LoaderCircle className="size-4 animate-spin" />
+							Loading app...
+						</div>
+					) : (
+						<div className="flex min-w-0 items-center gap-2">
+							{app?.visibility === 'private' ? (
+								<LockKey
+									className="size-4 shrink-0 text-text-tertiary"
+									weight="duotone"
+									aria-label="Private"
+								/>
+							) : (
+								<GlobeHemisphereWestIcon
+									className="size-4 shrink-0 text-text-tertiary"
+									weight="duotone"
+									aria-label="Public"
+								/>
+							)}
+							<div className="text-sm font-semibold truncate">
+								{blueprint?.title || appTitle}
+							</div>
+						</div>
+					)}
+				</div>
+			)}
 			<div className="flex-1 flex min-h-0 overflow-hidden justify-center">
 				<motion.div
 					layout="position"
@@ -769,22 +798,10 @@ export default function Chat() {
 					ref={messagesContainerRef}
 				>
 						<div className="pt-5 px-4 pb-4 text-sm flex flex-col gap-5">
-							{appLoading ? (
-								<div className="flex items-center gap-2 text-text-tertiary">
-									<LoaderCircle className="size-4 animate-spin" />
-									Loading app...
-								</div>
-							) : (
-								<>
-									{(blueprint?.title || appTitle || chatId) && (
-								<div className="flex items-center justify-between mb-2">
-									<div className="text-lg font-semibold">{blueprint?.title || appTitle}</div>
-								</div>
-							)}
-									<UserMessage
-										message={query ?? displayQuery}
-									/>
-								</>
+							{!appLoading && (
+								<UserMessage
+									message={query ?? displayQuery}
+								/>
 							)}
 
 							{mainMessage?.role === 'assistant' && (
@@ -799,27 +816,25 @@ export default function Chat() {
 								{chatId && (
 									<div className="absolute right-1 top-1">
 										<DropdownMenu>
-											<DropdownMenuTrigger asChild>
-												<Button
-													variant="ghost"
-													size="icon"
-													className="hover:bg-kumo-base/80 cursor-pointer"
+											<DropdownMenu.Trigger
+												render={
+													<Button
+														variant="ghost"
+														size="sm"
+														shape="square"
+														aria-label="Chat actions"
+														icon={<MoreHorizontal className="h-4 w-4" />}
+													/>
+												}
+											/>
+											<DropdownMenu.Content align="end">
+												<DropdownMenu.Item
+													icon={<RotateCcw className="h-4 w-4" />}
+													onClick={() => setIsResetDialogOpen(true)}
 												>
-													<MoreHorizontal className="h-4 w-4" />
-													<span className="sr-only">Chat actions</span>
-												</Button>
-											</DropdownMenuTrigger>
-											<DropdownMenuContent align="end" className="w-56">
-												<DropdownMenuItem
-														onClick={(e) => {
-															e.preventDefault();
-															setIsResetDialogOpen(true);
-														}}
-												>
-													<RotateCcw className="h-4 w-4 mr-2" />
 													Reset conversation
-												</DropdownMenuItem>
-											</DropdownMenuContent>
+												</DropdownMenu.Item>
+											</DropdownMenu.Content>
 										</DropdownMenu>
 									</div>
 								)}
@@ -981,7 +996,7 @@ export default function Chat() {
 							initial={{ opacity: 0 }}
 							animate={{ opacity: 1 }}
 							exit={{ opacity: 0 }}
-							className="flex-1 flex shrink-0 basis-0 p-4 pl-0 ml-2 z-30 min-h-0"
+							className="flex-1 flex shrink-0 basis-0 z-30 min-h-0"
 						>
 							<MainContentPanel
 								view={view}
