@@ -166,36 +166,61 @@ export function AppSidebar() {
 	const isCollapsed = state === 'collapsed';
 
 	const { apps: recentApps, moreAvailable } = useRecentApps();
-	const { apps: favoriteApps } = useFavoriteApps();
+	const { apps: favoriteApps, loading: favoriteAppsLoading } = useFavoriteApps();
 	const { apps: allApps, loading: allAppsLoading } = useApps();
 
 	const boards: Board[] = [];
 
-	const searchResults = React.useMemo(() => {
-		const normalizedQuery = searchQuery.toLowerCase().trim();
-		if (!normalizedQuery) return [];
-
-		return allApps.filter((app) =>
-			app.title.toLowerCase().includes(normalizedQuery),
-		);
-	}, [allApps, searchQuery]);
-
-	const isSearching = searchQuery.trim().length > 0;
+	const normalizedSearchQuery = searchQuery.toLowerCase().trim();
+	const trimmedSearchQuery = searchQuery.trim();
+	const isSearching = normalizedSearchQuery.length > 0;
 
 	const favoriteAppIds = React.useMemo(
 		() => new Set(favoriteApps.map((app) => app.id)),
 		[favoriteApps],
 	);
 
+	const favoriteSearchResults = React.useMemo(() => {
+		if (!normalizedSearchQuery) return [];
+
+		return favoriteApps.filter((app) =>
+			app.title.toLowerCase().includes(normalizedSearchQuery),
+		);
+	}, [favoriteApps, normalizedSearchQuery]);
+
+	const appSearchResults = React.useMemo(() => {
+		if (!normalizedSearchQuery) return [];
+
+		return allApps.filter(
+			(app) =>
+				!favoriteAppIds.has(app.id) &&
+				app.title.toLowerCase().includes(normalizedSearchQuery),
+		);
+	}, [allApps, favoriteAppIds, normalizedSearchQuery]);
+
 	const appsWithoutBookmarks = React.useMemo(
 		() => recentApps.filter((app) => !favoriteAppIds.has(app.id)),
 		[recentApps, favoriteAppIds],
 	);
 
+	const showBookmarksSection = isSearching || favoriteApps.length > 0;
+
 	const showAppsSection =
 		isSearching ||
 		appsWithoutBookmarks.length > 0 ||
 		moreAvailable;
+
+	const bookmarkSearchEmptyMessage =
+		favoriteApps.length === 0
+			? 'No bookmarked apps yet'
+			: `No bookmarks found for "${trimmedSearchQuery}"`;
+
+	const appSearchEmptyMessage =
+		allApps.length === 0
+			? 'No apps yet'
+			: favoriteSearchResults.length > 0
+				? `No other apps found for "${trimmedSearchQuery}"`
+				: `No apps found for "${trimmedSearchQuery}"`;
 
 	const getVisibilityIcon = (visibility: App['visibility']) => {
 		switch (visibility) {
@@ -287,7 +312,7 @@ export function AppSidebar() {
 					</SidebarMenu>
 				</SidebarGroup>
 
-				{!isCollapsed && favoriteApps.length > 0 && (
+				{!isCollapsed && showBookmarksSection && (
 					<SidebarGroup className="">
 						<SidebarGroupLabel className="flex items-center">
 							<span className="text-xs font-funky-mono">
@@ -295,17 +320,67 @@ export function AppSidebar() {
 							</span>
 						</SidebarGroupLabel>
 						<SidebarMenu>
-							{favoriteApps.map((app) => (
-								<AppMenuItem
-									key={app.id}
-									app={app}
-									active={pathname === `/app/${app.id}`}
-									onClick={(id) => navigate(`/app/${id}`)}
-									variant="bookmarked"
-									isCollapsed={isCollapsed}
-									getVisibilityIcon={getVisibilityIcon}
-								/>
-							))}
+							{isSearching ? (
+								<>
+									{favoriteAppsLoading ? (
+										<SidebarMenuItem>
+											<div className="px-3 py-3 text-sm text-kumo-subtle">
+												Searching bookmarks...
+											</div>
+										</SidebarMenuItem>
+									) : favoriteSearchResults.length > 0 ? (
+										<>
+											<SidebarMenuItem>
+												<div className="px-3 pb-1 text-xs text-kumo-subtle">
+													Found{' '}
+													{favoriteSearchResults.length}{' '}
+													bookmark
+													{favoriteSearchResults.length !==
+													1
+														? 's'
+														: ''}
+												</div>
+											</SidebarMenuItem>
+											{favoriteSearchResults.map((app) => (
+												<AppMenuItem
+													key={app.id}
+													app={app}
+													active={
+														pathname ===
+														`/app/${app.id}`
+													}
+													onClick={(id) =>
+														navigate(`/app/${id}`)
+													}
+													variant="bookmarked"
+													isCollapsed={isCollapsed}
+													getVisibilityIcon={
+														getVisibilityIcon
+													}
+												/>
+											))}
+										</>
+									) : (
+										<SidebarMenuItem>
+											<div className="px-3 py-3 text-sm text-kumo-subtle">
+												{bookmarkSearchEmptyMessage}
+											</div>
+										</SidebarMenuItem>
+									)}
+								</>
+							) : (
+								favoriteApps.map((app) => (
+									<AppMenuItem
+										key={app.id}
+										app={app}
+										active={pathname === `/app/${app.id}`}
+										onClick={(id) => navigate(`/app/${id}`)}
+										variant="bookmarked"
+										isCollapsed={isCollapsed}
+										getVisibilityIcon={getVisibilityIcon}
+									/>
+								))
+							)}
 						</SidebarMenu>
 					</SidebarGroup>
 				)}
@@ -325,23 +400,23 @@ export function AppSidebar() {
 										{allAppsLoading ? (
 											<SidebarMenuItem>
 												<div className="px-3 py-3 text-sm text-kumo-subtle">
-													Searching...
+													Searching apps...
 												</div>
 											</SidebarMenuItem>
-										) : searchResults.length > 0 ? (
+										) : appSearchResults.length > 0 ? (
 											<>
 												<SidebarMenuItem>
 													<div className="px-3 pb-1 text-xs text-kumo-subtle">
 														Found{' '}
-														{searchResults.length}{' '}
+														{appSearchResults.length}{' '}
 														app
-														{searchResults.length !==
+														{appSearchResults.length !==
 														1
 															? 's'
 															: ''}
 													</div>
 												</SidebarMenuItem>
-												{searchResults.map((app) => (
+												{appSearchResults.map((app) => (
 													<AppMenuItem
 														key={app.id}
 														app={app}
@@ -366,8 +441,7 @@ export function AppSidebar() {
 										) : (
 											<SidebarMenuItem>
 												<div className="px-3 py-3 text-sm text-kumo-subtle">
-													No apps found for "
-													{searchQuery}"
+													{appSearchEmptyMessage}
 												</div>
 											</SidebarMenuItem>
 										)}

@@ -75,6 +75,46 @@
 	}
 }
 
+/* Scattered icon wallpaper for empty preview state */
+@keyframes run-app-icon-float {
+	0%,
+	100% {
+		transform: translateY(0) rotate(var(--rot, 0deg));
+	}
+	50% {
+		transform: translateY(var(--bob, -6px)) rotate(var(--rot, 0deg));
+	}
+}
+
+.run-app-icons {
+	position: absolute;
+	inset: 0;
+	overflow: hidden;
+	pointer-events: none;
+}
+
+.run-app-icons > span {
+	position: absolute;
+	display: flex;
+	color: var(--icon-color, var(--color-brand, #f6821f));
+	opacity: var(--op, 0.22);
+	animation: run-app-icon-float var(--dur, 7s) ease-in-out infinite;
+	animation-delay: var(--delay, 0s);
+	will-change: transform;
+}
+
+.run-app-icons > span svg {
+	width: 1em;
+	height: 1em;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.run-app-icons > span {
+		animation: none;
+		transform: rotate(var(--rot, 0deg));
+	}
+}
+
 /* Custom scrollbar for debug bubble */
 .custom-scrollbar::-webkit-scrollbar {
 	width: 6px;

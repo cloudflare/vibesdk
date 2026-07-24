@@ -290,7 +290,7 @@ export const MonacoEditor = memo<MonacoEditorProps>(function MonacoEditor({
 	// Update theme when app theme changes
 	useEffect(() => {
 		if (editor.current) {
-			monaco.editor.setTheme(resolvedTheme === 'dark' ? 'vesper' : 'vibesdk');
+			monaco.editor.setTheme(resolvedTheme === 'dark' ? 'vesper' : 'vs');
 		}
 	}, [resolvedTheme]);
 
