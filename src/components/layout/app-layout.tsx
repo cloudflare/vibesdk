@@ -41,7 +41,7 @@ export function AppLayout({ children }: AppLayoutProps) {
 	return (
 		<AppsDataProvider>
 			<SidebarProvider
-				defaultOpen={false}
+				defaultOpen={true}
 				collapsible="icon"
 				resizable={false}
 				// peekable

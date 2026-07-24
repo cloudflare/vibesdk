@@ -1,11 +1,5 @@
 import React from 'react';
-import {
-	ChevronRight,
-	Plus,
-	PlusIcon,
-	Search,
-	Users,
-} from 'lucide-react';
+import { ChevronRight, Plus, PlusIcon, Search, Users } from 'lucide-react';
 import {
 	BookmarkSimpleIcon,
 	CompassIcon,
@@ -166,7 +160,8 @@ export function AppSidebar() {
 	const isCollapsed = state === 'collapsed';
 
 	const { apps: recentApps, moreAvailable } = useRecentApps();
-	const { apps: favoriteApps, loading: favoriteAppsLoading } = useFavoriteApps();
+	const { apps: favoriteApps, loading: favoriteAppsLoading } =
+		useFavoriteApps();
 	const { apps: allApps, loading: allAppsLoading } = useApps();
 
 	const boards: Board[] = [];
@@ -210,9 +205,7 @@ export function AppSidebar() {
 	const showBookmarksSection = favoriteApps.length > 0;
 
 	const showAppsSection =
-		isSearching ||
-		appsWithoutBookmarks.length > 0 ||
-		moreAvailable;
+		isSearching || appsWithoutBookmarks.length > 0 || moreAvailable;
 
 	const bookmarkSearchEmptyMessage = `No bookmarks found for "${trimmedSearchQuery}"`;
 
@@ -258,15 +251,21 @@ export function AppSidebar() {
 
 	return (
 		<Sidebar contentClassName="bg-kumo-elevated">
-			<SidebarHeader className="h-12 justify-start px-4">
-				<div className="flex items-center gap-2.5 text-kumo-strong">
+			<SidebarHeader className="h-12 justify-start px-4 pr-2 group-data-[state=collapsed]/sidebar:justify-center group-data-[state=collapsed]/sidebar:px-0">
+				<div className="flex w-full items-center gap-2.5 text-kumo-strong group-data-[state=collapsed]/sidebar:justify-center">
 					<CloudflareLogo
 						variant="glyph"
-						className="size-7 shrink-0"
+						className="size-7 shrink-0 group-data-[state=collapsed]/sidebar:hidden group-data-[mobile=true]/sidebar:block"
 					/>
 					<span className="truncate text-sm font-black font-funky-mono uppercase tracking-[0.25em] group-data-[state=collapsed]/sidebar:hidden group-data-[mobile=true]/sidebar:inline">
 						Build
 					</span>
+					<SidebarTrigger
+						aria-label={
+							isCollapsed ? 'Open sidebar' : 'Collapse sidebar'
+						}
+						className="ml-auto group-data-[state=collapsed]/sidebar:ml-0"
+					/>
 				</div>
 			</SidebarHeader>
 			<SidebarContent>
@@ -275,9 +274,7 @@ export function AppSidebar() {
 						{pathname !== '/' && (
 							<Sidebar.MenuButton
 								icon={PlusIcon}
-								className={cn(
-									'bg-brand/80 text-white',
-								)}
+								className="bg-brand text-white hover:bg-brand/80 dark:bg-brand/80 dark:hover:bg-brand"
 								tooltip="New build"
 								onClick={() => navigate('/')}
 							>
@@ -335,12 +332,17 @@ export function AppSidebar() {
 												key={app.id}
 												app={app}
 												active={
-													pathname === `/app/${app.id}`
+													pathname ===
+													`/app/${app.id}`
 												}
-												onClick={(id) => navigate(`/app/${id}`)}
+												onClick={(id) =>
+													navigate(`/app/${id}`)
+												}
 												variant="bookmarked"
 												isCollapsed={isCollapsed}
-												getVisibilityIcon={getVisibilityIcon}
+												getVisibilityIcon={
+													getVisibilityIcon
+												}
 											/>
 										))
 									) : (
@@ -392,7 +394,8 @@ export function AppSidebar() {
 													key={app.id}
 													app={app}
 													active={
-														pathname === `/app/${app.id}`
+														pathname ===
+														`/app/${app.id}`
 													}
 													onClick={(id) =>
 														navigate(`/app/${id}`)
@@ -530,12 +533,6 @@ export function AppSidebar() {
 					<ThemeToggle
 						align="end"
 						className="size-9 shrink-0 rounded-lg group-data-[state=collapsed]/sidebar:ml-0"
-					/>
-					<SidebarTrigger
-						aria-label={
-							isCollapsed ? 'Open sidebar' : 'Collapse sidebar'
-						}
-						className="ml-auto size-9 shrink-0 rounded-lg border border-kumo-line bg-kumo-base text-kumo-subtle shadow-none hover:bg-kumo-tint hover:text-kumo-default group-data-[state=collapsed]/sidebar:ml-0"
 					/>
 				</div>
 			</SidebarFooter>
