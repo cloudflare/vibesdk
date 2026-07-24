@@ -269,12 +269,19 @@ export function AppSidebar() {
 				</div>
 			</SidebarHeader>
 			<SidebarContent>
-				<SidebarGroup className="gap-2 py-1">
-					<SidebarMenu className="gap-1">
+				{/* Full-bleed when collapsed: content uses px-[11px], so expand width to fit size-9 */}
+				<SidebarGroup className="gap-2 py-1 group-data-[state=collapsed]/sidebar:w-[calc(100%+22px)] group-data-[state=collapsed]/sidebar:min-w-[calc(100%+22px)] group-data-[state=collapsed]/sidebar:-ml-[11px] group-data-[state=collapsed]/sidebar:items-center">
+					<SidebarMenu className="gap-1 group-data-[state=collapsed]/sidebar:w-full group-data-[state=collapsed]/sidebar:items-center">
 						{pathname !== '/' && (
 							<Sidebar.MenuButton
 								icon={PlusIcon}
-								className="bg-brand text-white hover:bg-brand/80 dark:bg-brand/80 dark:hover:bg-brand"
+								className={cn(
+									'bg-brand text-white hover:bg-brand/80 dark:bg-brand/80 dark:hover:bg-brand',
+									// Square, centered icon when collapsed (match ThemeToggle)
+									'group-data-[state=collapsed]/sidebar:size-9 group-data-[state=collapsed]/sidebar:w-9 group-data-[state=collapsed]/sidebar:min-h-9 group-data-[state=collapsed]/sidebar:min-w-9 group-data-[state=collapsed]/sidebar:justify-center group-data-[state=collapsed]/sidebar:px-0 group-data-[state=collapsed]/sidebar:py-0',
+									'group-data-[state=collapsed]/sidebar:[&>div]:translate-x-0 group-data-[state=collapsed]/sidebar:[&>div]:flex-none group-data-[state=collapsed]/sidebar:[&>div]:justify-center',
+									'group-data-[state=collapsed]/sidebar:[&>div>span]:hidden',
+								)}
 								tooltip="New build"
 								onClick={() => navigate('/')}
 							>
@@ -287,6 +294,11 @@ export function AppSidebar() {
 							icon={CompassIcon}
 							id="discover-link"
 							tooltip="Discover"
+							className={cn(
+								'group-data-[state=collapsed]/sidebar:size-9 group-data-[state=collapsed]/sidebar:w-9 group-data-[state=collapsed]/sidebar:min-h-9 group-data-[state=collapsed]/sidebar:min-w-9 group-data-[state=collapsed]/sidebar:justify-center group-data-[state=collapsed]/sidebar:px-0 group-data-[state=collapsed]/sidebar:py-0',
+								'group-data-[state=collapsed]/sidebar:[&>div]:translate-x-0 group-data-[state=collapsed]/sidebar:[&>div]:flex-none group-data-[state=collapsed]/sidebar:[&>div]:justify-center',
+								'group-data-[state=collapsed]/sidebar:[&>div>span]:hidden',
+							)}
 							onClick={() => navigate('/discover')}
 						>
 							Discover
