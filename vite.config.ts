@@ -11,7 +11,7 @@ import tailwindcss from '@tailwindcss/vite';
 export default defineConfig({
 	optimizeDeps: {
 		exclude: ['format', 'editor.all'],
-		include: ['monaco-editor/esm/vs/editor/editor.api'],
+		include: ['monaco-editor/editor/editor.api'],
 		force: true,
 	},
 
