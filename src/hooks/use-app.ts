@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import {
 	useMutation,
 	useQuery,
@@ -93,78 +94,105 @@ export function useToggleAppFavorite(appId: string | undefined) {
 	const queryClient = useQueryClient();
 	const { user } = useAuth();
 
-	return useMutation({
-		mutationFn: async () => {
-			if (!appId) {
-				throw new Error('App ID is required');
-			}
-			const response = await apiClient.toggleFavorite(appId);
+	const mutation = useMutation({
+		mutationFn: async (targetAppId: string) => {
+			const response = await apiClient.toggleFavorite(targetAppId);
 			if (!response.success || !response.data) {
 				throw new Error(
 					response.error?.message || 'Failed to toggle favorite',
 				);
 			}
-			return response.data.isFavorite;
+			return { appId: targetAppId, isFavorite: response.data.isFavorite };
 		},
-		onSuccess: (isFavorite) => {
-			if (!appId) return;
-
+		onSuccess: ({ appId: targetAppId, isFavorite }) => {
 			queryClient.setQueryData<AppDetailsData>(
-				queryKeys.account.apps.detail(appId, user?.id),
+				queryKeys.account.apps.detail(targetAppId, user?.id),
 				(prev) =>
 					prev ? { ...prev, userFavorited: isFavorite } : prev,
 			);
 			void invalidateAppsQueries(queryClient);
 		},
 	});
+	const { reset, mutateAsync } = mutation;
+
+	// Route reuses this component across /app/:id — clear stale pending/error.
+	useEffect(() => {
+		reset();
+	}, [appId, reset]);
+
+	return {
+		...mutation,
+		mutateAsync: async () => {
+			if (!appId) {
+				throw new Error('App ID is required');
+			}
+			const result = await mutateAsync(appId);
+			return result.isFavorite;
+		},
+	};
 }
 
 export function useToggleAppStar(appId: string | undefined) {
 	const queryClient = useQueryClient();
 	const { user } = useAuth();
 
-	return useMutation({
-		mutationFn: async () => {
-			if (!appId) {
-				throw new Error('App ID is required');
-			}
-			const response = await apiClient.toggleAppStar(appId);
+	const mutation = useMutation({
+		mutationFn: async (targetAppId: string) => {
+			const response = await apiClient.toggleAppStar(targetAppId);
 			if (!response.success || !response.data) {
 				throw new Error(
 					response.error?.message || 'Failed to star app',
 				);
 			}
-			return response.data;
+			return { appId: targetAppId, ...response.data };
 		},
-		onSuccess: (data) => {
-			if (!appId) return;
-
+		onSuccess: ({ appId: targetAppId, isStarred, starCount }) => {
 			queryClient.setQueryData<AppDetailsData>(
-				queryKeys.account.apps.detail(appId, user?.id),
+				queryKeys.account.apps.detail(targetAppId, user?.id),
 				(prev) =>
 					prev
 						? {
 								...prev,
-								userStarred: data.isStarred,
-								starCount: data.starCount,
+								userStarred: isStarred,
+								starCount,
 							}
 						: prev,
 			);
 		},
 	});
+	const { reset, mutateAsync } = mutation;
+
+	// Route reuses this component across /app/:id — clear stale pending/error.
+	useEffect(() => {
+		reset();
+	}, [appId, reset]);
+
+	return {
+		...mutation,
+		mutateAsync: async () => {
+			if (!appId) {
+				throw new Error('App ID is required');
+			}
+			const { appId: _id, ...data } = await mutateAsync(appId);
+			return data;
+		},
+	};
 }
 
 export function useUpdateAppVisibility(appId: string | undefined) {
 	const queryClient = useQueryClient();
 	const { user } = useAuth();
 
-	return useMutation({
-		mutationFn: async (visibility: AppDetailsData['visibility']) => {
-			if (!appId) {
-				throw new Error('App ID is required');
-			}
+	const mutation = useMutation({
+		mutationFn: async ({
+			appId: targetAppId,
+			visibility,
+		}: {
+			appId: string;
+			visibility: AppDetailsData['visibility'];
+		}) => {
 			const response = await apiClient.updateAppVisibility(
-				appId,
+				targetAppId,
 				visibility,
 			);
 			if (!response.success || !response.data) {
@@ -172,21 +200,40 @@ export function useUpdateAppVisibility(appId: string | undefined) {
 					response.error?.message || 'Failed to update visibility',
 				);
 			}
-			return { visibility, message: response.data.message };
+			return {
+				appId: targetAppId,
+				visibility,
+				message: response.data.message,
+			};
 		},
-		onSuccess: ({ visibility }) => {
-			if (!appId) return;
-
+		onSuccess: ({ appId: targetAppId, visibility }) => {
 			queryClient.setQueryData<AppDetailsData>(
-				queryKeys.account.apps.detail(appId, user?.id),
+				queryKeys.account.apps.detail(targetAppId, user?.id),
 				(prev) => (prev ? { ...prev, visibility } : prev),
 			);
 			void invalidateAppsQueries(queryClient);
 			void queryClient.invalidateQueries({
-				queryKey: queryKeys.account.apps.previewTokenAll(appId),
+				queryKey: queryKeys.account.apps.previewTokenAll(targetAppId),
 			});
 		},
 	});
+	const { reset, mutateAsync } = mutation;
+
+	// Route reuses this component across /app/:id — clear stale pending/error.
+	useEffect(() => {
+		reset();
+	}, [appId, reset]);
+
+	return {
+		...mutation,
+		mutateAsync: async (visibility: AppDetailsData['visibility']) => {
+			if (!appId) {
+				throw new Error('App ID is required');
+			}
+			const result = await mutateAsync({ appId, visibility });
+			return { visibility: result.visibility, message: result.message };
+		},
+	};
 }
 
 export function useDeleteApp() {
@@ -219,12 +266,9 @@ export function useDeployPreview(appId: string | undefined) {
 	const queryClient = useQueryClient();
 	const { user } = useAuth();
 
-	return useMutation({
-		mutationFn: async () => {
-			if (!appId) {
-				throw new Error('App ID is required');
-			}
-			const response = await apiClient.deployPreview(appId);
+	const mutation = useMutation({
+		mutationFn: async (targetAppId: string) => {
+			const response = await apiClient.deployPreview(targetAppId);
 			if (!response.success || !response.data) {
 				throw new Error(
 					response.error?.message || 'Failed to start deployment',
@@ -232,14 +276,13 @@ export function useDeployPreview(appId: string | undefined) {
 			}
 			return response.data;
 		},
-		onSuccess: (data) => {
-			if (!appId) return;
+		onSuccess: (data, targetAppId) => {
 			if (!data.previewURL && !data.tunnelURL) return;
 
 			const previewURL = getPreviewUrl(data.previewURL, data.tunnelURL);
 
 			queryClient.setQueryData<AppDetailsData>(
-				queryKeys.account.apps.detail(appId, user?.id),
+				queryKeys.account.apps.detail(targetAppId, user?.id),
 				(prev) =>
 					prev
 						? {
@@ -251,4 +294,20 @@ export function useDeployPreview(appId: string | undefined) {
 			);
 		},
 	});
+	const { reset, mutateAsync } = mutation;
+
+	// Route reuses this component across /app/:id — clear stale pending/error.
+	useEffect(() => {
+		reset();
+	}, [appId, reset]);
+
+	return {
+		...mutation,
+		mutateAsync: async () => {
+			if (!appId) {
+				throw new Error('App ID is required');
+			}
+			return mutateAsync(appId);
+		},
+	};
 }

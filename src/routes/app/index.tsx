@@ -104,6 +104,13 @@ export default function AppView() {
 	const [activeFilePath, setActiveFilePath] = useState<string>();
 	const previewIframeRef = useRef<HTMLIFrameElement>(null);
 
+	// Route reuses this component across /app/:id — clear deploy UI on switch
+	useEffect(() => {
+		setDeploymentProgress('');
+		setActiveTab('preview');
+		setActiveFilePath(undefined);
+	}, [id]);
+
 	const needsOwnerPreviewToken =
 		!!app &&
 		!!user &&
@@ -425,7 +432,7 @@ export default function AppView() {
 							<h2 className="text-lg font-semibold text-text-primary">
 								App not found
 							</h2>
-							<p className="text-sm text-text-tertiary">
+							<p className="text-sm text-kumo-subtle">
 								{error ||
 									"The app you're looking for doesn't exist."}
 							</p>
@@ -599,7 +606,7 @@ export default function AppView() {
 									<Code2 className="size-3.5" />
 									Code
 									{files.length > 0 && (
-										<span className="text-text-tertiary tabular-nums">
+										<span className="text-kumo-subtle tabular-nums">
 											{files.length}
 										</span>
 									)}
@@ -648,7 +655,7 @@ export default function AppView() {
 					>
 						{isStarred ? 'Starred' : 'Star'}
 						{(app.starCount || 0) > 0 && (
-							<span className="text-text-tertiary tabular-nums">
+							<span className="text-kumo-subtle tabular-nums">
 								{app.starCount}
 							</span>
 						)}
@@ -670,14 +677,14 @@ export default function AppView() {
 			{/* Full-bleed workspace */}
 			<div className="flex-1 min-h-0 flex flex-col">
 				{activeTab === 'preview' && (
-					<div className="flex-1 min-h-0 flex flex-col bg-kumo-base overflow-hidden">
+					<div className="flex-1 min-h-0 flex flex-col overflow-hidden">
 						<div className="shrink-0 flex items-center gap-2 px-3 py-2 border-b border-kumo-line bg-kumo-elevated/40">
 							<span className="text-sm font-medium text-text-primary shrink-0">
 								Live preview
 							</span>
 							{appUrl && (
 								<>
-									<code className="min-w-0 flex-1 truncate font-mono text-[0.9em] text-text-tertiary px-2">
+									<code className="min-w-0 flex-1 truncate font-mono text-[0.9em] text-kumo-subtle px-2">
 										{appUrl}
 									</code>
 									<div className="flex items-center gap-0.5 shrink-0">
@@ -773,14 +780,14 @@ export default function AppView() {
 				)}
 
 				{activeTab === 'code' && (
-					<div className="flex-1 min-h-0 flex flex-col bg-kumo-base overflow-hidden">
+					<div className="flex-1 min-h-0 flex flex-col overflow-hidden">
 						<div className="shrink-0 flex items-center justify-between gap-2 px-3 py-2 border-b border-kumo-line bg-kumo-elevated/40">
 							<div className="min-w-0 flex items-center gap-2">
 								<span className="text-sm font-medium text-text-primary shrink-0">
 									Project files
 								</span>
 								{/*{app?.agentSummary && (
-									<span className="text-xs text-text-tertiary">
+									<span className="text-xs text-kumo-subtle">
 										{files.length} files
 									</span>
 								)}*/}
@@ -817,7 +824,7 @@ export default function AppView() {
 									{activeFile ? (
 										<>
 											{activeFile.explanation && (
-												<div className="shrink-0 px-3 py-1.5 border-b border-kumo-line text-xs text-text-tertiary truncate">
+												<div className="shrink-0 px-3 py-1.5 border-b border-kumo-line text-xs text-kumo-subtle truncate">
 													{activeFile.explanation}
 												</div>
 											)}
@@ -844,7 +851,7 @@ export default function AppView() {
 										</>
 									) : (
 										<div className="flex-1 flex items-center justify-center">
-											<p className="text-sm text-text-tertiary">
+											<p className="text-sm text-kumo-subtle">
 												Select a file to view
 											</p>
 										</div>
@@ -853,7 +860,7 @@ export default function AppView() {
 							</div>
 						) : (
 							<div className="flex-1 flex items-center justify-center">
-								<p className="text-sm text-text-tertiary">
+								<p className="text-sm text-kumo-subtle">
 									{app?.agentSummary === null
 										? 'Loading code...'
 										: 'No code has been generated yet.'}
@@ -864,7 +871,7 @@ export default function AppView() {
 				)}
 
 				{activeTab === 'prompt' && (
-					<div className="flex-1 min-h-0 flex flex-col bg-kumo-base overflow-hidden relative">
+					<div className="flex-1 min-h-0 flex flex-col overflow-hidden relative">
 						<div className="flex-1 min-h-0 overflow-y-auto flex items-center justify-center p-6 sm:p-10">
 							{promptText ? (
 								<div className="w-full max-w-2xl grid gap-5">
@@ -880,7 +887,7 @@ export default function AppView() {
 													Original prompt
 												</h2>
 											</div>
-											<p className="text-sm text-text-tertiary pl-9">
+											<p className="text-sm text-kumo-subtle pl-9">
 												The idea that started this app
 											</p>
 										</div>
@@ -909,7 +916,7 @@ export default function AppView() {
 							) : (
 								<div className="grid place-items-center gap-3 text-center">
 									<span className="rounded-full bg-kumo-elevated ring ring-kumo-line p-3">
-										<MessageSquare className="size-5 text-text-tertiary" />
+										<MessageSquare className="size-5 text-kumo-subtle" />
 									</span>
 									<div className="grid gap-1">
 										<p className="text-sm font-medium text-text-primary">
@@ -918,7 +925,7 @@ export default function AppView() {
 												: 'No prompt available'}
 										</p>
 										{app?.agentSummary !== null && (
-											<p className="text-sm text-text-tertiary">
+											<p className="text-sm text-kumo-subtle">
 												This app has no saved original
 												prompt
 											</p>
