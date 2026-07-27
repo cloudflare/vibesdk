@@ -77,7 +77,7 @@ onClick={() => setIsExpanded(!isExpanded)}
 className={clsx(
 "w-full px-4 py-3 flex items-center justify-between",
 "hover:bg-kumo-base/50 transition-colors",
-isExpanded && "border-b border-border-primary/30"
+isExpanded && "border-b"
 )}
 >
 <div className="flex items-center gap-2.5 flex-1 min-w-0">
@@ -177,7 +177,7 @@ exit={{ opacity: 0, y: 10 }}
 onClick={scrollToBottom}
 className={clsx(
 "absolute bottom-3 right-3 size-8 rounded-md",
-"bg-kumo-base hover:bg-kumo-base/80 border border-border-primary/30",
+"bg-kumo-base hover:bg-kumo-base/80 border",
 "flex items-center justify-center",
 "transition-colors"
 )}

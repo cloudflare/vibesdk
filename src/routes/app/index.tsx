@@ -1,33 +1,17 @@
-import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { useParams, useNavigate, useSearchParams } from 'react-router';
 import type { AppDetailsData, FileType } from '@/api-types';
+import { MonacoEditor } from '@/components/monaco-editor/lazy-monaco-editor';
+import { ConfirmDeleteDialog } from '@/components/shared/ConfirmDeleteDialog';
+import { FloatingBackgroundIcons } from '@/components/shared/FloatingBackgroundIcons';
+import { GitCloneModal } from '@/components/shared/GitCloneModal';
+import { useAppsData } from '@/contexts/apps-data-context';
+import { useAuth } from '@/contexts/auth-context';
+import { toggleFavorite } from '@/hooks/use-apps';
+import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard';
+import { useAuthGuard } from '@/hooks/useAuthGuard';
 import { apiClient, ApiError } from '@/lib/api-client';
 import { appEvents } from '@/lib/app-events';
-import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard';
-import {
-	Eye,
-	Code2,
-	ChevronLeft,
-	ExternalLink,
-	Copy,
-	Check,
-	Loader2,
-	MessageSquare,
-	Play,
-} from 'lucide-react';
-import {
-	Code,
-	Star,
-	BookmarkSimple,
-	GitBranch,
-	GithubLogo,
-	Lock,
-	LockOpen,
-	Globe,
-	Trash,
-	DotsThree,
-	CopyIcon,
-} from '@phosphor-icons/react';
+import { capitalizeFirstLetter, getPreviewUrl } from '@/lib/utils';
+import { getFileType } from '@/utils/string';
 import {
 	Badge,
 	Button,
@@ -36,22 +20,34 @@ import {
 	Tabs,
 	useKumoToastManager,
 } from '@cloudflare/kumo';
-import { MonacoEditor } from '@/components/monaco-editor/lazy-monaco-editor';
-import { getFileType } from '@/utils/string';
-import { useAuth } from '@/contexts/auth-context';
-import { toggleFavorite } from '@/hooks/use-apps';
-import { capitalizeFirstLetter, getPreviewUrl } from '@/lib/utils';
-import { ConfirmDeleteDialog } from '@/components/shared/ConfirmDeleteDialog';
-import { FloatingBackgroundIcons } from '@/components/shared/FloatingBackgroundIcons';
-import { GitCloneModal } from '@/components/shared/GitCloneModal';
 import {
-	GitCloneCommand,
-	GitClonePrivatePrompt,
-} from '@/components/shared/GitCloneInline';
-import { useAuthGuard } from '@/hooks/useAuthGuard';
-import { PreviewIframe } from '../chat/components/preview-iframe';
+	BookmarkSimple,
+	Code,
+	CopyIcon,
+	DotsThree,
+	GitBranch,
+	GithubLogo,
+	Globe,
+	Lock,
+	LockOpen,
+	Star,
+	TrashIcon,
+} from '@phosphor-icons/react';
+import {
+	Check,
+	ChevronLeft,
+	Code2,
+	Copy,
+	ExternalLink,
+	Eye,
+	Loader2,
+	MessageSquare,
+	Play,
+} from 'lucide-react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useNavigate, useParams, useSearchParams } from 'react-router';
 import { FileExplorer } from '../chat/components/file-explorer';
-import { useAppsData } from '@/contexts/apps-data-context';
+import { PreviewIframe } from '../chat/components/preview-iframe';
 
 // Use proper types from API types
 type AppDetails = AppDetailsData;
@@ -629,7 +625,7 @@ export default function AppView() {
 
 	return (
 		<div className="h-full bg-kumo-base flex flex-col min-h-0">
-			<header className="h-12 shrink-0 flex items-center gap-3 px-4 border-b border-border-primary">
+			<header className="h-12 shrink-0 flex items-center gap-3 px-4 border-b">
 				<div className="min-w-0 flex-1 flex items-center gap-2">
 					<h1
 						className="text-sm font-semibold truncate min-w-0"
@@ -663,12 +659,12 @@ export default function AppView() {
 							icon={
 								app.visibility === 'private' ? (
 									<LockOpen
-										className="h-3.5 w-3.5"
+										className="size-3.5"
 										weight="duotone"
 									/>
 								) : (
 									<Lock
-										className="h-3.5 w-3.5"
+										className="size-3.5"
 										weight="duotone"
 									/>
 								)
@@ -680,63 +676,13 @@ export default function AppView() {
 						</Button>
 					)}
 
-					<Button
-						variant="secondary"
-						size="sm"
-						icon={
-							<BookmarkSimple
-								className="h-3.5 w-3.5"
-								weight={isFavorited ? 'fill' : 'duotone'}
-							/>
-						}
-						onClick={async () => {
-							await handleFavorite();
-							refetchAll();
-						}}
-					>
-						{isFavorited ? 'Bookmarked' : 'Bookmark'}
-					</Button>
-
-					<Button
-						variant="secondary"
-						size="sm"
-						icon={
-							<Star
-								className="h-3.5 w-3.5"
-								weight={isStarred ? 'fill' : 'duotone'}
-							/>
-						}
-						onClick={handleStar}
-					>
-						{isStarred ? 'Starred' : 'Star'}
-						{(app.starCount || 0) > 0 && (
-							<span className="text-text-tertiary tabular-nums">
-								{app.starCount}
-							</span>
-						)}
-					</Button>
-
-					<Button
-						variant="secondary"
-						size="sm"
-						icon={
-							<GitBranch
-								className="h-3.5 w-3.5"
-								weight="duotone"
-							/>
-						}
-						onClick={() => setIsGitCloneModalOpen(true)}
-					>
-						Code
-					</Button>
-
 					{app.githubRepositoryUrl && (
 						<Button
 							variant="secondary"
 							size="sm"
 							icon={
 								<GithubLogo
-									className="h-3.5 w-3.5"
+									className="size-3.5"
 									weight="duotone"
 								/>
 							}
@@ -768,13 +714,13 @@ export default function AppView() {
 								size="sm"
 								icon={
 									<Code
-										className="h-3.5 w-3.5"
+										className="size-3.5"
 										weight="duotone"
 									/>
 								}
 								onClick={() => navigate(`/chat/${app.id}`)}
 							>
-								Continue editing
+								Make edits
 							</Button>
 
 							<DropdownMenu>
@@ -793,12 +739,7 @@ export default function AppView() {
 								/>
 								<DropdownMenu.Content align="end">
 									<DropdownMenu.Item
-										icon={
-											<Trash
-												className="h-4 w-4"
-												weight="duotone"
-											/>
-										}
+										icon={TrashIcon}
 										variant="danger"
 										onClick={() =>
 											setIsDeleteDialogOpen(true)
@@ -813,7 +754,7 @@ export default function AppView() {
 				</div>
 			</header>
 
-			<div className="shrink-0 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between px-4 py-2 border-b border-border-primary">
+			<div className="shrink-0 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between px-4 py-2 border-b">
 				<Tabs
 					value={activeTab}
 					onValueChange={setActiveTab}
@@ -823,7 +764,7 @@ export default function AppView() {
 							value: 'preview',
 							label: (
 								<span className="inline-flex items-center gap-1.5">
-									<Eye className="h-3.5 w-3.5" />
+									<Eye className="size-3.5" />
 									Preview
 								</span>
 							),
@@ -832,7 +773,7 @@ export default function AppView() {
 							value: 'code',
 							label: (
 								<span className="inline-flex items-center gap-1.5">
-									<Code2 className="h-3.5 w-3.5" />
+									<Code2 className="size-3.5" />
 									Code
 									{files.length > 0 && (
 										<span className="text-text-tertiary tabular-nums">
@@ -846,7 +787,7 @@ export default function AppView() {
 							value: 'prompt',
 							label: (
 								<span className="inline-flex items-center gap-1.5">
-									<MessageSquare className="h-3.5 w-3.5" />
+									<MessageSquare className="size-3.5" />
 									Prompt
 								</span>
 							),
@@ -854,17 +795,53 @@ export default function AppView() {
 					]}
 				/>
 
-				<div className="shrink-0 max-w-full">
-					{app.visibility === 'public' ? (
-						<GitCloneCommand
-							cloneUrl={`${window.location.protocol}//${window.location.host}/apps/${app.id}.git`}
-							appTitle={app.title}
-						/>
-					) : isOwner ? (
-						<GitClonePrivatePrompt
-							onOpenModal={() => setIsGitCloneModalOpen(true)}
-						/>
-					) : null}
+				<div className="shrink-0 flex items-center gap-2 max-w-full">
+					<Button
+						variant="secondary"
+						size="sm"
+						icon={
+							<BookmarkSimple
+								className="size-3.5"
+								weight={isFavorited ? 'fill' : 'duotone'}
+							/>
+						}
+						onClick={async () => {
+							await handleFavorite();
+							refetchAll();
+						}}
+					>
+						{isFavorited ? 'Bookmarked' : 'Bookmark'}
+					</Button>
+
+					<Button
+						variant="secondary"
+						size="sm"
+						icon={
+							<Star
+								className="size-3.5"
+								weight={isStarred ? 'fill' : 'duotone'}
+							/>
+						}
+						onClick={handleStar}
+					>
+						{isStarred ? 'Starred' : 'Star'}
+						{(app.starCount || 0) > 0 && (
+							<span className="text-text-tertiary tabular-nums">
+								{app.starCount}
+							</span>
+						)}
+					</Button>
+
+					<Button
+						variant="secondary"
+						size="sm"
+						icon={
+							<GitBranch className="size-3.5" weight="duotone" />
+						}
+						onClick={() => setIsGitCloneModalOpen(true)}
+					>
+						Clone
+					</Button>
 				</div>
 			</div>
 
@@ -899,9 +876,9 @@ export default function AppView() {
 											onClick={handleCopyUrl}
 											icon={
 												urlCopied ? (
-													<Check className="h-3.5 w-3.5" />
+													<Check className="size-3.5" />
 												) : (
-													<Copy className="h-3.5 w-3.5" />
+													<Copy className="size-3.5" />
 												)
 											}
 										/>
@@ -915,7 +892,7 @@ export default function AppView() {
 												window.open(appUrl, '_blank')
 											}
 											icon={
-												<ExternalLink className="h-3.5 w-3.5" />
+												<ExternalLink className="size-3.5" />
 											}
 										/>
 									</div>

@@ -175,7 +175,7 @@ export function DeploymentControls({
 		switch (state) {
 			case DeploymentState.WAITING_PHASE1:
 				return {
-					panelClass: "bg-kumo-base/30 dark:bg-kumo-base/20 border-border-primary/50 dark:border-border-primary/40",
+					panelClass: "bg-kumo-base/30 dark:bg-kumo-base/20 dark:border-border-primary/40",
 					iconClass: "bg-kumo-base-foreground/40 dark:bg-kumo-base-foreground/30 border-muted-foreground/40 dark:border-muted-foreground/30",
 					icon: null,
 					titleColor: "text-text-tertiary dark:text-text-tertiary",
@@ -401,7 +401,7 @@ export function DeploymentControls({
 									"h-10 text-sm font-medium transition-all duration-200 shadow-sm",
 									localVisibility === 'private'
 										? "bg-brand hover:bg-brand/90 text-white border-brand hover:shadow-md hover:scale-[1.02]"
-										: "bg-kumo-base hover:bg-bg-4 text-text-primary border-border-primary hover:shadow-sm hover:scale-[1.02]"
+										: "bg-kumo-base hover:bg-bg-4 text-text-primary hover:shadow-sm hover:scale-[1.02]"
 								)}
 							>
 								{isUpdatingVisibility ? (

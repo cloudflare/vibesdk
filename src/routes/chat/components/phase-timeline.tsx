@@ -492,7 +492,7 @@ export function PhaseTimeline({
 
 						{/* Main frosted panel - Hoverable and Expandable */}
 						<motion.div
-							className="relative bg-bg-4/95 dark:bg-kumo-elevated/95 backdrop-blur-md border border-border-primary shadow-lg rounded-xl overflow-hidden mx-4 hover:bg-kumo-base/95 dark:hover:bg-bg-1/95 transition-colors cursor-pointer group"
+							className="relative bg-bg-4/95 dark:bg-kumo-elevated/95 backdrop-blur-md border shadow-lg rounded-xl overflow-hidden mx-4 hover:bg-kumo-base/95 dark:hover:bg-bg-1/95 transition-colors cursor-pointer group"
 							onClick={() => setIsCollapsedBarExpanded(!isCollapsedBarExpanded)}
 							initial={{ scale: 0.96 }}
 							animate={{ scale: 1 }}
@@ -558,7 +558,7 @@ export function PhaseTimeline({
 										animate={{ opacity: 1, height: 'auto' }}
 										exit={{ opacity: 0, height: 0 }}
 										transition={commonTransitions.premiumShort}
-										className="border-t border-border-primary/20"
+										className="border-t"
 									>
 										<div className="p-4 space-y-4">
 											{/* Files List */}
@@ -613,7 +613,7 @@ export function PhaseTimeline({
 														e.stopPropagation();
 														scrollToTop();
 													}}
-													className="flex items-center gap-1.5 px-3 py-1.5 bg-kumo-elevated hover:bg-bg-1 border border-border-primary rounded-lg text-xs font-medium text-text-primary transition-colors"
+													className="flex items-center gap-1.5 px-3 py-1.5 bg-kumo-elevated hover:bg-bg-1 border rounded-lg text-xs font-medium text-text-primary transition-colors"
 												>
 													<ArrowUp className="w-3 h-3" />
 													Scroll to Top

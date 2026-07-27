@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState, useEffect, useMemo } from 'react';
-import { ArrowRight, Info } from 'react-feather';
+import { Info } from 'react-feather';
 import { ArrowUpRight, Loader2 } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router';
 import { useAuth } from '@/contexts/auth-context';
@@ -26,7 +26,7 @@ import { toast } from 'sonner';
 import { useLimitsContext } from '@/contexts/limits-context';
 import { checkCanSendPrompt } from '@/utils/usage-limit-checker';
 import { PromptBox } from '@/components/prompt-box';
-import { FloatingBackgroundIcons } from '@/components/shared/FloatingBackgroundIcons';
+import { PaperPlaneTiltIcon } from '@phosphor-icons/react';
 
 export default function Home() {
 	const navigate = useNavigate();
@@ -186,7 +186,9 @@ export default function Home() {
 
 	return (
 		<div className="relative flex flex-col items-center w-full min-h-full bg-kumo-elevated">
-			<FloatingBackgroundIcons className="opacity-80" />
+			<div className="home-atmosphere" aria-hidden>
+				<div className="home-atmosphere__spotlight" />
+			</div>
 			<LayoutGroup>
 				<div className="w-full max-w-2xl px-5 sm:px-6">
 					<motion.div
@@ -202,17 +204,13 @@ export default function Home() {
 						)}
 					>
 						<div className="mb-6 sm:mb-7 grid gap-2">
-							<h1 className="w-full text-left text-[clamp(1.75rem,4.5vw,2.5rem)] font-semibold leading-[1.12] text-kumo-strong/80">
+							<h1 className="w-full text-center text-[clamp(1.75rem,4.5vw,2.5rem)] font-semibold leading-[1.12] text-kumo-strong/80">
 								What should we{' '}
-								<span className="font-funky-mono text-[0.92em] uppercase text-brand">
+								<span className="font-funky-mono text-[1.1em] tracking-tighter uppercase text-brand">
 									build
 								</span>{' '}
 								today?
 							</h1>
-							<p className="text-sm text-kumo-subtle">
-								Describe an app, slides, or idea — we&apos;ll
-								scaffold it for you.
-							</p>
 						</div>
 						<PromptBox
 							value={query}
@@ -238,7 +236,7 @@ export default function Home() {
 								user && usageLimitsLoading ? (
 									<Loader2 className="animate-spin" />
 								) : (
-									<ArrowRight />
+									<PaperPlaneTiltIcon weight="duotone" />
 								)
 							}
 							leftActions={
@@ -254,13 +252,13 @@ export default function Home() {
 					</motion.div>
 				</div>
 
-				<AnimatePresence>
+				<AnimatePresence mode="popLayout">
 					{images.length > 0 && (
 						<motion.div
 							initial={{ opacity: 0, y: -10 }}
 							animate={{ opacity: 1, y: 0 }}
 							exit={{ opacity: 0, y: -10 }}
-							className="w-full max-w-2xl px-5 sm:px-6"
+							className="w-full max-w-2xl px-5 sm:px-6 mt-4"
 						>
 							<div
 								className="flex items-start gap-2 px-4 py-3 rounded-xl bg-bg-4/50 dark:bg-bg-2/50 shadow-sm"
@@ -306,13 +304,9 @@ export default function Home() {
 							<div className="flex flex-col gap-6">
 								<div className="flex items-end justify-between gap-4">
 									<div className="grid gap-1.5 min-w-0">
-										<h2 className="text-2xl sm:text-3xl font-semibold text-kumo-strong">
-											Discover apps
+										<h2 className="text-xl sm:text-2xl font-semibold text-kumo-default/90">
+											Discover apps from the community
 										</h2>
-										<p className="text-sm text-kumo-subtle">
-											Fresh builds from the community this
-											week
-										</p>
 									</div>
 									<div ref={discoverLinkRef}>
 										<Button

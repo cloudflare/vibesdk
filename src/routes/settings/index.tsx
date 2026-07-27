@@ -10,50 +10,25 @@ import {
 	Eye,
 	EyeOff,
 } from 'lucide-react';
-import { ModelConfigTabs } from '@/components/model-config-tabs';
-import type {
-	ModelConfigsData,
-	ModelConfigUpdate,
-	ActiveSessionsData,
-	ApiKeysData,
-} from '@/api-types';
+import type { ActiveSessionsData, ApiKeysData } from '@/api-types';
 import {
-	Button as KumoButton,
-	Dialog as KumoDialog,
-	DialogClose as KumoDialogClose,
-	DialogDescription as KumoDialogDescription,
-	DialogRoot as KumoDialogRoot,
-	DialogTitle as KumoDialogTitle,
-	DialogTrigger as KumoDialogTrigger,
-	LayerCard,
-} from '@cloudflare/kumo';
-import { Separator } from '@/components/ui/separator';
-import { Input } from '@/components/ui/input';
-import { useAuth } from '@/contexts/auth-context';
-import { Badge } from '@/components/ui/badge';
-import {
+	Button,
 	Dialog,
-	DialogContent,
+	DialogClose,
 	DialogDescription,
-	DialogFooter,
-	DialogHeader,
+	DialogRoot,
 	DialogTitle,
 	DialogTrigger,
-} from '@/components/ui/dialog';
-import {
+	LayerCard,
+	Input,
 	Table,
-	TableBody,
-	TableCaption,
-	TableCell,
-	TableHead,
-	TableHeader,
-	TableRow,
-} from '@/components/ui/table';
+} from '@cloudflare/kumo';
+import { Separator } from '@/components/ui/separator';
+import { useAuth } from '@/contexts/auth-context';
+import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { apiClient } from '@/lib/api-client';
 import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard';
-// import { SecretsManager } from '@/components/vault';
-// import { ByokApiKeysModal } from '@/components/byok-api-keys-modal';
 import { CloudflareAccountSelector } from '@/components/cloudflare-account-selector';
 import { ConnectedAccounts } from '@/components/connected-accounts';
 import { TrashIcon } from '@phosphor-icons/react';
@@ -88,208 +63,6 @@ export default function SettingsPage() {
 		copy: copyCreatedKey,
 		reset: resetCreatedKeyCopy,
 	} = useCopyToClipboard();
-
-	// Model configurations state
-	const [agentConfigs, setAgentConfigs] = useState<
-		Array<{ key: string; name: string; description: string }>
-	>([]);
-	const [modelConfigs, setModelConfigs] = useState<
-		ModelConfigsData['configs']
-	>({} as ModelConfigsData['configs']);
-	const [defaultConfigs, setDefaultConfigs] = useState<
-		ModelConfigsData['defaults']
-	>({} as ModelConfigsData['defaults']);
-	const [loadingConfigs, setLoadingConfigs] = useState(true);
-	const [savingConfigs, setSavingConfigs] = useState(false);
-	const [testingConfig, setTestingConfig] = useState<string | null>(null);
-
-	// const handleSaveProfile = async () => {
-	// 	if (isSaving) return;
-
-	// 	try {
-	// 		setIsSaving(true);
-
-	// 		const response = await fetch('/api/auth/profile', {
-	// 			method: 'PUT',
-	// 			credentials: 'include',
-	// 			headers: {
-	// 				'Content-Type': 'application/json',
-	// 			},
-	// 			body: JSON.stringify({
-	// 				...profileData,
-	// 				theme: currentTheme,
-	// 			}),
-	// 		});
-
-	// 		const data = await response.json();
-
-	// 		if (response.ok && data.success) {
-	// 			toast.success('Profile settings saved');
-	// 			// Theme context is already updated by handleThemeChange
-	// 			// Refresh user data in auth context
-	// 			await refreshUser();
-	// 		} else {
-	// 			toast.error(
-	// 				data.error?.message || 'Failed to save profile settings',
-	// 			);
-	// 		}
-	// 	} catch (error) {
-	// 		console.error('Profile save error:', error);
-	// 		toast.error('Failed to save profile settings');
-	// 	} finally {
-	// 		setIsSaving(false);
-	// 	}
-	// };
-
-	// Helper function to format camelCase to human readable
-	const formatAgentConfigName = React.useCallback((key: string) => {
-		return key
-			.replace(/([A-Z])/g, ' $1')
-			.replace(/^./, (str) => str.toUpperCase())
-			.trim();
-	}, []);
-
-	// Helper function to provide descriptions based on key patterns
-	const getAgentConfigDescription = React.useCallback(
-		(key: string) => {
-			const descriptions: Record<string, string> = {
-				templateSelection:
-					'Quick template selection - Needs to be extremely fast with low latency. Intelligence level is less important than speed for rapid project bootstrapping.',
-				blueprint:
-					'Project architecture & UI design - Requires strong design thinking, UI/UX understanding, and architectural planning skills. Speed is important but coding ability is not critical.',
-				projectSetup:
-					'Technical scaffolding setup - Must excel at following technical instructions precisely and setting up proper project structure. Reliability and instruction-following are key.',
-				phaseGeneration:
-					'Development phase planning - Needs rapid planning abilities with large context windows for understanding project scope. Quick thinking is essential, coding skills are not required.',
-				firstPhaseImplementation:
-					'Initial development phase - Requires large context windows and excellent coding skills for implementing the foundation. Deep thinking is less critical than execution.',
-				phaseImplementation:
-					'Subsequent development phases - Needs large context windows and superior coding abilities for complex feature implementation. Focus is on execution rather than reasoning.',
-				realtimeCodeFixer:
-					'Real-time bug detection - Must be extremely fast at identifying and fixing code issues with strong debugging skills. Large context windows are not needed, speed is crucial.',
-				fastCodeFixer:
-					'Ultra-fast code fixes - Optimized for maximum speed with decent coding ability. No deep thinking or large context required, pure speed and basic bug fixing.',
-				conversationalResponse:
-					'User chat interactions - Handles natural conversation flow and user communication. Balanced capabilities for engaging dialogue and helpful responses.',
-				userSuggestionProcessor:
-					'User feedback processing - Analyzes and implements user suggestions and feedback. Requires understanding user intent and translating to actionable changes.',
-				codeReview:
-					'Code quality analysis - Needs large context windows, strong analytical thinking, and good speed for thorough code review. Must identify issues and suggest improvements.',
-				fileRegeneration:
-					'File recreation - Focused on pure coding ability to regenerate or rewrite files. No context window or deep thinking required, just excellent code generation.',
-				screenshotAnalysis:
-					'UI/design analysis - Analyzes visual designs and screenshots to understand UI requirements. Requires visual understanding and design interpretation skills.',
-			};
-			return (
-				descriptions[key] ||
-				`AI model configuration for ${formatAgentConfigName(key)}`
-			);
-		},
-		[formatAgentConfigName],
-	);
-
-	// Load model configurations
-	const loadModelConfigs = async () => {
-		try {
-			setLoadingConfigs(true);
-			const response = await apiClient.getModelConfigs();
-
-			if (response.success && response.data) {
-				setModelConfigs(response.data.configs || {});
-				setDefaultConfigs(response.data.defaults || {});
-			} else {
-				throw new Error(
-					response.error?.message ||
-						'Failed to load model configurations',
-				);
-			}
-		} catch (error) {
-			console.error('Error loading model configurations:', error);
-			toast.error('Failed to load model configurations');
-		} finally {
-			setLoadingConfigs(false);
-		}
-	};
-
-	// Save model configuration
-	const saveModelConfig = async (
-		agentAction: string,
-		config: ModelConfigUpdate,
-	) => {
-		try {
-			const response = await apiClient.updateModelConfig(
-				agentAction,
-				config,
-			);
-
-			if (response.success) {
-				toast.success('Configuration saved successfully');
-				await loadModelConfigs(); // Reload to get updated data
-			}
-		} catch (error) {
-			console.error('Error saving model configuration:', error);
-			toast.error('Failed to save configuration');
-		}
-	};
-
-	// Test model configuration
-	const testModelConfig = async (
-		agentAction: string,
-		tempConfig?: ModelConfigUpdate,
-	) => {
-		try {
-			setTestingConfig(agentAction);
-			const response = await apiClient.testModelConfig(
-				agentAction,
-				tempConfig,
-			);
-
-			if (response.success && response.data) {
-				const result = response.data.testResult;
-				if (result.success) {
-					toast.success(
-						`Test successful! Model: ${result.modelUsed}, Response time: ${result.latencyMs}ms`,
-					);
-				} else {
-					toast.error(`Test failed: ${result.error}`);
-				}
-			}
-		} catch (error) {
-			console.error('Error testing configuration:', error);
-			toast.error('Failed to test configuration');
-		} finally {
-			setTestingConfig(null);
-		}
-	};
-
-	// Reset configuration to default
-	const resetConfigToDefault = async (agentAction: string) => {
-		try {
-			await apiClient.resetModelConfig(agentAction);
-			toast.success('Configuration reset to default');
-			await loadModelConfigs();
-		} catch (error) {
-			console.error('Error resetting configuration:', error);
-			toast.error('Failed to reset configuration');
-		}
-	};
-
-	// Reset all configurations
-	const resetAllConfigs = async () => {
-		try {
-			setSavingConfigs(true);
-			const response = await apiClient.resetAllModelConfigs();
-			toast.success(
-				`${response.data?.resetCount} configurations reset to defaults`,
-			);
-			await loadModelConfigs();
-		} catch (error) {
-			console.error('Error resetting all configurations:', error);
-			toast.error('Failed to reset all configurations');
-		} finally {
-			setSavingConfigs(false);
-		}
-	};
 
 	const handleDeleteAccount = async () => {
 		toast.error('Account deletion is not yet implemented');
@@ -396,216 +169,35 @@ export default function SettingsPage() {
 		}
 	};
 
-	// Load agent configurations dynamically from API
-	React.useEffect(() => {
-		apiClient
-			.getModelDefaults()
-			.then((response) => {
-				if (response.success && response.data?.defaults) {
-					const configs = Object.keys(response.data.defaults).map(
-						(key) => ({
-							key,
-							name: formatAgentConfigName(key),
-							description: getAgentConfigDescription(key),
-						}),
-					);
-					setAgentConfigs(configs);
-				}
-			})
-			.catch((error) => {
-				console.error('Failed to load agent configurations:', error);
-			});
-	}, [formatAgentConfigName, getAgentConfigDescription]);
-
 	// Load sessions and model configs on component mount
 	React.useEffect(() => {
 		if (user) {
 			loadActiveSessions();
-			loadModelConfigs();
 			loadApiKeys();
 		}
 	}, [user]);
 
 	return (
-		<div className="min-h-screen bg-kumo-base relative">
-			<main className="container mx-auto px-4 py-8 max-w-4xl">
-				<div className="grid gap-6">
+		<div className="size-full bg-kumo-base relative">
+			<main className="container mx-auto px-4 py-16 max-w-4xl pb-48">
+				<div className="grid gap-8">
 					{/* Page Header */}
-					<div className="grid gap-1.5">
-						<h1 className="text-2xl font-semibold text-kumo-default">
+					<div className="grid gap-1.5 mb-4">
+						<h1 className="text-4xl font-semibold font-funky-mono text-kumo-default">
 							Settings
 						</h1>
-						<p className="text-sm text-kumo-subtle">
+						<p className="text-sm text-kumo-subtle font-funky-mono">
 							Manage your account settings and preferences
 						</p>
 					</div>
 
-					{/* Integrations Section */}
-					{/* <Card id="integrations">
-						<CardHeader variant="minimal">
-							<div className="flex items-center gap-3 border-b w-full py-3 text-text-primary">
-								<Link className="h-4 w-4" />
-								<div>
-									<CardTitle>Integrations</CardTitle>
-								</div>
-							</div>
-						</CardHeader>
-						<CardContent className="space-y-4 px-6 mt-6">
-							{githubIntegration.loading ? (
-								<div className="flex items-center gap-3">
-									<Settings className="h-5 w-5 animate-spin text-text-tertiary" />
-									<span className="text-sm text-text-tertiary">
-										Loading GitHub integration status...
-									</span>
-								</div>
-							) : githubIntegration.hasIntegration ? (
-								<div className="flex items-center justify-between">
-									<div className="flex items-center gap-3">
-										<div className="h-10 w-10 rounded-full bg-[#24292e] flex items-center justify-center">
-											<Github className="h-5 w-5 text-white" />
-										</div>
-										<div>
-											<p className="font-medium">
-												GitHub Connected
-											</p>
-											<p className="text-sm text-text-tertiary">
-												@
-												{
-													githubIntegration.githubUsername
-												}
-											</p>
-										</div>
-									</div>
-									<div className="flex items-center gap-2">
-										<Badge
-											variant="secondary"
-											className="bg-green-100 text-green-800"
-										>
-											Connected
-										</Badge>
-										<Button
-											variant="outline"
-											size="sm"
-											onClick={handleDisconnectGithub}
-											className="gap-2"
-										>
-											<Unlink className="h-4 w-4" />
-											Disconnect
-										</Button>
-									</div>
-								</div>
-							) : (
-								<div className="flex items-center justify-between">
-									<div className="flex items-center gap-3">
-										<div className="h-10 w-10 rounded-full bg-kumo-elevated border-bg-1 dark:border-bg-4 border flex items-center justify-center">
-											<Github className="h-5 w-5 text-text-tertiary" />
-										</div>
-										<div>
-											<p className="font-medium">
-												GitHub App for Exports
-											</p>
-											<div className="flex items-center justify-between">
-												<span className="text-text-primary text-xs">
-													Connect your GitHub account to export generated code directly to
-													repositories
-												</span>
-												{githubIntegration.loading && (
-													<RefreshCw className="w-3 h-3 text-text-primary/60 animate-spin" />
-												)}
-											</div>
-										</div>
-									</div>
-									<Button
-										onClick={handleConnectGithub}
-										className="gap-2 bg-text-primary hover:bg-[#1a1e22] text-bg-1"
-									>
-										<Github className="h-4 w-4" />
-										Install GitHub App
-									</Button>
-								</div>
-							)}
-						</CardContent>
-					</Card> */}
-
 					{/* Cloudflare Account & Gateway Selection */}
 					<CloudflareAccountSelector />
-
-					{/* Model Configuration Section */}
-					<LayerCard id="model-configs">
-						<LayerCard.Secondary>
-							<div className="flex items-center gap-2">
-								<span className="h-lh flex items-center">
-									<Settings className="size-4" />
-								</span>
-								<span>AI model configurations</span>
-							</div>
-						</LayerCard.Secondary>
-						<LayerCard.Primary>
-							<div className="grid gap-6">
-								<div className="grid gap-4">
-									<div className="grid gap-1.5">
-										<h4 className="text-sm font-medium text-kumo-default">
-											Provider API keys
-										</h4>
-										<p className="text-sm text-kumo-subtle">
-											AI provider API keys are managed in
-											the API keys section below.
-											Configure your OpenAI, Anthropic,
-											Google AI, and OpenRouter keys
-											there.
-										</p>
-									</div>
-									<div>
-										<KumoButton
-											variant="secondary"
-											size="sm"
-											onClick={() => {
-												const secretsSection =
-													document.getElementById(
-														'api-keys',
-													);
-												if (secretsSection) {
-													secretsSection.scrollIntoView(
-														{
-															behavior: 'smooth',
-															block: 'start',
-														},
-													);
-												}
-											}}
-											className="gap-2"
-										>
-											<Key className="size-4" />
-											API keys
-										</KumoButton>
-									</div>
-								</div>
-
-								<Separator />
-
-								<ModelConfigTabs
-									agentConfigs={agentConfigs}
-									modelConfigs={modelConfigs}
-									defaultConfigs={defaultConfigs}
-									loadingConfigs={loadingConfigs}
-									onSaveConfig={saveModelConfig}
-									onTestConfig={testModelConfig}
-									onResetConfig={resetConfigToDefault}
-									onResetAllConfigs={resetAllConfigs}
-									testingConfig={testingConfig}
-									savingConfigs={savingConfigs}
-								/>
-							</div>
-						</LayerCard.Primary>
-					</LayerCard>
-
-					{/* User Secrets Vault Section */}
-					{/* <SecretsManager id="secrets" /> */}
 
 					<LayerCard id="api-keys">
 						<LayerCard.Secondary>
 							<div className="flex items-center gap-2">
-								<span className="h-lh flex items-center">
+								<span className="flex items-center">
 									<Key className="size-4" />
 								</span>
 								<span>API keys</span>
@@ -625,7 +217,7 @@ export default function SettingsPage() {
 										</p>
 									</div>
 
-									<Dialog
+									<DialogRoot
 										open={createKeyOpen}
 										onOpenChange={(open) => {
 											setCreateKeyOpen(open);
@@ -637,29 +229,32 @@ export default function SettingsPage() {
 											}
 										}}
 									>
-										<DialogTrigger asChild>
-											<KumoButton
-												variant="primary"
-												size="sm"
-												className="gap-2"
-											>
-												<Key className="size-4" />
-												Create API key
-											</KumoButton>
-										</DialogTrigger>
-										<DialogContent>
-											<DialogHeader>
-												<DialogTitle>
+										<DialogTrigger
+											render={(p) => (
+												<Button
+													{...p}
+													variant="primary"
+													size="sm"
+													className="gap-2"
+												>
+													<Key className="size-4" />
+													Create API key
+												</Button>
+											)}
+										/>
+										<Dialog className="p-8">
+											<div className="mb-4 grid gap-1.5">
+												<DialogTitle className="text-xl font-semibold">
 													{createdKey
 														? 'Your new API key'
 														: 'Create API key'}
 												</DialogTitle>
-												<DialogDescription>
+												<DialogDescription className="text-kumo-subtle">
 													{createdKey
 														? 'Copy this key now. You will not be able to see it again.'
 														: 'Give your key a memorable name. You can revoke it anytime.'}
 												</DialogDescription>
-											</DialogHeader>
+											</div>
 
 											{!createdKey ? (
 												<div className="grid gap-4">
@@ -713,7 +308,7 @@ export default function SettingsPage() {
 																className="font-mono text-sm pr-20"
 															/>
 															<div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
-																<KumoButton
+																<Button
 																	size="sm"
 																	shape="square"
 																	variant="ghost"
@@ -735,7 +330,7 @@ export default function SettingsPage() {
 																		)
 																	}
 																/>
-																<KumoButton
+																<Button
 																	size="sm"
 																	shape="square"
 																	variant="ghost"
@@ -775,9 +370,9 @@ export default function SettingsPage() {
 												</div>
 											)}
 
-											<DialogFooter>
+											<div className="mt-8 flex justify-end gap-2">
 												{!createdKey ? (
-													<KumoButton
+													<Button
 														variant="primary"
 														onClick={
 															handleCreateApiKey
@@ -790,22 +385,22 @@ export default function SettingsPage() {
 														className="gap-2"
 													>
 														Create
-													</KumoButton>
+													</Button>
 												) : (
-													<KumoButton
-														variant="secondary"
-														onClick={() =>
-															setCreateKeyOpen(
-																false,
-															)
-														}
-													>
-														Done
-													</KumoButton>
+													<DialogClose
+														render={(props) => (
+															<Button
+																variant="secondary"
+																{...props}
+															>
+																Done
+															</Button>
+														)}
+													/>
 												)}
-											</DialogFooter>
-										</DialogContent>
-									</Dialog>
+											</div>
+										</Dialog>
+									</DialogRoot>
 								</div>
 
 								{apiKeys.loading ? (
@@ -835,103 +430,107 @@ export default function SettingsPage() {
 									</div>
 								) : (
 									<>
-										<Table>
-											<TableCaption>
-												Active keys for SDK usage
-											</TableCaption>
-											<TableHeader>
-												<TableRow>
-													<TableHead>Name</TableHead>
-													<TableHead>
-														Preview
-													</TableHead>
-													<TableHead>
-														Created
-													</TableHead>
-													<TableHead>
-														Last used
-													</TableHead>
-													<TableHead>
-														Status
-													</TableHead>
-													<TableHead className="text-right">
-														Actions
-													</TableHead>
-												</TableRow>
-											</TableHeader>
-											<TableBody>
-												{apiKeys.keys.map((k) => (
-													<TableRow key={k.id}>
-														<TableCell className="font-medium">
-															{k.name}
-														</TableCell>
-														<TableCell className="font-mono text-xs text-text-secondary">
-															{k.keyPreview}
-														</TableCell>
-														<TableCell className="text-text-secondary">
-															{k.createdAt
-																? new Date(
-																		k.createdAt,
-																	).toLocaleDateString()
-																: '—'}
-														</TableCell>
-														<TableCell className="text-text-secondary">
-															{k.lastUsed
-																? new Date(
-																		k.lastUsed,
-																	).toLocaleDateString()
-																: '—'}
-														</TableCell>
-														<TableCell>
-															{k.isActive ? (
-																<Badge
-																	variant="secondary"
-																	className="bg-green-100 text-green-800 dark:bg-green-950 dark:text-green-200"
+										<p className="mb-2 text-sm text-kumo-subtle">
+											Active keys for SDK usage
+										</p>
+										<LayerCard className="overflow-x-auto p-0">
+											<Table>
+												<Table.Header>
+													<Table.Row>
+														<Table.Head>
+															Name
+														</Table.Head>
+														<Table.Head>
+															Preview
+														</Table.Head>
+														<Table.Head>
+															Created
+														</Table.Head>
+														<Table.Head>
+															Last used
+														</Table.Head>
+														<Table.Head>
+															Status
+														</Table.Head>
+														<Table.Head className="text-right">
+															Actions
+														</Table.Head>
+													</Table.Row>
+												</Table.Header>
+												<Table.Body>
+													{apiKeys.keys.map((k) => (
+														<Table.Row key={k.id}>
+															<Table.Cell className="font-medium">
+																{k.name}
+															</Table.Cell>
+															<Table.Cell className="font-mono text-[0.9em] text-kumo-subtle">
+																{k.keyPreview}
+															</Table.Cell>
+															<Table.Cell className="text-kumo-subtle">
+																{k.createdAt
+																	? new Date(
+																			k.createdAt,
+																		).toLocaleDateString()
+																	: '—'}
+															</Table.Cell>
+															<Table.Cell className="text-kumo-subtle">
+																{k.lastUsed
+																	? new Date(
+																			k.lastUsed,
+																		).toLocaleDateString()
+																	: '—'}
+															</Table.Cell>
+															<Table.Cell>
+																{k.isActive ? (
+																	<Badge
+																		variant="secondary"
+																		className="bg-green-100 text-green-800 dark:bg-green-950 dark:text-green-200"
+																	>
+																		Active
+																	</Badge>
+																) : (
+																	<Badge variant="secondary">
+																		Revoked
+																	</Badge>
+																)}
+															</Table.Cell>
+															<Table.Cell className="text-right">
+																<Button
+																	variant="secondary-destructive"
+																	size="sm"
+																	disabled={
+																		!k.isActive
+																	}
+																	onClick={() =>
+																		setKeyToRevoke(
+																			k,
+																		)
+																	}
+																	className="gap-2"
 																>
-																	Active
-																</Badge>
-															) : (
-																<Badge variant="secondary">
-																	Revoked
-																</Badge>
-															)}
-														</TableCell>
-														<TableCell className="text-right">
-															<KumoButton
-																variant="secondary-destructive"
-																size="sm"
-																disabled={
-																	!k.isActive
-																}
-																onClick={() =>
-																	setKeyToRevoke(
-																		k,
-																	)
-																}
-																className="gap-2"
-															>
-																<Trash2 className="size-4" />
-																Revoke
-															</KumoButton>
-														</TableCell>
-													</TableRow>
-												))}
-											</TableBody>
-										</Table>
+																	<Trash2 className="size-4" />
+																	Revoke
+																</Button>
+															</Table.Cell>
+														</Table.Row>
+													))}
+												</Table.Body>
+											</Table>
+										</LayerCard>
 
-										<KumoDialogRoot
+										<DialogRoot
 											role="alertdialog"
 											open={!!keyToRevoke}
 											onOpenChange={(open) =>
 												!open && setKeyToRevoke(null)
 											}
 										>
-											<KumoDialog className="p-8">
+											<Dialog className="p-8">
 												<div className="mb-4 grid gap-1.5">
-													<KumoDialogTitle className="text-xl font-semibold">
+													<DialogTitle className="text-xl font-semibold">
 														Revoke API key?
-													</KumoDialogTitle>
-													<KumoDialogDescription className="text-kumo-subtle">
+													</DialogTitle>
+													<DialogDescription className="text-kumo-subtle">
 														This will immediately
 														disable the key{' '}
 														<span className="font-mono text-[0.9em]">
@@ -941,12 +540,12 @@ export default function SettingsPage() {
 														</span>
 														. Any SDK clients using
 														it will stop working.
-													</KumoDialogDescription>
+													</DialogDescription>
 												</div>
 												<div className="mt-8 flex justify-end gap-2">
-													<KumoDialogClose
+													<DialogClose
 														render={(props) => (
-															<KumoButton
+															<Button
 																variant="secondary"
 																{...props}
 																disabled={
@@ -954,10 +553,10 @@ export default function SettingsPage() {
 																}
 															>
 																Cancel
-															</KumoButton>
+															</Button>
 														)}
 													/>
-													<KumoButton
+													<Button
 														variant="destructive"
 														onClick={() => {
 															void handleRevokeApiKey();
@@ -966,10 +565,10 @@ export default function SettingsPage() {
 														loading={revokingKey}
 													>
 														Revoke key
-													</KumoButton>
+													</Button>
 												</div>
-											</KumoDialog>
-										</KumoDialogRoot>
+											</Dialog>
+										</DialogRoot>
 									</>
 								)}
 							</div>
@@ -1035,7 +634,7 @@ export default function SettingsPage() {
 														{session.isCurrent ? (
 															<div className="bg-green-400 size-3 rounded-full ring-2 ring-green-200 animate-pulse" />
 														) : (
-															<KumoButton
+															<Button
 																variant="secondary"
 																size="sm"
 																onClick={() =>
@@ -1045,7 +644,7 @@ export default function SettingsPage() {
 																}
 															>
 																Revoke
-															</KumoButton>
+															</Button>
 														)}
 													</div>
 												</div>
@@ -1075,10 +674,10 @@ export default function SettingsPage() {
 									</p>
 								</div>
 
-								<KumoDialogRoot role="alertdialog">
-									<KumoDialogTrigger
+								<DialogRoot role="alertdialog">
+									<DialogTrigger
 										render={(p) => (
-											<KumoButton
+											<Button
 												{...p}
 												variant="destructive"
 												className="gap-2"
@@ -1088,35 +687,35 @@ export default function SettingsPage() {
 													className="size-4"
 												/>
 												Delete account
-											</KumoButton>
+											</Button>
 										)}
 									/>
-									<KumoDialog className="p-8">
+									<Dialog className="p-8">
 										<div className="mb-4 grid gap-1.5">
-											<KumoDialogTitle className="text-xl font-semibold">
+											<DialogTitle className="text-xl font-semibold">
 												Delete account?
-											</KumoDialogTitle>
-											<KumoDialogDescription className="text-kumo-subtle">
+											</DialogTitle>
+											<DialogDescription className="text-kumo-subtle">
 												This action cannot be undone.
 												This will permanently delete
 												your account and remove all your
 												data from our servers.
-											</KumoDialogDescription>
+											</DialogDescription>
 										</div>
 										<div className="mt-8 flex justify-end gap-2">
-											<KumoDialogClose
+											<DialogClose
 												render={(props) => (
-													<KumoButton
+													<Button
 														variant="secondary"
 														{...props}
 													>
 														Cancel
-													</KumoButton>
+													</Button>
 												)}
 											/>
-											<KumoDialogClose
+											<DialogClose
 												render={(props) => (
-													<KumoButton
+													<Button
 														variant="destructive"
 														{...props}
 														onClick={(e) => {
@@ -1125,12 +724,12 @@ export default function SettingsPage() {
 														}}
 													>
 														Delete account
-													</KumoButton>
+													</Button>
 												)}
 											/>
 										</div>
-									</KumoDialog>
-								</KumoDialogRoot>
+									</Dialog>
+								</DialogRoot>
 							</div>
 						</LayerCard.Primary>
 					</LayerCard>

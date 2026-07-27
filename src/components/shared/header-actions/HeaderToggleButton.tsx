@@ -21,8 +21,8 @@ export function HeaderToggleButton({
 			className={clsx(
 				'group relative flex items-center gap-1.5 p-1.5 group-hover:pl-2 group-hover:pr-2.5 rounded-full group-hover:rounded-md transition-all duration-300 ease-in-out border hover:shadow-sm overflow-hidden',
 				active
-					? 'bg-brand-primary/20 border-brand-primary text-brand-primary'
-					: 'hover:bg-bg-4 border-transparent hover:border-border-primary',
+					? 'bg-brand-primary/20 text-brand-primary'
+					: 'hover:bg-bg-4 border-transparent',
 			)}
 			onClick={onClick}
 			title={title}

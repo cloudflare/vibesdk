@@ -201,7 +201,7 @@ export function LoginModal({
 						transition={{ type: 'spring', duration: 0.5 }}
 						className="relative z-10 w-full max-w-md mx-auto my-8"
 					>
-						<div className="bg-kumo-base/95 backdrop-blur-xl text-text-primary border border-border-primary/50 rounded-2xl shadow-2xl overflow-hidden">
+						<div className="bg-kumo-base/95 backdrop-blur-xl text-text-primary border rounded-2xl shadow-2xl overflow-hidden">
 							{/* Header */}
 							<div className="relative p-6 pb-0">
 								{showCloseButton && (
@@ -292,7 +292,7 @@ export function LoginModal({
 									whileTap={{ scale: 0.98 }}
 									onClick={() => handleOAuthClick('google')}
 									// disabled={isLoading}
-									className="w-full group relative overflow-hidden rounded-xl bg-white dark:bg-bg-4 p-4 text-gray-800 dark:text-text-primary transition-all hover:bg-gray-50 dark:hover:bg-bg-4/80 border border-gray-200 dark:border-border-primary disabled:opacity-50 disabled:cursor-not-allowed"
+									className="w-full group relative overflow-hidden rounded-xl bg-white dark:bg-bg-4 p-4 text-gray-800 dark:text-text-primary transition-all hover:bg-gray-50 dark:hover:bg-bg-4/80 border border-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
 								>
 									<div className="relative z-10 flex items-center justify-center gap-3">
 										<svg
@@ -345,7 +345,7 @@ export function LoginModal({
 								{hasEmailAuth && hasOAuth && (
 									<div className="relative">
 										<div className="absolute inset-0 flex items-center">
-											<div className="w-full border-t border-border" />
+											<div className="w-full border-t" />
 										</div>
 										<div className="relative flex justify-center text-xs uppercase">
 											<span className="bg-background px-2 text-muted-foreground">Or continue with</span>
@@ -365,7 +365,7 @@ export function LoginModal({
 													onChange={(e) => setName(e.target.value)}
 													className={clsx(
 														'w-full p-3 rounded-lg border bg-background transition-colors',
-														validationErrors.name ? 'border-destructive' : 'border-border focus:border-primary'
+														validationErrors.name ? 'border-destructive' : 'focus:border-primary'
 													)}
 													disabled={isLoading}
 												/>
@@ -383,7 +383,7 @@ export function LoginModal({
 												onChange={(e) => setEmail(e.target.value)}
 												className={clsx(
 													'w-full p-3 rounded-lg border bg-background transition-colors',
-													validationErrors.email ? 'border-destructive' : 'border-border focus:border-primary'
+													validationErrors.email ? 'border-destructive' : 'focus:border-primary'
 												)}
 												disabled={isLoading}
 											/>
@@ -400,7 +400,7 @@ export function LoginModal({
 												onChange={(e) => setPassword(e.target.value)}
 												className={clsx(
 													'w-full p-3 pr-10 rounded-lg border bg-background transition-colors',
-													validationErrors.password ? 'border-destructive' : 'border-border focus:border-primary'
+													validationErrors.password ? 'border-destructive' : 'focus:border-primary'
 												)}
 												disabled={isLoading}
 											/>
@@ -426,7 +426,7 @@ export function LoginModal({
 													onChange={(e) => setConfirmPassword(e.target.value)}
 													className={clsx(
 														'w-full p-3 rounded-lg border bg-background transition-colors',
-														validationErrors.confirmPassword ? 'border-destructive' : 'border-border focus:border-primary'
+														validationErrors.confirmPassword ? 'border-destructive' : 'focus:border-primary'
 													)}
 													disabled={isLoading}
 												/>
