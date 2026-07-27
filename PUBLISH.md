@@ -118,10 +118,11 @@ gh run watch
 Authentication is OIDC trusted publishing (`permissions: id-token: write`). There is no
 `NODE_AUTH_TOKEN`. npm generates an SLSA provenance attestation automatically.
 
-Confirm the result:
+Confirm the result. Run this **outside** the repository — the root manifest's
+`devEngines` requires pnpm, so npm commands fail with `EBADDEVENGINES` from inside it:
 
 ```sh
-npm view artifacts-viewer dist-tags
+(cd /tmp && npm view artifacts-viewer dist-tags)
 ```
 
 ---
