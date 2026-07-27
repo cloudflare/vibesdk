@@ -116,7 +116,7 @@ async function deployBranch(
   // platform extracts the LLM's `class App extends DurableObject`
   // automatically (it runs as a SpaceDO Facet); declaring DO bindings
   // would do nothing and confuse the user.
-  if (wranglerCfg.durableObjects && wranglerCfg.durableObjects.length > 0) {
+  if (wranglerCfg.durableObjects?.length) {
     return jsonResponse(
       {
         error: "Durable Object bindings are not allowed in wrangler.json",
@@ -127,33 +127,35 @@ async function deployBranch(
     )
   }
 
-  let mainModule: string
-  let serializedModules: Record<string, string | Record<string, unknown>>
-  let serializedAssets: Record<string, string> = {}
-  let assetConfig: AssetConfig | undefined
-
+  let build: {
+    mainModule: string
+    modules: Record<string, string | Record<string, unknown>>
+    assets: Record<string, string>
+    assetConfig: AssetConfig | undefined
+  }
   try {
     // Collect static assets from configured directory
     const assetsDir = wranglerCfg.assets?.directory?.replace(/^\.?\//, "").replace(/\/$/, "")
-    const collectedAssets: Record<string, string> = {}
-
-    if (assetsDir) {
-      for (const [path, content] of Object.entries(files)) {
-        if (path.startsWith(assetsDir + "/") || path === assetsDir) {
-          // Map to URL pathname: public/index.html → /index.html
-          const urlPath = "/" + path.slice(assetsDir.length + 1)
-          collectedAssets[urlPath] = content
+    const collectedAssets = assetsDir
+      ? Object.fromEntries(
+          Object.entries(files)
+            .filter(([path]) => path === assetsDir || path.startsWith(`${assetsDir}/`))
+            // Map to URL pathname: public/index.html → /index.html
+            .map(([path, content]) => [`/${path.slice(assetsDir.length + 1)}`, content])
+        )
+      : {}
+    const assetConfig: AssetConfig | undefined = assetsDir
+      ? {
+          ...(wranglerCfg.assets?.notFoundHandling && {
+            not_found_handling: wranglerCfg.assets.notFoundHandling,
+          }),
+          ...(wranglerCfg.assets?.htmlHandling && {
+            html_handling: wranglerCfg.assets.htmlHandling,
+          }),
         }
-      }
+      : undefined
 
-      assetConfig = {}
-      if (wranglerCfg.assets?.notFoundHandling) assetConfig.not_found_handling = wranglerCfg.assets.notFoundHandling
-      if (wranglerCfg.assets?.htmlHandling) assetConfig.html_handling = wranglerCfg.assets.htmlHandling
-    }
-
-    const hasAssets = Object.keys(collectedAssets).length > 0
-
-    if (hasAssets) {
+    if (Object.keys(collectedAssets).length) {
       // Full-stack build: server + client + static assets
       const result = await createApp({
         files,
@@ -161,27 +163,34 @@ async function deployBranch(
         assetConfig,
         server: wranglerCfg.main,
       })
-      mainModule = result.mainModule
-      serializedModules = serializeModules(result.modules)
-      serializedAssets = serializeAssets(result.assets)
-      assetConfig = result.assetConfig
+      build = {
+        mainModule: result.mainModule,
+        modules: serializeModules(result.modules),
+        assets: serializeAssets(result.assets),
+        assetConfig: result.assetConfig,
+      }
     } else {
       // Server-only build (no assets)
       const result = await createWorker({ files, entryPoint: wranglerCfg.main })
-      mainModule = result.mainModule
-      serializedModules = serializeModules(result.modules)
+      const modules = serializeModules(result.modules)
 
       // Inject __STATIC_CONTENT_MANIFEST if the bundler left it as an external import.
-      if (!serializedModules["__STATIC_CONTENT_MANIFEST"]) {
-        serializedModules["__STATIC_CONTENT_MANIFEST"] = { text: "{}" }
+      modules["__STATIC_CONTENT_MANIFEST"] ??= { text: "{}" }
+      build = {
+        mainModule: result.mainModule,
+        modules,
+        assets: {},
+        assetConfig,
       }
     }
-  } catch (e: any) {
+  } catch (e) {
     return jsonResponse({
       error: "Build failed",
-      details: e.message ?? String(e),
+      details: e instanceof Error ? e.message : String(e),
     }, 400)
   }
+
+  const { mainModule, modules: serializedModules, assets: serializedAssets, assetConfig } = build
 
   const now = Date.now()
   ctx.sql.exec(

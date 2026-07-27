@@ -19,7 +19,7 @@
 ## Boundaries
 - `src/` is the React app (`src/main.tsx`, routes in `src/routes.ts`). API contracts live in `src/api-types.ts`; frontend HTTP calls belong in `src/lib/api-client.ts`.
 - `worker/index.ts` is the Worker entrypoint and Durable Object export surface. Hono middleware/routes are wired by `worker/app.ts` and `worker/api/routes/index.ts`.
-- `space/` is the only declared workspace package. It provides the git-backed `SpaceDO` used by the think agent and is bundled before the root app; edit implementation in `space/src`, never generated `space/dist`, and keep the hand-maintained `space/types/index.d.ts` aligned with public exports.
+- `space/` is the only declared workspace package. It provides the `SpaceDO` workspace and file layer used by the think agent, with durable git history stored through Cloudflare Artifacts, and is bundled before the root app; edit implementation in `space/src`, never generated `space/dist`, and keep the hand-maintained `space/types/index.d.ts` aligned with public exports.
 - `sdk/` is an independent Bun package with its own lockfile, scripts, and tests. It imports the platform WebSocket protocol from `worker/api/websocketTypes.ts`, so protocol changes must remain SDK-compatible.
 - Shared frontend/backend types belong in `shared/`; Worker-only types stay under `worker/`.
 
@@ -27,6 +27,7 @@
 - API endpoint: update `src/api-types.ts` -> `src/lib/api-client.ts` -> `worker/database/services/` (when persistence is needed) -> `worker/api/controllers/` -> `worker/api/routes/`, then register the route in `worker/api/routes/index.ts`.
 - WebSocket message: update `worker/api/websocketTypes.ts`, backend handling in `worker/agents/core/websocket.ts`, and frontend handling in `src/routes/chat/utils/handle-websocket-message.ts`; verify SDK tests because its protocol re-exports these types.
 - LLM tool: add it under `worker/agents/tools/toolkit/` and register it in `worker/agents/tools/customTools.ts` (`buildTools` or `buildDebugTools`). The think behavior has a separate tool path and bypasses `buildTools`.
+- Think tool: create it under `worker/agents/think/`, add SpaceDO RPC typing if needed, register it in `ThinkAgent.getTools()`, and update the relevant prompt or skill.
 - D1 schema source is `worker/database/schema.ts`; generate migrations into `migrations/` with `bun run db:generate`, then apply locally with `bun run db:migrate:local`.
 - After changing Wrangler bindings, run `bun run cf-typegen`; `worker-configuration.d.ts` is consumed by setup and TypeScript configs.
 
