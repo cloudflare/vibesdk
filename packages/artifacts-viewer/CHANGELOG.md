@@ -1,7 +1,9 @@
 # artifacts-viewer
 
-## 0.1.0
+## 0.0.1
 
-### Minor changes
+### Patch changes
 
-- Establish isolated package entry points and the initial `ArtifactRepoViewer` foundation component.
+- Add `routeArtifactRequest`, a read-only HTTP router for the seven official Cloudflare Artifacts read operations.
+- Add `createCacheApiAdapter` and `createKvCacheAdapter` under `artifacts-viewer/server/cache`, caching content-addressed reads only.
+- Establish the `artifacts-viewer`, `/client`, `/react`, and `/styles.css` entry points. The client and React surfaces are not implemented yet.
