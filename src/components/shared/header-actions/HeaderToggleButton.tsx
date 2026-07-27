@@ -21,7 +21,7 @@ export function HeaderToggleButton({
 			className={clsx(
 				'group relative flex items-center gap-1.5 p-1.5 group-hover:pl-2 group-hover:pr-2.5 rounded-full group-hover:rounded-md transition-all duration-300 ease-in-out border hover:shadow-sm overflow-hidden',
 				active
-					? 'bg-brand-primary/20 text-brand-primary'
+					? 'bg-brand-primary/20 text-kumo-brand-primary'
 					: 'hover:bg-bg-4 border-transparent',
 			)}
 			onClick={onClick}
@@ -31,7 +31,7 @@ export function HeaderToggleButton({
 			<Icon
 				className={clsx(
 					'size-3.5 transition-colors duration-300',
-					active ? 'text-brand-primary' : 'text-text-primary/60 group-hover:text-brand-primary',
+					active ? 'text-kumo-brand-primary' : 'text-text-primary/60 group-hover:text-kumo-brand-primary',
 				)}
 			/>
 			{label && (

@@ -119,7 +119,7 @@ export function GitCloneModal({
 			<DialogContent className="sm:max-w-[550px] max-w-[calc(100%-2rem)]">
 				<DialogHeader>
 					<DialogTitle className="flex items-center gap-2">
-						<GitBranch className="h-5 w-5 text-brand-primary" />
+						<GitBranch className="h-5 w-5 text-kumo-brand-primary" />
 						Clone Repository
 					</DialogTitle>
 					<DialogDescription>
@@ -181,7 +181,7 @@ export function GitCloneModal({
 							{!tokenData ? (
 								<div className="space-y-4">
 									<div className="flex items-start gap-3 p-4 rounded-lg bg-bg-4 border">
-										<AlertCircle className="h-5 w-5 text-brand-primary mt-0.5" />
+										<AlertCircle className="h-5 w-5 text-kumo-brand-primary mt-0.5" />
 										<div className="flex-1 space-y-1">
 											<p className="text-sm font-medium text-text-primary">
 												Private Repository
@@ -271,7 +271,7 @@ export function GitCloneModal({
 									</div>
 
 									<div className="flex items-center gap-2 p-3 rounded-lg bg-bg-4 border">
-										<Clock className="h-4 w-4 text-brand-primary" />
+										<Clock className="h-4 w-4 text-kumo-brand-primary" />
 										<span className="text-sm text-text-secondary">
 											Token expires in:{' '}
 											<span className="font-medium text-text-primary">

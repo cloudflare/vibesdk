@@ -3,6 +3,118 @@
 @import 'tailwindcss';
 @import 'tw-animate-css';
 
+@custom-variant dark (&:where([data-mode=dark], [data-mode=dark] *));
+@plugin '@tailwindcss/typography';
+
+@font-face {
+	font-family: 'Departure Mono';
+	src: url('./assets/fonts/DepartureMono-Regular.woff');
+}
+
+@theme inline {
+	--radius-sm: calc(var(--radius) - 4px);
+	--radius-md: calc(var(--radius) - 2px);
+	--radius-lg: var(--radius);
+	--radius-xl: calc(var(--radius) + 4px);
+	--color-destructive: var(--destructive);
+	--color-input: var(--input);
+	--color-ring: var(--ring);
+
+	--color-bg-1: var(--build-chat-colors-bg-1);
+	--color-bg-2: var(--build-chat-colors-bg-2);
+	--color-bg-3: var(--build-chat-colors-bg-3);
+	--color-bg-4: var(--build-chat-colors-bg-4);
+	--color-border-primary: var(--build-chat-colors-border-primary);
+	--color-border-secondary: var(--build-chat-colors-border-secondary);
+	--color-border-tertiary: var(--build-chat-colors-border-tertiary);
+	--color-danger: var(--build-chat-colors-danger);
+	--color-brand-primary: var(--build-chat-colors-brand-primary);
+	--color-brand-light: var(--build-chat-colors-brand-light);
+	--color-text-inverted: var(--build-chat-colors-text-inverted);
+	--color-text-primary: var(--build-chat-colors-text-primary);
+	--color-text-secondary: var(--build-chat-colors-text-secondary);
+	--color-text-tertiary: var(--build-chat-colors-text-tertiary);
+
+	--animate-typing-dot: typing-dot 1.2s ease-in-out infinite;
+	--animate-shake: shake 1s ease-in-out;
+}
+
+@theme {
+	--font-sans:
+		'Inter', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji',
+		'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
+	--font-funky-mono: 'Departure Mono', var(--font-mono);
+
+	--color-brand: #ff3d00;
+	--color-text: #000;
+}
+
+@layer base {
+	:root {
+		--radius: 0.625rem;
+		--destructive: oklch(0.577 0.245 27.325);
+		--border: oklch(0.922 0 0);
+		--input: oklch(0.922 0 0);
+		--ring: oklch(0.708 0 0);
+		--build-chat-colors-bg-1: #e7e7e7;
+		--build-chat-colors-bg-2: #f6f6f6;
+		--build-chat-colors-bg-3: #fbfbfc;
+		--build-chat-colors-bg-4: #ffffff;
+		--build-chat-colors-border-primary: #e5e5e5;
+		--build-chat-colors-border-secondary: #eeeeee;
+		--build-chat-colors-border-tertiary: #eeeeee;
+		--build-chat-colors-danger: #950000cc;
+		--build-chat-colors-brand-primary: #f6821f;
+		--build-chat-colors-brand-light: #faae42;
+		--build-chat-colors-text-inverted: #ffffff;
+		--build-chat-colors-text-primary: #0a0a0a;
+		--build-chat-colors-text-secondary: #171717;
+		--build-chat-colors-text-tertiary: #21212199;
+	}
+
+	[data-mode='dark'] {
+		--destructive: #ef4444; /* Error red */
+		--border: #393939; /* Primary border color */
+		--input: #292929; /* Input background */
+
+		--build-chat-colors-bg-1: #151515;
+		--build-chat-colors-bg-2: #1f2020;
+		--build-chat-colors-bg-3: #292929;
+		--build-chat-colors-bg-4: #3c3c3c;
+		--build-chat-colors-border-primary: #393939;
+		--build-chat-colors-border-secondary: #454746;
+		--build-chat-colors-border-tertiary: #454746;
+		--build-chat-colors-brand-primary: #f6821f;
+		--build-chat-colors-brand-light: #faae42;
+		--build-chat-colors-text-inverted: #000000;
+		--build-chat-colors-text-primary: #ffffff;
+		--build-chat-colors-text-secondary: #cdcaca;
+		--build-chat-colors-text-tertiary: #bcb9b9;
+	}
+
+	* {
+		@apply border-kumo-line outline-ring/50;
+	}
+
+	html,
+	body,
+	#root {
+		height: 100%;
+	}
+
+	body {
+		@apply bg-kumo-base text-kumo-default;
+	}
+
+	button {
+		@apply cursor-pointer;
+	}
+
+	select {
+		@apply cursor-pointer;
+	}
+}
+
 .vibesdk-sidebar-wrapper {
 	height: 100svh;
 	--sidebar-width: 320px !important;
@@ -14,14 +126,6 @@
 	.vibesdk-sidebar-wrapper {
 		--sidebar-width: 18rem !important;
 	}
-}
-
-@custom-variant dark (&:where([data-mode=dark], [data-mode=dark] *));
-@plugin '@tailwindcss/typography';
-
-@font-face {
-	font-family: 'Departure Mono';
-	src: url('./assets/fonts/DepartureMono-Regular.woff');
 }
 
 /* Subtle chat edge throb effect */
@@ -137,16 +241,16 @@
 		),
 		/* Soft cool rim so the stage reads as lit, not flat orange */
 		radial-gradient(
-			ellipse 58% 46% at 50% 30%,
-			rgba(255, 255, 255, 0.06) 0%,
-			transparent 62%
-		),
+				ellipse 58% 46% at 50% 30%,
+				rgba(255, 255, 255, 0.06) 0%,
+				transparent 62%
+			),
 		/* Falloff — rest of page stays quiet */
 		radial-gradient(
-			ellipse 90% 75% at 50% 34%,
-			transparent 40%,
-			rgba(0, 0, 0, 0.35) 100%
-		);
+				ellipse 90% 75% at 50% 34%,
+				transparent 40%,
+				rgba(0, 0, 0, 0.35) 100%
+			);
 }
 
 :root:not([data-mode='dark']) .home-atmosphere__spotlight {
@@ -200,148 +304,7 @@
 	background: rgba(239, 68, 68, 0.6);
 }
 
-@theme inline {
-	--radius-sm: calc(var(--radius) - 4px);
-	--radius-md: calc(var(--radius) - 2px);
-	--radius-lg: var(--radius);
-	--radius-xl: calc(var(--radius) + 4px);
-	--color-destructive: var(--destructive);
-	--color-input: var(--input);
-	--color-ring: var(--ring);
-	--shadow-textarea:
-		6px 6px 13px 0px rgba(0, 0, 0, 0.04),
-		24px 24px 24px 0px rgba(0, 0, 0, 0.03),
-		53px 53px 32px 0px rgba(0, 0, 0, 0.02),
-		0px 0px 0px 1px rgba(217, 217, 217, 0.2);
-	--color-bg-1: var(--build-chat-colors-bg-1);
-	--color-bg-2: var(--build-chat-colors-bg-2);
-	--color-bg-3: var(--build-chat-colors-bg-3);
-	--color-bg-4: var(--build-chat-colors-bg-4);
-	--color-border-primary: var(--build-chat-colors-border-primary);
-	--color-border-secondary: var(--build-chat-colors-border-secondary);
-	--color-border-tertiary: var(--build-chat-colors-border-tertiary);
-	--color-danger: var(--build-chat-colors-danger);
-	--color-brand-primary: var(--build-chat-colors-brand-primary);
-	--color-brand-light: var(--build-chat-colors-brand-light);
-	--color-text-inverted: var(--build-chat-colors-text-inverted);
-	--color-text-primary: var(--build-chat-colors-text-primary);
-	--color-text-secondary: var(--build-chat-colors-text-secondary);
-	--color-text-tertiary: var(--build-chat-colors-text-tertiary);
 
-	--shadow-textarea:
-		6px 6px 13px 0px rgba(0, 0, 0, 0.04),
-		24px 24px 24px 0px rgba(0, 0, 0, 0.03),
-		53px 53px 32px 0px rgba(0, 0, 0, 0.02),
-		0px 0px 0px 1px rgba(217, 217, 217, 0.2);
-	--animate-typing-dot: typing-dot 1.2s ease-in-out infinite;
-	--animate-shake: shake 1s ease-in-out;
-}
-
-@layer base {
-	:root {
-		--radius: 0.625rem;
-		--destructive: oklch(0.577 0.245 27.325);
-		--border: oklch(0.922 0 0);
-		--input: oklch(0.922 0 0);
-		--ring: oklch(0.708 0 0);
-		--build-chat-colors-bg-1: #e7e7e7;
-		--build-chat-colors-bg-2: #f6f6f6;
-		--build-chat-colors-bg-3: #fbfbfc;
-		--build-chat-colors-bg-4: #ffffff;
-		--build-chat-colors-border-primary: #e5e5e5;
-		--build-chat-colors-border-secondary: #eeeeee;
-		--build-chat-colors-border-tertiary: #eeeeee;
-		--build-chat-colors-danger: #950000cc;
-		--build-chat-colors-brand-primary: #f6821f;
-		--build-chat-colors-brand-light: #faae42;
-		--build-chat-colors-text-inverted: #ffffff;
-		--build-chat-colors-text-primary: #0a0a0a;
-		--build-chat-colors-text-secondary: #171717;
-		--build-chat-colors-text-tertiary: #21212199;
-	}
-
-	[data-mode='dark'] {
-		--destructive: #ef4444; /* Error red */
-		--border: #393939; /* Primary border color */
-		--input: #292929; /* Input background */
-
-		--build-chat-colors-bg-1: #151515;
-		--build-chat-colors-bg-2: #1f2020;
-		--build-chat-colors-bg-3: #292929;
-		--build-chat-colors-bg-4: #3c3c3c;
-		--build-chat-colors-border-primary: #393939;
-		--build-chat-colors-border-secondary: #454746;
-		--build-chat-colors-border-tertiary: #454746;
-		--build-chat-colors-brand-primary: #f6821f;
-		--build-chat-colors-brand-light: #faae42;
-		--build-chat-colors-text-inverted: #000000;
-		--build-chat-colors-text-primary: #ffffff;
-		--build-chat-colors-text-secondary: #cdcaca;
-		--build-chat-colors-text-tertiary: #bcb9b9;
-
-		--shadow-dialog:
-			0px 18px 60px 0px rgba(6, 6, 5, 0.1),
-			3px 3px 13px 0px rgba(0, 0, 0, 0.04),
-			-3px 3px 13px 0px rgba(0, 0, 0, 0.04),
-			24px 24px 24px 0px rgba(0, 0, 0, 0.03),
-			-24px 24px 24px 0px rgba(0, 0, 0, 0.03),
-			53px 53px 32px 0px rgba(0, 0, 0, 0.02),
-			0px 0px 0px 1px rgba(217, 217, 217, 0.2);
-		--shadow-elevation:
-			6px 6px 13px 0px rgba(0, 0, 0, 0.2),
-			24px 24px 24px 0px rgba(0, 0, 0, 0.17),
-			53px 53px 32px 0px rgba(0, 0, 0, 0.12),
-			0px 0px 0px 1px rgba(217, 217, 217, 0.1);
-	}
-
-	* {
-		@apply border-kumo-line outline-ring/50;
-	}
-
-	html, body, #root {
-		height: 100%;
-	}
-
-	body {
-		@apply bg-kumo-base text-text-primary;
-	}
-
-	button {
-		@apply cursor-pointer;
-	}
-
-	select {
-		@apply cursor-pointer;
-	}
-}
-
-@theme {
-	--font-sans:
-		'Inter', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji',
-		'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
-	--font-funky-mono: 'Departure Mono', var(--font-mono);
-
-	--color-brand: #ff3d00;
-	--color-text: #000;
-	--color-text-on-brand: #fff;
-
-	--shadow-dialog:
-		0px 18px 60px 0px rgba(6, 6, 5, 0.1),
-		3px 3px 13px 0px rgba(0, 0, 0, 0.04),
-		-3px 3px 13px 0px rgba(0, 0, 0, 0.04),
-		24px 24px 24px 0px rgba(0, 0, 0, 0.03),
-		-24px 24px 24px 0px rgba(0, 0, 0, 0.03),
-		53px 53px 32px 0px rgba(0, 0, 0, 0.02),
-		0px 0px 0px 1px rgba(217, 217, 217, 0.2);
-	--shadow-elevation:
-		6px 6px 13px 0px rgba(0, 0, 0, 0.04),
-		24px 24px 24px 0px rgba(0, 0, 0, 0.03),
-		53px 53px 32px 0px rgba(0, 0, 0, 0.02),
-		0px 0px 0px 1px rgba(217, 217, 217, 0.2);
-	--shadow-soft-layered:
-		3px 3px 13px 0px rgba(0, 0, 0, 0.04),
-		24px 24px 24px 0px rgba(0, 0, 0, 0.03);
-}
 
 /* Hack from https://stackoverflow.com/a/71876526 */
 .monaco-editor {
@@ -383,10 +346,6 @@
 	syntax: '<angle>';
 	initial-value: 0deg;
 	inherits: false;
-}
-
-@utility bg-graph-paper {
-	background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100' viewBox='0 0 100 100'%3E%3Cg fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.08'%3E%3Cpath opacity='.5' d='M96 95h4v1h-4v4h-1v-4h-9v4h-1v-4h-9v4h-1v-4h-9v4h-1v-4h-9v4h-1v-4h-9v4h-1v-4h-9v4h-1v-4h-9v4h-1v-4h-9v4h-1v-4H0v-1h15v-9H0v-1h15v-9H0v-1h15v-9H0v-1h15v-9H0v-1h15v-9H0v-1h15v-9H0v-1h15v-9H0v-1h15v-9H0v-1h15v-9H0v-1h15v-9H0v-1h15v-9H0v-1h15V0h1v15h9V0h1v15h9V0h1v15h9V0h1v15h9V0h1v15h9V0h1v15h9V0h1v15h9V0h1v15h9V0h1v15h9V0h1v15h4v1h-4v9h4v1h-4v9h4v1h-4v9h4v1h-4v9h4v1h-4v9h4v1h-4v9h4v1h-4v9h4v1h-4v9zm-1 0v-9h-9v9h9zm-10 0v-9h-9v9h9zm-10 0v-9h-9v9h9zm-10 0v-9h-9v9h9zm-10 0v-9h-9v9h9zm-10 0v-9h-9v9h9zm-10 0v-9h-9v9h9zm-10 0v-9h-9v9h9zm-9-10h9v-9h-9v9zm10 0h9v-9h-9v9zm10 0h9v-9h-9v9zm10 0h9v-9h-9v9zm10 0h9v-9h-9v9zm10 0h9v-9h-9v9zm10 0h9v-9h-9v9zm10 0h9v-9h-9v9zm9-10v-9h-9v9h9zm-10 0v-9h-9v9h9zm-10 0v-9h-9v9h9zm-10 0v-9h-9v9h9zm-10 0v-9h-9v9h9zm-10 0v-9h-9v9h9zm-10 0v-9h-9v9h9zm-10 0v-9h-9v9h9zm-9-10h9v-9h-9v9zm10 0h9v-9h-9v9zm10 0h9v-9h-9v9zm10 0h9v-9h-9v9zm10 0h9v-9h-9v9zm10 0h9v-9h-9v9zm10 0h9v-9h-9v9zm10 0h9v-9h-9v9zm9-10v-9h-9v9h9zm-10 0v-9h-9v9h9zm-10 0v-9h-9v9h9zm-10 0v-9h-9v9h9zm-10 0v-9h-9v9h9zm-10 0v-9h-9v9h9zm-10 0v-9h-9v9h9zm-10 0v-9h-9v9h9zm-9-10h9v-9h-9v9zm10 0h9v-9h-9v9zm10 0h9v-9h-9v9zm10 0h9v-9h-9v9zm10 0h9v-9h-9v9zm10 0h9v-9h-9v9zm10 0h9v-9h-9v9zm10 0h9v-9h-9v9z'/%3E%3Cpath d='M6 5V0H5v5H0v1h5v94h1V6h94V5H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
 }
 
 ::-webkit-scrollbar {
@@ -481,7 +440,7 @@
 }
 
 .a-tag a {
-	@apply text-brand;
+	@apply text-kumo-brand;
 }
 
 .prose {

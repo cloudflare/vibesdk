@@ -220,7 +220,7 @@ function BannerContent({
 			style={style}
 			className={`flex items-center justify-between px-3 py-1.5 bg-kumo-elevated border border-brand-primary/30 shadow-md ${style?.borderTopLeftRadius !== undefined ? '' : 'rounded-lg'} ${className ?? ''}`}
 		>
-			<span className="text-xs font-medium text-brand-primary">
+			<span className="text-xs font-medium text-kumo-brand-primary">
 				{bannerInfo.content}
 			</span>
 			<div className="flex items-center gap-1.5">

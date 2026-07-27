@@ -78,7 +78,7 @@ export const VisibilityFilter: React.FC<VisibilityFilterProps> = ({
             <span className="relative flex items-center gap-1.5">
               <Icon className={cn(
                 "h-3 w-3 transition-colors duration-200",
-                isActive && "text-brand"
+                isActive && "text-kumo-brand"
               )} />
               <span>{option.label}</span>
             </span>

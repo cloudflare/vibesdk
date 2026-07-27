@@ -64,7 +64,7 @@ export default function AppsPage() {
 	};
 
 	return (
-		<div className="min-h-screen bg-kumo-base">
+		<div className="size-full">
 			<div className="container mx-auto px-4 py-8">
 				<motion.div
 					initial={{ opacity: 0, y: -20 }}
@@ -73,7 +73,7 @@ export default function AppsPage() {
 				>
 					{/* Header */}
 					<div className="mb-8">
-						<h1 className="text-6xl font-bold mb-3 font-funky-mono text-brand">
+						<h1 className="text-6xl font-bold mb-3 font-funky-mono text-kumo-brand">
 							MY APPS
 						</h1>
 						<p className="text-text-tertiary text-lg">

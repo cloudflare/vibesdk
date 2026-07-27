@@ -357,18 +357,18 @@ export function DeploymentControls({
 					{/* Shareable Link - Only shown when app is public */}
 					{localVisibility === 'public' && appId && (
 						<div className="bg-brand/5 border border-brand/20 rounded-md p-3 mb-3">
-							<div className="text-xs text-brand font-medium mb-1 flex items-center gap-1">
+							<div className="text-xs text-kumo-brand font-medium mb-1 flex items-center gap-1">
 								<Share2 className="w-3 h-3" />
 								Shareable Link:
 							</div>
 							<div className="flex items-center gap-2">
-								<code className="flex-1 text-sm font-mono text-brand bg-brand/5 px-2 py-1 rounded text-ellipsis overflow-hidden">
+								<code className="flex-1 text-sm font-mono text-kumo-brand bg-brand/5 px-2 py-1 rounded text-ellipsis overflow-hidden">
 									{window.location.origin}/app/{appId}
 								</code>
 								<Button
 									onClick={() => copyLink(`${window.location.origin}/app/${appId}`)}
 									variant="secondary"
-									className="h-7 px-2 text-xs bg-brand/10 border border-brand/30 text-brand hover:bg-brand/20 transition-all flex-shrink-0"
+									className="h-7 px-2 text-xs bg-brand/10 border border-brand/30 text-kumo-brand hover:bg-brand/20 transition-all flex-shrink-0"
 								>
 									{linkCopied ? 'Copied!' : 'Copy Link'}
 								</Button>

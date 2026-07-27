@@ -77,7 +77,7 @@ export function PresentationPreview({
 				className="shrink-0 w-[260px] lg:w-[280px] xl:w-[300px] bg-kumo-base border-r h-full overflow-y-auto"
 			>
 				<div className={`${HEADER_STYLES.padding} ${HEADER_STYLES.container} flex items-center gap-2 ${HEADER_STYLES.textBase} font-semibold`}>
-					<Presentation className="size-4 text-brand" />
+					<Presentation className="size-4 text-kumo-brand" />
 					<span>Slides</span>
 					<span className="ml-auto text-xs font-mono text-text-50/50">
 						{slideFiles.length}
@@ -101,7 +101,7 @@ export function PresentationPreview({
 								className={clsx(
 									'absolute top-2 left-2 z-10 text-xs font-medium px-2 py-0.5 rounded backdrop-blur-sm',
 									slide.index === currentSlideIndex
-										? 'bg-brand text-text-on-brand'
+										? 'bg-brand text-white'
 										: 'bg-bg-4/95 text-text-50/70 border',
 								)}
 							>
@@ -150,7 +150,7 @@ export function PresentationPreview({
 									<div className="absolute inset-0 bg-brand/20 backdrop-blur-sm flex items-center justify-center z-20">
 										<div className="flex flex-col items-center gap-2">
 											<div className="size-4 border-2 border-text-on-brand/30 border-t-text-on-brand rounded-full animate-spin" />
-											<span className="text-xs font-medium text-text-on-brand">
+											<span className="text-xs font-medium text-white">
 												Updating...
 											</span>
 										</div>
@@ -183,7 +183,7 @@ export function PresentationPreview({
 						<div className="flex flex-col border border-text/10 rounded-lg overflow-hidden">
 							<div className="px-3 py-2 bg-kumo-elevated border-b border-text/10">
 								<div className="flex items-center gap-2">
-									<Presentation className="size-4 text-brand" />
+									<Presentation className="size-4 text-kumo-brand" />
 									<span className="text-sm font-medium text-text-primary">
 										Current Slide
 									</span>
@@ -245,7 +245,7 @@ export function PresentationPreview({
 						<div className="flex flex-col border border-text/10 rounded-lg overflow-hidden">
 							<div className="px-3 py-2 bg-kumo-elevated border-b border-text/10">
 								<div className="flex items-center gap-2">
-									<Presentation className="size-4 text-brand" />
+									<Presentation className="size-4 text-kumo-brand" />
 									<span className="text-sm font-medium text-text-primary">
 										Current
 									</span>

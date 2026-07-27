@@ -57,9 +57,9 @@ export function GlobalHeader() {
 										className={`flex max-w-full items-center gap-2 rounded-full border border-brand/40 bg-bg-4/80 px-3 ml-4 py-1.5 text-xs text-text-primary shadow-sm backdrop-blur transition-colors hover:bg-brand/10 focus:outline-none focus:ring-2 focus:ring-brand/40 dark:border-brand/30 dark:bg-kumo-elevated/80 md:text-sm${!hasChangeLogs ? ' opacity-50 cursor-not-allowed pointer-events-none' : ''}`}
 										aria-label="Platform updates"
 									>
-										<AlertCircle className="h-4 w-4 text-brand" />
+										<AlertCircle className="h-4 w-4 text-kumo-brand" />
 										<span className="truncate max-w-[46ch] md:max-w-[60ch]">{status.globalUserMessage}</span>
-										<ChevronRight className="ml-1 h-4 w-4 text-brand" />
+										<ChevronRight className="ml-1 h-4 w-4 text-kumo-brand" />
 									</button>
 								)}
 							</motion.div>

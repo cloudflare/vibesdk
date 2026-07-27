@@ -75,10 +75,10 @@ export default function DiscoverPage() {
 				>
 					{/* Header */}
 					<div className="mb-8">
-						<h1 className="flex gap-2 text-6xl font-funky-mono font-bold mb-3 text-brand">
+						<h1 className="flex gap-2 text-6xl font-funky-mono font-bold mb-3 text-kumo-brand">
 							<GlobeIcon
 								weight="duotone"
-								className="text-brand/80 -rotate-30"
+								className="text-kumo-brand/80 -rotate-30"
 							/>
 							Discover
 						</h1>

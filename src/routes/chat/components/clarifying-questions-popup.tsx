@@ -122,7 +122,7 @@ export function ClarifyingQuestionsPopup({
 						className="rounded-t-xl border border-b-0 bg-kumo-elevated dark:bg-kumo-base shadow-sm px-4 pt-4"
 					>
 						<div className="flex items-start gap-3 mb-3">
-							<div className="mt-0.5 p-1.5 rounded-md bg-brand/10 text-brand">
+							<div className="mt-0.5 p-1.5 rounded-md bg-brand/10 text-kumo-brand">
 								<HelpCircle className="size-4" />
 							</div>
 							<div className="flex-1 min-w-0">

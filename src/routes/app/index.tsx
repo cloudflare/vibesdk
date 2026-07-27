@@ -1,5 +1,6 @@
 import type { AppDetailsData, FileType } from '@/api-types';
 import { MonacoEditor } from '@/components/monaco-editor/lazy-monaco-editor';
+import { AppLoadingSkeleton } from '@/components/shared/AppLoadingSkeleton';
 import { ConfirmDeleteDialog } from '@/components/shared/ConfirmDeleteDialog';
 import { FloatingBackgroundIcons } from '@/components/shared/FloatingBackgroundIcons';
 import { GitCloneModal } from '@/components/shared/GitCloneModal';
@@ -40,7 +41,6 @@ import {
 	Copy,
 	ExternalLink,
 	Eye,
-	Loader2,
 	MessageSquare,
 	Play,
 } from 'lucide-react';
@@ -579,19 +579,12 @@ export default function AppView() {
 	};
 
 	if (loading) {
-		return (
-			<div className="h-full bg-kumo-base flex items-center justify-center">
-				<div className="text-center">
-					<Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-text-tertiary" />
-					<p className="text-sm text-text-tertiary">Loading app...</p>
-				</div>
-			</div>
-		);
+		return <AppLoadingSkeleton />;
 	}
 
 	if (error || !app) {
 		return (
-			<div className="h-full bg-kumo-base flex items-center justify-center p-4">
+			<div className="size-full flex items-center justify-center p-4">
 				<LayerCard className="max-w-md w-full px-5 py-6">
 					<div className="text-center grid gap-4">
 						<div className="grid gap-1.5">
@@ -624,7 +617,7 @@ export default function AppView() {
 	const promptText = app?.agentSummary?.query || app?.originalPrompt || '';
 
 	return (
-		<div className="h-full bg-kumo-base flex flex-col min-h-0">
+		<div className="size-full flex flex-col min-h-0">
 			<header className="h-12 shrink-0 flex items-center gap-3 px-4 border-b">
 				<div className="min-w-0 flex-1 flex items-center gap-2">
 					<h1
@@ -1051,7 +1044,7 @@ export default function AppView() {
 											<div className="flex items-center gap-2">
 												<span className="h-lh flex items-center shrink-0">
 													<span className="rounded-md bg-brand/10 p-1.5">
-														<MessageSquare className="size-3.5 text-brand" />
+														<MessageSquare className="size-3.5 text-kumo-brand" />
 													</span>
 												</span>
 												<h2 className="text-base font-semibold text-text-primary">

@@ -87,7 +87,7 @@ export function ChatInput({
 				aria-label="Stop generation"
 				title="Stop generation"
 			>
-				<Square className="size-2.5 fill-brand/90 text-brand/80" />
+				<Square className="size-2.5 fill-brand/90 text-kumo-brand/80" />
 			</button>
 		) : undefined;
 

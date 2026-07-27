@@ -859,7 +859,7 @@ export default function Chat() {
 						This link wants to start a new project with the prompt
 						below. Review it before continuing.
 					</p>
-					<div className="rounded-lg border bg-kumo-base p-4 max-h-64 overflow-y-auto">
+					<div className="rounded-lg border p-4 max-h-64 overflow-y-auto">
 						<p className="text-sm text-text-primary whitespace-pre-wrap break-words">
 							{displayQuery}
 						</p>

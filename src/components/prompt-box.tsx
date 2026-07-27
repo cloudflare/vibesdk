@@ -145,7 +145,7 @@ export function PromptBox({
 
 	const dragOverlay = isDragging && (
 		<div className="absolute inset-0 flex items-center justify-center bg-brand/10 backdrop-blur-sm rounded-xl z-50 pointer-events-none">
-			<p className="text-brand font-medium">Drop images here</p>
+			<p className="text-kumo-brand font-medium">Drop images here</p>
 		</div>
 	);
 

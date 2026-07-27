@@ -8,10 +8,10 @@ import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { 
-	Zap, 
-	AlertTriangle, 
-	CheckCircle2, 
+import {
+	Zap,
+	AlertTriangle,
+	CheckCircle2,
 	TrendingUp,
 	RefreshCw,
 	Calendar,
@@ -34,7 +34,7 @@ export function UsageLimitsCard({ className, onConnectToken }: UsageLimitsCardPr
 			<Card className={cn('dark:bg-bg-4/50', className)}>
 				<CardHeader className="border-b">
 					<div className="flex items-center gap-2">
-						<Zap className="h-5 w-5 text-brand-primary" />
+						<Zap className="h-5 w-5 text-kumo-brand-primary" />
 						<CardTitle>Usage Limits</CardTitle>
 					</div>
 					<CardDescription>Your free tier usage</CardDescription>
@@ -52,7 +52,7 @@ export function UsageLimitsCard({ className, onConnectToken }: UsageLimitsCardPr
 			<Card className={cn('dark:bg-bg-4/50', className)}>
 				<CardHeader className="border-b">
 					<div className="flex items-center gap-2">
-						<Zap className="h-5 w-5 text-brand-primary" />
+						<Zap className="h-5 w-5 text-kumo-brand-primary" />
 						<CardTitle>Usage Limits</CardTitle>
 					</div>
 				</CardHeader>
@@ -61,10 +61,10 @@ export function UsageLimitsCard({ className, onConnectToken }: UsageLimitsCardPr
 						<AlertTriangle className="h-4 w-4" />
 						<AlertDescription>{error}</AlertDescription>
 					</Alert>
-					<Button 
-						onClick={refetch} 
-						variant="outline" 
-						size="sm" 
+					<Button
+						onClick={refetch}
+						variant="outline"
+						size="sm"
 						className="mt-4 w-full"
 					>
 						<RefreshCw className="h-4 w-4 mr-2" />
@@ -139,12 +139,12 @@ export function UsageLimitsCard({ className, onConnectToken }: UsageLimitsCardPr
 			<CardHeader className="border-b">
 				<div className="flex items-center justify-between">
 					<div className="flex items-center gap-2">
-						<Zap className="h-5 w-5 text-brand-primary" />
+						<Zap className="h-5 w-5 text-kumo-brand-primary" />
 						<CardTitle>Free Tier Usage</CardTitle>
 					</div>
-					<Button 
-						onClick={refetch} 
-						variant="ghost" 
+					<Button
+						onClick={refetch}
+						variant="ghost"
 						size="icon"
 						className="h-8 w-8"
 					>
@@ -194,8 +194,8 @@ export function UsageLimitsCard({ className, onConnectToken }: UsageLimitsCardPr
 										</div>
 									</div>
 
-									<Progress 
-										value={Math.min(percentUsed, 100)} 
+									<Progress
+										value={Math.min(percentUsed, 100)}
 										className={cn(
 											"h-2",
 											isExceeded && "[&>div]:bg-red-500",
@@ -218,7 +218,7 @@ export function UsageLimitsCard({ className, onConnectToken }: UsageLimitsCardPr
 										<AlertDescription>
 											<p className="font-medium mb-1">Limit Exceeded</p>
 											<p className="text-sm">
-												{hasUserToken 
+												{hasUserToken
 													? "Using your connected Cloudflare AI Gateway token."
 													: "Connect your Cloudflare AI Gateway token to continue."
 												}
@@ -243,7 +243,7 @@ export function UsageLimitsCard({ className, onConnectToken }: UsageLimitsCardPr
 							{/* Right: Cloudflare Connect Button - ALWAYS VISIBLE */}
 							<div className="flex-shrink-0 w-full lg:w-auto">
 								<div className="space-y-3">
-									<Button 
+									<Button
 										onClick={onConnectToken}
 										className="w-full lg:w-auto gap-2 bg-gradient-to-r from-brand-primary to-brand-light hover:from-brand-primary/90 hover:to-brand-light/90"
 										size="lg"
@@ -251,7 +251,7 @@ export function UsageLimitsCard({ className, onConnectToken }: UsageLimitsCardPr
 										<CloudflareLogo className="h-5 w-5" />
 										{hasUserToken ? 'Manage Connection' : 'Connect Cloudflare'}
 									</Button>
-									
+
 									{hasUserToken ? (
 										<div className="flex items-center justify-center gap-2 text-xs text-green-600 dark:text-green-400">
 											<CheckCircle2 className="h-3 w-3" />

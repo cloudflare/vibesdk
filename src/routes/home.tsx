@@ -185,7 +185,7 @@ export default function Home() {
 	const discoverLinkRef = useRef<HTMLDivElement>(null);
 
 	return (
-		<div className="relative flex flex-col items-center w-full min-h-full bg-kumo-elevated">
+		<div className="relative flex flex-col items-center w-full min-h-full">
 			<div className="home-atmosphere" aria-hidden>
 				<div className="home-atmosphere__spotlight" />
 			</div>
@@ -206,7 +206,7 @@ export default function Home() {
 						<div className="mb-6 sm:mb-7 grid gap-2">
 							<h1 className="w-full text-center text-[clamp(1.75rem,4.5vw,2.5rem)] font-semibold leading-[1.12] text-kumo-strong/80">
 								What should we{' '}
-								<span className="font-funky-mono text-[1.1em] tracking-tighter uppercase text-brand">
+								<span className="font-funky-mono text-[1.1em] tracking-tighter uppercase text-kumo-brand">
 									build
 								</span>{' '}
 								today?
@@ -315,7 +315,7 @@ export default function Home() {
 											onClick={() =>
 												navigate('/discover')
 											}
-											className="shrink-0 rounded-full px-3.5 gap-1.5 text-sm text-kumo-default ring-1 ring-kumo-line border-0 shadow-sm bg-kumo-base hover:bg-kumo-tint hover:text-kumo-strong"
+											className="shrink-0 rounded-full px-3.5 gap-1.5 text-sm text-kumo-default ring-1 ring-kumo-line border-0 shadow-sm hover:bg-kumo-tint hover:text-kumo-strong"
 										>
 											View all
 											<ArrowUpRight className="size-3.5 opacity-70" />
