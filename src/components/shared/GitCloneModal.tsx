@@ -186,7 +186,7 @@ export function GitCloneModal({
 											<p className="text-sm font-medium text-text-primary">
 												Private Repository
 											</p>
-											<p className="text-sm text-text-tertiary">
+											<p className="text-sm text-kumo-subtle">
 												Generate a temporary access token to clone this repository.
 												The token expires in 1 hour.
 											</p>

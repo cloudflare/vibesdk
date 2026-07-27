@@ -237,7 +237,7 @@ function BannerContent({
 				<button
 					type="button"
 					onClick={onDismiss}
-					className="p-0.5 rounded hover:bg-kumo-base text-text-tertiary hover:text-text-primary transition-colors"
+					className="p-0.5 rounded hover:bg-kumo-base text-kumo-subtle hover:text-text-primary transition-colors"
 				>
 					<X className="size-3.5" />
 				</button>

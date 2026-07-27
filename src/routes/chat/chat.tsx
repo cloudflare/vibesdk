@@ -890,7 +890,7 @@ export default function Chat() {
 				{(blueprint?.title || appTitle || chatId || appLoading) && (
 					<div className="h-12 shrink-0 flex items-center px-4 border-b">
 						{appLoading ? (
-							<div className="flex items-center gap-2 text-text-tertiary text-sm">
+							<div className="flex items-center gap-2 text-kumo-subtle text-sm">
 								<LoaderCircle className="size-4 animate-spin" />
 								Loading app...
 							</div>
@@ -898,13 +898,13 @@ export default function Chat() {
 							<div className="flex min-w-0 flex-1 items-center max-w-md gap-2">
 								{app?.visibility === 'private' ? (
 									<LockKey
-										className="size-4 shrink-0 text-text-tertiary"
+										className="size-4 shrink-0 text-kumo-subtle"
 										weight="duotone"
 										aria-label="Private"
 									/>
 								) : (
 									<GlobeHemisphereWestIcon
-										className="size-4 shrink-0 text-text-tertiary"
+										className="size-4 shrink-0 text-kumo-subtle"
 										weight="duotone"
 										aria-label="Public"
 									/>

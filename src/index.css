@@ -119,7 +119,6 @@
 	height: 100svh;
 	--sidebar-width: 320px !important;
 	--sidebar-width-icon: 52px !important;
-	--sidebar-bg: var(--color-kumo-elevated) !important;
 }
 
 @media (max-width: 767px) {
@@ -303,8 +302,6 @@
 [data-mode='dark'] .custom-scrollbar::-webkit-scrollbar-thumb:hover {
 	background: rgba(239, 68, 68, 0.6);
 }
-
-
 
 /* Hack from https://stackoverflow.com/a/71876526 */
 .monaco-editor {

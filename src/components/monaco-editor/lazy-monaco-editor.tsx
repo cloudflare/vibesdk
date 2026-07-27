@@ -22,7 +22,7 @@ function MonacoEditorFallback({ className }: { className?: string }) {
 					<p className="text-sm font-medium text-text-primary">
 						Preparing code editor
 					</p>
-					<p className="text-xs text-text-tertiary">
+					<p className="text-xs text-kumo-subtle">
 						Loading syntax highlighting and language tools…
 					</p>
 				</div>

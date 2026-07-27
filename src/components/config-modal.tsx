@@ -311,7 +311,7 @@ export function ConfigModal({
           <div className="flex items-center justify-between p-3 bg-kumo-base/50 rounded-lg">
             <div>
               <p className="font-medium text-sm">Configuration Status</p>
-              <p className="text-xs text-text-tertiary">
+              <p className="text-xs text-kumo-subtle">
                 {isUserOverride ? 'Using custom configuration' : 'Using system defaults'}
               </p>
             </div>
@@ -326,7 +326,7 @@ export function ConfigModal({
             <div className="flex items-center justify-between">
               <div>
                 <Label className="text-sm font-medium">Model Configuration</Label>
-                <p className="text-xs text-text-tertiary mt-1">
+                <p className="text-xs text-kumo-subtle mt-1">
                   Select primary and fallback models - we'll use your API keys if available
                 </p>
               </div>
@@ -447,7 +447,7 @@ export function ConfigModal({
                   className="h-10"
                 />
                 {defaultConfig?.temperature && (
-                  <p className="text-xs text-text-tertiary">
+                  <p className="text-xs text-kumo-subtle">
                     🔧 Default: {defaultConfig.temperature}
                   </p>
                 )}
@@ -468,7 +468,7 @@ export function ConfigModal({
                   </SelectContent>
                 </Select>
                 {defaultConfig?.reasoning_effort && (
-                  <p className="text-xs text-text-tertiary">
+                  <p className="text-xs text-kumo-subtle">
                     🔧 Default: {defaultConfig.reasoning_effort}
                   </p>
                 )}
@@ -504,7 +504,7 @@ export function ConfigModal({
                 variant="ghost"
                 size="sm"
                 onClick={handleReset}
-                className="gap-2 text-text-tertiary"
+                className="gap-2 text-kumo-subtle"
               >
                 <RotateCcw className="h-4 w-4" />
                 Reset to Default

@@ -268,7 +268,7 @@ export default function Home() {
 									className="size-4 flex-shrink-0 mt-0.5"
 									style={{ color: '#ff3d00' }}
 								/>
-								<p className="text-xs text-text-tertiary leading-relaxed">
+								<p className="text-xs text-kumo-subtle leading-relaxed">
 									<span className="font-medium text-text-secondary">
 										Images Beta:
 									</span>{' '}

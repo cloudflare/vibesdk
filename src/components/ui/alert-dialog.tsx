@@ -112,7 +112,7 @@ function AlertDialogDescription({
   return (
     <AlertDialogPrimitive.Description
       data-slot="alert-dialog-description"
-      className={cn("text-text-tertiary text-sm", className)}
+      className={cn("text-kumo-subtle text-sm", className)}
       {...props}
     />
   )

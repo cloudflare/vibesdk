@@ -76,7 +76,7 @@ export default function AppsPage() {
 						<h1 className="text-6xl font-bold mb-3 font-funky-mono text-kumo-brand">
 							MY APPS
 						</h1>
-						<p className="text-text-tertiary text-lg">
+						<p className="text-kumo-subtle text-lg">
 							{loading
 								? 'Loading...'
 								: `${totalCount} app${totalCount !== 1 ? 's' : ''} in your workspace`}
