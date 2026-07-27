@@ -1,6 +1,6 @@
 import { type RefObject, type ReactNode, Suspense, useState, useCallback } from 'react';
 import { WebSocket } from 'partysocket';
-import { MonacoEditor } from '../../../components/monaco-editor/monaco-editor';
+import { MonacoEditor } from '../../../components/monaco-editor/lazy-monaco-editor';
 import { motion } from 'framer-motion';
 import { RefreshCw } from 'lucide-react';
 import { Blueprint } from './blueprint';
@@ -358,6 +358,8 @@ export function MainContentPanel(props: MainContentPanelProps) {
 					<div className="flex-1">
 						<MonacoEditor
 							className="h-full"
+							path={activeFile.filePath}
+							stickToBottom={!!activeFile.isGenerating}
 							createOptions={{
 								value: activeFile.fileContents || '',
 								language: activeFile.language || 'plaintext',
@@ -366,7 +368,6 @@ export function MainContentPanel(props: MainContentPanelProps) {
 								lineNumbers: 'on',
 								scrollBeyondLastLine: false,
 								fontSize: 13,
-								theme: 'vibesdk',
 								automaticLayout: true,
 							}}
 							find={edit?.filePath === activeFile.filePath ? edit.search : undefined}

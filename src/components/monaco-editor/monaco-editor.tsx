@@ -9,7 +9,6 @@ import cssWorker from 'monaco-editor/esm/vs/language/css/css.worker?worker';
 import htmlWorker from 'monaco-editor/esm/vs/language/html/html.worker?worker';
 import tsWorker from 'monaco-editor/esm/vs/language/typescript/ts.worker?worker';
 
-import defaultCode from '../../routes?raw';
 import './monaco-editor.module.css';
 import { vesperTheme } from './vesper-theme';
 
@@ -24,12 +23,7 @@ self.MonacoEnvironment = {
 		if (label === 'html' || label === 'handlebars' || label === 'razor') {
 			return new htmlWorker();
 		}
-		if (
-			label === 'typescript' ||
-			label === 'javascript' ||
-			label === 'typescriptreact' ||
-			label === 'javascriptreact'
-		) {
+		if (label === 'typescript' || label === 'javascript') {
 			return new tsWorker();
 		}
 		return new editorWorker();
@@ -77,17 +71,132 @@ monaco.editor.defineTheme('vibesdk', {
 	},
 });
 
-monaco.editor.setTheme('vibesdk');
+/** Ref-count editors that want TS IntelliSense so global defaults stay consistent. */
+let typescriptFeaturesUsers = 0;
+
+function applyTypeScriptDefaults(enabled: boolean) {
+	const tsDefaults = monaco.languages.typescript.typescriptDefaults;
+	const jsDefaults = monaco.languages.typescript.javascriptDefaults;
+
+	if (enabled) {
+		tsDefaults.setDiagnosticsOptions({
+			noSemanticValidation: false,
+			noSyntaxValidation: false,
+		});
+		const compilerOptions: monaco.languages.typescript.CompilerOptions = {
+			jsx: monaco.languages.typescript.JsxEmit.React,
+			allowJs: true,
+			allowSyntheticDefaultImports: true,
+			esModuleInterop: true,
+			moduleResolution:
+				monaco.languages.typescript.ModuleResolutionKind.NodeJs,
+			module: monaco.languages.typescript.ModuleKind.ESNext,
+			target: monaco.languages.typescript.ScriptTarget.ESNext,
+			jsxFactory: 'React.createElement',
+			jsxFragmentFactory: 'React.Fragment',
+		};
+		tsDefaults.setCompilerOptions(compilerOptions);
+		jsDefaults.setCompilerOptions(compilerOptions);
+	} else {
+		// Keep workers quiet for read-only viewers — avoids inmemory://model races
+		tsDefaults.setDiagnosticsOptions({
+			noSemanticValidation: true,
+			noSyntaxValidation: true,
+			noSuggestionDiagnostics: true,
+		});
+		jsDefaults.setDiagnosticsOptions({
+			noSemanticValidation: true,
+			noSyntaxValidation: true,
+			noSuggestionDiagnostics: true,
+		});
+		tsDefaults.setCompilerOptions({
+			jsx: monaco.languages.typescript.JsxEmit.React,
+			target: monaco.languages.typescript.ScriptTarget.ESNext,
+			noLib: true,
+			allowNonTsExtensions: true,
+		});
+		jsDefaults.setCompilerOptions({
+			jsx: monaco.languages.typescript.JsxEmit.React,
+			target: monaco.languages.typescript.ScriptTarget.ESNext,
+			noLib: true,
+			allowNonTsExtensions: true,
+		});
+	}
+}
+
+// Default to lightweight diagnostics until an editable editor mounts.
+applyTypeScriptDefaults(false);
+
+function resolveEditorTheme(resolvedTheme: string | undefined) {
+	return resolvedTheme === 'dark' ? 'vesper' : 'vs';
+}
+
+function toModelUri(path: string | undefined): monaco.Uri {
+	if (path) {
+		const normalized = path.replace(/^\/+/, '');
+		return monaco.Uri.parse(`file:///${normalized}`);
+	}
+	// Anonymous model — unique URI so TS worker never reuses a disposed id
+	return monaco.Uri.parse(
+		`inmemory://vibesdk/${crypto.randomUUID()}.tsx`,
+	);
+}
+
+/**
+ * Get or create a model at a stable URI. Switching files via setModel (not
+ * setValue on one model) avoids TS worker "Could not find source file" races.
+ */
+function getOrCreateModel(
+	value: string,
+	language: string,
+	path: string | undefined,
+): monaco.editor.ITextModel {
+	const uri = toModelUri(path);
+	const existing = monaco.editor.getModel(uri);
+	if (existing) {
+		if (existing.getValue() !== value) {
+			existing.setValue(value);
+		}
+		if (existing.getLanguageId() !== language) {
+			monaco.editor.setModelLanguage(existing, language);
+		}
+		return existing;
+	}
+	return monaco.editor.createModel(value, language, uri);
+}
+
+/** Dispose model after detaching so the TS worker can finish in-flight work. */
+function disposeModelDeferred(model: monaco.editor.ITextModel | null) {
+	if (!model || model.isDisposed()) return;
+	// Detach first; delay dispose so worker callbacks don't hit a dead model
+	window.setTimeout(() => {
+		if (!model.isDisposed()) {
+			model.dispose();
+		}
+	}, 0);
+}
 
 export type MonacoEditorProps = React.ComponentProps<'div'> & {
 	createOptions?: monaco.editor.IStandaloneEditorConstructionOptions;
+	/** Stable file path — used as model URI for clean file switches */
+	path?: string;
+	/**
+	 * When true, path switches keep the viewport at the bottom (live generation).
+	 * When false, path switches jump to the top (browsing complete files).
+	 */
+	stickToBottom?: boolean;
 	find?: string;
 	replace?: string;
 	enableTypeScriptFeatures?: 'auto' | boolean;
 };
 
+const EMPTY_CREATE_OPTIONS: monaco.editor.IStandaloneEditorConstructionOptions =
+	{};
+
 export const MonacoEditor = memo<MonacoEditorProps>(function MonacoEditor({
-	createOptions = {},
+	createOptions = EMPTY_CREATE_OPTIONS,
+	path,
+	stickToBottom = false,
 	find,
 	replace,
 	enableTypeScriptFeatures = 'auto',
@@ -95,9 +204,16 @@ export const MonacoEditor = memo<MonacoEditorProps>(function MonacoEditor({
 }) {
 	const containerRef = useRef<HTMLDivElement>(null);
 	const editor = useRef<monaco.editor.IStandaloneCodeEditor>(undefined);
+	const ownedModel = useRef<monaco.editor.ITextModel | null>(null);
+	const prevPath = useRef<string | undefined>(path);
 	const prevValue = useRef<string>(createOptions.value || '');
 	const stickyScroll = useRef(true);
+	const findDecorationIds = useRef<string[]>([]);
 	const { resolvedTheme } = useTheme();
+	const createOptionsRef = useRef(createOptions);
+	createOptionsRef.current = createOptions;
+	const pathRef = useRef(path);
+	pathRef.current = path;
 
 	const shouldEnableTypeScript = React.useMemo(() => {
 		if (enableTypeScriptFeatures === 'auto') {
@@ -106,81 +222,60 @@ export const MonacoEditor = memo<MonacoEditorProps>(function MonacoEditor({
 		return enableTypeScriptFeatures;
 	}, [enableTypeScriptFeatures, createOptions.readOnly]);
 
-	// Configure TypeScript diagnostics based on mode
+	// Configure TypeScript diagnostics with multi-instance ref-counting
 	useEffect(() => {
-		const tsDefaults = monaco.languages.typescript.typescriptDefaults;
-		const jsDefaults = monaco.languages.typescript.javascriptDefaults;
-
 		if (shouldEnableTypeScript) {
-			// Enable full IntelliSense for editing
-			tsDefaults.setDiagnosticsOptions({
-				noSemanticValidation: false,
-				noSyntaxValidation: false,
-			});
-			tsDefaults.setCompilerOptions({
-				jsx: monaco.languages.typescript.JsxEmit.React,
-				allowJs: true,
-				allowSyntheticDefaultImports: true,
-				esModuleInterop: true,
-				moduleResolution: monaco.languages.typescript.ModuleResolutionKind.NodeJs,
-				module: monaco.languages.typescript.ModuleKind.ESNext,
-				target: monaco.languages.typescript.ScriptTarget.ESNext,
-				jsxFactory: 'React.createElement',
-				jsxFragmentFactory: 'React.Fragment',
-			});
-			jsDefaults.setCompilerOptions({
-				allowJs: true,
-				allowSyntheticDefaultImports: true,
-				esModuleInterop: true,
-				jsx: monaco.languages.typescript.JsxEmit.React,
-				moduleResolution: monaco.languages.typescript.ModuleResolutionKind.NodeJs,
-				module: monaco.languages.typescript.ModuleKind.ESNext,
-				target: monaco.languages.typescript.ScriptTarget.ESNext,
-				jsxFactory: 'React.createElement',
-				jsxFragmentFactory: 'React.Fragment',
-			});
-		} else {
-			// Disable expensive features for viewing
-			tsDefaults.setDiagnosticsOptions({
-				noSemanticValidation: true,
-				noSyntaxValidation: true,
-			});
-			tsDefaults.setCompilerOptions({
-				jsx: monaco.languages.typescript.JsxEmit.React,
-				target: monaco.languages.typescript.ScriptTarget.ESNext,
-			});
-			jsDefaults.setCompilerOptions({
-				jsx: monaco.languages.typescript.JsxEmit.React,
-				target: monaco.languages.typescript.ScriptTarget.ESNext,
-			});
+			typescriptFeaturesUsers += 1;
+			if (typescriptFeaturesUsers === 1) {
+				applyTypeScriptDefaults(true);
+			}
+			return () => {
+				typescriptFeaturesUsers -= 1;
+				if (typescriptFeaturesUsers === 0) {
+					applyTypeScriptDefaults(false);
+				}
+			};
 		}
 	}, [shouldEnableTypeScript]);
 
-
 	useEffect(() => {
+		const options = createOptionsRef.current;
+		const {
+			theme: _ignoredTheme,
+			value,
+			language,
+			model: _ignoredModel,
+			...restOptions
+		} = options;
+
+		const initialLanguage = language || 'typescript';
+		const initialValue = value ?? '';
+		const model = getOrCreateModel(
+			initialValue,
+			initialLanguage,
+			pathRef.current,
+		);
+		ownedModel.current = model;
+
 		editor.current = monaco.editor.create(containerRef.current!, {
-			language: createOptions.language || 'typescript',
+			model,
 			minimap: { enabled: false },
-			theme: resolvedTheme === 'dark' ? 'vesper' : 'vibesdk',
+			theme: resolveEditorTheme(resolvedTheme),
 			automaticLayout: true,
-			value: defaultCode,
 			fontSize: 13,
-			...createOptions,
+			...restOptions,
 		});
 
-		// Add scroll listener to detect user interaction
+		prevValue.current = initialValue;
+		prevPath.current = pathRef.current;
+
 		const editorDomNode = editor.current.getDomNode();
 		const handleWheel = () => {
-			if (stickyScroll.current) {
-				stickyScroll.current = false;
-			}
+			stickyScroll.current = false;
 		};
 		const handleKeydown = (e: KeyboardEvent) => {
-			// Disable sticky scroll on arrow keys, Page Up/Down
 			if (e.key.includes('Arrow') || e.key.includes('Page')) {
-				if (stickyScroll.current) {
-					stickyScroll.current = false;
-				}
+				stickyScroll.current = false;
 			}
 		};
 
@@ -194,64 +289,170 @@ export const MonacoEditor = memo<MonacoEditorProps>(function MonacoEditor({
 				editorDomNode.removeEventListener('wheel', handleWheel);
 				editorDomNode.removeEventListener('keydown', handleKeydown);
 			}
-			const model = editor.current?.getModel();
-			if (model) {
-				model.dispose();
-			}
+			findDecorationIds.current = [];
+			// Detach model before dispose so worker doesn't race
+			editor.current?.setModel(null);
 			editor.current?.dispose();
+			editor.current = undefined;
+			disposeModelDeferred(ownedModel.current);
+			ownedModel.current = null;
 		};
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, []);
 
+	// Keep non-value construction options in sync after mount
+	const {
+		theme: _ignoredTheme,
+		value: _value,
+		language: _language,
+		model: _model,
+		...updateableOptions
+	} = createOptions;
+	const updateableOptionsKey = JSON.stringify(updateableOptions);
+
 	useEffect(() => {
-		if (editor.current && createOptions.value !== prevValue.current) {
-			const model = editor.current.getModel();
-			if (!model) return;
+		if (!editor.current) return;
+		editor.current.updateOptions(updateableOptions);
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [updateableOptionsKey]);
 
-			model.pushEditOperations(
-				[],
-				[{
-					range: model.getFullModelRange(),
-					text: createOptions.value || ''
-				}],
-				() => null
-			);
+	// Path / value / language — switch models on path change; update content otherwise
+	useEffect(() => {
+		if (!editor.current) return;
 
-			if (stickyScroll.current) {
-				const lineCount = model.getLineCount();
-				editor.current.revealLine(lineCount);
+		const nextValue = createOptions.value ?? '';
+		const nextLanguage = createOptions.language || 'typescript';
+		const pathChanged = path !== prevPath.current;
+		const valueChanged = nextValue !== prevValue.current;
+
+		if (pathChanged) {
+			const previous = ownedModel.current;
+			const nextModel = getOrCreateModel(nextValue, nextLanguage, path);
+
+			// Clear decorations tied to the old model
+			findDecorationIds.current = [];
+			editor.current.setModel(nextModel);
+			ownedModel.current = nextModel;
+
+			// Don't dispose if getOrCreate reused the same instance
+			if (previous && previous !== nextModel) {
+				disposeModelDeferred(previous);
 			}
 
-			if (createOptions.language) {
-				monaco.editor.setModelLanguage(model, createOptions.language);
+			if (stickToBottom) {
+				// Live generation: follow the end of the file
+				stickyScroll.current = true;
+				editor.current.revealLine(nextModel.getLineCount());
+			} else {
+				// Browsing complete files: start at top
+				stickyScroll.current = false;
+				editor.current.setScrollTop(0);
+				editor.current.setPosition({ lineNumber: 1, column: 1 });
 			}
 
-			prevValue.current = createOptions.value || '';
+			prevPath.current = path;
+			prevValue.current = nextValue;
+			return;
 		}
-	}, [createOptions.value, createOptions.language]);
-
-	useEffect(() => {
-		if (!editor.current || !find) return;
 
 		const model = editor.current.getModel();
 		if (!model) return;
 
+		if (valueChanged) {
+			const isAppend =
+				prevValue.current.length > 0 &&
+				nextValue.startsWith(prevValue.current);
+
+			if (isAppend) {
+				// Streaming: preserve sticky-to-bottom behavior
+				if (createOptions.readOnly) {
+					model.setValue(nextValue);
+				} else {
+					model.pushEditOperations(
+						[],
+						[
+							{
+								range: model.getFullModelRange(),
+								text: nextValue,
+							},
+						],
+						() => null,
+					);
+				}
+				if (stickyScroll.current) {
+					editor.current.revealLine(model.getLineCount());
+				}
+			} else {
+				// Content replaced on same path
+				if (createOptions.readOnly) {
+					model.setValue(nextValue);
+				} else {
+					model.pushEditOperations(
+						[],
+						[
+							{
+								range: model.getFullModelRange(),
+								text: nextValue,
+							},
+						],
+						() => null,
+					);
+				}
+				stickyScroll.current = true;
+				if (stickyScroll.current) {
+					editor.current.revealLine(model.getLineCount());
+				}
+			}
+
+			prevValue.current = nextValue;
+		}
+
+		if (model.getLanguageId() !== nextLanguage) {
+			monaco.editor.setModelLanguage(model, nextLanguage);
+		}
+	}, [
+		path,
+		stickToBottom,
+		createOptions.value,
+		createOptions.language,
+		createOptions.readOnly,
+	]);
+
+	// Find/replace decorations — owned IDs only; clear when find is gone; refresh on value
+	useEffect(() => {
+		if (!editor.current) return;
+
+		const model = editor.current.getModel();
+		if (!model) return;
+
+		if (!find) {
+			findDecorationIds.current = editor.current.deltaDecorations(
+				findDecorationIds.current,
+				[],
+			);
+			return;
+		}
+
 		const decorations: monaco.editor.IModelDeltaDecoration[] = [];
 		const text = model.getValue();
+		const regex = new RegExp(
+			find.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'),
+			'g',
+		);
 		let match: RegExpExecArray | null;
-		const regex = new RegExp(find.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g');
 
 		while ((match = regex.exec(text)) !== null) {
 			const startPos = model.getPositionAt(match.index);
 			const endPos = model.getPositionAt(match.index + match[0].length);
+			const range = new monaco.Range(
+				startPos.lineNumber,
+				startPos.column,
+				endPos.lineNumber,
+				endPos.column,
+			);
 
 			decorations.push({
-				range: new monaco.Range(
-					startPos.lineNumber,
-					startPos.column,
-					endPos.lineNumber,
-					endPos.column,
-				),
+				range,
 				options: {
 					inlineClassName: 'diffDelete',
 					hoverMessage: {
@@ -264,12 +465,7 @@ export const MonacoEditor = memo<MonacoEditorProps>(function MonacoEditor({
 
 			if (replace) {
 				decorations.push({
-					range: new monaco.Range(
-						startPos.lineNumber,
-						startPos.column,
-						endPos.lineNumber,
-						endPos.column,
-					),
+					range,
 					options: {
 						after: {
 							content: replace,
@@ -280,17 +476,15 @@ export const MonacoEditor = memo<MonacoEditorProps>(function MonacoEditor({
 			}
 		}
 
-		const oldDecorations = editor.current.getModel()?.getAllDecorations() || [];
-		editor.current.deltaDecorations(
-			oldDecorations.map((d) => d.id),
+		findDecorationIds.current = editor.current.deltaDecorations(
+			findDecorationIds.current,
 			decorations,
 		);
-	}, [find, replace]);
+	}, [find, replace, createOptions.value, path]);
 
-	// Update theme when app theme changes
 	useEffect(() => {
 		if (editor.current) {
-			monaco.editor.setTheme(resolvedTheme === 'dark' ? 'vesper' : 'vs');
+			monaco.editor.setTheme(resolveEditorTheme(resolvedTheme));
 		}
 	}, [resolvedTheme]);
 

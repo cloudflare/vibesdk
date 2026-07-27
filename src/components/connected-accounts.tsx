@@ -156,10 +156,12 @@ export function ConnectedAccounts() {
 	const canUnlink = identities.length > 1;
 
 	return (
-		<div className="space-y-3">
-			<div>
-				<h4 className="font-medium">Connected Accounts</h4>
-				<p className="text-sm text-text-tertiary">
+		<div className="grid gap-4">
+			<div className="grid gap-1.5">
+				<h4 className="text-sm font-medium text-kumo-default">
+					Connected accounts
+				</h4>
+				<p className="text-sm text-kumo-subtle">
 					Link multiple sign-in providers to your account. You can use
 					any linked provider to sign in.
 				</p>
@@ -188,11 +190,11 @@ export function ConnectedAccounts() {
 									<div className="flex h-9 w-9 items-center justify-center rounded-full bg-kumo-base text-text-primary shrink-0">
 										{meta.icon}
 									</div>
-									<div className="min-w-0">
-										<p className="text-sm font-medium">
+									<div className="min-w-0 grid gap-1.5">
+										<p className="text-sm font-medium text-kumo-default">
 											{meta.label}
 										</p>
-										<p className="truncate text-sm text-text-tertiary">
+										<p className="truncate text-sm text-kumo-subtle">
 											{isLinked
 												? identity?.email || 'Linked'
 												: 'Not connected'}

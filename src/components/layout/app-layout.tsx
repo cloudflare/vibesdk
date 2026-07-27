@@ -37,11 +37,21 @@ function persistSidebarState(open: boolean) {
 	document.cookie = `${SIDEBAR_COOKIE_NAME}=${open}; path=/; max-age=${SIDEBAR_COOKIE_MAX_AGE}`;
 }
 
+function getSidebarDefaultOpen(): boolean {
+	const match = document.cookie.match(
+		new RegExp(`(?:^|; )${SIDEBAR_COOKIE_NAME}=([^;]*)`),
+	);
+	if (!match) return true;
+	return match[1] === 'true';
+}
+
 export function AppLayout({ children }: AppLayoutProps) {
+	const defaultOpen = React.useMemo(() => getSidebarDefaultOpen(), []);
+
 	return (
 		<AppsDataProvider>
 			<SidebarProvider
-				defaultOpen={false}
+				defaultOpen={defaultOpen}
 				collapsible="icon"
 				resizable={false}
 				// peekable

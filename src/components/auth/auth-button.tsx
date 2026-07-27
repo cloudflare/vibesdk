@@ -4,13 +4,7 @@
  */
 
 import { useState } from 'react';
-import {
-	Loader2,
-	LogIn,
-	LogOut,
-	LucideGlobeLock,
-	Settings,
-} from 'lucide-react';
+import { Loader2, LogOut, LucideGlobeLock, Settings } from 'lucide-react';
 import { useNavigate } from 'react-router';
 import clsx from 'clsx';
 import { Button, DropdownMenu } from '@cloudflare/kumo';
@@ -22,6 +16,7 @@ import {
 	useUsageLimitsBadgeState,
 	type UsageLimitsBadgeState,
 } from '../usage-limits-badge';
+import { SignInIcon } from '@phosphor-icons/react';
 
 interface AuthButtonProps {
 	className?: string;
@@ -109,11 +104,10 @@ export function AuthButton({ className, display = 'icon' }: AuthButtonProps) {
 			<>
 				<Button
 					variant="ghost"
-					size="sm"
 					onClick={() => setShowLoginModal(true)}
-					className={clsx('gap-2', className)}
+					className={clsx('gap-2 text-sm', className)}
 				>
-					<LogIn className="h-4 w-4" />
+					<SignInIcon className="h-4 w-4" />
 					<span>Sign In</span>
 				</Button>
 

@@ -168,16 +168,13 @@ export function AppsDataProvider({ children }: AppsDataProviderProps) {
     }
   }, [user]);
 
-  // Parallel fetch both data sets
+  // Parallel fetch both data sets (clears cached apps when signed out)
   const fetchAll = useCallback(async () => {
-    if (!user) return;
-    
-    // Execute both API calls in parallel
     await Promise.all([
       fetchAllApps(),
       fetchFavoriteApps(),
     ]);
-  }, [user, fetchAllApps, fetchFavoriteApps]);
+  }, [fetchAllApps, fetchFavoriteApps]);
 
   // Initial data load with parallel fetching
   useEffect(() => {
