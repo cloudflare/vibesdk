@@ -97,7 +97,7 @@ function StatusIcon({ status, size = 'md', className }: StatusIconProps) {
 			return <Loader className={clsx(iconClasses, 'animate-spin text-brand', className)} />;
 		case 'pending':
 		default:
-			return <div className={clsx(iconClasses, 'bg-bg-3-foreground/40 dark:bg-bg-3-foreground/30 rounded-full', className)} />;
+			return <div className={clsx(iconClasses, 'bg-kumo-base-foreground/40 dark:bg-kumo-base-foreground/30 rounded-full', className)} />;
 	}
 }
 
@@ -134,7 +134,7 @@ function AnimatedStatusIndicator({ status, size = 5 }: AnimatedStatusIndicatorPr
 						animate="animate"
 						exit="exit"
 						transition={commonTransitions.smoothInOut}
-						className={clsx(sizeClass, 'bg-bg-4 dark:bg-bg-2 flex items-center justify-center')}
+						className={clsx(sizeClass, 'bg-bg-4 dark:bg-kumo-elevated flex items-center justify-center')}
 					>
 						<Loader className="size-3 text-brand animate-spin" />
 					</motion.div>
@@ -492,7 +492,7 @@ export function PhaseTimeline({
 
 						{/* Main frosted panel - Hoverable and Expandable */}
 						<motion.div
-							className="relative bg-bg-4/95 dark:bg-bg-2/95 backdrop-blur-md border border-border-primary shadow-lg rounded-xl overflow-hidden mx-4 hover:bg-bg-3/95 dark:hover:bg-bg-1/95 transition-colors cursor-pointer group"
+							className="relative bg-bg-4/95 dark:bg-kumo-elevated/95 backdrop-blur-md border border-border-primary shadow-lg rounded-xl overflow-hidden mx-4 hover:bg-kumo-base/95 dark:hover:bg-bg-1/95 transition-colors cursor-pointer group"
 							onClick={() => setIsCollapsedBarExpanded(!isCollapsedBarExpanded)}
 							initial={{ scale: 0.96 }}
 							animate={{ scale: 1 }}
@@ -613,7 +613,7 @@ export function PhaseTimeline({
 														e.stopPropagation();
 														scrollToTop();
 													}}
-													className="flex items-center gap-1.5 px-3 py-1.5 bg-bg-2 hover:bg-bg-1 border border-border-primary rounded-lg text-xs font-medium text-text-primary transition-colors"
+													className="flex items-center gap-1.5 px-3 py-1.5 bg-kumo-elevated hover:bg-bg-1 border border-border-primary rounded-lg text-xs font-medium text-text-primary transition-colors"
 												>
 													<ArrowUp className="w-3 h-3" />
 													Scroll to Top
@@ -663,13 +663,13 @@ export function PhaseTimeline({
 				ref={componentRef}
 			>
 				{/* Main Timeline Card */}
-				<div ref={timelineCardRef} className="px-2 pr-3.5 py-3 flex-1 rounded-xl border border-black/12 bg-bg-4 dark:bg-bg-2">
+				<div ref={timelineCardRef} className="px-2 pr-3.5 py-3 flex-1 rounded-xl border border-black/12 bg-bg-4 dark:bg-kumo-elevated">
 				{/* Calculate if Done/Debugging will show for line extension */}
 				{(() => {
 					const allStagesCompleted = projectStages.every(stage => stage.status === 'completed');
 					const isAnythingHappening = isDebugging || isGenerating || isThinking || isPreviewDeploying;
 					const willShowStatusStage = (allStagesCompleted && !isAnythingHappening) || isDebugging;
-					
+
 					return (
 						<>
 				{/* Project Stages */}
@@ -737,7 +737,7 @@ export function PhaseTimeline({
 										'flex items-start ml-0.5 transition-colors font-mono',
 										view === 'blueprint'
 											? 'text-brand underline decoration-dotted'
-											: 'text-text-secondary/80 hover:bg-bg-2/50 hover:text-text-secondary'
+											: 'text-text-secondary/80 hover:bg-kumo-elevated/50 hover:text-text-secondary'
 									)}
 								>
 									<span className="text-xs text-left truncate">
@@ -935,14 +935,14 @@ export function PhaseTimeline({
 						)}
 					</div>
 				))}
-				
+
 				<AnimatePresence mode="wait">
 					{/* Done stage - shows when everything is complete and nothing is happening */}
 					{(() => {
 						const allStagesCompleted = projectStages.every(stage => stage.status === 'completed');
 						const isAnythingHappening = isDebugging || isGenerating || isThinking || isPreviewDeploying;
 						const showDone = allStagesCompleted && !isAnythingHappening;
-						
+
 						if (showDone) {
 							return (
 								<motion.div
@@ -955,16 +955,16 @@ export function PhaseTimeline({
 								>
 									{/* Connecting line from previous stage */}
 									<div className="absolute left-[9.25px] w-px h-[0.875rem] -top-[0.875rem] bg-brand" />
-									
+
 									<AnimatedStatusIndicator status="completed" />
-									
+
 									<div className="flex flex-col gap-2 flex-1">
 										<span className="font-medium text-text-secondary">Done</span>
 									</div>
 								</motion.div>
 							);
 						}
-						
+
 						// Show debugging status when debugging
 						if (isDebugging) {
 							return (
@@ -978,16 +978,16 @@ export function PhaseTimeline({
 								>
 									{/* Connecting line from previous stage */}
 									<div className="absolute left-[9.25px] w-px h-[0.875rem] -top-[0.875rem] bg-brand" />
-									
+
 									<AnimatedStatusIndicator status="active" />
-									
+
 									<div className="flex flex-col gap-2 flex-1">
 										<span className="font-medium text-text-secondary">Debugging in progress...</span>
 									</div>
 								</motion.div>
 							);
 						}
-						
+
 						return null;
 					})()}
 			</AnimatePresence>

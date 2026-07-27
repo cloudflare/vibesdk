@@ -4,13 +4,30 @@
  */
 
 import { useLimitsContext } from '@/contexts/limits-context';
+import type { UsageSummary } from '@/hooks/use-limits';
 import { Loader2, LucideGlobeLock } from 'lucide-react';
 
 interface UsageLimitsBadgeProps {
 	onConnect: () => void;
 }
 
-export function UsageLimitsBadge({ onConnect }: UsageLimitsBadgeProps) {
+export interface UsageLimitsBadgeState {
+	data: UsageSummary | null;
+	loading: boolean;
+	error: string | null;
+	hidden: boolean;
+	usageText: string;
+	mobileUsageText: string;
+	isExhausted: boolean;
+	hasUserToken: boolean;
+	showCredits: boolean;
+	creditsText: string;
+	needsConfiguration: boolean;
+	showUsage: boolean;
+}
+
+// eslint-disable-next-line react-refresh/only-export-components -- Shared with the sidebar menu to reuse the badge's exact derived state.
+export function useUsageLimitsBadgeState(): UsageLimitsBadgeState {
 	const { data, loading, error } = useLimitsContext();
 
 	// Get usage info
@@ -22,12 +39,9 @@ export function UsageLimitsBadge({ onConnect }: UsageLimitsBadgeProps) {
 	let creditsText = '';
 	let needsConfiguration = false;
 	let showUsage = false;
+	const hidden = !loading && Boolean(data && !data.cloudflareConnectEnabled);
 
-	if (!loading && data && !data.cloudflareConnectEnabled) {
-		return null;
-	}
-
-	if (!loading && !error && data && data.config) {
+	if (!hidden && !loading && !error && data && data.config) {
 		const {
 			config,
 			usage,
@@ -98,6 +112,40 @@ export function UsageLimitsBadge({ onConnect }: UsageLimitsBadgeProps) {
 			mobileUsageText = `${formatValue(remaining)} ${getUnit()}`.trim();
 			showUsage = true;
 		}
+	}
+
+	return {
+		data,
+		loading,
+		error,
+		hidden,
+		usageText,
+		mobileUsageText,
+		isExhausted,
+		hasUserToken,
+		showCredits,
+		creditsText,
+		needsConfiguration,
+		showUsage,
+	};
+}
+
+export function UsageLimitsBadge({ onConnect }: UsageLimitsBadgeProps) {
+	const {
+		loading,
+		hidden,
+		usageText,
+		mobileUsageText,
+		isExhausted,
+		hasUserToken,
+		showCredits,
+		creditsText,
+		needsConfiguration,
+		showUsage,
+	} = useUsageLimitsBadgeState();
+
+	if (hidden) {
+		return null;
 	}
 
 	return (

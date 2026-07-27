@@ -17,23 +17,20 @@ import type {
 	ActiveSessionsData,
 	ApiKeysData,
 } from '@/api-types';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+	Button as KumoButton,
+	Dialog as KumoDialog,
+	DialogClose as KumoDialogClose,
+	DialogDescription as KumoDialogDescription,
+	DialogRoot as KumoDialogRoot,
+	DialogTitle as KumoDialogTitle,
+	DialogTrigger as KumoDialogTrigger,
+	LayerCard,
+} from '@cloudflare/kumo';
 import { Separator } from '@/components/ui/separator';
 import { Input } from '@/components/ui/input';
 import { useAuth } from '@/contexts/auth-context';
 import { Badge } from '@/components/ui/badge';
-import {
-	AlertDialog,
-	AlertDialogAction,
-	AlertDialogCancel,
-	AlertDialogContent,
-	AlertDialogDescription,
-	AlertDialogFooter,
-	AlertDialogHeader,
-	AlertDialogTitle,
-	AlertDialogTrigger,
-} from '@/components/ui/alert-dialog';
 import {
 	Dialog,
 	DialogContent,
@@ -59,6 +56,7 @@ import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard';
 // import { ByokApiKeysModal } from '@/components/byok-api-keys-modal';
 import { CloudflareAccountSelector } from '@/components/cloudflare-account-selector';
 import { ConnectedAccounts } from '@/components/connected-accounts';
+import { TrashIcon } from '@phosphor-icons/react';
 
 export default function SettingsPage() {
 	const { user } = useAuth();
@@ -66,7 +64,6 @@ export default function SettingsPage() {
 	const [activeSessions, setActiveSessions] = useState<
 		ActiveSessionsData & { loading: boolean }
 	>({ sessions: [], loading: true });
-
 
 	// SDK API keys state
 	const [apiKeys, setApiKeys] = useState<ApiKeysData & { loading: boolean }>({
@@ -202,7 +199,8 @@ export default function SettingsPage() {
 				setDefaultConfigs(response.data.defaults || {});
 			} else {
 				throw new Error(
-					response.error?.message || 'Failed to load model configurations',
+					response.error?.message ||
+						'Failed to load model configurations',
 				);
 			}
 		} catch (error) {
@@ -359,7 +357,9 @@ export default function SettingsPage() {
 		if (!newKeyName.trim() || creatingKey) return;
 		try {
 			setCreatingKey(true);
-			const response = await apiClient.createApiKey({ name: newKeyName.trim() });
+			const response = await apiClient.createApiKey({
+				name: newKeyName.trim(),
+			});
 			if (response.success && response.data) {
 				setCreatedKey({
 					key: response.data.key,
@@ -427,15 +427,15 @@ export default function SettingsPage() {
 	}, [user]);
 
 	return (
-		<div className="min-h-screen bg-bg-3 relative">
+		<div className="min-h-screen bg-kumo-base relative">
 			<main className="container mx-auto px-4 py-8 max-w-4xl">
-				<div className="space-y-8">
+				<div className="grid gap-6">
 					{/* Page Header */}
-					<div>
-						<h1 className="text-4xl font-bold font-funky-mono text-red-500">
-							SETTINGS
+					<div className="grid gap-1.5">
+						<h1 className="text-2xl font-semibold text-kumo-default">
+							Settings
 						</h1>
-						<p className="text-text-tertiary mt-2">
+						<p className="text-sm text-kumo-subtle">
 							Manage your account settings and preferences
 						</p>
 					</div>
@@ -497,7 +497,7 @@ export default function SettingsPage() {
 							) : (
 								<div className="flex items-center justify-between">
 									<div className="flex items-center gap-3">
-										<div className="h-10 w-10 rounded-full bg-bg-2 border-bg-1 dark:border-bg-4 border flex items-center justify-center">
+										<div className="h-10 w-10 rounded-full bg-kumo-elevated border-bg-1 dark:border-bg-4 border flex items-center justify-center">
 											<Github className="h-5 w-5 text-text-tertiary" />
 										</div>
 										<div>
@@ -531,431 +531,609 @@ export default function SettingsPage() {
 					<CloudflareAccountSelector />
 
 					{/* Model Configuration Section */}
-					<Card id="model-configs">
-						<CardHeader variant="minimal">
-							<div className="flex items-center gap-3 border-b w-full py-3 text-text-primary">
-								{' '}
-								<Settings className="h-5 w-5" />
-								<div>
-									<CardTitle>
-										AI Model Configurations
-									</CardTitle>
+					<LayerCard id="model-configs">
+						<LayerCard.Secondary>
+							<div className="flex items-center gap-2">
+								<span className="h-lh flex items-center">
+									<Settings className="size-4" />
+								</span>
+								<span>AI model configurations</span>
+							</div>
+						</LayerCard.Secondary>
+						<LayerCard.Primary>
+							<div className="grid gap-6">
+								<div className="grid gap-4">
+									<div className="grid gap-1.5">
+										<h4 className="text-sm font-medium text-kumo-default">
+											Provider API keys
+										</h4>
+										<p className="text-sm text-kumo-subtle">
+											AI provider API keys are managed in
+											the API keys section below.
+											Configure your OpenAI, Anthropic,
+											Google AI, and OpenRouter keys
+											there.
+										</p>
+									</div>
+									<div>
+										<KumoButton
+											variant="secondary"
+											size="sm"
+											onClick={() => {
+												const secretsSection =
+													document.getElementById(
+														'api-keys',
+													);
+												if (secretsSection) {
+													secretsSection.scrollIntoView(
+														{
+															behavior: 'smooth',
+															block: 'start',
+														},
+													);
+												}
+											}}
+											className="gap-2"
+										>
+											<Key className="size-4" />
+											API keys
+										</KumoButton>
+									</div>
 								</div>
+
+								<Separator />
+
+								<ModelConfigTabs
+									agentConfigs={agentConfigs}
+									modelConfigs={modelConfigs}
+									defaultConfigs={defaultConfigs}
+									loadingConfigs={loadingConfigs}
+									onSaveConfig={saveModelConfig}
+									onTestConfig={testModelConfig}
+									onResetConfig={resetConfigToDefault}
+									onResetAllConfigs={resetAllConfigs}
+									testingConfig={testingConfig}
+									savingConfigs={savingConfigs}
+								/>
 							</div>
-						</CardHeader>
-						<CardContent className="space-y-6 px-6">
-							{/* Provider API Keys Integration */}
-							<div className="space-y-2 mt-6">
-								<h4 className="font-medium">
-									Provider API Keys
-								</h4>
-								<p className="text-sm text-text-tertiary">
-									AI provider API keys are managed in the "API
-									Keys & Secrets" section below. Configure
-									your OpenAI, Anthropic, Google AI, and
-									OpenRouter keys there.
-								</p>
-
-								<Button
-									variant="outline"
-									size="sm"
-									onClick={() => {
-										const secretsSection =
-											document.getElementById('api-keys');
-										if (secretsSection) {
-											secretsSection.scrollIntoView({
-												behavior: 'smooth',
-												block: 'start',
-											});
-										}
-									}}
-									className="gap-2 shrink-0"
-								>
-														<Key className="h-4 w-4" />
-														API Keys
-								</Button>
-							</div>
-
-							<Separator />
-
-							{/* Model Configuration Tabs */}
-							<ModelConfigTabs
-								agentConfigs={agentConfigs}
-								modelConfigs={modelConfigs}
-								defaultConfigs={defaultConfigs}
-								loadingConfigs={loadingConfigs}
-								onSaveConfig={saveModelConfig}
-								onTestConfig={testModelConfig}
-								onResetConfig={resetConfigToDefault}
-								onResetAllConfigs={resetAllConfigs}
-								testingConfig={testingConfig}
-								savingConfigs={savingConfigs}
-							/>
-						</CardContent>
-					</Card>
+						</LayerCard.Primary>
+					</LayerCard>
 
 					{/* User Secrets Vault Section */}
 					{/* <SecretsManager id="secrets" /> */}
 
-					<Card id="api-keys">
-						<CardHeader variant="minimal">
-							<div className="flex items-center gap-3 border-b w-full py-3 text-text-primary">
-								<Key className="h-5 w-5" />
-								<div>
-									<CardTitle>API Keys</CardTitle>
+					<LayerCard id="api-keys">
+						<LayerCard.Secondary>
+							<div className="flex items-center gap-2">
+								<span className="h-lh flex items-center">
+									<Key className="size-4" />
+								</span>
+								<span>API keys</span>
+							</div>
+						</LayerCard.Secondary>
+						<LayerCard.Primary>
+							<div className="grid gap-6">
+								<div className="flex items-start justify-between gap-4">
+									<div className="grid gap-1.5">
+										<h4 className="text-sm font-medium text-kumo-default">
+											VibeSDK API keys
+										</h4>
+										<p className="text-sm text-kumo-subtle">
+											Use these keys to authenticate
+											external SDK clients. The full key
+											is shown only once when created.
+										</p>
+									</div>
+
+									<Dialog
+										open={createKeyOpen}
+										onOpenChange={(open) => {
+											setCreateKeyOpen(open);
+											if (!open) {
+												setNewKeyName('');
+												setCreatedKey(null);
+												setShowCreatedKey(true);
+												resetCreatedKeyCopy();
+											}
+										}}
+									>
+										<DialogTrigger asChild>
+											<KumoButton
+												variant="primary"
+												size="sm"
+												className="gap-2"
+											>
+												<Key className="size-4" />
+												Create API key
+											</KumoButton>
+										</DialogTrigger>
+										<DialogContent>
+											<DialogHeader>
+												<DialogTitle>
+													{createdKey
+														? 'Your new API key'
+														: 'Create API key'}
+												</DialogTitle>
+												<DialogDescription>
+													{createdKey
+														? 'Copy this key now. You will not be able to see it again.'
+														: 'Give your key a memorable name. You can revoke it anytime.'}
+												</DialogDescription>
+											</DialogHeader>
+
+											{!createdKey ? (
+												<div className="grid gap-4">
+													<div className="grid gap-1.5">
+														<p className="text-sm font-medium text-kumo-default">
+															Key name
+														</p>
+														<Input
+															value={newKeyName}
+															onChange={(e) =>
+																setNewKeyName(
+																	e.target
+																		.value,
+																)
+															}
+															placeholder="e.g. My production SDK"
+															autoFocus
+														/>
+													</div>
+
+													<div className="rounded-lg bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 p-3">
+														<p className="text-sm text-amber-800 dark:text-amber-200">
+															<strong>
+																Important:
+															</strong>{' '}
+															Treat this like a
+															password. Anyone
+															with this key can
+															act as your VibeSDK
+															account.
+														</p>
+													</div>
+												</div>
+											) : (
+												<div className="grid gap-4">
+													<div className="grid gap-1.5">
+														<p className="text-sm font-medium text-kumo-default">
+															API key
+														</p>
+														<div className="relative">
+															<Input
+																type={
+																	showCreatedKey
+																		? 'text'
+																		: 'password'
+																}
+																value={
+																	createdKey.key
+																}
+																readOnly
+																className="font-mono text-sm pr-20"
+															/>
+															<div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
+																<KumoButton
+																	size="sm"
+																	shape="square"
+																	variant="ghost"
+																	aria-label={
+																		showCreatedKey
+																			? 'Hide API key'
+																			: 'Show API key'
+																	}
+																	onClick={() =>
+																		setShowCreatedKey(
+																			!showCreatedKey,
+																		)
+																	}
+																	icon={
+																		showCreatedKey ? (
+																			<EyeOff className="size-4" />
+																		) : (
+																			<Eye className="size-4" />
+																		)
+																	}
+																/>
+																<KumoButton
+																	size="sm"
+																	shape="square"
+																	variant="ghost"
+																	aria-label={
+																		copiedCreatedKey
+																			? 'Copied'
+																			: 'Copy API key'
+																	}
+																	onClick={() =>
+																		copyCreatedKey(
+																			createdKey.key,
+																		)
+																	}
+																	icon={
+																		copiedCreatedKey ? (
+																			<Check className="size-4 text-green-500" />
+																		) : (
+																			<Copy className="size-4" />
+																		)
+																	}
+																/>
+															</div>
+														</div>
+													</div>
+
+													<div className="rounded-lg bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 p-3 grid gap-1.5">
+														<p className="text-xs font-medium text-slate-700 dark:text-slate-300">
+															SDK usage
+														</p>
+														<code className="text-xs text-slate-600 dark:text-slate-400 block font-mono text-[0.9em]">
+															VIBESDK_API_KEY=
+															{
+																createdKey.keyPreview
+															}
+														</code>
+													</div>
+												</div>
+											)}
+
+											<DialogFooter>
+												{!createdKey ? (
+													<KumoButton
+														variant="primary"
+														onClick={
+															handleCreateApiKey
+														}
+														disabled={
+															!newKeyName.trim() ||
+															creatingKey
+														}
+														loading={creatingKey}
+														className="gap-2"
+													>
+														Create
+													</KumoButton>
+												) : (
+													<KumoButton
+														variant="secondary"
+														onClick={() =>
+															setCreateKeyOpen(
+																false,
+															)
+														}
+													>
+														Done
+													</KumoButton>
+												)}
+											</DialogFooter>
+										</DialogContent>
+									</Dialog>
+								</div>
+
+								{apiKeys.loading ? (
+									<div className="flex items-center gap-3">
+										<Settings className="size-4 animate-spin text-kumo-subtle" />
+										<span className="text-sm text-kumo-subtle">
+											Loading API keys...
+										</span>
+									</div>
+								) : apiKeys.keys.length === 0 ? (
+									<div className="rounded-lg ring ring-kumo-line border-dashed px-5 py-4">
+										<div className="flex items-start gap-3">
+											<span className="h-lh flex items-center">
+												<Key className="size-4 text-kumo-subtle" />
+											</span>
+											<div className="grid gap-1.5">
+												<p className="text-sm font-medium text-kumo-default">
+													No API keys yet
+												</p>
+												<p className="text-sm text-kumo-subtle">
+													Create an API key to use the
+													VibeSDK SDK from your own
+													apps.
+												</p>
+											</div>
+										</div>
+									</div>
+								) : (
+									<>
+										<Table>
+											<TableCaption>
+												Active keys for SDK usage
+											</TableCaption>
+											<TableHeader>
+												<TableRow>
+													<TableHead>Name</TableHead>
+													<TableHead>
+														Preview
+													</TableHead>
+													<TableHead>
+														Created
+													</TableHead>
+													<TableHead>
+														Last used
+													</TableHead>
+													<TableHead>
+														Status
+													</TableHead>
+													<TableHead className="text-right">
+														Actions
+													</TableHead>
+												</TableRow>
+											</TableHeader>
+											<TableBody>
+												{apiKeys.keys.map((k) => (
+													<TableRow key={k.id}>
+														<TableCell className="font-medium">
+															{k.name}
+														</TableCell>
+														<TableCell className="font-mono text-xs text-text-secondary">
+															{k.keyPreview}
+														</TableCell>
+														<TableCell className="text-text-secondary">
+															{k.createdAt
+																? new Date(
+																		k.createdAt,
+																	).toLocaleDateString()
+																: '—'}
+														</TableCell>
+														<TableCell className="text-text-secondary">
+															{k.lastUsed
+																? new Date(
+																		k.lastUsed,
+																	).toLocaleDateString()
+																: '—'}
+														</TableCell>
+														<TableCell>
+															{k.isActive ? (
+																<Badge
+																	variant="secondary"
+																	className="bg-green-100 text-green-800 dark:bg-green-950 dark:text-green-200"
+																>
+																	Active
+																</Badge>
+															) : (
+																<Badge variant="secondary">
+																	Revoked
+																</Badge>
+															)}
+														</TableCell>
+														<TableCell className="text-right">
+															<KumoButton
+																variant="secondary-destructive"
+																size="sm"
+																disabled={
+																	!k.isActive
+																}
+																onClick={() =>
+																	setKeyToRevoke(
+																		k,
+																	)
+																}
+																className="gap-2"
+															>
+																<Trash2 className="size-4" />
+																Revoke
+															</KumoButton>
+														</TableCell>
+													</TableRow>
+												))}
+											</TableBody>
+										</Table>
+
+										<KumoDialogRoot
+											role="alertdialog"
+											open={!!keyToRevoke}
+											onOpenChange={(open) =>
+												!open && setKeyToRevoke(null)
+											}
+										>
+											<KumoDialog className="p-8">
+												<div className="mb-4 grid gap-1.5">
+													<KumoDialogTitle className="text-xl font-semibold">
+														Revoke API key?
+													</KumoDialogTitle>
+													<KumoDialogDescription className="text-kumo-subtle">
+														This will immediately
+														disable the key{' '}
+														<span className="font-mono text-[0.9em]">
+															{
+																keyToRevoke?.keyPreview
+															}
+														</span>
+														. Any SDK clients using
+														it will stop working.
+													</KumoDialogDescription>
+												</div>
+												<div className="mt-8 flex justify-end gap-2">
+													<KumoDialogClose
+														render={(props) => (
+															<KumoButton
+																variant="secondary"
+																{...props}
+																disabled={
+																	revokingKey
+																}
+															>
+																Cancel
+															</KumoButton>
+														)}
+													/>
+													<KumoButton
+														variant="destructive"
+														onClick={() => {
+															void handleRevokeApiKey();
+														}}
+														disabled={revokingKey}
+														loading={revokingKey}
+													>
+														Revoke key
+													</KumoButton>
+												</div>
+											</KumoDialog>
+										</KumoDialogRoot>
+									</>
+								)}
+							</div>
+						</LayerCard.Primary>
+					</LayerCard>
+
+					{/* Security Section */}
+					<LayerCard id="security">
+						<LayerCard.Secondary>
+							<div className="flex items-center gap-2">
+								<span className="h-lh flex items-center">
+									<Lock className="size-4" />
+								</span>
+								<span>Security</span>
+							</div>
+						</LayerCard.Secondary>
+						<LayerCard.Primary>
+							<div className="grid gap-6">
+								<ConnectedAccounts />
+
+								<Separator />
+
+								<div className="grid gap-4">
+									<h4 className="text-sm font-medium text-kumo-default">
+										Active sessions
+									</h4>
+									{activeSessions.loading ? (
+										<div className="flex items-center gap-3">
+											<Settings className="size-4 animate-spin text-kumo-subtle" />
+											<span className="text-sm text-kumo-subtle">
+												Loading active sessions...
+											</span>
+										</div>
+									) : (
+										activeSessions.sessions.map(
+											(session) => (
+												<div
+													key={session.id}
+													className="flex items-center justify-between gap-4"
+												>
+													<div className="flex items-start gap-2">
+														<span className="h-lh flex items-center">
+															<Smartphone className="size-4 text-kumo-subtle" />
+														</span>
+														<div className="grid gap-1.5">
+															<p className="text-sm font-medium text-kumo-default">
+																{session.isCurrent
+																	? 'Current session'
+																	: 'Other session'}
+															</p>
+															<p className="text-sm text-kumo-subtle">
+																{
+																	session.ipAddress
+																}{' '}
+																•{' '}
+																{new Date(
+																	session.lastActivity,
+																).toLocaleDateString()}
+															</p>
+														</div>
+													</div>
+													<div className="flex items-center gap-2">
+														{session.isCurrent ? (
+															<div className="bg-green-400 size-3 rounded-full ring-2 ring-green-200 animate-pulse" />
+														) : (
+															<KumoButton
+																variant="secondary"
+																size="sm"
+																onClick={() =>
+																	handleRevokeSession(
+																		session.id,
+																	)
+																}
+															>
+																Revoke
+															</KumoButton>
+														)}
+													</div>
+												</div>
+											),
+										)
+									)}
 								</div>
 							</div>
-						</CardHeader>
-						<CardContent className="space-y-4 mt-4 px-6">
-							<div className="flex items-start justify-between gap-4">
-								<div className="space-y-1">
-									<h4 className="font-medium text-sm">VibeSDK API Keys</h4>
-									<p className="text-sm text-text-secondary">
-										Use these keys to authenticate external SDK clients. The full key is shown only once when created.
+						</LayerCard.Primary>
+					</LayerCard>
+
+					<LayerCard id="danger-zone">
+						<LayerCard.Secondary>
+							<span className="text-kumo-danger">
+								Danger zone
+							</span>
+						</LayerCard.Secondary>
+						<LayerCard.Primary>
+							<div className="flex items-center justify-between gap-4">
+								<div className="grid gap-1.5">
+									<p className="text-sm font-medium text-kumo-default">
+										Delete account
+									</p>
+									<p className="text-sm text-kumo-subtle">
+										Permanently delete your account and all
+										data
 									</p>
 								</div>
 
-								<Dialog
-									open={createKeyOpen}
-									onOpenChange={(open) => {
-										setCreateKeyOpen(open);
-										if (!open) {
-											setNewKeyName('');
-											setCreatedKey(null);
-											setShowCreatedKey(true);
-											resetCreatedKeyCopy();
-										}
-									}}
-								>
-									<DialogTrigger asChild>
-										<Button size="sm" className="gap-2">
-											<Key className="h-4 w-4" />
-											Create API Key
-										</Button>
-									</DialogTrigger>
-									<DialogContent>
-										<DialogHeader>
-											<DialogTitle>
-												{createdKey ? 'Your new API key' : 'Create API key'}
-											</DialogTitle>
-											<DialogDescription>
-												{createdKey
-													? 'Copy this key now. You will not be able to see it again.'
-													: 'Give your key a memorable name. You can revoke it anytime.'}
-											</DialogDescription>
-										</DialogHeader>
-
-										{!createdKey ? (
-											<div className="space-y-3">
-												<div className="space-y-2">
-													<p className="text-sm font-medium">Key name</p>
-													<Input
-														value={newKeyName}
-														onChange={(e) => setNewKeyName(e.target.value)}
-														placeholder="e.g. My production SDK"
-														autoFocus
-													/>
-												</div>
-
-												<div className="rounded-lg bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 p-3">
-													<p className="text-sm text-amber-800 dark:text-amber-200">
-														<strong>Important:</strong> Treat this like a password. Anyone with this key can act as your VibeSDK account.
-													</p>
-												</div>
-											</div>
-										) : (
-											<div className="space-y-3">
-												<div className="space-y-2">
-													<p className="text-sm font-medium">API key</p>
-													<div className="relative">
-														<Input
-															type={showCreatedKey ? 'text' : 'password'}
-															value={createdKey.key}
-															readOnly
-															className="font-mono text-sm pr-20"
-														/>
-														<div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
-															<Button
-																size="icon"
-																variant="ghost"
-																className="h-7 w-7"
-																onClick={() => setShowCreatedKey(!showCreatedKey)}
-															>
-																{showCreatedKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-															</Button>
-															<Button
-																size="icon"
-																variant="ghost"
-																className="h-7 w-7"
-																onClick={() => copyCreatedKey(createdKey.key)}
-															>
-																{copiedCreatedKey ? (
-																	<Check className="h-4 w-4 text-green-500" />
-																) : (
-																	<Copy className="h-4 w-4" />
-																)}
-															</Button>
-														</div>
-													</div>
-												</div>
-
-												<div className="rounded-lg bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 p-3">
-													<p className="text-xs font-medium text-slate-700 dark:text-slate-300 mb-2">SDK usage</p>
-													<code className="text-xs text-slate-600 dark:text-slate-400 block font-mono">
-														VIBESDK_API_KEY={createdKey.keyPreview}
-													</code>
-												</div>
-											</div>
+								<KumoDialogRoot role="alertdialog">
+									<KumoDialogTrigger
+										render={(p) => (
+											<KumoButton
+												{...p}
+												variant="destructive"
+												className="gap-2"
+											>
+												<TrashIcon
+													weight="duotone"
+													className="size-4"
+												/>
+												Delete account
+											</KumoButton>
 										)}
-
-										<DialogFooter>
-											{!createdKey ? (
-												<Button
-													onClick={handleCreateApiKey}
-													disabled={!newKeyName.trim() || creatingKey}
-													className="gap-2"
-												>
-													{creatingKey ? (
-														<>
-															<Settings className="h-4 w-4 animate-spin" />
-															Creating...
-														</>
-													) : (
-														'Create'
-													)}
-												</Button>
-											) : (
-												<Button
-													variant="outline"
-													onClick={() => setCreateKeyOpen(false)}
-												>
-													Done
-												</Button>
-											)}
-										</DialogFooter>
-									</DialogContent>
-								</Dialog>
-							</div>
-
-							{apiKeys.loading ? (
-								<div className="flex items-center gap-3">
-									<Settings className="h-5 w-5 animate-spin text-text-tertiary" />
-									<span className="text-sm text-text-tertiary">Loading API keys...</span>
-								</div>
-							) : apiKeys.keys.length === 0 ? (
-								<div className="rounded-lg border border-dashed border-bg-4 bg-bg-2/50 p-6">
-									<div className="flex items-start gap-3">
-										<div className="h-10 w-10 rounded-full bg-bg-3 flex items-center justify-center">
-											<Key className="h-5 w-5 text-text-tertiary" />
+									/>
+									<KumoDialog className="p-8">
+										<div className="mb-4 grid gap-1.5">
+											<KumoDialogTitle className="text-xl font-semibold">
+												Delete account?
+											</KumoDialogTitle>
+											<KumoDialogDescription className="text-kumo-subtle">
+												This action cannot be undone.
+												This will permanently delete
+												your account and remove all your
+												data from our servers.
+											</KumoDialogDescription>
 										</div>
-										<div className="space-y-1">
-											<p className="font-medium">No API keys yet</p>
-											<p className="text-sm text-text-tertiary">
-												Create an API key to use the VibeSDK SDK from your own apps.
-											</p>
-										</div>
-									</div>
-								</div>
-							) : (
-								<>
-									<Table>
-										<TableCaption>Active keys for SDK usage</TableCaption>
-										<TableHeader>
-											<TableRow>
-												<TableHead>Name</TableHead>
-												<TableHead>Preview</TableHead>
-												<TableHead>Created</TableHead>
-												<TableHead>Last used</TableHead>
-												<TableHead>Status</TableHead>
-												<TableHead className="text-right">Actions</TableHead>
-											</TableRow>
-										</TableHeader>
-										<TableBody>
-											{apiKeys.keys.map((k) => (
-												<TableRow key={k.id}>
-													<TableCell className="font-medium">{k.name}</TableCell>
-													<TableCell className="font-mono text-xs text-text-secondary">{k.keyPreview}</TableCell>
-													<TableCell className="text-text-secondary">
-														{k.createdAt ? new Date(k.createdAt).toLocaleDateString() : '—'}
-													</TableCell>
-													<TableCell className="text-text-secondary">
-														{k.lastUsed ? new Date(k.lastUsed).toLocaleDateString() : '—'}
-													</TableCell>
-													<TableCell>
-														{k.isActive ? (
-															<Badge variant="secondary" className="bg-green-100 text-green-800 dark:bg-green-950 dark:text-green-200">
-																Active
-															</Badge>
-														) : (
-															<Badge variant="secondary">Revoked</Badge>
-														)}
-													</TableCell>
-													<TableCell className="text-right">
-														<Button
-															variant="outline"
-															size="sm"
-															disabled={!k.isActive}
-															onClick={() => setKeyToRevoke(k)}
-															className="gap-2 text-destructive hover:text-destructive"
-														>
-															<Trash2 className="h-4 w-4" />
-															Revoke
-														</Button>
-													</TableCell>
-												</TableRow>
-											))}
-										</TableBody>
-									</Table>
-
-									<AlertDialog open={!!keyToRevoke} onOpenChange={(open) => !open && setKeyToRevoke(null)}>
-										<AlertDialogContent>
-											<AlertDialogHeader>
-												<AlertDialogTitle>Revoke API key?</AlertDialogTitle>
-												<AlertDialogDescription>
-													This will immediately disable the key <span className="font-mono">{keyToRevoke?.keyPreview}</span>. Any SDK clients using it will stop working.
-												</AlertDialogDescription>
-											</AlertDialogHeader>
-											<AlertDialogFooter>
-												<AlertDialogCancel disabled={revokingKey}>Cancel</AlertDialogCancel>
-												<AlertDialogAction
-													onClick={handleRevokeApiKey}
-													disabled={revokingKey}
-													className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-												>
-													{revokingKey ? 'Revoking…' : 'Revoke key'}
-												</AlertDialogAction>
-											</AlertDialogFooter>
-										</AlertDialogContent>
-									</AlertDialog>
-								</>
-							)}
-						</CardContent>
-					</Card>
-
-					{/* Security Section */}
-					<Card id="security">
-						<CardHeader variant="minimal">
-							<div className="flex items-center gap-3 border-b w-full py-3 text-text-primary">
-								<Lock className="h-5 w-5" />
-								<div>
-									<CardTitle className="text-lg">
-										Security
-									</CardTitle>
-								</div>
-							</div>
-						</CardHeader>
-						<CardContent className="space-y-3 mt-2 px-6">
-							{/* Connected Accounts */}
-							<ConnectedAccounts />
-
-							<Separator />
-
-							{/* Active Sessions */}
-							<div className="space-y-2">
-								<h4 className="font-medium">Active Sessions</h4>
-								{activeSessions.loading ? (
-									<div className="flex items-center gap-3">
-										<Settings className="h-5 w-5 animate-spin text-text-tertiary" />
-										<span className="text-sm text-text-tertiary">
-											Loading active sessions...
-										</span>
-									</div>
-								) : (
-									activeSessions.sessions.map((session) => (
-										<div
-											key={session.id}
-											className="flex items-center justify-between"
-										>
-											<div className="flex items-center gap-3">
-												<Smartphone className="h-5 w-5 text-text-tertiary" />
-												<div>
-													<p className="font-medium text-sm">
-														{session.isCurrent
-															? 'Current Session'
-															: 'Other Session'}
-													</p>
-													<p className="text-sm text-text-tertiary">
-														{session.ipAddress} •{' '}
-														{new Date(
-															session.lastActivity,
-														).toLocaleDateString()}
-													</p>
-												</div>
-											</div>
-											<div className="flex items-center gap-2">
-												{session.isCurrent ? (
-													<div className="bg-green-400 size-3 rounded-full ring-green-200 ring-2 animate-pulse"></div>
-												) : (
-													<Button
-														variant="outline"
-														size="sm"
-														onClick={() =>
-															handleRevokeSession(
-																session.id,
-															)
-														}
-														className="text-destructive hover:text-destructive"
+										<div className="mt-8 flex justify-end gap-2">
+											<KumoDialogClose
+												render={(props) => (
+													<KumoButton
+														variant="secondary"
+														{...props}
 													>
-														Revoke
-													</Button>
+														Cancel
+													</KumoButton>
 												)}
-											</div>
+											/>
+											<KumoDialogClose
+												render={(props) => (
+													<KumoButton
+														variant="destructive"
+														{...props}
+														onClick={(e) => {
+															props.onClick?.(e);
+															void handleDeleteAccount();
+														}}
+													>
+														Delete account
+													</KumoButton>
+												)}
+											/>
 										</div>
-									))
-								)}
+									</KumoDialog>
+								</KumoDialogRoot>
 							</div>
-						</CardContent>
-					</Card>
-
-					<div className="space-y-4 p-3">
-						<h4 className="font-medium text-destructive">
-							Danger Zone
-						</h4>
-
-						<div className="flex items-center justify-between">
-							<div>
-								<p className="font-medium text-text-primary">Delete Account</p>
-								<p className="text-sm text-text-tertiary">
-									Permanently delete your account and all data
-								</p>
-							</div>
-							<AlertDialog>
-								<AlertDialogTrigger asChild>
-									<Button
-										variant="destructive"
-										className="gap-2"
-									>
-										<Trash2 className="h-4 w-4" />
-										Delete Account
-									</Button>
-								</AlertDialogTrigger>
-								<AlertDialogContent>
-									<AlertDialogHeader>
-										<AlertDialogTitle>
-											Are you absolutely sure?
-										</AlertDialogTitle>
-										<AlertDialogDescription>
-											This action cannot be undone. This
-											will permanently delete your account
-											and remove all your data from our
-											servers.
-										</AlertDialogDescription>
-									</AlertDialogHeader>
-									<AlertDialogFooter>
-										<AlertDialogCancel>
-											Cancel
-										</AlertDialogCancel>
-										<AlertDialogAction
-											onClick={handleDeleteAccount}
-											className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-										>
-											Delete Account
-										</AlertDialogAction>
-									</AlertDialogFooter>
-								</AlertDialogContent>
-							</AlertDialog>
-						</div>
-					</div>
+						</LayerCard.Primary>
+					</LayerCard>
 				</div>
 			</main>
 		</div>

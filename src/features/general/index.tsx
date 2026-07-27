@@ -4,7 +4,7 @@ import type { FeatureModule, FeatureContext } from '../core/types';
 // General projects don't have a preview - show a placeholder
 function GeneralPreview({ className }: { className?: string }) {
 	return (
-		<div className={`${className ?? ''} flex items-center justify-center bg-bg-3 border border-text/10 rounded-lg`}>
+		<div className={`${className ?? ''} flex items-center justify-center bg-kumo-base border border-text/10 rounded-lg`}>
 			<div className="text-center p-8">
 				<p className="text-text-primary/70 text-sm">
 					This project type does not have a live preview.

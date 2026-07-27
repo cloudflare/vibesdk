@@ -1,16 +1,24 @@
 import { useCallback, useRef, useState, useEffect, useMemo } from 'react';
 import { ArrowRight, Info } from 'react-feather';
-import { Loader2 } from 'lucide-react';
+import { ArrowUpRight, Loader2 } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router';
 import { useAuth } from '@/contexts/auth-context';
-import { ProjectModeSelector, type ProjectModeOption } from '../components/project-mode-selector';
-import { BehaviorModeToggle } from '../components/behavior-mode-toggle';
-import { MAX_AGENT_QUERY_LENGTH, SUPPORTED_IMAGE_MIME_TYPES, type ProjectType, type BehaviorType } from '@/api-types';
+import {
+	ProjectModeSelector,
+	type ProjectModeOption,
+} from '../components/project-mode-selector';
+import {
+	MAX_AGENT_QUERY_LENGTH,
+	SUPPORTED_IMAGE_MIME_TYPES,
+	type ProjectType,
+	type BehaviorType,
+} from '@/api-types';
 import { useFeature } from '@/features';
 import { useAuthGuard } from '../hooks/useAuthGuard';
 import { usePaginatedApps } from '@/hooks/use-paginated-apps';
 import { AnimatePresence, LayoutGroup, motion } from 'framer-motion';
 import { AppCard } from '@/components/shared/AppCard';
+import { Button } from '@/components/ui/button';
 import clsx from 'clsx';
 import { useImageUpload } from '@/hooks/use-image-upload';
 import { useDragDrop } from '@/hooks/use-drag-drop';
@@ -18,17 +26,21 @@ import { toast } from 'sonner';
 import { useLimitsContext } from '@/contexts/limits-context';
 import { checkCanSendPrompt } from '@/utils/usage-limit-checker';
 import { PromptBox } from '@/components/prompt-box';
+import { FloatingBackgroundIcons } from '@/components/shared/FloatingBackgroundIcons';
 
 export default function Home() {
 	const navigate = useNavigate();
 	const { requireAuth } = useAuthGuard();
 	const [projectMode, setProjectMode] = useState<ProjectType>('app');
-	const [behaviorMode, setBehaviorMode] = useState<Extract<BehaviorType, 'think' | 'phasic'>>('think');
+	const behaviorMode: Extract<BehaviorType, 'think' | 'phasic'> = 'think';
 	const [query, setQuery] = useState('');
 	const { user } = useAuth();
-	const { isLoadingCapabilities, capabilities, getEnabledFeatures } = useFeature();
-	const { data: limitsData, loading: usageLimitsLoading } = useLimitsContext();
-	const [showLimitDialog, setShowLimitDialog] = useState<React.ReactElement | null>(null);
+	const { isLoadingCapabilities, capabilities, getEnabledFeatures } =
+		useFeature();
+	const { data: limitsData, loading: usageLimitsLoading } =
+		useLimitsContext();
+	const [showLimitDialog, setShowLimitDialog] =
+		useState<React.ReactElement | null>(null);
 
 	const handleConnectCloudflare = useCallback(() => {
 		window.location.href = `/oauth/login?return_url=${encodeURIComponent(window.location.href)}`;
@@ -43,7 +55,8 @@ export default function Home() {
 		const messages: Record<string, string> = {
 			email_exists:
 				'An account with this email already exists. Sign in with your existing method, then link the provider from Settings.',
-			oauth_failed: 'The sign-in provider reported an error. Please try again.',
+			oauth_failed:
+				'The sign-in provider reported an error. Please try again.',
 			auth_failed: 'Sign-in failed. Please try again.',
 		};
 		toast.error(messages[authError] ?? messages.auth_failed);
@@ -78,29 +91,25 @@ export default function Home() {
 		}
 	}, [isLoadingCapabilities, modeOptions, projectMode]);
 
-	const { images, addImages, removeImage, clearImages, isProcessing } = useImageUpload({
-		onError: (error) => {
-			console.error('Image upload error:', error);
-			toast.error(error);
-		},
-	});
+	const { images, addImages, removeImage, clearImages, isProcessing } =
+		useImageUpload({
+			onError: (error) => {
+				console.error('Image upload error:', error);
+				toast.error(error);
+			},
+		});
 
 	const { isDragging, dragHandlers } = useDragDrop({
 		onFilesDropped: addImages,
 		accept: [...SUPPORTED_IMAGE_MIME_TYPES],
 	});
 
+	const placeholderPhrases = useMemo(
+		() => ['todo list app', 'F1 fantasy game', 'personal finance tracker'],
+		[],
+	);
 
-	const placeholderPhrases = useMemo(() => [
-		"todo list app",
-		"F1 fantasy game",
-		"personal finance tracker"
-	], []);
-
-	const {
-		apps,
-		loading,
-	} = usePaginatedApps({
+	const { apps, loading } = usePaginatedApps({
 		type: 'public',
 		defaultSort: 'recent',
 		defaultPeriod: 'week',
@@ -108,7 +117,11 @@ export default function Home() {
 	});
 
 	// Discover section should appear only when enough apps are available and loading is done
-	const discoverReady = useMemo(() => !loading && (apps?.length ?? 0) > 5, [loading, apps]);
+	const discoverReady = useMemo(
+		() => !loading && (apps?.length ?? 0) > 0,
+		[loading, apps],
+	);
+	const discoverApps = useMemo(() => (apps ?? []).slice(0, 9), [apps]);
 
 	const handleCreateApp = (query: string, mode: ProjectType) => {
 		if (query.length > MAX_AGENT_QUERY_LENGTH) {
@@ -124,10 +137,16 @@ export default function Home() {
 
 		const encodedQuery = encodeURIComponent(query);
 		const encodedMode = encodeURIComponent(mode);
-		const behaviorParam = mode === 'app' ? `&behaviorType=${encodeURIComponent(behaviorMode)}` : '';
+		const behaviorParam =
+			mode === 'app'
+				? `&behaviorType=${encodeURIComponent(behaviorMode)}`
+				: '';
 
 		// Encode images as JSON if present
-		const imageParam = images.length > 0 ? `&images=${encodeURIComponent(JSON.stringify(images))}` : '';
+		const imageParam =
+			images.length > 0
+				? `&images=${encodeURIComponent(JSON.stringify(images))}`
+				: '';
 		const intendedUrl = `/chat/new?query=${encodedQuery}&projectType=${encodedMode}${behaviorParam}${imageParam}`;
 
 		if (
@@ -144,8 +163,10 @@ export default function Home() {
 		const limitCheck = checkCanSendPrompt(
 			limitsData,
 			usageLimitsLoading,
-			() => { window.location.href = `/oauth/login?return_url=${encodeURIComponent(window.location.href)}`; },
-			() => setShowLimitDialog(null)
+			() => {
+				window.location.href = `/oauth/login?return_url=${encodeURIComponent(window.location.href)}`;
+			},
+			() => setShowLimitDialog(null),
 		);
 
 		if (!limitCheck.canProceed) {
@@ -161,50 +182,38 @@ export default function Home() {
 		clearImages();
 	};
 
-
 	const discoverLinkRef = useRef<HTMLDivElement>(null);
 
 	return (
-		<div className="relative flex flex-col items-center size-full">
-			{/* Dotted background pattern - extends to full viewport */}
-			<div className="fixed inset-0 z-0 opacity-20 pointer-events-none" style={{ color: '#ff3d00' }}>
-				<svg width="100%" height="100%">
-					<defs>
-						<pattern
-							id=":S2:"
-							viewBox="-6 -6 12 12"
-							patternUnits="userSpaceOnUse"
-							width="12"
-							height="12"
-						>
-							<circle
-								cx="0"
-								cy="0"
-								r="1"
-								fill="currentColor"
-							></circle>
-						</pattern>
-					</defs>
-					<rect
-						width="100%"
-						height="100%"
-						fill="url(#:S2:)"
-					></rect>
-				</svg>
-			</div>
-
+		<div className="relative flex flex-col items-center w-full min-h-full bg-kumo-elevated">
+			<FloatingBackgroundIcons className="opacity-80" />
 			<LayoutGroup>
-				<div className="rounded-md w-full max-w-2xl overflow-hidden">
+				<div className="w-full max-w-2xl px-5 sm:px-6">
 					<motion.div
 						layout
-						transition={{ layout: { duration: 0.5, ease: [0.22, 1, 0.36, 1] } }}
+						transition={{
+							layout: { duration: 0.5, ease: [0.22, 1, 0.36, 1] },
+						}}
 						className={clsx(
-							"px-6 p-8 flex flex-col items-center z-10",
-							discoverReady ? "mt-48" : "mt-[20vh] sm:mt-[24vh] md:mt-[28vh]"
-						)}>
-						<h1 className="text-shadow-sm text-shadow-red-200 dark:text-shadow-red-900 font-medium leading-[1.1] tracking-tight text-5xl w-full mb-4 bg-clip-text bg-gradient-to-r from-text-primary to-text-primary/90" style={{ color: '#ff3d00' }}>
-							What should we build today?
-						</h1>
+							'flex flex-col items-stretch z-10 w-full',
+							discoverReady
+								? 'mt-28 sm:mt-36'
+								: 'mt-[18vh] sm:mt-[22vh] md:mt-[26vh]',
+						)}
+					>
+						<div className="mb-6 sm:mb-7 grid gap-2">
+							<h1 className="w-full text-left text-[clamp(1.75rem,4.5vw,2.5rem)] font-semibold leading-[1.12] text-kumo-strong/80">
+								What should we{' '}
+								<span className="font-funky-mono text-[0.92em] uppercase text-brand">
+									build
+								</span>{' '}
+								today?
+							</h1>
+							<p className="text-sm text-kumo-subtle">
+								Describe an app, slides, or idea — we&apos;ll
+								scaffold it for you.
+							</p>
+						</div>
 						<PromptBox
 							value={query}
 							onChange={setQuery}
@@ -215,37 +224,34 @@ export default function Home() {
 							images={images}
 							onAddImages={addImages}
 							onRemoveImage={removeImage}
-							isProcessing={isProcessing || (user ? usageLimitsLoading : false)}
+							isProcessing={
+								isProcessing ||
+								(user ? usageLimitsLoading : false)
+							}
 							isDragging={isDragging}
 							dragHandlers={dragHandlers}
 							submitDisabled={user ? usageLimitsLoading : false}
 							limitsData={user ? limitsData : undefined}
 							onConnectCloudflare={handleConnectCloudflare}
 							variant="expanded"
-							submitIcon={user && usageLimitsLoading ? <Loader2 className="animate-spin" /> : <ArrowRight />}
+							submitIcon={
+								user && usageLimitsLoading ? (
+									<Loader2 className="animate-spin" />
+								) : (
+									<ArrowRight />
+								)
+							}
 							leftActions={
-								(showModeSelector || projectMode === 'app') ? (
-									<div className="flex items-center gap-3">
-										{showModeSelector && (
-											<ProjectModeSelector
-												value={projectMode}
-												onChange={setProjectMode}
-												modes={modeOptions}
-												className="flex-1"
-											/>
-										)}
-										{projectMode === 'app' && (
-											<BehaviorModeToggle
-												value={behaviorMode}
-												onChange={setBehaviorMode}
-											/>
-										)}
-									</div>
+								showModeSelector ? (
+									<ProjectModeSelector
+										value={projectMode}
+										onChange={setProjectMode}
+										modes={modeOptions}
+									/>
 								) : undefined
 							}
 						/>
 					</motion.div>
-
 				</div>
 
 				<AnimatePresence>
@@ -254,12 +260,24 @@ export default function Home() {
 							initial={{ opacity: 0, y: -10 }}
 							animate={{ opacity: 1, y: 0 }}
 							exit={{ opacity: 0, y: -10 }}
-							className="w-full max-w-2xl px-6"
+							className="w-full max-w-2xl px-5 sm:px-6"
 						>
-							<div className="flex items-start gap-2 px-4 py-3 rounded-xl bg-bg-4/50 dark:bg-bg-2/50 shadow-sm" style={{ borderColor: 'rgba(255, 61, 0, 0.2)' }}>
-								<Info className="size-4 flex-shrink-0 mt-0.5" style={{ color: '#ff3d00' }} />
+							<div
+								className="flex items-start gap-2 px-4 py-3 rounded-xl bg-bg-4/50 dark:bg-bg-2/50 shadow-sm"
+								style={{ borderColor: 'rgba(255, 61, 0, 0.2)' }}
+							>
+								<Info
+									className="size-4 flex-shrink-0 mt-0.5"
+									style={{ color: '#ff3d00' }}
+								/>
 								<p className="text-xs text-text-tertiary leading-relaxed">
-									<span className="font-medium text-text-secondary">Images Beta:</span> Images guide app layout and design but may not be replicated exactly. The coding agent cannot access images directly for app assets.
+									<span className="font-medium text-text-secondary">
+										Images Beta:
+									</span>{' '}
+									Images guide app layout and design but may
+									not be replicated exactly. The coding agent
+									cannot access images directly for app
+									assets.
 								</p>
 							</div>
 						</motion.div>
@@ -272,25 +290,57 @@ export default function Home() {
 							key="discover-section"
 							layout
 							initial={{ opacity: 0, height: 0 }}
-							animate={{ opacity: 1, height: "auto" }}
+							animate={{ opacity: 1, height: 'auto' }}
 							exit={{ opacity: 0, height: 0 }}
-							transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
-							className={clsx('max-w-6xl mx-auto px-4 z-10', images.length > 0 ? 'mt-10' : 'mt-16 mb-8')}
+							transition={{
+								duration: 0.5,
+								ease: [0.22, 1, 0.36, 1],
+							}}
+							className={clsx(
+								'w-full max-w-7xl mx-auto px-5 sm:px-6 z-10',
+								images.length > 0
+									? 'mt-10'
+									: 'mt-16 sm:mt-20 mb-12',
+							)}
 						>
-							<div className='flex flex-col items-start'>
-								<h2 className="text-2xl font-medium text-text-secondary/80">Discover Apps built by the community</h2>
-								<div ref={discoverLinkRef} className="text-md font-light mb-4 text-text-tertiary hover:underline underline-offset-4 select-text cursor-pointer" onClick={() => navigate('/discover')} >View All</div>
+							<div className="flex flex-col gap-6">
+								<div className="flex items-end justify-between gap-4">
+									<div className="grid gap-1.5 min-w-0">
+										<h2 className="text-2xl sm:text-3xl font-semibold text-kumo-strong">
+											Discover apps
+										</h2>
+										<p className="text-sm text-kumo-subtle">
+											Fresh builds from the community this
+											week
+										</p>
+									</div>
+									<div ref={discoverLinkRef}>
+										<Button
+											variant="outline"
+											size="sm"
+											onClick={() =>
+												navigate('/discover')
+											}
+											className="shrink-0 rounded-full px-3.5 gap-1.5 text-sm text-kumo-default ring-1 ring-kumo-line border-0 shadow-sm bg-kumo-base hover:bg-kumo-tint hover:text-kumo-strong"
+										>
+											View all
+											<ArrowUpRight className="size-3.5 opacity-70" />
+										</Button>
+									</div>
+								</div>
 								<motion.div
 									layout
 									transition={{ duration: 0.4 }}
-									className="grid grid-cols-2 xl:grid-cols-3 gap-6"
+									className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3"
 								>
 									<AnimatePresence mode="popLayout">
-										{apps.map(app => (
+										{discoverApps.map((app) => (
 											<AppCard
 												key={app.id}
 												app={app}
-												onClick={() => navigate(`/app/${app.id}`)}
+												onClick={() =>
+													navigate(`/app/${app.id}`)
+												}
 												showStats={true}
 												showUser={true}
 												showActions={false}
@@ -304,16 +354,11 @@ export default function Home() {
 				</AnimatePresence>
 			</LayoutGroup>
 
-			{/* Nudge towards Discover */}
-			{user && <CurvedArrow sourceRef={discoverLinkRef} target={{ x: 50, y: window.innerHeight - 60 }} />}
-
 			{/* Usage limit dialogs */}
 			{showLimitDialog}
 		</div>
 	);
 }
-
-
 
 type ArrowProps = {
 	/** Ref to the source element the arrow starts from */
@@ -371,18 +416,23 @@ export const CurvedArrow: React.FC<ArrowProps> = ({
 			Object.entries(centers).map(([side, p]) => [
 				side,
 				(p.x - endPoint.x) ** 2 + (p.y - endPoint.y) ** 2,
-			])
+			]),
 		) as Record<keyof typeof centers, number>;
 
-		const bestSide = (Object.entries(dists).sort((a, b) => a[1] - b[1])[0][0] ||
-			"right") as keyof typeof centers;
+		const bestSide = (Object.entries(dists).sort(
+			(a, b) => a[1] - b[1],
+		)[0][0] || 'right') as keyof typeof centers;
 
 		// Nudge start point slightly outside the element for visual clarity
-		const nudge = (p: Point, side: keyof typeof centers, offset: number) => {
+		const nudge = (
+			p: Point,
+			side: keyof typeof centers,
+			offset: number,
+		) => {
 			switch (side) {
-				case "right":
+				case 'right':
 					return { x: p.x + offset, y: p.y };
-				case "left":
+				case 'left':
 					return { x: p.x - offset, y: p.y };
 			}
 		};
@@ -408,12 +458,12 @@ export const CurvedArrow: React.FC<ArrowProps> = ({
 		const onScroll = () => scheduleCompute();
 		const onResize = () => scheduleCompute();
 
-		window.addEventListener("scroll", onScroll, { passive: true });
-		window.addEventListener("resize", onResize);
+		window.addEventListener('scroll', onScroll, { passive: true });
+		window.addEventListener('resize', onResize);
 
 		// Track source element size changes
 		const el = sourceRef.current;
-		if ("ResizeObserver" in window) {
+		if ('ResizeObserver' in window) {
 			roRef.current = new ResizeObserver(() => scheduleCompute());
 			if (el) roRef.current.observe(el);
 		}
@@ -421,8 +471,8 @@ export const CurvedArrow: React.FC<ArrowProps> = ({
 		scheduleCompute();
 
 		return () => {
-			window.removeEventListener("scroll", onScroll);
-			window.removeEventListener("resize", onResize);
+			window.removeEventListener('scroll', onScroll);
+			window.removeEventListener('resize', onResize);
 			if (rafRef.current != null) cancelAnimationFrame(rafRef.current);
 			if (roRef.current && el) roRef.current.unobserve(el);
 		};
@@ -430,7 +480,7 @@ export const CurvedArrow: React.FC<ArrowProps> = ({
 	}, []);
 
 	const d = useMemo(() => {
-		if (!start || !end) return "";
+		if (!start || !end) return '';
 
 		const dx = end.x - start.x;
 		const dy = end.y - start.y;
@@ -439,8 +489,14 @@ export const CurvedArrow: React.FC<ArrowProps> = ({
 		// This gives a nice S or C curve without sharp kinks.
 		const cpOffset = Math.max(Math.abs(dx), Math.abs(dy)) * curvature;
 
-		const c1: Point = { x: start.x + cpOffset * (dx >= 0 ? 1 : -1), y: start.y };
-		const c2: Point = { x: end.x - cpOffset * (dx >= 0 ? 1 : -1), y: end.y };
+		const c1: Point = {
+			x: start.x + cpOffset * (dx >= 0 ? 1 : -1),
+			y: start.y,
+		};
+		const c2: Point = {
+			x: end.x - cpOffset * (dx >= 0 ? 1 : -1),
+			y: end.y,
+		};
 
 		return `M ${start.x},${start.y} C ${c1.x},${c1.y} ${c2.x},${c2.y} ${end.x},${end.y}`;
 	}, [start, end, curvature]);
@@ -455,24 +511,63 @@ export const CurvedArrow: React.FC<ArrowProps> = ({
 		<svg
 			aria-hidden="true"
 			style={{
-				position: "fixed",
+				position: 'fixed',
 				inset: 0,
-				width: "100vw",
-				height: "100vh",
-				pointerEvents: "none",
-				overflow: "visible",
+				width: '100vw',
+				height: '100vh',
+				pointerEvents: 'none',
+				overflow: 'visible',
 				zIndex: 9999,
-				display: hidden ? "none" : "block",
+				display: hidden ? 'none' : 'block',
 			}}
 		>
 			<defs>
-				<filter id="discover-squiggle" x="-20%" y="-20%" width="140%" height="140%">
-					<feTurbulence type="fractalNoise" baseFrequency="0.8" numOctaves="1" seed="3" result="noise" />
-					<feDisplacementMap in="SourceGraphic" in2="noise" scale="1" xChannelSelector="R" yChannelSelector="G" />
+				<filter
+					id="discover-squiggle"
+					x="-20%"
+					y="-20%"
+					width="140%"
+					height="140%"
+				>
+					<feTurbulence
+						type="fractalNoise"
+						baseFrequency="0.8"
+						numOctaves="1"
+						seed="3"
+						result="noise"
+					/>
+					<feDisplacementMap
+						in="SourceGraphic"
+						in2="noise"
+						scale="1"
+						xChannelSelector="R"
+						yChannelSelector="G"
+					/>
 				</filter>
-				<marker id="discover-arrowhead" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto" markerUnits="strokeWidth" opacity={0.20}>
-					<path d="M 0 1.2 L 7 4" stroke="var(--color-text-tertiary)" strokeWidth="1.6" strokeLinecap="round" fill="none" />
-					<path d="M 0 6.8 L 7 4" stroke="var(--color-text-tertiary)" strokeWidth="1.2" strokeLinecap="round" fill="none" />
+				<marker
+					id="discover-arrowhead"
+					markerWidth="8"
+					markerHeight="8"
+					refX="7"
+					refY="4"
+					orient="auto"
+					markerUnits="strokeWidth"
+					opacity={0.2}
+				>
+					<path
+						d="M 0 1.2 L 7 4"
+						stroke="var(--color-text-tertiary)"
+						strokeWidth="1.6"
+						strokeLinecap="round"
+						fill="none"
+					/>
+					<path
+						d="M 0 6.8 L 7 4"
+						stroke="var(--color-text-tertiary)"
+						strokeWidth="1.2"
+						strokeLinecap="round"
+						fill="none"
+					/>
 				</marker>
 			</defs>
 
@@ -480,7 +575,7 @@ export const CurvedArrow: React.FC<ArrowProps> = ({
 				d={d}
 				// stroke="var(--color-brand)"
 				stroke="var(--color-text-tertiary)"
-				strokeOpacity={0.20}
+				strokeOpacity={0.2}
 				strokeWidth={1.6}
 				fill="none"
 				strokeLinecap="round"

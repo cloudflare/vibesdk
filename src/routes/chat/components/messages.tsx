@@ -25,16 +25,14 @@ export function UserMessage({ message }: { message: string }) {
 	const sanitizedMessage = sanitizeMessageForDisplay(message);
 	
 	return (
-		<div className="flex gap-3">
-			<div className="align-text-top pl-1">
-				<div className="size-6 flex items-center justify-center rounded-full bg-brand text-text-on-brand">
-					<span className="text-xs">U</span>
+		<div className="flex flex-col gap-2 min-w-0">
+			<div className="flex items-center gap-2 mb-3">
+				<div className="size-5 flex items-center justify-center rounded-full bg-brand text-text-on-brand shrink-0">
+					<span className="text-[10px]">U</span>
 				</div>
-			</div>
-			<div className="flex flex-col gap-2 min-w-0">
 				<div className="font-medium text-text-50">You</div>
-				<Markdown className="text-text-primary/80">{sanitizedMessage}</Markdown>
 			</div>
+			<Markdown className="text-text-primary/80">{sanitizedMessage}</Markdown>
 		</div>
 	);
 }
@@ -686,18 +684,14 @@ export function AIMessage({
 	}
 
 	return (
-		<div className="flex gap-3">
-			<div className="align-text-top pl-1">
-				<AIAvatar className="size-6 text-orange-500" />
+		<div className="flex flex-col gap-2 min-w-0">
+			<div className="font-mono font-medium text-text-50 flex items-center gap-2 mb-3">
+				<AIAvatar className="size-5 text-orange-500 shrink-0" />
+				Orange
+				{isThinking && <Sparkles className="size-3 text-orange-400 animate-pulse" />}
 			</div>
-			<div className="flex flex-col gap-2 min-w-0 flex-1">
-				<div className="font-mono font-medium text-text-50 flex items-center gap-2">
-					Orange
-					{isThinking && <Sparkles className="size-3 text-orange-400 animate-pulse" />}
-				</div>
-				<div className={clsx(isThinking && 'animate-pulse')}>
-					<AssistantParts parts={resolvedParts} streaming={!!isThinking} />
-				</div>
+			<div className={clsx(isThinking && 'animate-pulse')}>
+				<AssistantParts parts={resolvedParts} streaming={!!isThinking} />
 			</div>
 		</div>
 	);

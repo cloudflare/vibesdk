@@ -51,9 +51,9 @@ export function ProjectModeSelector({
 								<div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-brand" />
 							)}
 							{isHovered && !disabled && (
-								<div className="absolute -bottom-8 left-1/2 -translate-x-1/2 whitespace-nowrap px-2 py-1 bg-bg-2/95 backdrop-blur-sm border border-text-primary/10 rounded-md text-xs text-text-secondary pointer-events-none z-50">
+								<div className="absolute -bottom-8 left-1/2 -translate-x-1/2 whitespace-nowrap px-2 py-1 bg-kumo-elevated/95 backdrop-blur-sm border border-text-primary/10 rounded-md text-xs text-text-secondary pointer-events-none z-50">
 									{mode.description}
-									<div className="absolute -top-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-bg-2 border-l border-t border-text-primary/10 rotate-45" />
+									<div className="absolute -top-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-kumo-elevated border-l border-t border-text-primary/10 rotate-45" />
 								</div>
 							)}
 						</button>
@@ -66,4 +66,3 @@ export function ProjectModeSelector({
 		</div>
 	);
 }
-

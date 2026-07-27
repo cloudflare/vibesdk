@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { Info, Settings } from 'lucide-react';
+import { Tabs } from '@cloudflare/kumo';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
 	Dialog,
 	DialogContent,
@@ -33,10 +33,10 @@ function ConfigInfoCard({
 	const reasoningEffort = userConfig?.reasoning_effort ?? defaultConfig?.reasoning_effort;
 
 	return (
-		<div className="p-4 border rounded-lg bg-bg-3/50 space-y-3">
+		<div className="p-4 border rounded-lg bg-kumo-base/50 space-y-3">
 			<div className="flex items-start justify-between gap-2">
 				<div className="flex items-start gap-2 min-w-0 flex-1">
-					<div className="p-1 rounded-sm bg-bg-3">
+					<div className="p-1 rounded-sm bg-kumo-base">
 						<Settings className="h-3 w-3" />
 					</div>
 					<div className="min-w-0 flex-1">
@@ -158,39 +158,40 @@ export function ModelConfigInfo({ configs, onRequestConfigs, loading }: ModelCon
 							</Button>
 						</div>
 					) : (
-						<Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-							<TabsList className="grid w-full grid-cols-5 h-12">
-								{Object.values(WORKFLOW_TABS).map((tab) => {
+						<div className="w-full">
+							<Tabs
+								value={activeTab}
+								onValueChange={setActiveTab}
+								tabs={Object.values(WORKFLOW_TABS).map((tab) => {
 									const customizedCount = getCustomizedCountForTab(tab.id);
 
-									return (
-										<TabsTrigger
-											key={tab.id}
-											value={tab.id}
-											className="flex flex-col gap-1 py-2 relative justify-center"
-										>
-											<div className="flex items-center gap-2">
+									return {
+										value: tab.id,
+										label: (
+											<span className="inline-flex items-center gap-2">
 												<span className="hidden sm:inline text-xs">{tab.label}</span>
 												<span className="sm:hidden text-xs">{tab.label.split(' ')[0]}</span>
-											</div>
-											{customizedCount > 0 && (
-												<Badge
-													variant="secondary"
-													className="text-xs absolute -top-1 -right-1 h-4 w-4 rounded-full p-0 flex items-center justify-center text-[10px]"
-												>
-													{customizedCount}
-												</Badge>
-											)}
-										</TabsTrigger>
-									);
+												{customizedCount > 0 && (
+													<Badge
+														variant="secondary"
+														className="text-xs h-4 w-4 rounded-full p-0 flex items-center justify-center text-[10px]"
+													>
+														{customizedCount}
+													</Badge>
+												)}
+											</span>
+										),
+									};
 								})}
-							</TabsList>
+							/>
 
 							{Object.values(WORKFLOW_TABS).map((tab) => {
+								if (tab.id !== activeTab) return null;
+
 								const agents = getAgentsForTab(tab.id);
 
 								return (
-									<TabsContent key={tab.id} value={tab.id} className="mt-6">
+									<div key={tab.id} className="mt-6">
 										<div className="space-y-4">
 											<div className="text-sm text-text-tertiary">
 												{tab.description} • {agents.length} agent{agents.length !== 1 ? 's' : ''}
@@ -216,10 +217,10 @@ export function ModelConfigInfo({ configs, onRequestConfigs, loading }: ModelCon
 												</div>
 											)}
 										</div>
-									</TabsContent>
+									</div>
 								);
 							})}
-						</Tabs>
+						</div>
 					)}
 				</DialogContent>
 			</Dialog>

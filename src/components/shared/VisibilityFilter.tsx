@@ -10,23 +10,23 @@ interface VisibilityFilterProps {
 }
 
 const visibilityOptions = [
-  { 
-    value: 'all', 
-    label: 'All', 
+  {
+    value: 'all',
+    label: 'All',
     icon: Sparkles,
     color: 'from-violet-500/20 to-purple-500/20',
     activeColor: 'from-violet-500/10 to-purple-500/10'
   },
-  { 
-    value: 'public', 
-    label: 'Public', 
+  {
+    value: 'public',
+    label: 'Public',
     icon: Globe,
     color: 'from-green-500/20 to-emerald-500/20',
     activeColor: 'from-green-500/10 to-emerald-500/10'
   },
-  { 
-    value: 'private', 
-    label: 'Private', 
+  {
+    value: 'private',
+    label: 'Private',
     icon: Lock,
     color: 'from-orange-500/20 to-red-500/20',
     activeColor: 'from-orange-500/10 to-red-500/10'
@@ -46,7 +46,7 @@ export const VisibilityFilter: React.FC<VisibilityFilterProps> = ({
       {visibilityOptions.map((option) => {
         const Icon = option.icon;
         const isActive = value === option.value;
-        
+
         return (
           <motion.button
             key={option.value}
@@ -57,7 +57,7 @@ export const VisibilityFilter: React.FC<VisibilityFilterProps> = ({
               isActive
                 ? "text-text-primary"
                 : "text-text-tertiary hover:text-text-secondary",
-              !isActive && "hover:bg-bg-3/30"
+              !isActive && "hover:bg-kumo-base/30"
             )}
             whileHover={{ scale: isActive ? 1 : 1.01 }}
             whileTap={{ scale: 0.99 }}

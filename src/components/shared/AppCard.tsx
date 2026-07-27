@@ -1,13 +1,11 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { Card } from '@/components/ui/card';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
 	Star,
 	Eye,
 	Shuffle,
 	Code2,
-	User,
 	Lock,
 	Users2,
 	Globe,
@@ -225,22 +223,21 @@ const StatItem = ({
 	value: number;
 	highlighted?: boolean;
 }) => (
-	<div className="flex items-center gap-1 group-hover:scale-105 transition-transform duration-200">
+	<div className="flex items-center gap-1">
 		<Icon
 			className={cn(
-				'h-4 w-4 transition-all duration-200 text-gray-400',
-				highlighted && 'fill-yellow-500 text-yellow-500 drop-shadow-sm',
-				!highlighted && 'group-hover:text-bg-2',
+				'h-3.5 w-3.5 text-kumo-subtle',
+				highlighted && 'fill-kumo-warning text-kumo-warning',
 			)}
 		/>
-		<span className="font-medium text-xs text-text-tertiary group-hover:text-bg-2">
+		<span className="font-medium text-xs text-kumo-subtle tabular-nums">
 			{value || 0}
 		</span>
 	</div>
 );
 
 const StatsDisplay = ({ stats }: { stats: StatsData }) => (
-	<div className="flex items-center gap-2 text-sm text-text-tertiary/80">
+	<div className="flex items-center gap-2.5 text-sm text-kumo-subtle">
 		<StatItem
 			icon={STATS_ICONS.starCount}
 			value={stats.starCount || 0}
@@ -262,29 +259,22 @@ const AppMetadata = ({
 	hasOverlayStatus?: boolean;
 }) => {
 	if (layoutConfig.primaryMetadata === 'social' && isPublicApp(app)) {
-		// Discover page layout - show user info
+		const description = app.description?.trim();
+
+		// Discover page layout - title, optional description, stats
 		return (
-			<div className="flex items-center gap-3 text-sm">
-				{app.userName === 'Anonymous User' ? (
-					<div className="flex items-center gap-2 text-text-tertiary">
-						<div className="h-8 w-8 rounded-full bg-gradient-to-br from-gray-300 to-gray-400 flex items-center justify-center shadow-sm">
-							<User className="h-4 w-4 text-white" />
-						</div>
-					</div>
-				) : (
-					<div className="flex items-center gap-2">
-						<Avatar className="h-8 w-8">
-							<AvatarImage src={app.userAvatar || undefined} />
-							<AvatarFallback className="text-[10px] bg-gradient-to-br from-red-200 to-red-300 font-semibold">
-								{app.userName?.charAt(0).toUpperCase() || '?'}
-							</AvatarFallback>
-						</Avatar>
-					</div>
-				)}
-				<div className="flex flex-col line-clamp-1 gap-1 w-full text-text-primary group-hover:text-bg-2 ">
-					<span className="truncate text-ellipsis max-w-60 font-medium">
+			<div className="flex flex-col gap-1.5 w-full min-w-0">
+				<div className="grid gap-1 min-w-0">
+					<span className="truncate text-sm font-semibold text-kumo-strong">
 						{app.title}
 					</span>
+					{description ? (
+						<p className="line-clamp-2 text-xs leading-relaxed text-kumo-subtle">
+							{description}
+						</p>
+					) : null}
+				</div>
+				<div className="shrink-0">
 					<StatsDisplay stats={getAppStats(app)} />
 				</div>
 			</div>
@@ -299,7 +289,7 @@ const AppMetadata = ({
 		const deploymentStatus = getDeploymentStatusInfo(app);
 		return (
 			<div className='flex flex-col'>
-				<span className="truncate text-ellipsis max-w-60 font-medium group-hover:text-bg-2">
+				<span className="truncate text-ellipsis max-w-60 font-medium text-kumo-strong">
 					{app.title}
 				</span>
 				<div className="flex items-center gap-2.5 text-sm">
@@ -332,20 +322,18 @@ const AppMetadata = ({
 										deploymentStatus.color ===
 											'text-green-400' &&
 											'text-green-600',
-										deploymentStatus.color ===
-											'text-gray-500' && 'text-gray-600 group-hover:text-bg-2',
-										deploymentStatus.color ===
+									deploymentStatus.color ===
 											'text-gray-500' &&
-											'text-text-tertiary',
+											'text-kumo-subtle',
 									)}
 								>
 									{deploymentStatus.text}
 								</span>
 							</div>
-							<span className="text-text-tertiary/60">•</span>
+							<span className="text-kumo-subtle/60">•</span>
 						</>
 					)}
-					<span className="text-xs text-text-tertiary/80 group-hover:text-bg-1 font-medium">
+					<span className="text-xs text-kumo-subtle font-medium">
 						Updated{' '}
 						{isUserApp(app)
 							? app.updatedAtFormatted
@@ -424,21 +412,22 @@ export const AppCard = React.memo<AppCardProps>(
 				>
 					<Card
 						className={cn(
-							'h-full transition-all duration-300 ease-out cursor-pointer group relative overflow-hidden rounded-md p-2 bg-bg-1 hover:!bg-text hover:dark:!bg-text-primary',
-							'border border-border-primary hover:border-border-primary/60',
+							'h-full cursor-pointer group relative overflow-hidden rounded-xl border-0 p-1.5 bg-kumo-base',
+							'shadow-sm ring-1 ring-kumo-line',
+							'hover:bg-kumo-tint hover:shadow-md hover:ring-kumo-line',
 						)}
 					>
 					{/* Enhanced Preview Section with High-Quality Rendering */}
-					<div className="relative aspect-[16/9] rounded-lg overflow-hidden bg-gradient-to-br from-red-50 to-red-100 dark:from-red-950/20 dark:to-orange-900/20">
+					<div className="relative aspect-[16/10] rounded-[10px] overflow-hidden bg-kumo-recessed">
 						{app.screenshotUrl ? (
 							<img
 								src={app.screenshotUrl}
 								alt={`${app.title} preview`}
 								className={cn(
-									'w-full h-full transition-all duration-300 ease-out',
+									'w-full h-full transition-transform duration-300 ease-out group-hover:scale-[1.02]',
 									// High-quality rendering with smart cropping for better visual appeal
 									'object-cover object-center',
-									'bg-gradient-to-br from-red-50/60 to-red-100/60 dark:from-red-950/15 dark:to-red-900/15',
+									'bg-kumo-tint',
 								)}
 								loading="lazy"
 								fetchPriority="low"
@@ -504,21 +493,17 @@ export const AppCard = React.memo<AppCardProps>(
 
 						<div
 							className={cn(
-								'screenshot-placeholder w-full h-full flex flex-col items-center justify-center absolute inset-0 transition-all duration-300',
+								'screenshot-placeholder w-full h-full flex flex-col items-center justify-center absolute inset-0',
 								app.screenshotUrl
 									? 'hidden opacity-0'
 									: 'opacity-100',
-								// Enhanced placeholder design
-								'bg-gradient-to-br from-red-50 via-red-100/80 to-red-200/60 dark:from-red-950/30 dark:via-red-900/20 dark:to-red-800/10',
+								'bg-kumo-recessed',
 							)}
 						>
-							<div className="flex flex-col items-center gap-3 text-red-400/70 dark:text-red-500/50">
-								<div className="relative">
-									<Code2 className="h-12 w-12 drop-shadow-sm" />
-									<div className="absolute inset-0 bg-gradient-to-t from-red-200/30 to-transparent rounded blur-sm" />
-								</div>
-								<div className="text-xs font-medium text-center px-4 opacity-60">
-									Preview Unavailable
+							<div className="flex flex-col items-center gap-2 text-kumo-subtle">
+								<Code2 className="h-10 w-10" />
+								<div className="text-xs font-medium text-center px-4">
+									Preview unavailable
 								</div>
 							</div>
 						</div>
@@ -527,11 +512,11 @@ export const AppCard = React.memo<AppCardProps>(
 						{deploymentStatus?.color === 'text-green-400' &&
 							getAppDeploymentStatus(app) === 'deploying' && (
 								<div
-									className="absolute top-2 left-2 h-4 w-4 rounded-full bg-green-300/70 backdrop-blur-sm flex items-center justify-center shadow-sm border border-green-200/20"
+									className="absolute top-2 left-2 h-4 w-4 rounded-full bg-kumo-success-tint backdrop-blur-sm flex items-center justify-center ring-1 ring-kumo-success/30"
 									title="App is deploying"
 									aria-label="App deployment in progress"
 								>
-									<Loader2 className="w-2 h-2 text-white/90 animate-spin" />
+									<Loader2 className="w-2 h-2 text-kumo-success animate-spin" />
 								</div>
 							)}
 
@@ -539,11 +524,11 @@ export const AppCard = React.memo<AppCardProps>(
 						{deploymentStatus?.color === 'text-gray-500' &&
 							getAppDeploymentStatus(app) === 'failed' && (
 								<div
-									className="absolute top-2 left-2 h-4 w-4 rounded-full bg-gray-400/70 backdrop-blur-sm flex items-center justify-center shadow-sm border border-gray-300/20"
+									className="absolute top-2 left-2 h-4 w-4 rounded-full bg-kumo-tint backdrop-blur-sm flex items-center justify-center ring-1 ring-kumo-line"
 									title="Deployment failed"
 									aria-label="App deployment failed"
 								>
-									<CloudOff className="w-2 h-2 text-white/90" />
+									<CloudOff className="w-2 h-2 text-kumo-subtle" />
 								</div>
 							)}
 
@@ -556,70 +541,59 @@ export const AppCard = React.memo<AppCardProps>(
 									appId={app.id}
 									appTitle={app.title}
 									showOnHover={true}
-									className="h-6 w-6 text-text-tertiary hover:text-text-primary bg-bg-3/90 backdrop-blur-sm hover:bg-bg-3"
+									className="h-6 w-6 text-text-tertiary hover:text-text-primary bg-kumo-base/90 backdrop-blur-sm hover:bg-kumo-base"
 									size="sm"
 								/>
 							</div>
 						)}
 
-						{/* Visibility Badge for user apps (when not showing status overlays) */}
-						{(isUserApp(app) || isEnhancedApp(app)) &&
-							!deploymentStatus && (
-								<div className="absolute bottom-2 left-2 bg-bg-3/90 dark:bg-bg-4/90 backdrop-blur-sm rounded-md p-1">
-									{getVisibilityIcon(app.visibility)}
-								</div>
-							)}
-
-						{/* Visibility Badge positioned differently when status overlay exists */}
-						{(isUserApp(app) || isEnhancedApp(app)) &&
-							deploymentStatus && (
-								<div className="absolute bottom-2 left-2 bg-bg-3/90 dark:bg-bg-4/90 backdrop-blur-sm rounded-md p-1">
-									{getVisibilityIcon(app.visibility)}
-								</div>
-							)}
+						{/* Visibility Badge for user apps */}
+						{(isUserApp(app) || isEnhancedApp(app)) && (
+							<div className="absolute bottom-2 left-2 bg-kumo-base/90 backdrop-blur-sm rounded-md p-1 text-kumo-subtle">
+								{getVisibilityIcon(app.visibility)}
+							</div>
+						)}
 					</div>
 
-					<div className="flex items-start justify-between gap-2 p-2 pb-1">
+					<div className="flex items-start justify-between gap-2 px-2.5 py-2">
 						<div className="flex-1 min-w-0">
 							{/* Enhanced Adaptive Metadata with GitHub integration */}
-							<div className="transition-all duration-200 ease-out ">
-								<div className="flex items-center gap-3">
-									<div className="flex-1">
-										<AppMetadata
-											app={app}
-											layoutConfig={layoutConfig}
-											hasOverlayStatus={
-												!!deploymentStatus &&
-												deploymentStatus.color !==
-													'text-gray-500'
-											}
-										/>
-									</div>
-									{/* GitHub Repository Button - integrated into app info */}
-									{app.githubRepositoryUrl &&
-										app.githubRepositoryVisibility !==
-											'private' && (
-											<button
-												className="group/github flex items-center gap-1.5 px-2 py-1 rounded-full bg-gray-50 hover:bg-gray-100 dark:bg-gray-800 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 transition-all duration-200"
-												onClick={(e) => {
-													e.stopPropagation();
-													if (
-														app.githubRepositoryUrl
-													) {
-														window.open(
-															app.githubRepositoryUrl,
-															'_blank',
-															'noopener,noreferrer',
-														);
-													}
-												}}
-												title={`View on GitHub (${app.githubRepositoryVisibility || 'public'})`}
-												aria-label="View repository on GitHub"
-											>
-												<Github className="w-4 h-4 text-gray-600 dark:text-gray-400 group-hover/github:text-gray-800 dark:group-hover/github:text-gray-200 transition-colors" />
-											</button>
-										)}
+							<div className="flex items-start gap-2">
+								<div className="flex-1 min-w-0">
+									<AppMetadata
+										app={app}
+										layoutConfig={layoutConfig}
+										hasOverlayStatus={
+											!!deploymentStatus &&
+											deploymentStatus.color !==
+												'text-gray-500'
+										}
+									/>
 								</div>
+								{/* GitHub Repository Button - integrated into app info */}
+								{app.githubRepositoryUrl &&
+									app.githubRepositoryVisibility !==
+										'private' && (
+										<button
+											className="group/github shrink-0 flex items-center gap-1.5 px-2 py-1 rounded-full bg-kumo-tint hover:bg-kumo-fill ring-1 ring-kumo-hairline"
+											onClick={(e) => {
+												e.stopPropagation();
+												if (
+													app.githubRepositoryUrl
+												) {
+													window.open(
+														app.githubRepositoryUrl,
+														'_blank',
+														'noopener,noreferrer',
+													);
+												}
+											}}
+											title={`View on GitHub (${app.githubRepositoryVisibility || 'public'})`}
+											aria-label="View repository on GitHub"
+										>
+											<Github className="w-3.5 h-3.5 text-kumo-subtle group-hover/github:text-kumo-default" />
+										</button>
+									)}
 							</div>
 						</div>
 					</div>

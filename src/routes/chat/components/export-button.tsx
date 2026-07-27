@@ -35,7 +35,7 @@ export function ExportButton({ icon: Icon, onClick, tooltip, disabled }: ExportB
 			title={tooltip}
 			className={clsx(
 				'p-1.5 rounded-md transition-colors',
-				'hover:bg-bg-3 disabled:opacity-50 disabled:cursor-not-allowed',
+				'hover:bg-kumo-base disabled:opacity-50 disabled:cursor-not-allowed',
 				state === 'idle' && 'text-text-primary/70 hover:text-text-primary'
 			)}
 		>
