@@ -115,6 +115,60 @@
 	}
 }
 
+/* Home: spotlight centered on the prompt hero */
+.home-atmosphere {
+	position: absolute;
+	inset: 0;
+	overflow: hidden;
+	pointer-events: none;
+	z-index: 0;
+}
+
+.home-atmosphere__spotlight {
+	position: absolute;
+	inset: 0;
+	background:
+		/* Warm brand core behind headline + prompt */
+		radial-gradient(
+			ellipse 42% 34% at 50% 28%,
+			rgba(246, 130, 31, 0.18) 0%,
+			rgba(246, 130, 31, 0.08) 32%,
+			transparent 68%
+		),
+		/* Soft cool rim so the stage reads as lit, not flat orange */
+		radial-gradient(
+			ellipse 58% 46% at 50% 30%,
+			rgba(255, 255, 255, 0.06) 0%,
+			transparent 62%
+		),
+		/* Falloff — rest of page stays quiet */
+		radial-gradient(
+			ellipse 90% 75% at 50% 34%,
+			transparent 40%,
+			rgba(0, 0, 0, 0.35) 100%
+		);
+}
+
+:root:not([data-mode='dark']) .home-atmosphere__spotlight {
+	background:
+		radial-gradient(
+			ellipse 42% 34% at 50% 28%,
+			rgba(246, 130, 31, 0.14) 0%,
+			rgba(246, 130, 31, 0.05) 32%,
+			transparent 68%
+		),
+		radial-gradient(
+			ellipse 58% 46% at 50% 30%,
+			rgba(255, 255, 255, 0.55) 0%,
+			transparent 62%
+		),
+		radial-gradient(
+			ellipse 90% 75% at 50% 34%,
+			transparent 42%,
+			rgba(0, 0, 0, 0.06) 100%
+		);
+}
+
 /* Custom scrollbar for debug bubble */
 .custom-scrollbar::-webkit-scrollbar {
 	width: 6px;

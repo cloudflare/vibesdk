@@ -20,10 +20,10 @@ import {
 	DialogTitle,
 	DialogTrigger,
 	LayerCard,
+	Input,
 	Table,
 } from '@cloudflare/kumo';
 import { Separator } from '@/components/ui/separator';
-import { Input } from '@/components/ui/input';
 import { useAuth } from '@/contexts/auth-context';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';

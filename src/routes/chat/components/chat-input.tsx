@@ -113,7 +113,7 @@ export function ChatInput({
 			aboveContent={aboveContent}
 			maxWords={4000}
 			formRef={chatFormRef}
-			className="shrink-0 p-3 bg-transparent border-t border-border-primary"
+			className="shrink-0 p-3 bg-transparent border-t"
 		/>
 	);
 }

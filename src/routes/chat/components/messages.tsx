@@ -23,7 +23,7 @@ function sanitizeMessageForDisplay(message: string): string {
 
 export function UserMessage({ message }: { message: string }) {
 	const sanitizedMessage = sanitizeMessageForDisplay(message);
-	
+
 	return (
 		<div className="flex flex-col gap-2 min-w-0">
 			<div className="flex items-center gap-2 mb-3">
@@ -37,7 +37,7 @@ export function UserMessage({ message }: { message: string }) {
 	);
 }
 
-type ContentItem = 
+type ContentItem =
 	| { type: 'text'; content: string; key: string }
 	| { type: 'tool'; event: ToolEvent; key: string };
 
@@ -78,7 +78,7 @@ function extractTextContent(content: unknown): string {
 
 function convertToToolEvent(msg: ConversationMessage, idx: number): ToolEvent | null {
 	if (msg.role !== 'tool' || !('name' in msg) || !msg.name) return null;
-	
+
 	return {
 		name: msg.name,
 		status: 'success',
@@ -87,22 +87,22 @@ function convertToToolEvent(msg: ConversationMessage, idx: number): ToolEvent | 
 	};
 }
 
-export function MessageContentRenderer({ 
-	content, 
+export function MessageContentRenderer({
+	content,
 	toolEvents = [],
 	richToolPreview = false,
-}: { 
+}: {
 	content: string;
 	toolEvents?: ToolEvent[];
 	richToolPreview?: boolean;
 }) {
 	const inlineToolEvents = toolEvents.filter(ev => ev.contentLength !== undefined)
 		.sort((a, b) => (a.contentLength ?? 0) - (b.contentLength ?? 0));
-	
+
 	const orderedContent = buildOrderedContent(content, inlineToolEvents);
-	
+
 	if (orderedContent.length === 0) return null;
-	
+
 	return (
 		<div className="flex flex-col gap-2">
 			{orderedContent.map((item) => (
@@ -220,7 +220,7 @@ function DeepDebugTranscript({ transcript }: { transcript: ConversationMessage[]
 			}
 		}
 	});
-	
+
 	return (
 		<div className="flex flex-col gap-3 p-3 rounded-md bg-surface-tertiary/50 border-l-2 border-brand/30">
 			<div className="flex items-center gap-2 text-xs font-medium text-brand">
@@ -229,10 +229,10 @@ function DeepDebugTranscript({ transcript }: { transcript: ConversationMessage[]
 			</div>
 			{transcript.map((msg, idx) => {
 				if (msg.role === 'tool') return null; // Tool results rendered with assistant messages
-				
+
 				const text = extractTextContent(msg.content);
 				if (!text) return null;
-				
+
 				if (msg.role === 'assistant') {
 					// Match tool_calls with their results
 					const toolEvents: ToolEvent[] = msg.tool_calls?.map(tc => {
@@ -245,14 +245,14 @@ function DeepDebugTranscript({ transcript }: { transcript: ConversationMessage[]
 							contentLength: 0,
 						};
 					}) || [];
-					
+
 					return (
 						<div key={`${msg.conversationId}-${idx}`} className="text-xs">
 							<MessageContentRenderer content={text} toolEvents={toolEvents} />
 						</div>
 					);
 				}
-				
+
 				return null;
 			})}
 		</div>
@@ -285,17 +285,17 @@ function ClarifyingQuestionsResult({ event }: { event: ToolEvent }) {
 function ToolResultRenderer({ result, toolName, event }: { result: string; toolName: string; event?: ToolEvent }) {
 	try {
 		const parsed = JSON.parse(result);
-		
+
 		// Special handling for deep_debug transcript
 		if (toolName === 'deep_debug' && Array.isArray(parsed.transcript)) {
 			return <DeepDebugTranscript transcript={parsed.transcript} />;
 		}
-		
+
 		// Special handling for ask_questions clarifying questions
 		if (toolName === 'ask_questions' && event) {
 			return <ClarifyingQuestionsResult event={event} />;
 		}
-		
+
 		return <JsonRenderer data={parsed} />;
 	} catch {
 		return <div className="whitespace-pre-wrap break-words">{result}</div>;
@@ -362,7 +362,7 @@ export function ToolStatusIndicator({ event, richToolPreview = false }: { event:
 					'p-3 rounded-md text-xs font-mono border overflow-auto',
 					isDeepDebug
 						? 'bg-surface-tertiary/30 border-brand/20 max-h-[600px]'
-						: 'bg-surface-secondary border-border max-h-96'
+						: 'bg-surface-secondary max-h-96'
 				)}>
 					{richToolPreview ? (
 						<ToolEventExpandedPanel event={event} />
@@ -382,25 +382,25 @@ function buildOrderedContent(message: string, inlineToolEvents: ToolEvent[]): Co
 
 	const items: ContentItem[] = [];
 	let lastPos = 0;
-	
+
 	for (const event of inlineToolEvents) {
 		const pos = event.contentLength ?? 0;
-		
+
 		// Add text before this event
 		if (pos > lastPos && message.slice(lastPos, pos)) {
 			items.push({ type: 'text', content: message.slice(lastPos, pos), key: `text-${lastPos}` });
 		}
-		
+
 		// Add event
 		items.push({ type: 'tool', event, key: `tool-${event.timestamp}` });
 		lastPos = pos;
 	}
-	
+
 	// Add remaining text
 	if (lastPos < message.length && message.slice(lastPos)) {
 		items.push({ type: 'text', content: message.slice(lastPos), key: `text-${lastPos}` });
 	}
-	
+
 	return items;
 }
 
@@ -460,7 +460,7 @@ function ReasoningBlock({ part, streaming }: { part: Extract<MessagePart, { type
 	if (!text) return null;
 
 	return (
-		<div className="rounded-lg border border-border bg-surface-secondary/40">
+		<div className="rounded-lg border bg-surface-secondary/40">
 			<button
 				type="button"
 				onClick={() => setOpen(o => !o)}
@@ -550,7 +550,7 @@ function ToolCard({ event }: { event: ToolEvent }) {
 	const rollbackHash = getRollbackCommitHash(event);
 
 	return (
-		<div className="rounded-lg border border-border bg-surface-secondary/40">
+		<div className="rounded-lg border bg-surface-secondary/40">
 			<button
 				type="button"
 				onClick={() => canExpand && setOpen(o => !o)}

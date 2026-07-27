@@ -38,9 +38,9 @@ export function DocsSidebar({ files, activeFile, onFileSelect }: DocsSidebarProp
 	};
 
 	return (
-		<div className="w-64 bg-kumo-elevated border-r border-border-primary flex flex-col overflow-hidden">
+		<div className="w-64 bg-kumo-elevated border-r flex flex-col overflow-hidden">
 			{/* Header */}
-			<div className="px-4 py-3 border-b border-border-primary">
+			<div className="px-4 py-3 border-b">
 				<h3 className="text-sm font-medium text-text-primary">Documentation</h3>
 				<p className="text-xs text-text-tertiary mt-0.5">
 					{files.length} {files.length === 1 ? 'file' : 'files'}

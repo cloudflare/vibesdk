@@ -4,7 +4,7 @@
  */
 
 import { useState } from 'react';
-import { Loader2, LogOut, LucideGlobeLock, Settings } from 'lucide-react';
+import { Loader2, LucideGlobeLock } from 'lucide-react';
 import { useNavigate } from 'react-router';
 import clsx from 'clsx';
 import { Button, DropdownMenu } from '@cloudflare/kumo';
@@ -16,7 +16,11 @@ import {
 	useUsageLimitsBadgeState,
 	type UsageLimitsBadgeState,
 } from '../usage-limits-badge';
-import { SignInIcon } from '@phosphor-icons/react';
+import {
+	GearIcon,
+	SignInIcon,
+	SignOutIcon,
+} from '@phosphor-icons/react';
 
 interface AuthButtonProps {
 	className?: string;
@@ -258,27 +262,24 @@ export function AuthButton({ className, display = 'icon' }: AuthButtonProps) {
 					{showLimitsState && !usageLimits.loading && (
 						<DropdownMenu.Item
 							onClick={handleLimitsAction}
-							className="cursor-pointer"
+							icon={LucideGlobeLock}
 						>
-							<LucideGlobeLock className="mr-1 h-4 w-4" />
 							{limitsActionLabel}
 						</DropdownMenu.Item>
 					)}
 					<DropdownMenu.Item
 						onClick={() => navigate('/settings')}
-						className="cursor-pointer"
+						icon={GearIcon}
 					>
-						<Settings className="mr-1 h-4 w-4" />
 						Settings
 					</DropdownMenu.Item>
 				</DropdownMenu.Group>
 
 				<DropdownMenu.Item
 					onClick={() => logout()}
-					className="cursor-pointer"
+					icon={SignOutIcon}
 					variant="danger"
 				>
-					<LogOut className="mr-1 h-4 w-4" />
 					Sign Out
 				</DropdownMenu.Item>
 			</DropdownMenu.Content>
