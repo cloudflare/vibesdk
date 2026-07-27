@@ -1,15 +1,60 @@
-# LLM Developer Guide for vibesdk
+# VibeSDK Developer Guide
 
-> **📋 Meta-Instruction for AI Assistants:**
-> 
-> This document contains comprehensive architectural knowledge for **vibesdk** - an AI-powered full-stack app generation platform built on Cloudflare Workers with React.
->
-> **Your Responsibilities:**
-> 1. **Read this entire document** before making ANY changes
-> 2. **Follow ALL rules and patterns** documented here
-> 3. **Update this document** whenever you discover new patterns or find inaccuracies
-> 4. **Search the codebase thoroughly** before creating anything new - reuse existing code
-> 5. **Never compromise on code quality** - all code must be production-ready and type-safe
+> Follow [`AGENTS.md`](../AGENTS.md) for current commands, code style, error handling, and required implementation patterns. The current architecture in this section supersedes the legacy reference later in this document.
+
+## Current architecture
+
+- `ThinkAgent` is an Agent powered by Cloudflare Think and backed by a Durable Object. It owns conversation history, context selection, skills, streaming, tools, and step limits.
+- `SpaceDO` is a Durable Object that provides each project's isolated workspace and files. Think's explicit workspace tools call it through Durable Object RPC; workspace bash is disabled.
+- Cloudflare Artifacts is the durable git and version-history layer for commits, branches, history, and restore points.
+- `@cloudflare/worker-bundler` builds committed project files, and a Worker Loader binding loads them as a Dynamic Worker preview.
+- Generated apps export an `App` Durable Object class that SpaceDO hosts as a Facet with isolated SQLite storage.
+- AI Gateway routes configured model providers and provides centralized observability and caching.
+
+SpaceDO is the workspace and file layer. Cloudflare Artifacts is the git and history layer. Do not describe SpaceDO itself as git-backed.
+
+## Current coding loop
+
+1. The host behavior configures ThinkAgent with model coordinates, project context, and a signed preview URL.
+2. Think calls models and tools iteratively within the turn's step budget.
+3. Workspace tools read and edit files in the companion SpaceDO.
+4. `commit` creates a meaningful restore point without deploying; `deploy_space` commits and rebuilds the branch preview.
+5. SpaceDO bundles files and loads the result through the Worker Loader binding.
+6. Browser console diagnostics return to Think for repair and redeployment.
+7. Rollback applies a selected tree, creates a new commit on the current branch, and redeploys without rewriting history.
+
+## Authoritative paths
+
+| Area | Path |
+|---|---|
+| Think and tool registration | `worker/agents/think/ThinkAgent.ts` |
+| Host orchestration | `worker/agents/core/behaviors/think.ts` |
+| Workspace adapter | `worker/agents/think/space-workspace-ops.ts` |
+| Think prompts and skills | `worker/agents/think/prompts/`, `worker/agents/think/skills/` |
+| SpaceDO | `space/src/space/durable-object.ts` |
+| Preview build pipeline | `space/src/space/deploy-engine.ts` |
+| Artifacts synchronization | `space/src/space/artifacts-sync.ts` |
+| Frontend API types and client | `src/api-types.ts`, `src/lib/api-client.ts` |
+| API routes and controllers | `worker/api/routes/`, `worker/api/controllers/` |
+| Setup and deployment | `scripts/setup.ts`, `scripts/deploy.ts` |
+
+## Development commands
+
+```bash
+bun install
+bun run setup
+bun run dev
+bun run typecheck
+bun run lint
+bun run test
+bun run build
+```
+
+Use `bun run dev:browser` for local browser-console inspection and `bun run deploy` with `.prod.vars` for production deployment.
+
+## Legacy reference
+
+> Everything below this point documents the retired phase-based sandbox architecture. It is retained for historical context only. Do not follow its paths, commands, state machines, sandbox guidance, or git ownership model without verifying them against the current code.
 
 ---
 

@@ -1,6 +1,8 @@
-# V1 Dev API - Postman Collection
+# Legacy V1 Dev API Postman Collection
 
-A comprehensive Postman collection for the V1 Dev platform APIs with OAuth setup, CSRF protection, and all endpoints properly documented.
+> This collection documents the legacy V1 Dev/phasic API surface and has not been migrated to the current Think behavior. Verify routes and payloads against `worker/api/routes/` before using it for current integrations.
+
+The collection remains available for compatibility testing of supported legacy endpoints, OAuth setup, and CSRF behavior.
 
 ## 📋 Overview
 
@@ -230,8 +232,8 @@ For WebSocket endpoints like agent communication:
 
 1. **Start Wrangler Dev Server**:
    ```bash
-   cd /path/to/v1dev
-   npm run local  # Starts on http://localhost:8787
+   cd /path/to/vibesdk
+   bun run dev
    ```
 
 2. **Update Environment**:
@@ -316,9 +318,9 @@ All API responses follow this structure:
    - Verify agent ownership for WebSocket connections
 
 4. **Local Development Issues**:
-   - Ensure Wrangler is running (`npm run local`)
-   - Check that `.dev.vars` file contains required environment variables
-   - Verify D1 database is set up (`npm run db:setup`)
+   - Ensure Vite is running (`bun run dev`)
+   - Check that `.dev.vars` contains required environment variables
+   - Verify D1 migrations are applied (`bun run db:migrate:local`)
 
 ### Getting Help
 

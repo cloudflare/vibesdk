@@ -9,96 +9,71 @@ This file provides guidance to Claude Code when working with code in this reposi
 - Use clear technical language
 
 ## Project Overview
-vibesdk is an AI-powered full-stack application generation platform built on Cloudflare infrastructure.
+
+VibeSDK is an agentic full-stack application builder on Cloudflare.
 
 **Tech Stack:**
 - Frontend: React 19, TypeScript, Vite, TailwindCSS, React Router v7
-- Backend: Cloudflare Workers, Durable Objects, D1 (SQLite)
-- AI/LLM: OpenAI, Anthropic, Google AI Studio (Gemini)
+- Backend: Cloudflare Workers, Durable Objects, Hono, D1, R2, and KV
+- Agent: Cloudflare Think with AI Gateway model routing
+- Workspace: SpaceDO Durable Objects
+- Version history: Cloudflare Artifacts
+- Preview runtime: Worker Loader bindings and Dynamic Workers
+- Generated app data: Durable Object Facets with isolated SQLite
 - WebSocket: PartySocket for real-time communication
-- Sandbox: Custom container service with CLI tools
-- Git: isomorphic-git with SQLite filesystem
 
-**Project Structure**
-
-**Frontend (`/src`):**
-- React application with 80+ components
-- Single source of truth for types: `src/api-types.ts`
-- All API calls in `src/lib/api-client.ts`
-- Custom hooks in `src/hooks/`
-- Route components in `src/routes/`
-
-**Backend (`/worker`):**
-- Entry point: `worker/index.ts` (7860 lines)
-- Agent system: `worker/agents/` (88 files)
-  - Core: SimpleCodeGeneratorAgent (Durable Object, 2800+ lines)
-  - Operations: PhaseGeneration, PhaseImplementation, UserConversationProcessor
-  - Tools: tools for LLM (read-files, run-analysis, regenerate-file, etc.)
-  - Git: isomorphic-git with SQLite filesystem
-- Database: `worker/database/` (Drizzle ORM, D1)
-- Services: `worker/services/` (sandbox, code-fixer, oauth, rate-limit, secrets)
-- API: `worker/api/` (routes, controllers, handlers)
-
-**Other:**
-- `/shared` - Shared types between frontend/backend (not worker specific types that are also imported in frontend)
-- `/migrations` - D1 database migrations
-- `/container` - Sandbox container tooling
-- `/templates` - Project scaffolding templates
-
-**Core Architecture:**
-- Each chat session is a Durable Object instance (SimpleCodeGeneratorAgent)
-- State machine drives code generation (IDLE → PHASE_GENERATING → PHASE_IMPLEMENTING → REVIEWING)
-- Git history stored in SQLite, full clone protocol support
-- WebSocket for real-time streaming and state synchronization
+**Project Structure:**
+- `/src` - React frontend, API types, and API client
+- `/worker/agents/think` - ThinkAgent, prompts, skills, workspace adapter, and tools
+- `/worker/agents/core/behaviors/think.ts` - Think host orchestration
+- `/worker/api` - Routes, controllers, handlers, and WebSocket types
+- `/worker/database` - D1 schema and services
+- `/space` - SpaceDO, Artifacts synchronization, preview bundling, and App Facets
+- `/sdk` - TypeScript client SDK
+- `/migrations` - D1 migrations
+- `/scripts` - Setup and deployment utilities
 
 ## Key Architectural Patterns
 
-**Durable Objects Pattern:**
-- Each chat session = Durable Object instance
-- Persistent state in SQLite (blueprint, files, history)
-- Ephemeral state in memory (abort controllers, active promises)
-- Single-threaded per instance
+**ThinkAgent:**
+- One Agent backed by a Durable Object per app session
+- Owns conversation, context selection, skills, streaming, tools, and step limits
+- Uses explicit SpaceDO-backed tools; workspace bash is disabled
 
-**State Machine:**
-IDLE → PHASE_GENERATING → PHASE_IMPLEMENTING → REVIEWING → IDLE
+**Workspace and Versioning:**
+- SpaceDO owns the isolated live workspace and files
+- Cloudflare Artifacts owns durable commits, branches, history, and restore points
+- `commit` saves without deploying; `deploy_space` commits and rebuilds the preview
+- Rollback applies a selected tree, creates a new commit, and redeploys
 
-**CodeGenState (Agent State):**
-- Project Identity: blueprint, projectName, templateName
-- File Management: generatedFilesMap (tracks all files)
-- Phase Tracking: generatedPhases, currentPhase
-- State Machine: currentDevState, shouldBeGenerating
-- Sandbox: sandboxInstanceId, commandsHistory
-- Conversation: conversationMessages, pendingUserInputs
+**Preview Runtime:**
+- `@cloudflare/worker-bundler` builds committed project files
+- Worker Loader loads bundled modules as a Dynamic Worker
+- Generated `App` classes run as Durable Object Facets with isolated SQLite
 
 **WebSocket Communication:**
-- Real-time streaming via PartySocket
-- State restoration on reconnect (agent_connected message)
-- Message deduplication (tool execution causes duplicates)
-
-**Git System:**
-- isomorphic-git with SQLite filesystem adapter
-- Full commit history in Durable Object storage
-- Git clone protocol support (rebase on template)
-- FileManager auto-syncs from git via callbacks
+- PartySocket carries realtime agent output, tools, files, and deployment state
+- Session state is restored on reconnect
 
 ## Common Development Tasks
 
 **Change LLM Model for Operation:**
 Edit `/worker/agents/inferutils/config.ts` → `AGENT_CONFIG` object
 
-**Modify Conversation Agent Behavior:**
-Edit `/worker/agents/operations/UserConversationProcessor.ts` (system prompt line 50)
+**Modify Think Agent Behavior:**
+Edit `worker/agents/think/ThinkAgent.ts`, the host behavior in `worker/agents/core/behaviors/think.ts`, and the relevant prompt or skill.
 
 **Add New WebSocket Message:**
 1. Add type to `worker/api/websocketTypes.ts`
 2. Handle in `worker/agents/core/websocket.ts`
 3. Handle in `src/routes/chat/utils/handle-websocket-message.ts`
 
-**Add New LLM Tool:**
-1. Create `/worker/agents/tools/toolkit/my-tool.ts`
-2. Export `createMyTool(agent, logger)` function
-3. Import in `/worker/agents/tools/customTools.ts`
-4. Add to `buildTools()` (conversation) or `buildDebugTools()` (debugger)
+**Add New Think Tool:**
+1. Create the tool under `worker/agents/think/`
+2. Add required SpaceDO RPC typing to `space-workspace-ops.ts`
+3. Register it in `ThinkAgent.getTools()`
+4. Update the relevant prompt or skill
+5. Add focused tests
 
 **Add API Endpoint:**
 1. Define types in `src/api-types.ts`
@@ -110,13 +85,6 @@ Edit `/worker/agents/operations/UserConversationProcessor.ts` (system prompt lin
 
 ## Important Context
 
-**Deep Debugger:**
-- Location: `/worker/agents/assistants/codeDebugger.ts`
-- Model: Gemini 2.5 Pro (reasoning_effort: high, 32k tokens)
-- Diagnostic priority: run_analysis → get_runtime_errors → get_logs
-- Can fix multiple files in parallel (regenerate_file)
-- Cannot run during code generation (checked via isCodeGenerating())
-
 **User Secrets Store (Durable Object):**
 - Location: `/worker/services/secrets/`
 - Purpose: Encrypted storage for user API keys with key rotation
@@ -126,12 +94,11 @@ Edit `/worker/agents/operations/UserConversationProcessor.ts` (system prompt lin
 - RPC Methods: Return `null`/`boolean` on error, never throw exceptions
 - Testing: 90 comprehensive tests in `/test/worker/services/secrets/`
 
-**Git System:**
-- GitVersionControl class wraps isomorphic-git
-- Key methods: commit(), reset(), log(), show()
-- FileManager auto-syncs via callback registration
-- Access control: user conversations get safe commands, debugger gets full access
-- SQLite filesystem adapter (`/worker/agents/git/fs-adapter.ts`)
+**Workspace and Git:**
+- SpaceDO provides workspace and file operations
+- Cloudflare Artifacts stores durable git history
+- Artifacts synchronization lives in `space/src/space/artifacts-sync.ts`
+- Rollback preserves history by creating a new commit
 
 **Abort Controller Pattern:**
 - `getOrCreateAbortController()` reuses controller for nested operations
