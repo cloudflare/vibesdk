@@ -180,7 +180,7 @@ export function PromptBox({
 									disabled={disabled}
 									placeholder={resolvedPlaceholder}
 									rows={1}
-									className="w-full bg-transparent rounded-xl px-3 pr-20 py-2 text-sm leading-5 ring-0 outline-none text-text-primary placeholder:text-text-primary/50! disabled:opacity-50 disabled:cursor-not-allowed resize-none overflow-y-auto no-scrollbar min-h-10 max-h-[120px] group"
+									className="w-full bg-transparent rounded-xl px-3 pr-20 py-3 text-sm leading-5 ring-0 outline-none text-text-primary placeholder:text-text-primary/50! disabled:opacity-50 disabled:cursor-not-allowed resize-none overflow-y-auto no-scrollbar min-h-10 max-h-[120px] group"
 									style={{
 										height: '40px',
 										minHeight: '40px',
