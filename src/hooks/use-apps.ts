@@ -1,82 +1,270 @@
+import { useEffect } from 'react';
+import {
+	useQuery,
+	useQueryClient,
+	type QueryClient,
+} from '@tanstack/react-query';
 import { apiClient, ApiError } from '@/lib/api-client';
 import type { AppWithFavoriteStatus } from '@/api-types';
+import { appEvents } from '@/lib/app-events';
+import type {
+	AppDeletedEvent,
+	AppEvent,
+	AppUpdatedEvent,
+} from '@/lib/app-events';
+import { queryKeys } from '@/lib/query-keys';
+import { useAuth } from '@/contexts/auth-context';
 import { useAuthGuard } from './useAuthGuard';
-import { useAppsData } from '@/contexts/apps-data-context';
+
+const RECENT_APPS_LIMIT = 10;
 
 interface AppHookState<T> {
-  apps: T[];
-  loading: boolean;
-  error: string | null;
-  refetch: () => void;
+	apps: T[];
+	loading: boolean;
+	error: string | null;
+	refetch: () => void;
 }
 
+function getErrorMessage(err: unknown, fallback: string): string {
+	if (err instanceof ApiError) {
+		return `${err.message} (${err.status})`;
+	}
+	if (err instanceof Error) {
+		return err.message;
+	}
+	return fallback;
+}
+
+async function fetchUserApps(): Promise<AppWithFavoriteStatus[]> {
+	const response = await apiClient.getUserApps();
+	if (!response.success) {
+		throw new Error(response.error?.message || 'Failed to fetch apps');
+	}
+	return response.data?.apps || [];
+}
+
+async function fetchFavoriteApps(): Promise<AppWithFavoriteStatus[]> {
+	const response = await apiClient.getFavoriteApps();
+	if (!response.success) {
+		throw new Error(
+			response.error?.message || 'Failed to fetch favorite apps',
+		);
+	}
+	return response.data?.apps || [];
+}
+
+function computeRecentApps(apps: AppWithFavoriteStatus[]) {
+	const sortedApps = [...apps].sort((a, b) => {
+		const aTime = a.updatedAt ? new Date(a.updatedAt).getTime() : 0;
+		const bTime = b.updatedAt ? new Date(b.updatedAt).getTime() : 0;
+		return bTime - aTime;
+	});
+
+	return {
+		recentApps: sortedApps.slice(0, RECENT_APPS_LIMIT),
+		moreRecentAvailable: sortedApps.length > RECENT_APPS_LIMIT,
+	};
+}
+
+function removeAppFromCache(queryClient: QueryClient, appId: string) {
+	queryClient.setQueryData<AppWithFavoriteStatus[]>(
+		queryKeys.apps.user(),
+		(prev) => prev?.filter((app) => app.id !== appId) ?? prev,
+	);
+	queryClient.setQueryData<AppWithFavoriteStatus[]>(
+		queryKeys.apps.favorites(),
+		(prev) => prev?.filter((app) => app.id !== appId) ?? prev,
+	);
+}
+
+function updateAppInCache(
+	queryClient: QueryClient,
+	appId: string,
+	data: Partial<AppWithFavoriteStatus>,
+) {
+	const patch = (app: AppWithFavoriteStatus): AppWithFavoriteStatus =>
+		app.id === appId
+			? { ...app, ...data, updatedAt: new Date() }
+			: app;
+
+	queryClient.setQueryData<AppWithFavoriteStatus[]>(
+		queryKeys.apps.user(),
+		(prev) => prev?.map(patch) ?? prev,
+	);
+	queryClient.setQueryData<AppWithFavoriteStatus[]>(
+		queryKeys.apps.favorites(),
+		(prev) => prev?.map(patch) ?? prev,
+	);
+}
+
+export function invalidateAppsQueries(queryClient: QueryClient) {
+	return queryClient.invalidateQueries({ queryKey: queryKeys.apps.all });
+}
+
+/**
+ * Keeps the apps query cache in sync with app lifecycle events.
+ * Mount once near the app root (inside QueryClientProvider).
+ */
+export function useAppsQuerySync() {
+	const queryClient = useQueryClient();
+
+	useEffect(() => {
+		const onDeleted = (event: AppEvent) => {
+			if (event.type === 'app-deleted') {
+				removeAppFromCache(
+					queryClient,
+					(event as AppDeletedEvent).appId,
+				);
+			}
+		};
+
+		const onCreated = () => {
+			void invalidateAppsQueries(queryClient);
+		};
+
+		const onUpdated = (event: AppEvent) => {
+			if (event.type === 'app-updated') {
+				const updatedEvent = event as AppUpdatedEvent;
+				if (updatedEvent.data) {
+					updateAppInCache(
+						queryClient,
+						updatedEvent.appId,
+						updatedEvent.data,
+					);
+				}
+			}
+		};
+
+		const unsubscribeDeleted = appEvents.on('app-deleted', onDeleted);
+		const unsubscribeCreated = appEvents.on('app-created', onCreated);
+		const unsubscribeUpdated = appEvents.on('app-updated', onUpdated);
+
+		return () => {
+			unsubscribeDeleted();
+			unsubscribeCreated();
+			unsubscribeUpdated();
+		};
+	}, [queryClient]);
+}
 
 export function useApps(): AppHookState<AppWithFavoriteStatus> {
-  const { allApps, loading, error, refetchAllApps } = useAppsData();
-  
-  return {
-    apps: allApps,
-    loading: loading.allApps,
-    error: error.allApps,
-    refetch: refetchAllApps,
-  };
+	const { user } = useAuth();
+	const query = useQuery({
+		queryKey: queryKeys.apps.user(),
+		queryFn: fetchUserApps,
+		enabled: !!user,
+	});
+
+	return {
+		apps: query.data ?? [],
+		loading: query.isLoading,
+		error: query.error
+			? getErrorMessage(query.error, 'Failed to fetch apps')
+			: null,
+		refetch: () => {
+			void query.refetch();
+		},
+	};
 }
 
 export function useRecentApps() {
-  const { recentApps, moreRecentAvailable, loading, error, refetchAllApps } = useAppsData();
-  
-  return { 
-    apps: recentApps, 
-    moreAvailable: moreRecentAvailable,
-    loading: loading.allApps, 
-    error: error.allApps, 
-    refetch: refetchAllApps
-  };
+	const { user } = useAuth();
+	const query = useQuery({
+		queryKey: queryKeys.apps.user(),
+		queryFn: fetchUserApps,
+		enabled: !!user,
+		select: (apps) => computeRecentApps(apps),
+	});
+
+	return {
+		apps: query.data?.recentApps ?? [],
+		moreAvailable: query.data?.moreRecentAvailable ?? false,
+		loading: query.isLoading,
+		error: query.error
+			? getErrorMessage(query.error, 'Failed to fetch apps')
+			: null,
+		refetch: () => {
+			void query.refetch();
+		},
+	};
 }
 
 export function useFavoriteApps(): AppHookState<AppWithFavoriteStatus> {
-  const { favoriteApps, loading, error, refetchFavoriteApps } = useAppsData();
-  
-  return {
-    apps: favoriteApps,
-    loading: loading.favoriteApps,
-    error: error.favoriteApps,
-    refetch: refetchFavoriteApps,
-  };
+	const { user } = useAuth();
+	const query = useQuery({
+		queryKey: queryKeys.apps.favorites(),
+		queryFn: fetchFavoriteApps,
+		enabled: !!user,
+	});
+
+	return {
+		apps: query.data ?? [],
+		loading: query.isLoading,
+		error: query.error
+			? getErrorMessage(query.error, 'Failed to fetch favorite apps')
+			: null,
+		refetch: () => {
+			void query.refetch();
+		},
+	};
 }
 
+export function useRefetchApps() {
+	const queryClient = useQueryClient();
+
+	return {
+		refetchAll: () => {
+			void invalidateAppsQueries(queryClient);
+		},
+		refetchAllApps: () => {
+			void queryClient.invalidateQueries({
+				queryKey: queryKeys.apps.user(),
+			});
+		},
+		refetchFavoriteApps: () => {
+			void queryClient.invalidateQueries({
+				queryKey: queryKeys.apps.favorites(),
+			});
+		},
+	};
+}
 
 export async function toggleFavorite(appId: string): Promise<boolean> {
-  try {
-    const response = await apiClient.toggleFavorite(appId);
-    if (response.success && response.data) {
-      return response.data.isFavorite;
-    }
-    throw new Error(response.error?.message || 'Failed to toggle favorite');
-  } catch (err) {
-    if (err instanceof ApiError) {
-      throw new Error(`Failed to toggle favorite: ${err.message}`);
-    }
-    throw err;
-  }
+	try {
+		const response = await apiClient.toggleFavorite(appId);
+		if (response.success && response.data) {
+			return response.data.isFavorite;
+		}
+		throw new Error(response.error?.message || 'Failed to toggle favorite');
+	} catch (err) {
+		if (err instanceof ApiError) {
+			throw new Error(`Failed to toggle favorite: ${err.message}`);
+		}
+		throw err;
+	}
 }
 
 /**
  * Hook for protected toggle favorite functionality
  */
 export function useToggleFavorite() {
-  const { requireAuth } = useAuthGuard();
+	const { requireAuth } = useAuthGuard();
 
-  const protectedToggleFavorite = async (appId: string, actionContext = 'to favorite this app'): Promise<boolean | null> => {
-    if (!requireAuth({ 
-      requireFullAuth: true, 
-      actionContext 
-    })) {
-      return null;
-    }
+	const protectedToggleFavorite = async (
+		appId: string,
+		actionContext = 'to favorite this app',
+	): Promise<boolean | null> => {
+		if (
+			!requireAuth({
+				requireFullAuth: true,
+				actionContext,
+			})
+		) {
+			return null;
+		}
 
-    return await toggleFavorite(appId);
-  };
+		return await toggleFavorite(appId);
+	};
 
-  return { toggleFavorite: protectedToggleFavorite };
+	return { toggleFavorite: protectedToggleFavorite };
 }

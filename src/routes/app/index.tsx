@@ -4,9 +4,8 @@ import { AppLoadingSkeleton } from '@/components/shared/AppLoadingSkeleton';
 import { ConfirmDeleteDialog } from '@/components/shared/ConfirmDeleteDialog';
 import { FloatingBackgroundIcons } from '@/components/shared/FloatingBackgroundIcons';
 import { GitCloneModal } from '@/components/shared/GitCloneModal';
-import { useAppsData } from '@/contexts/apps-data-context';
+import { toggleFavorite, useRefetchApps } from '@/hooks/use-apps';
 import { useAuth } from '@/contexts/auth-context';
-import { toggleFavorite } from '@/hooks/use-apps';
 import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard';
 import { useAuthGuard } from '@/hooks/useAuthGuard';
 import { apiClient, ApiError } from '@/lib/api-client';
@@ -356,7 +355,7 @@ export default function AppView() {
 		[actionConfigs, app, requireAuth, toast],
 	);
 
-	const { refetchAll } = useAppsData();
+	const { refetchAll } = useRefetchApps();
 
 	// Create action handlers using the reusable pattern
 	const handleFavorite = useMemo(

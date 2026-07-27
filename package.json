@@ -90,6 +90,7 @@
 		"@sentry/react": "^10.30.0",
 		"@simplewebauthn/browser": "^13.2.2",
 		"@space-do/space": "workspace:*",
+		"@tanstack/react-query": "^5.101.4",
 		"@types/argon2-browser": "^1.18.4",
 		"@types/mdast": "^4.0.4",
 		"@vitejs/plugin-react": "^5.1.2",

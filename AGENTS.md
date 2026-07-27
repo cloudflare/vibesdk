@@ -22,6 +22,14 @@
 - Icons: `@phosphor-icons/react`. Dark mode is `data-mode="dark"` on the root (not a `class` strategy).
 - Path aliases: `@/*` → `src/*`, `shared/*`, `worker/*` (see `tsconfig.app.json`).
 
+## Frontend Data Fetching
+- Use TanStack Query for frontend server state and network-call caching. `QueryClientProvider` is wired at the React root; configure shared defaults in `src/lib/query-client.ts`.
+- Keep TanStack query keys centralized in `src/lib/query-keys.ts`. Use hierarchical keys so broad invalidation works, for example `queryKeys.apps.all` should invalidate app list/favorite variants.
+- Frontend HTTP still goes through `src/lib/api-client.ts`; query functions should wrap existing `apiClient` methods rather than calling `fetch` directly from components.
+- Include user/account identity in query keys when cached data is user-specific, or explicitly clear/remove those queries on logout/user switch. `enabled: !!user` prevents fetching but does not clear old cached data.
+- Mutations that change cached server state must update cache with `queryClient.setQueryData` or invalidate the relevant `queryKeys` on success. Do not rely on a local `refetch()` in one component if sidebar or other shared UI consumes the same data.
+- Prefer query hooks (`useQuery`, `useMutation`) over ad-hoc loading/error state in React contexts. Context remains appropriate for client-only UI state or providers required by libraries.
+
 ## Boundaries
 - `src/` is the React app (`src/main.tsx`, routes in `src/routes.ts`). API contracts live in `src/api-types.ts`; frontend HTTP calls belong in `src/lib/api-client.ts`.
 - `worker/index.ts` is the Worker entrypoint and Durable Object export surface. Hono middleware/routes are wired by `worker/app.ts` and `worker/api/routes/index.ts`.
