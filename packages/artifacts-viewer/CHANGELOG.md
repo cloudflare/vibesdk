@@ -1,5 +1,11 @@
 # artifacts-viewer
 
+## 0.0.2
+
+### Patch Changes
+
+- Verify the release pipeline end to end. No functional changes to the router or cache adapters.
+
 ## 0.0.1
 
 ### Patch changes
