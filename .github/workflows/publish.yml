@@ -1,0 +1,46 @@
+name: Publish package
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: npm-publish
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Set up Vite+
+        uses: voidzero-dev/setup-vp@v1
+        with:
+          node-version: "24"
+          cache: false
+
+      - name: Install dependencies
+        run: vp install --frozen-lockfile
+
+      - name: Validate release tag
+        shell: bash
+        run: |
+          package_version="$(node -e "const packageJson = require('./packages/artifacts-viewer/package.json'); process.stdout.write(packageJson.version)")"
+          if [[ "${GITHUB_REF_NAME}" != "v${package_version}" ]]; then
+            echo "Release tag ${GITHUB_REF_NAME} does not match artifacts-viewer@${package_version}." >&2
+            exit 1
+          fi
+
+      - name: Validate workspace
+        run: vp run ready
+
+      - name: Publish to npm
+        working-directory: packages/artifacts-viewer
+        run: npm publish --access public
