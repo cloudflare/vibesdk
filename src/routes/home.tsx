@@ -190,7 +190,7 @@ export default function Home() {
 				<div className="home-atmosphere__spotlight" />
 			</div>
 			<LayoutGroup>
-				<div className="w-full max-w-2xl px-5 sm:px-6">
+				<div className="w-full max-w-3xl px-5 sm:px-6">
 					<motion.div
 						layout
 						transition={{
@@ -295,7 +295,7 @@ export default function Home() {
 								ease: [0.22, 1, 0.36, 1],
 							}}
 							className={clsx(
-								'w-full max-w-7xl mx-auto px-5 sm:px-6 z-10',
+								'w-full max-w-5xl mx-auto px-5 sm:px-6 z-10',
 								images.length > 0
 									? 'mt-10'
 									: 'mt-16 sm:mt-20 mb-12',

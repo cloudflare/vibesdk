@@ -31,7 +31,7 @@
 - Prefer query hooks (`useQuery`, `useMutation`) over ad-hoc loading/error state in React contexts. Context remains appropriate for client-only UI state or providers required by libraries.
 
 ## Boundaries
-- `src/` is the React app (`src/main.tsx`, routes in `src/routes.ts`). API contracts live in `src/api-types.ts`; frontend HTTP calls belong in `src/lib/api-client.ts`.
+- `src/` is the React app (`src/main.tsx`, routes in `src/routes.tsx`). API contracts live in `src/api-types.ts`; frontend HTTP calls belong in `src/lib/api-client.ts`.
 - `worker/index.ts` is the Worker entrypoint and Durable Object export surface. Hono middleware/routes are wired by `worker/app.ts` and `worker/api/routes/index.ts`.
 - `space/` is the only declared workspace package. It provides the `SpaceDO` workspace and file layer used by the think agent, with durable git history stored through Cloudflare Artifacts, and is bundled before the root app; edit implementation in `space/src`, never generated `space/dist`, and keep the hand-maintained `space/types/index.d.ts` aligned with public exports.
 - `sdk/` is an independent Bun package with its own lockfile, scripts, and tests. It imports the platform WebSocket protocol from `worker/api/websocketTypes.ts`, so protocol changes must remain SDK-compatible.

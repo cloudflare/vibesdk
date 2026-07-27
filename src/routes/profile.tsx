@@ -28,11 +28,11 @@ import { capitalizeFirstLetter, cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
 import { useUserStats, useUserActivity } from '@/hooks/use-stats';
-import { apiClient } from '@/lib/api-client';
+import { useUpdateProfile } from '@/hooks/use-profile';
 import { useApps } from '@/hooks/use-apps';
 
 export default function Profile() {
-  const { user, refreshUser } = useAuth();
+  const { user } = useAuth();
   const navigate = useNavigate();
   const [isEditing, setIsEditing] = React.useState(false);
   const [profileData, setProfileData] = React.useState({
@@ -41,12 +41,12 @@ export default function Profile() {
     bio: user?.bio || '',
     timezone: user?.timezone || 'UTC'
   });
-  const [isSaving, setIsSaving] = React.useState(false);
   const [activeTab, setActiveTab] = React.useState('about');
 
-  // Update profile data when user changes
+  // Sync the form from the cached user, but never while editing: a background
+  // session refetch would otherwise overwrite unsaved input mid-edit.
   React.useEffect(() => {
-    if (user) {
+    if (user && !isEditing) {
       setProfileData({
         displayName: user.displayName || '',
         username: user.username || '',
@@ -54,11 +54,12 @@ export default function Profile() {
         timezone: user.timezone || 'UTC'
       });
     }
-  }, [user]);
+  }, [user, isEditing]);
 
   const { stats, loading: statsLoading } = useUserStats();
-  const { activities = [], loading: activityLoading } = useUserActivity();
+  const { activities, loading: activityLoading } = useUserActivity();
   const { apps: recentApps, loading: appsLoading } = useApps();
+  const { mutateAsync: saveProfile, isPending: isSaving } = useUpdateProfile();
 
   // Transform achievements from stats
   const achievements = stats?.achievements || [];
@@ -67,26 +68,19 @@ export default function Profile() {
     if (isSaving) return;
 
     try {
-      setIsSaving(true);
-
-      const response = await apiClient.updateProfile({
+      // The mutation invalidates the auth session, so `user` (and the
+      // header/sidebar) pick up the new values.
+      await saveProfile({
         displayName: profileData.displayName,
         username: profileData.username,
         bio: profileData.bio,
         timezone: profileData.timezone
       });
-
-      if (response.success) {
-        toast.success('Profile updated successfully');
-        // Refresh user data in auth context
-        await refreshUser();
-        setIsEditing(false);
-      }
+      toast.success('Profile updated successfully');
+      setIsEditing(false);
     } catch (error) {
       console.error('Profile update error:', error);
       toast.error('Failed to update profile');
-    } finally {
-      setIsSaving(false);
     }
   };
 

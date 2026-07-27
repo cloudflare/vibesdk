@@ -5,7 +5,7 @@ import {
 	type QueryClient,
 } from '@tanstack/react-query';
 import { apiClient, ApiError } from '@/lib/api-client';
-import type { AppWithFavoriteStatus } from '@/api-types';
+import type { AppDetailsData, AppWithFavoriteStatus } from '@/api-types';
 import { appEvents } from '@/lib/app-events';
 import type {
 	AppDeletedEvent,
@@ -67,12 +67,18 @@ function computeRecentApps(apps: AppWithFavoriteStatus[]) {
 }
 
 function removeAppFromCache(queryClient: QueryClient, appId: string) {
-	queryClient.setQueryData<AppWithFavoriteStatus[]>(
-		queryKeys.apps.user(),
+	queryClient.removeQueries({
+		queryKey: queryKeys.account.apps.detailAll(appId),
+	});
+	queryClient.removeQueries({
+		queryKey: queryKeys.account.apps.previewTokenAll(appId),
+	});
+	queryClient.setQueriesData<AppWithFavoriteStatus[]>(
+		{ queryKey: queryKeys.account.apps.userAll() },
 		(prev) => prev?.filter((app) => app.id !== appId) ?? prev,
 	);
-	queryClient.setQueryData<AppWithFavoriteStatus[]>(
-		queryKeys.apps.favorites(),
+	queryClient.setQueriesData<AppWithFavoriteStatus[]>(
+		{ queryKey: queryKeys.account.apps.favoritesAll() },
 		(prev) => prev?.filter((app) => app.id !== appId) ?? prev,
 	);
 }
@@ -82,23 +88,35 @@ function updateAppInCache(
 	appId: string,
 	data: Partial<AppWithFavoriteStatus>,
 ) {
-	const patch = (app: AppWithFavoriteStatus): AppWithFavoriteStatus =>
+	const patchListApp = (
+		app: AppWithFavoriteStatus,
+	): AppWithFavoriteStatus =>
+		app.id === appId
+			? { ...app, ...data, updatedAt: new Date() }
+			: app;
+	const patchAppDetails = (app: AppDetailsData): AppDetailsData =>
 		app.id === appId
 			? { ...app, ...data, updatedAt: new Date() }
 			: app;
 
-	queryClient.setQueryData<AppWithFavoriteStatus[]>(
-		queryKeys.apps.user(),
-		(prev) => prev?.map(patch) ?? prev,
+	queryClient.setQueriesData<AppWithFavoriteStatus[]>(
+		{ queryKey: queryKeys.account.apps.userAll() },
+		(prev) => prev?.map(patchListApp) ?? prev,
 	);
-	queryClient.setQueryData<AppWithFavoriteStatus[]>(
-		queryKeys.apps.favorites(),
-		(prev) => prev?.map(patch) ?? prev,
+	queryClient.setQueriesData<AppWithFavoriteStatus[]>(
+		{ queryKey: queryKeys.account.apps.favoritesAll() },
+		(prev) => prev?.map(patchListApp) ?? prev,
+	);
+	queryClient.setQueriesData<AppDetailsData>(
+		{ queryKey: queryKeys.account.apps.detailAll(appId) },
+		(prev) => (prev ? patchAppDetails(prev) : prev),
 	);
 }
 
 export function invalidateAppsQueries(queryClient: QueryClient) {
-	return queryClient.invalidateQueries({ queryKey: queryKeys.apps.all });
+	return queryClient.invalidateQueries({
+		queryKey: queryKeys.account.apps.all(),
+	});
 }
 
 /**
@@ -150,7 +168,7 @@ export function useAppsQuerySync() {
 export function useApps(): AppHookState<AppWithFavoriteStatus> {
 	const { user } = useAuth();
 	const query = useQuery({
-		queryKey: queryKeys.apps.user(),
+		queryKey: queryKeys.account.apps.user(user?.id),
 		queryFn: fetchUserApps,
 		enabled: !!user,
 	});
@@ -170,7 +188,7 @@ export function useApps(): AppHookState<AppWithFavoriteStatus> {
 export function useRecentApps() {
 	const { user } = useAuth();
 	const query = useQuery({
-		queryKey: queryKeys.apps.user(),
+		queryKey: queryKeys.account.apps.user(user?.id),
 		queryFn: fetchUserApps,
 		enabled: !!user,
 		select: (apps) => computeRecentApps(apps),
@@ -192,7 +210,7 @@ export function useRecentApps() {
 export function useFavoriteApps(): AppHookState<AppWithFavoriteStatus> {
 	const { user } = useAuth();
 	const query = useQuery({
-		queryKey: queryKeys.apps.favorites(),
+		queryKey: queryKeys.account.apps.favorites(user?.id),
 		queryFn: fetchFavoriteApps,
 		enabled: !!user,
 	});
@@ -211,6 +229,7 @@ export function useFavoriteApps(): AppHookState<AppWithFavoriteStatus> {
 
 export function useRefetchApps() {
 	const queryClient = useQueryClient();
+	const { user } = useAuth();
 
 	return {
 		refetchAll: () => {
@@ -218,12 +237,12 @@ export function useRefetchApps() {
 		},
 		refetchAllApps: () => {
 			void queryClient.invalidateQueries({
-				queryKey: queryKeys.apps.user(),
+				queryKey: queryKeys.account.apps.user(user?.id),
 			});
 		},
 		refetchFavoriteApps: () => {
 			void queryClient.invalidateQueries({
-				queryKey: queryKeys.apps.favorites(),
+				queryKey: queryKeys.account.apps.favorites(user?.id),
 			});
 		},
 	};
