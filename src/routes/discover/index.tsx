@@ -87,7 +87,7 @@ export default function DiscoverPage() {
 						</p>
 					</div>
 
-					<div className="flex items-start gap-4 justify-between">
+					<div className="flex flex-wrap items-start gap-3 justify-between mb-8">
 						{/* Search and Filters */}
 						<AppFiltersForm
 							searchQuery={searchQuery}

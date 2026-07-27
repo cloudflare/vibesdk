@@ -111,7 +111,7 @@ export default function Home() {
 
 	const { apps, loading } = usePaginatedApps({
 		type: 'public',
-		defaultSort: 'recent',
+		defaultSort: 'trending',
 		defaultPeriod: 'week',
 		limit: 24,
 	});
@@ -206,7 +206,7 @@ export default function Home() {
 						<div className="mb-6 sm:mb-7 grid gap-2">
 							<h1 className="w-full text-center text-[clamp(1.75rem,4.5vw,2.5rem)] font-semibold leading-[1.12] text-kumo-strong/80">
 								What should we{' '}
-								<span className="font-funky-mono text-[1.1em] tracking-tighter uppercase text-kumo-brand">
+								<span className="font-funky-mono text-[1.1em] tracking-tighter uppercase text-brand">
 									build
 								</span>{' '}
 								today?

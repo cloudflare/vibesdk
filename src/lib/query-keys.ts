@@ -1,8 +1,27 @@
+export type PaginatedAppsListFilters = {
+	sort: string;
+	period: string;
+	framework: string;
+	visibility: string;
+	search: string;
+	limit: number;
+};
+
 export const queryKeys = {
 	auth: {
 		all: ['auth'] as const,
 		session: () => [...queryKeys.auth.all, 'session'] as const,
 		providers: () => [...queryKeys.auth.all, 'providers'] as const,
+	},
+	/** Unauthenticated / list-scoped app feeds (public + paginated user lists). */
+	apps: {
+		all: ['apps'] as const,
+		publicAll: () => [...queryKeys.apps.all, 'public'] as const,
+		public: (filters: PaginatedAppsListFilters) =>
+			[...queryKeys.apps.publicAll(), filters] as const,
+		userAll: () => [...queryKeys.apps.all, 'user'] as const,
+		user: (filters: PaginatedAppsListFilters) =>
+			[...queryKeys.apps.userAll(), filters] as const,
 	},
 	account: {
 		all: ['account'] as const,
