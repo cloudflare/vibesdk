@@ -1,16 +1,23 @@
-import type { AppDetailsData, FileType } from '@/api-types';
+import type { FileType } from '@/api-types';
 import { MonacoEditor } from '@/components/monaco-editor/lazy-monaco-editor';
+import { AppLoadingSkeleton } from '@/components/shared/AppLoadingSkeleton';
 import { ConfirmDeleteDialog } from '@/components/shared/ConfirmDeleteDialog';
 import { FloatingBackgroundIcons } from '@/components/shared/FloatingBackgroundIcons';
 import { GitCloneModal } from '@/components/shared/GitCloneModal';
-import { useAppsData } from '@/contexts/apps-data-context';
+import {
+	useApp,
+	useAppPreviewToken,
+	useDeleteApp,
+	useDeployPreview,
+	useToggleAppFavorite,
+	useToggleAppStar,
+	useUpdateAppVisibility,
+} from '@/hooks/use-app';
 import { useAuth } from '@/contexts/auth-context';
-import { toggleFavorite } from '@/hooks/use-apps';
 import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard';
 import { useAuthGuard } from '@/hooks/useAuthGuard';
-import { apiClient, ApiError } from '@/lib/api-client';
-import { appEvents } from '@/lib/app-events';
-import { capitalizeFirstLetter, getPreviewUrl } from '@/lib/utils';
+import { ApiError } from '@/lib/api-client';
+import { capitalizeFirstLetter } from '@/lib/utils';
 import { getFileType } from '@/utils/string';
 import {
 	Badge,
@@ -40,7 +47,6 @@ import {
 	Copy,
 	ExternalLink,
 	Eye,
-	Loader2,
 	MessageSquare,
 	Play,
 } from 'lucide-react';
@@ -48,9 +54,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router';
 import { FileExplorer } from '../chat/components/file-explorer';
 import { PreviewIframe } from '../chat/components/preview-iframe';
-
-// Use proper types from API types
-type AppDetails = AppDetailsData;
 
 // Define supported actions for OAuth redirect
 type PendingAction = 'favorite' | 'bookmark' | 'star' | 'fork' | 'remix';
@@ -86,11 +89,7 @@ export default function AppView() {
 	const [searchParams, setSearchParams] = useSearchParams();
 	const { user } = useAuth();
 	const { requireAuth } = useAuthGuard();
-	const [app, setApp] = useState<AppDetails | null>(null);
-	const [loading, setLoading] = useState(true);
-	const [error, setError] = useState<string | null>(null);
-	const [isFavorited, setIsFavorited] = useState(false);
-	const [isStarred, setIsStarred] = useState(false);
+	const { app, loading, error } = useApp(id);
 	const { copied: urlCopied, copy: copyUrl } = useCopyToClipboard();
 	const { copy: copyFile } = useCopyToClipboard({
 		successMessage: 'Code copied to clipboard',
@@ -99,91 +98,43 @@ export default function AppView() {
 		successMessage: 'Prompt copied to clipboard',
 	});
 	const [activeTab, setActiveTab] = useState('preview');
-	const [isDeploying, setIsDeploying] = useState(false);
 	const [deploymentProgress, setDeploymentProgress] = useState<string>('');
-	const [isUpdatingVisibility, setIsUpdatingVisibility] = useState(false);
 	const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-	const [isDeleting, setIsDeleting] = useState(false);
 	const [isGitCloneModalOpen, setIsGitCloneModalOpen] = useState(false);
 	const [activeFilePath, setActiveFilePath] = useState<string>();
-	// For a PRIVATE deployed app, the owner needs a deployment-scoped token to
-	// open the preview subdomain (main-domain session cookies aren't sent there).
-	const [ownerPreviewUrl, setOwnerPreviewUrl] = useState<string | null>(null);
 	const previewIframeRef = useRef<HTMLIFrameElement>(null);
 
-	const fetchAppDetails = useCallback(async () => {
-		if (!id) return;
-
-		try {
-			setLoading(true);
-			setError(null);
-
-			// Fetch app details using API client
-			const appResponse = await apiClient.getAppDetails(id);
-
-			if (appResponse.success && appResponse.data) {
-				const appData = appResponse.data;
-				setApp(appData);
-				setIsFavorited(appData.userFavorited || false);
-				setIsStarred(appData.userStarred || false);
-			} else {
-				throw new Error(
-					appResponse.error?.message || 'Failed to fetch app details',
-				);
-			}
-		} catch (err) {
-			console.error('Error fetching app:', err);
-			if (err instanceof ApiError) {
-				if (err.status === 404) {
-					setError('App not found');
-				} else {
-					setError(`Failed to load app: ${err.message}`);
-				}
-			} else {
-				setError(
-					err instanceof Error ? err.message : 'Failed to load app',
-				);
-			}
-		} finally {
-			setLoading(false);
-		}
+	// Route reuses this component across /app/:id — clear deploy UI on switch
+	useEffect(() => {
+		setDeploymentProgress('');
+		setActiveTab('preview');
+		setActiveFilePath(undefined);
 	}, [id]);
 
-	useEffect(() => {
-		fetchAppDetails();
-	}, [id, fetchAppDetails]);
+	const needsOwnerPreviewToken =
+		!!app &&
+		!!user &&
+		app.userId === user.id &&
+		app.visibility === 'private' &&
+		!!app.deploymentId;
 
-	// Mint an owner-preview token when the owner views their own PRIVATE deployed
-	// app, so the preview iframe / open-in-new-tab can reach the gated subdomain.
-	useEffect(() => {
-		let cancelled = false;
-		const needsToken =
-			!!app &&
-			!!user &&
-			app.userId === user.id &&
-			app.visibility === 'private' &&
-			!!app.deploymentId;
+	const { previewUrl: ownerPreviewUrl } = useAppPreviewToken(
+		app?.id,
+		needsOwnerPreviewToken,
+	);
 
-		if (!needsToken) {
-			setOwnerPreviewUrl(null);
-			return;
-		}
+	const { mutateAsync: toggleFavorite } = useToggleAppFavorite(app?.id);
+	const { mutateAsync: toggleStar } = useToggleAppStar(app?.id);
+	const {
+		mutateAsync: updateVisibility,
+		isPending: isUpdatingVisibility,
+	} = useUpdateAppVisibility(app?.id);
+	const { mutateAsync: deleteApp, isPending: isDeleting } = useDeleteApp();
+	const { mutateAsync: deployPreview, isPending: isDeploying } =
+		useDeployPreview(app?.id);
 
-		(async () => {
-			try {
-				const response = await apiClient.generatePreviewToken(app!.id);
-				if (!cancelled && response.success && response.data) {
-					setOwnerPreviewUrl(response.data.previewUrl);
-				}
-			} catch (err) {
-				console.error('Failed to generate owner preview token:', err);
-			}
-		})();
-
-		return () => {
-			cancelled = true;
-		};
-	}, [app, user]);
+	const isFavorited = app?.userFavorited || false;
+	const isStarred = app?.userStarred || false;
 
 	// Convert agent files to chat FileType format
 	const files = useMemo<FileType[]>(() => {
@@ -237,9 +188,7 @@ export default function AppView() {
 				action: 'favorite',
 				context: 'to bookmark apps',
 				handler: async () => {
-					if (!app) return;
-					const newState = await toggleFavorite(app.id);
-					setIsFavorited(newState);
+					const newState = await toggleFavorite();
 					toast.add({
 						title: newState
 							? 'Added to bookmarks'
@@ -253,67 +202,16 @@ export default function AppView() {
 				action: 'star',
 				context: 'to star apps',
 				handler: async () => {
-					if (!app) return;
-					const response = await apiClient.toggleAppStar(app.id);
-
-					if (response.success && response.data) {
-						setIsStarred(response.data.isStarred);
-						setApp((prev) =>
-							prev
-								? {
-										...prev,
-										starCount:
-											response.data?.starCount || 0,
-									}
-								: null,
-						);
-						toast.add({
-							title: response.data.isStarred
-								? 'Starred!'
-								: 'Unstarred',
-							variant: 'success',
-						});
-					} else {
-						throw new Error(
-							response.error?.message || 'Failed to star app',
-						);
-					}
+					const data = await toggleStar();
+					toast.add({
+						title: data.isStarred ? 'Starred!' : 'Unstarred',
+						variant: 'success',
+					});
 				},
 				errorMessage: 'Failed to update star',
 			},
-			// fork: {
-			// 	action: 'fork',
-			// 	context: 'to remix this app',
-			// 	handler: async () => {
-			// 		if (!app) return;
-			// 		const response = await apiClient.forkApp(app.id);
-
-			// 		if (response.success && response.data) {
-			// 			toast.add({
-			// 				title:
-			// 					response.data.message ||
-			// 					'App remixed successfully!',
-			// 				variant: 'success',
-			// 			});
-
-			// 			// Emit app-created event for sidebar updates
-			// 			appEvents.emitAppCreated(response.data.forkedAppId, {
-			// 				title: `${app.title} (Remix)`,
-			// 				description: app.description || undefined,
-			// 				isForked: true,
-			// 			});
-
-			// 			navigate(`/chat/${response.data.forkedAppId}`);
-			// 		} else {
-			// 			throw new Error(
-			// 				response.error?.message || 'Failed to remix app',
-			// 			);
-			// 		}
-			// 	},
-			// 	errorMessage: 'Failed to remix app',
-			// },
 		}),
-		[app, toast],
+		[toast, toggleFavorite, toggleStar],
 	);
 
 	// Reusable authenticated action handler
@@ -356,8 +254,6 @@ export default function AppView() {
 		[actionConfigs, app, requireAuth, toast],
 	);
 
-	const { refetchAll } = useAppsData();
-
 	// Create action handlers using the reusable pattern
 	const handleFavorite = useMemo(
 		() => createAuthenticatedHandler('favorite'),
@@ -368,10 +264,6 @@ export default function AppView() {
 		() => createAuthenticatedHandler('star'),
 		[createAuthenticatedHandler],
 	);
-	// const handleFork = useMemo(
-	// 	() => createAuthenticatedHandler('fork'),
-	// 	[createAuthenticatedHandler],
-	// );
 
 	// Handle pending actions after OAuth redirect
 	const executePendingAction = useCallback(
@@ -441,48 +333,28 @@ export default function AppView() {
 		executePendingAction,
 	]);
 
+	const isOwner = !!app && app.userId === user?.id;
+	const appUrl =
+		ownerPreviewUrl || app?.cloudflareUrl || app?.previewUrl || '';
+	const promptText = app?.agentSummary?.query || app?.originalPrompt || '';
+
 	const handleCopyUrl = () => {
 		if (!appUrl) return;
 		copyUrl(appUrl);
-	};
-
-	const getAppUrl = () => {
-		// Prefer the tokenized owner-preview URL for a private deployed app the
-		// owner is viewing; otherwise the plain deployed/preview URL.
-		return ownerPreviewUrl || app?.cloudflareUrl || app?.previewUrl || '';
 	};
 
 	const handlePreviewDeploy = async () => {
 		if (!app || isDeploying) return;
 
 		try {
-			setIsDeploying(true);
 			setDeploymentProgress('Connecting to agent...');
-			const response = await apiClient.deployPreview(app.id);
-			if (response.success && response.data) {
-				const data = response.data;
-				if (data.previewURL || data.tunnelURL) {
-					const newUrl = getPreviewUrl(
-						data.previewURL,
-						data.tunnelURL,
-					);
-					setApp((prev) =>
-						prev
-							? {
-									...prev,
-									cloudflareUrl: newUrl,
-									previewUrl: newUrl,
-								}
-							: null,
-					);
-					setDeploymentProgress('Deployment complete!');
-				}
+			const data = await deployPreview();
+			if (data.previewURL || data.tunnelURL) {
+				setDeploymentProgress('Deployment complete!');
 			}
-			setIsDeploying(false);
 		} catch (error) {
 			console.error('Error starting deployment:', error);
 			setDeploymentProgress('Failed to start deployment');
-			setIsDeploying(false);
 			toast.add({
 				title: 'Failed to start deployment',
 				variant: 'error',
@@ -500,32 +372,16 @@ export default function AppView() {
 		}
 
 		try {
-			setIsUpdatingVisibility(true);
 			const newVisibility =
 				app.visibility === 'private' ? 'public' : 'private';
+			const result = await updateVisibility(newVisibility);
 
-			const response = await apiClient.updateAppVisibility(
-				app.id,
-				newVisibility,
-			);
-
-			if (response.success && response.data) {
-				// Update the app state with new visibility
-				setApp((prev) =>
-					prev ? { ...prev, visibility: newVisibility } : null,
-				);
-
-				toast.add({
-					title:
-						response.data.message ||
-						`App is now ${newVisibility === 'private' ? 'private' : 'public'}`,
-					variant: 'success',
-				});
-			} else {
-				throw new Error(
-					response.error?.message || 'Failed to update visibility',
-				);
-			}
+			toast.add({
+				title:
+					result.message ||
+					`App is now ${newVisibility === 'private' ? 'private' : 'public'}`,
+				variant: 'success',
+			});
 		} catch (error) {
 			console.error('Error updating app visibility:', error);
 			toast.add({
@@ -535,8 +391,6 @@ export default function AppView() {
 						: 'Failed to update visibility',
 				variant: 'error',
 			});
-		} finally {
-			setIsUpdatingVisibility(false);
 		}
 	};
 
@@ -544,28 +398,17 @@ export default function AppView() {
 		if (!app) return;
 
 		try {
-			setIsDeleting(true);
-			const response = await apiClient.deleteApp(app.id);
+			await deleteApp(app.id);
+			toast.add({
+				title: 'App deleted successfully',
+				variant: 'success',
+			});
+			setIsDeleteDialogOpen(false);
 
-			if (response.success) {
-				toast.add({
-					title: 'App deleted successfully',
-					variant: 'success',
-				});
-				setIsDeleteDialogOpen(false);
-
-				// Emit global app deleted event
-				appEvents.emitAppDeleted(app.id);
-
-				// Smart navigation after deletion
-				// Use window.history to go back if possible, otherwise navigate to apps page
-				if (window.history.length > 1) {
-					// Try to go back to previous page
-					window.history.back();
-				} else {
-					// No history available, go to apps page
-					navigate('/apps');
-				}
+			if (window.history.length > 1) {
+				window.history.back();
+			} else {
+				navigate('/apps');
 			}
 		} catch (error) {
 			console.error('Error deleting app:', error);
@@ -573,32 +416,23 @@ export default function AppView() {
 				title: 'An unexpected error occurred while deleting the app',
 				variant: 'error',
 			});
-		} finally {
-			setIsDeleting(false);
 		}
 	};
 
 	if (loading) {
-		return (
-			<div className="h-full bg-kumo-base flex items-center justify-center">
-				<div className="text-center">
-					<Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-text-tertiary" />
-					<p className="text-sm text-text-tertiary">Loading app...</p>
-				</div>
-			</div>
-		);
+		return <AppLoadingSkeleton />;
 	}
 
 	if (error || !app) {
 		return (
-			<div className="h-full bg-kumo-base flex items-center justify-center p-4">
+			<div className="size-full flex items-center justify-center p-4">
 				<LayerCard className="max-w-md w-full px-5 py-6">
 					<div className="text-center grid gap-4">
 						<div className="grid gap-1.5">
 							<h2 className="text-lg font-semibold text-text-primary">
 								App not found
 							</h2>
-							<p className="text-sm text-text-tertiary">
+							<p className="text-sm text-kumo-subtle">
 								{error ||
 									"The app you're looking for doesn't exist."}
 							</p>
@@ -619,12 +453,8 @@ export default function AppView() {
 		);
 	}
 
-	const isOwner = app.userId === user?.id;
-	const appUrl = getAppUrl();
-	const promptText = app?.agentSummary?.query || app?.originalPrompt || '';
-
 	return (
-		<div className="h-full bg-kumo-base flex flex-col min-h-0">
+		<div className="size-full flex flex-col min-h-0">
 			<header className="h-12 shrink-0 flex items-center gap-3 px-4 border-b">
 				<div className="min-w-0 flex-1 flex items-center gap-2">
 					<h1
@@ -776,7 +606,7 @@ export default function AppView() {
 									<Code2 className="size-3.5" />
 									Code
 									{files.length > 0 && (
-										<span className="text-text-tertiary tabular-nums">
+										<span className="text-kumo-subtle tabular-nums">
 											{files.length}
 										</span>
 									)}
@@ -805,9 +635,8 @@ export default function AppView() {
 								weight={isFavorited ? 'fill' : 'duotone'}
 							/>
 						}
-						onClick={async () => {
-							await handleFavorite();
-							refetchAll();
+						onClick={() => {
+							void handleFavorite();
 						}}
 					>
 						{isFavorited ? 'Bookmarked' : 'Bookmark'}
@@ -826,7 +655,7 @@ export default function AppView() {
 					>
 						{isStarred ? 'Starred' : 'Star'}
 						{(app.starCount || 0) > 0 && (
-							<span className="text-text-tertiary tabular-nums">
+							<span className="text-kumo-subtle tabular-nums">
 								{app.starCount}
 							</span>
 						)}
@@ -848,14 +677,14 @@ export default function AppView() {
 			{/* Full-bleed workspace */}
 			<div className="flex-1 min-h-0 flex flex-col">
 				{activeTab === 'preview' && (
-					<div className="flex-1 min-h-0 flex flex-col bg-kumo-base overflow-hidden">
+					<div className="flex-1 min-h-0 flex flex-col overflow-hidden">
 						<div className="shrink-0 flex items-center gap-2 px-3 py-2 border-b border-kumo-line bg-kumo-elevated/40">
 							<span className="text-sm font-medium text-text-primary shrink-0">
 								Live preview
 							</span>
 							{appUrl && (
 								<>
-									<code className="min-w-0 flex-1 truncate font-mono text-[0.9em] text-text-tertiary px-2">
+									<code className="min-w-0 flex-1 truncate font-mono text-[0.9em] text-kumo-subtle px-2">
 										{appUrl}
 									</code>
 									<div className="flex items-center gap-0.5 shrink-0">
@@ -951,14 +780,14 @@ export default function AppView() {
 				)}
 
 				{activeTab === 'code' && (
-					<div className="flex-1 min-h-0 flex flex-col bg-kumo-base overflow-hidden">
+					<div className="flex-1 min-h-0 flex flex-col overflow-hidden">
 						<div className="shrink-0 flex items-center justify-between gap-2 px-3 py-2 border-b border-kumo-line bg-kumo-elevated/40">
 							<div className="min-w-0 flex items-center gap-2">
 								<span className="text-sm font-medium text-text-primary shrink-0">
 									Project files
 								</span>
 								{/*{app?.agentSummary && (
-									<span className="text-xs text-text-tertiary">
+									<span className="text-xs text-kumo-subtle">
 										{files.length} files
 									</span>
 								)}*/}
@@ -995,7 +824,7 @@ export default function AppView() {
 									{activeFile ? (
 										<>
 											{activeFile.explanation && (
-												<div className="shrink-0 px-3 py-1.5 border-b border-kumo-line text-xs text-text-tertiary truncate">
+												<div className="shrink-0 px-3 py-1.5 border-b border-kumo-line text-xs text-kumo-subtle truncate">
 													{activeFile.explanation}
 												</div>
 											)}
@@ -1022,7 +851,7 @@ export default function AppView() {
 										</>
 									) : (
 										<div className="flex-1 flex items-center justify-center">
-											<p className="text-sm text-text-tertiary">
+											<p className="text-sm text-kumo-subtle">
 												Select a file to view
 											</p>
 										</div>
@@ -1031,7 +860,7 @@ export default function AppView() {
 							</div>
 						) : (
 							<div className="flex-1 flex items-center justify-center">
-								<p className="text-sm text-text-tertiary">
+								<p className="text-sm text-kumo-subtle">
 									{app?.agentSummary === null
 										? 'Loading code...'
 										: 'No code has been generated yet.'}
@@ -1042,7 +871,7 @@ export default function AppView() {
 				)}
 
 				{activeTab === 'prompt' && (
-					<div className="flex-1 min-h-0 flex flex-col bg-kumo-base overflow-hidden relative">
+					<div className="flex-1 min-h-0 flex flex-col overflow-hidden relative">
 						<div className="flex-1 min-h-0 overflow-y-auto flex items-center justify-center p-6 sm:p-10">
 							{promptText ? (
 								<div className="w-full max-w-2xl grid gap-5">
@@ -1051,14 +880,14 @@ export default function AppView() {
 											<div className="flex items-center gap-2">
 												<span className="h-lh flex items-center shrink-0">
 													<span className="rounded-md bg-brand/10 p-1.5">
-														<MessageSquare className="size-3.5 text-brand" />
+														<MessageSquare className="size-3.5 text-kumo-brand" />
 													</span>
 												</span>
 												<h2 className="text-base font-semibold text-text-primary">
 													Original prompt
 												</h2>
 											</div>
-											<p className="text-sm text-text-tertiary pl-9">
+											<p className="text-sm text-kumo-subtle pl-9">
 												The idea that started this app
 											</p>
 										</div>
@@ -1087,7 +916,7 @@ export default function AppView() {
 							) : (
 								<div className="grid place-items-center gap-3 text-center">
 									<span className="rounded-full bg-kumo-elevated ring ring-kumo-line p-3">
-										<MessageSquare className="size-5 text-text-tertiary" />
+										<MessageSquare className="size-5 text-kumo-subtle" />
 									</span>
 									<div className="grid gap-1">
 										<p className="text-sm font-medium text-text-primary">
@@ -1096,7 +925,7 @@ export default function AppView() {
 												: 'No prompt available'}
 										</p>
 										{app?.agentSummary !== null && (
-											<p className="text-sm text-text-tertiary">
+											<p className="text-sm text-kumo-subtle">
 												This app has no saved original
 												prompt
 											</p>

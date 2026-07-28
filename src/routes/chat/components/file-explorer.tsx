@@ -85,7 +85,7 @@ const FileTreeNode = memo(function FileTreeNode({
 					'flex items-center w-full gap-2 py-1.5 px-3 transition-colors text-sm',
 					isCurrentFile
 						? 'bg-kumo-tint text-text-primary border-r-2 border-brand'
-						: 'text-text-tertiary hover:bg-kumo-tint hover:text-text-primary',
+						: 'text-kumo-subtle hover:bg-kumo-tint hover:text-text-primary',
 				)}
 				style={{ paddingLeft: `${paddingLeft}px` }}
 			>
@@ -103,7 +103,7 @@ const FileTreeNode = memo(function FileTreeNode({
 				type="button"
 				onClick={() => setIsExpanded((open) => !open)}
 				aria-expanded={isExpanded}
-				className="flex items-center gap-2 py-1.5 px-3 transition-colors text-sm text-text-tertiary hover:bg-kumo-tint hover:text-text-primary w-full"
+				className="flex items-center gap-2 py-1.5 px-3 transition-colors text-sm text-kumo-subtle hover:bg-kumo-tint hover:text-text-primary w-full"
 				style={{ paddingLeft: `${paddingLeft}px` }}
 			>
 				<CaretRightIcon

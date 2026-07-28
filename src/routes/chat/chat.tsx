@@ -12,6 +12,7 @@ import {
 	useNavigate,
 	useLocation,
 } from 'react-router';
+import { useQueryClient } from '@tanstack/react-query';
 import { AnimatePresence, motion } from 'framer-motion';
 import { LoaderCircle, MoreHorizontal, RotateCcw } from 'lucide-react';
 import { GlobeHemisphereWestIcon, LockKey } from '@phosphor-icons/react';
@@ -27,6 +28,7 @@ import {
 	type BlueprintType,
 	type PhasicBlueprint,
 	SUPPORTED_IMAGE_MIME_TYPES,
+	type AppDetailsData,
 	type ProjectType,
 	type FileType,
 	type BehaviorType,
@@ -65,6 +67,7 @@ import {
 	checkCanSendPrompt,
 	getBackendLimitDialog,
 } from '@/utils/usage-limit-checker';
+import { queryKeys } from '@/lib/query-keys';
 
 const isPhasicBlueprint = (
 	blueprint?: BlueprintType | null,
@@ -235,6 +238,7 @@ export default function Chat() {
 	// GitHub export functionality - use urlChatId directly from URL params
 	const githubExport = useGitHubExport(websocket, urlChatId, refetchApp);
 	const { user } = useAuth();
+	const queryClient = useQueryClient();
 
 	const navigate = useNavigate();
 
@@ -859,7 +863,7 @@ export default function Chat() {
 						This link wants to start a new project with the prompt
 						below. Review it before continuing.
 					</p>
-					<div className="rounded-lg border bg-kumo-base p-4 max-h-64 overflow-y-auto">
+					<div className="rounded-lg border p-4 max-h-64 overflow-y-auto">
 						<p className="text-sm text-text-primary whitespace-pre-wrap break-words">
 							{displayQuery}
 						</p>
@@ -886,7 +890,7 @@ export default function Chat() {
 				{(blueprint?.title || appTitle || chatId || appLoading) && (
 					<div className="h-12 shrink-0 flex items-center px-4 border-b">
 						{appLoading ? (
-							<div className="flex items-center gap-2 text-text-tertiary text-sm">
+							<div className="flex items-center gap-2 text-kumo-subtle text-sm">
 								<LoaderCircle className="size-4 animate-spin" />
 								Loading app...
 							</div>
@@ -894,13 +898,13 @@ export default function Chat() {
 							<div className="flex min-w-0 flex-1 items-center max-w-md gap-2">
 								{app?.visibility === 'private' ? (
 									<LockKey
-										className="size-4 shrink-0 text-text-tertiary"
+										className="size-4 shrink-0 text-kumo-subtle"
 										weight="duotone"
 										aria-label="Private"
 									/>
 								) : (
 									<GlobeHemisphereWestIcon
-										className="size-4 shrink-0 text-text-tertiary"
+										className="size-4 shrink-0 text-kumo-subtle"
 										weight="duotone"
 										aria-label="Public"
 									/>
@@ -1100,15 +1104,30 @@ export default function Chat() {
 												onResumeGeneration={
 													handleResumeGeneration
 												}
-												onVisibilityUpdate={(
-													newVisibility,
-												) => {
-													// Update app state if needed
-													if (app) {
-														app.visibility =
-															newVisibility;
-													}
-												}}
+											onVisibilityUpdate={(
+												newVisibility,
+											) => {
+												if (!app?.id) return;
+
+												queryClient.setQueryData<AppDetailsData>(
+													queryKeys.account.apps.detail(
+														app.id,
+														user?.id,
+													),
+													(prev) =>
+														prev
+															? {
+																	...prev,
+																	visibility:
+																		newVisibility,
+																}
+															: prev,
+												);
+												void queryClient.invalidateQueries({
+													queryKey:
+														queryKeys.account.apps.all(),
+												});
+											}}
 											/>
 										</motion.div>
 									)}

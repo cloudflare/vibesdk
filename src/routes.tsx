@@ -1,5 +1,4 @@
 import type { RouteObject } from 'react-router';
-import React from 'react';
 
 import App from './App';
 import Home from './routes/home';
@@ -26,15 +25,27 @@ const routes = [
 			},
 			{
 				path: 'profile',
-				element: React.createElement(ProtectedRoute, { children: React.createElement(Profile) }),
+				element: (
+					<ProtectedRoute>
+						<Profile />
+					</ProtectedRoute>
+				),
 			},
 			{
 				path: 'settings',
-				element: React.createElement(ProtectedRoute, { children: React.createElement(Settings) }),
+				element: (
+					<ProtectedRoute>
+						<Settings />
+					</ProtectedRoute>
+				),
 			},
 			{
 				path: 'apps',
-				element: React.createElement(ProtectedRoute, { children: React.createElement(AppsPage) }),
+				element: (
+					<ProtectedRoute>
+						<AppsPage />
+					</ProtectedRoute>
+				),
 			},
 			{
 				path: 'app/:id',

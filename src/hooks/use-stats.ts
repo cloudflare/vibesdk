@@ -1,64 +1,74 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/auth-context';
-import { apiClient } from '@/lib/api-client';
+import { apiClient, ApiError } from '@/lib/api-client';
+import { queryKeys } from '@/lib/query-keys';
 import type { UserStats, UserActivity } from '@/api-types';
 
+function getErrorMessage(err: unknown, fallback: string): string {
+	if (err instanceof ApiError) {
+		return err.message;
+	}
+	if (err instanceof Error) {
+		return err.message;
+	}
+	return fallback;
+}
+
+async function fetchUserStats(): Promise<UserStats | null> {
+	const response = await apiClient.getUserStats();
+	if (!response.success) {
+		throw new Error(response.error?.message || 'Failed to fetch stats');
+	}
+	return response.data ?? null;
+}
+
+async function fetchUserActivity(): Promise<UserActivity[]> {
+	const response = await apiClient.getUserActivity();
+	if (!response.success) {
+		throw new Error(response.error?.message || 'Failed to fetch activity');
+	}
+	return response.data?.activities ?? [];
+}
+
 export function useUserStats() {
-  const { isAuthenticated } = useAuth();
-  const [stats, setStats] = useState<UserStats | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+	const { user, isAuthenticated } = useAuth();
 
-  const fetchStats = useCallback(async () => {
-    if (!isAuthenticated) {
-      setLoading(false);
-      return;
-    }
+	const query = useQuery({
+		// User-scoped: stats must not leak across account switches.
+		queryKey: queryKeys.account.user.stats(user?.id),
+		queryFn: fetchUserStats,
+		enabled: isAuthenticated,
+	});
 
-    try {
-      const response = await apiClient.getUserStats();
-      setStats(response.data || null);
-    } catch (err) {
-      console.error('Error fetching stats:', err);
-      setError(err instanceof Error ? err.message : 'Failed to fetch stats');
-    } finally {
-      setLoading(false);
-    }
-  }, [isAuthenticated]);
-
-  useEffect(() => {
-    fetchStats();
-  }, [fetchStats]);
-
-  return { stats, loading, error, refetch: fetchStats };
+	return {
+		stats: query.data ?? null,
+		loading: isAuthenticated && query.isLoading,
+		error: query.error
+			? getErrorMessage(query.error, 'Failed to fetch stats')
+			: null,
+		refetch: () => {
+			void query.refetch();
+		},
+	};
 }
 
 export function useUserActivity() {
-  const { isAuthenticated } = useAuth();
-  const [activities, setActivities] = useState<UserActivity[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+	const { user, isAuthenticated } = useAuth();
 
-  const fetchActivity = useCallback(async () => {
-    if (!isAuthenticated) {
-      setLoading(false);
-      return;
-    }
+	const query = useQuery({
+		queryKey: queryKeys.account.user.activity(user?.id),
+		queryFn: fetchUserActivity,
+		enabled: isAuthenticated,
+	});
 
-    try {
-      const response = await apiClient.getUserActivity();
-      setActivities(response.data?.activities || []);
-    } catch (err) {
-      console.error('Error fetching activity:', err);
-      setError(err instanceof Error ? err.message : 'Failed to fetch activity');
-    } finally {
-      setLoading(false);
-    }
-  }, [isAuthenticated]);
-
-  useEffect(() => {
-    fetchActivity();
-  }, [fetchActivity]);
-
-  return { activities, loading, error, refetch: fetchActivity };
+	return {
+		activities: query.data ?? [],
+		loading: isAuthenticated && query.isLoading,
+		error: query.error
+			? getErrorMessage(query.error, 'Failed to fetch activity')
+			: null,
+		refetch: () => {
+			void query.refetch();
+		},
+	};
 }

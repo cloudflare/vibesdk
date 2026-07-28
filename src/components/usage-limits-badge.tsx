@@ -63,7 +63,7 @@ export function useUsageLimitsBadgeState(): UsageLimitsBadgeState {
 		if (hasUserToken && hasCloudflareConfigured && cloudflareCredits) {
 			showCredits = true;
 			const creditsAmount = cloudflareCredits.credits.toFixed(2);
-			creditsText = cloudflareCredits.gatewayName 
+			creditsText = cloudflareCredits.gatewayName
 				? `$${creditsAmount} (${cloudflareCredits.gatewayName})`
 				: `$${creditsAmount} credits`;
 		}
@@ -179,7 +179,7 @@ export function UsageLimitsBadge({ onConnect }: UsageLimitsBadgeProps) {
 				)}
 
 				{/* Connect button / Credits display - on the RIGHT */}
-				<div className="flex items-center gap-1.5 px-2 py-1 text-text-on-brand bg-brand rounded-md">
+				<div className="flex items-center gap-1.5 px-2 py-1 text-white bg-brand rounded-md">
 					{!showCredits && <LucideGlobeLock className="w-3 h-3" />}
 					{loading ? (
 						<span className="hidden sm:inline text-muted-foreground">Loading...</span>

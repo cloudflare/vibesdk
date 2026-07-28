@@ -14,7 +14,7 @@ import { apiClient } from '@/lib/api-client';
 
 // Shared button styles
 const BUTTON_STYLES = {
-    primary: 'bg-brand hover:bg-brand/90 text-text-on-brand py-2 px-4 rounded-lg transition-colors',
+    primary: 'bg-brand hover:bg-brand/90 text-white py-2 px-4 rounded-lg transition-colors',
     secondary: 'bg-kumo-elevated hover:bg-border text-text-primary py-2 px-4 rounded-lg transition-colors',
     ghost: 'bg-transparent hover:bg-kumo-elevated text-text-primary/60 hover:text-text-primary py-2 px-4 rounded-lg transition-colors',
     warning: 'bg-yellow-500 hover:bg-yellow-600 text-white py-2 px-4 rounded-lg font-medium transition-colors',

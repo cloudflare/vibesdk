@@ -1,4 +1,9 @@
-import React, { useState } from 'react';
+import { useEffect, useState } from 'react';
+import {
+	useMutation,
+	useQuery,
+	useQueryClient,
+} from '@tanstack/react-query';
 import {
 	Smartphone,
 	Trash2,
@@ -28,154 +33,185 @@ import { useAuth } from '@/contexts/auth-context';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { apiClient } from '@/lib/api-client';
+import { queryKeys } from '@/lib/query-keys';
 import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard';
 import { CloudflareAccountSelector } from '@/components/cloudflare-account-selector';
 import { ConnectedAccounts } from '@/components/connected-accounts';
 import { TrashIcon } from '@phosphor-icons/react';
 
+type CreatedApiKey = {
+	key: string;
+	keyPreview: string;
+	name: string;
+};
+
+function getFallbackActiveSessions(): ActiveSessionsData {
+	return {
+		sessions: [
+			{
+				id: 'current',
+				userAgent:
+					typeof navigator === 'undefined'
+						? null
+						: navigator.userAgent,
+				ipAddress: 'Current location',
+				lastActivity: new Date(),
+				createdAt: new Date(),
+				isCurrent: true,
+			},
+		],
+	};
+}
+
+async function fetchActiveSessions(): Promise<ActiveSessionsData> {
+	try {
+		const response = await apiClient.getActiveSessions();
+		return response.data ?? getFallbackActiveSessions();
+	} catch (error) {
+		console.error('Error loading active sessions:', error);
+		return getFallbackActiveSessions();
+	}
+}
+
+async function fetchApiKeys(): Promise<ApiKeysData> {
+	const response = await apiClient.getApiKeys();
+	if (!response.success) {
+		throw new Error(response.error?.message || 'Failed to load API keys');
+	}
+	return { keys: response.data?.keys ?? [] };
+}
+
 export default function SettingsPage() {
 	const { user } = useAuth();
-	// Active sessions state
-	const [activeSessions, setActiveSessions] = useState<
-		ActiveSessionsData & { loading: boolean }
-	>({ sessions: [], loading: true });
-
-	// SDK API keys state
-	const [apiKeys, setApiKeys] = useState<ApiKeysData & { loading: boolean }>({
-		keys: [],
-		loading: true,
+	const queryClient = useQueryClient();
+	const activeSessionsQuery = useQuery({
+		queryKey: queryKeys.account.settings.activeSessions(user?.id),
+		queryFn: fetchActiveSessions,
+		enabled: !!user,
+	});
+	const apiKeysQuery = useQuery({
+		queryKey: queryKeys.account.settings.apiKeys(user?.id),
+		queryFn: fetchApiKeys,
+		enabled: !!user,
 	});
 	const [createKeyOpen, setCreateKeyOpen] = useState(false);
 	const [newKeyName, setNewKeyName] = useState('');
-	const [creatingKey, setCreatingKey] = useState(false);
-	const [createdKey, setCreatedKey] = useState<{
-		key: string;
-		keyPreview: string;
-		name: string;
-	} | null>(null);
+	const [createdKey, setCreatedKey] = useState<CreatedApiKey | null>(null);
 	const [showCreatedKey, setShowCreatedKey] = useState(true);
 	const [keyToRevoke, setKeyToRevoke] = useState<
 		ApiKeysData['keys'][number] | null
 	>(null);
-	const [revokingKey, setRevokingKey] = useState(false);
 	const {
 		copied: copiedCreatedKey,
 		copy: copyCreatedKey,
 		reset: resetCreatedKeyCopy,
 	} = useCopyToClipboard();
+	const apiKeysError = apiKeysQuery.error;
+	const activeSessions = activeSessionsQuery.data?.sessions ?? [];
+	const apiKeys = apiKeysQuery.data?.keys ?? [];
 
 	const handleDeleteAccount = async () => {
 		toast.error('Account deletion is not yet implemented');
 	};
 
-	// Load active sessions
-	const loadActiveSessions = async () => {
-		try {
-			const response = await apiClient.getActiveSessions();
-			setActiveSessions({
-				sessions: response.data?.sessions || [
-					{
-						id: 'current',
-						userAgent: navigator.userAgent,
-						ipAddress: 'Current location',
-						lastActivity: new Date(),
-						createdAt: new Date(),
-						isCurrent: true,
-					},
-				],
-				loading: false,
-			});
-		} catch (error) {
-			console.error('Error loading active sessions:', error);
-			setActiveSessions({
-				sessions: [
-					{
-						id: 'current',
-						userAgent: navigator.userAgent,
-						ipAddress: 'Current location',
-						lastActivity: new Date(),
-						createdAt: new Date(),
-						isCurrent: true,
-					},
-				],
-				loading: false,
-			});
-		}
-	};
-
-	const handleRevokeSession = async (sessionId: string) => {
-		try {
-			await apiClient.revokeSession(sessionId);
+	const revokeSessionMutation = useMutation({
+		mutationFn: async (sessionId: string) => {
+			const response = await apiClient.revokeSession(sessionId);
+			if (!response.success) {
+				throw new Error(
+					response.error?.message || 'Failed to revoke session',
+				);
+			}
+		},
+		onSuccess: () => {
 			toast.success('Session revoked successfully');
-			loadActiveSessions();
-		} catch (error) {
+			void queryClient.invalidateQueries({
+				queryKey: queryKeys.account.settings.activeSessions(user?.id),
+			});
+		},
+		onError: (error) => {
 			console.error('Error revoking session:', error);
 			toast.error('Failed to revoke session');
-		}
-	};
+		},
+	});
 
-	const loadApiKeys = async () => {
-		try {
-			setApiKeys((prev) => ({ ...prev, loading: true }));
-			const response = await apiClient.getApiKeys();
-			setApiKeys({ keys: response.data?.keys ?? [], loading: false });
-		} catch (error) {
-			console.error('Error loading API keys:', error);
-			setApiKeys({ keys: [], loading: false });
-			toast.error('Failed to load API keys');
-		}
-	};
-
-	const handleCreateApiKey = async () => {
-		if (!newKeyName.trim() || creatingKey) return;
-		try {
-			setCreatingKey(true);
-			const response = await apiClient.createApiKey({
-				name: newKeyName.trim(),
-			});
-			if (response.success && response.data) {
-				setCreatedKey({
-					key: response.data.key,
-					keyPreview: response.data.keyPreview,
-					name: response.data.name,
-				});
-				setShowCreatedKey(true);
-				resetCreatedKeyCopy();
-				toast.success('API key created');
-				await loadApiKeys();
-				setNewKeyName('');
+	const createApiKeyMutation = useMutation({
+		mutationFn: async (name: string) => {
+			const response = await apiClient.createApiKey({ name });
+			if (!response.success || !response.data) {
+				throw new Error(
+					response.error?.message || 'Failed to create API key',
+				);
 			}
-		} catch (error) {
+			return response.data;
+		},
+		onSuccess: (data) => {
+			setCreatedKey({
+				key: data.key,
+				keyPreview: data.keyPreview,
+				name: data.name,
+			});
+			setShowCreatedKey(true);
+			resetCreatedKeyCopy();
+			toast.success('API key created');
+			void queryClient.invalidateQueries({
+				queryKey: queryKeys.account.settings.apiKeys(user?.id),
+			});
+			setNewKeyName('');
+		},
+		onError: (error) => {
 			console.error('Error creating API key:', error);
 			toast.error('Failed to create API key');
-		} finally {
-			setCreatingKey(false);
-		}
-	};
+		},
+	});
 
-	const handleRevokeApiKey = async () => {
-		if (!keyToRevoke || revokingKey) return;
-		try {
-			setRevokingKey(true);
-			await apiClient.revokeApiKey(keyToRevoke.id);
+	const revokeApiKeyMutation = useMutation({
+		mutationFn: async (keyId: string) => {
+			const response = await apiClient.revokeApiKey(keyId);
+			if (!response.success) {
+				throw new Error(
+					response.error?.message || 'Failed to revoke API key',
+				);
+			}
+		},
+		onSuccess: () => {
 			toast.success('API key revoked');
 			setKeyToRevoke(null);
-			await loadApiKeys();
-		} catch (error) {
+			void queryClient.invalidateQueries({
+				queryKey: queryKeys.account.settings.apiKeys(user?.id),
+			});
+		},
+		onError: (error) => {
 			console.error('Error revoking API key:', error);
 			toast.error('Failed to revoke API key');
-		} finally {
-			setRevokingKey(false);
-		}
+		},
+	});
+
+	const creatingKey = createApiKeyMutation.isPending;
+	const revokingKey = revokeApiKeyMutation.isPending;
+	const apiKeysLoading = !!user && apiKeysQuery.isLoading;
+	const activeSessionsLoading = !!user && activeSessionsQuery.isLoading;
+
+	const handleRevokeSession = (sessionId: string) => {
+		revokeSessionMutation.mutate(sessionId);
 	};
 
-	// Load sessions and model configs on component mount
-	React.useEffect(() => {
-		if (user) {
-			loadActiveSessions();
-			loadApiKeys();
-		}
-	}, [user]);
+	const handleCreateApiKey = () => {
+		const name = newKeyName.trim();
+		if (!name || creatingKey) return;
+		createApiKeyMutation.mutate(name);
+	};
+
+	const handleRevokeApiKey = () => {
+		if (!keyToRevoke || revokingKey) return;
+		revokeApiKeyMutation.mutate(keyToRevoke.id);
+	};
+
+	useEffect(() => {
+		if (!apiKeysError) return;
+		console.error('Error loading API keys:', apiKeysError);
+		toast.error('Failed to load API keys');
+	}, [apiKeysError]);
 
 	return (
 		<div className="size-full bg-kumo-base relative">
@@ -403,14 +439,14 @@ export default function SettingsPage() {
 									</DialogRoot>
 								</div>
 
-								{apiKeys.loading ? (
+								{apiKeysLoading ? (
 									<div className="flex items-center gap-3">
 										<Settings className="size-4 animate-spin text-kumo-subtle" />
 										<span className="text-sm text-kumo-subtle">
 											Loading API keys...
 										</span>
 									</div>
-								) : apiKeys.keys.length === 0 ? (
+								) : apiKeys.length === 0 ? (
 									<div className="rounded-lg ring ring-kumo-line border-dashed px-5 py-4">
 										<div className="flex items-start gap-3">
 											<span className="h-lh flex items-center">
@@ -437,28 +473,18 @@ export default function SettingsPage() {
 											<Table>
 												<Table.Header>
 													<Table.Row>
-														<Table.Head>
-															Name
-														</Table.Head>
-														<Table.Head>
-															Preview
-														</Table.Head>
-														<Table.Head>
-															Created
-														</Table.Head>
-														<Table.Head>
-															Last used
-														</Table.Head>
-														<Table.Head>
-															Status
-														</Table.Head>
+														<Table.Head>Name</Table.Head>
+														<Table.Head>Preview</Table.Head>
+														<Table.Head>Created</Table.Head>
+														<Table.Head>Last used</Table.Head>
+														<Table.Head>Status</Table.Head>
 														<Table.Head className="text-right">
 															Actions
 														</Table.Head>
 													</Table.Row>
 												</Table.Header>
 												<Table.Body>
-													{apiKeys.keys.map((k) => (
+													{apiKeys.map((k) => (
 														<Table.Row key={k.id}>
 															<Table.Cell className="font-medium">
 																{k.name}
@@ -595,7 +621,7 @@ export default function SettingsPage() {
 									<h4 className="text-sm font-medium text-kumo-default">
 										Active sessions
 									</h4>
-									{activeSessions.loading ? (
+									{activeSessionsLoading ? (
 										<div className="flex items-center gap-3">
 											<Settings className="size-4 animate-spin text-kumo-subtle" />
 											<span className="text-sm text-kumo-subtle">
@@ -603,7 +629,7 @@ export default function SettingsPage() {
 											</span>
 										</div>
 									) : (
-										activeSessions.sessions.map(
+										activeSessions.map(
 											(session) => (
 												<div
 													key={session.id}

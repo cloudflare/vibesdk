@@ -182,7 +182,7 @@ export const AppListContainer: React.FC<AppListContainerProps> = ({
 				<h3 className="text-xl text-text-secondary font-semibold mb-2">
 					Failed to load apps
 				</h3>
-				<p className="text-text-tertiary mb-6">{error}</p>
+				<p className="text-kumo-subtle mb-6">{error}</p>
 				<Button onClick={onRetry} variant="outline">
 					<RefreshCw className="h-4 w-4 mr-2" />
 					Retry
@@ -200,7 +200,7 @@ export const AppListContainer: React.FC<AppListContainerProps> = ({
 				<h3 className="text-xl font-semibold mb-2 text-kumo-subtle">
 					{emptyStateContent.title}
 				</h3>
-				<p className="text-text-tertiary mb-6">
+				<p className="text-kumo-subtle mb-6">
 					{emptyStateContent.description}
 				</p>
 				{'action' in emptyStateContent && emptyStateContent.action}

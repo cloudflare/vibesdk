@@ -122,7 +122,7 @@ export function ModelConfigInfo({ configs, onRequestConfigs, loading }: ModelCon
 				title="View current model configurations"
 				type="button"
 			>
-				<Info className="size-3.5 text-text-primary/60 group-hover:text-brand-primary transition-colors duration-300 flex-shrink-0" />
+				<Info className="size-3.5 text-text-primary/60 group-hover:text-kumo-brand-primary transition-colors duration-300 flex-shrink-0" />
 				<span className="max-w-0 group-hover:max-w-[75px] opacity-0 group-hover:opacity-100 overflow-hidden transition-all duration-300 ease-in-out whitespace-nowrap text-xs font-medium text-text-primary">
 					Model Info
 				</span>

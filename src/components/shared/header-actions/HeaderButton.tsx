@@ -23,7 +23,7 @@ export function HeaderButton({
 				title={title}
 				type="button"
 			>
-				<Icon className="size-3.5 text-text-primary/60 hover:text-brand-primary transition-colors duration-300" />
+				<Icon className="size-3.5 text-text-primary/60 hover:text-kumo-brand-primary transition-colors duration-300" />
 			</button>
 		);
 	}
@@ -35,7 +35,7 @@ export function HeaderButton({
 			title={title}
 			type="button"
 		>
-			<Icon className="size-3.5 text-text-primary/60 group-hover:text-brand-primary transition-colors duration-300" />
+			<Icon className="size-3.5 text-text-primary/60 group-hover:text-kumo-brand-primary transition-colors duration-300" />
 			{label && (
 				<span className="max-w-0 group-hover:max-w-xs overflow-hidden whitespace-nowrap transition-all duration-300 ease-in-out text-xs text-text-primary/80 group-hover:text-text-primary">
 					{label}

@@ -309,7 +309,7 @@ export function ByokApiKeysModal({ isOpen, onClose, onKeyAdded }: ByokApiKeysMod
 
 	// Render vault locked state for manage tab
 	const renderVaultLockedState = () => (
-		<div className="text-center py-8 text-text-tertiary">
+		<div className="text-center py-8 text-kumo-subtle">
 			<Lock className="h-12 w-12 mx-auto mb-4 opacity-50" />
 			<p className="text-lg font-medium mb-2">Vault is locked</p>
 			<p className="text-sm mb-4">Unlock your vault to view and manage API keys</p>
@@ -322,7 +322,7 @@ export function ByokApiKeysModal({ isOpen, onClose, onKeyAdded }: ByokApiKeysMod
 
 	// Render vault not setup state
 	const renderVaultNotSetupState = () => (
-		<div className="text-center py-8 text-text-tertiary">
+		<div className="text-center py-8 text-kumo-subtle">
 			<Key className="h-12 w-12 mx-auto mb-4 opacity-50" />
 			<p className="text-lg font-medium mb-2">Set up your secure vault</p>
 			<p className="text-sm mb-4">Create a vault to securely store your API keys</p>
@@ -341,7 +341,7 @@ export function ByokApiKeysModal({ isOpen, onClose, onKeyAdded }: ByokApiKeysMod
 						<DialogTitle className="flex items-center gap-2">
 							<Key className="h-5 w-5" />
 							Bring Your Own Key
-							<span className="flex items-center gap-1 text-xs text-text-tertiary font-normal">
+							<span className="flex items-center gap-1 text-xs text-kumo-subtle font-normal">
 								via <CloudflareLogo className="h-3 w-3" /> AI Gateway
 							</span>
 						</DialogTitle>
@@ -482,7 +482,7 @@ export function ByokApiKeysModal({ isOpen, onClose, onKeyAdded }: ByokApiKeysMod
 									))}
 								</div>
 							) : managedSecrets.length === 0 ? (
-								<div className="text-center py-8 text-text-tertiary">
+								<div className="text-center py-8 text-kumo-subtle">
 									<Key className="h-12 w-12 mx-auto mb-4 opacity-50" />
 									<p className="text-lg font-medium mb-2">No API keys configured</p>
 									<p className="text-sm">Add your first API key using the "Add Keys" tab</p>
@@ -513,7 +513,7 @@ export function ByokApiKeysModal({ isOpen, onClose, onKeyAdded }: ByokApiKeysMod
 														<div className="flex items-center gap-2">
 															<span className="font-medium capitalize">{secret.name}</span>
 														</div>
-														<div className="flex items-center gap-3 text-xs text-text-tertiary">
+														<div className="flex items-center gap-3 text-xs text-kumo-subtle">
 															<div className="flex items-center gap-1">
 																<Eye className="h-3 w-3" />
 																<span>{secret.envVarName || secret.provider}</span>

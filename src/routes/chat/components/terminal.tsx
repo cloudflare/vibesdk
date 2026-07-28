@@ -96,7 +96,7 @@ export function Terminal({
 	const getLogTypeColor = (type: TerminalLog['type']) => {
 		switch (type) {
 			case 'command':
-				return 'text-brand-primary'; // Cloudflare orange
+				return 'text-kumo-brand-primary'; // Cloudflare orange
 			case 'stdout':
 				return 'text-green-600 dark:text-green-400';
 			case 'stderr':
@@ -166,7 +166,7 @@ export function Terminal({
 											getLogTypeColor(log.type)
 										)}>
 											{log.type === 'command' && (
-												<span className="text-brand-primary font-semibold mr-1">$</span>
+												<span className="text-kumo-brand-primary font-semibold mr-1">$</span>
 											)}
 											{log.type === 'stderr' && (
 												<span className="text-red-500 dark:text-red-400 mr-1">❌</span>
@@ -205,7 +205,7 @@ export function Terminal({
 						<span className={clsx(
 							"text-lg font-bold select-none",
 							isConnected
-								? "text-brand-primary"
+								? "text-kumo-brand-primary"
 								: "text-gray-400 dark:text-gray-600"
 						)}>
 							$

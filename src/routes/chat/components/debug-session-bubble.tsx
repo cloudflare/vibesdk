@@ -83,7 +83,7 @@ isExpanded && "border-b"
 <div className="flex items-center gap-2.5 flex-1 min-w-0">
 {/* Status icon - minimal */}
 {isActive ? (
-					<Loader className="size-4 text-brand animate-spin shrink-0" />
+					<Loader className="size-4 text-kumo-brand animate-spin shrink-0" />
 ) : hasError ? (
 <AlertTriangle className="size-4 text-red-500 shrink-0" />
 ) : (
@@ -93,7 +93,7 @@ isExpanded && "border-b"
 {/* Title */}
 <span className={clsx(
 "text-sm font-medium",
-					isActive && "text-brand",
+					isActive && "text-kumo-brand",
 hasError && !isActive && "text-red-500",
 !isActive && !hasError && "text-green-500"
 )}>

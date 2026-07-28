@@ -83,11 +83,11 @@ export function ChatInput({
 			<button
 				type="button"
 				onClick={handleStopGeneration}
-				className="p-0.5 rounded-full hover:bg-red-500/10 text-text-tertiary hover:text-red-500 transition-all duration-200 group animated-border-ring"
+				className="p-0.5 rounded-full hover:bg-red-500/10 text-kumo-subtle hover:text-red-500 transition-all duration-200 group animated-border-ring"
 				aria-label="Stop generation"
 				title="Stop generation"
 			>
-				<Square className="size-2.5 fill-brand/90 text-brand/80" />
+				<Square className="size-2.5 fill-brand/90 text-kumo-brand/80" />
 			</button>
 		) : undefined;
 

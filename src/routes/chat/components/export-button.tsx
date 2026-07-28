@@ -9,7 +9,12 @@ interface ExportButtonProps {
 	disabled?: boolean;
 }
 
-export function ExportButton({ icon: Icon, onClick, tooltip, disabled }: ExportButtonProps) {
+export function ExportButton({
+	icon: Icon,
+	onClick,
+	tooltip,
+	disabled,
+}: ExportButtonProps) {
 	const [state, setState] = useState<'idle' | 'loading' | 'success'>('idle');
 
 	const handleClick = async () => {
@@ -26,7 +31,8 @@ export function ExportButton({ icon: Icon, onClick, tooltip, disabled }: ExportB
 		}
 	};
 
-	const CurrentIcon = state === 'loading' ? Loader : state === 'success' ? Check : Icon;
+	const CurrentIcon =
+		state === 'loading' ? Loader : state === 'success' ? Check : Icon;
 
 	return (
 		<button
@@ -36,14 +42,15 @@ export function ExportButton({ icon: Icon, onClick, tooltip, disabled }: ExportB
 			className={clsx(
 				'p-1.5 rounded-md transition-colors',
 				'hover:bg-kumo-base disabled:opacity-50 disabled:cursor-not-allowed',
-				state === 'idle' && 'text-text-primary/70 hover:text-text-primary'
+				state === 'idle' &&
+					'text-text-primary/70 hover:text-text-primary',
 			)}
 		>
 			<CurrentIcon
 				className={clsx(
 					'size-4',
 					state === 'loading' && 'animate-spin',
-					state === 'success' && 'text-green-500'
+					state === 'success' && 'text-green-500',
 				)}
 			/>
 		</button>

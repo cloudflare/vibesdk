@@ -38,7 +38,7 @@ export const AppFiltersForm: React.FC<AppFiltersFormProps> = ({
 	className = '',
 }) => {
 	return (
-		<div className={`max-w-4xl mb-8 ${className}`}>
+		<div className={`max-w-4xl ${className}`}>
 			<form onSubmit={onSearchSubmit} className="flex gap-2 mb-4">
 				<div className="relative">
 					<MagnifyingGlassIcon

@@ -111,7 +111,7 @@ export default function Home() {
 
 	const { apps, loading } = usePaginatedApps({
 		type: 'public',
-		defaultSort: 'recent',
+		defaultSort: 'trending',
 		defaultPeriod: 'week',
 		limit: 24,
 	});
@@ -185,12 +185,12 @@ export default function Home() {
 	const discoverLinkRef = useRef<HTMLDivElement>(null);
 
 	return (
-		<div className="relative flex flex-col items-center w-full min-h-full bg-kumo-elevated">
+		<div className="relative flex flex-col items-center w-full min-h-full">
 			<div className="home-atmosphere" aria-hidden>
 				<div className="home-atmosphere__spotlight" />
 			</div>
 			<LayoutGroup>
-				<div className="w-full max-w-2xl px-5 sm:px-6">
+				<div className="w-full max-w-3xl px-5 sm:px-6">
 					<motion.div
 						layout
 						transition={{
@@ -268,7 +268,7 @@ export default function Home() {
 									className="size-4 flex-shrink-0 mt-0.5"
 									style={{ color: '#ff3d00' }}
 								/>
-								<p className="text-xs text-text-tertiary leading-relaxed">
+								<p className="text-xs text-kumo-subtle leading-relaxed">
 									<span className="font-medium text-text-secondary">
 										Images Beta:
 									</span>{' '}
@@ -295,7 +295,7 @@ export default function Home() {
 								ease: [0.22, 1, 0.36, 1],
 							}}
 							className={clsx(
-								'w-full max-w-7xl mx-auto px-5 sm:px-6 z-10',
+								'w-full max-w-5xl mx-auto px-5 sm:px-6 z-10',
 								images.length > 0
 									? 'mt-10'
 									: 'mt-16 sm:mt-20 mb-12',
@@ -315,7 +315,7 @@ export default function Home() {
 											onClick={() =>
 												navigate('/discover')
 											}
-											className="shrink-0 rounded-full px-3.5 gap-1.5 text-sm text-kumo-default ring-1 ring-kumo-line border-0 shadow-sm bg-kumo-base hover:bg-kumo-tint hover:text-kumo-strong"
+											className="shrink-0 rounded-full px-3.5 gap-1.5 text-sm text-kumo-default ring-1 ring-kumo-line border-0 shadow-sm hover:bg-kumo-tint hover:text-kumo-strong"
 										>
 											View all
 											<ArrowUpRight className="size-3.5 opacity-70" />

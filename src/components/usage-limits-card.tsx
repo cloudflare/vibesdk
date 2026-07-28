@@ -3,19 +3,25 @@
  * Displays user's free tier usage and remaining limits
  */
 
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import {
+	Card,
+	CardContent,
+	CardHeader,
+	CardTitle,
+	CardDescription,
+} from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { 
-	Zap, 
-	AlertTriangle, 
-	CheckCircle2, 
+import {
+	Zap,
+	AlertTriangle,
+	CheckCircle2,
 	TrendingUp,
 	RefreshCw,
 	Calendar,
-	BarChart3
+	BarChart3,
 } from 'lucide-react';
 import { useLimitsContext } from '@/contexts/limits-context';
 import { cn } from '@/lib/utils';
@@ -26,7 +32,10 @@ interface UsageLimitsCardProps {
 	onConnectToken?: () => void;
 }
 
-export function UsageLimitsCard({ className, onConnectToken }: UsageLimitsCardProps) {
+export function UsageLimitsCard({
+	className,
+	onConnectToken,
+}: UsageLimitsCardProps) {
 	const { data, loading, error, refetch } = useLimitsContext();
 
 	if (loading) {
@@ -34,7 +43,7 @@ export function UsageLimitsCard({ className, onConnectToken }: UsageLimitsCardPr
 			<Card className={cn('dark:bg-bg-4/50', className)}>
 				<CardHeader className="border-b">
 					<div className="flex items-center gap-2">
-						<Zap className="h-5 w-5 text-brand-primary" />
+						<Zap className="h-5 w-5 text-kumo-brand-primary" />
 						<CardTitle>Usage Limits</CardTitle>
 					</div>
 					<CardDescription>Your free tier usage</CardDescription>
@@ -52,7 +61,7 @@ export function UsageLimitsCard({ className, onConnectToken }: UsageLimitsCardPr
 			<Card className={cn('dark:bg-bg-4/50', className)}>
 				<CardHeader className="border-b">
 					<div className="flex items-center gap-2">
-						<Zap className="h-5 w-5 text-brand-primary" />
+						<Zap className="h-5 w-5 text-kumo-brand-primary" />
 						<CardTitle>Usage Limits</CardTitle>
 					</div>
 				</CardHeader>
@@ -61,10 +70,10 @@ export function UsageLimitsCard({ className, onConnectToken }: UsageLimitsCardPr
 						<AlertTriangle className="h-4 w-4" />
 						<AlertDescription>{error}</AlertDescription>
 					</Alert>
-					<Button 
-						onClick={refetch} 
-						variant="outline" 
-						size="sm" 
+					<Button
+						onClick={refetch}
+						variant="outline"
+						size="sm"
 						className="mt-4 w-full"
 					>
 						<RefreshCw className="h-4 w-4 mr-2" />
@@ -139,12 +148,12 @@ export function UsageLimitsCard({ className, onConnectToken }: UsageLimitsCardPr
 			<CardHeader className="border-b">
 				<div className="flex items-center justify-between">
 					<div className="flex items-center gap-2">
-						<Zap className="h-5 w-5 text-brand-primary" />
+						<Zap className="h-5 w-5 text-kumo-brand-primary" />
 						<CardTitle>Free Tier Usage</CardTitle>
 					</div>
-					<Button 
-						onClick={refetch} 
-						variant="ghost" 
+					<Button
+						onClick={refetch}
+						variant="ghost"
 						size="icon"
 						className="h-8 w-8"
 					>
@@ -176,52 +185,73 @@ export function UsageLimitsCard({ className, onConnectToken }: UsageLimitsCardPr
 								<div className="space-y-3">
 									<div className="flex items-center justify-between text-sm">
 										<div className="flex items-center gap-2">
-											<BarChart3 className="h-4 w-4 text-text-tertiary" />
-											<span className="font-medium">{getTypeLabel(limit!.type)}</span>
+											<BarChart3 className="h-4 w-4 text-kumo-subtle" />
+											<span className="font-medium">
+												{getTypeLabel(limit!.type)}
+											</span>
 										</div>
 										<div className="flex items-center gap-2">
-											<span className={cn(
-												"font-semibold",
-												isExceeded && "text-red-600",
-												isWarning && "text-amber-600"
-											)}>
-												{formatValue(current, limit!.type)}
+											<span
+												className={cn(
+													'font-semibold',
+													isExceeded &&
+														'text-red-600',
+													isWarning &&
+														'text-amber-600',
+												)}
+											>
+												{formatValue(
+													current,
+													limit!.type,
+												)}
 											</span>
-											<span className="text-text-tertiary">/</span>
-											<span className="text-text-tertiary">
+											<span className="text-kumo-subtle">
+												/
+											</span>
+											<span className="text-kumo-subtle">
 												{formatValue(max, limit!.type)}
 											</span>
 										</div>
 									</div>
 
-									<Progress 
-										value={Math.min(percentUsed, 100)} 
+									<Progress
+										value={Math.min(percentUsed, 100)}
 										className={cn(
-											"h-2",
-											isExceeded && "[&>div]:bg-red-500",
-											isWarning && "[&>div]:bg-amber-500"
+											'h-2',
+											isExceeded && '[&>div]:bg-red-500',
+											isWarning && '[&>div]:bg-amber-500',
 										)}
 									/>
 
-									<div className="flex items-center justify-between text-xs text-text-tertiary">
-										<span>{percentUsed.toFixed(1)}% used</span>
+									<div className="flex items-center justify-between text-xs text-kumo-subtle">
+										<span>
+											{percentUsed.toFixed(1)}% used
+										</span>
 										<span className="font-medium text-foreground">
-											{formatValue(remaining, limit!.type)} remaining
+											{formatValue(
+												remaining,
+												limit!.type,
+											)}{' '}
+											remaining
 										</span>
 									</div>
 								</div>
 
 								{/* Status Alert */}
 								{isExceeded && (
-									<Alert variant="destructive" className="border-red-500/50">
+									<Alert
+										variant="destructive"
+										className="border-red-500/50"
+									>
 										<AlertTriangle className="h-4 w-4" />
 										<AlertDescription>
-											<p className="font-medium mb-1">Limit Exceeded</p>
+											<p className="font-medium mb-1">
+												Limit Exceeded
+											</p>
 											<p className="text-sm">
-												{hasUserToken 
-													? "Using your connected Cloudflare AI Gateway token."
-													: "Connect your Cloudflare AI Gateway token to continue."
-												}
+												{hasUserToken
+													? 'Using your connected Cloudflare AI Gateway token.'
+													: 'Connect your Cloudflare AI Gateway token to continue.'}
 											</p>
 										</AlertDescription>
 									</Alert>
@@ -231,9 +261,13 @@ export function UsageLimitsCard({ className, onConnectToken }: UsageLimitsCardPr
 									<Alert className="bg-amber-500/10 border-amber-500/20">
 										<TrendingUp className="h-4 w-4 text-amber-600" />
 										<AlertDescription className="text-amber-700 dark:text-amber-400">
-											<p className="font-medium mb-1">Approaching Limit</p>
+											<p className="font-medium mb-1">
+												Approaching Limit
+											</p>
 											<p className="text-sm">
-												You've used {percentUsed.toFixed(0)}% of your free tier.
+												You've used{' '}
+												{percentUsed.toFixed(0)}% of
+												your free tier.
 											</p>
 										</AlertDescription>
 									</Alert>
@@ -243,22 +277,24 @@ export function UsageLimitsCard({ className, onConnectToken }: UsageLimitsCardPr
 							{/* Right: Cloudflare Connect Button - ALWAYS VISIBLE */}
 							<div className="flex-shrink-0 w-full lg:w-auto">
 								<div className="space-y-3">
-									<Button 
+									<Button
 										onClick={onConnectToken}
 										className="w-full lg:w-auto gap-2 bg-gradient-to-r from-brand-primary to-brand-light hover:from-brand-primary/90 hover:to-brand-light/90"
 										size="lg"
 									>
 										<CloudflareLogo className="h-5 w-5" />
-										{hasUserToken ? 'Manage Connection' : 'Connect Cloudflare'}
+										{hasUserToken
+											? 'Manage Connection'
+											: 'Connect Cloudflare'}
 									</Button>
-									
+
 									{hasUserToken ? (
 										<div className="flex items-center justify-center gap-2 text-xs text-green-600 dark:text-green-400">
 											<CheckCircle2 className="h-3 w-3" />
 											<span>Connected</span>
 										</div>
 									) : (
-										<p className="text-xs text-center text-text-tertiary max-w-[200px]">
+										<p className="text-xs text-center text-kumo-subtle max-w-[200px]">
 											Continue using with your own token
 										</p>
 									)}
@@ -270,15 +306,20 @@ export function UsageLimitsCard({ className, onConnectToken }: UsageLimitsCardPr
 
 				{/* Additional Usage Stats */}
 				<div className="pt-4 border-t space-y-2">
-					<p className="text-xs font-medium text-text-tertiary uppercase tracking-wide">
+					<p className="text-xs font-medium text-kumo-subtle uppercase tracking-wide">
 						All Usage
 					</p>
 					{Object.entries(usage).map(([type, windows]) => (
 						<div key={type} className="space-y-1">
-							<p className="text-xs font-medium text-text-secondary">{getTypeLabel(type)}</p>
+							<p className="text-xs font-medium text-text-secondary">
+								{getTypeLabel(type)}
+							</p>
 							{Object.entries(windows).map(([window, value]) => (
-								<div key={`${type}-${window}`} className="flex items-center justify-between text-sm pl-2">
-									<span className="text-text-tertiary text-xs">
+								<div
+									key={`${type}-${window}`}
+									className="flex items-center justify-between text-sm pl-2"
+								>
+									<span className="text-kumo-subtle text-xs">
 										{getWindowLabel(window)}
 									</span>
 									<span className="font-medium">

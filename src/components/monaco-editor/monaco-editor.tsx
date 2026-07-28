@@ -2,12 +2,12 @@ import React, { memo, useEffect, useRef } from 'react';
 import * as monaco from 'monaco-editor';
 import { useTheme } from '../../contexts/theme-context';
 
-import 'monaco-editor/esm/vs/editor/editor.all.js';
-import editorWorker from 'monaco-editor/esm/vs/editor/editor.worker?worker';
-import jsonWorker from 'monaco-editor/esm/vs/language/json/json.worker?worker';
-import cssWorker from 'monaco-editor/esm/vs/language/css/css.worker?worker';
-import htmlWorker from 'monaco-editor/esm/vs/language/html/html.worker?worker';
-import tsWorker from 'monaco-editor/esm/vs/language/typescript/ts.worker?worker';
+import 'monaco-editor/editor/editor.api';
+import editorWorker from 'monaco-editor/editor/editor.worker?worker';
+import jsonWorker from 'monaco-editor/language/json/json.worker?worker';
+import cssWorker from 'monaco-editor/language/css/css.worker?worker';
+import htmlWorker from 'monaco-editor/language/html/html.worker?worker';
+import tsWorker from 'monaco-editor/language/typescript/ts.worker?worker';
 
 import './monaco-editor.module.css';
 import { vesperTheme } from './vesper-theme';
@@ -75,23 +75,22 @@ monaco.editor.defineTheme('vibesdk', {
 let typescriptFeaturesUsers = 0;
 
 function applyTypeScriptDefaults(enabled: boolean) {
-	const tsDefaults = monaco.languages.typescript.typescriptDefaults;
-	const jsDefaults = monaco.languages.typescript.javascriptDefaults;
+	const tsDefaults = monaco.typescript.typescriptDefaults;
+	const jsDefaults = monaco.typescript.javascriptDefaults;
 
 	if (enabled) {
 		tsDefaults.setDiagnosticsOptions({
 			noSemanticValidation: false,
 			noSyntaxValidation: false,
 		});
-		const compilerOptions: monaco.languages.typescript.CompilerOptions = {
-			jsx: monaco.languages.typescript.JsxEmit.React,
+		const compilerOptions: monaco.typescript.CompilerOptions = {
+			jsx: monaco.typescript.JsxEmit.React,
 			allowJs: true,
 			allowSyntheticDefaultImports: true,
 			esModuleInterop: true,
-			moduleResolution:
-				monaco.languages.typescript.ModuleResolutionKind.NodeJs,
-			module: monaco.languages.typescript.ModuleKind.ESNext,
-			target: monaco.languages.typescript.ScriptTarget.ESNext,
+			moduleResolution: monaco.typescript.ModuleResolutionKind.NodeJs,
+			module: monaco.typescript.ModuleKind.ESNext,
+			target: monaco.typescript.ScriptTarget.ESNext,
 			jsxFactory: 'React.createElement',
 			jsxFragmentFactory: 'React.Fragment',
 		};
@@ -110,14 +109,14 @@ function applyTypeScriptDefaults(enabled: boolean) {
 			noSuggestionDiagnostics: true,
 		});
 		tsDefaults.setCompilerOptions({
-			jsx: monaco.languages.typescript.JsxEmit.React,
-			target: monaco.languages.typescript.ScriptTarget.ESNext,
+			jsx: monaco.typescript.JsxEmit.React,
+			target: monaco.typescript.ScriptTarget.ESNext,
 			noLib: true,
 			allowNonTsExtensions: true,
 		});
 		jsDefaults.setCompilerOptions({
-			jsx: monaco.languages.typescript.JsxEmit.React,
-			target: monaco.languages.typescript.ScriptTarget.ESNext,
+			jsx: monaco.typescript.JsxEmit.React,
+			target: monaco.typescript.ScriptTarget.ESNext,
 			noLib: true,
 			allowNonTsExtensions: true,
 		});

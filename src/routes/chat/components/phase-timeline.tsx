@@ -46,7 +46,7 @@ interface StatusLoaderProps {
 const StatusLoader = ({ size = 'md', color = 'brand' }: StatusLoaderProps) => {
 	const sizeClass = size === 'sm' ? 'size-3' : 'w-4 h-4';
 	const colorMap = {
-		brand: 'text-brand',
+		brand: 'text-kumo-brand',
 		blue: 'text-blue-400',
 		orange: 'text-orange-400',
 		tertiary: 'text-text-tertiary',
@@ -58,7 +58,7 @@ const StatusLoader = ({ size = 'md', color = 'brand' }: StatusLoaderProps) => {
 const StatusCheck = ({ size = 'md', color = 'green' }: StatusLoaderProps) => {
 	const sizeClass = size === 'sm' ? 'size-3' : 'w-4 h-4';
 	const colorMap = {
-		brand: 'text-brand',
+		brand: 'text-kumo-brand',
 		blue: 'text-blue-400',
 		orange: 'text-orange-400',
 		tertiary: 'text-text-tertiary',
@@ -84,7 +84,7 @@ function StatusIcon({ status, size = 'md', className }: StatusIconProps) {
 
 	switch (status) {
 		case 'generating':
-			return <Loader className={clsx(iconClasses, 'animate-spin text-brand', className)} />;
+			return <Loader className={clsx(iconClasses, 'animate-spin text-kumo-brand', className)} />;
 		case 'validating':
 			return <Loader className={clsx(iconClasses, 'animate-spin text-blue-400', className)} />;
 		case 'completed':
@@ -94,7 +94,7 @@ function StatusIcon({ status, size = 'md', className }: StatusIconProps) {
 		case 'error':
 			return <AlertCircle className={clsx(iconClasses, 'text-red-500', className)} />;
 		case 'active':
-			return <Loader className={clsx(iconClasses, 'animate-spin text-brand', className)} />;
+			return <Loader className={clsx(iconClasses, 'animate-spin text-kumo-brand', className)} />;
 		case 'pending':
 		default:
 			return <div className={clsx(iconClasses, 'bg-kumo-base-foreground/40 dark:bg-kumo-base-foreground/30 rounded-full', className)} />;
@@ -136,7 +136,7 @@ function AnimatedStatusIndicator({ status, size = 5 }: AnimatedStatusIndicatorPr
 						transition={commonTransitions.smoothInOut}
 						className={clsx(sizeClass, 'bg-bg-4 dark:bg-kumo-elevated flex items-center justify-center')}
 					>
-						<Loader className="size-3 text-brand animate-spin" />
+						<Loader className="size-3 text-kumo-brand animate-spin" />
 					</motion.div>
 				)}
 				{status === 'completed' && (
@@ -524,7 +524,7 @@ export function PhaseTimeline({
                                 </div>
                                 {collapsedBarInfo.badge && (
                                     <div className="flex-shrink-0">
-                                        <span className="text-xs font-medium px-2 py-0.5 bg-brand/10 text-brand rounded-full">
+                                        <span className="text-xs font-medium px-2 py-0.5 bg-brand/10 text-kumo-brand rounded-full">
                                             {collapsedBarInfo.badge}
                                         </span>
                                     </div>
@@ -736,7 +736,7 @@ export function PhaseTimeline({
 									className={clsx(
 										'flex items-start ml-0.5 transition-colors font-mono',
 										view === 'blueprint'
-											? 'text-brand underline decoration-dotted'
+											? 'text-kumo-brand underline decoration-dotted'
 											: 'text-text-secondary/80 hover:bg-kumo-elevated/50 hover:text-text-secondary'
 									)}
 								>
@@ -821,7 +821,7 @@ export function PhaseTimeline({
 																		className={clsx(
 																			'text-xs text-left block transition-colors break-all leading-tight',
 																			isFileActive
-																				? 'text-brand font-medium'
+																				? 'text-kumo-brand font-medium'
 																				: globalFile ? 'text-text-primary/80 group-hover:text-text-primary' : 'text-text-primary/50',
 																		)}
 																		title={phaseFile.path}
@@ -904,7 +904,7 @@ export function PhaseTimeline({
 													{file.isGenerating ? <StatusLoader size="sm" color="brand" /> : <StatusCheck size="sm" color="green" />}
 												</span>
 												<div className="flex-1 min-w-0">
-													<span className={clsx('text-xs block break-all leading-tight', isFileActive ? 'text-brand font-medium' : 'text-text-primary/80')}>
+													<span className={clsx('text-xs block break-all leading-tight', isFileActive ? 'text-kumo-brand font-medium' : 'text-text-primary/80')}>
 														{truncateFilePath(file.filePath)}
 													</span>
 												</div>

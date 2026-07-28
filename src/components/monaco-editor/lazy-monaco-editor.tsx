@@ -15,14 +15,14 @@ function MonacoEditorFallback({ className }: { className?: string }) {
 		>
 			<div className="flex flex-col items-center gap-3 text-center px-6">
 				<Loader2
-					className="size-6 animate-spin text-brand"
+					className="size-6 animate-spin text-kumo-brand"
 					aria-hidden
 				/>
 				<div className="grid gap-1">
 					<p className="text-sm font-medium text-text-primary">
 						Preparing code editor
 					</p>
-					<p className="text-xs text-text-tertiary">
+					<p className="text-xs text-kumo-subtle">
 						Loading syntax highlighting and language tools…
 					</p>
 				</div>

@@ -250,7 +250,10 @@ export function AppSidebar() {
 	// if (!user) return null;
 
 	return (
-		<Sidebar contentClassName="bg-kumo-elevated">
+		<Sidebar
+			contentClassName=""
+			className="[--sidebar-bg:var(--color-kumo-canvas)]"
+		>
 			<SidebarHeader className="h-12 justify-start px-4 pr-2 group-data-[state=collapsed]/sidebar:justify-center group-data-[state=collapsed]/sidebar:px-0">
 				<div className="flex w-full items-center gap-2.5 text-kumo-strong group-data-[state=collapsed]/sidebar:justify-center">
 					<CloudflareLogo

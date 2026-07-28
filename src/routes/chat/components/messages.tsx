@@ -27,7 +27,7 @@ export function UserMessage({ message }: { message: string }) {
 	return (
 		<div className="flex flex-col gap-2 min-w-0">
 			<div className="flex items-center gap-2 mb-3">
-				<div className="size-5 flex items-center justify-center rounded-full bg-brand text-text-on-brand shrink-0">
+				<div className="size-5 flex items-center justify-center rounded-full bg-brand text-white shrink-0">
 					<span className="text-[10px]">U</span>
 				</div>
 				<div className="font-medium text-text-50">You</div>
@@ -50,7 +50,7 @@ function JsonRenderer({ data }: { data: unknown }) {
 		<div className="flex flex-col gap-1">
 			{Object.entries(data).map(([key, value]) => (
 				<div key={key} className="flex gap-2">
-					<span className="text-brand font-medium flex-shrink-0">{key}:</span>
+					<span className="text-kumo-brand font-medium flex-shrink-0">{key}:</span>
 					{typeof value === 'object' && value !== null ? (
 						<div className="flex-1">
 							<JsonRenderer data={value} />
@@ -144,13 +144,13 @@ function ToolEventHoverPreview({ event }: { event: ToolEvent }) {
 			<div className="font-mono font-medium text-text-secondary">{event.name}</div>
 			{inputPreview && (
 				<div className="flex flex-col gap-1">
-					<span className="text-brand font-medium">Input</span>
+					<span className="text-kumo-brand font-medium">Input</span>
 					<span className="text-text-primary whitespace-pre-wrap break-words">{inputPreview}</span>
 				</div>
 			)}
 			{outputPreview && (
 				<div className="flex flex-col gap-1">
-					<span className="text-brand font-medium">Output</span>
+					<span className="text-kumo-brand font-medium">Output</span>
 					<span className="text-text-primary whitespace-pre-wrap break-words">{outputPreview}</span>
 				</div>
 			)}
@@ -223,7 +223,7 @@ function DeepDebugTranscript({ transcript }: { transcript: ConversationMessage[]
 
 	return (
 		<div className="flex flex-col gap-3 p-3 rounded-md bg-surface-tertiary/50 border-l-2 border-brand/30">
-			<div className="flex items-center gap-2 text-xs font-medium text-brand">
+			<div className="flex items-center gap-2 text-xs font-medium text-kumo-brand">
 				<MessageSquare className="size-3" />
 				<span>Deep Debugger Transcript</span>
 			</div>
@@ -268,7 +268,7 @@ function ClarifyingQuestionsResult({ event }: { event: ToolEvent }) {
 			{questions.map((q, i) => (
 				<div key={i} className="flex flex-col gap-1.5">
 					<div className="flex items-center gap-1.5 text-text-primary font-medium">
-						<HelpCircle className="size-3.5 text-brand" />
+						<HelpCircle className="size-3.5 text-kumo-brand" />
 						<span>{q.question}</span>
 					</div>
 					{q.options && q.options.length > 0 && (
@@ -329,7 +329,7 @@ export function ToolStatusIndicator({ event, richToolPreview = false }: { event:
 			onClick={() => canExpand && setIsExpanded(!isExpanded)}
 			className={clsx(
 				'flex items-center gap-1.5 text-xs',
-				isDeepDebug ? 'text-brand font-medium' : 'text-text-tertiary',
+				isDeepDebug ? 'text-kumo-brand font-medium' : 'text-text-tertiary',
 				canExpand && 'cursor-pointer hover:text-text-secondary transition-colors'
 			)}
 			disabled={!canExpand}
@@ -447,7 +447,7 @@ function bucketParts(parts: MessagePart[]): RenderUnit[] {
 }
 
 function ToolStatusGlyph({ status }: { status: ToolEvent['status'] }) {
-	if (status === 'start') return <LoaderCircle className="size-3.5 shrink-0 text-brand animate-spin" />;
+	if (status === 'start') return <LoaderCircle className="size-3.5 shrink-0 text-kumo-brand animate-spin" />;
 	if (status === 'error') return <CircleX className="size-3.5 shrink-0 text-red-500" />;
 	return <Check className="size-3.5 shrink-0 text-emerald-500" />;
 }
@@ -467,7 +467,7 @@ function ReasoningBlock({ part, streaming }: { part: Extract<MessagePart, { type
 				className="flex w-full items-center gap-2 px-3 py-2 text-left"
 			>
 				{active
-					? <LoaderCircle className="size-3.5 shrink-0 text-brand animate-spin" />
+					? <LoaderCircle className="size-3.5 shrink-0 text-kumo-brand animate-spin" />
 					: <Brain className="size-3.5 shrink-0 text-text-tertiary" />}
 				<span className={clsx('flex-1 text-xs font-medium text-text-secondary', active && 'animate-pulse')}>
 					{active ? 'Thinking' : 'Thoughts'}
