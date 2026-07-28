@@ -29,6 +29,7 @@ import { useAuth } from '@/contexts/auth-context';
 import { useApps, useFavoriteApps, useRecentApps } from '@/hooks/use-apps';
 import { AppActionsDropdown } from '@/components/shared/AppActionsDropdown';
 import { AuthButton } from '@/components/auth/auth-button';
+import { useUsageLimitsBadgeState } from '@/components/usage-limits-badge';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { cn } from '@/lib/utils';
 
@@ -158,6 +159,31 @@ export function AppSidebar() {
 	]);
 	const { state } = useSidebar();
 	const isCollapsed = state === 'collapsed';
+	const usageLimits = useUsageLimitsBadgeState();
+	// Show only when action is needed: not connected, or token without gateway.
+	// Hide when configured even if cloudflareCredits is still null.
+	const showCloudflareCta =
+		Boolean(user) &&
+		!usageLimits.hidden &&
+		!usageLimits.loading &&
+		(!usageLimits.hasUserToken || usageLimits.needsConfiguration);
+	const cloudflareCtaLabel = usageLimits.needsConfiguration
+		? 'Configure AI Gateway'
+		: 'Connect Cloudflare';
+
+	const handleCloudflareCta = () => {
+		if (usageLimits.needsConfiguration) {
+			navigate('/settings');
+			return;
+		}
+
+		const url = new URL('/oauth/login', window.location.origin);
+		url.searchParams.set(
+			'return_url',
+			window.location.pathname + window.location.search,
+		);
+		window.location.href = url.toString();
+	};
 
 	const { apps: recentApps, moreAvailable } = useRecentApps();
 	const { apps: favoriteApps, loading: favoriteAppsLoading } =
@@ -536,19 +562,46 @@ export function AppSidebar() {
 			</SidebarContent>
 
 			<SidebarFooter className="h-auto border-t border-kumo-line p-3">
-				<div className="flex min-w-0 w-full items-center gap-2 group-data-[state=collapsed]/sidebar:flex-col">
-					{(!isCollapsed || user) && (
-						<div className="flex-1">
-							<AuthButton
-								display="sidebar"
-								className="group-data-[state=collapsed]/sidebar:size-9 group-data-[state=collapsed]/sidebar:flex-none group-data-[state=collapsed]/sidebar:justify-center group-data-[state=collapsed]/sidebar:px-0 w-full"
+				<div className="flex w-full min-w-0 flex-col gap-2">
+					{showCloudflareCta && (
+						<button
+							type="button"
+							onClick={handleCloudflareCta}
+							aria-label={cloudflareCtaLabel}
+							title={cloudflareCtaLabel}
+							className={cn(
+								'inline-flex items-center rounded-lg bg-brand text-sm font-medium text-white hover:bg-brand/90',
+								isCollapsed
+									? 'size-9 shrink-0 justify-center self-center'
+									: 'h-9 w-full justify-start gap-3 px-3',
+							)}
+						>
+							<CloudflareLogo
+								variant="glyph"
+								color="white"
+								className="size-6 shrink-0"
 							/>
-						</div>
+							{!isCollapsed && (
+								<span className="truncate">
+									{cloudflareCtaLabel}
+								</span>
+							)}
+						</button>
 					)}
-					<ThemeToggle
-						align="end"
-						className="size-9 shrink-0 rounded-lg group-data-[state=collapsed]/sidebar:ml-0"
-					/>
+					<div className="flex min-w-0 w-full items-center gap-2 group-data-[state=collapsed]/sidebar:flex-col">
+						{(!isCollapsed || user) && (
+							<div className="min-w-0 flex-1">
+								<AuthButton
+									display="sidebar"
+									className="group-data-[state=collapsed]/sidebar:size-9 group-data-[state=collapsed]/sidebar:flex-none group-data-[state=collapsed]/sidebar:justify-center group-data-[state=collapsed]/sidebar:px-0 w-full"
+								/>
+							</div>
+						)}
+						<ThemeToggle
+							align="end"
+							className="size-9 shrink-0 rounded-lg group-data-[state=collapsed]/sidebar:ml-0"
+						/>
+					</div>
 				</div>
 			</SidebarFooter>
 		</Sidebar>

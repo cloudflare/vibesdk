@@ -16,11 +16,7 @@ import {
 	useUsageLimitsBadgeState,
 	type UsageLimitsBadgeState,
 } from '../usage-limits-badge';
-import {
-	GearIcon,
-	SignInIcon,
-	SignOutIcon,
-} from '@phosphor-icons/react';
+import { GearIcon, SignInIcon, SignOutIcon } from '@phosphor-icons/react';
 
 interface AuthButtonProps {
 	className?: string;
@@ -49,12 +45,6 @@ function getLimitsDetailText(limits: UsageLimitsBadgeState) {
 	return 'Use your Cloudflare AI Gateway credits';
 }
 
-function getLimitsActionLabel(limits: UsageLimitsBadgeState) {
-	if (limits.needsConfiguration) return 'Configure AI Gateway';
-	if (limits.showCredits) return 'Manage AI Gateway';
-	return 'Connect Cloudflare';
-}
-
 export function AuthButton({ className, display = 'icon' }: AuthButtonProps) {
 	const {
 		user,
@@ -74,30 +64,11 @@ export function AuthButton({ className, display = 'icon' }: AuthButtonProps) {
 	const showLimitsState = !usageLimits.hidden;
 	const limitsStatusText = getLimitsStatusText(usageLimits);
 	const limitsDetailText = getLimitsDetailText(usageLimits);
-	const limitsActionLabel = getLimitsActionLabel(usageLimits);
 	const limitsStatusClassName = clsx(
 		'text-kumo-subtle',
 		usageLimits.needsConfiguration && 'text-amber-500',
 		usageLimits.isExhausted && !usageLimits.hasUserToken && 'text-red-500',
 	);
-
-	const connectCloudflare = () => {
-		const url = new URL('/oauth/login', window.location.origin);
-		url.searchParams.set(
-			'return_url',
-			window.location.pathname + window.location.search,
-		);
-		window.location.href = url.toString();
-	};
-
-	const handleLimitsAction = () => {
-		if (usageLimits.needsConfiguration || usageLimits.showCredits) {
-			navigate('/settings');
-			return;
-		}
-
-		connectCloudflare();
-	};
 
 	if (isLoading) {
 		return <Skeleton className="w-10 h-10 rounded-full" />;
@@ -259,14 +230,26 @@ export function AuthButton({ className, display = 'icon' }: AuthButtonProps) {
 				)}
 
 				<DropdownMenu.Group>
-					{showLimitsState && !usageLimits.loading && (
-						<DropdownMenu.Item
-							onClick={handleLimitsAction}
-							icon={LucideGlobeLock}
-						>
-							{limitsActionLabel}
-						</DropdownMenu.Item>
-					)}
+					{showLimitsState &&
+						!usageLimits.loading &&
+						usageLimits.needsConfiguration && (
+							<DropdownMenu.Item
+								onClick={() => navigate('/settings')}
+								icon={LucideGlobeLock}
+							>
+								Configure AI Gateway
+							</DropdownMenu.Item>
+						)}
+					{showLimitsState &&
+						!usageLimits.loading &&
+						usageLimits.showCredits && (
+							<DropdownMenu.Item
+								onClick={() => navigate('/settings')}
+								icon={LucideGlobeLock}
+							>
+								Manage AI Gateway
+							</DropdownMenu.Item>
+						)}
 					<DropdownMenu.Item
 						onClick={() => navigate('/settings')}
 						icon={GearIcon}
