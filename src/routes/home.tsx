@@ -18,7 +18,7 @@ import { useAuthGuard } from '../hooks/useAuthGuard';
 import { usePaginatedApps } from '@/hooks/use-paginated-apps';
 import { AnimatePresence, LayoutGroup, motion } from 'framer-motion';
 import { AppCard } from '@/components/shared/AppCard';
-import { Button } from '@/components/ui/button';
+import { LinkButton } from '@cloudflare/kumo';
 import clsx from 'clsx';
 import { useImageUpload } from '@/hooks/use-image-upload';
 import { useDragDrop } from '@/hooks/use-drag-drop';
@@ -309,17 +309,14 @@ export default function Home() {
 										</h2>
 									</div>
 									<div ref={discoverLinkRef}>
-										<Button
+										<LinkButton
 											variant="outline"
 											size="sm"
-											onClick={() =>
-												navigate('/discover')
-											}
-											className="shrink-0 rounded-full px-3.5 gap-1.5 text-sm text-kumo-default ring-1 ring-kumo-line border-0 shadow-sm hover:bg-kumo-tint hover:text-kumo-strong"
+											href="/discover"
 										>
 											View all
 											<ArrowUpRight className="size-3.5 opacity-70" />
-										</Button>
+										</LinkButton>
 									</div>
 								</div>
 								<motion.div
