@@ -1,6 +1,6 @@
 {
   "name": "artifacts-viewer",
-  "version": "0.0.4",
+  "version": "0.0.5",
   "description": "A read-only React repository viewer for Cloudflare Artifacts.",
   "homepage": "https://github.com/mdhruvil/artifacts-viewer#readme",
   "bugs": {
