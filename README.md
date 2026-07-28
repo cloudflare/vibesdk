@@ -14,7 +14,7 @@ apps/example                 Cloudflare Workers + React app that consumes the pa
 packages/artifacts-viewer    The published npm package
 ```
 
-The package ships four entry points, each with a deliberate boundary:
+The package ships four JavaScript entry points, one CSS export, and package metadata, each with a deliberate boundary:
 
 | Entry point                     | Contains                                                | Must not import       |
 | ------------------------------- | ------------------------------------------------------- | --------------------- |
@@ -25,9 +25,9 @@ The package ships four entry points, each with a deliberate boundary:
 | `artifacts-viewer/styles.css`   | Structural CSS only                                     | —                     |
 
 Platform-neutral code shared by both sides (wire types, path helpers, blob
-classification) lives in `packages/artifacts-viewer/src/shared/`. The builds are
-checked for leakage: `dist/index.js` and `dist/client.js` must contain no React
-reference, and `dist/react.js` must contain no Worker globals.
+classification) lives in `packages/artifacts-viewer/src/shared/`. The entry
+points are designed to preserve those boundaries: the server and client builds
+do not import React, and the React build does not import the server router.
 
 ## Toolchain
 
