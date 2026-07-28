@@ -1,0 +1,27 @@
+{
+  "compilerOptions": {
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.worker.tsbuildinfo",
+    "target": "ES2023",
+    "lib": ["ES2023"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "moduleDetection": "force",
+    "types": ["@cloudflare/workers-types"],
+    "allowImportingTsExtensions": true,
+    "verbatimModuleSyntax": true,
+    "noEmit": true,
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "erasableSyntaxOnly": true,
+    "noFallthroughCasesInSwitch": true,
+    "skipLibCheck": true,
+    "paths": {
+      "artifacts-viewer/server/cache": [
+        "../../packages/artifacts-viewer/src/server/cache-adapters.ts"
+      ],
+      "artifacts-viewer": ["../../packages/artifacts-viewer/src/index.ts"]
+    }
+  },
+  "include": ["worker", "worker-configuration.d.ts"]
+}
