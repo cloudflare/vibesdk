@@ -17,6 +17,28 @@ export function Nocturne({ onSelect }: ExampleProps): ReactElement {
           <p className="nocturne-prep__note">Preparing {name}</p>
         </div>
       )}
+      renderStatus={{
+        loading: (context) => (
+          <div className="nocturne-prep">
+            <span aria-hidden className="nocturne-prep__ring" />
+            <p className="nocturne-prep__note">
+              {context.scope === "file" ? `Fetching ${context.name}` : "Fetching"}
+            </p>
+          </div>
+        ),
+        empty: (_context, kind) => (
+          <p className="nocturne-prep__note nocturne-prep__note--quiet">
+            {kind === "binary"
+              ? "Binary — nothing to show"
+              : kind === "oversized"
+                ? "Too large to inline"
+                : "Nothing here yet"}
+          </p>
+        ),
+        error: (_context, error) => (
+          <p className="nocturne-prep__note nocturne-prep__note--alert">{error.message}</p>
+        ),
+      }}
       repoName={repoName}
     />
   );

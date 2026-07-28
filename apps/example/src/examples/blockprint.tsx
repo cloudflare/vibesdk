@@ -21,6 +21,24 @@ export function Blockprint({ onSelect }: ExampleProps): ReactElement {
           </p>
         </div>
       )}
+      renderStatus={{
+        loading: (context) => (
+          <div className="blockprint-press">
+            <span aria-hidden className="blockprint-press__block" />
+            <p className="blockprint-press__note">
+              {context.scope === "repository" ? "Loading" : "Setting"}
+              <br />
+              plate
+            </p>
+          </div>
+        ),
+        error: (_context, error) => (
+          <div className="blockprint-press blockprint-press--alert">
+            <p className="blockprint-press__note">{error.kind}</p>
+            <p className="blockprint-press__detail">{error.message}</p>
+          </div>
+        ),
+      }}
       repoName={repoName}
     />
   );

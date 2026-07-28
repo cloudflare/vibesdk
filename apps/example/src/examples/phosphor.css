@@ -321,3 +321,7 @@
     transform: translateX(100%) scaleX(0.35);
   }
 }
+
+.phosphor-decoding__line--alert {
+  color: #ff6b6b;
+}

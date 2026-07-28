@@ -321,3 +321,13 @@
   font-size: 0.8125rem;
   letter-spacing: 0.02em;
 }
+
+.nocturne-prep__note--quiet {
+  padding: 1.5rem 1.25rem;
+  opacity: 0.7;
+}
+
+.nocturne-prep__note--alert {
+  padding: 1.5rem 1.25rem;
+  color: #ffb3c7;
+}

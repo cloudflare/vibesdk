@@ -323,3 +323,21 @@
   letter-spacing: -0.01em;
   text-transform: uppercase;
 }
+
+.blockprint-press--alert {
+  align-items: flex-start;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.blockprint-press--alert .blockprint-press__note {
+  background: var(--acid);
+  border: 3px solid var(--carbon);
+  padding: 0.25rem 0.5rem;
+}
+
+.blockprint-press__detail {
+  font-family: var(--page-mono);
+  font-size: 0.75rem;
+  margin: 0;
+}
