@@ -20,6 +20,11 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v6
 
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.16.0
+
       - name: Set up Vite+
         uses: voidzero-dev/setup-vp@v1
         with:
@@ -48,5 +53,10 @@ jobs:
       - name: Publish to npm
         working-directory: packages/artifacts-viewer
         run: |
+          set -euo pipefail
           tarball="$(pnpm pack --pack-destination . | tail -n 1)"
+          if [[ ! -f "${tarball}" ]]; then
+            echo "pnpm pack did not produce a tarball (got: ${tarball:-<empty>})" >&2
+            exit 1
+          fi
           npm publish "${tarball}" --access public

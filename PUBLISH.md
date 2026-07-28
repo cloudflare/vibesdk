@@ -114,7 +114,8 @@ gh run watch
 2. validates that the release tag equals `v<package.json version>`, failing otherwise
 3. runs `vp run ready`
 4. runs `pnpm pack` then `npm publish <tarball>` from `packages/artifacts-viewer`
-   (`pnpm pack` rewrites `catalog:` ranges; plain `npm publish` does not)
+   (`pnpm pack` rewrites `catalog:` ranges; plain `npm publish` does not —
+   that is how 0.0.3 shipped broken). pnpm is installed via `pnpm/action-setup`
 
 Authentication is OIDC trusted publishing (`permissions: id-token: write`). There is no
 `NODE_AUTH_TOKEN`. npm generates an SLSA provenance attestation automatically.
