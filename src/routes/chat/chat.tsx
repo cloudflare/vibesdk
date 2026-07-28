@@ -15,8 +15,20 @@ import {
 import { useQueryClient } from '@tanstack/react-query';
 import { AnimatePresence, motion } from 'framer-motion';
 import { LoaderCircle, MoreHorizontal, RotateCcw } from 'lucide-react';
-import { GlobeHemisphereWestIcon, LockKey } from '@phosphor-icons/react';
-import { Button, DropdownMenu } from '@cloudflare/kumo';
+import {
+	BookmarkSimpleIcon,
+	DotsThree,
+	GitBranch,
+	Globe,
+	Lock,
+	LockOpen,
+} from '@phosphor-icons/react';
+import {
+	Badge,
+	Button,
+	DropdownMenu,
+	useKumoToastManager,
+} from '@cloudflare/kumo';
 import clsx from 'clsx';
 import { UserMessage, AIMessage } from './components/messages';
 import { PhaseTimeline } from './components/phase-timeline';
@@ -38,7 +50,11 @@ import type { ChatMessage } from './utils/message-helpers';
 import { featureRegistry } from '@/features';
 import { useFileContentStream } from './hooks/use-file-content-stream';
 import { logger } from '@/utils/logger';
-import { useApp } from '@/hooks/use-app';
+import {
+	useApp,
+	useToggleAppFavorite,
+	useUpdateAppVisibility,
+} from '@/hooks/use-app';
 import { useAuth } from '@/contexts/auth-context';
 import { useGitHubExport } from '@/hooks/use-github-export';
 import { useAutoScroll } from '@/hooks/use-auto-scroll';
@@ -49,7 +65,6 @@ import {
 	RollbackContext,
 	type RollbackHandler,
 } from './contexts/rollback-context';
-import { toast } from 'sonner';
 import {
 	detectContentType,
 	isDocumentationPath,
@@ -68,6 +83,8 @@ import {
 	getBackendLimitDialog,
 } from '@/utils/usage-limit-checker';
 import { queryKeys } from '@/lib/query-keys';
+import { ApiError } from '@/lib/api-client';
+import { capitalizeFirstLetter } from '@/lib/utils';
 
 const isPhasicBlueprint = (
 	blueprint?: BlueprintType | null,
@@ -125,12 +142,17 @@ export default function Chat() {
 
 	// Load existing app data if chatId is provided
 	const { app, loading: appLoading, refetch: refetchApp } = useApp(urlChatId);
+	const { mutateAsync: updateVisibility, isPending: isUpdatingVisibility } =
+		useUpdateAppVisibility(app?.id);
+	const { mutateAsync: toggleFavorite } = useToggleAppFavorite(app?.id);
+	const toast = useKumoToastManager();
 
 	// If we have an existing app, use its data
 	const displayQuery = app
 		? app.originalPrompt || app.title
 		: userQuery || '';
 	const appTitle = app?.title;
+	const isFavorited = app?.userFavorited || false;
 
 	// Manual refresh trigger for preview
 	const [manualRefreshTrigger, setManualRefreshTrigger] = useState(0);
@@ -239,6 +261,61 @@ export default function Chat() {
 	const githubExport = useGitHubExport(websocket, urlChatId, refetchApp);
 	const { user } = useAuth();
 	const queryClient = useQueryClient();
+	const isOwner = !!app && app.userId === user?.id;
+
+	const handleToggleVisibility = useCallback(async () => {
+		if (!app || !user || !isOwner) {
+			toast.add({
+				title: 'You can only change visibility of your own apps',
+				variant: 'error',
+			});
+			return;
+		}
+
+		try {
+			const newVisibility =
+				app.visibility === 'private' ? 'public' : 'private';
+			const result = await updateVisibility(newVisibility);
+
+			toast.add({
+				title:
+					result.message ||
+					`App is now ${newVisibility === 'private' ? 'private' : 'public'}`,
+				variant: 'success',
+			});
+		} catch (error) {
+			console.error('Error updating app visibility:', error);
+			toast.add({
+				title:
+					error instanceof ApiError
+						? error.message
+						: 'Failed to update visibility',
+				variant: 'error',
+			});
+		}
+	}, [app, user, isOwner, updateVisibility, toast]);
+
+	const handleFavorite = useCallback(async () => {
+		if (!app) return;
+		try {
+			const newState = await toggleFavorite();
+			toast.add({
+				title: newState
+					? 'Added to bookmarks'
+					: 'Removed from bookmarks',
+				variant: 'success',
+			});
+		} catch (error) {
+			console.error('Favorite error:', error);
+			toast.add({
+				title:
+					error instanceof ApiError
+						? error.message
+						: 'Failed to update bookmarks',
+				variant: 'error',
+			});
+		}
+	}, [app, toggleFavorite, toast]);
 
 	const navigate = useNavigate();
 
@@ -456,17 +533,21 @@ export default function Chat() {
 		return (commitHash: string) => {
 			if (!websocket) return;
 			if (isGenerating || isDeploying) {
-				toast.error(
-					'Please wait for the current action to finish before rolling back.',
-				);
+				toast.add({
+					title: 'Please wait for the current action to finish before rolling back.',
+					type: 'error',
+				});
 				return;
 			}
 			sendWebSocketMessage(websocket, 'rollback_to_commit', {
 				commitHash,
 			});
-			toast.info('Rolling back and redeploying…');
+			toast.add({
+				title: 'Rolling back and redeploying…',
+				type: 'info',
+			});
 		};
-	}, [behaviorType, websocket, isGenerating, isDeploying]);
+	}, [behaviorType, websocket, isGenerating, isDeploying, toast]);
 
 	// // Terminal functions
 	// const handleTerminalCommand = useCallback((command: string) => {
@@ -888,38 +969,118 @@ export default function Chat() {
 		<RollbackContext.Provider value={rollbackHandler}>
 			<div className="size-full flex flex-col min-h-0 text-text-primary">
 				{(blueprint?.title || appTitle || chatId || appLoading) && (
-					<div className="h-12 shrink-0 flex items-center px-4 border-b">
+					<div className="h-12 shrink-0 flex items-center gap-3 px-4 border-b">
 						{appLoading ? (
 							<div className="flex items-center gap-2 text-kumo-subtle text-sm">
 								<LoaderCircle className="size-4 animate-spin" />
 								Loading app...
 							</div>
 						) : (
-							<div className="flex min-w-0 flex-1 items-center max-w-md gap-2">
-								{app?.visibility === 'private' ? (
-									<LockKey
-										className="size-4 shrink-0 text-kumo-subtle"
-										weight="duotone"
-										aria-label="Private"
-									/>
-								) : (
-									<GlobeHemisphereWestIcon
-										className="size-4 shrink-0 text-kumo-subtle"
-										weight="duotone"
-										aria-label="Public"
-									/>
-								)}
-								<div
-									className="text-sm font-semibold truncate min-w-0"
-									title={
-										blueprint?.title ||
-										appTitle ||
-										undefined
-									}
-								>
-									{blueprint?.title || appTitle}
+							<>
+								<div className="min-w-0 flex-1 flex items-center gap-2">
+									<div
+										className="text-sm font-semibold truncate min-w-0"
+										title={
+											blueprint?.title ||
+											appTitle ||
+											undefined
+										}
+									>
+										{blueprint?.title || appTitle}
+									</div>
+									{app?.visibility && (
+										<Badge
+											className="shrink-0"
+											variant={
+												app.visibility === 'private'
+													? 'secondary'
+													: 'success'
+											}
+										>
+											<span className="inline-flex items-center gap-1">
+												<Globe
+													className="h-3 w-3"
+													weight="duotone"
+												/>
+												{capitalizeFirstLetter(
+													app.visibility,
+												)}
+											</span>
+										</Badge>
+									)}
 								</div>
-							</div>
+								<div className="flex items-center gap-1.5 shrink-0">
+									{isOwner && app && (
+										<Button
+											variant={
+												app.visibility === 'private'
+													? 'primary'
+													: 'secondary'
+											}
+											size="sm"
+											onClick={handleToggleVisibility}
+											disabled={isUpdatingVisibility}
+											loading={isUpdatingVisibility}
+											icon={
+												app.visibility === 'private' ? (
+													<LockOpen
+														className="size-3.5"
+														weight="duotone"
+													/>
+												) : (
+													<Lock
+														className="size-3.5"
+														weight="duotone"
+													/>
+												)
+											}
+										>
+											{app.visibility === 'private'
+												? 'Publish'
+												: 'Unpublish'}
+										</Button>
+									)}
+									{app && (
+										<DropdownMenu>
+											<DropdownMenu.Trigger
+												render={
+													<Button
+														variant="secondary"
+														size="sm"
+														shape="square"
+														aria-label="More actions"
+														icon={
+															<DotsThree className="h-4 w-4" />
+														}
+													/>
+												}
+											/>
+											<DropdownMenu.Content align="end">
+												<DropdownMenu.Item
+													icon={BookmarkSimpleIcon}
+													onClick={() => {
+														void handleFavorite();
+													}}
+												>
+													{isFavorited
+														? 'Bookmarked'
+														: 'Bookmark'}
+												</DropdownMenu.Item>
+												<DropdownMenu.Item
+													icon={GitBranch}
+													onClick={() =>
+														setIsGitCloneModalOpen(
+															true,
+														)
+													}
+												>
+													Clone
+												</DropdownMenu.Item>
+											</DropdownMenu.Content>
+										</DropdownMenu>
+									)}
+								</div>
+							</>
 						)}
 					</div>
 				)}
@@ -1104,30 +1265,32 @@ export default function Chat() {
 												onResumeGeneration={
 													handleResumeGeneration
 												}
-											onVisibilityUpdate={(
-												newVisibility,
-											) => {
-												if (!app?.id) return;
+												onVisibilityUpdate={(
+													newVisibility,
+												) => {
+													if (!app?.id) return;
 
-												queryClient.setQueryData<AppDetailsData>(
-													queryKeys.account.apps.detail(
-														app.id,
-														user?.id,
-													),
-													(prev) =>
-														prev
-															? {
-																	...prev,
-																	visibility:
-																		newVisibility,
-																}
-															: prev,
-												);
-												void queryClient.invalidateQueries({
-													queryKey:
-														queryKeys.account.apps.all(),
-												});
-											}}
+													queryClient.setQueryData<AppDetailsData>(
+														queryKeys.account.apps.detail(
+															app.id,
+															user?.id,
+														),
+														(prev) =>
+															prev
+																? {
+																		...prev,
+																		visibility:
+																			newVisibility,
+																	}
+																: prev,
+													);
+													void queryClient.invalidateQueries(
+														{
+															queryKey:
+																queryKeys.account.apps.all(),
+														},
+													);
+												}}
 											/>
 										</motion.div>
 									)}
