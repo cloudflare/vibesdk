@@ -24,6 +24,7 @@ import {
 	SidebarSeparator,
 	SidebarTrigger,
 	useSidebar,
+	cn,
 } from '@cloudflare/kumo';
 import { useAuth } from '@/contexts/auth-context';
 import { useApps, useFavoriteApps, useRecentApps } from '@/hooks/use-apps';
@@ -31,7 +32,6 @@ import { AppActionsDropdown } from '@/components/shared/AppActionsDropdown';
 import { AuthButton } from '@/components/auth/auth-button';
 import { useUsageLimitsBadgeState } from '@/components/usage-limits-badge';
 import { ThemeToggle } from '@/components/theme-toggle';
-import { cn } from '@/lib/utils';
 
 interface App {
 	id: string;

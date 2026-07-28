@@ -4,13 +4,13 @@
  */
 
 import { useState, useRef, useMemo } from 'react';
+import { cn } from '@cloudflare/kumo';
 import { Check, ChevronDown, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { cn } from '@/lib/utils';
 
 interface ModelOption {
   value: string;

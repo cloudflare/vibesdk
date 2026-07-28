@@ -1,5 +1,5 @@
 import type { BlueprintType, PhasicBlueprint } from '@/api-types';
-import clsx from 'clsx';
+import { cn } from '@cloudflare/kumo';
 import { Markdown } from './messages';
 
 const isPhasicBlueprint = (blueprint: BlueprintType): blueprint is PhasicBlueprint =>
@@ -17,7 +17,7 @@ export function Blueprint({
 	const phasicBlueprint = isPhasicBlueprint(blueprint) ? blueprint : null;
 
 	return (
-		<div className={clsx('w-full flex flex-col', className)} {...props}>
+		<div className={cn('w-full flex flex-col', className)} {...props}>
 			<div className="bg-brand p-6 rounded-t-xl flex items-center">
 				<div className="flex flex-col gap-1">
 					<div className="uppercase text-xs tracking-wider text-white/90">

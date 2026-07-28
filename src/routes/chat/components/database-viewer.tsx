@@ -16,7 +16,7 @@ import {
 	ChevronRight,
 	Trash2,
 } from 'lucide-react';
-import clsx from 'clsx';
+import { cn } from '@cloudflare/kumo';
 import { useDatabaseViewer } from '../hooks/use-database-viewer';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -84,7 +84,7 @@ export function DatabaseViewer({ agentId, enabled }: DatabaseViewerProps) {
 						title="Refresh"
 					>
 						<RefreshCw
-							className={clsx('size-4', (loadingTables || loadingQuery) && 'animate-spin')}
+							className={cn('size-4', (loadingTables || loadingQuery) && 'animate-spin')}
 						/>
 					</button>
 					<button
@@ -122,7 +122,7 @@ export function DatabaseViewer({ agentId, enabled }: DatabaseViewerProps) {
 						<button
 							key={t.name}
 							onClick={() => selectTable(t.name)}
-							className={clsx(
+							className={cn(
 								'flex items-center justify-between px-3 py-1.5 text-xs font-mono text-left hover:bg-kumo-elevated transition-colors',
 								selectedTable === t.name && 'bg-kumo-elevated text-text-primary',
 							)}

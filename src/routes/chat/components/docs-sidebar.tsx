@@ -6,7 +6,7 @@ import {
 	Loader,
 	ChevronRight,
 } from 'lucide-react';
-import clsx from 'clsx';
+import { cn } from '@cloudflare/kumo';
 import type { FileType } from '@/api-types';
 
 interface DocsSidebarProps {
@@ -108,7 +108,7 @@ function TreeNode({
 					style={{ paddingLeft: `${depth * 12 + 12}px` }}
 				>
 					<ChevronRight
-						className={clsx(
+						className={cn(
 							'size-3 transition-transform flex-shrink-0',
 							isExpanded && 'rotate-90',
 						)}
@@ -142,7 +142,7 @@ function TreeNode({
 	return (
 		<button
 			onClick={() => onFileSelect(node.path)}
-			className={clsx(
+			className={cn(
 				'w-full flex items-center gap-2 px-3 py-1.5 transition-colors text-sm',
 				isActive
 					? 'bg-brand/10 text-kumo-brand border-l-2 border-brand'

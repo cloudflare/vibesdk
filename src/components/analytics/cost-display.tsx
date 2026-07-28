@@ -4,7 +4,8 @@
  */
 
 import { DollarSign } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn } from '@cloudflare/kumo';
+
 import { formatCost, type AnalyticsDisplayProps } from '@/utils/analytics';
 
 interface CostDisplayProps extends AnalyticsDisplayProps {

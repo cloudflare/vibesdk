@@ -6,8 +6,7 @@
 import { useState } from 'react';
 import { Loader2, LucideGlobeLock } from 'lucide-react';
 import { useNavigate } from 'react-router';
-import clsx from 'clsx';
-import { Button, DropdownMenu } from '@cloudflare/kumo';
+import { cn, Button, DropdownMenu } from '@cloudflare/kumo';
 import { useAuth } from '../../contexts/auth-context';
 import { LoginModal } from './login-modal';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
@@ -64,7 +63,7 @@ export function AuthButton({ className, display = 'icon' }: AuthButtonProps) {
 	const showLimitsState = !usageLimits.hidden;
 	const limitsStatusText = getLimitsStatusText(usageLimits);
 	const limitsDetailText = getLimitsDetailText(usageLimits);
-	const limitsStatusClassName = clsx(
+	const limitsStatusClassName = cn(
 		'text-kumo-subtle',
 		usageLimits.needsConfiguration && 'text-amber-500',
 		usageLimits.isExhausted && !usageLimits.hasUserToken && 'text-red-500',
@@ -80,7 +79,7 @@ export function AuthButton({ className, display = 'icon' }: AuthButtonProps) {
 				<Button
 					variant="ghost"
 					onClick={() => setShowLoginModal(true)}
-					className={clsx('gap-2 text-sm', className)}
+					className={cn('gap-2 text-sm', className)}
 				>
 					<SignInIcon className="h-4 w-4" />
 					<span>Sign In</span>
@@ -140,7 +139,7 @@ export function AuthButton({ className, display = 'icon' }: AuthButtonProps) {
 						<Button
 							variant="ghost"
 							size="base"
-							className={clsx(
+							className={cn(
 								'h-auto min-h-10 min-w-0 flex-1 justify-start gap-2 rounded-lg px-2 py-1.5 text-left text-kumo-default',
 								className,
 							)}
@@ -160,7 +159,7 @@ export function AuthButton({ className, display = 'icon' }: AuthButtonProps) {
 								</span>
 								{showLimitsState && (
 									<span
-										className={clsx(
+										className={cn(
 											'block truncate text-xs font-normal',
 											limitsStatusClassName,
 										)}
@@ -176,7 +175,7 @@ export function AuthButton({ className, display = 'icon' }: AuthButtonProps) {
 							size="base"
 							shape="circle"
 							aria-label="Account menu"
-							className={clsx(
+							className={cn(
 								'relative rounded-full transition-all hover:ring-2 hover:ring-kumo-brand/20',
 								className,
 							)}
@@ -206,7 +205,7 @@ export function AuthButton({ className, display = 'icon' }: AuthButtonProps) {
 								<Loader2 className="mt-0.5 size-4 shrink-0 animate-spin text-kumo-subtle" />
 							) : (
 								<LucideGlobeLock
-									className={clsx(
+									className={cn(
 										'mt-0.5 size-4 shrink-0',
 										limitsStatusClassName,
 									)}
@@ -214,7 +213,7 @@ export function AuthButton({ className, display = 'icon' }: AuthButtonProps) {
 							)}
 							<div className="min-w-0">
 								<p
-									className={clsx(
+									className={cn(
 										'truncate text-sm font-medium text-kumo-default',
 										limitsStatusClassName,
 									)}

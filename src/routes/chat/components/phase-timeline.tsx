@@ -1,4 +1,4 @@
-import clsx from 'clsx';
+import { cn } from '@cloudflare/kumo';
 import { Loader, Check, AlertCircle, ChevronDown, ChevronRight, ArrowUp, Zap, XCircle } from 'lucide-react';
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import type { RefObject } from 'react';
@@ -84,20 +84,20 @@ function StatusIcon({ status, size = 'md', className }: StatusIconProps) {
 
 	switch (status) {
 		case 'generating':
-			return <Loader className={clsx(iconClasses, 'animate-spin text-kumo-brand', className)} />;
+			return <Loader className={cn(iconClasses, 'animate-spin text-kumo-brand', className)} />;
 		case 'validating':
-			return <Loader className={clsx(iconClasses, 'animate-spin text-blue-400', className)} />;
+			return <Loader className={cn(iconClasses, 'animate-spin text-blue-400', className)} />;
 		case 'completed':
-			return <Check className={clsx(iconClasses, 'text-green-500', className)} />;
+			return <Check className={cn(iconClasses, 'text-green-500', className)} />;
 		case 'cancelled':
-			return <XCircle className={clsx(iconClasses, 'text-orange-400', className)} />;
+			return <XCircle className={cn(iconClasses, 'text-orange-400', className)} />;
 		case 'error':
-			return <AlertCircle className={clsx(iconClasses, 'text-red-500', className)} />;
+			return <AlertCircle className={cn(iconClasses, 'text-red-500', className)} />;
 		case 'active':
-			return <Loader className={clsx(iconClasses, 'animate-spin text-kumo-brand', className)} />;
+			return <Loader className={cn(iconClasses, 'animate-spin text-kumo-brand', className)} />;
 		case 'pending':
 		default:
-			return <div className={clsx(iconClasses, 'bg-kumo-base-foreground/40 dark:bg-kumo-base-foreground/30 rounded-full', className)} />;
+			return <div className={cn(iconClasses, 'bg-kumo-base-foreground/40 dark:bg-kumo-base-foreground/30 rounded-full', className)} />;
 	}
 }
 
@@ -121,7 +121,7 @@ function AnimatedStatusIndicator({ status, size = 5 }: AnimatedStatusIndicatorPr
 						animate="animate"
 						exit="exit"
 						transition={commonTransitions.smoothInOut}
-						className={clsx(sizeClass, 'flex items-center justify-center')}
+						className={cn(sizeClass, 'flex items-center justify-center')}
 					>
 						<div className="size-2 rounded-full bg-zinc-300" />
 					</motion.div>
@@ -134,7 +134,7 @@ function AnimatedStatusIndicator({ status, size = 5 }: AnimatedStatusIndicatorPr
 						animate="animate"
 						exit="exit"
 						transition={commonTransitions.smoothInOut}
-						className={clsx(sizeClass, 'bg-bg-4 dark:bg-kumo-elevated flex items-center justify-center')}
+						className={cn(sizeClass, 'bg-bg-4 dark:bg-kumo-elevated flex items-center justify-center')}
 					>
 						<Loader className="size-3 text-kumo-brand animate-spin" />
 					</motion.div>
@@ -147,7 +147,7 @@ function AnimatedStatusIndicator({ status, size = 5 }: AnimatedStatusIndicatorPr
 						animate="animate"
 						exit="exit"
 						transition={commonTransitions.smoothInOut}
-						className={clsx(sizeClass, 'flex items-center justify-center')}
+						className={cn(sizeClass, 'flex items-center justify-center')}
 					>
 						<div className="size-2 rounded-full bg-brand" />
 					</motion.div>
@@ -160,7 +160,7 @@ function AnimatedStatusIndicator({ status, size = 5 }: AnimatedStatusIndicatorPr
 						animate="animate"
 						exit="exit"
 						transition={commonTransitions.smoothInOut}
-						className={clsx(sizeClass, 'flex items-center justify-center')}
+						className={cn(sizeClass, 'flex items-center justify-center')}
 					>
 						<AlertCircle className="size-3 text-red-500" />
 					</motion.div>
@@ -679,7 +679,7 @@ export function PhaseTimeline({
 
 						<div className="flex flex-col gap-2 flex-1">
 							<div className="flex">
-								<span className={clsx(
+								<span className={cn(
 									'font-medium',
 									stage.status === 'pending'
 										? 'text-text-tertiary'
@@ -733,7 +733,7 @@ export function PhaseTimeline({
 							{stage.id === 'blueprint' && stage.status !== 'pending' && (
 								<button
 									onClick={() => onViewChange?.('blueprint')}
-									className={clsx(
+									className={cn(
 										'flex items-start ml-0.5 transition-colors font-mono',
 										view === 'blueprint'
 											? 'text-kumo-brand underline decoration-dotted'
@@ -818,7 +818,7 @@ export function PhaseTimeline({
 																{/* File Path with proper truncation and wrapping */}
 																<div className="flex-1 min-w-0">
 																	<span
-																		className={clsx(
+																		className={cn(
 																			'text-xs text-left block transition-colors break-all leading-tight',
 																			isFileActive
 																				? 'text-kumo-brand font-medium'
@@ -904,7 +904,7 @@ export function PhaseTimeline({
 													{file.isGenerating ? <StatusLoader size="sm" color="brand" /> : <StatusCheck size="sm" color="green" />}
 												</span>
 												<div className="flex-1 min-w-0">
-													<span className={clsx('text-xs block break-all leading-tight', isFileActive ? 'text-kumo-brand font-medium' : 'text-text-primary/80')}>
+													<span className={cn('text-xs block break-all leading-tight', isFileActive ? 'text-kumo-brand font-medium' : 'text-text-primary/80')}>
 														{truncateFilePath(file.filePath)}
 													</span>
 												</div>
@@ -926,7 +926,7 @@ export function PhaseTimeline({
 
 						{/* Vertical connecting line */}
 						{(index !== projectStages.length - 1 || (index === projectStages.length - 1 && willShowStatusStage)) && (
-							<div className={clsx(
+							<div className={cn(
 								'absolute left-[9.25px] w-px h-full top-2.5 z-10',
 								stage.status === 'completed'
 									? 'bg-brand'

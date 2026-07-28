@@ -1,6 +1,6 @@
 import { Presentation } from 'lucide-react';
 import { PreviewIframe } from '@/routes/chat/components/preview-iframe';
-import clsx from 'clsx';
+import { cn } from '@cloudflare/kumo';
 import { useState, useRef, useMemo } from 'react';
 import { HEADER_STYLES } from '@/routes/chat/components/view-header-styles';
 import {
@@ -88,7 +88,7 @@ export function PresentationPreview({
 						<button
 							key={slide.index}
 							onClick={() => navigateToSlide(slide.index)}
-							className={clsx(
+							className={cn(
 								'group relative rounded-lg overflow-hidden transition-all duration-200 border bg-kumo-base/80',
 								slide.index === currentSlideIndex
 									? 'border-brand shadow-md'
@@ -98,7 +98,7 @@ export function PresentationPreview({
 						>
 							{/* Slide number badge */}
 							<div
-								className={clsx(
+								className={cn(
 									'absolute top-2 left-2 z-10 text-xs font-medium px-2 py-0.5 rounded backdrop-blur-sm',
 									slide.index === currentSlideIndex
 										? 'bg-brand text-white'

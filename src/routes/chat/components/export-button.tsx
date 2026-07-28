@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Loader, Check, type LucideIcon } from 'lucide-react';
-import clsx from 'clsx';
+import { cn } from '@cloudflare/kumo';
 
 interface ExportButtonProps {
 	icon: LucideIcon;
@@ -39,7 +39,7 @@ export function ExportButton({
 			onClick={handleClick}
 			disabled={disabled || state !== 'idle'}
 			title={tooltip}
-			className={clsx(
+			className={cn(
 				'p-1.5 rounded-md transition-colors',
 				'hover:bg-kumo-base disabled:opacity-50 disabled:cursor-not-allowed',
 				state === 'idle' &&
@@ -47,7 +47,7 @@ export function ExportButton({
 			)}
 		>
 			<CurrentIcon
-				className={clsx(
+				className={cn(
 					'size-4',
 					state === 'loading' && 'animate-spin',
 					state === 'success' && 'text-green-500',
