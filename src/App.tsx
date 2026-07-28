@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Outlet } from 'react-router';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider } from './contexts/auth-context';
@@ -10,7 +11,7 @@ import { AppLayout } from './components/layout/app-layout';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { FeatureProvider } from './features';
 import { Toasty } from '@cloudflare/kumo';
-import { queryClient } from './lib/query-client';
+import { createQueryClient } from './lib/query-client';
 import { useAppsQuerySync } from './hooks/use-apps';
 import { AppLinkProvider } from './components/providers/app-link-provider';
 
@@ -20,6 +21,8 @@ function AppsQuerySync() {
 }
 
 export default function App() {
+	const [queryClient] = useState(createQueryClient);
+
 	return (
 		<ErrorBoundary>
 			<QueryClientProvider client={queryClient}>

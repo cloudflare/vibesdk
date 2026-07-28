@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { SidebarTrigger } from '@cloudflare/kumo';
+import { SidebarTrigger, cn } from '@cloudflare/kumo';
 import { motion } from 'framer-motion';
 import { useAuth } from '@/contexts/auth-context';
 import { ChevronRight, AlertCircle } from 'lucide-react';
@@ -7,7 +7,6 @@ import { usePlatformStatus } from '@/hooks/use-platform-status';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useLocation } from 'react-router';
-import clsx from 'clsx';
 import { AuthButton } from '../auth/auth-button';
 
 export function GlobalHeader() {
@@ -29,7 +28,7 @@ export function GlobalHeader() {
 				initial={{ y: -10, opacity: 0 }}
 				animate={{ y: 0, opacity: 1 }}
 				transition={{ duration: 0.2, ease: 'easeOut' }}
-				className={clsx("sticky top-0 z-50", pathname !== "/" && "bg-kumo-base")}
+				className={cn("sticky top-0 z-50", pathname !== "/" && "bg-kumo-base")}
 			>
 				<div className="relative">
 					{/* Subtle gradient accent */}

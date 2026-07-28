@@ -1,5 +1,5 @@
 import React from 'react';
-import clsx from 'clsx';
+import { cn } from '@cloudflare/kumo';
 import { CloudflareLogo } from './icons/logos';
 import { Link } from 'react-router';
 
@@ -9,7 +9,7 @@ export function Header({
 }: React.ComponentProps<'header'>) {
 	return (
 		<header
-			className={clsx(
+			className={cn(
 				'h-13 shrink-0 w-full px-4 border-b flex items-center',
 				className,
 			)}

@@ -7,7 +7,7 @@ import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, AlertCircle, Eye, EyeOff } from 'lucide-react';
 import { createPortal } from 'react-dom';
-import clsx from 'clsx';
+import { cn } from '@cloudflare/kumo';
 import { useAuth } from '@/contexts/auth-context';
 import CloudflareLogo from '@/assets/provider-logos/cloudflare.svg?react';
 // import {
@@ -257,7 +257,7 @@ export function LoginModal({
 							)}
 
 							{/* Authentication Options */}
-							<div className={clsx('p-6 space-y-5 pt-12')}>
+							<div className={cn('p-6 space-y-5 pt-12')}>
 								{/* GitHub */}
 								{showGitHub && (
 									<motion.button
@@ -363,7 +363,7 @@ export function LoginModal({
 													placeholder="Full name"
 													value={name}
 													onChange={(e) => setName(e.target.value)}
-													className={clsx(
+													className={cn(
 														'w-full p-3 rounded-lg border bg-background transition-colors',
 														validationErrors.name ? 'border-destructive' : 'focus:border-primary'
 													)}
@@ -381,7 +381,7 @@ export function LoginModal({
 												placeholder="Email address"
 												value={email}
 												onChange={(e) => setEmail(e.target.value)}
-												className={clsx(
+												className={cn(
 													'w-full p-3 rounded-lg border bg-background transition-colors',
 													validationErrors.email ? 'border-destructive' : 'focus:border-primary'
 												)}
@@ -398,7 +398,7 @@ export function LoginModal({
 												placeholder="Password"
 												value={password}
 												onChange={(e) => setPassword(e.target.value)}
-												className={clsx(
+												className={cn(
 													'w-full p-3 pr-10 rounded-lg border bg-background transition-colors',
 													validationErrors.password ? 'border-destructive' : 'focus:border-primary'
 												)}
@@ -424,7 +424,7 @@ export function LoginModal({
 													placeholder="Confirm password"
 													value={confirmPassword}
 													onChange={(e) => setConfirmPassword(e.target.value)}
-													className={clsx(
+													className={cn(
 														'w-full p-3 rounded-lg border bg-background transition-colors',
 														validationErrors.confirmPassword ? 'border-destructive' : 'focus:border-primary'
 													)}

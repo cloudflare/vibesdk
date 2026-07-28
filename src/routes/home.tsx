@@ -1,5 +1,4 @@
 import { useCallback, useRef, useState, useEffect, useMemo } from 'react';
-import { Info } from 'react-feather';
 import { ArrowUpRight, Loader2 } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router';
 import { useAuth } from '@/contexts/auth-context';
@@ -18,15 +17,14 @@ import { useAuthGuard } from '../hooks/useAuthGuard';
 import { usePaginatedApps } from '@/hooks/use-paginated-apps';
 import { AnimatePresence, LayoutGroup, motion } from 'framer-motion';
 import { AppCard } from '@/components/shared/AppCard';
-import { LinkButton } from '@cloudflare/kumo';
-import clsx from 'clsx';
+import { LinkButton, cn } from '@cloudflare/kumo';
 import { useImageUpload } from '@/hooks/use-image-upload';
 import { useDragDrop } from '@/hooks/use-drag-drop';
 import { toast } from 'sonner';
 import { useLimitsContext } from '@/contexts/limits-context';
 import { checkCanSendPrompt } from '@/utils/usage-limit-checker';
 import { PromptBox } from '@/components/prompt-box';
-import { PaperPlaneTiltIcon } from '@phosphor-icons/react';
+import { InfoIcon, PaperPlaneTiltIcon } from '@phosphor-icons/react';
 
 export default function Home() {
 	const navigate = useNavigate();
@@ -196,7 +194,7 @@ export default function Home() {
 						transition={{
 							layout: { duration: 0.5, ease: [0.22, 1, 0.36, 1] },
 						}}
-						className={clsx(
+						className={cn(
 							'flex flex-col items-stretch z-10 w-full',
 							discoverReady
 								? 'mt-28 sm:mt-36'
@@ -264,7 +262,7 @@ export default function Home() {
 								className="flex items-start gap-2 px-4 py-3 rounded-xl bg-bg-4/50 dark:bg-bg-2/50 shadow-sm"
 								style={{ borderColor: 'rgba(255, 61, 0, 0.2)' }}
 							>
-								<Info
+								<InfoIcon
 									className="size-4 flex-shrink-0 mt-0.5"
 									style={{ color: '#ff3d00' }}
 								/>
@@ -294,7 +292,7 @@ export default function Home() {
 								duration: 0.5,
 								ease: [0.22, 1, 0.36, 1],
 							}}
-							className={clsx(
+							className={cn(
 								'w-full max-w-5xl mx-auto px-5 sm:px-6 z-10',
 								images.length > 0
 									? 'mt-10'

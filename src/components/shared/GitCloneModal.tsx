@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { cn } from '@cloudflare/kumo';
 import {
 	Dialog,
 	DialogContent,
@@ -19,7 +20,7 @@ import {
 } from 'lucide-react';
 import { apiClient } from '@/lib/api-client';
 import { toast } from 'sonner';
-import { cn } from '@/lib/utils';
+
 import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard';
 import { normalizeAppTitle } from '@/utils/string';
 import type { GitCloneTokenData } from '@/api-types';

@@ -3,6 +3,7 @@
  * Displays user's free tier usage and remaining limits
  */
 
+import { cn } from '@cloudflare/kumo';
 import {
 	Card,
 	CardContent,
@@ -24,7 +25,6 @@ import {
 	BarChart3,
 } from 'lucide-react';
 import { useLimitsContext } from '@/contexts/limits-context';
-import { cn } from '@/lib/utils';
 import CloudflareLogo from '@/assets/provider-logos/cloudflare.svg?react';
 
 interface UsageLimitsCardProps {

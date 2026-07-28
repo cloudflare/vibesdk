@@ -28,8 +28,8 @@ import {
 	Button,
 	DropdownMenu,
 	useKumoToastManager,
+	cn,
 } from '@cloudflare/kumo';
-import clsx from 'clsx';
 import { UserMessage, AIMessage } from './components/messages';
 import { PhaseTimeline } from './components/phase-timeline';
 import { type DebugMessage } from './components/debug-panel';
@@ -1090,7 +1090,7 @@ export default function Chat() {
 						className="flex-1 shrink-0 flex flex-col basis-0 max-w-2xl relative z-10 h-full min-h-0"
 					>
 						<div
-							className={clsx(
+							className={cn(
 								'flex-1 overflow-y-auto min-h-0 chat-messages-scroll',
 								isDebugging && 'animate-debug-pulse',
 							)}

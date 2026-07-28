@@ -1,6 +1,6 @@
 import { type FormEvent, type ReactNode, type RefObject, useRef } from 'react';
-import { ArrowRight } from 'react-feather';
-import clsx from 'clsx';
+import { ArrowRightIcon } from '@phosphor-icons/react';
+import { cn } from '@cloudflare/kumo';
 import { ImageAttachmentPreview } from '@/components/image-attachment-preview';
 import { ImageUploadButton } from '@/components/image-upload-button';
 import { CreditsBanner } from '@/components/credits-banner';
@@ -151,7 +151,7 @@ export function PromptBox({
 
 	if (isCompact) {
 		return (
-			<div className={clsx('flex flex-col', className)} {...dragHandlers}>
+			<div className={cn('flex flex-col', className)} {...dragHandlers}>
 				{aboveContent}
 				<CreditsBanner
 					limitsData={limitsData}
@@ -204,7 +204,7 @@ export function PromptBox({
 										className="p-1.5 rounded-md bg-brand/90 hover:bg-brand/80 disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-transparent text-white disabled:text-text-primary transition-colors"
 									>
 										{submitIcon ?? (
-											<ArrowRight className="size-4" />
+											<ArrowRightIcon className="size-4" />
 										)}
 									</button>
 								</div>
@@ -221,7 +221,7 @@ export function PromptBox({
 		<CreditsBanner
 			limitsData={limitsData}
 			onConnectCloudflare={onConnectCloudflare}
-			className={clsx('w-full z-10', className)}
+			className={cn('w-full z-10', className)}
 			radius={borderRadius}
 		>
 			<div
@@ -244,7 +244,7 @@ export function PromptBox({
 					className="flex z-10 flex-col w-full min-h-[136px] bg-bg-4 ring-0 dark:bg-kumo-elevated rounded-[18px] p-4 transition-all duration-200"
 				>
 					<div
-						className={clsx(
+						className={cn(
 							'flex-1 flex flex-col relative',
 							isDragging &&
 								'ring-2 ring-brand ring-offset-2 rounded-lg',
@@ -285,14 +285,14 @@ export function PromptBox({
 						)}
 					</div>
 					<div
-						className={clsx(
+						className={cn(
 							'flex items-center mt-4 pt-1',
 							leftActions ? 'justify-between' : 'justify-end',
 						)}
 					>
 						{leftActions}
 						<div
-							className={clsx(
+							className={cn(
 								'flex items-center gap-2',
 								leftActions && 'ml-4',
 							)}
@@ -309,7 +309,7 @@ export function PromptBox({
 								}
 								className="bg-brand text-white p-1 rounded-md *:size-5 transition-all duration-200 hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
 							>
-								{submitIcon ?? <ArrowRight />}
+								{submitIcon ?? <ArrowRightIcon />}
 							</button>
 						</div>
 					</div>

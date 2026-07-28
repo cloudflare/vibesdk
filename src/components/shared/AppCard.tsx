@@ -1,4 +1,5 @@
 import React from 'react';
+import { cn } from '@cloudflare/kumo';
 import { motion } from 'framer-motion';
 import {
 	Star,
@@ -13,7 +14,7 @@ import {
 	Loader2,
 	Github,
 } from 'lucide-react';
-import { cn } from '@/lib/utils';
+
 import { formatDistanceToNow } from 'date-fns';
 import type {
 	AppWithFavoriteStatus,

@@ -1,7 +1,7 @@
 import { useRef, useEffect, useState } from 'react';
 import { Button } from '../../../components/primitives/button';
 import { Loader, ExternalLink, Zap, Check, Globe, Lock, Share2 } from 'lucide-react';
-import clsx from 'clsx';
+import { cn } from '@cloudflare/kumo';
 import { apiClient } from '../../../lib/api-client';
 import { toast } from 'sonner';
 import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard';
@@ -259,14 +259,14 @@ export function DeploymentControls({
 			{currentState !== DeploymentState.DEPLOYED && (
 				<div
 					ref={deploymentRef}
-					className={clsx(
+					className={cn(
 						"border rounded-lg p-3 transition-all duration-500 mt-2",
 						stateConfig.panelClass
 					)}
 				>
 					<div className="flex items-center gap-3">
 						{/* Enhanced Status Icon with deployment state */}
-						<div className={clsx(
+						<div className={cn(
 							"flex-shrink-0 w-4 h-4 rounded border-2 flex items-center justify-center transition-all duration-500",
 							stateConfig.iconClass
 						)}>
@@ -275,13 +275,13 @@ export function DeploymentControls({
 
 						{/* Enhanced Deployment Section Content */}
 						<div className="flex-1">
-							<div className={clsx(
+							<div className={cn(
 								"text-sm font-medium transition-colors duration-300",
 								stateConfig.titleColor
 							)}>
 								{stateConfig.title}
 							</div>
-							<div className={clsx(
+							<div className={cn(
 								"text-xs mt-0.5 transition-colors duration-300",
 								stateConfig.subtitleColor
 							)}>
@@ -293,7 +293,7 @@ export function DeploymentControls({
 						<Button
 							onClick={handleDeploy}
 							disabled={stateConfig.buttonDisabled || isCurrentlyDeploying || isDeployButtonClicked}
-							className={clsx(
+							className={cn(
 								"h-8 px-4 text-sm font-medium transition-all duration-300 transform",
 								stateConfig.buttonClass
 							)}
@@ -377,7 +377,7 @@ export function DeploymentControls({
 					)}
 
 					{/* Action Buttons - Enhanced with visibility toggle */}
-					<div className={clsx(
+					<div className={cn(
 						"grid gap-3",
 						isRedeployReady ? "grid-cols-3" : "grid-cols-2"
 					)}>
@@ -397,7 +397,7 @@ export function DeploymentControls({
 								onClick={handleToggleVisibility}
 								disabled={isUpdatingVisibility}
 								variant="secondary"
-								className={clsx(
+								className={cn(
 									"h-10 text-sm font-medium transition-all duration-200 shadow-sm",
 									localVisibility === 'private'
 										? "bg-brand hover:bg-brand/90 text-white border-brand hover:shadow-md hover:scale-[1.02]"
@@ -429,7 +429,7 @@ export function DeploymentControls({
 								onClick={handleDeploy}
 								disabled={isDeploying || isDeployButtonClicked}
 								variant="secondary"
-								className={clsx(
+								className={cn(
 									"h-10 text-sm font-medium transition-all duration-200 shadow-sm",
 									!isDeploying
 										? "bg-blue-500 hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-700 text-white border-blue-500 dark:border-blue-600 hover:shadow-md dark:hover:shadow-blue-900/50 hover:scale-[1.02]"

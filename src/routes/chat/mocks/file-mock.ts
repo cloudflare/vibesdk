@@ -3,7 +3,7 @@ import type { FileType } from '@/api-types';
 // Mock file contents for different file types
 const mockFileContents = {
   'src/components/Button.tsx': `import React from 'react';
-import clsx from 'clsx';
+import { cn } from '@cloudflare/kumo';
 
 interface ButtonProps {
   variant?: 'primary' | 'secondary' | 'outline';
@@ -26,7 +26,7 @@ export function Button({
     <button
       onClick={onClick}
       disabled={disabled}
-      className={clsx(
+      className={cn(
         'font-medium rounded-lg transition-colors focus:outline-none focus:ring-2',
         {
           'bg-blue-600 hover:bg-blue-700 text-white focus:ring-blue-500': variant === 'primary',
@@ -46,7 +46,7 @@ export function Button({
 }`,
 
   'src/components/Input.tsx': `import React from 'react';
-import clsx from 'clsx';
+import { cn } from '@cloudflare/kumo';
 
 interface InputProps {
   label?: string;
@@ -72,7 +72,7 @@ export function Input({
   className
 }: InputProps) {
   return (
-    <div className={clsx('space-y-1', className)}>
+    <div className={cn('space-y-1', className)}>
       {label && (
         <label className="block text-sm font-medium text-gray-700">
           {label}
@@ -86,7 +86,7 @@ export function Input({
         onChange={(e) => onChange?.(e.target.value)}
         disabled={disabled}
         required={required}
-        className={clsx(
+        className={cn(
           'block w-full px-3 py-2 border rounded-md shadow-sm transition-colors',
           'focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500',
           {
@@ -278,7 +278,7 @@ export function generateLongFileNameMockFiles(): FileType[] {
   const generateContent = (lines: number, fileType = 'tsx') => {
     const imports = `import React from 'react';
 import { useState, useEffect, useCallback } from 'react';
-import clsx from 'clsx';
+import { cn } from '@cloudflare/kumo';
 `;
     const content = Array.from({ length: Math.max(1, lines - 10) }, (_, i) => 
       `// Line ${i + 4}: ${fileType === 'tsx' ? 'Component logic' : 'Business logic'} implementation`

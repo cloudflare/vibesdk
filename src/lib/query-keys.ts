@@ -88,5 +88,15 @@ export const queryKeys = {
 					userId ?? 'anonymous',
 				] as const,
 		},
+		limits: {
+			all: () => [...queryKeys.account.all, 'limits'] as const,
+			usageAll: () =>
+				[...queryKeys.account.limits.all(), 'usage'] as const,
+			usage: (userId?: string | null) =>
+				[
+					...queryKeys.account.limits.usageAll(),
+					userId ?? 'anonymous',
+				] as const,
+		},
 	},
 };

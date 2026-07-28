@@ -1,8 +1,8 @@
 import { useState } from 'react';
+import { cn } from '@cloudflare/kumo';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Copy, Check, Download, AlertTriangle } from 'lucide-react';
-import { cn } from '@/lib/utils';
 
 interface Props {
 	codes: string[];

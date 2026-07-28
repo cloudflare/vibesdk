@@ -49,6 +49,8 @@ export function AppLayout({ children }: AppLayoutProps) {
 
 	return (
 		<SidebarProvider
+			// remove once sidebar toggle is added to main content in mobile breakpoints
+			mobileBreakpoint={0}
 			defaultOpen={defaultOpen}
 			collapsible="icon"
 			resizable={false}

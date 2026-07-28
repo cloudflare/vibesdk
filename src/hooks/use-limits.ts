@@ -2,8 +2,10 @@
  * Hook for fetching and managing usage limits
  */
 
-import { useState, useEffect } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api-client';
+import { queryKeys } from '@/lib/query-keys';
+import { useAuth } from '@/contexts/auth-context';
 
 export interface LimitConfig {
 	type: 'prompts' | 'tokens' | 'cost' | 'credits';
@@ -74,42 +76,34 @@ export interface UsageSummary {
 	} | null;
 }
 
+export async function fetchLimitsUsage(): Promise<UsageSummary> {
+	const result = await apiClient.getLimitsUsage();
+	if (result.success && result.data) {
+		return result.data as UsageSummary;
+	}
+	throw new Error(result.error?.message || 'Failed to load usage data');
+}
+
 export function useLimits() {
-	const [data, setData] = useState<UsageSummary | null>(null);
-	const [loading, setLoading] = useState(true);
-	const [error, setError] = useState<string | null>(null);
+	const { user } = useAuth();
+	const enabled = !!user;
 
-	const fetchLimits = async () => {
-		try {
-			setLoading(true);
-			setError(null);
-			
-			// Use API client - auth (including encrypted Cloudflare OAuth token)
-			// is read server-side from the HttpOnly cookie.
-			const result = await apiClient.getLimitsUsage();
-			
-			// apiClient returns { success, data, message?, error? }
-			if (result.success && result.data) {
-				setData(result.data as UsageSummary);
-			} else {
-				setError(result.error?.message || 'Failed to load usage data');
-			}
-		} catch (err) {
-			console.error('Error fetching limits:', err);
-			setError(err instanceof Error ? err.message : 'Unknown error');
-		} finally {
-			setLoading(false);
-		}
-	};
-
-	useEffect(() => {
-		fetchLimits();
-	}, []);
+	const query = useQuery({
+		queryKey: queryKeys.account.limits.usage(user?.id),
+		queryFn: fetchLimitsUsage,
+		enabled,
+	});
 
 	return {
-		data,
-		loading,
-		error,
-		refetch: fetchLimits,
+		data: query.data ?? null,
+		loading: enabled && query.isLoading,
+		error: query.error
+			? query.error instanceof Error
+				? query.error.message
+				: 'Unknown error'
+			: null,
+		refetch: async () => {
+			await query.refetch();
+		},
 	};
 }

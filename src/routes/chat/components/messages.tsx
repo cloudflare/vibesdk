@@ -1,5 +1,5 @@
 import { AIAvatar } from '../../../components/icons/logos';
-import clsx from 'clsx';
+import { cn } from '@cloudflare/kumo';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeExternalLinks from 'rehype-external-links';
@@ -327,7 +327,7 @@ export function ToolStatusIndicator({ event, richToolPreview = false }: { event:
 	const button = (
 		<button
 			onClick={() => canExpand && setIsExpanded(!isExpanded)}
-			className={clsx(
+			className={cn(
 				'flex items-center gap-1.5 text-xs',
 				isDeepDebug ? 'text-kumo-brand font-medium' : 'text-text-tertiary',
 				canExpand && 'cursor-pointer hover:text-text-secondary transition-colors'
@@ -358,7 +358,7 @@ export function ToolStatusIndicator({ event, richToolPreview = false }: { event:
 			{trigger}
 
 			{isExpanded && canExpand && (
-				<div className={clsx(
+				<div className={cn(
 					'p-3 rounded-md text-xs font-mono border overflow-auto',
 					isDeepDebug
 						? 'bg-surface-tertiary/30 border-brand/20 max-h-[600px]'
@@ -469,10 +469,10 @@ function ReasoningBlock({ part, streaming }: { part: Extract<MessagePart, { type
 				{active
 					? <LoaderCircle className="size-3.5 shrink-0 text-kumo-brand animate-spin" />
 					: <Brain className="size-3.5 shrink-0 text-text-tertiary" />}
-				<span className={clsx('flex-1 text-xs font-medium text-text-secondary', active && 'animate-pulse')}>
+				<span className={cn('flex-1 text-xs font-medium text-text-secondary', active && 'animate-pulse')}>
 					{active ? 'Thinking' : 'Thoughts'}
 				</span>
-				<ChevronDown className={clsx('size-3.5 shrink-0 text-text-tertiary transition-transform', open && 'rotate-180')} />
+				<ChevronDown className={cn('size-3.5 shrink-0 text-text-tertiary transition-transform', open && 'rotate-180')} />
 			</button>
 			{open && (
 				<div className="px-3 pb-3 max-h-96 overflow-y-auto text-xs text-text-tertiary">
@@ -555,13 +555,13 @@ function ToolCard({ event }: { event: ToolEvent }) {
 				type="button"
 				onClick={() => canExpand && setOpen(o => !o)}
 				disabled={!canExpand}
-				className={clsx('flex w-full items-center gap-2 px-3 py-2 text-left', canExpand && 'cursor-pointer')}
+				className={cn('flex w-full items-center gap-2 px-3 py-2 text-left', canExpand && 'cursor-pointer')}
 			>
 				<Wrench className="size-3.5 shrink-0 text-text-tertiary" />
 				<span className="flex-1 min-w-0 truncate font-mono text-xs text-text-secondary">{event.name}</span>
 				{rollbackHash && <RollbackButton commitHash={rollbackHash} />}
 				{canExpand && (
-					<ChevronDown className={clsx('size-3.5 shrink-0 text-text-tertiary transition-transform', open && 'rotate-180')} />
+					<ChevronDown className={cn('size-3.5 shrink-0 text-text-tertiary transition-transform', open && 'rotate-180')} />
 				)}
 				<ToolStatusGlyph status={event.status} />
 			</button>
@@ -690,7 +690,7 @@ export function AIMessage({
 				Orange
 				{isThinking && <Sparkles className="size-3 text-orange-400 animate-pulse" />}
 			</div>
-			<div className={clsx(isThinking && 'animate-pulse')}>
+			<div className={cn(isThinking && 'animate-pulse')}>
 				<AssistantParts parts={resolvedParts} streaming={!!isThinking} />
 			</div>
 		</div>
@@ -704,7 +704,7 @@ interface MarkdownProps extends React.ComponentProps<'article'> {
 export function Markdown({ children, className, ...props }: MarkdownProps) {
 	return (
 		<article
-			className={clsx('prose prose-sm prose-teal', className)}
+			className={cn('prose prose-sm prose-teal', className)}
 			{...props}
 		>
 			<ReactMarkdown

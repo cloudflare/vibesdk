@@ -1,9 +1,9 @@
 import { AnimatePresence, motion } from 'framer-motion';
-import { Check, Link2 } from 'react-feather';
+import { CheckIcon, LinkSimpleIcon } from '@phosphor-icons/react';
 import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard';
 
-const MotionCheck = motion.create(Check);
-const MotionLink = motion.create(Link2);
+const MotionCheck = motion.create(CheckIcon);
+const MotionLink = motion.create(LinkSimpleIcon);
 
 export function Copy({ text }: { text: string }) {
 	const { copied, copy } = useCopyToClipboard();
