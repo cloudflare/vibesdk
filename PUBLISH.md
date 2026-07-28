@@ -113,7 +113,8 @@ gh run watch
 1. runs `vp install --frozen-lockfile`
 2. validates that the release tag equals `v<package.json version>`, failing otherwise
 3. runs `vp run ready`
-4. runs `npm publish --access public` from `packages/artifacts-viewer`
+4. runs `pnpm pack` then `npm publish <tarball>` from `packages/artifacts-viewer`
+   (`pnpm pack` rewrites `catalog:` ranges; plain `npm publish` does not)
 
 Authentication is OIDC trusted publishing (`permissions: id-token: write`). There is no
 `NODE_AUTH_TOKEN`. npm generates an SLSA provenance attestation automatically.

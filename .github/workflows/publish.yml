@@ -41,6 +41,12 @@ jobs:
       - name: Validate workspace
         run: vp run ready
 
+      # pnpm pack rewrites catalog: / workspace: protocol ranges to real
+      # versions. npm publish does not, and would ship a broken package.json
+      # (see 0.0.3). Publish the packed tarball so OIDC trusted publishing still
+      # runs through npm while the manifest is correct.
       - name: Publish to npm
         working-directory: packages/artifacts-viewer
-        run: npm publish --access public
+        run: |
+          tarball="$(pnpm pack --pack-destination . | tail -n 1)"
+          npm publish "${tarball}" --access public
