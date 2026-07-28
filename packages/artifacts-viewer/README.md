@@ -8,24 +8,43 @@ Your Cloudflare API token stays on the server. The browser only ever talks to yo
 
 ## Contents
 
-- [How it works](#how-it-works)
-- [Install](#install)
-- [Quick start](#quick-start)
-- [`artifacts-viewer` — server router](#artifacts-viewer--server-router)
-- [`artifacts-viewer/server/cache` — cache adapters](#artifacts-viewerservercache--cache-adapters)
-- [`artifacts-viewer/client` — typed client](#artifacts-viewerclient--typed-client)
-- [`artifacts-viewer/react` — components and hooks](#artifacts-viewerreact--components-and-hooks)
-- [Styling](#styling)
-- [Syntax highlighting](#syntax-highlighting)
-- [Limits and behaviour](#limits-and-behaviour)
-- [Not included](#not-included)
+- [artifacts-viewer](#artifacts-viewer)
+  - [Contents](#contents)
+  - [How it works](#how-it-works)
+    - [Request flow](#request-flow)
+  - [Install](#install)
+  - [Quick start](#quick-start)
+    - [1. Mount the router](#1-mount-the-router)
+    - [2. Render the viewer](#2-render-the-viewer)
+  - [`artifacts-viewer` — server router](#artifacts-viewer--server-router)
+    - [Authorization](#authorization)
+    - [Response behaviour](#response-behaviour)
+    - [CORS](#cors)
+  - [`artifacts-viewer/server/cache` — cache adapters](#artifacts-viewerservercache--cache-adapters)
+  - [`artifacts-viewer/client` — typed client](#artifacts-viewerclient--typed-client)
+  - [`artifacts-viewer/react` — components and hooks](#artifacts-viewerreact--components-and-hooks)
+    - [Components](#components)
+      - [`renderStatus` — loading, empty, and error states](#renderstatus--loading-empty-and-error-states)
+    - [Hooks](#hooks)
+    - [Building your own UI](#building-your-own-ui)
+  - [Styling](#styling)
+    - [Custom properties](#custom-properties)
+    - [Selector hooks](#selector-hooks)
+  - [Syntax highlighting](#syntax-highlighting)
+    - [Loading](#loading)
+      - [`renderCodeFallback` — what the wait looks like](#rendercodefallback--what-the-wait-looks-like)
+      - [`preloadCodeView` — how long the wait is](#preloadcodeview--how-long-the-wait-is)
+    - [Theming](#theming)
+  - [Limits and behaviour](#limits-and-behaviour)
+  - [Not included](#not-included)
+  - [License](#license)
 
 ## How it works
 
 ```
 browser                    your server                     Cloudflare
 ┌──────────────────┐      ┌──────────────────────┐      ┌──────────────┐
-│ ArtifactRepoView │      │ routeArtifactRequest │      │ Artifacts    │
+│ArtifactRepoViewer│      │ routeArtifactRequest │      │ Artifacts    │
 │        ↓         │─────▶│  · validates         │─────▶│ REST API     │
 │ ArtifactsClient  │      │  · adds API token    │      │              │
 └──────────────────┘      │  · optional cache    │      └──────────────┘
@@ -60,14 +79,20 @@ After that every navigation is addressed by git hash — `readTree(entry.hash)` 
 ## Install
 
 ```bash
-npm install artifacts-viewer react react-dom
+npm install artifacts-viewer
+# or
+pnpm install artifacts-viewer
+# or
+bun install artifacts-viewer
 ```
 
-`react` and `react-dom` are peer dependencies (`^18.2.0 || ^19.0.0`). `@pierre/diffs` is a direct dependency, loaded lazily and only when a text file is opened.
+`react` and `react-dom` are peer dependencies (`^18.2.0 || ^19.0.0`). `@pierre/diffs` is a direct dependency. It is split from the initial bundle and proactively prefetched when `ArtifactRepoViewer` mounts.
 
 ## Quick start
 
 ### 1. Mount the router
+
+> **The router allows every request by default.** Add a `beforeRequest` policy before exposing this endpoint; otherwise anyone who can reach it can read any valid repository name in the configured namespace.
 
 ```ts
 // worker/index.ts
@@ -80,6 +105,12 @@ export default {
       accountId: env.ARTIFACTS_ACCOUNT_ID,
       namespace: env.ARTIFACTS_NAMESPACE,
       apiToken: env.ARTIFACTS_API_TOKEN,
+      beforeRequest: async ({ request, read }) => {
+        const user = await getSessionUser(request);
+        if (user === null || !user.repositories.includes(read.repoName)) {
+          return new Response("Forbidden", { status: 403 });
+        }
+      },
       cache: createCacheApiAdapter({
         cache: caches.default,
         baseUrl: new URL(request.url).origin,
@@ -181,7 +212,7 @@ if (request.method === "OPTIONS") return myPreflight(request);
 
 ## `artifacts-viewer/server/cache` — cache adapters
 
-Only content-addressed reads (`commit`, `tree`, `blob`) are ever cached. A cached entry can be absent but never wrong, so there is no TTL and no staleness window anywhere in the package. Ref-addressed reads are never cached.
+Only content-addressed reads (`commit`, `tree`, `blob`) are ever cached. Their values cannot become semantically stale, but the bundled Cache API and KV adapters use one-year freshness or expiration settings and either backend may evict an entry earlier. Ref-addressed reads are never cached.
 
 ```ts
 type ArtifactsCacheAdapter = {
@@ -212,7 +243,7 @@ const client = createArtifactsClient({
 });
 ```
 
-Every method returns a result union rather than throwing:
+Every asynchronous request method returns a result union rather than throwing. The synchronous `getRawUrl` helper returns a string:
 
 ```ts
 type ArtifactsResult<T> = { ok: true; value: T } | { ok: false; error: ArtifactsClientError };
@@ -265,22 +296,76 @@ In `ArtifactRepoViewer` the content pane shows a file when one is selected, and 
 
 `ArtifactRepoViewer` props:
 
-| Prop                  | Type                                    | Notes                                                       |
-| --------------------- | --------------------------------------- | ----------------------------------------------------------- |
-| `client`              | `ArtifactsClient`                       | Required. Keep the identity stable                          |
-| `repoName`            | `string`                                | Required                                                    |
-| `gitRef`              | `string`                                | Branch, tag, or commit. Omitted resolves the default branch |
-| `onSelect`            | `(s: ArtifactSelection) => void`        | Fires on every tree or directory activation                 |
-| `buildHref`           | `(s: ArtifactSelection) => string`      | When set, rows render as `<a>` instead of `<button>`        |
-| `icons`               | `Partial<ArtifactIconSlots>`            | `file`, `folder`, `folderOpen`, `submodule`                 |
-| `className` / `style` | —                                       | Applied to the root                                         |
-| `classNames`          | `Partial<Record<ArtifactSlot, string>>` | Per-slot classes                                            |
-| `colorMode`           | `"light" \| "dark" \| "system"`         | Emitted as `data-mode`                                      |
-| `maxInlineBytes`      | `number`                                | Default `524288` (512 KiB)                                  |
-| `pierreDiffsOptions`  | `ArtifactPierreDiffsOptions`            | Code-view theming                                           |
-| `renderCodeFallback`  | `ArtifactCodeFallbackRenderer`          | Placeholder shown while the code view is prepared           |
+| Prop                  | Type                                    | Notes                                                             |
+| --------------------- | --------------------------------------- | ----------------------------------------------------------------- |
+| `client`              | `ArtifactsClient`                       | Required. Keep the identity stable                                |
+| `repoName`            | `string`                                | Required                                                          |
+| `gitRef`              | `string`                                | Branch, tag, or commit. Omitted resolves the default branch       |
+| `onSelect`            | `(s: ArtifactSelection) => void`        | Fires initially for root, then for each non-gitlink row selection |
+| `buildHref`           | `(s: ArtifactSelection) => string`      | When set, rows render as `<a>` instead of `<button>`              |
+| `icons`               | `Partial<ArtifactIconSlots>`            | `file`, `folder`, `folderOpen`, `submodule`                       |
+| `className` / `style` | —                                       | Applied to the root                                               |
+| `classNames`          | `Partial<Record<ArtifactSlot, string>>` | Per-slot classes                                                  |
+| `colorMode`           | `"light" \| "dark" \| "system"`         | Emitted as `data-mode`                                            |
+| `maxInlineBytes`      | `number`                                | Default `524288` (512 KiB)                                        |
+| `pierreDiffsOptions`  | `ArtifactPierreDiffsOptions`            | Code-view theming                                                 |
+| `renderCodeFallback`  | `ArtifactCodeFallbackRenderer`          | Placeholder shown while the code view is prepared                 |
+| `renderStatus`        | `ArtifactStatusRenderers`               | Replaces the loading, empty, and error markup                     |
 
 The prop is `gitRef`, not `ref`, because React reserves `ref`.
+
+#### `renderStatus` — loading, empty, and error states
+
+By default every pane renders a plain `<p>` with English text: `Loading repository…`,
+`This directory is empty.`, `Binary file (12.4 KiB).`, and so on. `renderStatus`
+replaces that markup, which is also how you localise the copy.
+
+```tsx
+<ArtifactRepoViewer
+  client={client}
+  repoName="website"
+  renderStatus={{
+    loading: (context) => <Spinner label={context.scope} />,
+    empty: (context, kind) => <Notice kind={kind} scope={context.scope} />,
+    error: (context, error) => <Notice tone="danger">{error.message}</Notice>,
+  }}
+/>
+```
+
+Every renderer receives a discriminated context, so one function can speak
+differently per pane:
+
+```ts
+type ArtifactStatusContext =
+  | { scope: "repository"; repoName: string }
+  | { scope: "tree"; repoName: string; path: string }
+  | { scope: "file"; repoName: string; path: string; name: string };
+
+type ArtifactEmptyKind = "empty" | "binary" | "oversized";
+
+type ArtifactStatusRenderers = {
+  loading?: (context: ArtifactStatusContext) => ReactNode;
+  empty?: (context: ArtifactStatusContext, kind?: ArtifactEmptyKind) => ReactNode;
+  error?: (context: ArtifactStatusContext, error: ArtifactsClientError) => ReactNode;
+};
+```
+
+`kind` is only set for files, because a repository or directory is already
+identified by `context.scope`.
+
+Three things worth knowing:
+
+- **The map is partial.** A renderer returning `undefined` — including one you
+  simply did not name — keeps the default. Return `null` to render nothing.
+- **The slot survives.** Your output is wrapped in the matching slot element, so
+  `data-artifacts-viewer-slot`, `aria-busy`, `role="alert"`, and `data-kind` are
+  still there to target and still announced. You do not repeat them.
+- **`renderStatus` is also accepted by** `ArtifactFileTree`, `ArtifactDirectoryView`,
+  and `ArtifactFileView`, so it works when you compose the pieces yourself.
+
+The code view is deliberately not covered by `renderStatus`: it waits on the
+highlighter rather than the network, and [`renderCodeFallback`](#rendercodefallback--what-the-wait-looks-like)
+already owns that placeholder.
 
 ### Hooks
 
@@ -320,7 +405,7 @@ type ArtifactBlobRender =
 
 ### Building your own UI
 
-The components are controlled and the hooks are public, so you can replace the markup entirely:
+The components are composable and customizable, and the hooks are public, so you can replace the markup entirely. `ArtifactRepoViewer` owns its current selection internally.
 
 ```tsx
 function MyTree({ client, repoName, treeHash }) {
@@ -338,7 +423,7 @@ function MyTree({ client, repoName, treeHash }) {
 
 ## Styling
 
-`artifacts-viewer/styles.css` is **layout only**. It picks no colour, font, or scale — every value routes through a custom property that falls back to `inherit`, `currentColor`, or a neutral length. All selectors are wrapped in `:where()`, so they carry zero specificity and any rule of yours wins without `!important`.
+`artifacts-viewer/styles.css` is **structural only**. It picks no theme, and its main layout values are exposed as custom properties. Its selectors are intentionally low-specificity, using `:where()` for public hooks where practical, so ordinary application rules can override them without `!important`.
 
 Import it once:
 
@@ -381,7 +466,7 @@ import "artifacts-viewer/styles.css";
 
 ### Selector hooks
 
-Every element carries a stable attribute. Slots also accept a class through `classNames`.
+Public slots and parts carry stable attributes. Slots also accept a class through `classNames`; internal wrapper elements are not part of this selector contract.
 
 `data-artifacts-viewer-slot`: `root`, `toolbar`, `sidebar`, `tree`, `treeItem`, `content`, `directory`, `directoryItem`, `file`, `loading`, `empty`, `error`
 
@@ -409,7 +494,7 @@ The layout is container-query driven: the two panes collapse to one column below
 
 ## Syntax highlighting
 
-Text files render through [`@pierre/diffs`](https://www.npmjs.com/package/@pierre/diffs), which wraps Shiki. It is loaded with a dynamic `import()`, so neither Pierre nor Shiki lands in your initial bundle — the chunk is fetched the first time a text file is opened.
+Text files render through [`@pierre/diffs`](https://www.npmjs.com/package/@pierre/diffs), which wraps Shiki. It is loaded with a dynamic `import()`, so neither Pierre nor Shiki lands in your initial bundle. `ArtifactRepoViewer` proactively starts fetching the chunk when it mounts.
 
 ### Loading
 
@@ -423,7 +508,7 @@ Three states, in order:
 | Ready       | The highlighted file — `data-artifacts-viewer-part="code-highlight"`                                |
 | Unavailable | Plain `<pre>` holding the file contents — `data-artifacts-viewer-part="code-fallback"`              |
 
-The last row is the safety net. If the chunk or the theme fails to load you get readable text, not a placeholder that never resolves.
+The unavailable state renders readable text when preloading reports that highlighting could not be initialized. It is not a general error boundary for failures after the lazy component starts rendering.
 
 #### `renderCodeFallback` — what the wait looks like
 

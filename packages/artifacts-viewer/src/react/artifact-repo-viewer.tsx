@@ -17,6 +17,8 @@ import type {
   ArtifactIconSlots,
   ArtifactPierreDiffsOptions,
   ArtifactSelection,
+  ArtifactStatusContext,
+  ArtifactStatusRenderers,
 } from "./types.ts";
 
 export type ArtifactRepoViewerProps = {
@@ -40,6 +42,8 @@ export type ArtifactRepoViewerProps = {
   readonly pierreDiffsOptions?: ArtifactPierreDiffsOptions;
   /** Rendered while the highlighted view is prepared. Defaults to a loading message. */
   readonly renderCodeFallback?: ArtifactCodeFallbackRenderer;
+  /** Replaces the default loading, empty, and error markup in every pane. */
+  readonly renderStatus?: ArtifactStatusRenderers;
 };
 
 export function ArtifactRepoViewer({
@@ -56,8 +60,11 @@ export function ArtifactRepoViewer({
   maxInlineBytes,
   pierreDiffsOptions,
   renderCodeFallback,
+  renderStatus,
 }: ArtifactRepoViewerProps): ReactElement {
   const commit = useArtifactHeadCommit(client, repoName, gitRef);
+  const context: ArtifactStatusContext = { scope: "repository", repoName };
+  const status = { classNames, renderStatus, context } as const;
   const theme = pierreDiffsOptions?.theme;
   const themeKey = themeNames(theme).join(",");
 
@@ -82,11 +89,11 @@ export function ArtifactRepoViewer({
       </header>
 
       {commit.status === "idle" || commit.status === "loading" ? (
-        <LoadingMessage classNames={classNames} label="Loading repository…" />
+        <LoadingMessage {...status} label="Loading repository…" />
       ) : commit.status === "error" ? (
-        <ErrorMessage classNames={classNames} error={commit.error} />
+        <ErrorMessage {...status} error={commit.error} />
       ) : commit.data === null ? (
-        <EmptyMessage classNames={classNames} label="This repository is empty." />
+        <EmptyMessage {...status} label="This repository is empty." />
       ) : (
         <RepositoryPanes
           key={commit.data.hash}
@@ -100,6 +107,7 @@ export function ArtifactRepoViewer({
           maxInlineBytes={maxInlineBytes}
           pierreDiffsOptions={pierreDiffsOptions}
           renderCodeFallback={renderCodeFallback}
+          renderStatus={renderStatus}
         />
       )}
     </section>
@@ -117,6 +125,7 @@ type RepositoryPanesProps = {
   readonly maxInlineBytes?: number;
   readonly pierreDiffsOptions?: ArtifactPierreDiffsOptions;
   readonly renderCodeFallback?: ArtifactCodeFallbackRenderer;
+  readonly renderStatus?: ArtifactStatusRenderers;
 };
 
 /**
@@ -137,6 +146,7 @@ function RepositoryPanes({
   maxInlineBytes,
   pierreDiffsOptions,
   renderCodeFallback,
+  renderStatus,
 }: RepositoryPanesProps): ReactElement {
   const rootSelection: ArtifactSelection = {
     path: "",
@@ -170,6 +180,7 @@ function RepositoryPanes({
           buildHref={buildHref}
           icons={icons}
           classNames={classNames}
+          renderStatus={renderStatus}
         />
       </aside>
 
@@ -182,6 +193,7 @@ function RepositoryPanes({
           maxInlineBytes={maxInlineBytes}
           pierreDiffsOptions={pierreDiffsOptions}
           renderCodeFallback={renderCodeFallback}
+          renderStatus={renderStatus}
           classNames={classNames}
         />
       ) : selection.path === "" ? null : (
@@ -194,6 +206,7 @@ function RepositoryPanes({
           buildHref={buildHref}
           icons={icons}
           classNames={classNames}
+          renderStatus={renderStatus}
           label={selection.path}
         />
       )}

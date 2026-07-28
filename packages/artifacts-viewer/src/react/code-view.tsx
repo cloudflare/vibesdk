@@ -2,7 +2,6 @@ import { Suspense, lazy, useEffect, useMemo, useState } from "react";
 import type { ReactElement } from "react";
 import type { FileOptions } from "@pierre/diffs/react";
 import { preloadCodeView, themeNames } from "./highlighter.ts";
-import { LoadingMessage } from "./status.tsx";
 import type {
   ArtifactClassNames,
   ArtifactCodeFallbackRenderer,
@@ -100,7 +99,15 @@ export function CodeView({
       ) : (
         <div data-artifacts-viewer-part="code-pending">
           {renderCodeFallback === undefined ? (
-            <LoadingMessage classNames={classNames} label="Preparing view…" />
+            // Not routed through `renderStatus`: this waits on the highlighter
+            // rather than the network, and `renderCodeFallback` already owns it.
+            <p
+              data-artifacts-viewer-slot="loading"
+              className={classNames?.loading}
+              aria-busy="true"
+            >
+              Preparing view…
+            </p>
           ) : (
             renderCodeFallback({ name, contents })
           )}

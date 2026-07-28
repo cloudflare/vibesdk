@@ -42,12 +42,15 @@ export type {
   ArtifactClassNames,
   ArtifactCodeFallbackRenderer,
   ArtifactColorMode,
+  ArtifactEmptyKind,
   ArtifactHrefBuilder,
   ArtifactIconSlots,
   ArtifactPierreDiffsOptions,
   ArtifactPierreTheme,
   ArtifactSelection,
   ArtifactSlot,
+  ArtifactStatusContext,
+  ArtifactStatusRenderers,
 } from "./types.ts";
 
 export type {

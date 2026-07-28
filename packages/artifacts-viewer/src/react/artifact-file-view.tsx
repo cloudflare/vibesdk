@@ -9,6 +9,8 @@ import type {
   ArtifactCodeFallbackRenderer,
   ArtifactPierreDiffsOptions,
   ArtifactSelection,
+  ArtifactStatusContext,
+  ArtifactStatusRenderers,
 } from "./types.ts";
 
 export type ArtifactFileViewProps = {
@@ -21,6 +23,8 @@ export type ArtifactFileViewProps = {
   readonly pierreDiffsOptions?: ArtifactPierreDiffsOptions;
   /** Rendered while the highlighted view is prepared. Defaults to a loading message. */
   readonly renderCodeFallback?: ArtifactCodeFallbackRenderer;
+  /** Replaces the default loading, empty, and error markup. */
+  readonly renderStatus?: ArtifactStatusRenderers;
   readonly classNames?: ArtifactClassNames;
 };
 
@@ -32,6 +36,7 @@ export function ArtifactFileView({
   maxInlineBytes,
   pierreDiffsOptions,
   renderCodeFallback,
+  renderStatus,
   classNames,
 }: ArtifactFileViewProps): ReactElement {
   const rawUrl = client.getRawUrl({ repoName, ref: gitRef, path: selection.path });
@@ -41,6 +46,12 @@ export function ArtifactFileView({
     hash: selection.hash,
     maxInlineBytes,
   });
+  const context: ArtifactStatusContext = {
+    scope: "file",
+    repoName,
+    path: selection.path,
+    name: selection.name,
+  };
 
   return (
     <div data-artifacts-viewer-slot="file" className={classNames?.file}>
@@ -57,9 +68,19 @@ export function ArtifactFileView({
       </header>
 
       {blob.status === "idle" || blob.status === "loading" ? (
-        <LoadingMessage classNames={classNames} label="Loading file…" />
+        <LoadingMessage
+          classNames={classNames}
+          renderStatus={renderStatus}
+          context={context}
+          label="Loading file…"
+        />
       ) : blob.status === "error" ? (
-        <ErrorMessage classNames={classNames} error={blob.error} />
+        <ErrorMessage
+          classNames={classNames}
+          renderStatus={renderStatus}
+          context={context}
+          error={blob.error}
+        />
       ) : (
         renderBlob({
           render: blob.data,
@@ -67,6 +88,8 @@ export function ArtifactFileView({
           rawUrl,
           pierreDiffsOptions,
           renderCodeFallback,
+          renderStatus,
+          context,
           classNames,
         })
       )}
@@ -80,6 +103,8 @@ function renderBlob({
   rawUrl,
   pierreDiffsOptions,
   renderCodeFallback,
+  renderStatus,
+  context,
   classNames,
 }: {
   render: ArtifactBlobRender;
@@ -87,11 +112,15 @@ function renderBlob({
   rawUrl: string;
   pierreDiffsOptions?: ArtifactPierreDiffsOptions;
   renderCodeFallback?: ArtifactCodeFallbackRenderer;
+  renderStatus?: ArtifactStatusRenderers;
+  context: ArtifactStatusContext;
   classNames?: ArtifactClassNames;
 }): ReactElement {
+  const status = { classNames, renderStatus, context } as const;
+
   switch (render.kind) {
     case "empty":
-      return <EmptyMessage classNames={classNames} kind="empty" label="This file is empty." />;
+      return <EmptyMessage {...status} kind="empty" label="This file is empty." />;
 
     case "text":
       return (
@@ -114,7 +143,7 @@ function renderBlob({
     case "binary":
       return (
         <EmptyMessage
-          classNames={classNames}
+          {...status}
           kind="binary"
           label={`Binary file (${formatBytes(render.sizeBytes)}).`}
         />
@@ -122,11 +151,7 @@ function renderBlob({
 
     case "oversized":
       return (
-        <EmptyMessage
-          classNames={classNames}
-          kind="oversized"
-          label="This file is too large to display."
-        />
+        <EmptyMessage {...status} kind="oversized" label="This file is too large to display." />
       );
   }
 }

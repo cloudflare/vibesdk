@@ -13,6 +13,7 @@ import type {
   ArtifactHrefBuilder,
   ArtifactIconSlots,
   ArtifactSelection,
+  ArtifactStatusRenderers,
 } from "./types.ts";
 
 export type ArtifactFileTreeProps = {
@@ -25,6 +26,8 @@ export type ArtifactFileTreeProps = {
   readonly buildHref?: ArtifactHrefBuilder;
   readonly icons?: Partial<ArtifactIconSlots>;
   readonly classNames?: ArtifactClassNames;
+  /** Replaces the default loading, empty, and error markup. */
+  readonly renderStatus?: ArtifactStatusRenderers;
   /** Added to the tree slot alongside `classNames.tree`. */
   readonly className?: string;
   readonly label?: string;
@@ -45,6 +48,7 @@ export function ArtifactFileTree({
   buildHref,
   icons,
   classNames,
+  renderStatus,
   className,
   label = "Repository files",
 }: ArtifactFileTreeProps): ReactElement {
@@ -78,6 +82,7 @@ export function ArtifactFileTree({
         buildHref={buildHref}
         icons={icons}
         classNames={classNames}
+        renderStatus={renderStatus}
       />
     </nav>
   );
@@ -95,20 +100,23 @@ type TreeLevelProps = {
   readonly buildHref?: ArtifactHrefBuilder;
   readonly icons?: Partial<ArtifactIconSlots>;
   readonly classNames?: ArtifactClassNames;
+  readonly renderStatus?: ArtifactStatusRenderers;
 };
 
 function TreeLevel(props: TreeLevelProps): ReactElement {
   const { client, repoName, treeHash, basePath, expandedPaths, onToggle, classNames } = props;
   const tree = useArtifactTree(client, repoName, treeHash);
+  const status = { classNames, renderStatus: props.renderStatus } as const;
+  const context = { scope: "tree", repoName, path: basePath } as const;
 
   if (tree.status === "idle" || tree.status === "loading") {
-    return <LoadingMessage classNames={classNames} label="Loading…" />;
+    return <LoadingMessage {...status} context={context} label="Loading…" />;
   }
   if (tree.status === "error") {
-    return <ErrorMessage classNames={classNames} error={tree.error} />;
+    return <ErrorMessage {...status} context={context} error={tree.error} />;
   }
   if (tree.data.length === 0) {
-    return <EmptyMessage classNames={classNames} label="Empty directory" />;
+    return <EmptyMessage {...status} context={context} label="Empty directory" />;
   }
 
   return (

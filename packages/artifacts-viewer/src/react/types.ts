@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import type { ArtifactsClientError } from "../client/types.ts";
 import type { ArtifactsTreeEntry } from "../shared/official-types.ts";
 
 /**
@@ -66,3 +67,34 @@ export type ArtifactCodeFallbackRenderer = (file: {
   readonly name: string;
   readonly contents: string;
 }) => ReactNode;
+
+/** What a loading, empty, or error state belongs to, so one renderer can branch. */
+export type ArtifactStatusContext =
+  | { readonly scope: "repository"; readonly repoName: string }
+  | { readonly scope: "tree"; readonly repoName: string; readonly path: string }
+  | {
+      readonly scope: "file";
+      readonly repoName: string;
+      readonly path: string;
+      readonly name: string;
+    };
+
+/**
+ * Why a file has nothing to render. Only files distinguish these; a repository
+ * or directory is identified by the context scope instead.
+ */
+export type ArtifactEmptyKind = "empty" | "binary" | "oversized";
+
+/**
+ * Replaces the default loading, empty, and error markup.
+ *
+ * A renderer returning `undefined` keeps the default, so a partial map only
+ * overrides what it names. Returning `null` renders nothing. Output is wrapped
+ * in the matching slot element, so the `data-artifacts-viewer-slot` hook and
+ * the ARIA attributes survive a replacement.
+ */
+export type ArtifactStatusRenderers = {
+  readonly loading?: (context: ArtifactStatusContext) => ReactNode;
+  readonly empty?: (context: ArtifactStatusContext, kind?: ArtifactEmptyKind) => ReactNode;
+  readonly error?: (context: ArtifactStatusContext, error: ArtifactsClientError) => ReactNode;
+};

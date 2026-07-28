@@ -11,6 +11,7 @@ import type {
   ArtifactHrefBuilder,
   ArtifactIconSlots,
   ArtifactSelection,
+  ArtifactStatusRenderers,
 } from "./types.ts";
 
 export type ArtifactDirectoryViewProps = {
@@ -23,6 +24,8 @@ export type ArtifactDirectoryViewProps = {
   readonly buildHref?: ArtifactHrefBuilder;
   readonly icons?: Partial<ArtifactIconSlots>;
   readonly classNames?: ArtifactClassNames;
+  /** Replaces the default loading, empty, and error markup. */
+  readonly renderStatus?: ArtifactStatusRenderers;
   /** Added to the directory slot alongside `classNames.directory`. */
   readonly className?: string;
   readonly label?: string;
@@ -38,19 +41,22 @@ export function ArtifactDirectoryView({
   buildHref,
   icons,
   classNames,
+  renderStatus,
   className,
   label = "Directory contents",
 }: ArtifactDirectoryViewProps): ReactElement {
   const tree = useArtifactTree(client, repoName, treeHash);
+  const status = { classNames, renderStatus } as const;
+  const context = { scope: "tree", repoName, path } as const;
 
   if (tree.status === "idle" || tree.status === "loading") {
-    return <LoadingMessage classNames={classNames} label="Loading…" />;
+    return <LoadingMessage {...status} context={context} label="Loading…" />;
   }
   if (tree.status === "error") {
-    return <ErrorMessage classNames={classNames} error={tree.error} />;
+    return <ErrorMessage {...status} context={context} error={tree.error} />;
   }
   if (tree.data.length === 0) {
-    return <EmptyMessage classNames={classNames} label="This directory is empty." />;
+    return <EmptyMessage {...status} context={context} label="This directory is empty." />;
   }
 
   return (
