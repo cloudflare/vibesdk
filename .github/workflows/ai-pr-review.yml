@@ -1,8 +1,10 @@
 name: Bonk-AI PR Review
 
-on:
-  pull_request:
-    types: [opened, synchronize, reopened]
+# Disabled — re-enable by restoring pull_request trigger.
+# on:
+#   pull_request:
+#     types: [opened, synchronize, reopened]
+on: {}
 
 jobs:
   review:
