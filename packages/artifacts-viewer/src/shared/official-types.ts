@@ -83,38 +83,6 @@ export type ArtifactsRepositoryPayload = {
   remote: string;
 };
 
-/**
- * The read-only slice of a binding repository handle.
- *
- * Deliberately narrower than the real binding: declaring only what this
- * package calls means a consumer cannot hand us a write-capable object and
- * have us silently depend on mutation methods. Blob reads are absent because
- * the binding has no blob surface — `blob`, `file`, and `raw` always use REST.
- */
-export type ArtifactsRepositoryHandle = {
-  readonly id: string;
-  readonly name: string;
-  readonly description: string | null;
-  readonly defaultBranch: string;
-  readonly createdAt: string;
-  readonly updatedAt: string;
-  readonly lastPushAt: string | null;
-  readonly source: string | null;
-  readonly readOnly: boolean;
-  readonly remote: string;
-  readTree(hash: string): Promise<ArtifactsTreeEntry[] | null>;
-  readCommit(hash: string): Promise<ArtifactsCommitMetadata | null>;
-  log(options?: {
-    ref?: string;
-    limit?: number;
-    offset?: number;
-  }): Promise<ArtifactsCommitMetadata[]>;
-};
-
-export type ArtifactsBinding = {
-  get(repoName: string): Promise<ArtifactsRepositoryHandle>;
-};
-
 /** The Cloudflare v4 response envelope, emitted for every JSON read. */
 export type CloudflareEnvelope<TResult> = {
   result: TResult | null;

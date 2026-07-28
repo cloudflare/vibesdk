@@ -49,10 +49,8 @@ export type { ArtifactReadRequest } from "./server/routes.ts";
 
 export type {
   ArtifactReadOperation,
-  ArtifactsBinding,
   ArtifactsCommitMetadata,
   ArtifactsGitIdentity,
-  ArtifactsRepositoryHandle,
   ArtifactsRepositoryPayload,
   ArtifactsTreeEntry,
   CloudflareEnvelope,

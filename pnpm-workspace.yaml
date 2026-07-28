@@ -8,6 +8,7 @@ catalogMode: prefer
 catalog:
   "@cloudflare/vite-plugin": ^1.47.0
   "@cloudflare/workers-types": ^5.20260727.1
+  "@fontsource-variable/jetbrains-mono": ^5.3.0
   "@pierre/diffs": ^1.2.12
   "@tailwindcss/vite": ^4.3.3
   "@types/node": ^24

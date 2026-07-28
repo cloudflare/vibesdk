@@ -1,6 +1,5 @@
 import { defaultApiPath } from "../shared/api-path.ts";
-import type { ArtifactsBinding, ArtifactReadOperation } from "../shared/official-types.ts";
-import { dispatchBinding, isBindingReadRequest } from "./binding.ts";
+import type { ArtifactReadOperation } from "../shared/official-types.ts";
 import {
   cacheKeyFor,
   immutableCacheControl,
@@ -38,13 +37,6 @@ export type ArtifactRouterOptions = {
   readonly accountId: string;
   readonly namespace: string;
   readonly apiToken: string;
-  /**
-   * Optional Artifacts binding, used for metadata reads when present.
-   *
-   * Blob reads always use REST, so `accountId`, `namespace`, and `apiToken`
-   * remain required either way.
-   */
-  readonly binding?: ArtifactsBinding;
   readonly fetch?: typeof globalThis.fetch;
   readonly beforeRequest?: ArtifactBeforeRequestHook;
   /** Consulted for content-addressed reads only. See `artifacts-viewer/server/cache`. */
@@ -136,21 +128,18 @@ export async function routeArtifactRequest(
     }
   }
 
-  const dispatched =
-    options.binding !== undefined && isBindingReadRequest(read)
-      ? await dispatchBinding(options.binding, read)
-      : normalizeUpstreamResponse(
-          await dispatchRest(
-            {
-              accountId: options.accountId,
-              namespace: options.namespace,
-              apiToken: options.apiToken,
-              fetch: options.fetch ?? globalThis.fetch.bind(globalThis),
-            },
-            read,
-            request.signal,
-          ),
-        );
+  const dispatched = normalizeUpstreamResponse(
+    await dispatchRest(
+      {
+        accountId: options.accountId,
+        namespace: options.namespace,
+        apiToken: options.apiToken,
+        fetch: options.fetch ?? globalThis.fetch.bind(globalThis),
+      },
+      read,
+      request.signal,
+    ),
+  );
 
   // Declaring a year of immutability on a 404 would cache a transient failure
   // forever, so freshness metadata is attached on success only.

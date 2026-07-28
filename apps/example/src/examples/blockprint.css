@@ -12,7 +12,8 @@
   --page-muted: #46462f;
   --page-body: "Archivo", ui-sans-serif, sans-serif;
   --page-display: "Archivo Black", ui-sans-serif, sans-serif;
-  --page-mono: "Space Mono", ui-monospace, monospace;
+  --page-mono:
+    "JetBrains Mono Variable", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   --page-flow: 2.25rem;
   --page-measure: 82rem;
   --page-pad: 2.5rem 1.75rem 6rem;
@@ -30,7 +31,10 @@
 
   --artifacts-viewer-font: "Archivo", ui-sans-serif, sans-serif;
   --artifacts-viewer-font-size: 0.875rem;
-  --artifacts-viewer-mono-font: "Space Mono", ui-monospace, monospace;
+  --artifacts-viewer-mono-font:
+    "JetBrains Mono Variable", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  --diffs-font-family:
+    "JetBrains Mono Variable", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   --artifacts-viewer-color: var(--carbon);
   --artifacts-viewer-muted-color: var(--ash);
   --artifacts-viewer-error-color: #d31414;
@@ -38,7 +42,6 @@
   --artifacts-viewer-background: var(--sheet);
   --artifacts-viewer-toolbar-background: var(--carbon);
   --artifacts-viewer-sidebar-width: 18rem;
-  --artifacts-viewer-pane-height: 32rem;
   --artifacts-viewer-indent: 1rem;
   --artifacts-viewer-row-padding: 0.5rem 0.75rem;
   --artifacts-viewer-focus-outline: 3px solid var(--carbon);
@@ -71,7 +74,8 @@
   border-radius: 0;
   background: var(--sheet);
   color: var(--carbon);
-  font-family: "Space Mono", ui-monospace, monospace;
+  font-family:
+    "JetBrains Mono Variable", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   font-size: 0.6875rem;
   font-weight: 700;
   letter-spacing: 0.1em;
@@ -162,7 +166,8 @@
   border: 3px solid var(--carbon);
   background: var(--acid);
   color: var(--carbon);
-  font-family: "Space Mono", ui-monospace, monospace;
+  font-family:
+    "JetBrains Mono Variable", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   font-size: 0.625rem;
   font-weight: 700;
   letter-spacing: 0.16em;
@@ -173,7 +178,8 @@
   padding: 0.875rem 1rem;
   border-bottom: 3px solid var(--carbon);
   color: var(--acid);
-  font-family: "Space Mono", ui-monospace, monospace;
+  font-family:
+    "JetBrains Mono Variable", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   font-size: 0.6875rem;
   font-weight: 700;
   letter-spacing: 0.16em;
@@ -240,7 +246,8 @@
   padding: 0.875rem 1rem;
   border-bottom: 3px solid var(--carbon);
   background: var(--acid);
-  font-family: "Space Mono", ui-monospace, monospace;
+  font-family:
+    "JetBrains Mono Variable", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   font-size: 0.6875rem;
   font-weight: 700;
 }

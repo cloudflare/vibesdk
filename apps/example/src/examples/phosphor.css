@@ -11,9 +11,12 @@
   --page-ink: #cfd6cf;
   --page-title-ink: var(--amber);
   --page-muted: #6f7d70;
-  --page-body: "IBM Plex Mono", ui-monospace, monospace;
-  --page-display: "IBM Plex Mono", ui-monospace, monospace;
-  --page-mono: "IBM Plex Mono", ui-monospace, monospace;
+  --page-body:
+    "JetBrains Mono Variable", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  --page-display:
+    "JetBrains Mono Variable", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  --page-mono:
+    "JetBrains Mono Variable", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   --page-flow: 2rem;
   --page-measure: 78rem;
   --page-pad: 2.5rem 1.5rem 6rem;
@@ -26,9 +29,13 @@
   --page-tracking: 0.22em;
   --page-caps: uppercase;
 
-  --artifacts-viewer-font: "IBM Plex Mono", ui-monospace, monospace;
+  --artifacts-viewer-font:
+    "JetBrains Mono Variable", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   --artifacts-viewer-font-size: 0.8125rem;
-  --artifacts-viewer-mono-font: "IBM Plex Mono", ui-monospace, monospace;
+  --artifacts-viewer-mono-font:
+    "JetBrains Mono Variable", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  --diffs-font-family:
+    "JetBrains Mono Variable", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   --artifacts-viewer-color: #cfd6cf;
   --artifacts-viewer-muted-color: #6f7d70;
   --artifacts-viewer-error-color: #ff6b6b;
@@ -36,7 +43,6 @@
   --artifacts-viewer-background: var(--shell);
   --artifacts-viewer-toolbar-background: #10141b;
   --artifacts-viewer-sidebar-width: 19rem;
-  --artifacts-viewer-pane-height: 30rem;
   --artifacts-viewer-indent: 1.125rem;
   --artifacts-viewer-row-padding: 0.3125rem 0.75rem;
   --artifacts-viewer-gap: 0.5rem;

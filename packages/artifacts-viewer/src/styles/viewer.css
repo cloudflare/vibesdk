@@ -48,7 +48,7 @@
 :where([data-artifacts-viewer-slot="sidebar"]) {
   min-width: 0;
   max-height: var(--artifacts-viewer-pane-height, none);
-  overflow: auto;
+  overflow: var(--artifacts-viewer-pane-overflow, visible);
   overscroll-behavior: contain;
 }
 
@@ -69,7 +69,7 @@
   padding: 0;
   list-style: none;
   max-height: var(--artifacts-viewer-pane-height, none);
-  overflow: auto;
+  overflow: var(--artifacts-viewer-pane-overflow, visible);
   overscroll-behavior: contain;
 }
 
@@ -119,7 +119,7 @@
 :where([data-artifacts-viewer-slot="file"]) {
   min-width: 0;
   max-height: var(--artifacts-viewer-pane-height, none);
-  overflow: auto;
+  overflow: var(--artifacts-viewer-pane-overflow, visible);
   overscroll-behavior: contain;
 }
 

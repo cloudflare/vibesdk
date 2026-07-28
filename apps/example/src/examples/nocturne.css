@@ -13,7 +13,8 @@
   --page-muted: #9689b8;
   --page-body: "Sora", ui-sans-serif, sans-serif;
   --page-display: "Syne", ui-sans-serif, sans-serif;
-  --page-mono: "Azeret Mono", ui-monospace, monospace;
+  --page-mono:
+    "JetBrains Mono Variable", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   --page-flow: 2.5rem;
   --page-measure: 80rem;
   --page-pad: 3rem 1.75rem 7rem;
@@ -30,7 +31,10 @@
 
   --artifacts-viewer-font: "Sora", ui-sans-serif, sans-serif;
   --artifacts-viewer-font-size: 0.8125rem;
-  --artifacts-viewer-mono-font: "Azeret Mono", ui-monospace, monospace;
+  --artifacts-viewer-mono-font:
+    "JetBrains Mono Variable", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  --diffs-font-family:
+    "JetBrains Mono Variable", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   --artifacts-viewer-color: #ded8f0;
   --artifacts-viewer-muted-color: #9689b8;
   --artifacts-viewer-error-color: #ff9ec2;
@@ -38,7 +42,6 @@
   --artifacts-viewer-background: transparent;
   --artifacts-viewer-toolbar-background: transparent;
   --artifacts-viewer-sidebar-width: 18rem;
-  --artifacts-viewer-pane-height: 31rem;
   --artifacts-viewer-indent: 0.875rem;
   --artifacts-viewer-row-padding: 0.4375rem 0.875rem;
   --artifacts-viewer-focus-outline: 1px solid var(--mint);
@@ -81,7 +84,8 @@
   border-radius: 999px;
   background: var(--veil);
   color: #b6acd4;
-  font-family: "Azeret Mono", ui-monospace, monospace;
+  font-family:
+    "JetBrains Mono Variable", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   font-size: 0.6875rem;
   letter-spacing: 0.06em;
   backdrop-filter: blur(12px);
@@ -163,7 +167,8 @@
   padding: 1rem 1.25rem;
   border-bottom: 1px solid var(--edge);
   color: #b6acd4;
-  font-family: "Azeret Mono", ui-monospace, monospace;
+  font-family:
+    "JetBrains Mono Variable", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   font-size: 0.6875rem;
   letter-spacing: 0.14em;
   text-transform: uppercase;
@@ -229,7 +234,8 @@
 .theme-nocturne [data-artifacts-viewer-slot="file"] > header {
   padding: 1rem 1.25rem;
   border-bottom: 1px solid var(--edge);
-  font-family: "Azeret Mono", ui-monospace, monospace;
+  font-family:
+    "JetBrains Mono Variable", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   font-size: 0.6875rem;
   color: #b6acd4;
 }

@@ -12,6 +12,7 @@
     "cf-typegen": "wrangler types --include-runtime=false"
   },
   "dependencies": {
+    "@fontsource-variable/jetbrains-mono": "catalog:",
     "artifacts-viewer": "workspace:*",
     "react": "catalog:",
     "react-dom": "catalog:"

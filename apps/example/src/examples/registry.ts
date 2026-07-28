@@ -47,7 +47,7 @@ export const examples: readonly Example[] = [
       "An amber CRT: scanlines, drifting grain, hairline boxes and a block cursor that blinks on whatever row you selected. Uppercase tracking everywhere, folders shouted, submodules struck through.",
     themeClass: "theme-phosphor",
     credits: [
-      { role: "Type", value: "IBM Plex Mono" },
+      { role: "Type", value: "JetBrains Mono" },
       { role: "Palette", value: "amber on carbon" },
       { role: "Code theme", value: "vesper" },
     ],
@@ -58,10 +58,10 @@ export const examples: readonly Example[] = [
     label: "Broadsheet",
     title: "Broadsheet edition",
     tagline:
-      "Print rules, not boxes. Cream stock with a fibre weave, a Fraunces masthead set at display optical size, Newsreader for the tree, and a two-column directory with a hairline column rule.",
+      "Print rules, not boxes. Cream stock with a fibre weave, a Fraunces masthead set at display optical size, Newsreader for the tree, and JetBrains Mono for code and labels.",
     themeClass: "theme-broadsheet",
     credits: [
-      { role: "Type", value: "Fraunces / Newsreader / Space Mono" },
+      { role: "Type", value: "Fraunces / Newsreader / JetBrains Mono" },
       { role: "Palette", value: "cream, ink, vermilion" },
       { role: "Code theme", value: "vitesse-light" },
     ],
@@ -75,7 +75,7 @@ export const examples: readonly Example[] = [
       "Acid yellow, three-pixel rules, hard offset shadows and zero radius. Rows invert on selection, buttons press into their own shadow, and the frame wears a rotated sticker.",
     themeClass: "theme-blockprint",
     credits: [
-      { role: "Type", value: "Archivo Black / Archivo / Space Mono" },
+      { role: "Type", value: "Archivo Black / Archivo / JetBrains Mono" },
       { role: "Palette", value: "acid on carbon" },
       { role: "Code theme", value: "github-light" },
     ],
@@ -89,7 +89,7 @@ export const examples: readonly Example[] = [
       "A drifting four-point gradient mesh under a noise veil, frosted panels, pill rows that glow when selected, and a gradient-filled Syne masthead.",
     themeClass: "theme-nocturne",
     credits: [
-      { role: "Type", value: "Syne / Sora / Azeret Mono" },
+      { role: "Type", value: "Syne / Sora / JetBrains Mono" },
       { role: "Palette", value: "plum, lilac, mint" },
       { role: "Code theme", value: "poimandres" },
     ],

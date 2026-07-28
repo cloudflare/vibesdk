@@ -135,18 +135,17 @@ function routeArtifactRequest(
 ): Promise<Response | null>;
 ```
 
-| Option          | Type                            | Notes                                                         |
-| --------------- | ------------------------------- | ------------------------------------------------------------- |
-| `accountId`     | `string`                        | Required                                                      |
-| `namespace`     | `string`                        | Required                                                      |
-| `apiToken`      | `string`                        | Required. Cloudflare API token with Artifacts read access     |
-| `apiPath`       | `string`                        | Default `"/artifacts"`. Matched on a segment boundary         |
-| `binding`       | `ArtifactsBinding`              | Optional. Used for metadata reads; blob reads always use REST |
-| `fetch`         | `typeof fetch`                  | Optional injection point for tests and tracing                |
-| `beforeRequest` | `ArtifactBeforeRequestHook`     | Authorization hook. Return a `Response` to deny               |
-| `cache`         | `ArtifactsCacheAdapter`         | Consulted for content-addressed reads only                    |
-| `waitUntil`     | `(p: Promise<unknown>) => void` | Keeps cache writes alive past the response                    |
-| `onCacheError`  | `(error: unknown) => void`      | Cache failures are reported here, never thrown                |
+| Option          | Type                            | Notes                                                     |
+| --------------- | ------------------------------- | --------------------------------------------------------- |
+| `accountId`     | `string`                        | Required                                                  |
+| `namespace`     | `string`                        | Required                                                  |
+| `apiToken`      | `string`                        | Required. Cloudflare API token with Artifacts read access |
+| `apiPath`       | `string`                        | Default `"/artifacts"`. Matched on a segment boundary     |
+| `fetch`         | `typeof fetch`                  | Optional injection point for tests and tracing            |
+| `beforeRequest` | `ArtifactBeforeRequestHook`     | Authorization hook. Return a `Response` to deny           |
+| `cache`         | `ArtifactsCacheAdapter`         | Consulted for content-addressed reads only                |
+| `waitUntil`     | `(p: Promise<unknown>) => void` | Keeps cache writes alive past the response                |
+| `onCacheError`  | `(error: unknown) => void`      | Cache failures are reported here, never thrown            |
 
 ### Authorization
 
@@ -262,6 +261,8 @@ type ArtifactsTreeEntry = {
 | `ArtifactFileView`      | One file, with Raw/Download and content rendering        |
 | `CodeView`              | Syntax-highlighted text, given contents you already have |
 
+In `ArtifactRepoViewer` the content pane shows a file when one is selected, and a listing for any directory below the root. The root itself is left blank, because the sidebar already lists it and a second copy reads as a duplicate. `ArtifactDirectoryView` has no such rule — used directly, it lists whatever tree you give it.
+
 `ArtifactRepoViewer` props:
 
 | Prop                  | Type                                    | Notes                                                       |
@@ -363,6 +364,7 @@ import "artifacts-viewer/styles.css";
 | `--artifacts-viewer-row-padding`        | `0.375rem 0.75rem`       |
 | `--artifacts-viewer-sidebar-width`      | `16rem`                  |
 | `--artifacts-viewer-pane-height`        | `none`                   |
+| `--artifacts-viewer-pane-overflow`      | `visible`                |
 | `--artifacts-viewer-image-max-height`   | `80vh`                   |
 | `--artifacts-viewer-focus-outline`      | `2px solid currentColor` |
 | `--artifacts-viewer-focus-offset`       | `-2px`                   |
@@ -372,6 +374,7 @@ import "artifacts-viewer/styles.css";
   --artifacts-viewer-font: ui-monospace, monospace;
   --artifacts-viewer-sidebar-width: 18rem;
   --artifacts-viewer-pane-height: 32rem;
+  --artifacts-viewer-pane-overflow: auto;
   --artifacts-viewer-muted-color: #6b7280;
 }
 ```

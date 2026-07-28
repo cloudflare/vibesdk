@@ -122,6 +122,9 @@ type RepositoryPanesProps = {
 /**
  * Both panes read the same selection, so they can never disagree. Remounting on
  * the commit hash resets the selection whenever the underlying tree changes.
+ *
+ * The root listing is left out because the sidebar already shows it, and two
+ * copies of the same entries read as a duplicate.
  */
 function RepositoryPanes({
   client,
@@ -170,19 +173,7 @@ function RepositoryPanes({
         />
       </aside>
 
-      {selection.type === "tree" ? (
-        <ArtifactDirectoryView
-          client={client}
-          repoName={repoName}
-          treeHash={selection.hash}
-          path={selection.path}
-          onSelect={select}
-          buildHref={buildHref}
-          icons={icons}
-          classNames={classNames}
-          label={selection.path === "" ? "Repository root" : selection.path}
-        />
-      ) : (
+      {selection.type !== "tree" ? (
         <ArtifactFileView
           client={client}
           repoName={repoName}
@@ -192,6 +183,18 @@ function RepositoryPanes({
           pierreDiffsOptions={pierreDiffsOptions}
           renderCodeFallback={renderCodeFallback}
           classNames={classNames}
+        />
+      ) : selection.path === "" ? null : (
+        <ArtifactDirectoryView
+          client={client}
+          repoName={repoName}
+          treeHash={selection.hash}
+          path={selection.path}
+          onSelect={select}
+          buildHref={buildHref}
+          icons={icons}
+          classNames={classNames}
+          label={selection.path}
         />
       )}
     </div>

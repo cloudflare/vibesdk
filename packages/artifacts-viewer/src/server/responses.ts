@@ -1,15 +1,9 @@
 /**
- * Everything the router emits itself is shaped as a Cloudflare v4 envelope, so
- * a client needs one parser and cannot tell which backend served a request.
- * That is what makes the binding a transparent optimization rather than a
- * second contract.
+ * Errors the router raises itself are shaped as Cloudflare v4 envelopes, so a
+ * client parses one response shape whether the failure was local or upstream.
  */
 
 import type { CloudflareEnvelope } from "../shared/official-types.ts";
-
-export function envelopeResponse<TResult>(result: TResult, status = 200): Response {
-  return jsonResponse({ result, success: true, errors: [] }, status);
-}
 
 // The error `code` is the HTTP status: Cloudflare's own codes come from a
 // registry we do not own, and reusing the status keeps locally-generated errors
