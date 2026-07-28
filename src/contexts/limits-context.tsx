@@ -55,6 +55,7 @@ export function LimitsProvider({ children }: LimitsProviderProps) {
 		return () => {
 			window.removeEventListener('usage-updated', handleUsageUpdate);
 		};
+	// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [query.refetch]);
 
 	// Check if user can proceed with request
