@@ -231,7 +231,7 @@ export default function SettingsPage() {
 					<CloudflareAccountSelector />
 
 					<LayerCard id="api-keys">
-						<LayerCard.Secondary>
+						<LayerCard.Secondary className="font-funky-mono tracking-tighter">
 							<div className="flex items-center gap-2">
 								<span className="flex items-center">
 									<Key className="size-4" />
@@ -603,7 +603,7 @@ export default function SettingsPage() {
 
 					{/* Security Section */}
 					<LayerCard id="security">
-						<LayerCard.Secondary>
+						<LayerCard.Secondary className="font-funky-mono tracking-tighter">
 							<div className="flex items-center gap-2">
 								<span className="h-lh flex items-center">
 									<Lock className="size-4" />
@@ -683,7 +683,7 @@ export default function SettingsPage() {
 					</LayerCard>
 
 					<LayerCard id="danger-zone">
-						<LayerCard.Secondary>
+						<LayerCard.Secondary className="font-funky-mono tracking-tighter">
 							<span className="text-kumo-danger">
 								Danger zone
 							</span>
