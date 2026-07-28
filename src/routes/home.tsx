@@ -18,7 +18,7 @@ import { useAuthGuard } from '../hooks/useAuthGuard';
 import { usePaginatedApps } from '@/hooks/use-paginated-apps';
 import { AnimatePresence, LayoutGroup, motion } from 'framer-motion';
 import { AppCard } from '@/components/shared/AppCard';
-import { Button } from '@/components/ui/button';
+import { LinkButton } from '@cloudflare/kumo';
 import clsx from 'clsx';
 import { useImageUpload } from '@/hooks/use-image-upload';
 import { useDragDrop } from '@/hooks/use-drag-drop';
@@ -204,7 +204,7 @@ export default function Home() {
 						)}
 					>
 						<div className="mb-6 sm:mb-7 grid gap-2">
-							<h1 className="w-full text-center text-[clamp(1.75rem,4.5vw,2.5rem)] font-semibold leading-[1.12] text-kumo-strong/80">
+							<h1 className="w-full text-center text-[clamp(1.75rem,4.5vw,2.5rem)] font-semibold leading-[1.12] text-kumo-strong/80 z-20">
 								What should we{' '}
 								<span className="font-funky-mono text-[1.1em] tracking-tighter uppercase text-brand">
 									build
@@ -309,17 +309,14 @@ export default function Home() {
 										</h2>
 									</div>
 									<div ref={discoverLinkRef}>
-										<Button
+										<LinkButton
 											variant="outline"
 											size="sm"
-											onClick={() =>
-												navigate('/discover')
-											}
-											className="shrink-0 rounded-full px-3.5 gap-1.5 text-sm text-kumo-default ring-1 ring-kumo-line border-0 shadow-sm hover:bg-kumo-tint hover:text-kumo-strong"
+											href="/discover"
 										>
 											View all
 											<ArrowUpRight className="size-3.5 opacity-70" />
-										</Button>
+										</LinkButton>
 									</div>
 								</div>
 								<motion.div

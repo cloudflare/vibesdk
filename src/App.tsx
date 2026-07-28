@@ -12,6 +12,7 @@ import { FeatureProvider } from './features';
 import { Toasty } from '@cloudflare/kumo';
 import { queryClient } from './lib/query-client';
 import { useAppsQuerySync } from './hooks/use-apps';
+import { AppLinkProvider } from './components/providers/app-link-provider';
 
 function AppsQuerySync() {
 	useAppsQuerySync();
@@ -31,7 +32,9 @@ export default function App() {
 									<AuthModalProvider>
 										<AppLayout>
 											<Toasty>
-												<Outlet />
+												<AppLinkProvider>
+													<Outlet />
+												</AppLinkProvider>
 											</Toasty>
 										</AppLayout>
 										<Toaster
