@@ -1,5 +1,11 @@
 # artifacts-viewer
 
+## 0.0.4
+
+### Patch Changes
+
+- Ship package.json with catalog protocol ranges resolved so the published package installs outside this workspace.
+
 ## 0.0.3
 
 ### Patch Changes
