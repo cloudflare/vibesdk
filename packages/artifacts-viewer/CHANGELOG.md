@@ -1,5 +1,13 @@
 # artifacts-viewer
 
+## 0.0.3
+
+### Patch Changes
+
+- Remove Artifacts binding dispatch. Every read now goes over the official REST API: `ArtifactRouterOptions.binding` and the `ArtifactsBinding` / `ArtifactsRepositoryHandle` types are gone. The binding's repository handle is an RPC stub whose metadata properties cannot be read, so binding-served repository reads returned an empty payload.
+
+- Add the typed HTTP client (`artifacts-viewer/client`) and the React surface (`artifacts-viewer/react`): hooks, file tree, directory view, file view, and a lazily loaded syntax-highlighted code view backed by `@pierre/diffs`.
+
 ## 0.0.2
 
 ### Patch Changes
