@@ -3,10 +3,19 @@
  * Provides usage limits data across the application with a single API call
  */
 
-import { createContext, useContext, ReactNode, useState, useEffect } from 'react';
-import { UsageSummary } from '@/hooks/use-limits';
+import {
+	createContext,
+	useContext,
+	ReactNode,
+	useEffect,
+} from 'react';
+import { useQuery } from '@tanstack/react-query';
+import {
+	fetchLimitsUsage,
+	type UsageSummary,
+} from '@/hooks/use-limits';
 import { useAuth } from './auth-context';
-import { apiClient } from '@/lib/api-client';
+import { queryKeys } from '@/lib/query-keys';
 import { canProceedWithRequest, type CanProceedResult } from '../../shared/constants/limits';
 
 interface LimitsContextValue {
@@ -25,52 +34,19 @@ interface LimitsProviderProps {
 
 export function LimitsProvider({ children }: LimitsProviderProps) {
 	const { user } = useAuth();
-	const [data, setData] = useState<UsageSummary | null>(null);
-	const [loading, setLoading] = useState(false);
-	const [error, setError] = useState<string | null>(null);
+	const enabled = !!user;
 
-	const fetchLimits = async () => {
-		// Only fetch if user is authenticated
-		if (!user) {
-			setData(null);
-			setLoading(false);
-			setError(null);
-			return;
-		}
-
-		try {
-			setLoading(true);
-			setError(null);
-			
-			// Use API client - auth (including encrypted Cloudflare OAuth token)
-			// is read server-side from the HttpOnly cookie.
-			const result = await apiClient.getLimitsUsage();
-			
-			// apiClient returns { success, data, message?, error? }
-			if (result.success && result.data) {
-				setData(result.data as UsageSummary);
-			} else {
-				setError(result.error?.message || 'Failed to load usage data');
-			}
-		} catch (err) {
-			console.error('Error fetching limits:', err);
-			setError(err instanceof Error ? err.message : 'Unknown error');
-		} finally {
-			setLoading(false);
-		}
-	};
-
-	// Fetch limits when user changes
-	useEffect(() => {
-		fetchLimits();
-		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [user?.id]);
+	const query = useQuery({
+		queryKey: queryKeys.account.limits.usage(user?.id),
+		queryFn: fetchLimitsUsage,
+		enabled,
+	});
 
 	// Listen for usage updates via WebSocket/events
 	useEffect(() => {
 		const handleUsageUpdate = () => {
 			console.log('[Limits Context] Usage updated, refetching limits...');
-			fetchLimits();
+			void query.refetch();
 		};
 
 		// Listen for custom event dispatched after AI requests complete
@@ -79,12 +55,11 @@ export function LimitsProvider({ children }: LimitsProviderProps) {
 		return () => {
 			window.removeEventListener('usage-updated', handleUsageUpdate);
 		};
-		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, []);
+	}, [query.refetch]);
 
 	// Check if user can proceed with request
 	const canProceed = (): CanProceedResult => {
-		if (!data) {
+		if (!query.data) {
 			return {
 				allowed: false,
 				reason: 'Loading usage data...',
@@ -93,17 +68,23 @@ export function LimitsProvider({ children }: LimitsProviderProps) {
 		}
 
 		return canProceedWithRequest({
-			withinLimits: data.limitCheck.withinLimits,
-			hasUserToken: data.hasUserToken,
-			balance: data.cloudflareCredits?.credits,
+			withinLimits: query.data.limitCheck.withinLimits,
+			hasUserToken: query.data.hasUserToken,
+			balance: query.data.cloudflareCredits?.credits,
 		});
 	};
 
 	const value: LimitsContextValue = {
-		data,
-		loading,
-		error,
-		refetch: fetchLimits,
+		data: query.data ?? null,
+		loading: enabled && query.isLoading,
+		error: query.error
+			? query.error instanceof Error
+				? query.error.message
+				: 'Unknown error'
+			: null,
+		refetch: async () => {
+			await query.refetch();
+		},
 		canProceed,
 	};
 
@@ -120,10 +101,10 @@ export function LimitsProvider({ children }: LimitsProviderProps) {
  */
 export function useLimitsContext(): LimitsContextValue {
 	const context = useContext(LimitsContext);
-	
+
 	if (context === undefined) {
 		throw new Error('useLimitsContext must be used within a LimitsProvider');
 	}
-	
+
 	return context;
 }
