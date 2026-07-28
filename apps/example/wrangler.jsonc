@@ -9,9 +9,8 @@
   "compatibility_date": "2026-07-27",
   "assets": {
     "not_found_handling": "single-page-application",
-    // Assets are served first by default, so an unmatched `/artifacts/*` would
-    // fall back to index.html and never reach the router.
-    "run_worker_first": ["/artifacts/*"],
+    // Keep API requests in Hono instead of falling back to the SPA.
+    "run_worker_first": ["/api/*"],
   },
   "observability": {
     "enabled": true,

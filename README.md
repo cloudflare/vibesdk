@@ -65,7 +65,7 @@ cp .dev.vars.example .dev.vars   # then fill in the three values
 `wrangler types` reads `.dev.vars` to generate `Env`, so rerun
 `vp run cf-typegen` from `apps/example` after adding or renaming a variable.
 
-`apps/example/wrangler.jsonc` sets `assets.run_worker_first: ["/artifacts/*"]`.
+`apps/example/wrangler.jsonc` sets `assets.run_worker_first: ["/api/*"]`.
 Without it, `not_found_handling: "single-page-application"` would serve
 `index.html` for API routes and the Worker would never run.
 

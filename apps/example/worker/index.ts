@@ -1,21 +1,35 @@
+import { waitUntil } from "cloudflare:workers";
 import { routeArtifactRequest } from "artifacts-viewer";
 import { createCacheApiAdapter } from "artifacts-viewer/server/cache";
+import { Hono } from "hono";
+
+const artifactsApiPath = "/api/artifacts";
+const app = new Hono<{ Bindings: Env }>();
+
+app.get("/api/hello", (c) => {
+  return c.text("Hello Hono!");
+});
+
+app.get("/api/health", (c) => {
+  return c.json({ status: "ok" });
+});
+
+app.all("/api/artifacts/*", async (c) => {
+  const handled = await routeArtifactRequest(c.req.raw, {
+    accountId: c.env.ARTIFACTS_ACCOUNT_ID,
+    namespace: c.env.ARTIFACTS_NAMESPACE,
+    apiToken: c.env.ARTIFACTS_API_TOKEN,
+    apiPath: artifactsApiPath,
+    cache: createCacheApiAdapter({
+      cache: caches.default,
+      baseUrl: new URL(c.req.url).origin,
+    }),
+    waitUntil,
+  });
+
+  return handled ?? c.notFound();
+});
 
 export default {
-  async fetch(request, env, ctx) {
-    const handled = await routeArtifactRequest(request, {
-      accountId: env.ARTIFACTS_ACCOUNT_ID,
-      namespace: env.ARTIFACTS_NAMESPACE,
-      apiToken: env.ARTIFACTS_API_TOKEN,
-      cache: createCacheApiAdapter({
-        cache: caches.default,
-        baseUrl: new URL(request.url).origin,
-      }),
-      waitUntil: (promise) => {
-        ctx.waitUntil(promise);
-      },
-    });
-
-    return handled ?? new Response("Not found", { status: 404 });
-  },
+  fetch: app.fetch,
 } satisfies ExportedHandler<Env>;

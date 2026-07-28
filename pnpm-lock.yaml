@@ -232,6 +232,9 @@ catalogs:
     '@vitejs/plugin-react':
       specifier: ^6.0.4
       version: 6.0.4
+    hono:
+      specifier: ^4.12.32
+      version: 4.12.32
     react:
       specifier: ^19.2.8
       version: 19.2.8
@@ -273,6 +276,9 @@ importers:
       artifacts-viewer:
         specifier: workspace:*
         version: link:../../packages/artifacts-viewer
+      hono:
+        specifier: 'catalog:'
+        version: 4.12.32
       react:
         specifier: 'catalog:'
         version: 19.2.8
@@ -1873,6 +1879,10 @@ packages:
 
   hast-util-whitespace@3.0.0:
     resolution: {integrity: sha512-88JUN06ipLwsnv+dVn+OIYOvAuvBMy/Qoi6O7mQHxdPXpjy+Cd6xRkWwux7DKO+4sYILtLBRIKgsdpS2gQc7qw==}
+
+  hono@4.12.32:
+    resolution: {integrity: sha512-XcuyW9qE2kJn07PkecMOBd5Vq/hMy7mmGw+idz1yblbg9N17ijJODrvPkn7/dwL3Kulj8LcRJ69DLOWf91dRUg==}
+    engines: {node: '>=16.9.0'}
 
   html-encoding-sniffer@6.0.0:
     resolution: {integrity: sha512-CV9TW3Y3f8/wT0BRFc1/KAVQ3TUHiXmaAb6VW9vtiMFf7SLoMd1PdAc4W3KFOFETBJUb90KatHqlsZMWV+R9Gg==}
@@ -3598,6 +3608,8 @@ snapshots:
   hast-util-whitespace@3.0.0:
     dependencies:
       '@types/hast': 3.0.5
+
+  hono@4.12.32: {}
 
   html-encoding-sniffer@6.0.0:
     dependencies:
