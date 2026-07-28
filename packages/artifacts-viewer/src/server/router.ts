@@ -1,3 +1,4 @@
+import { defaultApiPath } from "../shared/api-path.ts";
 import type { ArtifactsBinding, ArtifactReadOperation } from "../shared/official-types.ts";
 import { dispatchBinding, isBindingReadRequest } from "./binding.ts";
 import {
@@ -59,8 +60,6 @@ export type ArtifactRouterOptions = {
   /** Notified when a cache adapter throws. The request proceeds regardless. */
   readonly onCacheError?: (error: unknown) => void;
 };
-
-const defaultApiPath = "/artifacts";
 
 /**
  * Routes one request.

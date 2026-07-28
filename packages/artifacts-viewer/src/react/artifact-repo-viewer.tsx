@@ -1,63 +1,199 @@
-export type ArtifactRepoViewerColorMode = "light" | "dark" | "system";
+import { useEffect, useState } from "react";
+import type { CSSProperties, ReactElement } from "react";
+import type { ArtifactsClient } from "../client/types.ts";
+import type { ArtifactsCommitMetadata } from "../shared/official-types.ts";
+import { ArtifactDirectoryView } from "./artifact-directory-view.tsx";
+import { ArtifactFileTree } from "./artifact-file-tree.tsx";
+import { ArtifactFileView } from "./artifact-file-view.tsx";
+import { joinClassNames } from "./class-name.ts";
+import { preloadCodeView, themeNames } from "./highlighter.ts";
+import { useArtifactHeadCommit } from "./hooks.ts";
+import { EmptyMessage, ErrorMessage, LoadingMessage } from "./status.tsx";
+import type {
+  ArtifactClassNames,
+  ArtifactCodeFallbackRenderer,
+  ArtifactColorMode,
+  ArtifactHrefBuilder,
+  ArtifactIconSlots,
+  ArtifactPierreDiffsOptions,
+  ArtifactSelection,
+} from "./types.ts";
 
 export type ArtifactRepoViewerProps = {
-  repoName: string;
-  className?: string;
-  colorMode?: ArtifactRepoViewerColorMode;
+  readonly client: ArtifactsClient;
+  readonly repoName: string;
+  /**
+   * Branch, tag, or commit to render. Omitted resolves the default branch.
+   * Named `gitRef` because React reserves `ref` as a prop name.
+   */
+  readonly gitRef?: string;
+  readonly onSelect?: (selection: ArtifactSelection) => void;
+  readonly buildHref?: ArtifactHrefBuilder;
+  readonly icons?: Partial<ArtifactIconSlots>;
+  readonly classNames?: ArtifactClassNames;
+  /** Added to the root slot alongside `classNames.root`. */
+  readonly className?: string;
+  readonly style?: CSSProperties;
+  readonly colorMode?: ArtifactColorMode;
+  /** Largest blob rendered inline; anything above shows a Raw/Download notice. */
+  readonly maxInlineBytes?: number;
+  readonly pierreDiffsOptions?: ArtifactPierreDiffsOptions;
+  /** Rendered while the highlighted view is prepared. Defaults to a loading message. */
+  readonly renderCodeFallback?: ArtifactCodeFallbackRenderer;
 };
 
 export function ArtifactRepoViewer({
+  client,
   repoName,
+  gitRef,
+  onSelect,
+  buildHref,
+  icons,
+  classNames,
   className,
+  style,
   colorMode = "system",
-}: ArtifactRepoViewerProps) {
-  const rootClassName = className ? `artifacts-viewer ${className}` : "artifacts-viewer";
+  maxInlineBytes,
+  pierreDiffsOptions,
+  renderCodeFallback,
+}: ArtifactRepoViewerProps): ReactElement {
+  const commit = useArtifactHeadCommit(client, repoName, gitRef);
+  const theme = pierreDiffsOptions?.theme;
+  const themeKey = themeNames(theme).join(",");
+
+  // Warm the code view while the user is still browsing the tree, so the first
+  // file they open is already highlighted.
+  useEffect(() => {
+    void preloadCodeView({ theme });
+    // oxlint-disable-next-line exhaustive-deps
+  }, [themeKey]);
 
   return (
     <section
-      aria-label={`${repoName} repository viewer`}
-      className={rootClassName}
+      aria-label={`${repoName} repository`}
       data-artifacts-viewer-root=""
+      data-artifacts-viewer-slot="root"
       data-mode={colorMode}
+      className={joinClassNames(classNames?.root, className)}
+      style={style}
     >
-      <header className="artifacts-viewer__toolbar" data-artifacts-viewer-slot="toolbar">
-        <div className="artifacts-viewer__identity">
-          <span className="artifacts-viewer__mark" aria-hidden="true">
-            <span />
-            <span />
-            <span />
-          </span>
-          <div>
-            <span className="artifacts-viewer__eyebrow">Artifacts repository</span>
-            <strong>{repoName}</strong>
-          </div>
-        </div>
-        <span className="artifacts-viewer__status">Foundation preview</span>
+      <header data-artifacts-viewer-slot="toolbar" className={classNames?.toolbar}>
+        <strong data-artifacts-viewer-part="name">{repoName}</strong>
       </header>
 
-      <div className="artifacts-viewer__content" data-artifacts-viewer-slot="content">
-        <div className="artifacts-viewer__diagram" aria-hidden="true">
-          <span />
-          <span />
-          <span />
-          <span />
-        </div>
-        <div className="artifacts-viewer__copy">
-          <span className="artifacts-viewer__sequence">00 / boundary ready</span>
-          <h2>Repository surface initialized.</h2>
-          <p>
-            This preview establishes the public React and styling boundaries. Repository loading
-            will arrive through the package client without exposing Cloudflare credentials to the
-            browser.
-          </p>
-        </div>
-      </div>
-
-      <footer className="artifacts-viewer__footer">
-        <span>Read only</span>
-        <span>React boundary</span>
-        <span>Scoped CSS</span>
-      </footer>
+      {commit.status === "idle" || commit.status === "loading" ? (
+        <LoadingMessage classNames={classNames} label="Loading repository…" />
+      ) : commit.status === "error" ? (
+        <ErrorMessage classNames={classNames} error={commit.error} />
+      ) : commit.data === null ? (
+        <EmptyMessage classNames={classNames} label="This repository is empty." />
+      ) : (
+        <RepositoryPanes
+          key={commit.data.hash}
+          client={client}
+          repoName={repoName}
+          commit={commit.data}
+          onSelect={onSelect}
+          buildHref={buildHref}
+          icons={icons}
+          classNames={classNames}
+          maxInlineBytes={maxInlineBytes}
+          pierreDiffsOptions={pierreDiffsOptions}
+          renderCodeFallback={renderCodeFallback}
+        />
+      )}
     </section>
+  );
+}
+
+type RepositoryPanesProps = {
+  readonly client: ArtifactsClient;
+  readonly repoName: string;
+  readonly commit: ArtifactsCommitMetadata;
+  readonly onSelect?: (selection: ArtifactSelection) => void;
+  readonly buildHref?: ArtifactHrefBuilder;
+  readonly icons?: Partial<ArtifactIconSlots>;
+  readonly classNames?: ArtifactClassNames;
+  readonly maxInlineBytes?: number;
+  readonly pierreDiffsOptions?: ArtifactPierreDiffsOptions;
+  readonly renderCodeFallback?: ArtifactCodeFallbackRenderer;
+};
+
+/**
+ * Both panes read the same selection, so they can never disagree. Remounting on
+ * the commit hash resets the selection whenever the underlying tree changes.
+ */
+function RepositoryPanes({
+  client,
+  repoName,
+  commit,
+  onSelect,
+  buildHref,
+  icons,
+  classNames,
+  maxInlineBytes,
+  pierreDiffsOptions,
+  renderCodeFallback,
+}: RepositoryPanesProps): ReactElement {
+  const rootSelection: ArtifactSelection = {
+    path: "",
+    name: repoName,
+    hash: commit.treeHash,
+    type: "tree",
+  };
+  const [selection, setSelection] = useState<ArtifactSelection>(rootSelection);
+
+  const select = (next: ArtifactSelection): void => {
+    setSelection(next);
+    onSelect?.(next);
+  };
+
+  // The root is already rendered on mount, so report it rather than leaving the
+  // consumer to re-derive what is on screen.
+  useEffect(() => {
+    onSelect?.(rootSelection);
+    // oxlint-disable-next-line exhaustive-deps
+  }, []);
+
+  return (
+    <div data-artifacts-viewer-slot="content" className={classNames?.content}>
+      <aside data-artifacts-viewer-slot="sidebar" className={classNames?.sidebar}>
+        <ArtifactFileTree
+          client={client}
+          repoName={repoName}
+          rootTreeHash={commit.treeHash}
+          selectedPath={selection.path}
+          onSelect={select}
+          buildHref={buildHref}
+          icons={icons}
+          classNames={classNames}
+        />
+      </aside>
+
+      {selection.type === "tree" ? (
+        <ArtifactDirectoryView
+          client={client}
+          repoName={repoName}
+          treeHash={selection.hash}
+          path={selection.path}
+          onSelect={select}
+          buildHref={buildHref}
+          icons={icons}
+          classNames={classNames}
+          label={selection.path === "" ? "Repository root" : selection.path}
+        />
+      ) : (
+        <ArtifactFileView
+          client={client}
+          repoName={repoName}
+          gitRef={commit.hash}
+          selection={selection}
+          maxInlineBytes={maxInlineBytes}
+          pierreDiffsOptions={pierreDiffsOptions}
+          renderCodeFallback={renderCodeFallback}
+          classNames={classNames}
+        />
+      )}
+    </div>
   );
 }

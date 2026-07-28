@@ -1,262 +1,198 @@
-:where(.artifacts-viewer) {
-  --artifacts-viewer-canvas: #f1efe8;
-  --artifacts-viewer-surface: #fbfaf6;
-  --artifacts-viewer-ink: #181b1c;
-  --artifacts-viewer-muted: #646866;
-  --artifacts-viewer-line: #c8c8bf;
-  --artifacts-viewer-accent: #ff5c35;
-  --artifacts-viewer-grid: rgb(24 27 28 / 7%);
-  color: var(--artifacts-viewer-ink);
-  background:
-    linear-gradient(var(--artifacts-viewer-grid) 1px, transparent 1px),
-    linear-gradient(90deg, var(--artifacts-viewer-grid) 1px, transparent 1px),
-    var(--artifacts-viewer-canvas);
-  background-size: 24px 24px;
-  border: 1px solid var(--artifacts-viewer-line);
-  font-family: "Avenir Next", "Gill Sans", sans-serif;
+/*
+ * Structural styles only.
+ *
+ * Nothing here picks a colour, a font, or a scale: every value routes through
+ * an `--artifacts-viewer-*` custom property that falls back to `inherit`,
+ * `currentColor`, or a neutral length. Selectors are wrapped in `:where()` so
+ * they carry zero specificity and any consumer rule wins without `!important`.
+ */
+
+:where([data-artifacts-viewer-root]) {
   container-type: inline-size;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  color: var(--artifacts-viewer-color, inherit);
+  font-family: var(--artifacts-viewer-font, inherit);
+  font-size: var(--artifacts-viewer-font-size, inherit);
+  background: var(--artifacts-viewer-background, transparent);
 }
 
-:where(.artifacts-viewer[data-mode="dark"]) {
-  --artifacts-viewer-canvas: #171a19;
-  --artifacts-viewer-surface: #202422;
-  --artifacts-viewer-ink: #f2f0e8;
-  --artifacts-viewer-muted: #a2a69f;
-  --artifacts-viewer-line: #424743;
-  --artifacts-viewer-accent: #ff704d;
-  --artifacts-viewer-grid: rgb(242 240 232 / 6%);
+:where([data-artifacts-viewer-slot="toolbar"]) {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--artifacts-viewer-gap, 0.5rem);
+  padding: var(--artifacts-viewer-row-padding, 0.375rem 0.75rem);
+  background: var(--artifacts-viewer-toolbar-background, inherit);
 }
 
-@media (prefers-color-scheme: dark) {
-  :where(.artifacts-viewer[data-mode="system"]) {
-    --artifacts-viewer-canvas: #171a19;
-    --artifacts-viewer-surface: #202422;
-    --artifacts-viewer-ink: #f2f0e8;
-    --artifacts-viewer-muted: #a2a69f;
-    --artifacts-viewer-line: #424743;
-    --artifacts-viewer-accent: #ff704d;
-    --artifacts-viewer-grid: rgb(242 240 232 / 6%);
+:where([data-artifacts-viewer-slot="content"]) {
+  display: grid;
+  grid-template-columns: var(--artifacts-viewer-sidebar-width, 16rem) minmax(0, 1fr);
+  align-items: start;
+  min-height: 0;
+  gap: var(--artifacts-viewer-gap, 0.5rem);
+}
+
+@container (width < 40rem) {
+  :where([data-artifacts-viewer-slot="content"]) {
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 
-:where(.artifacts-viewer__toolbar) {
+:where([data-artifacts-viewer-slot="sidebar"]) {
+  min-width: 0;
+  max-height: var(--artifacts-viewer-pane-height, none);
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+
+/* Nesting supplies the indentation, so rows need no inline style. */
+:where([data-artifacts-viewer-slot="tree"]) ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+:where([data-artifacts-viewer-slot="tree"]) ul ul {
+  padding-inline-start: var(--artifacts-viewer-indent, 1rem);
+}
+
+:where([data-artifacts-viewer-slot="directory"]) {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  max-height: var(--artifacts-viewer-pane-height, none);
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+
+:where([data-artifacts-viewer-slot="treeItem"], [data-artifacts-viewer-slot="directoryItem"]) {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  min-height: 4.5rem;
-  padding: 0.85rem 1rem;
-  background: color-mix(in srgb, var(--artifacts-viewer-surface) 92%, transparent);
-  border-bottom: 1px solid var(--artifacts-viewer-line);
+  gap: var(--artifacts-viewer-gap, 0.5rem);
+  width: 100%;
+  padding: var(--artifacts-viewer-row-padding, 0.375rem 0.75rem);
+  border: 0;
+  margin: 0;
+  text-align: start;
+  text-decoration: none;
+  color: inherit;
+  font: inherit;
+  background: transparent;
+  cursor: pointer;
 }
 
-:where(.artifacts-viewer__identity) {
-  display: flex;
+:where([data-artifacts-viewer-slot="treeItem"][data-kind="gitlink"]),
+:where([data-artifacts-viewer-slot="directoryItem"][data-kind="gitlink"]) {
+  cursor: default;
+}
+
+:where(
+  [data-artifacts-viewer-slot="treeItem"],
+  [data-artifacts-viewer-slot="directoryItem"]
+):focus-visible {
+  outline: var(--artifacts-viewer-focus-outline, 2px solid currentColor);
+  outline-offset: var(--artifacts-viewer-focus-offset, -2px);
+}
+
+:where([data-artifacts-viewer-part="icon"]) {
+  display: inline-flex;
+  flex: none;
   align-items: center;
-  gap: 0.8rem;
-  min-width: 0;
+  color: var(--artifacts-viewer-icon-color, currentColor);
 }
 
-:where(.artifacts-viewer__identity > div) {
-  display: grid;
-  gap: 0.05rem;
+:where([data-artifacts-viewer-part="name"]) {
   min-width: 0;
-}
-
-:where(.artifacts-viewer__identity strong) {
   overflow: hidden;
-  font-family: "Iowan Old Style", "Palatino Linotype", serif;
-  font-size: 1.35rem;
-  font-weight: 600;
-  letter-spacing: -0.02em;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-:where(
-  .artifacts-viewer__eyebrow,
-  .artifacts-viewer__sequence,
-  .artifacts-viewer__status,
-  .artifacts-viewer__footer
-) {
-  font-family: "SFMono-Regular", Consolas, monospace;
-  font-size: 0.67rem;
-  letter-spacing: 0.09em;
-  text-transform: uppercase;
+:where([data-artifacts-viewer-slot="file"]) {
+  min-width: 0;
+  max-height: var(--artifacts-viewer-pane-height, none);
+  overflow: auto;
+  overscroll-behavior: contain;
 }
 
-:where(.artifacts-viewer__eyebrow, .artifacts-viewer__sequence) {
-  color: var(--artifacts-viewer-muted);
+:where([data-artifacts-viewer-slot="file"]) > header {
+  position: sticky;
+  top: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--artifacts-viewer-gap, 0.5rem);
+  padding: var(--artifacts-viewer-row-padding, 0.375rem 0.75rem);
+  background: var(--artifacts-viewer-toolbar-background, inherit);
 }
 
-:where(.artifacts-viewer__mark) {
-  position: relative;
-  display: grid;
-  width: 2.25rem;
-  height: 2.25rem;
-  place-items: center;
-  border: 1px solid var(--artifacts-viewer-ink);
-}
-
-:where(.artifacts-viewer__mark span) {
-  position: absolute;
-  width: 0.42rem;
-  height: 0.42rem;
-  background: var(--artifacts-viewer-accent);
-  border-radius: 50%;
-}
-
-:where(.artifacts-viewer__mark span:nth-child(1)) {
-  translate: -0.55rem -0.45rem;
-}
-
-:where(.artifacts-viewer__mark span:nth-child(2)) {
-  translate: 0.55rem -0.1rem;
-}
-
-:where(.artifacts-viewer__mark span:nth-child(3)) {
-  translate: -0.1rem 0.55rem;
-}
-
-:where(.artifacts-viewer__mark)::before,
-:where(.artifacts-viewer__mark)::after {
-  position: absolute;
-  width: 1.2rem;
-  height: 1px;
-  content: "";
-  background: var(--artifacts-viewer-ink);
-  transform-origin: left center;
-}
-
-:where(.artifacts-viewer__mark)::before {
-  rotate: 17deg;
-  translate: -0.45rem -0.28rem;
-}
-
-:where(.artifacts-viewer__mark)::after {
-  rotate: 126deg;
-  translate: 0.5rem 0.05rem;
-}
-
-:where(.artifacts-viewer__status) {
+:where([data-artifacts-viewer-part="actions"]) {
+  display: inline-flex;
   flex: none;
-  padding: 0.4rem 0.55rem;
-  color: var(--artifacts-viewer-accent);
-  border: 1px solid color-mix(in srgb, var(--artifacts-viewer-accent) 50%, transparent);
+  align-items: center;
+  gap: var(--artifacts-viewer-gap, 0.5rem);
 }
 
-:where(.artifacts-viewer__content) {
+/*
+ * The placeholder and the highlighted file share one cell, so revealing the
+ * highlighted copy cannot shift layout. `@pierre/diffs` renders into an open
+ * Shadow DOM: nothing below reaches inside it, and theming must go through
+ * `pierreDiffsOptions`.
+ */
+:where([data-artifacts-viewer-part="code"]) {
   display: grid;
-  grid-template-columns: minmax(8rem, 0.65fr) minmax(14rem, 1.35fr);
-  min-height: 20rem;
+  min-width: 0;
 }
 
-:where(.artifacts-viewer__diagram) {
-  position: relative;
-  overflow: hidden;
-  border-right: 1px solid var(--artifacts-viewer-line);
+:where([data-artifacts-viewer-part="code"]) > * {
+  grid-area: 1 / 1;
+  min-width: 0;
 }
 
-:where(.artifacts-viewer__diagram)::before {
-  position: absolute;
-  inset: 12% 18%;
-  content: "";
-  border: 1px solid var(--artifacts-viewer-line);
-  rotate: -8deg;
-}
-
-:where(.artifacts-viewer__diagram span) {
-  position: absolute;
-  z-index: 1;
-  width: 0.62rem;
-  height: 0.62rem;
-  background: var(--artifacts-viewer-ink);
-  border: 0.25rem solid var(--artifacts-viewer-canvas);
-  outline: 1px solid var(--artifacts-viewer-line);
-}
-
-:where(.artifacts-viewer__diagram span:nth-child(1)) {
-  top: 18%;
-  left: 24%;
-}
-
-:where(.artifacts-viewer__diagram span:nth-child(2)) {
-  top: 34%;
-  right: 22%;
-}
-
-:where(.artifacts-viewer__diagram span:nth-child(3)) {
-  bottom: 20%;
-  left: 33%;
-  background: var(--artifacts-viewer-accent);
-}
-
-:where(.artifacts-viewer__diagram span:nth-child(4)) {
-  right: 31%;
-  bottom: 34%;
-}
-
-:where(.artifacts-viewer__copy) {
-  display: flex;
-  flex-direction: column;
-  justify-content: end;
-  padding: clamp(1.5rem, 6cqi, 4rem);
-  background: color-mix(in srgb, var(--artifacts-viewer-surface) 74%, transparent);
-}
-
-:where(.artifacts-viewer__copy h2) {
-  max-width: 12ch;
-  margin: 0.55rem 0 1rem;
-  font-family: "Iowan Old Style", "Palatino Linotype", serif;
-  font-size: clamp(2rem, 8cqi, 4.6rem);
-  font-weight: 500;
-  line-height: 0.93;
-  letter-spacing: -0.055em;
-}
-
-:where(.artifacts-viewer__copy p) {
-  max-width: 48rem;
+/* Shown only when highlighting is unavailable. */
+:where([data-artifacts-viewer-part="code-fallback"]) {
   margin: 0;
-  color: var(--artifacts-viewer-muted);
-  font-size: 0.9rem;
-  line-height: 1.65;
+  overflow: auto;
+  padding: var(--artifacts-viewer-row-padding, 0.375rem 0.75rem);
+  font-family: var(--artifacts-viewer-mono-font, monospace);
+  white-space: pre;
 }
 
-:where(.artifacts-viewer__footer) {
+:where([data-artifacts-viewer-part="code-highlight"][data-pending]) {
+  visibility: hidden;
+}
+
+:where([data-artifacts-viewer-part="image"]) {
   display: flex;
-  flex-wrap: wrap;
-  gap: 0;
-  color: var(--artifacts-viewer-muted);
-  background: var(--artifacts-viewer-surface);
-  border-top: 1px solid var(--artifacts-viewer-line);
+  align-items: center;
+  justify-content: center;
+  padding: var(--artifacts-viewer-row-padding, 0.375rem 0.75rem);
 }
 
-:where(.artifacts-viewer__footer span) {
-  padding: 0.65rem 1rem;
-  border-right: 1px solid var(--artifacts-viewer-line);
+:where([data-artifacts-viewer-part="image"]) img {
+  max-width: 100%;
+  max-height: var(--artifacts-viewer-image-max-height, 80vh);
+  object-fit: contain;
 }
 
-@container (width < 34rem) {
-  :where(.artifacts-viewer__toolbar) {
-    align-items: flex-start;
-  }
+:where(
+  [data-artifacts-viewer-slot="loading"],
+  [data-artifacts-viewer-slot="empty"],
+  [data-artifacts-viewer-slot="error"]
+) {
+  margin: 0;
+  padding: var(--artifacts-viewer-row-padding, 0.375rem 0.75rem);
+  color: var(--artifacts-viewer-muted-color, inherit);
+}
 
-  :where(.artifacts-viewer__status) {
-    max-width: 6rem;
-    text-align: right;
-  }
-
-  :where(.artifacts-viewer__content) {
-    grid-template-columns: 1fr;
-  }
-
-  :where(.artifacts-viewer__diagram) {
-    min-height: 9rem;
-    border-right: 0;
-    border-bottom: 1px solid var(--artifacts-viewer-line);
-  }
-
-  :where(.artifacts-viewer__copy h2) {
-    font-size: clamp(2.4rem, 13cqi, 4rem);
-  }
+:where([data-artifacts-viewer-slot="error"]) {
+  color: var(--artifacts-viewer-error-color, inherit);
 }

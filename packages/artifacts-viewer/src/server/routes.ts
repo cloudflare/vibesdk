@@ -7,6 +7,7 @@
  * topology while inviting tampering.
  */
 
+import { normalizeApiPath } from "../shared/api-path.ts";
 import {
   parseLogLimit,
   parseLogOffset,
@@ -77,13 +78,6 @@ export function matchApiPath(pathname: string, apiPath: string): readonly string
     .slice(prefix.length + 1)
     .split("/")
     .filter((segment) => segment !== "");
-}
-
-export function normalizeApiPath(apiPath: string): string {
-  const withLeadingSlash = apiPath.startsWith("/") ? apiPath : `/${apiPath}`;
-  return withLeadingSlash.length > 1 && withLeadingSlash.endsWith("/")
-    ? withLeadingSlash.slice(0, -1)
-    : withLeadingSlash;
 }
 
 /**

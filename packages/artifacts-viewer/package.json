@@ -39,6 +39,9 @@
     "check": "vp check",
     "prepublishOnly": "vp run build"
   },
+  "dependencies": {
+    "@pierre/diffs": "catalog:"
+  },
   "devDependencies": {
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
