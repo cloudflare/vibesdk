@@ -15,9 +15,12 @@
 #ANTHROPIC_API_KEY=""
 #OPENAI_API_KEY=""
 GOOGLE_AI_STUDIO_API_KEY=""
-#OPENROUTER_API_KEY="default" 
-#GROQ_API_KEY="default" 
- 
+#OPENROUTER_API_KEY="default"
+#GROQ_API_KEY="default"
+#MINIMAX_API_KEY=""
+# MiniMax region routing: leave unset (or "global_en") for the global endpoint, or "cn_zh" for the mainland China endpoint
+#MINIMAX_API_REGION="global_en"
+
 # Stuff for Oauths:
 #GOOGLE_CLIENT_SECRET=""
 #GOOGLE_CLIENT_ID="" 

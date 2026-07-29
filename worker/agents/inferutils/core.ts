@@ -403,6 +403,19 @@ async function getApiKey(
     };
 }
 
+/**
+ * Resolve the MiniMax OpenAI-compatible endpoint for the configured region.
+ * MiniMax serves two isolated regions with distinct hosts; the global endpoint
+ * is used by default and MINIMAX_API_REGION=cn_zh routes to the mainland China
+ * endpoint. Any other value falls back to the global endpoint.
+ */
+function getMiniMaxBaseURL(env: Env): string {
+    const region = (env.MINIMAX_API_REGION || '').trim().toLowerCase();
+    return region === 'cn_zh'
+        ? 'https://api.minimaxi.com/v1'
+        : 'https://api.minimax.io/v1';
+}
+
 export async function getConfigurationForModel(
     modelConfig: AIModelConfig,
     env: Env,
@@ -436,6 +449,11 @@ export async function getConfigurationForModel(
                 return {
                     baseURL: 'https://api.anthropic.com/v1/',
                     apiKey: env.ANTHROPIC_API_KEY,
+                };
+            case 'minimax':
+                return {
+                    baseURL: getMiniMaxBaseURL(env),
+                    apiKey: env.MINIMAX_API_KEY,
                 };
             default:
                 providerForcedOverride = modelConfig.provider as AIGatewayProviders;

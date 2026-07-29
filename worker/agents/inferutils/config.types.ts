@@ -337,7 +337,32 @@ const MODELS_MASTER = {
             creditCost: 8, // $0.22
             contextSize: 262144, // 256K Context
         },
-    }
+    },
+
+    // --- MiniMax Models ---
+    // https://platform.minimax.io/docs/api-reference/api-overview
+    MINIMAX_M3: {
+        id: 'minimax/MiniMax-M3',
+        config: {
+            name: 'MiniMax M3',
+            size: ModelSize.LARGE,
+            provider: 'minimax',
+            creditCost: 2.4, // $0.60 input
+            contextSize: 1000000, // 1M Context
+            directOverride: true,
+        }
+    },
+    MINIMAX_M2_7: {
+        id: 'minimax/MiniMax-M2.7',
+        config: {
+            name: 'MiniMax M2.7',
+            size: ModelSize.REGULAR,
+            provider: 'minimax',
+            creditCost: 1.2, // $0.30 input
+            contextSize: 204800, // 200K Context
+            directOverride: true,
+        }
+    },
 } as const;
 
 /**
