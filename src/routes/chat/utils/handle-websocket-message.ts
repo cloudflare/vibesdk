@@ -1,5 +1,5 @@
 import type { WebSocket } from 'partysocket';
-import type { WebSocketMessage, BlueprintType, ConversationMessage, AgentState, PhasicState, BehaviorType, ProjectType, TemplateDetails } from '@/api-types';
+import type { WebSocketMessage, BlueprintType, ConversationMessage, AgentState, PhasicState, BehaviorType, ProjectType, TemplateDetails, CloudflareDeploymentErrorCode } from '@/api-types';
 import { deduplicateMessages, isAssistantMessageDuplicate } from './deduplicate-messages';
 import { logger } from '@/utils/logger';
 import { getFileType } from '@/utils/string';
@@ -117,6 +117,7 @@ export interface HandleMessageDeps {
         source?: string
     }) => void;
     onVaultUnlockRequired?: (reason: string) => void;
+    onCloudflareDeployGate?: (code: CloudflareDeploymentErrorCode) => void;
 }
 
 export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
@@ -179,6 +180,7 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
             refetchLimits,
             onDebugMessage,
             onTerminalMessage,
+            onCloudflareDeployGate,
             clearDeploymentTimeout,
         } = deps;
 
@@ -378,6 +380,9 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
                 // Sync projectType from backend if it changed
                 if (state.projectType) {
                     setInternalProjectType(state.projectType);
+                }
+                if (state.behaviorType === 'think' && state.cloudflareDeploymentUrl) {
+                    setCloudflareDeploymentUrl(state.cloudflareDeploymentUrl);
                 }
 
                 if (state.shouldBeGenerating && !isGenerating) {
@@ -941,6 +946,12 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
                 sendMessage(createAIMessage('cloudflare_deployment_error', `Deployment failed: ${message.error}\n\nYou can try deploying again.`));
 
                 toast.error(`Error: ${message.error}`);
+
+                // Connection-gate failures (no OAuth token / no account selected)
+                // additionally surface a connect/configure popup.
+                if (message.code) {
+                    onCloudflareDeployGate?.(message.code);
+                }
                 
                 onDebugMessage?.('error', 
                     'Deployment Failed - State Reset',

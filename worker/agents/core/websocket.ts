@@ -6,6 +6,7 @@ import { MAX_IMAGES_PER_MESSAGE, MAX_IMAGE_SIZE_BYTES, type ImageAttachment } fr
 import { type CredentialsPayload } from '../inferutils/config.types';
 import { checkUsageAndBalance } from '../../services/rate-limit';
 import type { CodeGeneratorAgent } from './codingAgent';
+import type { DeploymentTarget } from './types';
 
 // Type for incoming WebSocket messages
 interface IncomingWebSocketMessage {
@@ -14,6 +15,7 @@ interface IncomingWebSocketMessage {
     images?: ImageAttachment[];
     credentials?: CredentialsPayload;
     commitHash?: string;
+    target?: DeploymentTarget;
     data?: {
         url?: string;
         viewport?: unknown;
@@ -71,17 +73,25 @@ export async function handleWebSocketMessage(
                     }
                 });
                 break;
-            case WebSocketMessageRequests.DEPLOY:
-                agent.deployProject().then((deploymentResult) => {
-                    if (!deploymentResult.success) {
-                        logger.error('Deployment failed', deploymentResult);
+            case WebSocketMessageRequests.DEPLOY: {
+                const target = parsedMessage.target ??
+                    (agent.state.behaviorType === 'think' ? 'user' : 'platform');
+                if (target !== 'platform' && target !== 'user') {
+                    sendError(connection, `Unsupported deployment target: ${String(target)}`);
+                    return;
+                }
+                agent.deployToCloudflare(target).then((deploymentResult) => {
+                    if (!deploymentResult?.deploymentUrl) {
+                        logger.error('Deployment failed', { target });
                         return;
                     }
                     logger.info('Deployment completed', deploymentResult);
                 }).catch((error: unknown) => {
                     logger.error('Error during deployment:', error);
+                    sendError(connection, error instanceof Error ? error.message : String(error));
                 });
                 break;
+            }
             case WebSocketMessageRequests.PREVIEW:
                 // Deploy current state for preview
                 logger.info('Deploying for preview');

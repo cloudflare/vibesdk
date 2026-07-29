@@ -20,6 +20,16 @@ export interface DeployContext {
   fs: FileSystem
 }
 
+export interface BranchDeploymentBundle {
+  branch: string
+  commitHash: string
+  mainModule: string
+  modules: Record<string, string | Record<string, unknown>>
+  assets: Record<string, string>
+  assetConfig: AssetConfig | undefined
+  compatibilityDate: string
+}
+
 export async function handleDeployCommand(
   ctx: DeployContext,
   cmd: string,
@@ -95,102 +105,26 @@ async function deployBranch(
     return jsonResponse({ error: "branch is required" }, 400)
   }
 
-  const { commitHash, files } = await readBranchFiles(ctx, branch)
-
-  if (Object.keys(files).length === 0) {
-    return jsonResponse({ error: `No files found in branch "${branch}"` }, 400)
-  }
-
-  // Parse child project's wrangler config for assets + entry point
-  let wranglerCfg
+  let bundle: BranchDeploymentBundle
   try {
-    wranglerCfg = parseWranglerConfig(files)
+    bundle = await buildBranchDeployment(ctx, branch)
   } catch (e) {
-    if (e instanceof WranglerConfigError) {
-      return jsonResponse({ error: "Invalid wrangler.json", details: e.message }, 400)
-    }
-    throw e
-  }
-
-  // Reject `durable_objects.bindings` in the child wrangler.json. The
-  // platform extracts the LLM's `class App extends DurableObject`
-  // automatically (it runs as a SpaceDO Facet); declaring DO bindings
-  // would do nothing and confuse the user.
-  if (wranglerCfg.durableObjects?.length) {
-    return jsonResponse(
-      {
-        error: "Durable Object bindings are not allowed in wrangler.json",
-        details:
-          "The platform runs your app as a single Durable Object (`export class App extends DurableObject` from your main module). Do not declare `durable_objects.bindings`.",
-      },
-      400,
-    )
-  }
-
-  let build: {
-    mainModule: string
-    modules: Record<string, string | Record<string, unknown>>
-    assets: Record<string, string>
-    assetConfig: AssetConfig | undefined
-  }
-  try {
-    // Collect static assets from configured directory
-    const assetsDir = wranglerCfg.assets?.directory?.replace(/^\.?\//, "").replace(/\/$/, "")
-    const collectedAssets = assetsDir
-      ? Object.fromEntries(
-          Object.entries(files)
-            .filter(([path]) => path === assetsDir || path.startsWith(`${assetsDir}/`))
-            // Map to URL pathname: public/index.html → /index.html
-            .map(([path, content]) => [`/${path.slice(assetsDir.length + 1)}`, content])
-        )
-      : {}
-    const assetConfig: AssetConfig | undefined = assetsDir
-      ? {
-          ...(wranglerCfg.assets?.notFoundHandling && {
-            not_found_handling: wranglerCfg.assets.notFoundHandling,
-          }),
-          ...(wranglerCfg.assets?.htmlHandling && {
-            html_handling: wranglerCfg.assets.htmlHandling,
-          }),
-        }
-      : undefined
-
-    if (Object.keys(collectedAssets).length) {
-      // Full-stack build: server + client + static assets
-      const result = await createApp({
-        files,
-        assets: collectedAssets,
-        assetConfig,
-        server: wranglerCfg.main,
-      })
-      build = {
-        mainModule: result.mainModule,
-        modules: serializeModules(result.modules),
-        assets: serializeAssets(result.assets),
-        assetConfig: result.assetConfig,
-      }
-    } else {
-      // Server-only build (no assets)
-      const result = await createWorker({ files, entryPoint: wranglerCfg.main })
-      const modules = serializeModules(result.modules)
-
-      // Inject __STATIC_CONTENT_MANIFEST if the bundler left it as an external import.
-      modules["__STATIC_CONTENT_MANIFEST"] ??= { text: "{}" }
-      build = {
-        mainModule: result.mainModule,
-        modules,
-        assets: {},
-        assetConfig,
-      }
-    }
-  } catch (e) {
+    const message = e instanceof Error ? e.message : String(e)
+    const separator = message.indexOf(": ")
     return jsonResponse({
-      error: "Build failed",
-      details: e instanceof Error ? e.message : String(e),
+      error: separator > 0 ? message.slice(0, separator) : message,
+      ...(separator > 0 ? { details: message.slice(separator + 2) } : {}),
     }, 400)
   }
 
-  const { mainModule, modules: serializedModules, assets: serializedAssets, assetConfig } = build
+  const {
+    commitHash,
+    mainModule,
+    modules: serializedModules,
+    assets: serializedAssets,
+    assetConfig,
+    compatibilityDate: compatDate,
+  } = bundle
 
   const now = Date.now()
   ctx.sql.exec(
@@ -206,8 +140,6 @@ async function deployBranch(
     now
   )
 
-  const compatDate = wranglerCfg.compatibilityDate
-
   return jsonResponse({
     branch,
     commit_hash: commitHash,
@@ -216,6 +148,86 @@ async function deployBranch(
     compatibility_date: compatDate,
     deployed_at: new Date(now).toISOString(),
   })
+}
+
+export async function buildBranchDeployment(
+  ctx: DeployContext,
+  branch: string
+): Promise<BranchDeploymentBundle> {
+  const { commitHash, files } = await readBranchFiles(ctx, branch)
+  if (Object.keys(files).length === 0) {
+    throw new Error(`No files found in branch "${branch}"`)
+  }
+
+  let wranglerCfg
+  try {
+    wranglerCfg = parseWranglerConfig(files)
+  } catch (e) {
+    if (e instanceof WranglerConfigError) {
+      throw new Error(`Invalid wrangler.json: ${e.message}`)
+    }
+    throw e
+  }
+
+  if (wranglerCfg.durableObjects?.length) {
+    throw new Error(
+      "Durable Object bindings are not allowed in wrangler.json: The platform runs your app as a single Durable Object (`export class App extends DurableObject` from your main module). Do not declare `durable_objects.bindings`."
+    )
+  }
+
+  try {
+    const assetsDir = wranglerCfg.assets?.directory?.replace(/^\.?\//, "").replace(/\/$/, "")
+    const collectedAssets = assetsDir
+      ? Object.fromEntries(
+          Object.entries(files)
+            .filter(([path]) => path === assetsDir || path.startsWith(`${assetsDir}/`))
+            .map(([path, content]) => [`/${path.slice(assetsDir.length + 1)}`, content])
+        )
+      : {}
+    const assetConfig: AssetConfig | undefined = assetsDir
+      ? {
+          ...(wranglerCfg.assets?.notFoundHandling && {
+            not_found_handling: wranglerCfg.assets.notFoundHandling,
+          }),
+          ...(wranglerCfg.assets?.htmlHandling && {
+            html_handling: wranglerCfg.assets.htmlHandling,
+          }),
+        }
+      : undefined
+
+    if (Object.keys(collectedAssets).length) {
+      const result = await createApp({
+        files,
+        assets: collectedAssets,
+        assetConfig,
+        server: wranglerCfg.main,
+      })
+      return {
+        branch,
+        commitHash,
+        mainModule: result.mainModule,
+        modules: serializeModules(result.modules),
+        assets: serializeAssets(result.assets),
+        assetConfig: result.assetConfig,
+        compatibilityDate: wranglerCfg.compatibilityDate ?? "2025-04-01",
+      }
+    }
+
+    const result = await createWorker({ files, entryPoint: wranglerCfg.main })
+    const modules = serializeModules(result.modules)
+    modules["__STATIC_CONTENT_MANIFEST"] ??= { text: "{}" }
+    return {
+      branch,
+      commitHash,
+      mainModule: result.mainModule,
+      modules,
+      assets: {},
+      assetConfig,
+      compatibilityDate: wranglerCfg.compatibilityDate ?? "2025-04-01",
+    }
+  } catch (e) {
+    throw new Error(`Build failed: ${e instanceof Error ? e.message : String(e)}`)
+  }
 }
 
 // ─── Get a deployment ───────────────────────────────────────────────────────

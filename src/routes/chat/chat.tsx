@@ -8,7 +8,7 @@ import {
 } from 'react';
 import { useParams, useSearchParams, useNavigate, useLocation } from 'react-router';
 import { AnimatePresence, motion } from 'framer-motion';
-import { LoaderCircle, MoreHorizontal, RotateCcw } from 'lucide-react';
+import { ExternalLink, LoaderCircle, MoreHorizontal, Rocket, RotateCcw } from 'lucide-react';
 import { GlobeHemisphereWestIcon, LockKey } from '@phosphor-icons/react';
 import { Button, DropdownMenu } from '@cloudflare/kumo';
 import clsx from 'clsx';
@@ -17,9 +17,9 @@ import { PhaseTimeline } from './components/phase-timeline';
 import { type DebugMessage } from './components/debug-panel';
 import { DeploymentControls } from './components/deployment-controls';
 import { useChat } from './hooks/use-chat';
-import { type ModelConfigsInfo, type BlueprintType, type PhasicBlueprint, SUPPORTED_IMAGE_MIME_TYPES, type ProjectType, type FileType, type BehaviorType, isAgenticLikeBehavior } from '@/api-types';
+import { type ModelConfigsInfo, type BlueprintType, type PhasicBlueprint, SUPPORTED_IMAGE_MIME_TYPES, type ProjectType, type FileType, type BehaviorType, type CloudflareDeploymentErrorCode, isAgenticLikeBehavior } from '@/api-types';
 import type { ChatMessage } from './utils/message-helpers';
-import { featureRegistry } from '@/features';
+import { featureRegistry, useFeature } from '@/features';
 import { useFileContentStream } from './hooks/use-file-content-stream';
 import { logger } from '@/utils/logger';
 import { useApp } from '@/hooks/use-app';
@@ -40,7 +40,7 @@ import { ClarifyingQuestionsPopup } from './components/clarifying-questions-popu
 import { useVault } from '@/hooks/use-vault';
 import { VaultUnlockModal } from '@/components/vault';
 import { useLimitsContext } from '@/contexts/limits-context';
-import { checkCanSendPrompt, getBackendLimitDialog } from '@/utils/usage-limit-checker';
+import { checkCanSendPrompt, getBackendLimitDialog, getDeployGateDialog } from '@/utils/usage-limit-checker';
 
 const isPhasicBlueprint = (blueprint?: BlueprintType | null): blueprint is PhasicBlueprint =>
 	!!blueprint && 'implementationRoadmap' in blueprint;
@@ -139,6 +139,17 @@ export default function Chat() {
 		[requestUnlock],
 	);
 
+	// Deploy gate popup (backend-reported Cloudflare connection failures)
+	const [showDeployGateDialog, setShowDeployGateDialog] = useState<React.ReactElement | null>(null);
+	const handleCloudflareDeployGate = useCallback((code: CloudflareDeploymentErrorCode) => {
+		const dialog = getDeployGateDialog(
+			code,
+			() => { window.location.href = `/oauth/login?return_url=${encodeURIComponent(window.location.href)}`; },
+			() => setShowDeployGateDialog(null),
+		);
+		if (dialog) setShowDeployGateDialog(dialog);
+	}, []);
+
 	const {
 		messages,
 		edit,
@@ -199,6 +210,7 @@ export default function Chat() {
 		autoStart,
 		onDebugMessage: addDebugMessage,
 		onVaultUnlockRequired: handleVaultUnlockRequired,
+		onCloudflareDeployGate: handleCloudflareDeployGate,
 	});
 
 	// GitHub export functionality - use urlChatId directly from URL params
@@ -225,6 +237,11 @@ export default function Chat() {
 	// Usage limits state
 	const { data: limitsData, loading: limitsLoading } = useLimitsContext();
 	const [showLimitDialog, setShowLimitDialog] = useState<React.ReactElement | null>(null);
+
+	// Deploy target for think apps: user-account deploys are gated behind the
+	// platform's ENABLE_USER_ACCOUNT_DEPLOY flag (surfaced via capabilities).
+	const { capabilities } = useFeature();
+	const userAccountDeployEnabled = capabilities?.userAccountDeploy ?? false;
 
 	// Debug: Log when backend error dialog state changes
 	useEffect(() => {
@@ -786,6 +803,39 @@ export default function Chat() {
 							</div>
 						</div>
 					)}
+					{behaviorType === 'think' && !appLoading && (
+						<div className="ml-auto flex items-center gap-2">
+							{cloudflareDeploymentUrl && (
+								<Button
+									variant="ghost"
+									className="h-8 shrink-0 px-2 text-xs text-text-tertiary hover:bg-kumo-elevated hover:text-text-primary"
+									onClick={() => window.open(cloudflareDeploymentUrl, '_blank')}
+								>
+									<ExternalLink className="size-3.5" />
+									View Live
+								</Button>
+							)}
+							<Button
+								variant="secondary"
+								className="h-8 shrink-0 border border-border-primary bg-kumo-elevated px-3 text-xs text-text-primary shadow-sm transition-colors hover:bg-kumo-base disabled:cursor-not-allowed disabled:opacity-50"
+								disabled={isDeploying || files.length === 0}
+								onClick={() => handleDeployToCloudflare(chatId || '', userAccountDeployEnabled ? 'user' : 'platform')}
+							>
+								{isDeploying ? (
+									<LoaderCircle className="size-3.5 animate-spin" />
+								) : (
+									<Rocket className="size-3.5" />
+								)}
+								{isDeploying
+									? 'Deploying...'
+									: cloudflareDeploymentUrl
+										? 'Redeploy'
+										: userAccountDeployEnabled
+											? 'Deploy to My Account'
+											: 'Deploy'}
+							</Button>
+						</div>
+					)}
 				</div>
 			)}
 			<div className="flex-1 flex min-h-0 overflow-hidden justify-center">
@@ -898,7 +948,7 @@ export default function Chat() {
 							)}
 
 							{/* Deployment and Generation Controls - Only for phasic mode */}
-							{chatId && !isAgenticLikeBehavior(behaviorType) && (
+							{chatId && behaviorType === 'phasic' && (
 								<motion.div
 									ref={deploymentControlsRef}
 									initial={{ opacity: 0, y: 20 }}
@@ -920,7 +970,8 @@ export default function Chat() {
 											isGeneratingBlueprint
 										}
 										isPaused={isGenerationPaused}
-										onDeploy={handleDeployToCloudflare}
+										onDeploy={(instanceId) => handleDeployToCloudflare(instanceId, 'platform')}
+										deploymentTarget="platform"
 										onStopGeneration={handleStopGeneration}
 										onResumeGeneration={
 											handleResumeGeneration
@@ -1064,6 +1115,9 @@ export default function Chat() {
 
 			{/* Usage limit dialogs */}
 			{showLimitDialog}
+
+			{/* Deploy gate dialog (backend-reported CF connection failure) */}
+			{showDeployGateDialog}
 
 			{/* Backend error dialog - shows when backend blocks request due to limits */}
 			{(() => {

@@ -12,6 +12,7 @@ import {
 	type BehaviorType,
 	type FileType,
 	type TemplateDetails,
+	type CloudflareDeploymentErrorCode,
 	getBehaviorTypeForProject,
 } from '@/api-types';
 import {
@@ -57,6 +58,7 @@ export function useChat({
 	onDebugMessage,
 	onTerminalMessage,
 	onVaultUnlockRequired,
+	onCloudflareDeployGate,
 }: {
 	chatId?: string;
 	query: string | null;
@@ -74,6 +76,7 @@ export function useChat({
 	onDebugMessage?: (type: 'error' | 'warning' | 'info' | 'websocket', message: string, details?: string, source?: string, messageType?: string, rawMessage?: unknown) => void;
 	onTerminalMessage?: (log: { id: string; content: string; type: 'command' | 'stdout' | 'stderr' | 'info' | 'error' | 'warn' | 'debug'; timestamp: number; source?: string }) => void;
 	onVaultUnlockRequired?: (reason: string) => void;
+	onCloudflareDeployGate?: (code: CloudflareDeploymentErrorCode) => void;
 }) {
 	// Derive initial behavior type from explicit override or project type using feature system
 	const getInitialBehaviorType = (): BehaviorType => {
@@ -308,6 +311,7 @@ export function useChat({
 			onDebugMessage,
 			onTerminalMessage,
 			onVaultUnlockRequired,
+			onCloudflareDeployGate,
 			clearDeploymentTimeout,
 			onPresentationFileEvent: (evt) => {
 				if (!evt.path.includes('/slides/')) return;
@@ -333,6 +337,7 @@ export function useChat({
 			onDebugMessage,
 			onTerminalMessage,
 			onVaultUnlockRequired,
+			onCloudflareDeployGate,
 			clearDeploymentTimeout,
 			setClarifyingQuestions,
 		],
@@ -763,10 +768,13 @@ export function useChat({
 		sendWebSocketMessage(websocket, 'resume_generation');
 	}, [websocket]);
 
-	const handleDeployToCloudflare = useCallback(async (instanceId: string) => {
+	const handleDeployToCloudflare = useCallback(async (
+		instanceId: string,
+		target: 'platform' | 'user' = 'platform',
+	) => {
 		try {
 			// Send deployment command via WebSocket instead of HTTP request
-			if (sendWebSocketMessage(websocket, 'deploy', { instanceId })) {
+			if (sendWebSocketMessage(websocket, 'deploy', { instanceId, target })) {
 				logger.debug('🚀 Deployment WebSocket message sent:', instanceId);
 
 				// Clear any existing deployment timeout

@@ -7,6 +7,7 @@ export type {
   AppDatabaseColumn,
   AppDatabaseReadResult,
 } from "./space/durable-object"
+export type { BranchDeploymentBundle } from "./space/deploy-engine"
 
 // ── Environment bindings type ────────────────────────────────────
 export type { Env } from "./env"

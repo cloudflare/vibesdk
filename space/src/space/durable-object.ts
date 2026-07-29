@@ -7,7 +7,12 @@ import {
 } from "@cloudflare/shell"
 import { createGit, type Git, type GitLogEntry, type GitStatusEntry } from "@cloudflare/shell/git"
 import type { Env } from "../env"
-import { handleDeployCommand, type DeployContext } from "./deploy-engine"
+import {
+  buildBranchDeployment,
+  handleDeployCommand,
+  type BranchDeploymentBundle,
+  type DeployContext,
+} from "./deploy-engine"
 import { globInfos, readDirInfos, toFileInfo } from "./fileinfo"
 import { handleAssetRequest, buildAssetManifest, createMemoryStorage, type AssetConfig } from "@cloudflare/worker-bundler"
 import {
@@ -570,6 +575,19 @@ export class SpaceDO extends DurableObject<Env> {
     }
 
     return data
+  }
+
+  async getDeploymentBundle(branch: string): Promise<BranchDeploymentBundle> {
+    await this.ensureInit()
+    await this.materializeAll()
+    return buildBranchDeployment(
+      {
+        sql: this.ctx.storage.sql,
+        git: this.git,
+        fs: this.fs,
+      },
+      branch,
+    )
   }
 
   async undeploy(branch: string): Promise<unknown> {

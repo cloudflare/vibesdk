@@ -69,6 +69,18 @@ Triggered by `checkCanSendPrompt` (pre-flight) and `getBackendLimitDialog` (on b
 
 `MINIMUM_CLOUDFLARE_BALANCE` is defined in `shared/constants/limits.ts`.
 
+## Deploy gate popup — `src/utils/usage-limit-checker.tsx` (`getDeployGateDialog`)
+
+Unlike the pre-flight limit popups, this one is **backend-error-triggered**: a user-account deploy (`target: 'user'`, think behavior) can fail with a structured `code` on the `cloudflare_deployment_error` WebSocket message (`worker/api/websocketTypes.ts`). `handle-websocket-message.ts` forwards the code via `onCloudflareDeployGate`; `chat.tsx` renders the dialog. The toast + chat message still show in all cases.
+
+| `code` | Emitted when | Dialog | Primary action |
+| --- | --- | --- | --- |
+| `cloudflare_not_connected` | No decrypted Cloudflare OAuth token for the user | **Connect Cloudflare to deploy** | OAuth flow (`/oauth/login?return_url=...`) |
+| `cloudflare_not_configured` | Multiple accounts connected and none selected (a sole connected account is used automatically — deploying needs no AI Gateway) | **Select a Cloudflare account** | Navigate to `/settings?config_needed=true` |
+| _(absent)_ | Any other deploy failure | None (toast only) | — |
+
+Think deploy targets are gated by the worker flag `ENABLE_USER_ACCOUNT_DEPLOY` (surfaced to the frontend as `userAccountDeploy` on `GET /api/capabilities`): when on, the think deploy button sends `target: 'user'` ("Deploy to My Account"); when off it sends `target: 'platform'` ("Deploy") and the backend publishes to the platform dispatch namespace with platform credentials — no Cloudflare connection required, so the popup never fires.
+
 ## Backend interactions
 
 | Behavior | Source |

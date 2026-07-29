@@ -205,6 +205,7 @@
         "ENABLE_READ_REPLICAS": "true",
         "ENABLE_EMAIL_AUTH": "true",
         "ENABLE_CLOUDFLARE_LIMITS": "false",
+        "ENABLE_USER_ACCOUNT_DEPLOY": "false",
         "CLOUDFLARE_AI_GATEWAY": "vibesdk-gateway",
         "PLATFORM_CAPABILITIES": {
             "features": {

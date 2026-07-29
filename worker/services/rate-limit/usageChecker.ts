@@ -225,6 +225,23 @@ export async function resolveCloudflareAccessTokenFromRequest(
 	return { accessToken: null };
 }
 
+export async function resolveCloudflareAccessToken(
+	env: Env,
+	userId: string,
+	encryptedBlob: string | null | undefined,
+	originUrl?: string,
+): Promise<{ accessToken: string | null; refreshedBlob?: string; reconnectRequired: boolean }> {
+	if (!encryptedBlob) {
+		return { accessToken: null, reconnectRequired: true };
+	}
+	const resolved = await resolveAccessToken(env, userId, encryptedBlob, undefined, originUrl);
+	return {
+		accessToken: resolved.accessToken,
+		refreshedBlob: resolved.refreshedBlob,
+		reconnectRequired: !resolved.accessToken,
+	};
+}
+
 /**
  * Decrypt the stored blob, validate user binding, and refresh the access token
  * if it is past the refresh threshold. Returns the usable access token plus an

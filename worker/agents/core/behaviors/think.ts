@@ -27,6 +27,11 @@ import { AppService } from 'worker/database/services/AppService';
 import { getConfigurationForModel } from '../../inferutils/core';
 import type { ThinkAgentConfig } from '../../think/ThinkAgent';
 import { THINK_MODEL_CONFIG, THINK_MODEL_ID } from '../../think/model-config';
+import type { BranchDeploymentBundle } from '@space-do/space';
+import { CloudflareAccountService } from '../../../services/cloudflare/CloudflareAccountService';
+import { deployThinkBundleToPlatform, deployThinkBundleToUserAccount } from '../../../services/deployer/think-user-deploy';
+import { resolveCloudflareAccessToken } from '../../../services/rate-limit/usageChecker';
+import type { CloudflareDeploymentErrorCode } from '../../../api/websocketTypes';
 
 /**
  * Minimal stub shape for the `ThinkAgent` DO (see `worker/agents/think/ThinkAgent.ts`).
@@ -879,10 +884,154 @@ export class ThinkCodingBehavior
 		}
 	}
 
-	// Cloudflare deploy is a no-op for think in MVP — previews already run on
-	// Workers via SpaceDO's worker_loaders.
-	async deployToCloudflare(_target?: DeploymentTarget): Promise<null> {
-		return null;
+	async deployToCloudflare(
+		target: DeploymentTarget = 'user',
+	): Promise<{ deploymentUrl?: string; workersUrl?: string } | null> {
+		const userAccountDeployEnabled = this.env.ENABLE_USER_ACCOUNT_DEPLOY === 'true';
+
+		if (!userAccountDeployEnabled) {
+			return this.deployThinkAppToPlatform();
+		}
+
+		if (target !== 'user') {
+			this.broadcast(WebSocketMessageResponses.CLOUDFLARE_DEPLOYMENT_ERROR, {
+				message: 'Think apps can only be deployed to your Cloudflare account',
+				error: `Unsupported deployment target "${target}"`,
+				instanceId: this.getAgentId(),
+			});
+			return null;
+		}
+
+		const instanceId = this.getAgentId();
+		let gateCode: CloudflareDeploymentErrorCode | undefined;
+		this.broadcast(WebSocketMessageResponses.CLOUDFLARE_DEPLOYMENT_STARTED, {
+			message: 'Starting deployment to your Cloudflare account...',
+			instanceId,
+		});
+		try {
+			const token = await resolveCloudflareAccessToken(
+				this.env,
+				this.state.metadata.userId,
+				this.state.cloudflareToken,
+				this.state.wsOrigin,
+			);
+			if (token.refreshedBlob) {
+				this.setState({ ...this.state, cloudflareToken: token.refreshedBlob });
+			}
+			if (!token.accessToken) {
+				gateCode = 'cloudflare_not_connected';
+				throw new Error('Reconnect Cloudflare to grant Worker deployment access');
+			}
+
+			// Deploying only needs an account ID — no AI Gateway selection.
+			// getDeployAccount falls back to the user's sole connected account
+			// and only returns null when the target account is ambiguous.
+			const account = await new CloudflareAccountService(this.env)
+				.getDeployAccount(this.state.metadata.userId);
+			if (!account) {
+				gateCode = 'cloudflare_not_configured';
+				throw new Error('Select a Cloudflare account in Settings before deploying');
+			}
+
+			const branch = this.state.currentBranch || 'main';
+			const space = this.getSpaceStub() as unknown as {
+				gitCommit: (message: string) => Promise<unknown>;
+				getDeploymentBundle: (branch: string) => Promise<BranchDeploymentBundle>;
+			};
+			try {
+				await space.gitCommit('deploy: publish to user account');
+			} catch (error) {
+				this.logger.debug('No new workspace changes to commit before publishing', error);
+			}
+			const bundle = await space.getDeploymentBundle(branch);
+			const result = await deployThinkBundleToUserAccount({
+				accountId: account.accountId,
+				accessToken: token.accessToken,
+				appName: this.state.blueprint.title || this.state.projectName || `vibe-${instanceId}`,
+				bundle,
+			});
+			await new AppService(this.env).updateDeploymentId(instanceId, result.deploymentId);
+			this.setState({ ...this.state, cloudflareDeploymentUrl: result.deploymentUrl });
+			this.broadcast(WebSocketMessageResponses.CLOUDFLARE_DEPLOYMENT_COMPLETED, {
+				message: 'Successfully deployed to your Cloudflare account',
+				instanceId,
+				deploymentUrl: result.deploymentUrl,
+				workersUrl: result.deploymentUrl,
+			});
+			return { deploymentUrl: result.deploymentUrl, workersUrl: result.deploymentUrl };
+		} catch (error) {
+			const message = error instanceof Error ? error.message : String(error);
+			this.logger.error('Think user-account deployment failed', error);
+			this.broadcast(WebSocketMessageResponses.CLOUDFLARE_DEPLOYMENT_ERROR, {
+				message: 'Deployment failed',
+				instanceId,
+				error: message,
+				...(gateCode ? { code: gateCode } : {}),
+			});
+			return null;
+		}
+	}
+
+	/**
+	 * Default think deploy when `ENABLE_USER_ACCOUNT_DEPLOY` is off: publish the
+	 * SpaceDO bundle to the platform's dispatch namespace with platform creds.
+	 */
+	private async deployThinkAppToPlatform(): Promise<{ deploymentUrl?: string; workersUrl?: string } | null> {
+		const instanceId = this.getAgentId();
+		this.broadcast(WebSocketMessageResponses.CLOUDFLARE_DEPLOYMENT_STARTED, {
+			message: 'Starting deployment to Cloudflare Workers...',
+			instanceId,
+		});
+		try {
+			const accountId = this.env.CLOUDFLARE_ACCOUNT_ID;
+			const apiToken = this.env.CLOUDFLARE_API_TOKEN;
+			if (!accountId || !apiToken) {
+				throw new Error('CLOUDFLARE_ACCOUNT_ID and CLOUDFLARE_API_TOKEN must be set in environment');
+			}
+			const dispatchNamespace = (this.env as unknown as { DISPATCH_NAMESPACE?: string })
+				.DISPATCH_NAMESPACE;
+			if (!dispatchNamespace) {
+				throw new Error('DISPATCH_NAMESPACE not found in environment variables, cannot deploy without dispatch namespace');
+			}
+
+			const branch = this.state.currentBranch || 'main';
+			const space = this.getSpaceStub() as unknown as {
+				gitCommit: (message: string) => Promise<unknown>;
+				getDeploymentBundle: (branch: string) => Promise<BranchDeploymentBundle>;
+			};
+			try {
+				await space.gitCommit('deploy: publish to platform');
+			} catch (error) {
+				this.logger.debug('No new workspace changes to commit before publishing', error);
+			}
+			const bundle = await space.getDeploymentBundle(branch);
+			const result = await deployThinkBundleToPlatform({
+				accountId,
+				apiToken,
+				dispatchNamespace,
+				previewDomain: getPreviewDomain(this.env),
+				appName: this.state.blueprint.title || this.state.projectName || `vibe-${instanceId}`,
+				bundle,
+			});
+			await new AppService(this.env).updateDeploymentId(instanceId, result.deploymentId);
+			this.setState({ ...this.state, cloudflareDeploymentUrl: result.deploymentUrl });
+			this.broadcast(WebSocketMessageResponses.CLOUDFLARE_DEPLOYMENT_COMPLETED, {
+				message: 'Successfully deployed to Cloudflare Workers',
+				instanceId,
+				deploymentUrl: result.deploymentUrl,
+				workersUrl: result.deploymentUrl,
+			});
+			return { deploymentUrl: result.deploymentUrl, workersUrl: result.deploymentUrl };
+		} catch (error) {
+			const message = error instanceof Error ? error.message : String(error);
+			this.logger.error('Think platform deployment failed', error);
+			this.broadcast(WebSocketMessageResponses.CLOUDFLARE_DEPLOYMENT_ERROR, {
+				message: 'Deployment failed',
+				instanceId,
+				error: message,
+			});
+			return null;
+		}
 	}
 }
 
