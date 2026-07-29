@@ -116,4 +116,87 @@ describe("ArtifactsSync.push", () => {
     expect(results).toEqual([true, true, true])
     expect(maxConcurrent).toBe(1)
   })
+
+  /**
+   * Fake Git whose `log` answers the tracking-ref lookup
+   * (`refs/remotes/artifacts/<branch>`) with `remoteHistory` and the local
+   * branch lookup with `localHistory`.
+   */
+  function fakeGitWithHistory(opts: {
+    remoteHistory?: string[]
+    localHistory?: string[]
+    onPush?: () => void
+  }): Git {
+    return {
+      remote: async () => ({ added: "artifacts", url: "x" }),
+      log: async ({ ref }: { ref?: string }) => {
+        const oids = ref?.startsWith("refs/remotes/") ? opts.remoteHistory : opts.localHistory
+        if (!oids) throw new Error("ref not found")
+        return oids.map((oid) => ({ oid, message: "c", author: {}, parent: [] }))
+      },
+      push: async () => {
+        opts.onPush?.()
+        return { ok: true, refs: {} }
+      },
+    } as unknown as Git
+  }
+
+  it("refuses to force-push when local history does not contain the remote head", async () => {
+    let pushes = 0
+    const git = fakeGitWithHistory({
+      remoteHistory: ["remote-head"],
+      localHistory: ["diverged-root"],
+      onPush: () => pushes++,
+    })
+    const sync = new ArtifactsSync(
+      fakeArtifacts(),
+      git,
+      "repo",
+      memStore("https://artifacts.example/repo.git"),
+      silentLogger,
+    )
+
+    // A diverged local branch (e.g. a root commit made while the base could
+    // not be loaded) must NOT overwrite remote history.
+    expect(await sync.push("main")).toBe(false)
+    expect(pushes).toBe(0)
+  })
+
+  it("pushes when the local branch descends from the remote head", async () => {
+    let pushes = 0
+    const git = fakeGitWithHistory({
+      remoteHistory: ["base-commit"],
+      localHistory: ["new-commit", "base-commit"],
+      onPush: () => pushes++,
+    })
+    const sync = new ArtifactsSync(
+      fakeArtifacts(),
+      git,
+      "repo",
+      memStore("https://artifacts.example/repo.git"),
+      silentLogger,
+    )
+
+    expect(await sync.push("main")).toBe(true)
+    expect(pushes).toBe(1)
+  })
+
+  it("pushes when no remote head is known (first push / never fetched)", async () => {
+    let pushes = 0
+    const git = fakeGitWithHistory({
+      remoteHistory: undefined,
+      localHistory: ["first-commit"],
+      onPush: () => pushes++,
+    })
+    const sync = new ArtifactsSync(
+      fakeArtifacts(),
+      git,
+      "repo",
+      memStore("https://artifacts.example/repo.git"),
+      silentLogger,
+    )
+
+    expect(await sync.push("main")).toBe(true)
+    expect(pushes).toBe(1)
+  })
 })

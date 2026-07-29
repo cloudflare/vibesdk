@@ -10,7 +10,7 @@
  */
 import { tool, type Tool } from 'ai';
 import { z } from 'zod';
-import type { SpaceWorkspaceStub } from './space-workspace-ops';
+import { withDurableObjectResetRetry, type SpaceWorkspaceStub } from './space-workspace-ops';
 
 const DESCRIPTION = [
 	'Commit the current working tree and deploy a branch so its preview rebuilds and serves the latest code.',
@@ -32,14 +32,15 @@ export function createDeploySpaceTool(opts: { getStub: () => SpaceWorkspaceStub 
 		}),
 		execute: async (args: { branch?: string }) => {
 			const branch = args.branch && args.branch.length > 0 ? args.branch : 'main';
-			const stub = getStub();
 			try {
-				await stub.gitCommit('deploy: snapshot working tree');
+				await withDurableObjectResetRetry(getStub, (stub) =>
+					stub.gitCommit('deploy: snapshot working tree'),
+				);
 			} catch {
 				// No changes to commit (clean tree) — proceed to deploy the existing HEAD.
 			}
 			try {
-				const result = await stub.deploy(branch);
+				const result = await withDurableObjectResetRetry(getStub, (stub) => stub.deploy(branch));
 				return JSON.stringify({ branch, ...(result as Record<string, unknown>) }, null, 2);
 			} catch (e) {
 				return JSON.stringify({

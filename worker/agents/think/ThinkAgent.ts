@@ -301,7 +301,7 @@ export class ThinkAgent extends Think<Env> {
 	}
 
 	override getTools(): ToolSet {
-		const ops = createSpaceWorkspaceOps(this.getSpaceStub());
+		const ops = createSpaceWorkspaceOps(() => this.getSpaceStub());
 		const previewUrl = this.getConfig<ThinkAgentConfig>()?.previewUrl;
 		// Same names as Think's built-in workspace tools, so these SpaceDO-backed
 		// versions win the tool-merge. Bash is disabled via `workspaceBash`.

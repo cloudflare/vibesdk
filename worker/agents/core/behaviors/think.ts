@@ -26,6 +26,7 @@ import { signSpacePreviewToken } from 'worker/utils/spacePreviewToken';
 import { AppService } from 'worker/database/services/AppService';
 import { getConfigurationForModel } from '../../inferutils/core';
 import type { ThinkAgentConfig } from '../../think/ThinkAgent';
+import { withDurableObjectResetRetry } from '../../think/space-workspace-ops';
 import { THINK_MODEL_CONFIG, THINK_MODEL_ID } from '../../think/model-config';
 import type { BranchDeploymentBundle } from '@space-do/space';
 import { CloudflareAccountService } from '../../../services/cloudflare/CloudflareAccountService';
@@ -42,6 +43,22 @@ type ThinkAgentStub = {
 	chat: (userMessage: string, callback: RpcTarget) => Promise<void>;
 	getMessages: () => Promise<UIMessage[]>;
 	clearMessages: () => Promise<void>;
+};
+
+/** SpaceDO RPC surface this behavior drives (see `space/src/space/durable-object.ts`). */
+type SpaceRpcStub = {
+	writeFile: (path: string, content: string) => Promise<unknown>;
+	readFile: (path: string, opts?: { offset?: number; limit?: number }) => Promise<string>;
+	gitCommit: (
+		msg: string,
+		author?: { name: string; email: string },
+	) => Promise<{ sha?: string }>;
+	gitCommitLocal: (msg: string, author?: { name: string; email: string }) => Promise<unknown>;
+	deploy: (
+		branch: string,
+	) => Promise<{ preview_url?: string; commit_hash?: string; error?: string; details?: string }>;
+	getDeploymentBundle: (branch: string) => Promise<BranchDeploymentBundle>;
+	rollbackToCommit: (branch: string, commitHash: string) => Promise<unknown>;
 };
 
 /** Subset of AI-SDK `UIMessageChunk` shapes this behavior reacts to. */
@@ -118,6 +135,18 @@ export class ThinkCodingBehavior
 		// One space per session: always keyed by the agent (session) id.
 		const ns = (this.env as unknown as { SPACE_DO: DurableObjectNamespace }).SPACE_DO;
 		return ns.get(ns.idFromName(this.getAgentId()));
+	}
+
+	/**
+	 * SpaceDO RPC with a single retry on "Durable Object reset" — the transient
+	 * error thrown on in-flight calls when the worker version changes (deploy /
+	 * dev rebuild). The stub is re-resolved so the retry hits the new instance.
+	 */
+	private callSpace<T>(call: (space: SpaceRpcStub) => Promise<T>): Promise<T> {
+		return withDurableObjectResetRetry(
+			() => this.getSpaceStub() as unknown as SpaceRpcStub,
+			call,
+		);
 	}
 
 	// ──────────────────────────────────────────────────────────────
@@ -307,18 +336,14 @@ export class ThinkCodingBehavior
 	 * instantiated with a `main` branch and a valid HEAD.
 	 */
 	private async seedEmptySpace(): Promise<void> {
-		const space = this.getSpaceStub() as unknown as {
-			writeFile: (path: string, content: string) => Promise<unknown>;
-			gitCommitLocal: (msg: string, author?: { name: string; email: string }) => Promise<unknown>;
-		};
 		const marker = JSON.stringify(
 			{ agentId: this.getAgentId(), createdAt: new Date().toISOString(), seededBy: 'vibesdk-think' },
 			null,
 			2,
 		);
 		try {
-			await space.writeFile('.think/space.json', marker);
-			await space.gitCommitLocal('chore: initialize think space');
+			await this.callSpace((space) => space.writeFile('.think/space.json', marker));
+			await this.callSpace((space) => space.gitCommitLocal('chore: initialize think space'));
 		} catch (e) {
 			this.logger.warn('SpaceDO empty-seed failed (continuing)', e);
 		}
@@ -661,12 +686,9 @@ export class ThinkCodingBehavior
 		if (!filePath) return;
 		seen.add(filePath);
 
-		const space = this.getSpaceStub() as unknown as {
-			readFile: (path: string, opts?: { offset?: number; limit?: number }) => Promise<string>;
-		};
 		let contents = '';
 		try {
-			contents = await space.readFile(filePath);
+			contents = await this.callSpace((space) => space.readFile(filePath));
 		} catch {
 			contents = pickStringField(args, 'content', 'contents', 'new_string') || '';
 		}
@@ -769,11 +791,8 @@ export class ThinkCodingBehavior
 		}
 
 		const branch = this.state.currentBranch || 'main';
-		const space = this.getSpaceStub() as unknown as {
-			rollbackToCommit: (branch: string, commitHash: string) => Promise<unknown>;
-		};
 		try {
-			const output = await space.rollbackToCommit(branch, hash);
+			const output = await this.callSpace((space) => space.rollbackToCommit(branch, hash));
 			await this.handleDeploySpaceOutput(output);
 			this.broadcast(WebSocketMessageResponses.CONVERSATION_RESPONSE, {
 				message: `Rolled back to commit \`${hash.slice(0, 8)}\` and redeployed.`,
@@ -840,22 +859,18 @@ export class ThinkCodingBehavior
 
 	private async deployCurrentBranch(): Promise<string | null> {
 		try {
-			const space = this.getSpaceStub() as unknown as {
-				gitCommit: (msg: string, author?: { name: string; email: string }) => Promise<{ sha?: string }>;
-				deploy: (branch: string) => Promise<{ preview_url?: string; commit_hash?: string; error?: string; details?: string }>;
-			};
 			const branch = this.state.currentBranch || 'main';
 			this.broadcast(WebSocketMessageResponses.DEPLOYMENT_STARTED, {});
 
 			// SpaceDO.deploy reads files from the committed git branch, so commit
 			// the working-tree changes the ThinkAgent's tools just made first.
 			try {
-				await space.gitCommit('chore: think turn changes');
+				await this.callSpace((space) => space.gitCommit('chore: think turn changes'));
 			} catch (e) {
 				this.logger.debug('gitCommit before deploy (no-op or failed)', e);
 			}
 
-			const result = await space.deploy(branch);
+			const result = await this.callSpace((space) => space.deploy(branch));
 
 			// SpaceDO.deploy reports build/config failures in the payload rather
 			// than throwing (and still fills in preview_url). Surface those as a
@@ -934,16 +949,12 @@ export class ThinkCodingBehavior
 			}
 
 			const branch = this.state.currentBranch || 'main';
-			const space = this.getSpaceStub() as unknown as {
-				gitCommit: (message: string) => Promise<unknown>;
-				getDeploymentBundle: (branch: string) => Promise<BranchDeploymentBundle>;
-			};
 			try {
-				await space.gitCommit('deploy: publish to user account');
+				await this.callSpace((space) => space.gitCommit('deploy: publish to user account'));
 			} catch (error) {
 				this.logger.debug('No new workspace changes to commit before publishing', error);
 			}
-			const bundle = await space.getDeploymentBundle(branch);
+			const bundle = await this.callSpace((space) => space.getDeploymentBundle(branch));
 			const result = await deployThinkBundleToUserAccount({
 				accountId: account.accountId,
 				accessToken: token.accessToken,
@@ -995,16 +1006,12 @@ export class ThinkCodingBehavior
 			}
 
 			const branch = this.state.currentBranch || 'main';
-			const space = this.getSpaceStub() as unknown as {
-				gitCommit: (message: string) => Promise<unknown>;
-				getDeploymentBundle: (branch: string) => Promise<BranchDeploymentBundle>;
-			};
 			try {
-				await space.gitCommit('deploy: publish to platform');
+				await this.callSpace((space) => space.gitCommit('deploy: publish to platform'));
 			} catch (error) {
 				this.logger.debug('No new workspace changes to commit before publishing', error);
 			}
-			const bundle = await space.getDeploymentBundle(branch);
+			const bundle = await this.callSpace((space) => space.getDeploymentBundle(branch));
 			const result = await deployThinkBundleToPlatform({
 				accountId,
 				apiToken,

@@ -20,8 +20,9 @@
  * overlay equivalent — until the first commit establishes a base.
  */
 import type { FileSystem, FsStat, EntryType } from "@cloudflare/shell"
-import type { BaseEntry, BaseSnapshotSource } from "./git-objects"
+import type { BaseEntry, BaseSnapshot, BaseSnapshotSource } from "./git-objects"
 import { walkTreeFiles } from "./git-objects"
+import type { CheckpointSource } from "./checkpoint"
 
 type MkdirOptions = { recursive?: boolean }
 type RmOptions = { recursive?: boolean; force?: boolean }
@@ -59,11 +60,24 @@ export interface ArtifactsFileSystemOptions {
   source: BaseSnapshotSource
   /** Branch this FS mirrors (recorded for diagnostics). */
   branch?: string
+  /**
+   * Durable checkpoint of overlay writes (see checkpoint.ts), replayed over
+   * the base during `init()` so uncommitted work survives a DO reset.
+   */
+  checkpoint?: CheckpointSource
+  /**
+   * Called with the absolute path of every mutating operation (writes and
+   * deletions), so the owner can schedule a checkpoint flush. Must never
+   * throw — it is invoked fire-and-forget.
+   */
+  onChange?: (path: string) => void
 }
 
 export class ArtifactsFileSystem implements FileSystem {
   private readonly overlay: FileSystem
   private readonly source: BaseSnapshotSource
+  private readonly checkpoint?: CheckpointSource
+  private readonly onChange?: (path: string) => void
 
   private base: Map<string, BaseEntry> | null = null
   private headOid: string | null = null
@@ -75,6 +89,35 @@ export class ArtifactsFileSystem implements FileSystem {
   constructor(overlay: FileSystem, options: ArtifactsFileSystemOptions) {
     this.overlay = overlay
     this.source = options.source
+    this.checkpoint = options.checkpoint
+    this.onChange = options.onChange
+  }
+
+  /** Notify the checkpoint owner of a mutation; bookkeeping must never break FS ops. */
+  private noteChange(path: string): void {
+    if (!this.onChange || isReserved(path)) return
+    try {
+      this.onChange(path)
+    } catch {
+      // best-effort
+    }
+  }
+
+  /** Replay the durable checkpoint over the freshly loaded base (idempotent). */
+  private async applyCheckpoint(): Promise<void> {
+    if (!this.checkpoint) return
+    try {
+      const { files, tombstones } = this.checkpoint.load()
+      // Tombstones first (whiteouts hide deleted base files), then files — a
+      // file row under a tombstoned dir was written after the deletion and
+      // must end up visible in the overlay.
+      for (const path of tombstones) this.whiteouts.add(path)
+      for (const [path, bytes] of files) {
+        await this.overlay.writeFileBytes(path, bytes)
+      }
+    } catch {
+      // Checkpoint restore is best-effort; the base alone is still consistent.
+    }
   }
 
   // ── Readiness / hydration ───────────────────────────────────────
@@ -86,7 +129,11 @@ export class ArtifactsFileSystem implements FileSystem {
   }
 
   /** Ensure every base file is materialized into the overlay. */
-  whenFullyMaterialized(): Promise<void> {
+  async whenFullyMaterialized(): Promise<void> {
+    // Await readiness first so a previously failed base load is retried here
+    // (a successful retry nulls materializePromise — see init — so the block
+    // below re-materializes with the freshly loaded base).
+    await this.ready()
     if (!this.materializePromise) this.materializePromise = this.materializeAll()
     return this.materializePromise
   }
@@ -117,22 +164,42 @@ export class ArtifactsFileSystem implements FileSystem {
       }
     }
 
-    const snapshot = await this.source.loadSnapshot()
+    let snapshot: BaseSnapshot | null
+    try {
+      snapshot = await this.source.loadSnapshot()
+    } catch {
+      // Transient base-load failure (e.g. cold-start fetch timeout). Do NOT
+      // cache it: reset readyPromise so the next ready() retries. Until a
+      // retry succeeds the FS degrades to overlay-only — previously pushed
+      // files are hidden, but never permanently (and never overwritten by a
+      // partial force-push: see the push ancestry guard in artifacts-sync).
+      // The checkpoint still applies: uncommitted work is the most valuable
+      // data and must stay visible even while the base is unreachable.
+      this.readyPromise = null
+      await this.applyCheckpoint()
+      return
+    }
     if (!snapshot) {
       // Repo has no commits yet — a legitimately empty base.
       this.base = null
+      await this.applyCheckpoint()
       return
     }
     this.base = snapshot.files
     this.headOid = snapshot.head
+    // A base arriving after a degraded (base-less) period must invalidate any
+    // materialization that already ran with no base, so the next listing
+    // re-materializes the full tree.
+    this.materializePromise = null
     await this.writeState()
+    await this.applyCheckpoint()
   }
 
   private async materializeAll(): Promise<void> {
     await this.ready()
     if (!this.base) return
     for (const [path, entry] of this.base) {
-      if (this.whiteouts.has(path)) continue
+      if (this.isCovered(path)) continue
       if (await this.overlay.exists(path)) continue
       const bytes = await this.source.readBlob(entry.oid)
       await this.overlay.writeFileBytes(path, bytes)
@@ -145,7 +212,7 @@ export class ArtifactsFileSystem implements FileSystem {
     const dirPrefix = prefix.endsWith("/") ? prefix : prefix + "/"
     for (const [path, entry] of this.base) {
       if (path !== prefix && !path.startsWith(dirPrefix)) continue
-      if (this.whiteouts.has(path)) continue
+      if (this.isCovered(path)) continue
       if (await this.overlay.exists(path)) continue
       const bytes = await this.source.readBlob(entry.oid)
       await this.overlay.writeFileBytes(path, bytes)
@@ -156,7 +223,7 @@ export class ArtifactsFileSystem implements FileSystem {
   private async materialize(path: string): Promise<boolean> {
     if (await this.overlay.exists(path)) return true
     if (isReserved(path) || !this.base) return false
-    if (this.whiteouts.has(path)) return false
+    if (this.isCovered(path)) return false
     const entry = this.base.get(path)
     if (!entry) return false
     const bytes = await this.source.readBlob(entry.oid)
@@ -167,15 +234,32 @@ export class ArtifactsFileSystem implements FileSystem {
 
   // ── Base helpers ────────────────────────────────────────────────
 
+  /**
+   * True when `path` is whiteouted — directly or via a whiteouted ancestor.
+   * Ancestor coverage matters for checkpoint tombstones: a directory deletion
+   * is recorded as a single tombstone row for the dir, and after a cold start
+   * it must hide every base file beneath it (rm's per-key whiteouts only
+   * exist within the lifetime that performed the delete).
+   */
+  private isCovered(path: string): boolean {
+    if (this.whiteouts.has(path)) return true
+    let i = path.indexOf("/", 1)
+    while (i > 0) {
+      if (this.whiteouts.has(path.slice(0, i))) return true
+      i = path.indexOf("/", i + 1)
+    }
+    return false
+  }
+
   private baseHasFile(path: string): boolean {
-    return !!this.base && this.base.has(path) && !this.whiteouts.has(path)
+    return !!this.base && this.base.has(path) && !this.isCovered(path)
   }
 
   private baseHasDir(path: string): boolean {
     if (!this.base) return false
     const prefix = path.endsWith("/") ? path : path + "/"
     for (const key of this.base.keys()) {
-      if (key.startsWith(prefix) && !this.whiteouts.has(key)) return true
+      if (key.startsWith(prefix) && !this.isCovered(key)) return true
     }
     return false
   }
@@ -266,7 +350,7 @@ export class ArtifactsFileSystem implements FileSystem {
     }
     if (this.base) {
       const entry = this.base.get(path)
-      if (entry && !this.whiteouts.has(path)) {
+      if (entry && !this.isCovered(path)) {
         return { type: "file", size: await this.computeSize(entry), mtime: EPOCH, mode: entry.mode }
       }
       if (this.baseHasDir(path)) {
@@ -303,11 +387,13 @@ export class ArtifactsFileSystem implements FileSystem {
   async writeFile(path: string, content: string): Promise<void> {
     await this.overlay.writeFile(path, content)
     if (!isReserved(path)) await this.clearWhiteout(path)
+    this.noteChange(path)
   }
 
   async writeFileBytes(path: string, content: Uint8Array): Promise<void> {
     await this.overlay.writeFileBytes(path, content)
     if (!isReserved(path)) await this.clearWhiteout(path)
+    this.noteChange(path)
   }
 
   async appendFile(path: string, content: string | Uint8Array): Promise<void> {
@@ -317,6 +403,7 @@ export class ArtifactsFileSystem implements FileSystem {
     }
     await this.overlay.appendFile(path, content)
     if (!isReserved(path)) await this.clearWhiteout(path)
+    this.noteChange(path)
   }
 
   async mkdir(path: string, options?: MkdirOptions): Promise<void> {
@@ -341,10 +428,13 @@ export class ArtifactsFileSystem implements FileSystem {
       if (this.baseHasFile(path)) whiteout.push(path)
       const dirPrefix = path.endsWith("/") ? path : path + "/"
       for (const key of this.base.keys()) {
-        if (key.startsWith(dirPrefix) && !this.whiteouts.has(key)) whiteout.push(key)
+        if (key.startsWith(dirPrefix) && !this.isCovered(key)) whiteout.push(key)
       }
       await this.addWhiteouts(whiteout)
     }
+    // One mark covers recursive deletes: the checkpoint tombstone drops rows
+    // beneath the path, and whiteout ancestor coverage hides base children.
+    this.noteChange(path)
   }
 
   async cp(src: string, dest: string, options?: CpOptions): Promise<void> {
@@ -355,6 +445,8 @@ export class ArtifactsFileSystem implements FileSystem {
     }
     await this.overlay.cp(src, dest, options)
     if (!isReserved(dest)) await this.clearWhiteout(dest)
+    this.noteChange(dest)
+    await this.noteSubtree(dest)
   }
 
   async mv(src: string, dest: string): Promise<void> {
@@ -369,16 +461,33 @@ export class ArtifactsFileSystem implements FileSystem {
       if (this.baseHasFile(src)) whiteout.push(src)
       const dirPrefix = src.endsWith("/") ? src : src + "/"
       for (const key of this.base.keys()) {
-        if (key.startsWith(dirPrefix) && !this.whiteouts.has(key)) whiteout.push(key)
+        if (key.startsWith(dirPrefix) && !this.isCovered(key)) whiteout.push(key)
       }
       await this.addWhiteouts(whiteout)
     }
     if (!isReserved(dest)) await this.clearWhiteout(dest)
+    this.noteChange(src)
+    this.noteChange(dest)
+    await this.noteSubtree(dest)
   }
 
   async symlink(target: string, linkPath: string): Promise<void> {
     await this.overlay.symlink(target, linkPath)
     if (!isReserved(linkPath)) await this.clearWhiteout(linkPath)
+    this.noteChange(linkPath)
+  }
+
+  /** Mark every file under a copied/moved directory (flush reads their bytes). */
+  private async noteSubtree(path: string): Promise<void> {
+    if (!this.onChange || isReserved(path)) return
+    try {
+      const st = await this.overlay.stat(path)
+      if (st.type !== "directory") return
+      const children = await this.overlay.glob(path === "/" ? "**/*" : `${path}/**/*`)
+      for (const child of children) this.noteChange(child)
+    } catch {
+      // best-effort
+    }
   }
 
   async readlink(path: string): Promise<string> {

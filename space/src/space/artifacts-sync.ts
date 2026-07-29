@@ -240,8 +240,44 @@ export class ArtifactsSync {
     return run
   }
 
+  /**
+   * Guard against destroying remote history. Pushes use `force` (to converge
+   * under stale-ref races), which makes them capable of silently REPLACING the
+   * remote branch. That is only safe when the local branch contains the remote
+   * head. After a cold start the local branch is reconciled onto the fetched
+   * head (see `reconcileLocalBranch` in git-objects.ts), so a remote head that
+   * is NOT an ancestor of the local head means the histories genuinely
+   * diverged (e.g. commits made while the base could not be loaded) — refuse
+   * the push instead of deleting earlier commits. When the remote head is
+   * unknown (first push, or the base was never fetched) there is nothing
+   * verifiable to destroy, so the push proceeds (best-effort sync).
+   */
+  private async remoteHeadContainedIn(branch: string): Promise<boolean> {
+    let remoteHead: string | null = null
+    try {
+      const tracking = await this.git.log({ ref: `refs/remotes/${REMOTE_NAME}/${branch}`, depth: 1 })
+      remoteHead = tracking[0]?.oid ?? null
+    } catch {
+      return true // No tracking ref — nothing known to protect.
+    }
+    if (!remoteHead) return true
+    try {
+      const history = await this.git.log({ ref: branch, depth: 10_000 })
+      return history.some((entry) => entry.oid === remoteHead)
+    } catch {
+      // Local branch unreadable — let the push attempt surface the real error.
+      return true
+    }
+  }
+
   private async pushWithRetry(branch: string): Promise<boolean> {
     if (!(await this.ensureRepo())) return false
+    if (!(await this.remoteHeadContainedIn(branch))) {
+      this.logger.warn(
+        `ArtifactsSync.push refused for branch "${branch}": local history does not contain the remote head; not force-overwriting remote history`,
+      )
+      return false
+    }
 
     for (let attempt = 1; attempt <= PUSH_MAX_ATTEMPTS; attempt++) {
       const token = await this.getWriteToken()
