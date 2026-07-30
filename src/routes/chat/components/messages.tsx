@@ -587,7 +587,8 @@ function ToolEventDetails({ event }: { event: ToolEvent }) {
  */
 function ToolCard({ event, nested = false }: { event: ToolEvent; nested?: boolean }) {
 	const [open, setOpen] = useState(false);
-	const canExpand = toolEventCanExpand(event);
+	const isRunning = event.status === 'start';
+	const canExpand = !isRunning && toolEventCanExpand(event);
 	const rollbackHash = getRollbackCommitHash(event);
 	const summary = getToolSummary(event);
 
@@ -607,7 +608,7 @@ function ToolCard({ event, nested = false }: { event: ToolEvent; nested?: boolea
 					<span
 						className={cn(
 							'min-w-0 truncate text-[13px] leading-snug text-kumo-subtle',
-							event.status === 'start' && 'animate-pulse',
+							isRunning && 'animate-pulse',
 							event.status === 'error' && 'text-red-500/90',
 						)}
 					>
@@ -640,6 +641,7 @@ function ToolGroupCard({ events }: { events: ToolEvent[] }) {
 	const [open, setOpen] = useState(false);
 	const status = getGroupStatus(events);
 	const summary = getToolGroupSummary(events);
+	const isRunning = status === 'start';
 
 	if (events.length === 1) {
 		return <ToolCard event={events[0]} />;
@@ -649,13 +651,17 @@ function ToolGroupCard({ events }: { events: ToolEvent[] }) {
 		<div>
 			<button
 				type="button"
-				onClick={() => setOpen((o) => !o)}
-				className="group/tool flex w-full items-center gap-1.5 min-h-7 text-left cursor-pointer rounded-sm py-1 hover:text-kumo-default"
+				onClick={() => !isRunning && setOpen((o) => !o)}
+				disabled={isRunning}
+				className={cn(
+					'group/tool flex w-full items-center gap-1.5 min-h-7 text-left rounded-sm py-1',
+					isRunning ? 'cursor-default' : 'cursor-pointer hover:text-kumo-default',
+				)}
 			>
 				<span
 					className={cn(
 						'min-w-0 truncate text-[13px] leading-snug text-kumo-subtle',
-						status === 'start' && 'animate-pulse',
+						isRunning && 'animate-pulse',
 						status === 'error' && 'text-red-500/90',
 					)}
 				>
@@ -664,16 +670,18 @@ function ToolGroupCard({ events }: { events: ToolEvent[] }) {
 				<span className="text-[11px] tabular-nums text-kumo-subtle/50 shrink-0">
 					{events.length}
 				</span>
-				<ChevronRight
-					className={cn(
-						'size-3 shrink-0 text-kumo-subtle/50 transition-transform duration-150',
-						open && 'rotate-90',
-						'opacity-60 group-hover/tool:opacity-100',
-					)}
-				/>
+				{!isRunning && (
+					<ChevronRight
+						className={cn(
+							'size-3 shrink-0 text-kumo-subtle/50 transition-transform duration-150',
+							open && 'rotate-90',
+							'opacity-60 group-hover/tool:opacity-100',
+						)}
+					/>
+				)}
 				<ToolStatusMark status={status} />
 			</button>
-			{open && (
+			{open && !isRunning && (
 				<div className="mt-1 ml-0.5 border-l border-kumo-line/50 pl-2.5 flex flex-col gap-1">
 					{events.map((event, i) => (
 						<ToolCard key={event.id ?? `g-${event.name}-${i}`} event={event} nested />
@@ -688,7 +696,13 @@ type TraceRenderItem =
 	| { kind: 'reasoning'; part: Extract<MessagePart, { type: 'reasoning' }>; key: string; streaming: boolean }
 	| { kind: 'tools'; events: ToolEvent[]; key: string };
 
-/** Collapse contiguous same-name tools; leave reasoning as individual blocks. */
+/**
+ * Collapse contiguous same-name tools, but only once finished.
+ * In-flight tools stay as individual rows ("Writing foo…") so the
+ * group count doesn't flicker as each write starts. Completed runs
+ * ahead of a still-running tool collapse progressively
+ * ("Wrote 3 files" + "Writing bar…").
+ */
 function collapseTraceItems(items: TracePart[], streaming: boolean): TraceRenderItem[] {
 	const out: TraceRenderItem[] = [];
 	let i = 0;
@@ -714,7 +728,32 @@ function collapseTraceItems(items: TracePart[], streaming: boolean): TraceRender
 			events.push(next.event);
 			i += 1;
 		}
-		out.push({ kind: 'tools', events, key: `tools-${start}-${name}` });
+
+		// Split the same-name run: finished stretches may group; running stays solo.
+		let j = 0;
+		while (j < events.length) {
+			const abs = start + j;
+			if (events[j].status === 'start') {
+				out.push({
+					kind: 'tools',
+					events: [events[j]],
+					key: events[j].id ?? `tools-${abs}-${name}`,
+				});
+				j += 1;
+				continue;
+			}
+			const done: ToolEvent[] = [];
+			const doneStart = abs;
+			while (j < events.length && events[j].status !== 'start') {
+				done.push(events[j]);
+				j += 1;
+			}
+			out.push({
+				kind: 'tools',
+				events: done,
+				key: done[0]?.id ?? `tools-${doneStart}-${name}`,
+			});
+		}
 	}
 	return out;
 }
