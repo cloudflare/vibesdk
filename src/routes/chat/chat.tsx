@@ -14,10 +14,16 @@ import {
 } from 'react-router';
 import { useQueryClient } from '@tanstack/react-query';
 import { AnimatePresence, motion } from 'framer-motion';
-import { ExternalLink, LoaderCircle, MoreHorizontal, Rocket, RotateCcw } from 'lucide-react';
+import {
+	ExternalLink,
+	LoaderCircle,
+	Rocket,
+	RotateCcw,
+} from 'lucide-react';
 import {
 	BookmarkSimpleIcon,
 	DotsThree,
+	DotsThreeIcon,
 	GitBranch,
 	Globe,
 	Lock,
@@ -1156,7 +1162,7 @@ export default function Chat() {
 				<div className="flex-1 flex min-h-0 overflow-hidden justify-center">
 					<motion.div
 						layout="position"
-						className="flex-1 shrink-0 flex flex-col basis-0 max-w-2xl relative z-10 h-full min-h-0"
+						className={cn("flex-1 shrink-0 flex flex-col basis-0 relative z-10 h-full min-h-0", showMainView ? 'max-w-2xl' : 'max-w-3xl')}
 					>
 						<div
 							className={cn(
@@ -1196,7 +1202,7 @@ export default function Chat() {
 																shape="square"
 																aria-label="Chat actions"
 																icon={
-																	MoreHorizontal
+																	<DotsThreeIcon className="size-4.5" />
 																}
 															/>
 														}

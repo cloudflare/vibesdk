@@ -81,7 +81,7 @@ const VERBS: Record<string, VerbSet> = {
 	deploy_space: { start: 'Deploying', success: 'Deployed', error: 'Failed to deploy' },
 	deploy_preview: { start: 'Deploying preview', success: 'Deployed preview', error: 'Failed to deploy preview' },
 	set_title: { start: 'Setting title', success: 'Set title', error: 'Failed to set title' },
-	ask_questions: { start: 'Asking questions', success: 'Asked questions', error: 'Failed to ask questions' },
+	ask_questions: { start: 'Asking', success: 'Asked', error: 'Failed to ask' },
 	get_browser_console_logs: {
 		start: 'Checking browser console',
 		success: 'Checked browser console',
@@ -234,6 +234,7 @@ function groupNoun(name: string, count: number): string {
 		read_files: ['file batch', 'file batches'],
 		commit: ['commit', 'commits'],
 		web_search: ['search', 'searches'],
+		ask_questions: ['question set', 'question sets'],
 	};
 	const pair = nouns[name] ?? ['step', 'steps'];
 	return count === 1 ? pair[0] : pair[1];
