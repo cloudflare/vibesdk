@@ -206,6 +206,11 @@ export class SpaceDO extends DurableObject<Env> {
   /**
    * Write every dirty path's current bytes (or a tombstone for deletions)
    * into DO storage. Best-effort: per-path failures are logged, never thrown.
+   *
+   * Reads the raw overlay (not the base-aware `afs`): the checkpoint is a delta
+   * against the last-pushed base, so it must capture only overlay writes — base
+   * files are already durable in Artifacts and must never be materialized into
+   * the checkpoint.
    */
   private async flushCheckpoint(): Promise<void> {
     if (this.checkpointDirty.size === 0) return
@@ -213,10 +218,10 @@ export class SpaceDO extends DurableObject<Env> {
     this.checkpointDirty.clear()
     for (const path of paths) {
       try {
-        if (await this.fs.exists(path)) {
-          const st = await this.fs.stat(path)
+        if (await this.overlay.exists(path)) {
+          const st = await this.overlay.stat(path)
           if (st.type === "directory") continue
-          this.checkpointStore.save(path, await this.fs.readFileBytes(path))
+          this.checkpointStore.save(path, await this.overlay.readFileBytes(path))
         } else {
           this.checkpointStore.save(path, null)
         }

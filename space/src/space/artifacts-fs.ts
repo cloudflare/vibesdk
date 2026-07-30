@@ -158,6 +158,10 @@ export class ArtifactsFileSystem implements FileSystem {
         this.base = await walkTreeFiles(this.overlay, state.headOid)
         this.headOid = state.headOid
         for (const w of state.whiteouts) this.whiteouts.add(w)
+        // Replay uncommitted work over the rebuilt base, exactly as the
+        // network-load branches below do — the fast-path must not be the one
+        // place that drops the checkpoint.
+        await this.applyCheckpoint()
         return
       } catch {
         // Objects missing/corrupt — fall through to a fresh load.
