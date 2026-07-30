@@ -7,13 +7,14 @@ import { Loader2, LucideGlobeLock } from 'lucide-react';
 import { useNavigate } from 'react-router';
 import { cn, Button, DropdownMenu } from '@cloudflare/kumo';
 import { useAuth } from '../../contexts/auth-context';
+import { getInitials } from '@/lib/utils';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import { Skeleton } from '../ui/skeleton';
 import {
 	useUsageLimitsBadgeState,
 	type UsageLimitsBadgeState,
 } from '../usage-limits-badge';
-import { GearIcon, SignOutIcon } from '@phosphor-icons/react';
+import { GearIcon, SignOutIcon, UserIcon } from '@phosphor-icons/react';
 
 interface AuthButtonProps {
 	className?: string;
@@ -64,17 +65,7 @@ export function AuthButton({ className, display = 'icon' }: AuthButtonProps) {
 		return null;
 	}
 
-	const getInitials = () => {
-		if (user.displayName) {
-			return user.displayName
-				.split(' ')
-				.map((n) => n[0])
-				.join('')
-				.toUpperCase()
-				.slice(0, 2);
-		}
-		return user.email.charAt(0).toUpperCase();
-	};
+	const initials = getInitials(user.displayName, user.email);
 
 	return (
 		<DropdownMenu>
@@ -95,7 +86,7 @@ export function AuthButton({ className, display = 'icon' }: AuthButtonProps) {
 									alt={user.displayName || user.email}
 								/>
 								<AvatarFallback className="bg-kumo-elevated text-xs font-semibold text-kumo-default">
-									{getInitials()}
+									{initials}
 								</AvatarFallback>
 							</Avatar>
 							<span className="min-w-0 flex-1 flex-col group-data-[state=collapsed]/sidebar:hidden">
@@ -131,7 +122,7 @@ export function AuthButton({ className, display = 'icon' }: AuthButtonProps) {
 									alt={user.displayName || user.email}
 								/>
 								<AvatarFallback className="bg-kumo-elevated font-semibold text-kumo-default">
-									{getInitials()}
+									{initials}
 								</AvatarFallback>
 							</Avatar>
 						</Button>
@@ -194,6 +185,12 @@ export function AuthButton({ className, display = 'icon' }: AuthButtonProps) {
 								Manage AI Gateway
 							</DropdownMenu.Item>
 						)}
+					<DropdownMenu.Item
+						onClick={() => navigate('/profile')}
+						icon={UserIcon}
+					>
+						Profile
+					</DropdownMenu.Item>
 					<DropdownMenu.Item
 						onClick={() => navigate('/settings')}
 						icon={GearIcon}

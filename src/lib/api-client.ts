@@ -685,7 +685,7 @@ class ApiClient {
 	 * Get user statistics
 	 */
 	async getUserStats(): Promise<ApiResponse<UserStatsData>> {
-		return this.request<UserStatsData>('/api/stats/user');
+		return this.request<UserStatsData>('/api/stats');
 	}
 
 	/**
