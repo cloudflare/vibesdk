@@ -51,7 +51,7 @@
 		"@babel/traverse": "^7.28.5",
 		"@babel/types": "^7.28.5",
 		"@cloudflare/containers": "^0.0.28",
-		"@cloudflare/kumo": "^2.8.0",
+		"@cloudflare/kumo": "^2.9.0",
 		"@cloudflare/puppeteer": "^1.0.4",
 		"@cloudflare/sandbox": "0.5.6",
 		"@cloudflare/think": "^0.8.6",

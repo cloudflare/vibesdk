@@ -12,7 +12,7 @@
         "@babel/traverse": "^7.28.5",
         "@babel/types": "^7.28.5",
         "@cloudflare/containers": "^0.0.28",
-        "@cloudflare/kumo": "^2.8.0",
+        "@cloudflare/kumo": "^2.9.0",
         "@cloudflare/puppeteer": "^1.0.4",
         "@cloudflare/sandbox": "0.5.6",
         "@cloudflare/think": "^0.8.6",
@@ -309,7 +309,7 @@
 
     "@cloudflare/containers": ["@cloudflare/containers@0.0.28", "", {}, "sha512-wzR9UWcGvZ9znd4elkXklilPcHX6srncsjSkx696SZRZyTygNbWsLlHegvc1C+e9gn28HRZU3dLiAzXiC9IY1w=="],
 
-    "@cloudflare/kumo": ["@cloudflare/kumo@2.8.0", "", { "dependencies": { "@base-ui/react": "^1.6.0", "@shikijs/langs": "^4.0.0", "@shikijs/themes": "^4.0.0", "cnfast": "^0.0.8", "d3-geo": "^3.1.1", "motion": "^12.34.1", "react-day-picker": "^9.13.2", "shiki": "^4.0.0" }, "peerDependencies": { "@phosphor-icons/react": "^2.1.10", "echarts": "^6.0.0", "react": "^18.0.0 || ^19.0.0", "react-dom": "^18.0.0 || ^19.0.0", "zod": "^4.0.0" }, "optionalPeers": ["echarts", "zod"], "bin": { "kumo": "bin/kumo.js" } }, "sha512-zhS8m73xSqoWeUs1KvhancIm5lz8xMqk4OPDoX6q+ffqwSGXNchXzUv987eEI7Q8wg2eJEwXHuL/joc0u79Xwg=="],
+    "@cloudflare/kumo": ["@cloudflare/kumo@2.9.0", "", { "dependencies": { "@base-ui/react": "^1.6.0", "@shikijs/langs": "^4.0.0", "@shikijs/themes": "^4.0.0", "cnfast": "^0.0.8", "d3-geo": "^3.1.1", "motion": "^12.34.1", "react-day-picker": "^9.13.2", "shiki": "^4.0.0", "use-sync-external-store": "^1.6.0" }, "peerDependencies": { "@phosphor-icons/react": "^2.1.10", "echarts": "^6.0.0", "react": "^18.0.0 || ^19.0.0", "react-dom": "^18.0.0 || ^19.0.0", "zod": "^4.0.0" }, "optionalPeers": ["echarts", "zod"], "bin": { "kumo": "bin/kumo.js" } }, "sha512-WkJNwJrT/VDfBFckscrhnxKbAu9hRC/iWxzUB4tWu1OAHo3hx4PQ0cbT6wxoye54jns6m13Acq7SIzw5uY0Qcw=="],
 
     "@cloudflare/kv-asset-handler": ["@cloudflare/kv-asset-handler@0.5.0", "", {}, "sha512-jxQYkj8dSIzc0cD6cMMNdOc1UVjqSqu8BZdor5s8cGjW2I8BjODt/kWPVdY+u9zj3ms75Q5qaZgnxUad83+eAg=="],
 
