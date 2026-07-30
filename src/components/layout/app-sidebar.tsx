@@ -10,7 +10,7 @@ import {
 	UsersThreeIcon,
 } from '@phosphor-icons/react';
 import { isValid } from 'date-fns';
-import { useLocation, useNavigate } from 'react-router';
+import { Link, useLocation, useNavigate } from 'react-router';
 import {
 	Button,
 	CloudflareLogo,
@@ -237,9 +237,7 @@ export function AppSidebar() {
 			case 'private':
 				return <LockKeyIcon className="size-3.5" weight="duotone" />;
 			case 'team':
-				return (
-					<UsersThreeIcon className="size-3.5" weight="duotone" />
-				);
+				return <UsersThreeIcon className="size-3.5" weight="duotone" />;
 			case 'board':
 			case 'public':
 				return (
@@ -254,7 +252,10 @@ export function AppSidebar() {
 	return (
 		<Sidebar className="[--sidebar-bg:var(--color-kumo-canvas)]">
 			<Sidebar.Header
-				className={cn('h-12', isCollapsed ? 'justify-center px-0' : 'px-3')}
+				className={cn(
+					'h-12',
+					isCollapsed ? 'justify-center px-0' : 'px-3',
+				)}
 			>
 				{isCollapsed ? (
 					<div className="relative flex size-9 items-center justify-center">
@@ -268,114 +269,122 @@ export function AppSidebar() {
 						/>
 					</div>
 				) : (
-					<div className="flex w-full min-w-0 items-center gap-2.5 text-kumo-strong">
+					<Link
+						to="/"
+						className="flex w-full min-w-0 items-center gap-2.5 text-kumo-strong"
+					>
 						<CloudflareLogo
 							variant="glyph"
 							className="size-7 shrink-0"
 						/>
-						<span className="min-w-0 flex-1 truncate text-sm font-black font-funky-mono uppercase tracking-[0.25em]">
+						<span className="min-w-0 flex-1 truncate text-base font-black font-funky-mono uppercase tracking-wide">
 							Build
 						</span>
 						<Sidebar.Trigger
 							aria-label="Collapse sidebar"
 							className="ml-auto shrink-0"
 						/>
-					</div>
+					</Link>
 				)}
 			</Sidebar.Header>
 
-			<Sidebar.Content>
-				<Sidebar.Group>
-					{isCollapsed ? (
-						<div className="flex flex-col items-center gap-1">
+			<div className="shrink-0 px-[11px] py-3 group-not-data-[state=collapsed]/sidebar:px-3.5">
+				{isCollapsed ? (
+					<div className="flex flex-col items-center gap-1">
+						{pathname !== '/' && (
+							<OrangeButton
+								shape="square"
+								aria-label="New build"
+								title="New build"
+								onClick={() => navigate('/')}
+								className="size-8!"
+								icon={
+									<PlusIcon
+										className="size-4"
+										weight="bold"
+									/>
+								}
+							/>
+						)}
+						<Button
+							shape="square"
+							size="base"
+							variant="ghost"
+							id="discover-link"
+							aria-label="Discover"
+							title="Discover"
+							aria-current={
+								pathname === '/discover' ? 'page' : undefined
+							}
+							onClick={() => navigate('/discover')}
+							className={cn(
+								'text-kumo-subtle hover:text-kumo-default',
+								pathname === '/discover' &&
+									'bg-(--sidebar-active-bg) text-kumo-default',
+							)}
+							icon={<CompassIcon className="size-4" />}
+						/>
+					</div>
+				) : (
+					<div className="flex flex-col gap-1.5">
+						<Sidebar.Menu className="gap-y-1.5">
 							{pathname !== '/' && (
 								<OrangeButton
-									shape="square"
-									aria-label="New build"
-									title="New build"
-									onClick={() => navigate('/')}
-									className="size-8!"
+									fullWidth
 									icon={
 										<PlusIcon
 											className="size-4"
 											weight="bold"
 										/>
 									}
-								/>
-							)}
-							<Button
-								shape="square"
-								size="base"
-								variant="ghost"
-								id="discover-link"
-								aria-label="Discover"
-								title="Discover"
-								aria-current={
-									pathname === '/discover' ? 'page' : undefined
-								}
-								onClick={() => navigate('/discover')}
-								className={cn(
-									'text-kumo-subtle hover:text-kumo-default',
-									pathname === '/discover' &&
-										'bg-(--sidebar-active-bg) text-kumo-default',
-								)}
-								icon={<CompassIcon className="size-4" />}
-							/>
-						</div>
-					) : (
-						<div className="flex flex-col gap-1.5">
-							<Sidebar.Menu className="gap-y-1.5">
-								{pathname !== '/' && (
-									<OrangeButton
-										fullWidth
-										icon={
-											<PlusIcon
-												className="size-4"
-												weight="bold"
-											/>
-										}
-										title="New build"
-										onClick={() => navigate('/')}
-										className="h-8! text-sm"
-									>
-										New build
-									</OrangeButton>
-								)}
-
-								<Sidebar.MenuButton
-									active={pathname === '/discover'}
-									icon={CompassIcon}
-									id="discover-link"
-									tooltip="Discover"
-									onClick={() => navigate('/discover')}
+									title="New build"
+									onClick={() => {
+										navigate('/');
+									}}
+									className="h-8! text-sm"
 								>
-									Discover
-								</Sidebar.MenuButton>
-							</Sidebar.Menu>
-
-							{user && (
-								<div className="px-0.5">
-									<InputGroup>
-										<InputGroup.Addon>
-											<MagnifyingGlassIcon className="size-3.5 text-kumo-subtle" />
-										</InputGroup.Addon>
-										<InputGroup.Input
-											aria-label="Search apps"
-											placeholder="Search apps"
-											value={searchQuery}
-											onChange={(event) =>
-												setSearchQuery(
-													event.target.value,
-												)
-											}
-										/>
-									</InputGroup>
-								</div>
+									New build
+								</OrangeButton>
 							)}
-						</div>
-					)}
-				</Sidebar.Group>
 
+							<Sidebar.MenuButton
+								active={pathname === '/discover'}
+								icon={
+									<CompassIcon
+										weight="duotone"
+										className="size-4 -mr-1"
+									/>
+								}
+								id="discover-link"
+								tooltip="Discover"
+								onClick={() => navigate('/discover')}
+							>
+								Discover
+							</Sidebar.MenuButton>
+						</Sidebar.Menu>
+
+						{user && (
+							<div className="px-0.5">
+								<InputGroup>
+									<InputGroup.Addon>
+										<MagnifyingGlassIcon className="size-4 text-kumo-subtle" />
+									</InputGroup.Addon>
+									<InputGroup.Input
+										aria-label="Search apps"
+										placeholder="Search apps"
+										value={searchQuery}
+										onChange={(event) =>
+											setSearchQuery(event.target.value)
+										}
+									/>
+								</InputGroup>
+							</div>
+						)}
+					</div>
+				)}
+			</div>
+
+			<Sidebar.Content>
 				{!isCollapsed && showBookmarksSection && (
 					<Sidebar.Group>
 						<Sidebar.GroupLabel>
@@ -584,12 +593,12 @@ export function AppSidebar() {
 								<CloudflareLogo
 									variant="glyph"
 									color="white"
-									className="size-5 shrink-0"
+									className="size-6 shrink-0"
 								/>
 							}
 						>
 							{!isCollapsed ? (
-								<span className="truncate">
+								<span className="truncate text-xs">
 									{cloudflareCtaLabel}
 								</span>
 							) : null}

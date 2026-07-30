@@ -261,6 +261,7 @@ export function PromptBox({
 							className="w-full resize-none ring-0 z-20 outline-0 placeholder:text-text-primary/60 text-text-primary group"
 							value={value}
 							placeholder={resolvedPlaceholder}
+							autoFocus
 							ref={(textarea) => {
 								(
 									internalTextareaRef as React.MutableRefObject<HTMLTextAreaElement | null>

@@ -14,10 +14,16 @@ import {
 } from 'react-router';
 import { useQueryClient } from '@tanstack/react-query';
 import { AnimatePresence, motion } from 'framer-motion';
-import { ExternalLink, LoaderCircle, MoreHorizontal, Rocket, RotateCcw } from 'lucide-react';
+import {
+	ExternalLink,
+	LoaderCircle,
+	Rocket,
+	RotateCcw,
+} from 'lucide-react';
 import {
 	BookmarkSimpleIcon,
 	DotsThree,
+	DotsThreeIcon,
 	GitBranch,
 	Globe,
 	Lock,
@@ -1196,7 +1202,7 @@ export default function Chat() {
 																shape="square"
 																aria-label="Chat actions"
 																icon={
-																	MoreHorizontal
+																	<DotsThreeIcon className="size-4.5" />
 																}
 															/>
 														}
