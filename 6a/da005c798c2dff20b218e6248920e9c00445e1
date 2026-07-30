@@ -1,0 +1,239 @@
+.github/workflows/ai-pr-review.yml
+  s_a032d8c484810d::t_14bbeb02d2633e 3-7,41
+AGENTS.md
+  s_a032d8c484810d::t_ce9846c5c5c12e 19-32,34,39
+bun.lock
+  s_a032d8c484810d::t_49454c4fdd002a 15,42,61,71,121,312,356,358,360,650,704,738,748,754,790-792,794,796,798,800,802,804,806,808,810,812,814,816,818,826-875,1000-1003,1080,1200,1202,1204,1322,1360,1362,1530-1531,1660,1748,1924,1942,1958,2146-2147,2278,2282,2334,2358,2438,2568,2572,2574,2634,2690,2704,2760,2806,2888,2926,3028,3032-3033,3036-3037,3072-3082,3084-3096,3100-3106,3108-3120,3130,3164-3165,3168-3171,3194-3197,3208-3209,3216-3218,3220,3270,3278,3290,3304-3305,3308,3318-3319,3322-3327,3332,3336,3470,3472,3474,3486-3488,3490,3492,3494,3496,3498,3500,3502,3504,3506,3508,3510,3512,3514,3516-3518,3574-3575,3636,3638,3640,3720,3784-3793,3850-3851,4056,4058,4062,4064,4066,4068,4070,4072,4074,4076,4078,4080,4082,4084,4086,4088,4090,4092,4094,4096,4098,4100,4102,4104,4106,4108,4110,4112,4114,4116,4118,4120,4122,4124,4126,4128-4134,4136-4190
+docs/usage-limits-ui.md
+  s_a032d8c484810d::t_c3a2722b69452d 13,17,19,21,23,25-81,85-87,94,96,98-100,108,119-120,145
+index.html
+  s_a032d8c484810d::t_4e312a15cef3b5 13-31
+package.json
+  s_a032d8c484810d::t_2b7fabe40bfd17 54,81,100,110,160
+src/App.tsx
+  s_a032d8c484810d::t_85892ca00854fa 1,3,14-21,24-25,28-53
+src/components/analytics/cost-display.tsx
+  s_a032d8c484810d::t_a90f0dd61aa2a8 7-8
+src/components/auth/auth-button.tsx
+  s_a032d8c484810d::t_db8de422bc29a8 2-3,6,8,16,46,53,64,87,107,123,153,161,177-196,199,207
+src/components/auth/login-modal.tsx
+  s_a032d8c484810d::t_5269afce21d984 10,204,260,295,348,366,368,384,386,401,403,427,429
+src/components/byok-api-keys-modal.tsx
+  s_a032d8c484810d::t_f5d2b1d43835c3 312,325,344,485,516
+src/components/cloudflare-account-selector.tsx
+  s_a032d8c484810d::t_d10686f33ff410 181,214
+src/components/config-modal.tsx
+  s_a032d8c484810d::t_1d15b0af0d5300 314,329,450,471,507
+src/components/connected-accounts.tsx
+  s_a032d8c484810d::t_f09ebcd479cf92 46-61,77-78,107-108,184-185,239-241,253-255
+src/components/credits-banner.tsx
+  s_a032d8c484810d::t_881f20acf16f53 223,240
+src/components/github-export-modal.tsx
+  s_a032d8c484810d::t_74feff7e1cc5eb 17,269,484,562
+src/components/header.tsx
+  s_a032d8c484810d::t_bc3227d2697391 2,12
+src/components/image-attachment-preview.tsx
+  s_a032d8c484810d::t_3ccb5ea18e1416 33
+src/components/image-upload-button.tsx
+  s_a032d8c484810d::t_940348ad373e16 3-4,51,53-55,58,62-66
+src/components/layout/app-layout.tsx
+  s_a032d8c484810d::t_e64fec2257629d 5-6,53-62,65-67,71-72
+src/components/layout/app-sidebar.tsx
+  s_a032d8c484810d::t_f19a90fb095b6d 4,7-10,15,19,26,98-99,127,140,151-175,237,240,242,254-311,313-331,334-362,364-366,369-370,374-375,377-407,421-422,425-456,458-471,473-474,476-480,482-492,494-553,556-576,578-583,585-607,609
+src/components/layout/global-header.tsx
+  s_a032d8c484810d::t_d7f0cf1d519992 2,5,7-13,15-16,19-22,25-32,40-71,73-79,81-83,87-108
+src/components/layout/header-context.tsx
+  s_a032d8c484810d::t_995a6a94cd2a73 1-53,56-61,64-75,78-93
+src/components/monaco-editor/lazy-monaco-editor.tsx
+  s_a032d8c484810d::t_7ae6640f0273e2 18,25
+src/components/monaco-editor/monaco-editor.tsx
+  s_a032d8c484810d::t_2cae15178dd068 5-10,78-79,86-87,91-93,112-113,118-119
+src/components/primitives/button.tsx
+  s_a032d8c484810d::t_404273449dd463 1,15
+src/components/prompt-box.tsx
+  s_a032d8c484810d::t_32457fe4cd29c6 2-3,13-16,104-107,141-143,148,154,156-160,183-187,189-191,199-203,206-208,224,227-240,244,247,249-250,260-262,269-273,288,294-299,307-309,312
+src/components/providers/app-link-provider.tsx
+  s_a032d8c484810d::t_a780b17a0b8b6a 1-3,5-10,12-14,16-18,20-22
+src/components/shared/AppCard.tsx
+  s_a032d8c484810d::t_c5b8986f1dd377 2,17,25,204-209,217-220,222,226-227,232-264,276-279,282-292,304-305,308,314,317,320,322,327,330,333-335,341,344,360-364,382-384,387,393-394,398,402,414,422,424,426-431,434-475,477-479,481-488,492-504,506,510-511,515,517,521-522,526-536,539-545,547-578
+src/components/shared/AppFiltersForm.tsx
+  s_a032d8c484810d::t_6adf52e4a49064 41
+src/components/shared/AppListContainer.tsx
+  s_a032d8c484810d::t_2b92aa3098ff4b 4,12-32,36-42,45-101,103-138,142-158,160-292
+src/components/shared/AppLoadingSkeleton.tsx
+  s_a032d8c484810d::t_b73c4434c5c1ba 1-62
+src/components/shared/AppSortTabs.tsx
+  s_a032d8c484810d::t_37d7cf1ef8cd22 1-2,6-11,15-18,22-41,44-52,54-75
+src/components/shared/GitCloneModal.tsx
+  s_a032d8c484810d::t_846ab4f04b3f2d 2,23,123,154,175,184-185,190,252,274-275,300
+src/components/shared/ModelConfigInfo.tsx
+  s_a032d8c484810d::t_bccbd5008f86f2 125
+src/components/shared/VisibilityFilter.tsx
+  s_a032d8c484810d::t_d291d63cb83937 1-2,5-7,11-26,28-55
+src/components/shared/header-actions/HeaderButton.tsx
+  s_a032d8c484810d::t_3a52e0745225c8 21,26,33,38
+src/components/shared/header-actions/HeaderToggleButton.tsx
+  s_a032d8c484810d::t_860ed6417d2dd0 2,21,24-25,32,34
+src/components/ui/alert-dialog.tsx
+  s_a032d8c484810d::t_3ca780a92bbf6d 4,115
+src/components/ui/alert.tsx
+  s_a032d8c484810d::t_b2606e6fd9d2d7 2
+src/components/ui/avatar.tsx
+  s_a032d8c484810d::t_ab6f3d8b3270ba 4
+src/components/ui/badge.tsx
+  s_a032d8c484810d::t_9e0c339f7208c5 2
+src/components/ui/button.tsx
+  s_a032d8c484810d::t_f9416ecebf6e5b 2
+src/components/ui/card.tsx
+  s_a032d8c484810d::t_d40e66bf777210 2
+src/components/ui/checkbox.tsx
+  s_a032d8c484810d::t_8a4f81a9181685 4
+src/components/ui/dialog.tsx
+  s_a032d8c484810d::t_dc6b4f3b0f2a81 2
+src/components/ui/hover-card.tsx
+  s_a032d8c484810d::t_cf7b9da4e09327 2
+src/components/ui/input.tsx
+  s_a032d8c484810d::t_3fa1e18ab4a1a1 2
+src/components/ui/label.tsx
+  s_a032d8c484810d::t_67dcd6cfb8a809 2
+src/components/ui/model-selector.tsx
+  s_a032d8c484810d::t_dde5c45fb02dfd 7,58,120,129,131,145,171,203,212
+src/components/ui/popover.tsx
+  s_a032d8c484810d::t_35df5723903bc1 4
+src/components/ui/progress.tsx
+  s_a032d8c484810d::t_3860d7ae057d7b 2
+src/components/ui/radio-group.tsx
+  s_a032d8c484810d::t_2f49950014fb8e 2
+src/components/ui/scroll-area.tsx
+  s_a032d8c484810d::t_2e5a5858207692 4
+src/components/ui/select.tsx
+  s_a032d8c484810d::t_99750422b71729 2
+src/components/ui/separator.tsx
+  s_a032d8c484810d::t_b68b086edda580 1-2,4,7-10,12-23,26
+src/components/ui/skeleton.tsx
+  s_a032d8c484810d::t_47cdd6897759b2 1,7
+src/components/ui/sonner.tsx
+  s_a032d8c484810d::t_921bad15b48ac5 1,5,9
+src/components/ui/switch.tsx
+  s_a032d8c484810d::t_e5e1a2eabdbfb2 4
+src/components/ui/textarea.tsx
+  s_a032d8c484810d::t_f0e36d972d2e57 2
+src/components/ui/tooltip.tsx
+  s_a032d8c484810d::t_fe691b2973a5b5 2
+src/components/usage-limits-badge.tsx
+  s_a032d8c484810d::t_f297c11d8e90bd 66,182
+src/components/usage-limits-card.tsx
+  s_a032d8c484810d::t_1504a6f8f3feca 6-13,18-21,25,35-38,46,64,73-76,151,154-156,188-191,194-209,211,217-218,220-222,226-229,231-235,242-245,248-250,252-254,264-266,268-270,280,286-288,290,297,309,314-316,318-322
+src/components/vault/RecoveryCodesDisplay.tsx
+  s_a032d8c484810d::t_3b1a09cae54152 2
+src/components/vault/VaultSetupWizard.tsx
+  s_a032d8c484810d::t_a96e775b3bcd9e 2
+src/contexts/auth-context.tsx
+  s_a032d8c484810d::t_a98a6cb7897297 6-13,15-19,22-43,46-87,92-174,177-466,470-474,479-480,482-486,488-489
+src/contexts/limits-context.tsx
+  s_a032d8c484810d::t_e869347fccd795 6-16,18,37,39-43,49,58-59,63,72-74,79-88,105,109
+src/contexts/theme-context.tsx
+  s_a032d8c484810d::t_2513e1cb425160 37-39,59-65
+src/features/presentation/components/PresentationPreview.tsx
+  s_a032d8c484810d::t_9ff031eecd3d86 3,77,80,91,101,104-105,153,168,186,248,291
+src/hooks/use-app.ts
+  s_a032d8c484810d::t_751cf6fb7f7488 1-7,9-38,41-312
+src/hooks/use-apps.ts
+  s_a032d8c484810d::t_48bb02905af7fc 1-6,8-16,18-19,22-83,86-166,169-185,189-207,211-227,230-249,252-263,270,272-283,285-286,288-289
+src/hooks/use-limits.ts
+  s_a032d8c484810d::t_3c36bc6f2fc70e 5,7-8,79-85,87-89,91-95,98-107
+src/hooks/use-paginated-apps.ts
+  s_a032d8c484810d::t_018897ced688c2 1-6,8-14,16-19,25-32,36-40,43-61,64-66,69-362
+src/hooks/use-profile.ts
+  s_a032d8c484810d::t_5267199b2ebff5 1-36
+src/hooks/use-stats.ts
+  s_a032d8c484810d::t_c3126a662cc04d 1,3-4,7-15,17-23,25-31,33-34,36-52,56,58-62,64-74
+src/index.css
+  s_a032d8c484810d::t_0026cd865bce56 6-117,221-274,440
+src/lib/query-client.ts
+  s_a032d8c484810d::t_d177c5b4b8fd86 1,3-13
+src/lib/query-keys.ts
+  s_a032d8c484810d::t_4376ff045430d3 1-102
+src/lib/utils.ts
+  s_a032d8c484810d::t_ffaba7cb621f88 1
+src/main.tsx
+  s_a032d8c484810d::t_c3569422421290 6
+src/routes.tsx
+  s_a032d8c484810d::t_7bca44194bf4a1 28-32,36-40,44-48
+src/routes/app/index.tsx
+  s_a032d8c484810d::t_98661c1ac4c4b4 1-6,8-21,31-55,57,93,108,110-113,115-120,122-125,127-135,137-138,192,206-210,215,337-341,352-354,366,378,380-385,396,398-399,401-402,424-426,437,442,460,492,498,517,529-545,547-605,615,624,627,638,646-691,698,705,726,728,742,801,808,845,872,881,892,901,908,937,946
+src/routes/apps/index.tsx
+  s_a032d8c484810d::t_d41a25b4857b37 67,76,79
+src/routes/chat/components/blueprint.tsx
+  s_a032d8c484810d::t_657ccb09a3abdf 2,20-21,23,26
+src/routes/chat/components/chat-input.tsx
+  s_a032d8c484810d::t_a4e5976677c518 79,81-92,98-100,117
+src/routes/chat/components/clarifying-questions-popup.tsx
+  s_a032d8c484810d::t_9cfb3458cbe795 122,125,177
+src/routes/chat/components/copy.tsx
+  s_a032d8c484810d::t_2ab26276cae16b 2,5-6
+src/routes/chat/components/database-viewer.tsx
+  s_a032d8c484810d::t_7758cd8420912e 19,87,125
+src/routes/chat/components/debug-panel.tsx
+  s_a032d8c484810d::t_c975ab9c8a3d34 541,546,628,635,657,667,852
+src/routes/chat/components/debug-session-bubble.tsx
+  s_a032d8c484810d::t_66531554b0e1ab 4,68,77,80,86,94,96,178,180
+src/routes/chat/components/deployment-controls.tsx
+  s_a032d8c484810d::t_e05df52db2a7c1 4,183,269,276,285,291,303,367,372,378,387,407,411,439
+src/routes/chat/components/docs-sidebar.tsx
+  s_a032d8c484810d::t_7cbb71888c751c 2-9,26-30,32,51,53-57,111,113,117,119,145,148-149,156,174-176,188
+src/routes/chat/components/export-button.tsx
+  s_a032d8c484810d::t_242bcd02e24b9a 3,12-17,34-35,42,45-46,50,53
+src/routes/chat/components/file-explorer.tsx
+  s_a032d8c484810d::t_7884c944c339cc 3,84,88,106,110,188
+src/routes/chat/components/main-content-panel.tsx
+  s_a032d8c484810d::t_e0880fd31b8c8b 188
+src/routes/chat/components/markdown-docs-preview.tsx
+  s_a032d8c484810d::t_9ef2f974517624 108,115,149,178
+src/routes/chat/components/messages.tsx
+  s_a032d8c484810d::t_d3048e5f3430bb 2,7,10-14,31,35,45,58,86,95-96,99,106,108,110,149,152-153,158-159,228,231,237,240,253,260,276,293,298,303,327,332,334,340-341,363,367,387,390,395,400,405,451-459,470,477,479,482,551-558,561-591,593,596-651,654-659,661-680,682,684-688,695-760,763,766-769,867,881
+src/routes/chat/components/phase-timeline.tsx
+  s_a032d8c484810d::t_b73140dccd52fc 1,49,61,87,89,91,93,95,97,100,124,137,139,150,163,495,527,561,616,682,736,739,821,824,907,929
+src/routes/chat/components/preview-iframe.tsx
+  s_a032d8c484810d::t_fc1be46d4eaaf5 383,394
+src/routes/chat/components/terminal.tsx
+  s_a032d8c484810d::t_83151d63170d2f 5,99,117,131,147,164,169,198,205,208,221
+src/routes/chat/components/view-container.tsx
+  s_a032d8c484810d::t_72c7a3a1f12763 9
+src/routes/chat/components/view-mode-switch.tsx
+  s_a032d8c484810d::t_684d518dbcf309 1,66,80,95,111,125
+src/routes/chat/mocks/file-mock.ts
+  s_a032d8c484810d::t_1c6e96411d71b4 6,29,49,75,89,281
+src/routes/chat/utils/tool-display.test.ts
+  s_a032d8c484810d::t_3090fb7b057c17 1-117
+src/routes/chat/utils/tool-display.ts
+  s_a032d8c484810d::t_453abead514aed 1-264
+src/routes/discover/index.tsx
+  s_a032d8c484810d::t_a4795192923246 69-70,77-78,81,85,90
+src/routes/home.tsx
+  s_a032d8c484810d::t_a1be49bdd43f38 20,27,112,186-189,191,197,205,207,237,253,259,265,269,295-296,305-306,310,313,317
+src/routes/profile.tsx
+  s_a032d8c484810d::t_c5952f78df00a4 6,12-24,27,31,35-44,46-57,59-63,65-66,68-69,71-86,88-96,98-111,113-155,157-202,204-215,217-225,227-235,237-246,248-259,261-292,294-317,319-325,327-343,345-369,371-463,465-527,529-629
+src/routes/settings/index.tsx
+  s_a032d8c484810d::t_5dd025f12a7412 1-6,18,20,22,24,27-28,30-33,36,42-83,86-95,99,109-111,117-126,128-132,135-136,138-144,146-162,165-166,168-177,180-184,187-196,199-208,210-214,217-219,221-222,225,234,236,256,268-283,288,293,347,369,409,411,424,426-435,437-439,442,449,469-535,537-547,554,556,558-559,569,572,574,582,585,594,596-597,606,624,632,663,673,686,703-704,706,716,719,721,723-724,729,732,734,739,742,744,753,757-758
+src/utils/model-helpers.ts
+  s_a032d8c484810d::t_5398b529288880 19
+vite.config.ts
+  s_a032d8c484810d::t_2d2d765865d315 14
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "6ada005c798c2dff20b218e6248920e9c00445e1",
+  "prompts": {},
+  "sessions": {
+    "s_a032d8c484810d": {
+      "agent_id": {
+        "tool": "windsurf",
+        "id": "069ec10f-18d2-4477-9c6d-61cf1b8b2887",
+        "model": "Kimi K3 High"
+      },
+      "human_author": "Karishnu Poddar <karishnu@cloudflare.com>"
+    }
+  }
+}
