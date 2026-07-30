@@ -67,6 +67,7 @@ export default function DiscoverPage() {
 
 	return (
 		<div className="size-full">
+			<title>Discover - Build</title>
 			<div className="container max-w-6xl mx-auto px-4 py-8">
 				<motion.div
 					initial={{ opacity: 0, y: -20 }}

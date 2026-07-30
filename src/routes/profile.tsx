@@ -144,6 +144,11 @@ export default function Profile() {
 
 	return (
 		<div className="min-h-screen">
+			<title>
+				{user?.displayName
+					? `${user.displayName} - Profile - Build`
+					: 'Profile - Build'}
+			</title>
 			<main className="container mx-auto max-w-4xl px-4 py-12 pb-24">
 				{/* Header */}
 				<div className="mb-10 flex flex-col items-center gap-6 sm:flex-row sm:items-start">
