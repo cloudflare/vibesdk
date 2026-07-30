@@ -1,7 +1,6 @@
 import type { FileType } from '@/api-types';
 import { MonacoEditor } from '@/components/monaco-editor/lazy-monaco-editor';
 import { AppLoadingSkeleton } from '@/components/shared/AppLoadingSkeleton';
-import { ConfirmDeleteDialog } from '@/components/shared/ConfirmDeleteDialog';
 import { FloatingBackgroundIcons } from '@/components/shared/FloatingBackgroundIcons';
 import { GitCloneModal } from '@/components/shared/GitCloneModal';
 import {
@@ -22,6 +21,7 @@ import { getFileType } from '@/utils/string';
 import {
 	Badge,
 	Button,
+	DeleteResource,
 	DropdownMenu,
 	LayerCard,
 	Tabs,
@@ -101,6 +101,7 @@ export default function AppView() {
 	const [activeTab, setActiveTab] = useState('preview');
 	const [deploymentProgress, setDeploymentProgress] = useState<string>('');
 	const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+	const [deleteError, setDeleteError] = useState<string>();
 	const [isGitCloneModalOpen, setIsGitCloneModalOpen] = useState(false);
 	const [activeFilePath, setActiveFilePath] = useState<string>();
 	const previewIframeRef = useRef<HTMLIFrameElement>(null);
@@ -516,9 +517,10 @@ export default function AppView() {
 									<DropdownMenu.Item
 										icon={TrashIcon}
 										variant="danger"
-										onClick={() =>
-											setIsDeleteDialogOpen(true)
-										}
+										onClick={() => {
+											setDeleteError(undefined);
+											setIsDeleteDialogOpen(true);
+										}}
 									>
 										Delete app
 									</DropdownMenu.Item>
@@ -545,6 +547,7 @@ export default function AppView() {
 		if (!app) return;
 
 		try {
+			setDeleteError(undefined);
 			await deleteApp(app.id);
 			toast.add({
 				title: 'App deleted successfully',
@@ -559,10 +562,11 @@ export default function AppView() {
 			}
 		} catch (error) {
 			console.error('Error deleting app:', error);
-			toast.add({
-				title: 'An unexpected error occurred while deleting the app',
-				variant: 'error',
-			});
+			setDeleteError(
+				error instanceof ApiError
+					? error.message
+					: 'An unexpected error occurred while deleting the app',
+			);
 		}
 	};
 
@@ -963,13 +967,18 @@ export default function AppView() {
 				)}
 			</div>
 
-			<ConfirmDeleteDialog
-				open={isDeleteDialogOpen}
-				onOpenChange={setIsDeleteDialogOpen}
-				onConfirm={handleDeleteApp}
-				isLoading={isDeleting}
-				appTitle={app?.title}
-			/>
+			{app && (
+				<DeleteResource
+					open={isDeleteDialogOpen}
+					onOpenChange={setIsDeleteDialogOpen}
+					resourceType="App"
+					resourceName={app.title}
+					onDelete={handleDeleteApp}
+					isDeleting={isDeleting}
+					errorMessage={deleteError}
+					className="sm:w-[32rem]"
+				/>
+			)}
 
 			<GitCloneModal
 				open={isGitCloneModalOpen}

@@ -18,6 +18,7 @@ import {
 import type { ActiveSessionsData, ApiKeysData } from '@/api-types';
 import {
 	Button,
+	DeleteResource,
 	Dialog,
 	DialogClose,
 	DialogDescription,
@@ -37,7 +38,7 @@ import { queryKeys } from '@/lib/query-keys';
 import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard';
 import { CloudflareAccountSelector } from '@/components/cloudflare-account-selector';
 import { ConnectedAccounts } from '@/components/connected-accounts';
-import { TrashIcon } from '@phosphor-icons/react';
+import { BiohazardIcon, TrashIcon } from '@phosphor-icons/react';
 
 type CreatedApiKey = {
 	key: string;
@@ -101,6 +102,7 @@ export default function SettingsPage() {
 	const [keyToRevoke, setKeyToRevoke] = useState<
 		ApiKeysData['keys'][number] | null
 	>(null);
+	const [revokeError, setRevokeError] = useState<string>();
 	const {
 		copied: copiedCreatedKey,
 		copy: copyCreatedKey,
@@ -177,13 +179,18 @@ export default function SettingsPage() {
 		onSuccess: () => {
 			toast.success('API key revoked');
 			setKeyToRevoke(null);
+			setRevokeError(undefined);
 			void queryClient.invalidateQueries({
 				queryKey: queryKeys.account.settings.apiKeys(user?.id),
 			});
 		},
 		onError: (error) => {
 			console.error('Error revoking API key:', error);
-			toast.error('Failed to revoke API key');
+			setRevokeError(
+				error instanceof Error
+					? error.message
+					: 'Failed to revoke API key',
+			);
 		},
 	});
 
@@ -202,9 +209,10 @@ export default function SettingsPage() {
 		createApiKeyMutation.mutate(name);
 	};
 
-	const handleRevokeApiKey = () => {
+	const handleRevokeApiKey = async () => {
 		if (!keyToRevoke || revokingKey) return;
-		revokeApiKeyMutation.mutate(keyToRevoke.id);
+		setRevokeError(undefined);
+		await revokeApiKeyMutation.mutateAsync(keyToRevoke.id);
 	};
 
 	useEffect(() => {
@@ -528,11 +536,14 @@ export default function SettingsPage() {
 																	disabled={
 																		!k.isActive
 																	}
-																	onClick={() =>
-																		setKeyToRevoke(
-																			k,
-																		)
-																	}
+																onClick={() => {
+																	setRevokeError(
+																		undefined,
+																	);
+																	setKeyToRevoke(
+																		k,
+																	);
+																}}
 																	className="gap-2"
 																>
 																	<Trash2 className="size-4" />
@@ -545,57 +556,24 @@ export default function SettingsPage() {
 											</Table>
 										</LayerCard>
 
-										<DialogRoot
-											role="alertdialog"
+									{keyToRevoke && (
+										<DeleteResource
 											open={!!keyToRevoke}
-											onOpenChange={(open) =>
-												!open && setKeyToRevoke(null)
-											}
-										>
-											<Dialog className="p-8">
-												<div className="mb-4 grid gap-1.5">
-													<DialogTitle className="text-xl font-semibold">
-														Revoke API key?
-													</DialogTitle>
-													<DialogDescription className="text-kumo-subtle">
-														This will immediately
-														disable the key{' '}
-														<span className="font-mono text-[0.9em]">
-															{
-																keyToRevoke?.keyPreview
-															}
-														</span>
-														. Any SDK clients using
-														it will stop working.
-													</DialogDescription>
-												</div>
-												<div className="mt-8 flex justify-end gap-2">
-													<DialogClose
-														render={(props) => (
-															<Button
-																variant="secondary"
-																{...props}
-																disabled={
-																	revokingKey
-																}
-															>
-																Cancel
-															</Button>
-														)}
-													/>
-													<Button
-														variant="destructive"
-														onClick={() => {
-															void handleRevokeApiKey();
-														}}
-														disabled={revokingKey}
-														loading={revokingKey}
-													>
-														Revoke key
-													</Button>
-												</div>
-											</Dialog>
-										</DialogRoot>
+											onOpenChange={(open) => {
+												if (!open) {
+													setKeyToRevoke(null);
+													setRevokeError(undefined);
+												}
+											}}
+											resourceType="API key"
+											resourceName={keyToRevoke.name}
+											onDelete={handleRevokeApiKey}
+											isDeleting={revokingKey}
+											errorMessage={revokeError}
+											deleteButtonText="Revoke API key"
+											className="sm:w-[32rem]"
+										/>
+									)}
 									</>
 								)}
 							</div>
@@ -685,9 +663,12 @@ export default function SettingsPage() {
 
 					<LayerCard id="danger-zone">
 						<LayerCard.Secondary className="font-funky-mono tracking-tighter">
-							<span className="text-kumo-danger">
+							<div className="flex items-center gap-2 text-kumo-danger">
+								<span className="h-lh flex items-center">
+									<BiohazardIcon weight="duotone" className="size-4" />
+								</span>
 								Danger zone
-							</span>
+							</div>
 						</LayerCard.Secondary>
 						<LayerCard.Primary>
 							<div className="flex items-center justify-between gap-4">

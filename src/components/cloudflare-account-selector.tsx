@@ -10,9 +10,10 @@ import { Button, DropdownMenu, LayerCard } from '@cloudflare/kumo';
 import { Switch } from '@/components/ui/switch';
 import { toast } from 'sonner';
 import { apiClient } from '@/lib/api-client';
-import CloudflareLogo from '@/assets/provider-logos/cloudflare.svg?react';
+import { CloudflareLogo } from '@cloudflare/kumo';
 import { Loader2, CheckCircle2, AlertCircle, MoreVertical, ExternalLink, LogOut, RefreshCw } from 'lucide-react';
 import { useLimitsContext } from '@/contexts/limits-context';
+import { CloudflareLogoThemed } from './shared/CloudflareLogoThemed';
 
 interface CloudflareAccount {
 	id: string;
@@ -213,7 +214,7 @@ export function CloudflareAccountSelector() {
 	const cardHeader = (
 		<div className="flex items-center gap-2 font-funky-mono tracking-tighter">
 			<span className="h-lh flex items-center">
-				<CloudflareLogo className="size-4" />
+				<CloudflareLogoThemed className="size-5" />
 			</span>
 			<span>Cloudflare AI Gateway</span>
 		</div>
@@ -243,7 +244,7 @@ export function CloudflareAccountSelector() {
 						</p>
 						<div>
 							<Button onClick={handleReconnect} variant="secondary" className="gap-2">
-								<CloudflareLogo className="size-4" />
+								<CloudflareLogo variant="glyph" className="size-4" />
 								Connect Cloudflare
 							</Button>
 						</div>
@@ -336,7 +337,7 @@ export function CloudflareAccountSelector() {
 						</p>
 						<div>
 							<Button onClick={handleReconnect} variant="secondary" className="gap-2">
-								<CloudflareLogo className="size-4" />
+								<CloudflareLogo variant="glyph" className="size-4" />
 								Connect Cloudflare
 							</Button>
 						</div>

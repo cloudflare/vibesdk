@@ -1,27 +1,25 @@
-import { useState, useEffect } from 'react';
-import { cn } from '@cloudflare/kumo';
+import { useState, useEffect, type ReactNode } from 'react';
 import {
+	Banner,
+	Button,
 	Dialog,
-	DialogContent,
+	DialogClose,
 	DialogDescription,
-	DialogHeader,
+	DialogRoot,
 	DialogTitle,
-} from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
+	cn,
+	useKumoToastManager,
+} from '@cloudflare/kumo';
+import { CodeHighlighted, ShikiProvider } from '@cloudflare/kumo/code';
 import {
-	GitBranch,
-	Copy,
-	Check,
-	Loader2,
-	Eye,
-	EyeOff,
-	AlertCircle,
-	Clock,
-} from 'lucide-react';
+	EyeIcon,
+	EyeSlashIcon,
+	GitBranchIcon,
+	WarningCircleIcon,
+	XIcon,
+	ClockIcon,
+} from '@phosphor-icons/react';
 import { apiClient } from '@/lib/api-client';
-import { toast } from 'sonner';
-
-import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard';
 import { normalizeAppTitle } from '@/utils/string';
 import type { GitCloneTokenData } from '@/api-types';
 
@@ -34,6 +32,52 @@ interface GitCloneModalProps {
 	isOwner: boolean;
 }
 
+function CodeCommandBlock({
+	code,
+	label,
+	blurred = false,
+	onReveal,
+	headerAction,
+}: {
+	code: string;
+	label: string;
+	blurred?: boolean;
+	onReveal?: () => void;
+	headerAction?: ReactNode;
+}) {
+	return (
+		<div className="grid gap-2">
+			<div className="flex items-center justify-between gap-2">
+				<span className="text-sm font-medium text-kumo-default">
+					{label}
+				</span>
+				{headerAction}
+			</div>
+			<div className="relative min-w-0 overflow-hidden rounded-lg ring ring-kumo-line">
+				<div className={cn(blurred && 'blur-sm select-none')}>
+					<CodeHighlighted
+						code={code}
+						lang="bash"
+						showCopyButton={!blurred}
+					/>
+				</div>
+				{blurred && onReveal && (
+					<button
+						type="button"
+						onClick={onReveal}
+						className="absolute inset-0 flex items-center justify-center rounded-lg bg-kumo-base/80 backdrop-blur-sm"
+					>
+						<span className="inline-flex items-center gap-2 text-sm font-medium text-kumo-default">
+							<EyeIcon className="size-4" weight="duotone" />
+							Click to reveal token
+						</span>
+					</button>
+				)}
+			</div>
+		</div>
+	);
+}
+
 export function GitCloneModal({
 	open,
 	onOpenChange,
@@ -41,52 +85,46 @@ export function GitCloneModal({
 	appTitle,
 	isPublic,
 }: GitCloneModalProps) {
+	const toast = useKumoToastManager();
 	const [tokenData, setTokenData] = useState<GitCloneTokenData | null>(null);
 	const [isGenerating, setIsGenerating] = useState(false);
 	const [tokenRevealed, setTokenRevealed] = useState(false);
 	const [timeRemaining, setTimeRemaining] = useState<string | null>(null);
 
-	const { copied: copiedCommand, copy: copyCommand, reset: resetCommand } = useCopyToClipboard({
-		successMessage: 'Copied to clipboard!',
-	});
-	const { copied: copiedSetup, copy: copySetup, reset: resetSetup } = useCopyToClipboard({
-		successMessage: 'Copied to clipboard!',
-	});
-
-	const host = window.location.host; // includes port
-	const protocol = host.startsWith('localhost') || host.startsWith('127.0.0.1') ? 'http' : 'https';
+	const host = window.location.host;
+	const protocol =
+		host.startsWith('localhost') || host.startsWith('127.0.0.1')
+			? 'http'
+			: 'https';
 	const publicCloneUrl = `${protocol}://${host}/apps/${appId}.git`;
 
 	useEffect(() => {
 		if (!open) {
 			setTokenData(null);
 			setIsGenerating(false);
-			resetCommand();
-			resetSetup();
 			setTokenRevealed(false);
 			setTimeRemaining(null);
 		}
-	}, [open, resetCommand, resetSetup]);
+	}, [open]);
 
 	useEffect(() => {
-		if (tokenData?.expiresAt) {
-			const interval = setInterval(() => {
-				const expiresAt = new Date(tokenData.expiresAt).getTime();
-				const now = Date.now();
-				const diff = expiresAt - now;
+		if (!tokenData?.expiresAt) return;
 
-				if (diff <= 0) {
-					setTimeRemaining('Expired');
-					clearInterval(interval);
-				} else {
-					const minutes = Math.floor(diff / 60000);
-					const seconds = Math.floor((diff % 60000) / 1000);
-					setTimeRemaining(`${minutes}m ${seconds}s`);
-				}
-			}, 1000);
+		const interval = setInterval(() => {
+			const expiresAt = new Date(tokenData.expiresAt).getTime();
+			const diff = expiresAt - Date.now();
 
-			return () => clearInterval(interval);
-		}
+			if (diff <= 0) {
+				setTimeRemaining('Expired');
+				clearInterval(interval);
+			} else {
+				const minutes = Math.floor(diff / 60000);
+				const seconds = Math.floor((diff % 60000) / 1000);
+				setTimeRemaining(`${minutes}m ${seconds}s`);
+			}
+		}, 1000);
+
+		return () => clearInterval(interval);
 	}, [tokenData?.expiresAt]);
 
 	const handleGenerateToken = async () => {
@@ -95,11 +133,18 @@ export function GitCloneModal({
 			const response = await apiClient.generateGitCloneToken(appId);
 			if (response.data) {
 				setTokenData(response.data);
-				toast.success('Token generated successfully');
+				setTokenRevealed(false);
+				toast.add({
+					title: 'Token generated successfully',
+					variant: 'success',
+				});
 			}
 		} catch (error) {
 			console.error('Failed to generate token:', error);
-			toast.error('Failed to generate token');
+			toast.add({
+				title: 'Failed to generate token',
+				variant: 'error',
+			});
 		} finally {
 			setIsGenerating(false);
 		}
@@ -116,213 +161,156 @@ export function GitCloneModal({
 	const setupCommands = `cd ${normalizedTitle}\nbun install\nbun run dev`;
 
 	return (
-		<Dialog open={open} onOpenChange={onOpenChange}>
-			<DialogContent className="sm:max-w-[550px] max-w-[calc(100%-2rem)]">
-				<DialogHeader>
-					<DialogTitle className="flex items-center gap-2">
-						<GitBranch className="h-5 w-5 text-kumo-brand-primary" />
-						Clone Repository
-					</DialogTitle>
-					<DialogDescription>
-						{isPublic
-							? 'Clone this app to your local machine'
-							: 'Generate a temporary access token to clone this private repository'}
-					</DialogDescription>
-				</DialogHeader>
-
-				<div className="space-y-4">
-					{isPublic ? (
-						<>
-							<div className="space-y-2">
-								<div className="flex items-center justify-between">
-									<span className="text-sm font-medium text-text-secondary">
-										Clone Command
-									</span>
-									<Button
-										variant="ghost"
-										size="icon"
-										className="h-8 w-8"
-										onClick={() => copyCommand(gitCloneCommand)}
-									>
-										{copiedCommand ? (
-											<Check className="h-4 w-4 text-green-400" />
-										) : (
-											<Copy className="h-4 w-4" />
-										)}
-									</Button>
-								</div>
-								<code className="block p-3 rounded-lg bg-bg-4 border font-mono text-sm text-text-primary break-all max-w-full">
-									{gitCloneCommand}
-								</code>
-							</div>
-
-							<div className="space-y-2">
-								<div className="flex items-center justify-between">
-									<span className="text-sm font-medium text-text-secondary">Quick Start</span>
-									<Button
-										variant="ghost"
-										size="icon"
-										className="h-8 w-8"
-										onClick={() => copySetup(setupCommands)}
-									>
-										{copiedSetup ? (
-											<Check className="h-4 w-4 text-green-400" />
-										) : (
-											<Copy className="h-4 w-4" />
-										)}
-									</Button>
-								</div>
-								<code className="block p-3 rounded-lg bg-bg-4 border font-mono text-sm text-text-primary whitespace-pre-wrap break-words max-w-full">
-									{setupCommands}
-								</code>
-							</div>
-						</>
-					) : (
-						<>
-							{!tokenData ? (
-								<div className="space-y-4">
-									<div className="flex items-start gap-3 p-4 rounded-lg bg-bg-4 border">
-										<AlertCircle className="h-5 w-5 text-kumo-brand-primary mt-0.5" />
-										<div className="flex-1 space-y-1">
-											<p className="text-sm font-medium text-text-primary">
-												Private Repository
-											</p>
-											<p className="text-sm text-kumo-subtle">
-												Generate a temporary access token to clone this repository.
-												The token expires in 1 hour.
-											</p>
-										</div>
-									</div>
-
-									<Button
-										onClick={handleGenerateToken}
-										disabled={isGenerating}
-										className="w-full bg-brand-primary hover:bg-brand-primary/90"
-									>
-										{isGenerating ? (
-											<>
-												<Loader2 className="h-4 w-4 animate-spin mr-2" />
-												Generating Token...
-											</>
-										) : (
-											<>
-												<GitBranch className="h-4 w-4 mr-2" />
-												Generate Clone Token
-											</>
-										)}
-									</Button>
-								</div>
-							) : (
-								<>
-									<div className="space-y-2">
-										<div className="flex items-center justify-between">
-											<span className="text-sm font-medium text-text-secondary">
-												Clone Command
-											</span>
-											<div className="flex items-center gap-2">
-												<Button
-													variant="ghost"
-													size="icon"
-													className="h-8 w-8"
-													onClick={() => setTokenRevealed(!tokenRevealed)}
-												>
-													{tokenRevealed ? (
-														<EyeOff className="h-4 w-4" />
-													) : (
-														<Eye className="h-4 w-4" />
-													)}
-												</Button>
-												<Button
-													variant="ghost"
-													size="icon"
-													className="h-8 w-8"
-													onClick={() => copyCommand(gitCloneCommand)}
-												>
-													{copiedCommand ? (
-														<Check className="h-4 w-4 text-green-400" />
-													) : (
-														<Copy className="h-4 w-4" />
-													)}
-												</Button>
-											</div>
-										</div>
-										<div className="relative">
-											<code
-												className={cn(
-													'block p-3 rounded-lg bg-bg-4 border font-mono text-sm text-text-primary break-all max-w-full',
-													!tokenRevealed && 'blur-sm select-none',
-												)}
-											>
-												{gitCloneCommand}
-											</code>
-											{!tokenRevealed && (
-												<button
-													onClick={() => setTokenRevealed(true)}
-													className="absolute inset-0 flex items-center justify-center bg-kumo-base/80 rounded-lg backdrop-blur-sm"
-												>
-													<div className="flex items-center gap-2 text-text-primary">
-														<Eye className="h-4 w-4" />
-														<span className="text-sm font-medium">
-															Click to reveal token
-														</span>
-													</div>
-												</button>
-											)}
-										</div>
-									</div>
-
-									<div className="flex items-center gap-2 p-3 rounded-lg bg-bg-4 border">
-										<Clock className="h-4 w-4 text-kumo-brand-primary" />
-										<span className="text-sm text-text-secondary">
-											Token expires in:{' '}
-											<span className="font-medium text-text-primary">
-												{timeRemaining}
-											</span>
-										</span>
-									</div>
-
-									<div className="space-y-2">
-										<div className="flex items-center justify-between">
-											<span className="text-sm font-medium text-text-secondary">Quick Start</span>
-											<Button
-												variant="ghost"
-												size="icon"
-												className="h-8 w-8"
-												onClick={() => copySetup(setupCommands)}
-											>
-												{copiedSetup ? (
-													<Check className="h-4 w-4 text-green-400" />
-												) : (
-													<Copy className="h-4 w-4" />
-												)}
-											</Button>
-										</div>
-										<code className="block p-3 rounded-lg bg-bg-4 border font-mono text-sm text-text-primary whitespace-pre-wrap break-words max-w-full">
-											{setupCommands}
-										</code>
-									</div>
-
-									<Button
-										onClick={handleGenerateToken}
-										variant="outline"
-										className="w-full"
-										disabled={isGenerating}
-									>
-										{isGenerating ? (
-											<>
-												<Loader2 className="h-4 w-4 animate-spin mr-2" />
-												Generating...
-											</>
-										) : (
-											<>Generate New Token</>
-										)}
-									</Button>
-								</>
-							)}
-						</>
-					)}
+		<DialogRoot open={open} onOpenChange={onOpenChange}>
+			<Dialog size="lg" className="p-0 sm:w-[32rem]">
+				<div className="flex items-center justify-between border-b border-kumo-line px-6 py-4">
+					<div className="grid min-w-0 gap-1">
+						<DialogTitle className="flex items-center gap-2 text-lg font-semibold">
+							<span className="h-lh flex items-center">
+								<GitBranchIcon
+									className="size-5 text-kumo-brand"
+									weight="duotone"
+								/>
+							</span>
+							Clone repository
+						</DialogTitle>
+						<DialogDescription className="text-sm text-kumo-subtle">
+							{isPublic
+								? 'Clone this app to your local machine'
+								: 'Generate a temporary access token to clone this private repository'}
+						</DialogDescription>
+					</div>
+					<DialogClose
+						render={(props) => (
+							<Button
+								{...props}
+								variant="ghost"
+								shape="square"
+								size="sm"
+								aria-label="Close"
+							>
+								<XIcon className="size-4.5" />
+							</Button>
+						)}
+					/>
 				</div>
-			</DialogContent>
-		</Dialog>
+
+				<div className="grid gap-4 p-6">
+					<ShikiProvider engine="javascript" languages={['bash']}>
+						{isPublic ? (
+							<>
+								<CodeCommandBlock
+									label="Clone command"
+									code={gitCloneCommand}
+								/>
+								<CodeCommandBlock
+									label="Quick start"
+									code={setupCommands}
+								/>
+							</>
+						) : !tokenData ? (
+							<div className="grid gap-4">
+								<Banner
+									icon={<WarningCircleIcon />}
+									description="Generate a temporary access token to clone
+									this private repository. The token expires
+									in 1 hour."
+								/>
+
+								<div className="flex w-full">
+									<Button
+										variant="primary"
+										className="self-end ml-auto"
+										onClick={() => {
+											void handleGenerateToken();
+										}}
+										disabled={isGenerating}
+										loading={isGenerating}
+										icon={
+											!isGenerating ? (
+												<GitBranchIcon
+													className="size-4"
+													weight="duotone"
+												/>
+											) : undefined
+										}
+									>
+										{isGenerating
+											? 'Generating token...'
+											: 'Generate clone token'}
+									</Button>
+								</div>
+							</div>
+						) : (
+							<>
+								<CodeCommandBlock
+									label="Clone command"
+									code={gitCloneCommand}
+									blurred={!tokenRevealed}
+									onReveal={() => setTokenRevealed(true)}
+									headerAction={
+										<Button
+											variant="ghost"
+											size="sm"
+											shape="square"
+											aria-label={
+												tokenRevealed
+													? 'Hide token'
+													: 'Reveal token'
+											}
+											onClick={() =>
+												setTokenRevealed(
+													(prev) => !prev,
+												)
+											}
+											icon={
+												tokenRevealed ? (
+													<EyeSlashIcon className="size-4" />
+												) : (
+													<EyeIcon className="size-4" />
+												)
+											}
+										/>
+									}
+								/>
+
+								<div className="flex items-center gap-2 rounded-lg bg-kumo-recessed px-3 py-2.5 ring ring-kumo-line">
+									<span className="h-lh flex items-center">
+										<ClockIcon
+											weight="duotone"
+											className="size-4 text-kumo-subtle"
+										/>
+									</span>
+									<span className="text-sm text-kumo-subtle">
+										Token expires in{' '}
+										<span className="font-medium text-kumo-default tabular-nums">
+											{timeRemaining}
+										</span>
+									</span>
+								</div>
+
+								<CodeCommandBlock
+									label="Quick start"
+									code={setupCommands}
+								/>
+
+								<Button
+									variant="secondary"
+									onClick={() => {
+										void handleGenerateToken();
+									}}
+									disabled={isGenerating}
+									loading={isGenerating}
+								>
+									{isGenerating
+										? 'Generating...'
+										: 'Generate new token'}
+								</Button>
+							</>
+						)}
+					</ShikiProvider>
+				</div>
+			</Dialog>
+		</DialogRoot>
 	);
 }
