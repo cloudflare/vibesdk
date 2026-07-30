@@ -23,7 +23,6 @@ import {
 } from '@/components/ui/dialog';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { apiClient } from '@/lib/api-client';
-import { ByokApiKeysModal } from './byok-api-keys-modal';
 import type {
   ModelConfig,
   UserModelConfigWithMetadata,
@@ -100,7 +99,6 @@ export function ConfigModal({
 
   // UI state
   const [hasChanges, setHasChanges] = useState(false);
-  const [byokModalOpen, setByokModalOpen] = useState(false);
 
   // Modal lifecycle tracking
   const [isInitialOpen, setIsInitialOpen] = useState(false);
@@ -136,7 +134,6 @@ export function ConfigModal({
         fallbackModel: userConfig?.fallbackModel || 'default'
       });
       setHasChanges(false);
-      setByokModalOpen(false);
       setIsInitialOpen(true);
       loadByokData();
     } else if (!isOpen && isInitialOpen) {
@@ -262,15 +259,6 @@ export function ConfigModal({
     onClose();
   };
 
-  const openByokModal = () => {
-    setByokModalOpen(true);
-  };
-
-  const handleByokKeyAdded = () => {
-    // Refresh BYOK data after a key is added
-    loadByokData();
-  };
-
   const isUserOverride = userConfig?.isUserOverride || false;
 
   return (
@@ -331,7 +319,6 @@ export function ConfigModal({
                 </p>
               </div>
               <Button variant="outline" size="sm"
-              onClick={openByokModal}
               disabled // DISABLED: BYOK Disabled for security reasons
               className="gap-2">
                 <Key className="h-4 w-4" />
@@ -359,9 +346,6 @@ export function ConfigModal({
                   <div className="flex items-center gap-2 text-sm text-amber-600 bg-amber-50 dark:bg-amber-950/20 px-3 py-2 rounded-md border border-amber-200 dark:border-amber-800">
                     <Key className="h-4 w-4" />
                     <span>API key needed for {selectedModelInfo.provider}</span>
-                    <Button variant="link" size="sm" onClick={openByokModal} className="p-0 h-auto text-amber-600 hover:text-amber-700">
-                      Setup now
-                    </Button>
                   </div>
                 )}
 
@@ -525,13 +509,6 @@ export function ConfigModal({
           </div>
         </DialogFooter>
       </DialogContent>
-
-      {/* BYOK API Keys Modal */}
-      <ByokApiKeysModal
-        isOpen={byokModalOpen}
-        onClose={() => setByokModalOpen(false)}
-        onKeyAdded={handleByokKeyAdded}
-      />
     </Dialog>
   );
 }

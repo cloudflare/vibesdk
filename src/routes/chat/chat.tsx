@@ -82,8 +82,6 @@ import { ChatModals } from './components/chat-modals';
 import { MainContentPanel } from './components/main-content-panel';
 import { ChatInput } from './components/chat-input';
 import { ClarifyingQuestionsPopup } from './components/clarifying-questions-popup';
-import { useVault } from '@/hooks/use-vault';
-import { VaultUnlockModal } from '@/components/vault';
 import { useLimitsContext } from '@/contexts/limits-context';
 import {
 	checkCanSendPrompt,
@@ -196,14 +194,6 @@ export default function Chat() {
 		setDebugMessages([]);
 	}, []);
 
-	const { state: vaultState, requestUnlock, clearUnlockRequest } = useVault();
-	const handleVaultUnlockRequired = useCallback(
-		(reason: string) => {
-			requestUnlock(reason);
-		},
-		[requestUnlock],
-	);
-
 	// Deploy gate popup (backend-reported Cloudflare connection failures)
 	const [showDeployGateDialog, setShowDeployGateDialog] = useState<React.ReactElement | null>(null);
 	const handleCloudflareDeployGate = useCallback((code: CloudflareDeploymentErrorCode) => {
@@ -274,7 +264,6 @@ export default function Chat() {
 		behaviorType: urlBehaviorType ?? undefined,
 		autoStart,
 		onDebugMessage: addDebugMessage,
-		onVaultUnlockRequired: handleVaultUnlockRequired,
 		onCloudflareDeployGate: handleCloudflareDeployGate,
 	});
 
@@ -583,49 +572,6 @@ export default function Chat() {
 			websocket.removeEventListener('message', handleMessage);
 		};
 	}, [websocket]);
-
-	type AgentWebSocket = {
-		send: (data: string) => void;
-		readyState: number;
-		addEventListener: (type: 'open', listener: () => void) => void;
-		removeEventListener: (type: 'open', listener: () => void) => void;
-	};
-
-	const WS_OPEN = 1;
-
-	const sendVaultStatusToAgent = useCallback(
-		(ws: AgentWebSocket) => {
-			if (vaultState.status === 'unlocked') {
-				ws.send(JSON.stringify({ type: 'vault_unlocked' }));
-			} else if (vaultState.status === 'locked') {
-				ws.send(JSON.stringify({ type: 'vault_locked' }));
-			}
-		},
-		[vaultState.status],
-	);
-
-	useEffect(() => {
-		if (!websocket) return;
-
-		const ws = websocket as unknown as AgentWebSocket;
-		const handleOpen = () => sendVaultStatusToAgent(ws);
-		ws.addEventListener('open', handleOpen);
-
-		if (ws.readyState === WS_OPEN) {
-			sendVaultStatusToAgent(ws);
-		}
-
-		return () => {
-			ws.removeEventListener('open', handleOpen);
-		};
-	}, [sendVaultStatusToAgent, websocket]);
-
-	useEffect(() => {
-		if (!websocket) return;
-		const ws = websocket as unknown as AgentWebSocket;
-		if (ws.readyState !== WS_OPEN) return;
-		sendVaultStatusToAgent(ws);
-	}, [sendVaultStatusToAgent, vaultState.status, websocket]);
 
 	const hasSeenPreview = useRef(false);
 	const prevMarkdownCountRef = useRef(0);
@@ -1504,17 +1450,6 @@ export default function Chat() {
 					isGitCloneModalOpen={isGitCloneModalOpen}
 					onGitCloneModalChange={setIsGitCloneModalOpen}
 					user={user}
-				/>
-
-				<VaultUnlockModal
-					open={
-						vaultState.unlockRequested &&
-						vaultState.status === 'locked'
-					}
-					onOpenChange={(open) => {
-						if (!open) clearUnlockRequest();
-					}}
-					reason={vaultState.unlockReason ?? undefined}
 				/>
 
 				{/* Usage limit dialogs */}
