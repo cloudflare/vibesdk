@@ -4,9 +4,14 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeExternalLinks from 'rehype-external-links';
 import { NO_IMAGE_MARKDOWN_COMPONENTS } from './markdown-components';
-import { LoaderCircle, Check, AlertTriangle, ChevronDown, ChevronRight, MessageSquare, Brain, Wrench, Sparkles, CircleX, HelpCircle, RotateCcw } from 'lucide-react';
+import { LoaderCircle, Check, AlertTriangle, ChevronDown, ChevronRight, MessageSquare, Brain, Sparkles, HelpCircle, RotateCcw } from 'lucide-react';
 import type { ToolEvent, MessagePart } from '../utils/message-helpers';
 import { parseClarifyingQuestions } from '../utils/message-helpers';
+import {
+	getGroupStatus,
+	getToolGroupSummary,
+	getToolSummary,
+} from '../utils/tool-display';
 import { useRollback } from '../contexts/rollback-context';
 import type { ConversationMessage } from '@/api-types';
 import { useState, useEffect, useRef } from 'react';
@@ -141,17 +146,17 @@ function ToolEventHoverPreview({ event }: { event: ToolEvent }) {
 	const outputPreview = event.result ? truncateInline(event.result) : null;
 	return (
 		<div className="flex flex-col gap-2 text-xs">
-			<div className="font-mono font-medium text-text-secondary">{event.name}</div>
+			<div className="font-medium text-text-secondary">{getToolSummary(event)}</div>
 			{inputPreview && (
 				<div className="flex flex-col gap-1">
 					<span className="text-kumo-brand font-medium">Input</span>
-					<span className="text-text-primary whitespace-pre-wrap break-words">{inputPreview}</span>
+					<span className="text-text-primary whitespace-pre-wrap break-words font-mono">{inputPreview}</span>
 				</div>
 			)}
 			{outputPreview && (
 				<div className="flex flex-col gap-1">
 					<span className="text-kumo-brand font-medium">Output</span>
-					<span className="text-text-primary whitespace-pre-wrap break-words">{outputPreview}</span>
+					<span className="text-text-primary whitespace-pre-wrap break-words font-mono">{outputPreview}</span>
 				</div>
 			)}
 			{(inputPreview || outputPreview) && (
@@ -314,15 +319,12 @@ export function ToolStatusIndicator({ event, richToolPreview = false }: { event:
 	const showInputSection = richToolPreview && hasToolInput(event);
 	const canExpand = richToolPreview ? (showInputSection || hasResult) : hasResult;
 
-	const statusText = event.status === 'start' ? 'Running' :
-	                   event.status === 'success' ? 'Completed' :
-	                   'Error';
-
 	const StatusIcon = event.status === 'start' ? LoaderCircle :
 	                   event.status === 'success' ? Check :
 	                   AlertTriangle;
 
 	const iconClass = event.status === 'start' ? 'size-3 animate-spin' : 'size-3';
+	const summary = getToolSummary(event);
 
 	const button = (
 		<button
@@ -335,8 +337,8 @@ export function ToolStatusIndicator({ event, richToolPreview = false }: { event:
 			disabled={!canExpand}
 		>
 			<StatusIcon className={iconClass} />
-			<span className="font-mono tracking-tight">
-				{statusText} {event.name}
+			<span className="tracking-tight">
+				{summary}
 			</span>
 			{canExpand && (
 				isExpanded ? <ChevronDown className="size-3" /> : <ChevronRight className="size-3" />
@@ -446,10 +448,15 @@ function bucketParts(parts: MessagePart[]): RenderUnit[] {
 	return units;
 }
 
-function ToolStatusGlyph({ status }: { status: ToolEvent['status'] }) {
-	if (status === 'start') return <LoaderCircle className="size-3.5 shrink-0 text-kumo-brand animate-spin" />;
-	if (status === 'error') return <CircleX className="size-3.5 shrink-0 text-red-500" />;
-	return <Check className="size-3.5 shrink-0 text-emerald-500" />;
+/** Tiny trailing status — spinner while live, nothing on success, soft mark on error. */
+function ToolStatusMark({ status }: { status: ToolEvent['status'] }) {
+	if (status === 'start') {
+		return <LoaderCircle className="size-3 shrink-0 text-kumo-subtle animate-spin" />;
+	}
+	if (status === 'error') {
+		return <span className="size-1.5 shrink-0 rounded-full bg-red-500/80" aria-hidden />;
+	}
+	return null;
 }
 
 /** Collapsible reasoning ("thinking") block. Opens while streaming. */
@@ -541,58 +548,225 @@ function RollbackButton({ commitHash }: { commitHash: string }) {
 	);
 }
 
-/** Collapsible tool-call card with an expandable Input/Output panel. */
-function ToolCard({ event }: { event: ToolEvent }) {
-	const [open, setOpen] = useState(false);
+function toolEventCanExpand(event: ToolEvent): boolean {
 	const hasInput = !!event.args && Object.keys(event.args).length > 0;
 	const hasOutput = event.status !== 'start' && !!event.result;
-	const canExpand = hasInput || hasOutput;
-	const rollbackHash = getRollbackCommitHash(event);
+	return hasInput || hasOutput;
+}
 
+/** Expanded Input/Output body — quiet indent, no heavy panel chrome. */
+function ToolEventDetails({ event }: { event: ToolEvent }) {
+	const hasInput = !!event.args && Object.keys(event.args).length > 0;
+	const hasOutput = event.status !== 'start' && !!event.result;
+	if (!hasInput && !hasOutput) return null;
 	return (
-		<div className="rounded-lg border bg-surface-secondary/40">
-			<button
-				type="button"
-				onClick={() => canExpand && setOpen(o => !o)}
-				disabled={!canExpand}
-				className={cn('flex w-full items-center gap-2 px-3 py-2 text-left', canExpand && 'cursor-pointer')}
-			>
-				<Wrench className="size-3.5 shrink-0 text-text-tertiary" />
-				<span className="flex-1 min-w-0 truncate font-mono text-xs text-text-secondary">{event.name}</span>
-				{rollbackHash && <RollbackButton commitHash={rollbackHash} />}
-				{canExpand && (
-					<ChevronDown className={cn('size-3.5 shrink-0 text-text-tertiary transition-transform', open && 'rotate-180')} />
-				)}
-				<ToolStatusGlyph status={event.status} />
-			</button>
-			{open && canExpand && (
-				<div className="px-3 pb-3 flex flex-col gap-3 text-xs font-mono max-h-96 overflow-auto">
-					{hasInput && (
-						<div className="flex flex-col gap-1">
-							<div className="text-[10px] uppercase tracking-wide text-text-tertiary">Input</div>
-							<JsonRenderer data={event.args} />
-						</div>
-					)}
-					{hasOutput && (
-						<div className="flex flex-col gap-1">
-							<div className="text-[10px] uppercase tracking-wide text-text-tertiary">Output</div>
-							<ToolResultRenderer result={event.result!} toolName={event.name} event={event} />
-						</div>
-					)}
+		<div className="mt-1.5 mb-1 ml-0.5 border-l border-kumo-line/60 pl-3 flex flex-col gap-2.5 text-[11px] font-mono max-h-72 overflow-auto text-kumo-subtle">
+			{hasInput && (
+				<div className="flex flex-col gap-0.5 min-w-0">
+					<div className="text-[10px] uppercase tracking-wider text-kumo-subtle/70">Input</div>
+					<div className="text-kumo-subtle">
+						<JsonRenderer data={event.args} />
+					</div>
+				</div>
+			)}
+			{hasOutput && (
+				<div className="flex flex-col gap-0.5 min-w-0">
+					<div className="text-[10px] uppercase tracking-wider text-kumo-subtle/70">Output</div>
+					<div className="text-kumo-subtle">
+						<ToolResultRenderer result={event.result!} toolName={event.name} event={event} />
+					</div>
 				</div>
 			)}
 		</div>
 	);
 }
 
+/**
+ * Single tool row: plain-English label, no box. Click expands details.
+ * Nested rows (inside a group) are slightly indented.
+ */
+function ToolCard({ event, nested = false }: { event: ToolEvent; nested?: boolean }) {
+	const [open, setOpen] = useState(false);
+	const isRunning = event.status === 'start';
+	const canExpand = !isRunning && toolEventCanExpand(event);
+	const rollbackHash = getRollbackCommitHash(event);
+	const summary = getToolSummary(event);
+
+	return (
+		<div className={cn(nested && 'pl-2')}>
+			<div className="group/tool flex items-center gap-1.5 min-h-7">
+				<button
+					type="button"
+					onClick={() => canExpand && setOpen((o) => !o)}
+					disabled={!canExpand}
+					className={cn(
+						'flex flex-1 min-w-0 items-center gap-1.5 text-left rounded-sm py-1',
+						canExpand && 'cursor-pointer hover:text-kumo-default',
+						!canExpand && 'cursor-default',
+					)}
+				>
+					<span
+						className={cn(
+							'min-w-0 truncate text-[13px] leading-snug text-kumo-subtle',
+							isRunning && 'animate-pulse',
+							event.status === 'error' && 'text-red-500/90',
+						)}
+					>
+						{summary}
+					</span>
+					{canExpand && (
+						<ChevronRight
+							className={cn(
+								'size-3 shrink-0 text-kumo-subtle/50 transition-transform duration-150',
+								open && 'rotate-90',
+								'opacity-0 group-hover/tool:opacity-100',
+								open && 'opacity-100',
+							)}
+						/>
+					)}
+					<ToolStatusMark status={event.status} />
+				</button>
+				{rollbackHash && <RollbackButton commitHash={rollbackHash} />}
+			</div>
+			{open && canExpand && <ToolEventDetails event={event} />}
+		</div>
+	);
+}
+
+/**
+ * Consecutive same-name tools collapse to one line; expand reveals
+ * individual rows (each still expandable for Input/Output).
+ */
+function ToolGroupCard({ events }: { events: ToolEvent[] }) {
+	const [open, setOpen] = useState(false);
+	const status = getGroupStatus(events);
+	const summary = getToolGroupSummary(events);
+	const isRunning = status === 'start';
+
+	if (events.length === 1) {
+		return <ToolCard event={events[0]} />;
+	}
+
+	return (
+		<div>
+			<button
+				type="button"
+				onClick={() => !isRunning && setOpen((o) => !o)}
+				disabled={isRunning}
+				className={cn(
+					'group/tool flex w-full items-center gap-1.5 min-h-7 text-left rounded-sm py-1',
+					isRunning ? 'cursor-default' : 'cursor-pointer hover:text-kumo-default',
+				)}
+			>
+				<span
+					className={cn(
+						'min-w-0 truncate text-[13px] leading-snug text-kumo-subtle',
+						isRunning && 'animate-pulse',
+						status === 'error' && 'text-red-500/90',
+					)}
+				>
+					{summary}
+				</span>
+				<span className="text-[11px] tabular-nums text-kumo-subtle/50 shrink-0">
+					{events.length}
+				</span>
+				{!isRunning && (
+					<ChevronRight
+						className={cn(
+							'size-3 shrink-0 text-kumo-subtle/50 transition-transform duration-150',
+							open && 'rotate-90',
+							'opacity-60 group-hover/tool:opacity-100',
+						)}
+					/>
+				)}
+				<ToolStatusMark status={status} />
+			</button>
+			{open && !isRunning && (
+				<div className="mt-1 ml-0.5 border-l border-kumo-line/50 pl-2.5 flex flex-col gap-1">
+					{events.map((event, i) => (
+						<ToolCard key={event.id ?? `g-${event.name}-${i}`} event={event} nested />
+					))}
+				</div>
+			)}
+		</div>
+	);
+}
+
+type TraceRenderItem =
+	| { kind: 'reasoning'; part: Extract<MessagePart, { type: 'reasoning' }>; key: string; streaming: boolean }
+	| { kind: 'tools'; events: ToolEvent[]; key: string };
+
+/**
+ * Collapse contiguous same-name tools, but only once finished.
+ * In-flight tools stay as individual rows ("Writing foo…") so the
+ * group count doesn't flicker as each write starts. Completed runs
+ * ahead of a still-running tool collapse progressively
+ * ("Wrote 3 files" + "Writing bar…").
+ */
+function collapseTraceItems(items: TracePart[], streaming: boolean): TraceRenderItem[] {
+	const out: TraceRenderItem[] = [];
+	let i = 0;
+	while (i < items.length) {
+		const item = items[i];
+		if (item.type === 'reasoning') {
+			out.push({
+				kind: 'reasoning',
+				part: item,
+				key: `r-${i}`,
+				streaming: streaming && i === items.length - 1,
+			});
+			i += 1;
+			continue;
+		}
+		const name = item.event.name;
+		const events: ToolEvent[] = [item.event];
+		const start = i;
+		i += 1;
+		while (i < items.length) {
+			const next = items[i];
+			if (next.type !== 'tool' || next.event.name !== name) break;
+			events.push(next.event);
+			i += 1;
+		}
+
+		// Split the same-name run: finished stretches may group; running stays solo.
+		let j = 0;
+		while (j < events.length) {
+			const abs = start + j;
+			if (events[j].status === 'start') {
+				out.push({
+					kind: 'tools',
+					events: [events[j]],
+					key: events[j].id ?? `tools-${abs}-${name}`,
+				});
+				j += 1;
+				continue;
+			}
+			const done: ToolEvent[] = [];
+			const doneStart = abs;
+			while (j < events.length && events[j].status !== 'start') {
+				done.push(events[j]);
+				j += 1;
+			}
+			out.push({
+				kind: 'tools',
+				events: done,
+				key: done[0]?.id ?? `tools-${doneStart}-${name}`,
+			});
+		}
+	}
+	return out;
+}
+
 /** Render a contiguous run of reasoning/tool steps as a vertical trace. */
 function TraceGroup({ items, streaming }: { items: TracePart[]; streaming: boolean }) {
+	const collapsed = collapseTraceItems(items, streaming);
 	return (
 		<div className="flex flex-col gap-1.5">
-			{items.map((item, i) =>
-				item.type === 'reasoning'
-					? <ReasoningBlock key={`r-${i}`} part={item} streaming={streaming && i === items.length - 1} />
-					: <ToolCard key={item.event.id ?? `t-${i}`} event={item.event} />,
+			{collapsed.map((item) =>
+				item.kind === 'reasoning'
+					? <div key={item.key} className="my-1"><ReasoningBlock part={item.part} streaming={item.streaming} /></div>
+					: <ToolGroupCard key={item.key} events={item.events} />,
 			)}
 		</div>
 	);
