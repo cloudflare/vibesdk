@@ -12,6 +12,7 @@ import {
 	DialogTitle,
 } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { OrangeButton } from '@/components/shared/OrangeButton';
 import { useAuthModal } from '../auth/AuthModalProvider';
 import { useHeaderContent } from './header-context';
 
@@ -73,14 +74,13 @@ export function GlobalHeader() {
 					<div className="flex items-center justify-end gap-1.5 shrink-0">
 						{content?.trailing}
 						{!authLoading && !user && (
-							<button
-								type="button"
+							<OrangeButton
+								size="sm"
 								onClick={() => showAuthModal()}
-								className="inline-flex h-7 items-center gap-1.5 rounded-md bg-brand px-2.5 text-xs font-medium text-white hover:bg-brand/90"
+								icon={<SignInIcon className="size-4" />}
 							>
-								<SignInIcon className="h-4 w-4" />
-								<span>Sign In</span>
-							</button>
+								Sign In
+							</OrangeButton>
 						)}
 					</div>
 				</div>
