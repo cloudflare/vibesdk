@@ -52,6 +52,7 @@ import {
 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router';
+import { usePageHeader } from '@/components/layout/header-context';
 import { FileExplorer } from '../chat/components/file-explorer';
 import { PreviewIframe } from '../chat/components/preview-iframe';
 
@@ -362,7 +363,7 @@ export default function AppView() {
 		}
 	};
 
-	const handleToggleVisibility = async () => {
+	const handleToggleVisibility = useCallback(async () => {
 		if (!app || !user || !isOwner) {
 			toast.add({
 				title: 'You can only change visibility of your own apps',
@@ -392,70 +393,13 @@ export default function AppView() {
 				variant: 'error',
 			});
 		}
-	};
+	}, [app, user, isOwner, updateVisibility, toast]);
 
-	const handleDeleteApp = async () => {
-		if (!app) return;
+	const headerContent = useMemo(() => {
+		if (loading || error || !app) return null;
 
-		try {
-			await deleteApp(app.id);
-			toast.add({
-				title: 'App deleted successfully',
-				variant: 'success',
-			});
-			setIsDeleteDialogOpen(false);
-
-			if (window.history.length > 1) {
-				window.history.back();
-			} else {
-				navigate('/apps');
-			}
-		} catch (error) {
-			console.error('Error deleting app:', error);
-			toast.add({
-				title: 'An unexpected error occurred while deleting the app',
-				variant: 'error',
-			});
-		}
-	};
-
-	if (loading) {
-		return <AppLoadingSkeleton />;
-	}
-
-	if (error || !app) {
-		return (
-			<div className="size-full flex items-center justify-center p-4">
-				<LayerCard className="max-w-md w-full px-5 py-6">
-					<div className="text-center grid gap-4">
-						<div className="grid gap-1.5">
-							<h2 className="text-lg font-semibold text-text-primary">
-								App not found
-							</h2>
-							<p className="text-sm text-kumo-subtle">
-								{error ||
-									"The app you're looking for doesn't exist."}
-							</p>
-						</div>
-						<div className="flex justify-center">
-							<Button
-								variant="secondary"
-								size="sm"
-								icon={<ChevronLeft className="h-4 w-4" />}
-								onClick={() => navigate('/apps')}
-							>
-								Back to apps
-							</Button>
-						</div>
-					</div>
-				</LayerCard>
-			</div>
-		);
-	}
-
-	return (
-		<div className="size-full flex flex-col min-h-0">
-			<header className="h-12 shrink-0 flex items-center gap-3 px-4 border-b">
+		return {
+			leading: (
 				<div className="min-w-0 flex-1 flex items-center gap-2">
 					<h1
 						className="text-sm font-semibold truncate min-w-0"
@@ -477,8 +421,9 @@ export default function AppView() {
 						</span>
 					</Badge>
 				</div>
-
-				<div className="flex items-center gap-1.5 shrink-0">
+			),
+			trailing: (
+				<>
 					{isOwner && (
 						<Button
 							variant="secondary"
@@ -581,9 +526,82 @@ export default function AppView() {
 							</DropdownMenu>
 						</>
 					)}
-				</div>
-			</header>
+				</>
+			),
+		};
+	}, [
+		loading,
+		error,
+		app,
+		isOwner,
+		isUpdatingVisibility,
+		handleToggleVisibility,
+		navigate,
+	]);
 
+	usePageHeader(headerContent);
+
+	const handleDeleteApp = async () => {
+		if (!app) return;
+
+		try {
+			await deleteApp(app.id);
+			toast.add({
+				title: 'App deleted successfully',
+				variant: 'success',
+			});
+			setIsDeleteDialogOpen(false);
+
+			if (window.history.length > 1) {
+				window.history.back();
+			} else {
+				navigate('/apps');
+			}
+		} catch (error) {
+			console.error('Error deleting app:', error);
+			toast.add({
+				title: 'An unexpected error occurred while deleting the app',
+				variant: 'error',
+			});
+		}
+	};
+
+	if (loading) {
+		return <AppLoadingSkeleton />;
+	}
+
+	if (error || !app) {
+		return (
+			<div className="size-full flex items-center justify-center p-4">
+				<LayerCard className="max-w-md w-full px-5 py-6">
+					<div className="text-center grid gap-4">
+						<div className="grid gap-1.5">
+							<h2 className="text-lg font-semibold text-text-primary">
+								App not found
+							</h2>
+							<p className="text-sm text-kumo-subtle">
+								{error ||
+									"The app you're looking for doesn't exist."}
+							</p>
+						</div>
+						<div className="flex justify-center">
+							<Button
+								variant="secondary"
+								size="sm"
+								icon={<ChevronLeft className="h-4 w-4" />}
+								onClick={() => navigate('/apps')}
+							>
+								Back to apps
+							</Button>
+						</div>
+					</div>
+				</LayerCard>
+			</div>
+		);
+	}
+
+	return (
+		<div className="size-full flex flex-col min-h-0">
 			<div className="shrink-0 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between px-4 py-2 border-b">
 				<Tabs
 					value={activeTab}

@@ -1,21 +1,19 @@
 /**
- * Enhanced Auth Button
- * Provides OAuth + Email/Password authentication with enhanced UI
+ * Auth Button
+ * Account menu for authenticated users
  */
 
-import { useState } from 'react';
 import { Loader2, LucideGlobeLock } from 'lucide-react';
 import { useNavigate } from 'react-router';
 import { cn, Button, DropdownMenu } from '@cloudflare/kumo';
 import { useAuth } from '../../contexts/auth-context';
-import { LoginModal } from './login-modal';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import { Skeleton } from '../ui/skeleton';
 import {
 	useUsageLimitsBadgeState,
 	type UsageLimitsBadgeState,
 } from '../usage-limits-badge';
-import { GearIcon, SignInIcon, SignOutIcon } from '@phosphor-icons/react';
+import { GearIcon, SignOutIcon } from '@phosphor-icons/react';
 
 interface AuthButtonProps {
 	className?: string;
@@ -45,20 +43,9 @@ function getLimitsDetailText(limits: UsageLimitsBadgeState) {
 }
 
 export function AuthButton({ className, display = 'icon' }: AuthButtonProps) {
-	const {
-		user,
-		isAuthenticated,
-		isLoading,
-		error,
-		login, // OAuth method
-		loginWithEmail,
-		register,
-		logout,
-		clearError,
-	} = useAuth();
+	const { user, isAuthenticated, isLoading, logout } = useAuth();
 
 	const navigate = useNavigate();
-	const [showLoginModal, setShowLoginModal] = useState(false);
 	const usageLimits = useUsageLimitsBadgeState();
 	const showLimitsState = !usageLimits.hidden;
 	const limitsStatusText = getLimitsStatusText(usageLimits);
@@ -74,51 +61,9 @@ export function AuthButton({ className, display = 'icon' }: AuthButtonProps) {
 	}
 
 	if (!isAuthenticated || !user) {
-		return (
-			<>
-				<Button
-					variant="ghost"
-					onClick={() => setShowLoginModal(true)}
-					className={cn('gap-2 text-sm', className)}
-				>
-					<SignInIcon className="h-4 w-4" />
-					<span>Sign In</span>
-				</Button>
-
-				<LoginModal
-					isOpen={showLoginModal}
-					onClose={() => setShowLoginModal(false)}
-					onLogin={(provider: 'google' | 'github' | 'cloudflare') => {
-						// For backward compatibility with original login interface
-						login(provider);
-						setShowLoginModal(false);
-					}}
-					onEmailLogin={async (credentials) => {
-						await loginWithEmail(credentials);
-						if (!error) {
-							setShowLoginModal(false);
-						}
-					}}
-					onOAuthLogin={(
-						provider: 'google' | 'github' | 'cloudflare',
-					) => {
-						login(provider);
-						setShowLoginModal(false);
-					}}
-					onRegister={async (data) => {
-						await register(data);
-						if (!error) {
-							setShowLoginModal(false);
-						}
-					}}
-					error={error}
-					onClearError={clearError}
-				/>
-			</>
-		);
+		return null;
 	}
 
-	// Get user initials for avatar fallback
 	const getInitials = () => {
 		if (user.displayName) {
 			return user.displayName

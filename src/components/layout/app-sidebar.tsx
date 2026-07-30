@@ -589,7 +589,7 @@ export function AppSidebar() {
 						</button>
 					)}
 					<div className="flex min-w-0 w-full items-center gap-2 group-data-[state=collapsed]/sidebar:flex-col">
-						{(!isCollapsed || user) && (
+						{user && (
 							<div className="min-w-0 flex-1">
 								<AuthButton
 									display="sidebar"
