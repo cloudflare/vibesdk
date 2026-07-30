@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { DotsThreeVertical, Trash } from '@phosphor-icons/react';
-import { Button, DropdownMenu } from '@cloudflare/kumo';
-import { ConfirmDeleteDialog } from './ConfirmDeleteDialog';
+import { Button, DeleteResource, DropdownMenu } from '@cloudflare/kumo';
 import { apiClient } from '@/lib/api-client';
 import { toast } from 'sonner';
 import { appEvents } from '@/lib/app-events';
@@ -27,10 +26,12 @@ export function AppActionsDropdown({
 }: AppActionsDropdownProps) {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string>();
 
   const handleDeleteApp = async () => {
     try {
       setIsDeleting(true);
+      setDeleteError(undefined);
       const response = await apiClient.deleteApp(appId);
 
       if (response.success) {
@@ -42,7 +43,7 @@ export function AppActionsDropdown({
       }
     } catch (error) {
       console.error('Error deleting app:', error);
-      toast.error('An unexpected error occurred while deleting the app');
+      setDeleteError('An unexpected error occurred while deleting the app');
     } finally {
       setIsDeleting(false);
     }
@@ -82,6 +83,7 @@ export function AppActionsDropdown({
             onClick={(e) => {
               e.stopPropagation();
               e.preventDefault();
+              setDeleteError(undefined);
               setIsDeleteDialogOpen(true);
             }}
           >
@@ -91,12 +93,15 @@ export function AppActionsDropdown({
         </DropdownMenu.Content>
       </DropdownMenu>
 
-      <ConfirmDeleteDialog
+      <DeleteResource
         open={isDeleteDialogOpen}
         onOpenChange={setIsDeleteDialogOpen}
-        onConfirm={handleDeleteApp}
-        isLoading={isDeleting}
-        appTitle={appTitle}
+        resourceType="App"
+        resourceName={appTitle}
+        onDelete={handleDeleteApp}
+        isDeleting={isDeleting}
+        errorMessage={deleteError}
+        className="sm:w-[32rem]"
       />
     </>
   );

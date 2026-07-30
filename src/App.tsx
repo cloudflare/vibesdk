@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Outlet } from 'react-router';
-import { QueryClientProvider } from '@tanstack/react-query';
+import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
 import { AuthProvider } from './contexts/auth-context';
 import { AuthModalProvider } from './components/auth/AuthModalProvider';
 import { ThemeProvider } from './contexts/theme-context';
@@ -10,7 +10,7 @@ import { AppLayout } from './components/layout/app-layout';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { FeatureProvider } from './features';
 import { Toasty } from '@cloudflare/kumo';
-import { createQueryClient } from './lib/query-client';
+import { createQueryClient, queryPersistOptions } from './lib/query-client';
 import { useAppsQuerySync } from './hooks/use-apps';
 import { AppLinkProvider } from './components/providers/app-link-provider';
 
@@ -24,7 +24,10 @@ export default function App() {
 
 	return (
 		<ErrorBoundary>
-			<QueryClientProvider client={queryClient}>
+			<PersistQueryClientProvider
+				client={queryClient}
+				persistOptions={queryPersistOptions}
+			>
 				<ThemeProvider>
 					<FeatureProvider>
 						<AuthProvider>
@@ -47,7 +50,7 @@ export default function App() {
 						</AuthProvider>
 					</FeatureProvider>
 				</ThemeProvider>
-			</QueryClientProvider>
+			</PersistQueryClientProvider>
 		</ErrorBoundary>
 	);
 }

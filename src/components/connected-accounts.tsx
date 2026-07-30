@@ -23,7 +23,7 @@ import {
 import { apiClient } from '@/lib/api-client';
 import { useAuth } from '@/contexts/auth-context';
 import type { LinkedIdentitiesData, OAuthProvider } from '@/api-types';
-import CloudflareLogo from '@/assets/provider-logos/cloudflare.svg?react';
+import { CloudflareLogo } from '@cloudflare/kumo';
 
 type LinkedIdentity = LinkedIdentitiesData['identities'][number];
 
@@ -64,7 +64,7 @@ const PROVIDER_META: Record<
 	},
 	cloudflare: {
 		label: 'Cloudflare',
-		icon: <CloudflareLogo className="h-5 w-5" />,
+		icon: <CloudflareLogo variant="glyph" className="h-5 w-5" />,
 	},
 };
 
