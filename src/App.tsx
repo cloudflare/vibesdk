@@ -4,7 +4,6 @@ import { QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider } from './contexts/auth-context';
 import { AuthModalProvider } from './components/auth/AuthModalProvider';
 import { ThemeProvider } from './contexts/theme-context';
-import { VaultProvider } from './contexts/vault-context';
 import { LimitsProvider } from './contexts/limits-context';
 import { Toaster } from './components/ui/sonner';
 import { AppLayout } from './components/layout/app-layout';
@@ -30,23 +29,21 @@ export default function App() {
 					<FeatureProvider>
 						<AuthProvider>
 							<AppsQuerySync />
-							<VaultProvider>
-								<LimitsProvider>
-									<AuthModalProvider>
-										<AppLayout>
-											<Toasty>
-												<AppLinkProvider>
-													<Outlet />
-												</AppLinkProvider>
-											</Toasty>
-										</AppLayout>
-										<Toaster
-											richColors
-											position="top-right"
-										/>
-									</AuthModalProvider>
-								</LimitsProvider>
-							</VaultProvider>
+							<LimitsProvider>
+								<AuthModalProvider>
+									<AppLayout>
+										<Toasty>
+											<AppLinkProvider>
+												<Outlet />
+											</AppLinkProvider>
+										</Toasty>
+									</AppLayout>
+									<Toaster
+										richColors
+										position="top-right"
+									/>
+								</AuthModalProvider>
+							</LimitsProvider>
 						</AuthProvider>
 					</FeatureProvider>
 				</ThemeProvider>

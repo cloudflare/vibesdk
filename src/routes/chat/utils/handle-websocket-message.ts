@@ -116,7 +116,6 @@ export interface HandleMessageDeps {
         timestamp: number;
         source?: string
     }) => void;
-    onVaultUnlockRequired?: (reason: string) => void;
     onCloudflareDeployGate?: (code: CloudflareDeploymentErrorCode) => void;
 }
 
@@ -1127,24 +1126,6 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
                 break;
             }
 
-            case 'vault_required': {
-                // Agent needs access to secrets but vault is locked
-                logger.info('Agent requested vault unlock:', message.reason);
-                const reason = message.reason || 'Please unlock your vault to continue';
-
-                // Trigger unlock modal via callback if available
-                if (deps.onVaultUnlockRequired) {
-                    deps.onVaultUnlockRequired(reason);
-                } else {
-                    // Fallback to toast if callback not provided
-                    toast.info('Vault unlock required', {
-                        description: reason,
-                        duration: 5000,
-                    });
-                }
-                break;
-            }
-            
             case 'usage_updated': {
                 // Dispatch global event so all components can react
                 window.dispatchEvent(new CustomEvent('usage-updated'));

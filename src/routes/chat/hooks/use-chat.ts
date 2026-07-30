@@ -57,7 +57,6 @@ export function useChat({
 	autoStart = true,
 	onDebugMessage,
 	onTerminalMessage,
-	onVaultUnlockRequired,
 	onCloudflareDeployGate,
 }: {
 	chatId?: string;
@@ -75,7 +74,6 @@ export function useChat({
 	autoStart?: boolean;
 	onDebugMessage?: (type: 'error' | 'warning' | 'info' | 'websocket', message: string, details?: string, source?: string, messageType?: string, rawMessage?: unknown) => void;
 	onTerminalMessage?: (log: { id: string; content: string; type: 'command' | 'stdout' | 'stderr' | 'info' | 'error' | 'warn' | 'debug'; timestamp: number; source?: string }) => void;
-	onVaultUnlockRequired?: (reason: string) => void;
 	onCloudflareDeployGate?: (code: CloudflareDeploymentErrorCode) => void;
 }) {
 	// Derive initial behavior type from explicit override or project type using feature system
@@ -310,7 +308,6 @@ export function useChat({
 			refetchLimits,
 			onDebugMessage,
 			onTerminalMessage,
-			onVaultUnlockRequired,
 			onCloudflareDeployGate,
 			clearDeploymentTimeout,
 			onPresentationFileEvent: (evt) => {
@@ -336,7 +333,6 @@ export function useChat({
 			refetchLimits,
 			onDebugMessage,
 			onTerminalMessage,
-			onVaultUnlockRequired,
 			onCloudflareDeployGate,
 			clearDeploymentTimeout,
 			setClarifyingQuestions,

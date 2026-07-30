@@ -3,8 +3,15 @@
 	<head>
 		<meta charset="UTF-8" />
 		<link rel="icon" href="/favicon.ico" />
+		<link
+			rel="preload"
+			href="/fonts/DepartureMono-Regular.woff2"
+			as="font"
+			type="font/woff2"
+			crossorigin
+		/>
 		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-		<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' blob: https://cdnjs.cloudflare.com https://cdn.tailwindcss.com https://esm.sh; style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; font-src 'self'; img-src 'self' data: https:; connect-src 'self' wss: ws: http: https:; frame-src 'self' http://*.localhost:* https://*;" />
+		<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' blob: https://cdnjs.cloudflare.com https://cdn.tailwindcss.com https://esm.sh https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; font-src 'self'; img-src 'self' data: https:; connect-src 'self' wss: ws: http: https:; frame-src 'self' http://*.localhost:* https://*;" />
 		<title>Build</title>
 		<meta name="description" content="Ship your app from idea to v1!" />
 		<script>
