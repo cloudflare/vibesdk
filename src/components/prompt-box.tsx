@@ -4,6 +4,7 @@ import { cn } from '@cloudflare/kumo';
 import { ImageAttachmentPreview } from '@/components/image-attachment-preview';
 import { ImageUploadButton } from '@/components/image-upload-button';
 import { CreditsBanner } from '@/components/credits-banner';
+import { OrangeButton } from '@/components/shared/OrangeButton';
 import { useTypewriterPlaceholder } from '@/hooks/use-typewriter-placeholder';
 import type { ImageAttachment } from '@/api-types';
 import { type UsageSummary } from '@/hooks/use-limits';
@@ -194,19 +195,23 @@ export function PromptBox({
 								/>
 								<div className="absolute right-1.5 top-1/2 -translate-y-1/2 flex items-center gap-1">
 									{rightActions}
-									<button
+									<OrangeButton
 										type="submit"
+										shape="square"
+										size="sm"
 										disabled={
 											!value.trim() ||
 											disabled ||
 											submitDisabled
 										}
-										className="p-1.5 rounded-md bg-brand/90 hover:bg-brand/80 disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-transparent text-white disabled:text-text-primary transition-colors"
-									>
-										{submitIcon ?? (
-											<ArrowRightIcon className="size-4" />
-										)}
-									</button>
+										aria-label="Send message"
+										title="Send message"
+										icon={
+											submitIcon ?? (
+												<ArrowRightIcon className="size-4" />
+											)
+										}
+									/>
 								</div>
 							</div>
 						</form>
@@ -302,15 +307,22 @@ export function PromptBox({
 								onFilesSelected={onAddImages}
 								disabled={disabled || isProcessing}
 							/>
-							<button
+							<OrangeButton
 								type="submit"
+								shape="square"
+								size="sm"
 								disabled={
 									!value.trim() || disabled || submitDisabled
 								}
-								className="bg-brand text-white p-1 rounded-md *:size-5 transition-all duration-200 hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
-							>
-								{submitIcon ?? <ArrowRightIcon />}
-							</button>
+								aria-label="Send message"
+								title="Send message"
+								className="size-7!"
+								icon={
+									submitIcon ?? (
+										<ArrowRightIcon className="size-5" />
+									)
+								}
+							/>
 						</div>
 					</div>
 				</form>

@@ -22,6 +22,7 @@ import {
 import { useAuth } from '@/contexts/auth-context';
 import { useApps, useFavoriteApps, useRecentApps } from '@/hooks/use-apps';
 import { AppActionsDropdown } from '@/components/shared/AppActionsDropdown';
+import { OrangeButton } from '@/components/shared/OrangeButton';
 import { AuthButton } from '@/components/auth/auth-button';
 import { useUsageLimitsBadgeState } from '@/components/usage-limits-badge';
 import { ThemeToggle } from '@/components/theme-toggle';
@@ -288,14 +289,18 @@ export function AppSidebar() {
 					{isCollapsed ? (
 						<div className="flex flex-col items-center gap-1">
 							{pathname !== '/' && (
-								<Button
+								<OrangeButton
 									shape="square"
-									size="base"
 									aria-label="New build"
 									title="New build"
 									onClick={() => navigate('/')}
-									className="bg-brand text-white shadow-none ring-0 hover:bg-brand/80"
-									icon={<PlusIcon className="size-4" weight="bold" />}
+									className="size-8!"
+									icon={
+										<PlusIcon
+											className="size-4"
+											weight="bold"
+										/>
+									}
 								/>
 							)}
 							<Button
@@ -321,14 +326,20 @@ export function AppSidebar() {
 						<div className="flex flex-col gap-1.5">
 							<Sidebar.Menu className="gap-y-1.5">
 								{pathname !== '/' && (
-									<Sidebar.MenuButton
-										icon={PlusIcon}
-										className="bg-brand text-white hover:bg-brand/80"
-										tooltip="New build"
+									<OrangeButton
+										fullWidth
+										icon={
+											<PlusIcon
+												className="size-4"
+												weight="bold"
+											/>
+										}
+										title="New build"
 										onClick={() => navigate('/')}
+										className="h-8! text-sm"
 									>
 										New build
-									</Sidebar.MenuButton>
+									</OrangeButton>
 								)}
 
 								<Sidebar.MenuButton
@@ -558,29 +569,31 @@ export function AppSidebar() {
 			<Sidebar.Footer className="h-auto p-3">
 				<div className="flex w-full min-w-0 flex-col gap-2">
 					{showCloudflareCta && (
-						<button
-							type="button"
+						<OrangeButton
 							onClick={handleCloudflareCta}
 							aria-label={cloudflareCtaLabel}
 							title={cloudflareCtaLabel}
+							fullWidth={!isCollapsed}
+							shape={isCollapsed ? 'square' : 'base'}
 							className={cn(
-								'inline-flex items-center rounded-lg bg-brand text-sm font-medium text-white hover:bg-brand/90',
 								isCollapsed
-									? 'size-9 shrink-0 justify-center self-center'
-									: 'h-9 w-full justify-start gap-3 px-3',
+									? 'size-8! shrink-0 self-center'
+									: 'h-8! gap-2 text-sm',
 							)}
+							icon={
+								<CloudflareLogo
+									variant="glyph"
+									color="white"
+									className="size-5 shrink-0"
+								/>
+							}
 						>
-							<CloudflareLogo
-								variant="glyph"
-								color="white"
-								className="size-6 shrink-0"
-							/>
-							{!isCollapsed && (
+							{!isCollapsed ? (
 								<span className="truncate">
 									{cloudflareCtaLabel}
 								</span>
-							)}
-						</button>
+							) : null}
+						</OrangeButton>
 					)}
 					<div
 						className={cn(

@@ -1058,6 +1058,7 @@ export default function Chat() {
 	if (awaitingStartConfirmation) {
 		return (
 			<div className="size-full flex items-center justify-center p-6 text-text-primary">
+				<title>Start building - Build</title>
 				<div className="max-w-lg w-full flex flex-col gap-4 rounded-xl border bg-kumo-elevated p-6">
 					<h1 className="text-lg font-medium">
 						Start building this app?
@@ -1089,6 +1090,9 @@ export default function Chat() {
 
 	return (
 		<RollbackContext.Provider value={rollbackHandler}>
+			<title>
+				{headerTitle ? `${headerTitle} - Build` : 'Chat - Build'}
+			</title>
 			<div className="size-full flex flex-col min-h-0 text-text-primary">
 				<div className="flex-1 flex min-h-0 overflow-hidden justify-center">
 					<motion.div

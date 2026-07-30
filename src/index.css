@@ -339,6 +339,18 @@
 	}
 }
 
+/* Mirrors OrangeButton / Kumo primary emphasis gradient on text fill. */
+@utility text-brand-emphasis {
+	background-image: linear-gradient(
+		to bottom,
+		color-mix(in oklch, var(--color-brand), white 15%),
+		var(--color-brand)
+	);
+	-webkit-background-clip: text;
+	background-clip: text;
+	color: transparent;
+}
+
 @property --spin-angle {
 	syntax: '<angle>';
 	initial-value: 0deg;

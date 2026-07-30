@@ -12,6 +12,27 @@ export function capitalizeFirstLetter(str: string) {
   return str.charAt(0).toUpperCase() + str.slice(1);
 }
 
+/** First letters of first/last name from displayName, else email initial, else fallback. */
+export function getInitials(
+  displayName?: string | null,
+  email?: string | null,
+  fallback = '?',
+): string {
+  if (displayName?.trim()) {
+    return displayName
+      .trim()
+      .split(/\s+/)
+      .map((n) => n[0])
+      .join('')
+      .toUpperCase()
+      .slice(0, 2);
+  }
+  if (email?.trim()) {
+    return email.trim().charAt(0).toUpperCase();
+  }
+  return fallback;
+}
+
 /**
  * Detect Apple/WebKit browsers subject to Intelligent Tracking Prevention
  * (ITP), which blocks third-party cookies for an origin embedded in a
