@@ -12,7 +12,6 @@ import {
 	DialogTitle,
 } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { useLocation } from 'react-router';
 import { useAuthModal } from '../auth/AuthModalProvider';
 import { useHeaderContent } from './header-context';
 
@@ -29,7 +28,6 @@ export function GlobalHeader() {
 	const hasChangeLogs = Boolean(
 		status.changeLogs && status.changeLogs.trim().length > 0,
 	);
-	const { pathname } = useLocation();
 	const hasPageContent = Boolean(content?.leading || content?.trailing);
 
 	useEffect(() => {
@@ -40,12 +38,7 @@ export function GlobalHeader() {
 
 	return (
 		<>
-			<header
-				className={cn(
-					'sticky top-0 z-10',
-					pathname !== '/' && 'bg-kumo-base',
-				)}
-			>
+			<header className={cn('sticky top-0 z-10')}>
 				<div className="relative flex h-12 items-center gap-2 border-b border-kumo-line pl-2 pr-3 md:gap-3 md:px-4">
 					{isMobile ? (
 						<SidebarTrigger
@@ -56,29 +49,25 @@ export function GlobalHeader() {
 
 					<div className="min-w-0 flex-1 flex items-center gap-2">
 						{content?.leading ??
-							(!hasPageContent &&
-								hasMaintenanceMessage && (
-									<button
-										type="button"
-										onClick={
-											hasChangeLogs
-												? () =>
-														setIsChangelogOpen(
-															true,
-														)
-												: undefined
-										}
-										disabled={!hasChangeLogs}
-										className={`flex max-w-full items-center gap-2 rounded-full border border-brand/40 bg-bg-4/80 px-3 py-1.5 text-xs text-text-primary shadow-sm backdrop-blur hover:bg-brand/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand/40 dark:border-brand/30 dark:bg-kumo-elevated/80 md:text-sm${!hasChangeLogs ? ' opacity-50 cursor-not-allowed pointer-events-none' : ''}`}
-										aria-label="Platform updates"
-									>
-										<AlertCircle className="h-4 w-4 text-kumo-brand" />
-										<span className="truncate max-w-[46ch] md:max-w-[60ch]">
-											{status.globalUserMessage}
-										</span>
-										<ChevronRight className="ml-1 h-4 w-4 text-kumo-brand" />
-									</button>
-								))}
+							(!hasPageContent && hasMaintenanceMessage && (
+								<button
+									type="button"
+									onClick={
+										hasChangeLogs
+											? () => setIsChangelogOpen(true)
+											: undefined
+									}
+									disabled={!hasChangeLogs}
+									className={`flex max-w-full items-center gap-2 rounded-full border border-brand/40 bg-bg-4/80 px-3 py-1.5 text-xs text-text-primary shadow-sm backdrop-blur hover:bg-brand/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand/40 dark:border-brand/30 dark:bg-kumo-elevated/80 md:text-sm${!hasChangeLogs ? ' opacity-50 cursor-not-allowed pointer-events-none' : ''}`}
+									aria-label="Platform updates"
+								>
+									<AlertCircle className="h-4 w-4 text-kumo-brand" />
+									<span className="truncate max-w-[46ch] md:max-w-[60ch]">
+										{status.globalUserMessage}
+									</span>
+									<ChevronRight className="ml-1 h-4 w-4 text-kumo-brand" />
+								</button>
+							))}
 					</div>
 
 					<div className="flex items-center justify-end gap-1.5 shrink-0">
