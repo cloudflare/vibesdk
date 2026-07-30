@@ -30,6 +30,10 @@ export interface BaseSnapshotSource {
    * The base tree (head commit + absolute-path -> entry map), or `null` when no
    * base is available (the FileSystem then behaves as a plain overlay).
    * Implementations must ensure blobs are locally readable via `readBlob`.
+   *
+   * `null` means "legitimately empty" (no remote repo/branch yet). A transient
+   * failure (network blip, fetch timeout) must THROW instead, so callers can
+   * retry on a later access rather than caching an empty base forever.
    */
   loadSnapshot(): Promise<BaseSnapshot | null>
   /** Raw bytes of a blob by oid (from the local object store). */
@@ -208,6 +212,29 @@ export async function readBlobBytes(fs: FileSystem, oid: string): Promise<Uint8A
 }
 
 /**
+ * Point the local branch at the fetched head when it is unborn (the cold-start
+ * case). isomorphic-git's `fetch` only updates the remote-tracking ref, so
+ * without this the next commit after a restart would be a ROOT commit with no
+ * ancestry — and the mirrored `push(force)` would replace the remote branch,
+ * silently destroying all earlier history/restore points. An existing local
+ * branch is never clobbered: local commits must not be lost.
+ */
+async function reconcileLocalBranch(
+  fs: FileSystem,
+  branch: string,
+  head: string,
+): Promise<void> {
+  if (await resolveHead(fs, `refs/heads/${branch}`)) return
+  await git.writeRef({
+    fs: createGitFs(fs),
+    dir: "/",
+    ref: `refs/heads/${branch}`,
+    value: head,
+    force: true,
+  })
+}
+
+/**
  * Artifacts-backed `BaseSnapshotSource`: fetches the branch into the overlay's
  * `.git` (via the injected `fetchBranch`, e.g. `ArtifactsSync.fetch`), then
  * walks the fetched commit tree and serves blobs from the local object store.
@@ -215,22 +242,52 @@ export async function readBlobBytes(fs: FileSystem, oid: string): Promise<Uint8A
 export function createArtifactsBaseSource(opts: {
   overlay: FileSystem
   branch: string
+  /** True when a remote repo is known to exist (e.g. a persisted remote URL). */
+  hasRemote: () => Promise<boolean>
   /** Populate the overlay `.git` with the branch's objects. Returns success. */
   fetchBranch: () => Promise<boolean>
 }): BaseSnapshotSource {
-  const { overlay, branch, fetchBranch } = opts
+  const { overlay, branch, hasRemote, fetchBranch } = opts
   return {
     async loadSnapshot() {
-      const ok = await fetchBranch()
-      if (!ok) return null
+      // No remote repo yet — a legitimately empty base (fresh app).
+      if (!(await hasRemote())) return null
+      // The repo exists but the fetch failed — transient. Throw so the caller
+      // retries on a later access instead of caching an empty base (which
+      // would hide every previously pushed file for this DO's lifetime).
+      if (!(await fetchBranch())) {
+        throw new Error(`Artifacts base fetch failed for branch "${branch}"`)
+      }
       const head =
         (await resolveHead(overlay, `refs/remotes/artifacts/${branch}`)) ??
         (await resolveHead(overlay, branch))
+      // Repo exists but this branch has no commits yet — legitimately empty.
       if (!head) return null
+      await reconcileLocalBranch(overlay, branch, head)
       return { head, files: await walkTreeFiles(overlay, head) }
     },
     readBlob(oid) {
       return readBlobBytes(overlay, oid)
     },
+  }
+}
+
+/**
+ * Stage the whole working tree (like the shell's `git add .`, which also
+ * stages deletions via `statusMatrix`) while skipping reserved paths — the
+ * `.afs` bookkeeping file must never enter a commit, or it lands in the
+ * Artifacts base tree and pollutes every snapshot.
+ */
+export async function stageWorkdir(
+  fs: FileSystem,
+  skip: (absPath: string) => boolean,
+): Promise<void> {
+  const gitFs = createGitFs(fs)
+  const matrix = await git.statusMatrix({ fs: gitFs, dir: "/" })
+  for (const [filepath, head, workdir, stage] of matrix) {
+    if (skip(`/${filepath}`)) continue
+    if (`${head}${workdir}${stage}` === "111") continue
+    if (workdir === 0) await git.remove({ fs: gitFs, dir: "/", filepath })
+    else await git.add({ fs: gitFs, dir: "/", filepath })
   }
 }

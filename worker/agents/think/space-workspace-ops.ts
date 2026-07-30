@@ -40,6 +40,33 @@ function isFileInfo(value: FileInfo | null): value is FileInfo {
 	return value !== null;
 }
 
+/**
+ * Detect a transient Durable Object restart. "Durable Object reset because its
+ * code was updated" is thrown on stub calls that are in flight when the worker
+ * version changes (platform deploy, or a local dev rebuild). The error is
+ * per-call: a freshly resolved stub routes to the new instance.
+ */
+export function isDurableObjectResetError(error: unknown): boolean {
+	const message = error instanceof Error ? error.message : String(error);
+	return /reset because its code was updated|Durable Object .*(reset|restarted)/i.test(message);
+}
+
+/**
+ * Run a SpaceDO RPC, retrying ONCE with a freshly resolved stub when the call
+ * failed because the DO was reset. All other errors propagate unchanged.
+ */
+export async function withDurableObjectResetRetry<S, T>(
+	getStub: () => S,
+	call: (stub: S) => Promise<T>,
+): Promise<T> {
+	try {
+		return await call(getStub());
+	} catch (error) {
+		if (!isDurableObjectResetError(error)) throw error;
+		return await call(getStub());
+	}
+}
+
 // ── TEMP DIAGNOSTIC (write-escape-diag) ──────────────────────────────────────
 // The deploy build has been failing on generated files that contain literal
 // backslash-escaped quotes/backticks (e.g. `\" + \"`), which is a double-escape
@@ -67,11 +94,11 @@ function compareByPath(a: FileInfo, b: FileInfo): number {
 	return a.path.localeCompare(b.path);
 }
 
-export function createSpaceWorkspaceOps(stub: SpaceWorkspaceStub): SpaceWorkspaceOps {
+export function createSpaceWorkspaceOps(getStub: () => SpaceWorkspaceStub): SpaceWorkspaceOps {
 	const ops: SpaceWorkspaceOps = {
 		async readFile(path: string): Promise<string | null> {
 			try {
-				return await stub.readFile(path);
+				return await withDurableObjectResetRetry(getStub, (stub) => stub.readFile(path));
 			} catch {
 				return null;
 			}
@@ -79,7 +106,9 @@ export function createSpaceWorkspaceOps(stub: SpaceWorkspaceStub): SpaceWorkspac
 
 		async readFileBytes(path: string): Promise<Uint8Array | null> {
 			try {
-				return await stub.readFileBytes(path);
+				return await withDurableObjectResetRetry(getStub, (stub) =>
+					stub.readFileBytes(path),
+				);
 			} catch {
 				return null;
 			}
@@ -87,7 +116,7 @@ export function createSpaceWorkspaceOps(stub: SpaceWorkspaceStub): SpaceWorkspac
 
 		async stat(path: string): Promise<FileInfo | null> {
 			try {
-				return await stub.stat(path);
+				return await withDurableObjectResetRetry(getStub, (stub) => stub.stat(path));
 			} catch {
 				return null;
 			}
@@ -96,11 +125,11 @@ export function createSpaceWorkspaceOps(stub: SpaceWorkspaceStub): SpaceWorkspac
 		async writeFile(path: string, content: string): Promise<void> {
 			// TEMP: flag double-escaped content arriving at the write boundary.
 			logSuspiciousEscaping(path, content);
-			await stub.writeFile(path, content);
+			await withDurableObjectResetRetry(getStub, (stub) => stub.writeFile(path, content));
 		},
 
 		async mkdir(path: string, opts?: { recursive?: boolean }): Promise<void> {
-			await stub.mkdir(path, opts);
+			await withDurableObjectResetRetry(getStub, (stub) => stub.mkdir(path, opts));
 		},
 
 		async readDir(
@@ -108,15 +137,19 @@ export function createSpaceWorkspaceOps(stub: SpaceWorkspaceStub): SpaceWorkspac
 			opts?: { limit?: number; offset?: number },
 		): Promise<FileInfo[]> {
 			try {
-				return await stub.readDir(dir, opts);
+				return await withDurableObjectResetRetry(getStub, (stub) => stub.readDir(dir, opts));
 			} catch {
 				return [];
 			}
 		},
 
 		async glob(pattern: string): Promise<FileInfo[]> {
-			const paths = await stub.glob(pattern);
-			const infos = await Promise.all(paths.map((path) => stub.stat(path).catch(() => null)));
+			const paths = await withDurableObjectResetRetry(getStub, (stub) => stub.glob(pattern));
+			const infos = await Promise.all(
+				paths.map((path) =>
+					withDurableObjectResetRetry(getStub, (stub) => stub.stat(path)).catch(() => null),
+				),
+			);
 			return infos.filter(isFileInfo).sort(compareByPath);
 		},
 
@@ -124,7 +157,7 @@ export function createSpaceWorkspaceOps(stub: SpaceWorkspaceStub): SpaceWorkspac
 			path: string,
 			opts?: { recursive?: boolean; force?: boolean },
 		): Promise<void> {
-			await stub.rm(path, opts);
+			await withDurableObjectResetRetry(getStub, (stub) => stub.rm(path, opts));
 		},
 	};
 

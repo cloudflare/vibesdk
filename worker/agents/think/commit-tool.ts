@@ -10,7 +10,7 @@
  */
 import { tool, type Tool } from 'ai';
 import { z } from 'zod';
-import type { SpaceWorkspaceStub } from './space-workspace-ops';
+import { withDurableObjectResetRetry, type SpaceWorkspaceStub } from './space-workspace-ops';
 
 const DESCRIPTION = [
 	'Commit the current working tree as a restore point the user can roll back to later.',
@@ -31,9 +31,10 @@ export function createCommitTool(opts: { getStub: () => SpaceWorkspaceStub }): T
 		}),
 		execute: async (args: { message: string }) => {
 			const message = (args.message ?? '').trim() || 'Update project';
-			const stub = getStub();
 			try {
-				const result = await stub.gitCommit(message);
+				const result = await withDurableObjectResetRetry(getStub, (stub) =>
+					stub.gitCommit(message),
+				);
 				return JSON.stringify({ ok: true, commit_hash: result.sha, message: result.message });
 			} catch {
 				// `gitCommit` throws when the tree is clean — surface as a benign

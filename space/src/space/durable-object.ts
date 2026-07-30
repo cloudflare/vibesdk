@@ -21,7 +21,8 @@ import {
 } from "./inspector-wrapper"
 import { ArtifactsSync, type ArtifactsRemoteStore } from "./artifacts-sync"
 import { ArtifactsFileSystem } from "./artifacts-fs"
-import { createArtifactsBaseSource } from "./git-objects"
+import { createArtifactsBaseSource, stageWorkdir } from "./git-objects"
+import { CheckpointStore } from "./checkpoint"
 
 /** Default branch imported as the ArtifactsFileSystem base on a fresh DO. */
 const ARTIFACTS_BASE_BRANCH = "main"
@@ -32,6 +33,8 @@ const ARTIFACTS_BASE_BRANCH = "main"
 // local-dev remote-binding proxy.
 const ARTIFACTS_REMOTE_URL_KEY = "artifacts:remoteUrl"
 const ARTIFACTS_INIT_TIMEOUT_MS = 10_000
+// Debounce for mirroring overlay writes into DO-storage checkpoint rows.
+const CHECKPOINT_DEBOUNCE_MS = 2_000
 
 async function withTimeout<T>(operation: Promise<T>, timeoutMs: number): Promise<T> {
   let timeout: ReturnType<typeof setTimeout> | undefined
@@ -133,6 +136,12 @@ export class SpaceDO extends DurableObject<Env> {
   // Lazily constructed on first use (bound to the overlay-aware git/FS).
   private artifactsSync?: ArtifactsSync
   private artifactsRemoteStore: ArtifactsRemoteStore
+  // Durable checkpoint of overlay writes in DO storage (SQLite), so
+  // uncommitted work survives DO resets — see checkpoint.ts. Paths dirtied
+  // since the last flush, coalesced by a debounce timer.
+  private checkpointStore: CheckpointStore
+  private readonly checkpointDirty = new Set<string>()
+  private checkpointTimer: ReturnType<typeof setTimeout> | null = null
 
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env)
@@ -160,8 +169,8 @@ export class SpaceDO extends DurableObject<Env> {
     const source = createArtifactsBaseSource({
       overlay,
       branch: ARTIFACTS_BASE_BRANCH,
+      hasRemote: async () => (await remoteStore.read()) !== null,
       fetchBranch: async () => {
-        if (!(await remoteStore.read())) return false
         try {
           return await withTimeout(fetchSync.fetch(ARTIFACTS_BASE_BRANCH), ARTIFACTS_INIT_TIMEOUT_MS)
         } catch {
@@ -169,10 +178,71 @@ export class SpaceDO extends DurableObject<Env> {
         }
       },
     })
-    this.afs = new ArtifactsFileSystem(overlay, { source, branch: ARTIFACTS_BASE_BRANCH })
+    this.checkpointStore = new CheckpointStore(ctx.storage)
+    this.afs = new ArtifactsFileSystem(overlay, {
+      source,
+      branch: ARTIFACTS_BASE_BRANCH,
+      checkpoint: this.checkpointStore,
+      onChange: (path) => this.noteCheckpointDirty(path),
+    })
     this.fs = this.afs
     this.git = createGit(this.fs)
     this.stateBackend = new FileSystemStateBackend(overlay)
+  }
+
+  // ── Checkpointing (durable overlay mirror in DO storage) ──────────
+
+  /** Record a mutated path and schedule a coalesced flush. Never throws. */
+  private noteCheckpointDirty(path: string): void {
+    if (isReservedPath(path)) return
+    this.checkpointDirty.add(path)
+    if (this.checkpointTimer !== null) return
+    this.checkpointTimer = setTimeout(() => {
+      this.checkpointTimer = null
+      void this.flushCheckpoint()
+    }, CHECKPOINT_DEBOUNCE_MS)
+  }
+
+  /**
+   * Write every dirty path's current bytes (or a tombstone for deletions)
+   * into DO storage. Best-effort: per-path failures are logged, never thrown.
+   *
+   * Reads the raw overlay (not the base-aware `afs`): the checkpoint is a delta
+   * against the last-pushed base, so it must capture only overlay writes — base
+   * files are already durable in Artifacts and must never be materialized into
+   * the checkpoint.
+   */
+  private async flushCheckpoint(): Promise<void> {
+    if (this.checkpointDirty.size === 0) return
+    const paths = [...this.checkpointDirty]
+    this.checkpointDirty.clear()
+    for (const path of paths) {
+      try {
+        if (await this.overlay.exists(path)) {
+          const st = await this.overlay.stat(path)
+          if (st.type === "directory") continue
+          this.checkpointStore.save(path, await this.overlay.readFileBytes(path))
+        } else {
+          this.checkpointStore.save(path, null)
+        }
+      } catch (error) {
+        console.warn(`Checkpoint flush failed for ${path}`, error)
+      }
+    }
+  }
+
+  /**
+   * After a successful Artifacts push the base covers everything checkpointed,
+   * so the checkpoint restarts empty — then immediately re-flush anything
+   * dirtied since (writes that raced the push).
+   */
+  private resetCheckpointAfterPush(): void {
+    try {
+      this.checkpointStore.clear()
+      void this.flushCheckpoint()
+    } catch (error) {
+      console.warn("Checkpoint reset after push failed", error)
+    }
   }
 
   // ── ArtifactsFileSystem hydration helpers ──
@@ -421,7 +491,11 @@ export class SpaceDO extends DurableObject<Env> {
     author?: { name: string; email: string }
   ): Promise<{ sha: string; message: string }> {
     await this.ensureInit()
-    await this.git.add({ filepath: "." })
+    // Persist pending overlay writes before the commit captures the tree.
+    await this.flushCheckpoint()
+    // Stage the workdir (incl. deletions) but never reserved bookkeeping
+    // paths — a committed `.afs/state.json` would pollute the Artifacts base.
+    await stageWorkdir(this.fs, isReservedPath)
     const result = await this.git.commit({
       message,
       author: author ?? { name: "Agent", email: "agent@vibesdk.local" },
@@ -434,10 +508,13 @@ export class SpaceDO extends DurableObject<Env> {
     author?: { name: string; email: string }
   ): Promise<{ sha: string; message: string }> {
     await this.ensureInit()
-    // `git add .` stages the whole tree; ensure the Artifacts base is
-    // materialized so the commit captures every file, not just overlay writes.
+    // Staging walks the whole tree; ensure the Artifacts base is materialized
+    // so the commit captures every file, not just overlay writes. Reserved
+    // bookkeeping paths (`.afs`) are skipped so they never enter a commit.
     await this.materializeAll()
-    await this.git.add({ filepath: "." })
+    // Persist pending overlay writes before the commit captures the tree.
+    await this.flushCheckpoint()
+    await stageWorkdir(this.fs, isReservedPath)
     const result = await this.git.commit({
       message,
       author: author ?? { name: "Agent", email: "agent@vibesdk.local" },
@@ -449,7 +526,7 @@ export class SpaceDO extends DurableObject<Env> {
     this.ctx.waitUntil(
       (async () => {
         const branch = await this.currentBranch()
-        if (branch) await sync.push(branch)
+        if (branch && (await sync.push(branch))) this.resetCheckpointAfterPush()
       })(),
     )
 
@@ -554,6 +631,7 @@ export class SpaceDO extends DurableObject<Env> {
     // The deploy engine reads the full branch tree, so ensure the Artifacts
     // base is materialized into the overlay first.
     await this.materializeAll()
+    await this.flushCheckpoint()
     const fakeRequest = new Request("http://internal/?cmd=deploy", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -571,7 +649,7 @@ export class SpaceDO extends DurableObject<Env> {
 
     // Mirror the deployed commit to Artifacts (best-effort) only on success.
     if (!data.error) {
-      await this.getArtifactsSync().push(branch)
+      if (await this.getArtifactsSync().push(branch)) this.resetCheckpointAfterPush()
     }
 
     return data
