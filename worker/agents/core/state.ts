@@ -135,6 +135,7 @@ export interface ThinkState extends BaseProjectState {
     currentBranch: string;
     /** Last commit SHA we successfully deployed. */
     lastDeployedCommit?: string;
+    cloudflareDeploymentUrl?: string;
 }
 
 export type AgentState = PhasicState | AgenticState | ThinkState;

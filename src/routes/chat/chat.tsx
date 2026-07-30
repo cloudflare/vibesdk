@@ -14,7 +14,7 @@ import {
 } from 'react-router';
 import { useQueryClient } from '@tanstack/react-query';
 import { AnimatePresence, motion } from 'framer-motion';
-import { LoaderCircle, MoreHorizontal, RotateCcw } from 'lucide-react';
+import { ExternalLink, LoaderCircle, MoreHorizontal, Rocket, RotateCcw } from 'lucide-react';
 import {
 	BookmarkSimpleIcon,
 	DotsThree,
@@ -44,10 +44,11 @@ import {
 	type ProjectType,
 	type FileType,
 	type BehaviorType,
+	type CloudflareDeploymentErrorCode,
 	isAgenticLikeBehavior,
 } from '@/api-types';
 import type { ChatMessage } from './utils/message-helpers';
-import { featureRegistry } from '@/features';
+import { featureRegistry, useFeature } from '@/features';
 import { useFileContentStream } from './hooks/use-file-content-stream';
 import { logger } from '@/utils/logger';
 import {
@@ -81,6 +82,7 @@ import { useLimitsContext } from '@/contexts/limits-context';
 import {
 	checkCanSendPrompt,
 	getBackendLimitDialog,
+	getDeployGateDialog,
 } from '@/utils/usage-limit-checker';
 import { queryKeys } from '@/lib/query-keys';
 import { ApiError } from '@/lib/api-client';
@@ -196,6 +198,17 @@ export default function Chat() {
 		[requestUnlock],
 	);
 
+	// Deploy gate popup (backend-reported Cloudflare connection failures)
+	const [showDeployGateDialog, setShowDeployGateDialog] = useState<React.ReactElement | null>(null);
+	const handleCloudflareDeployGate = useCallback((code: CloudflareDeploymentErrorCode) => {
+		const dialog = getDeployGateDialog(
+			code,
+			() => { window.location.href = `/oauth/login?return_url=${encodeURIComponent(window.location.href)}`; },
+			() => setShowDeployGateDialog(null),
+		);
+		if (dialog) setShowDeployGateDialog(dialog);
+	}, []);
+
 	const {
 		messages,
 		edit,
@@ -256,6 +269,7 @@ export default function Chat() {
 		autoStart,
 		onDebugMessage: addDebugMessage,
 		onVaultUnlockRequired: handleVaultUnlockRequired,
+		onCloudflareDeployGate: handleCloudflareDeployGate,
 	});
 
 	// GitHub export functionality - use urlChatId directly from URL params
@@ -341,6 +355,11 @@ export default function Chat() {
 	const [isResetDialogOpen, setIsResetDialogOpen] = useState(false);
 	const [isGitCloneModalOpen, setIsGitCloneModalOpen] = useState(false);
 
+	// Deploy target for think apps: user-account deploys are gated behind the
+	// platform's ENABLE_USER_ACCOUNT_DEPLOY flag (surfaced via capabilities).
+	const { capabilities } = useFeature();
+	const userAccountDeployEnabled = capabilities?.userAccountDeploy ?? false;
+
 	const headerTitle = blueprint?.title || appTitle;
 	const showHeader = Boolean(
 		headerTitle || chatId || appLoading || app?.visibility,
@@ -388,6 +407,39 @@ export default function Chat() {
 			),
 			trailing: (
 				<>
+					{behaviorType === 'think' && chatId && !appLoading && (
+						<>
+							{cloudflareDeploymentUrl && (
+								<Button
+									variant="ghost"
+									className="h-8 shrink-0 px-2 text-xs text-text-tertiary hover:bg-kumo-elevated hover:text-text-primary"
+									onClick={() => window.open(cloudflareDeploymentUrl, '_blank')}
+								>
+									<ExternalLink className="size-3.5" />
+									View Live
+								</Button>
+							)}
+							<Button
+								variant="secondary"
+								className="h-8 shrink-0 border border-border-primary bg-kumo-elevated px-3 text-xs text-text-primary shadow-sm transition-colors hover:bg-kumo-base disabled:cursor-not-allowed disabled:opacity-50"
+								disabled={isDeploying || files.length === 0}
+								onClick={() => handleDeployToCloudflare(chatId || '', userAccountDeployEnabled ? 'user' : 'platform')}
+							>
+								{isDeploying ? (
+									<LoaderCircle className="size-3.5 animate-spin" />
+								) : (
+									<Rocket className="size-3.5" />
+								)}
+								{isDeploying
+									? 'Deploying...'
+									: cloudflareDeploymentUrl
+										? 'Redeploy'
+										: userAccountDeployEnabled
+											? 'Deploy to My Account'
+											: 'Deploy'}
+							</Button>
+						</>
+					)}
 					{isOwner && app && (
 						<Button
 							variant="secondary"
@@ -458,6 +510,13 @@ export default function Chat() {
 		handleToggleVisibility,
 		handleFavorite,
 		isFavorited,
+		behaviorType,
+		chatId,
+		cloudflareDeploymentUrl,
+		isDeploying,
+		files,
+		handleDeployToCloudflare,
+		userAccountDeployEnabled,
 	]);
 
 	usePageHeader(headerContent);
@@ -1201,7 +1260,7 @@ export default function Chat() {
 									)}
 
 								{/* Only show PhaseTimeline for phasic mode */}
-								{!isAgenticLikeBehavior(behaviorType) && (
+								{behaviorType === 'phasic' && (
 									<PhaseTimeline
 										projectStages={projectStages}
 										phaseTimeline={phaseTimeline}
@@ -1232,8 +1291,7 @@ export default function Chat() {
 								)}
 
 								{/* Deployment and Generation Controls - Only for phasic mode */}
-								{chatId &&
-									!isAgenticLikeBehavior(behaviorType) && (
+								{chatId && behaviorType === 'phasic' && (
 										<motion.div
 											ref={deploymentControlsRef}
 											initial={{ opacity: 0, y: 20 }}
@@ -1266,9 +1324,8 @@ export default function Chat() {
 													isGeneratingBlueprint
 												}
 												isPaused={isGenerationPaused}
-												onDeploy={
-													handleDeployToCloudflare
-												}
+												onDeploy={(instanceId) => handleDeployToCloudflare(instanceId, 'platform')}
+												deploymentTarget="platform"
 												onStopGeneration={
 													handleStopGeneration
 												}
@@ -1456,6 +1513,9 @@ export default function Chat() {
 
 				{/* Usage limit dialogs */}
 				{showLimitDialog}
+
+				{/* Deploy gate dialog (backend-reported CF connection failure) */}
+				{showDeployGateDialog}
 
 				{/* Backend error dialog - shows when backend blocks request due to limits */}
 				{(() => {

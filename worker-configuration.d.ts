@@ -67,6 +67,7 @@ declare namespace Cloudflare {
 		CF_VERSION_METADATA: WorkerVersionMetadata;
 		ASSETS: Fetcher;
 		ENABLE_CLOUDFLARE_LIMITS: string;
+		ENABLE_USER_ACCOUNT_DEPLOY: string;
 		CF_OAUTH_ENCRYPTION_KEY: string;
 	}
 }

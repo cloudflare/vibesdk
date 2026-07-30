@@ -41,6 +41,19 @@ export interface AppDatabaseReadResult {
 	totalCount: number;
 }
 
+export interface BranchDeploymentBundle {
+	branch: string;
+	commitHash: string;
+	mainModule: string;
+	modules: Record<string, string | Record<string, unknown>>;
+	assets: Record<string, string>;
+	assetConfig?: {
+		html_handling?: 'auto-trailing-slash' | 'drop-trailing-slash' | 'force-trailing-slash' | 'none';
+		not_found_handling?: 'single-page-application' | '404-page' | 'none';
+	};
+	compatibilityDate: string;
+}
+
 // ── Env shape (minimum). The host worker's Env satisfies this. ─────────────
 export interface Env {
 	SPACE_DO: DurableObjectNamespace;

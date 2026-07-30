@@ -4,6 +4,7 @@ import {
 	AssetManifest,
 	WorkerMetadata,
 	WorkerBinding,
+	WorkerObservability,
 	WranglerConfig,
 } from './types';
 import { mergeMigrations, extractDurableObjectClasses } from './utils/index';
@@ -39,6 +40,7 @@ export class WorkerDeployer {
 		additionalModules?: Map<string, string>,
 		compatibilityFlags?: string[],
 		migrations?: WranglerConfig['migrations'],
+		observability?: WorkerObservability,
 	): Promise<void> {
 		logger.info('🚀 Starting deployment process...');
 		logger.info(`📦 Worker: ${scriptName}`);
@@ -119,6 +121,7 @@ export class WorkerDeployer {
 				},
 			},
 			bindings: bindings || [],
+			observability,
 		};
 
 		// Add migrations for Durable Objects
@@ -168,6 +171,7 @@ export class WorkerDeployer {
 		additionalModules?: Map<string, string>,
 		compatibilityFlags?: string[],
 		migrations?: WranglerConfig['migrations'],
+		observability?: WorkerObservability,
 	): Promise<void> {
 		logger.info('🚀 Starting simple deployment (no assets)...');
 		logger.info(`📦 Worker: ${scriptName}`);
@@ -180,6 +184,7 @@ export class WorkerDeployer {
 			compatibility_date: compatibilityDate,
 			compatibility_flags: compatibilityFlags,
 			bindings: bindings || [],
+			observability,
 		};
 
 		// Add migrations for Durable Objects

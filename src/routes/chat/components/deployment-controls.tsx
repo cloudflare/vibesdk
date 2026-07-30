@@ -28,6 +28,7 @@ interface DeploymentControlsProps {
 	onStopGeneration: () => void;
 	onResumeGeneration: () => void;
 	onVisibilityUpdate?: (newVisibility: 'public' | 'private') => void;
+	deploymentTarget?: 'platform' | 'user';
 }
 
 // Deployment state enum for better state management
@@ -51,6 +52,7 @@ export function DeploymentControls({
 	appVisibility = 'private',
 	onDeploy,
 	onVisibilityUpdate,
+	deploymentTarget = 'platform',
 }: DeploymentControlsProps) {
 	const [isDeployButtonClicked, setIsDeployButtonClicked] = useState(false);
 	const [isUpdatingVisibility, setIsUpdatingVisibility] = useState(false);
@@ -98,6 +100,9 @@ export function DeploymentControls({
 	};
 
 	const currentState = getCurrentDeploymentState();
+	const destination = deploymentTarget === 'user'
+		? 'your Cloudflare account'
+		: 'Cloudflare Workers for Platforms';
 
 	const handleDeploy = () => {
 		setIsDeployButtonClicked(true);
@@ -117,7 +122,7 @@ export function DeploymentControls({
 		if (!deploymentUrl) return;
 
 		// Public apps (or missing appId): open the deployed URL directly.
-		if (localVisibility !== 'private' || !appId) {
+		if (deploymentTarget === 'user' || localVisibility !== 'private' || !appId) {
 			window.open(deploymentUrl, '_blank');
 			return;
 		}
@@ -181,7 +186,9 @@ export function DeploymentControls({
 					titleColor: "text-text-tertiary dark:text-text-tertiary",
 					subtitleColor: "text-text-tertiary/80 dark:text-text-tertiary/70",
 					title: "Deploy to Cloudflare",
-					subtitle: "Deploy will be enabled after Phase 1 is implemented",
+					subtitle: deploymentTarget === 'user'
+						? "Deploy will be enabled after the app has files"
+						: "Deploy will be enabled after Phase 1 is implemented",
 					buttonDisabled: true,
 					buttonVariant: "secondary" as const,
 					buttonClass: "bg-kumo-base dark:bg-kumo-base text-text-tertiary dark:text-text-tertiary border-muted dark:border-muted cursor-not-allowed"
@@ -195,7 +202,7 @@ export function DeploymentControls({
 					titleColor: "text-text-primary dark:text-text-primary",
 					subtitleColor: "text-text-tertiary dark:text-text-tertiary",
 					title: "Ready to Deploy",
-					subtitle: "It's Free! Deploys to Cloudflare Workers for Platform",
+					subtitle: `Publishes a standalone Worker to ${destination}`,
 					buttonDisabled: false,
 					buttonVariant: "primary" as const,
 					buttonClass: "bg-brand text-white border-orange-500 dark:border-orange-600 hover:scale-105"
@@ -209,7 +216,7 @@ export function DeploymentControls({
 					titleColor: "text-blue-900 dark:text-blue-100",
 					subtitleColor: "text-blue-600 dark:text-blue-300",
 					title: "Deploying to Cloudflare",
-					subtitle: "Please wait while your application is being deployed...",
+					subtitle: `Publishing your application to ${destination}...`,
 					buttonDisabled: true,
 					buttonVariant: "primary" as const,
 					buttonClass: "bg-blue-500 hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-700 text-white border-blue-500 dark:border-blue-600 scale-105 shadow-lg dark:shadow-blue-900/50"
@@ -223,7 +230,7 @@ export function DeploymentControls({
 					titleColor: "text-blue-900 dark:text-blue-100",
 					subtitleColor: "text-blue-600 dark:text-blue-300",
 					title: "Redeploying to Cloudflare",
-					subtitle: "Please wait while your application is being redeployed...",
+					subtitle: `Updating your application in ${destination}...`,
 					buttonDisabled: true,
 					buttonVariant: "primary" as const,
 					buttonClass: "bg-blue-500 hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-700 text-white border-blue-500 dark:border-blue-600 scale-105 shadow-lg dark:shadow-blue-900/50"
@@ -306,7 +313,7 @@ export function DeploymentControls({
 							) : (
 								<>
 									<Zap className="w-4 h-4 mr-2" />
-									Deploy to Cloudflare
+									{deploymentTarget === 'user' ? 'Deploy to My Account' : 'Deploy to Cloudflare'}
 								</>
 							)}
 						</Button>
@@ -332,7 +339,7 @@ export function DeploymentControls({
 								🎉 Successfully Deployed!
 							</div>
 							<div className="text-xs text-green-700 dark:text-green-300 mt-0.5">
-								Your application is now live on Cloudflare Workers
+								Your application is now live in {destination}
 							</div>
 						</div>
 					</div>
@@ -355,7 +362,7 @@ export function DeploymentControls({
 					</div>
 
 					{/* Shareable Link - Only shown when app is public */}
-					{localVisibility === 'public' && appId && (
+					{deploymentTarget === 'platform' && localVisibility === 'public' && appId && (
 						<div className="bg-brand/5 border border-brand/20 rounded-md p-3 mb-3">
 							<div className="text-xs text-kumo-brand font-medium mb-1 flex items-center gap-1">
 								<Share2 className="w-3 h-3" />
@@ -392,7 +399,7 @@ export function DeploymentControls({
 						</Button>
 
 						{/* Make Public/Private Button - Always visible after deployment */}
-						{appId && (
+						{deploymentTarget === 'platform' && appId && (
 							<Button
 								onClick={handleToggleVisibility}
 								disabled={isUpdatingVisibility}

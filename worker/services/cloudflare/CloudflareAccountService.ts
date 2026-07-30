@@ -490,6 +490,30 @@ export class CloudflareAccountService extends BaseService {
 	}
 
 	/**
+	 * Resolve the account to deploy Workers into. Deploying only needs an
+	 * account ID (no AI Gateway), so this falls back to the user's sole
+	 * connected account when no explicit account+gateway selection exists.
+	 * Returns null only when the target account is ambiguous (multiple
+	 * connected accounts and none selected in Settings).
+	 */
+	async getDeployAccount(userId: string): Promise<typeof schema.cloudflareAccounts.$inferSelect | null> {
+		const selected = await this.getActiveGatewayWithAccount(userId);
+		if (selected) return selected.account;
+
+		try {
+			const accounts = await this.database
+				.select()
+				.from(schema.cloudflareAccounts)
+				.where(eq(schema.cloudflareAccounts.userId, userId))
+				.all();
+			return accounts.length === 1 ? accounts[0] : null;
+		} catch (error) {
+			this.logger.error('Error resolving deploy account', { userId, error });
+			return null;
+		}
+	}
+
+	/**
 	 * Get user's current selection (active gateway).
 	 * Returns the row IDs (account + gateway) rather than the full rows.
 	 */
