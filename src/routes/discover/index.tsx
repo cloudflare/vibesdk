@@ -6,6 +6,7 @@ import { AppFiltersForm } from '@/components/shared/AppFiltersForm';
 import { AppSortTabs } from '@/components/shared/AppSortTabs';
 import type { AppSortOption } from '@/api-types';
 import { GlobeIcon } from '@phosphor-icons/react';
+import { BrandEmphasisIcon } from '@/components/shared/BrandEmphasisIcon';
 
 export default function DiscoverPage() {
 	const navigate = useNavigate();
@@ -76,10 +77,11 @@ export default function DiscoverPage() {
 				>
 					{/* Header */}
 					<div className="mb-8 mt-6">
-						<h1 className="flex gap-2 text-6xl font-funky-mono font-bold mb-3 text-brand-emphasis">
-							<GlobeIcon
+						<h1 className="flex items-center gap-2 text-6xl font-funky-mono font-bold mb-3 text-brand-emphasis">
+							<BrandEmphasisIcon
+								icon={GlobeIcon}
 								weight="duotone"
-								className="-rotate-30 text-brand"
+								className="-rotate-30"
 							/>
 							Discover
 						</h1>
