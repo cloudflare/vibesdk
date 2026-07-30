@@ -105,14 +105,14 @@ export function MarkdownDocsPreview({
 			{/* Main content area */}
 			<div className="flex-1 flex flex-col overflow-hidden">
 				{/* Header */}
-				<div className="flex items-center gap-3 px-6 h-12 bg-kumo-elevated border-b border-border-primary">
+				<div className="flex items-center gap-3 px-6 h-12 bg-kumo-elevated border-b">
 					{/* Left: File name and status */}
 					<div className="flex items-center gap-3 flex-1">
 						<span className="text-sm font-medium text-text-primary">
 							{activeFile?.filePath || 'Documentation'}
 						</span>
 						{activeFile?.isGenerating && (
-							<div className="flex items-center gap-2 text-xs text-brand">
+							<div className="flex items-center gap-2 text-xs text-kumo-brand">
 								<Loader className="size-3 animate-spin" />
 								<span>Generating...</span>
 							</div>
@@ -146,7 +146,7 @@ export function MarkdownDocsPreview({
 							</div>
 						) : !markdownContent ? (
 							<div className="flex flex-col items-center justify-center h-full gap-4 text-text-secondary">
-								<Loader className="size-8 animate-spin text-brand" />
+								<Loader className="size-8 animate-spin text-kumo-brand" />
 								<p>Waiting for content...</p>
 							</div>
 						) : (
@@ -175,7 +175,7 @@ export function MarkdownDocsPreview({
 
 					{/* Table of contents (if headings exist) */}
 					{tableOfContents.length > 0 && (
-						<div className="w-56 border-l border-border-primary bg-kumo-elevated overflow-y-auto py-6 px-4">
+						<div className="w-56 border-l bg-kumo-elevated overflow-y-auto py-6 px-4">
 							<h4 className="text-xs font-semibold text-text-secondary uppercase tracking-wider mb-3">
 								On This Page
 							</h4>

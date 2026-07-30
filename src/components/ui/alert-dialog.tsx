@@ -1,9 +1,9 @@
 "use client"
 
 import * as React from "react"
+import { cn } from '@cloudflare/kumo';
 import * as AlertDialogPrimitive from "@radix-ui/react-alert-dialog"
 
-import { cn } from "@/lib/utils"
 import { buttonVariants } from "@/components/ui/button"
 
 function AlertDialog({
@@ -112,7 +112,7 @@ function AlertDialogDescription({
   return (
     <AlertDialogPrimitive.Description
       data-slot="alert-dialog-description"
-      className={cn("text-text-tertiary text-sm", className)}
+      className={cn("text-kumo-subtle text-sm", className)}
       {...props}
     />
   )

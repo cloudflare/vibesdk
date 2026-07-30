@@ -380,7 +380,7 @@ export const PreviewIframe = forwardRef<HTMLIFrameElement, PreviewIframeProps>(
                         />
                     )}
 					<div className="text-center p-8 max-w-md">
-						<RefreshCw className="size-8 text-brand animate-spin mx-auto mb-4" />
+						<RefreshCw className="size-8 text-kumo-brand animate-spin mx-auto mb-4" />
 						<h3 className="text-lg font-medium text-text-primary mb-2">
 							Loading Preview
 						</h3>
@@ -391,7 +391,7 @@ export const PreviewIframe = forwardRef<HTMLIFrameElement, PreviewIframeProps>(
 							}
 						</p>
 						{loadState.attempt >= REDEPLOY_AFTER_ATTEMPT && (
-							<p className="text-xs text-brand/70">
+							<p className="text-xs text-kumo-brand/70">
 								Auto-redeployment triggered to refresh the preview
 							</p>
 						)}

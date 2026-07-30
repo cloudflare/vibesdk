@@ -1,5 +1,4 @@
 import { useCallback, useRef, useState, useEffect, useMemo } from 'react';
-import { ArrowRight, Info } from 'react-feather';
 import { ArrowUpRight, Loader2 } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router';
 import { useAuth } from '@/contexts/auth-context';
@@ -18,15 +17,14 @@ import { useAuthGuard } from '../hooks/useAuthGuard';
 import { usePaginatedApps } from '@/hooks/use-paginated-apps';
 import { AnimatePresence, LayoutGroup, motion } from 'framer-motion';
 import { AppCard } from '@/components/shared/AppCard';
-import { Button } from '@/components/ui/button';
-import clsx from 'clsx';
+import { LinkButton, cn } from '@cloudflare/kumo';
 import { useImageUpload } from '@/hooks/use-image-upload';
 import { useDragDrop } from '@/hooks/use-drag-drop';
 import { toast } from 'sonner';
 import { useLimitsContext } from '@/contexts/limits-context';
 import { checkCanSendPrompt } from '@/utils/usage-limit-checker';
 import { PromptBox } from '@/components/prompt-box';
-import { FloatingBackgroundIcons } from '@/components/shared/FloatingBackgroundIcons';
+import { InfoIcon, PaperPlaneTiltIcon } from '@phosphor-icons/react';
 
 export default function Home() {
 	const navigate = useNavigate();
@@ -111,7 +109,7 @@ export default function Home() {
 
 	const { apps, loading } = usePaginatedApps({
 		type: 'public',
-		defaultSort: 'recent',
+		defaultSort: 'trending',
 		defaultPeriod: 'week',
 		limit: 24,
 	});
@@ -185,16 +183,18 @@ export default function Home() {
 	const discoverLinkRef = useRef<HTMLDivElement>(null);
 
 	return (
-		<div className="relative flex flex-col items-center w-full min-h-full bg-kumo-elevated">
-			<FloatingBackgroundIcons className="opacity-80" />
+		<div className="relative flex flex-col items-center w-full min-h-full">
+			<div className="home-atmosphere" aria-hidden>
+				<div className="home-atmosphere__spotlight" />
+			</div>
 			<LayoutGroup>
-				<div className="w-full max-w-2xl px-5 sm:px-6">
+				<div className="w-full max-w-3xl px-5 sm:px-6">
 					<motion.div
 						layout
 						transition={{
 							layout: { duration: 0.5, ease: [0.22, 1, 0.36, 1] },
 						}}
-						className={clsx(
+						className={cn(
 							'flex flex-col items-stretch z-10 w-full',
 							discoverReady
 								? 'mt-28 sm:mt-36'
@@ -202,17 +202,13 @@ export default function Home() {
 						)}
 					>
 						<div className="mb-6 sm:mb-7 grid gap-2">
-							<h1 className="w-full text-left text-[clamp(1.75rem,4.5vw,2.5rem)] font-semibold leading-[1.12] text-kumo-strong/80">
+							<h1 className="w-full text-center text-[clamp(1.75rem,4.5vw,2.5rem)] font-semibold leading-[1.12] text-kumo-strong/80 z-20">
 								What should we{' '}
-								<span className="font-funky-mono text-[0.92em] uppercase text-brand">
+								<span className="font-funky-mono text-[1.1em] tracking-tighter uppercase text-brand">
 									build
 								</span>{' '}
 								today?
 							</h1>
-							<p className="text-sm text-kumo-subtle">
-								Describe an app, slides, or idea — we&apos;ll
-								scaffold it for you.
-							</p>
 						</div>
 						<PromptBox
 							value={query}
@@ -238,7 +234,7 @@ export default function Home() {
 								user && usageLimitsLoading ? (
 									<Loader2 className="animate-spin" />
 								) : (
-									<ArrowRight />
+									<PaperPlaneTiltIcon weight="duotone" />
 								)
 							}
 							leftActions={
@@ -254,23 +250,23 @@ export default function Home() {
 					</motion.div>
 				</div>
 
-				<AnimatePresence>
+				<AnimatePresence mode="popLayout">
 					{images.length > 0 && (
 						<motion.div
 							initial={{ opacity: 0, y: -10 }}
 							animate={{ opacity: 1, y: 0 }}
 							exit={{ opacity: 0, y: -10 }}
-							className="w-full max-w-2xl px-5 sm:px-6"
+							className="w-full max-w-2xl px-5 sm:px-6 mt-4"
 						>
 							<div
 								className="flex items-start gap-2 px-4 py-3 rounded-xl bg-bg-4/50 dark:bg-bg-2/50 shadow-sm"
 								style={{ borderColor: 'rgba(255, 61, 0, 0.2)' }}
 							>
-								<Info
+								<InfoIcon
 									className="size-4 flex-shrink-0 mt-0.5"
 									style={{ color: '#ff3d00' }}
 								/>
-								<p className="text-xs text-text-tertiary leading-relaxed">
+								<p className="text-xs text-kumo-subtle leading-relaxed">
 									<span className="font-medium text-text-secondary">
 										Images Beta:
 									</span>{' '}
@@ -296,8 +292,8 @@ export default function Home() {
 								duration: 0.5,
 								ease: [0.22, 1, 0.36, 1],
 							}}
-							className={clsx(
-								'w-full max-w-7xl mx-auto px-5 sm:px-6 z-10',
+							className={cn(
+								'w-full max-w-5xl mx-auto px-5 sm:px-6 z-10',
 								images.length > 0
 									? 'mt-10'
 									: 'mt-16 sm:mt-20 mb-12',
@@ -306,26 +302,19 @@ export default function Home() {
 							<div className="flex flex-col gap-6">
 								<div className="flex items-end justify-between gap-4">
 									<div className="grid gap-1.5 min-w-0">
-										<h2 className="text-2xl sm:text-3xl font-semibold text-kumo-strong">
-											Discover apps
+										<h2 className="text-xl sm:text-2xl font-semibold text-kumo-default/90">
+											Discover apps from the community
 										</h2>
-										<p className="text-sm text-kumo-subtle">
-											Fresh builds from the community this
-											week
-										</p>
 									</div>
 									<div ref={discoverLinkRef}>
-										<Button
+										<LinkButton
 											variant="outline"
 											size="sm"
-											onClick={() =>
-												navigate('/discover')
-											}
-											className="shrink-0 rounded-full px-3.5 gap-1.5 text-sm text-kumo-default ring-1 ring-kumo-line border-0 shadow-sm bg-kumo-base hover:bg-kumo-tint hover:text-kumo-strong"
+											href="/discover"
 										>
 											View all
 											<ArrowUpRight className="size-3.5 opacity-70" />
-										</Button>
+										</LinkButton>
 									</div>
 								</div>
 								<motion.div

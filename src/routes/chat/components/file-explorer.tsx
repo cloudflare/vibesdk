@@ -1,6 +1,6 @@
 import { useMemo, useState, memo, type ComponentType } from 'react';
 import type { FileType } from '@/api-types';
-import clsx from 'clsx';
+import { cn } from '@cloudflare/kumo';
 import {
 	CaretRightIcon,
 	FileCssIcon,
@@ -81,11 +81,11 @@ const FileTreeNode = memo(function FileTreeNode({
 				type="button"
 				onClick={() => onFileClick(file)}
 				aria-current={isCurrentFile ? 'page' : undefined}
-				className={clsx(
+				className={cn(
 					'flex items-center w-full gap-2 py-1.5 px-3 transition-colors text-sm',
 					isCurrentFile
 						? 'bg-kumo-tint text-text-primary border-r-2 border-brand'
-						: 'text-text-tertiary hover:bg-kumo-tint hover:text-text-primary',
+						: 'text-kumo-subtle hover:bg-kumo-tint hover:text-text-primary',
 				)}
 				style={{ paddingLeft: `${paddingLeft}px` }}
 			>
@@ -103,11 +103,11 @@ const FileTreeNode = memo(function FileTreeNode({
 				type="button"
 				onClick={() => setIsExpanded((open) => !open)}
 				aria-expanded={isExpanded}
-				className="flex items-center gap-2 py-1.5 px-3 transition-colors text-sm text-text-tertiary hover:bg-kumo-tint hover:text-text-primary w-full"
+				className="flex items-center gap-2 py-1.5 px-3 transition-colors text-sm text-kumo-subtle hover:bg-kumo-tint hover:text-text-primary w-full"
 				style={{ paddingLeft: `${paddingLeft}px` }}
 			>
 				<CaretRightIcon
-					className={clsx(
+					className={cn(
 						'size-3.5 shrink-0 transition-transform duration-200 ease-in-out',
 						isExpanded && 'rotate-90',
 					)}
@@ -185,7 +185,7 @@ export function FileExplorer({
 
 	return (
 		<div
-			className={clsx(
+			className={cn(
 				'w-full max-w-[200px] bg-kumo-base border-r h-full overflow-y-auto',
 				className,
 			)}

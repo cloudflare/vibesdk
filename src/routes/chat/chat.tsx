@@ -6,32 +6,71 @@ import {
 	useState,
 	type FormEvent,
 } from 'react';
-import { useParams, useSearchParams, useNavigate, useLocation } from 'react-router';
+import {
+	useParams,
+	useSearchParams,
+	useNavigate,
+	useLocation,
+} from 'react-router';
+import { useQueryClient } from '@tanstack/react-query';
 import { AnimatePresence, motion } from 'framer-motion';
 import { ExternalLink, LoaderCircle, MoreHorizontal, Rocket, RotateCcw } from 'lucide-react';
-import { GlobeHemisphereWestIcon, LockKey } from '@phosphor-icons/react';
-import { Button, DropdownMenu } from '@cloudflare/kumo';
-import clsx from 'clsx';
+import {
+	BookmarkSimpleIcon,
+	DotsThree,
+	GitBranch,
+	Globe,
+	Lock,
+	LockOpen,
+} from '@phosphor-icons/react';
+import {
+	Badge,
+	Button,
+	DropdownMenu,
+	useKumoToastManager,
+	cn,
+} from '@cloudflare/kumo';
 import { UserMessage, AIMessage } from './components/messages';
 import { PhaseTimeline } from './components/phase-timeline';
 import { type DebugMessage } from './components/debug-panel';
 import { DeploymentControls } from './components/deployment-controls';
 import { useChat } from './hooks/use-chat';
-import { type ModelConfigsInfo, type BlueprintType, type PhasicBlueprint, SUPPORTED_IMAGE_MIME_TYPES, type ProjectType, type FileType, type BehaviorType, type CloudflareDeploymentErrorCode, isAgenticLikeBehavior } from '@/api-types';
+import {
+	type ModelConfigsInfo,
+	type BlueprintType,
+	type PhasicBlueprint,
+	SUPPORTED_IMAGE_MIME_TYPES,
+	type AppDetailsData,
+	type ProjectType,
+	type FileType,
+	type BehaviorType,
+	type CloudflareDeploymentErrorCode,
+	isAgenticLikeBehavior,
+} from '@/api-types';
 import type { ChatMessage } from './utils/message-helpers';
 import { featureRegistry, useFeature } from '@/features';
 import { useFileContentStream } from './hooks/use-file-content-stream';
 import { logger } from '@/utils/logger';
-import { useApp } from '@/hooks/use-app';
+import {
+	useApp,
+	useToggleAppFavorite,
+	useUpdateAppVisibility,
+} from '@/hooks/use-app';
 import { useAuth } from '@/contexts/auth-context';
 import { useGitHubExport } from '@/hooks/use-github-export';
 import { useAutoScroll } from '@/hooks/use-auto-scroll';
 import { useImageUpload } from '@/hooks/use-image-upload';
 import { useDragDrop } from '@/hooks/use-drag-drop';
 import { sendWebSocketMessage } from './utils/websocket-helpers';
-import { RollbackContext, type RollbackHandler } from './contexts/rollback-context';
-import { toast } from 'sonner';
-import { detectContentType, isDocumentationPath, isMarkdownFile } from './utils/content-detector';
+import {
+	RollbackContext,
+	type RollbackHandler,
+} from './contexts/rollback-context';
+import {
+	detectContentType,
+	isDocumentationPath,
+	isMarkdownFile,
+} from './utils/content-detector';
 import { mergeFiles } from '@/utils/file-helpers';
 import { ChatModals } from './components/chat-modals';
 import { MainContentPanel } from './components/main-content-panel';
@@ -40,9 +79,19 @@ import { ClarifyingQuestionsPopup } from './components/clarifying-questions-popu
 import { useVault } from '@/hooks/use-vault';
 import { VaultUnlockModal } from '@/components/vault';
 import { useLimitsContext } from '@/contexts/limits-context';
-import { checkCanSendPrompt, getBackendLimitDialog, getDeployGateDialog } from '@/utils/usage-limit-checker';
+import {
+	checkCanSendPrompt,
+	getBackendLimitDialog,
+	getDeployGateDialog,
+} from '@/utils/usage-limit-checker';
+import { queryKeys } from '@/lib/query-keys';
+import { ApiError } from '@/lib/api-client';
+import { capitalizeFirstLetter } from '@/lib/utils';
+import { usePageHeader } from '@/components/layout/header-context';
 
-const isPhasicBlueprint = (blueprint?: BlueprintType | null): blueprint is PhasicBlueprint =>
+const isPhasicBlueprint = (
+	blueprint?: BlueprintType | null,
+): blueprint is PhasicBlueprint =>
 	!!blueprint && 'implementationRoadmap' in blueprint;
 
 /**
@@ -69,14 +118,17 @@ export default function Chat() {
 	const location = useLocation();
 	const userQuery = searchParams.get('query');
 	const urlProjectType = searchParams.get('projectType') || 'app';
-	const urlBehaviorType = searchParams.get('behaviorType') as BehaviorType | null;
+	const urlBehaviorType = searchParams.get(
+		'behaviorType',
+	) as BehaviorType | null;
 
 	// Only auto-start a brand-new session when it originated from in-app
 	// navigation (e.g. the home prompt box sets `fromPrompt`). Sessions opened
 	// from a pasted/external link require explicit confirmation, since the
 	// query is interpolated into the agent's system prompt.
 	const startedFromInApp =
-		(location.state as { fromPrompt?: boolean } | null)?.fromPrompt === true;
+		(location.state as { fromPrompt?: boolean } | null)?.fromPrompt ===
+		true;
 	const autoStart = urlChatId !== 'new' || startedFromInApp;
 
 	// Extract images from URL params if present
@@ -93,10 +145,17 @@ export default function Chat() {
 
 	// Load existing app data if chatId is provided
 	const { app, loading: appLoading, refetch: refetchApp } = useApp(urlChatId);
+	const { mutateAsync: updateVisibility, isPending: isUpdatingVisibility } =
+		useUpdateAppVisibility(app?.id);
+	const { mutateAsync: toggleFavorite } = useToggleAppFavorite(app?.id);
+	const toast = useKumoToastManager();
 
 	// If we have an existing app, use its data
-	const displayQuery = app ? app.originalPrompt || app.title : userQuery || '';
+	const displayQuery = app
+		? app.originalPrompt || app.title
+		: userQuery || '';
 	const appTitle = app?.title;
+	const isFavorited = app?.userFavorited || false;
 
 	// Manual refresh trigger for preview
 	const [manualRefreshTrigger, setManualRefreshTrigger] = useState(0);
@@ -216,13 +275,75 @@ export default function Chat() {
 	// GitHub export functionality - use urlChatId directly from URL params
 	const githubExport = useGitHubExport(websocket, urlChatId, refetchApp);
 	const { user } = useAuth();
+	const queryClient = useQueryClient();
+	const isOwner = !!app && app.userId === user?.id;
+
+	const handleToggleVisibility = useCallback(async () => {
+		if (!app || !user || !isOwner) {
+			toast.add({
+				title: 'You can only change visibility of your own apps',
+				variant: 'error',
+			});
+			return;
+		}
+
+		try {
+			const newVisibility =
+				app.visibility === 'private' ? 'public' : 'private';
+			const result = await updateVisibility(newVisibility);
+
+			toast.add({
+				title:
+					result.message ||
+					`App is now ${newVisibility === 'private' ? 'private' : 'public'}`,
+				variant: 'success',
+			});
+		} catch (error) {
+			console.error('Error updating app visibility:', error);
+			toast.add({
+				title:
+					error instanceof ApiError
+						? error.message
+						: 'Failed to update visibility',
+				variant: 'error',
+			});
+		}
+	}, [app, user, isOwner, updateVisibility, toast]);
+
+	const handleFavorite = useCallback(async () => {
+		if (!app) return;
+		try {
+			const newState = await toggleFavorite();
+			toast.add({
+				title: newState
+					? 'Added to bookmarks'
+					: 'Removed from bookmarks',
+				variant: 'success',
+			});
+		} catch (error) {
+			console.error('Favorite error:', error);
+			toast.add({
+				title:
+					error instanceof ApiError
+						? error.message
+						: 'Failed to update bookmarks',
+				variant: 'error',
+			});
+		}
+	}, [app, toggleFavorite, toast]);
 
 	const navigate = useNavigate();
 
 	const [activeFilePath, setActiveFilePath] = useState<string>();
-	const [view, setView] = useState<'editor' | 'preview' | 'docs' | 'blueprint' | 'terminal' | 'presentation' | 'database'>(
-		'editor',
-	);
+	const [view, setView] = useState<
+		| 'editor'
+		| 'preview'
+		| 'docs'
+		| 'blueprint'
+		| 'terminal'
+		| 'presentation'
+		| 'database'
+	>('editor');
 
 	// Terminal state
 	// const [terminalLogs, setTerminalLogs] = useState<TerminalLog[]>([]);
@@ -234,22 +355,189 @@ export default function Chat() {
 	const [isResetDialogOpen, setIsResetDialogOpen] = useState(false);
 	const [isGitCloneModalOpen, setIsGitCloneModalOpen] = useState(false);
 
-	// Usage limits state
-	const { data: limitsData, loading: limitsLoading } = useLimitsContext();
-	const [showLimitDialog, setShowLimitDialog] = useState<React.ReactElement | null>(null);
-
 	// Deploy target for think apps: user-account deploys are gated behind the
 	// platform's ENABLE_USER_ACCOUNT_DEPLOY flag (surfaced via capabilities).
 	const { capabilities } = useFeature();
 	const userAccountDeployEnabled = capabilities?.userAccountDeploy ?? false;
 
+	const headerTitle = blueprint?.title || appTitle;
+	const showHeader = Boolean(
+		headerTitle || chatId || appLoading || app?.visibility,
+	);
+
+	const headerContent = useMemo(() => {
+		if (!showHeader) return null;
+
+		if (appLoading) {
+			return {
+				leading: (
+					<div className="flex items-center gap-2 text-kumo-subtle text-sm">
+						<LoaderCircle className="size-4 animate-spin" />
+						Loading app...
+					</div>
+				),
+			};
+		}
+
+		return {
+			leading: (
+				<div className="min-w-0 flex-1 flex items-center gap-2">
+					<div
+						className="text-sm font-semibold truncate min-w-0"
+						title={headerTitle || undefined}
+					>
+						{headerTitle}
+					</div>
+					{app?.visibility && (
+						<Badge
+							className="shrink-0"
+							variant={
+								app.visibility === 'private'
+									? 'secondary'
+									: 'success'
+							}
+						>
+							<span className="inline-flex items-center gap-1">
+								<Globe className="h-3 w-3" weight="duotone" />
+								{capitalizeFirstLetter(app.visibility)}
+							</span>
+						</Badge>
+					)}
+				</div>
+			),
+			trailing: (
+				<>
+					{behaviorType === 'think' && chatId && !appLoading && (
+						<>
+							{cloudflareDeploymentUrl && (
+								<Button
+									variant="ghost"
+									className="h-8 shrink-0 px-2 text-xs text-text-tertiary hover:bg-kumo-elevated hover:text-text-primary"
+									onClick={() => window.open(cloudflareDeploymentUrl, '_blank')}
+								>
+									<ExternalLink className="size-3.5" />
+									View Live
+								</Button>
+							)}
+							<Button
+								variant="secondary"
+								className="h-8 shrink-0 border border-border-primary bg-kumo-elevated px-3 text-xs text-text-primary shadow-sm transition-colors hover:bg-kumo-base disabled:cursor-not-allowed disabled:opacity-50"
+								disabled={isDeploying || files.length === 0}
+								onClick={() => handleDeployToCloudflare(chatId || '', userAccountDeployEnabled ? 'user' : 'platform')}
+							>
+								{isDeploying ? (
+									<LoaderCircle className="size-3.5 animate-spin" />
+								) : (
+									<Rocket className="size-3.5" />
+								)}
+								{isDeploying
+									? 'Deploying...'
+									: cloudflareDeploymentUrl
+										? 'Redeploy'
+										: userAccountDeployEnabled
+											? 'Deploy to My Account'
+											: 'Deploy'}
+							</Button>
+						</>
+					)}
+					{isOwner && app && (
+						<Button
+							variant="secondary"
+							size="sm"
+							onClick={handleToggleVisibility}
+							disabled={isUpdatingVisibility}
+							loading={isUpdatingVisibility}
+							icon={
+								app.visibility === 'private' ? (
+									<LockOpen
+										className="size-3.5"
+										weight="duotone"
+									/>
+								) : (
+									<Lock
+										className="size-3.5"
+										weight="duotone"
+									/>
+								)
+							}
+						>
+							{app.visibility === 'private'
+								? 'Make public'
+								: 'Make private'}
+						</Button>
+					)}
+					{app && (
+						<DropdownMenu>
+							<DropdownMenu.Trigger
+								render={
+									<Button
+										variant="secondary"
+										size="sm"
+										shape="square"
+										aria-label="More actions"
+										icon={<DotsThree className="h-4 w-4" />}
+									/>
+								}
+							/>
+							<DropdownMenu.Content align="end">
+								<DropdownMenu.Item
+									icon={BookmarkSimpleIcon}
+									onClick={() => {
+										void handleFavorite();
+									}}
+								>
+									{isFavorited ? 'Bookmarked' : 'Bookmark'}
+								</DropdownMenu.Item>
+								<DropdownMenu.Item
+									icon={GitBranch}
+									onClick={() => setIsGitCloneModalOpen(true)}
+								>
+									Clone
+								</DropdownMenu.Item>
+							</DropdownMenu.Content>
+						</DropdownMenu>
+					)}
+				</>
+			),
+		};
+	}, [
+		showHeader,
+		appLoading,
+		headerTitle,
+		app,
+		isOwner,
+		isUpdatingVisibility,
+		handleToggleVisibility,
+		handleFavorite,
+		isFavorited,
+		behaviorType,
+		chatId,
+		cloudflareDeploymentUrl,
+		isDeploying,
+		files,
+		handleDeployToCloudflare,
+		userAccountDeployEnabled,
+	]);
+
+	usePageHeader(headerContent);
+
+	// Usage limits state
+	const { data: limitsData, loading: limitsLoading } = useLimitsContext();
+	const [showLimitDialog, setShowLimitDialog] =
+		useState<React.ReactElement | null>(null);
+
 	// Debug: Log when backend error dialog state changes
 	useEffect(() => {
-		console.log('🔍 Backend error dialog state changed:', backendErrorDialog);
+		console.log(
+			'🔍 Backend error dialog state changed:',
+			backendErrorDialog,
+		);
 	}, [backendErrorDialog]);
 
 	// Model config info state
-	const [modelConfigs, setModelConfigs] = useState<ModelConfigsInfo | undefined>();
+	const [modelConfigs, setModelConfigs] = useState<
+		ModelConfigsInfo | undefined
+	>();
 	const [loadingConfigs, setLoadingConfigs] = useState(false);
 
 	// Handler for model config info requests
@@ -257,9 +545,11 @@ export default function Chat() {
 		if (!websocket) return;
 
 		setLoadingConfigs(true);
-		websocket.send(JSON.stringify({
-			type: 'get_model_configs'
-		}));
+		websocket.send(
+			JSON.stringify({
+				type: 'get_model_configs',
+			}),
+		);
 	}, [websocket]);
 
 	// Listen for model config info WebSocket messages
@@ -274,7 +564,10 @@ export default function Chat() {
 					setLoadingConfigs(false);
 				}
 			} catch (error) {
-				logger.error('Error parsing WebSocket message for model configs:', error);
+				logger.error(
+					'Error parsing WebSocket message for model configs:',
+					error,
+				);
 			}
 		};
 
@@ -341,18 +634,21 @@ export default function Chat() {
 	const [newMessage, setNewMessage] = useState('');
 	const [showTooltip, setShowTooltip] = useState(false);
 
-	const { images, addImages, removeImage, clearImages, isProcessing } = useImageUpload({
-		onError: (error) => {
-			console.error('Chat image upload error:', error);
-		},
-	});
+	const { images, addImages, removeImage, clearImages, isProcessing } =
+		useImageUpload({
+			onError: (error) => {
+				console.error('Chat image upload error:', error);
+			},
+		});
 
 	// Fake stream bootstrap files
-	const { streamedFiles: streamedBootstrapFiles } =
-		useFileContentStream(bootstrapFiles, {
+	const { streamedFiles: streamedBootstrapFiles } = useFileContentStream(
+		bootstrapFiles,
+		{
 			tps: 600,
 			enabled: isBootstrapping,
-		});
+		},
+	);
 
 	// Merge streamed bootstrap files with generated files
 	const allFiles = useMemo(() => {
@@ -363,7 +659,7 @@ export default function Chat() {
 				([filePath, fileContents]) => ({
 					filePath,
 					fileContents,
-				})
+				}),
 			);
 			result = mergeFiles(templateFiles, files);
 		} else {
@@ -390,9 +686,20 @@ export default function Chat() {
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, []);
 
-	const handleViewModeChange = useCallback((mode: 'preview' | 'editor' | 'docs' | 'blueprint' | 'presentation' | 'database') => {
-		setView(mode);
-	}, []);
+	const handleViewModeChange = useCallback(
+		(
+			mode:
+				| 'preview'
+				| 'editor'
+				| 'docs'
+				| 'blueprint'
+				| 'presentation'
+				| 'database',
+		) => {
+			setView(mode);
+		},
+		[],
+	);
 
 	const handleResetConversation = useCallback(() => {
 		if (!websocket) return;
@@ -407,13 +714,21 @@ export default function Chat() {
 		return (commitHash: string) => {
 			if (!websocket) return;
 			if (isGenerating || isDeploying) {
-				toast.error('Please wait for the current action to finish before rolling back.');
+				toast.add({
+					title: 'Please wait for the current action to finish before rolling back.',
+					type: 'error',
+				});
 				return;
 			}
-			sendWebSocketMessage(websocket, 'rollback_to_commit', { commitHash });
-			toast.info('Rolling back and redeploying…');
+			sendWebSocketMessage(websocket, 'rollback_to_commit', {
+				commitHash,
+			});
+			toast.add({
+				title: 'Rolling back and redeploying…',
+				type: 'info',
+			});
 		};
-	}, [behaviorType, websocket, isGenerating, isDeploying]);
+	}, [behaviorType, websocket, isGenerating, isDeploying, toast]);
 
 	// // Terminal functions
 	// const handleTerminalCommand = useCallback((command: string) => {
@@ -486,7 +801,9 @@ export default function Chat() {
 	]);
 
 	const isPhase1Complete = useMemo(() => {
-		return phaseTimeline.length > 0 && phaseTimeline[0].status === 'completed';
+		return (
+			phaseTimeline.length > 0 && phaseTimeline[0].status === 'completed'
+		);
 	}, [phaseTimeline]);
 
 	const isGitHubExportReady = useMemo(() => {
@@ -498,8 +815,11 @@ export default function Chat() {
 
 	// Detect if agentic mode is showing static content (docs, markdown)
 	const isStaticContent = useMemo(() => {
-		if (!isAgenticLikeBehavior(behaviorType) || files.length === 0) return false;
-		return files.every(file => isDocumentationPath(file.filePath.toLowerCase()));
+		if (!isAgenticLikeBehavior(behaviorType) || files.length === 0)
+			return false;
+		return files.every((file) =>
+			isDocumentationPath(file.filePath.toLowerCase()),
+		);
 	}, [behaviorType, files]);
 
 	// Detect content type (documentation detection - works in any projectType)
@@ -507,9 +827,11 @@ export default function Chat() {
 		return detectContentType(files);
 	}, [files]);
 
-    const hasDocumentation = useMemo(() => {
-        return Object.values(contentDetection.Contents).some(bundle => bundle.type === 'markdown');
-    }, [contentDetection]);
+	const hasDocumentation = useMemo(() => {
+		return Object.values(contentDetection.Contents).some(
+			(bundle) => bundle.type === 'markdown',
+		);
+	}, [contentDetection]);
 
 	// Preview available based on projectType and content
 	const previewAvailable = useMemo(() => {
@@ -526,18 +848,33 @@ export default function Chat() {
 			return result;
 		}
 		// For phasic mode: keep existing logic
-		const result = streamedBootstrapFiles.length > 0 || !!blueprint || files.length > 0;
+		const result =
+			streamedBootstrapFiles.length > 0 ||
+			!!blueprint ||
+			files.length > 0;
 		return result;
-	}, [behaviorType, blueprint, files.length, previewUrl, streamedBootstrapFiles.length]);
+	}, [
+		behaviorType,
+		blueprint,
+		files.length,
+		previewUrl,
+		streamedBootstrapFiles.length,
+	]);
 
 	const messagesForDisplay = useMemo(
 		() => dropLeadingUserForThink(messages, behaviorType),
 		[messages, behaviorType],
 	);
-	const [mainMessage, ...otherMessages] = useMemo(() => messagesForDisplay, [messagesForDisplay]);
+	const [mainMessage, ...otherMessages] = useMemo(
+		() => messagesForDisplay,
+		[messagesForDisplay],
+	);
 	const richToolPreview = behaviorType === 'think';
 
-	const { scrollToBottom } = useAutoScroll(messagesContainerRef, { behavior: 'smooth', watch: [messages] });
+	const { scrollToBottom } = useAutoScroll(messagesContainerRef, {
+		behavior: 'smooth',
+		watch: [messages],
+	});
 
 	const prevMessagesLengthRef = useRef(0);
 
@@ -553,8 +890,9 @@ export default function Chat() {
 		if (hasSeenPreview.current) return;
 
 		const markdownFiles = files.filter(isMarkdownFile);
-		const isGeneratingMarkdown = markdownFiles.some(f => f.isGenerating);
-		const newMarkdownAdded = markdownFiles.length > prevMarkdownCountRef.current;
+		const isGeneratingMarkdown = markdownFiles.some((f) => f.isGenerating);
+		const newMarkdownAdded =
+			markdownFiles.length > prevMarkdownCountRef.current;
 
 		// Auto-switch to docs ONLY when NEW markdown is being generated
 		if (hasDocumentation && newMarkdownAdded && isGeneratingMarkdown) {
@@ -589,7 +927,18 @@ export default function Chat() {
 
 		// Update ref for next comparison
 		prevMarkdownCountRef.current = markdownFiles.length;
-	}, [previewUrl, isPhase1Complete, isStaticContent, files, activeFilePath, behaviorType, hasDocumentation, projectType, urlChatId, isPreviewDeploying]);
+	}, [
+		previewUrl,
+		isPhase1Complete,
+		isStaticContent,
+		files,
+		activeFilePath,
+		behaviorType,
+		hasDocumentation,
+		projectType,
+		urlChatId,
+		isPreviewDeploying,
+	]);
 
 	useEffect(() => {
 		if (chatId) {
@@ -655,17 +1004,19 @@ export default function Chat() {
 		const blueprintStage = projectStages.find(
 			(stage) => stage.id === 'blueprint',
 		);
-		const blueprintNotCompleted = !blueprintStage || blueprintStage.status !== 'completed';
+		const blueprintNotCompleted =
+			!blueprintStage || blueprintStage.status !== 'completed';
 
 		return blueprintNotCompleted || isDebugging;
 	}, [projectStages, isDebugging]);
 
 	const chatFormRef = useRef<HTMLFormElement>(null);
-	const { isDragging: isChatDragging, dragHandlers: chatDragHandlers } = useDragDrop({
-		onFilesDropped: addImages,
-		accept: [...SUPPORTED_IMAGE_MIME_TYPES],
-		disabled: isChatDisabled,
-	});
+	const { isDragging: isChatDragging, dragHandlers: chatDragHandlers } =
+		useDragDrop({
+			onFilesDropped: addImages,
+			accept: [...SUPPORTED_IMAGE_MIME_TYPES],
+			disabled: isChatDisabled,
+		});
 
 	const onNewMessage = useCallback(
 		(e: FormEvent) => {
@@ -680,8 +1031,10 @@ export default function Chat() {
 			const limitCheck = checkCanSendPrompt(
 				limitsData,
 				limitsLoading,
-				() => { window.location.href = `/oauth/login?return_url=${encodeURIComponent(window.location.href)}`; },
-				() => setShowLimitDialog(null)
+				() => {
+					window.location.href = `/oauth/login?return_url=${encodeURIComponent(window.location.href)}`;
+				},
+				() => setShowLimitDialog(null),
 			);
 
 			if (!limitCheck.canProceed) {
@@ -703,18 +1056,34 @@ export default function Chat() {
 			// Ensure we scroll after sending our own message
 			requestAnimationFrame(() => scrollToBottom());
 		},
-		[newMessage, websocket, sendUserMessage, isChatDisabled, scrollToBottom, images, clearImages, limitsData, limitsLoading],
+		[
+			newMessage,
+			websocket,
+			sendUserMessage,
+			isChatDisabled,
+			scrollToBottom,
+			images,
+			clearImages,
+			limitsData,
+			limitsLoading,
+		],
 	);
 
 	const [progress, total] = useMemo((): [number, number] => {
 		// Calculate phase progress instead of file progress
-		const completedPhases = phaseTimeline.filter(p => p.status === 'completed').length;
+		const completedPhases = phaseTimeline.filter(
+			(p) => p.status === 'completed',
+		).length;
 
 		// Get predicted phase count from blueprint, fallback to current phase count
 		const predictedPhaseCount = isPhasicBlueprint(blueprint)
 			? blueprint.implementationRoadmap.length
 			: 0;
-		const totalPhases = Math.max(predictedPhaseCount, phaseTimeline.length, 1);
+		const totalPhases = Math.max(
+			predictedPhaseCount,
+			phaseTimeline.length,
+			1,
+		);
 
 		return [completedPhases, totalPhases];
 	}, [phaseTimeline, blueprint]);
@@ -748,22 +1117,29 @@ export default function Chat() {
 	if (awaitingStartConfirmation) {
 		return (
 			<div className="size-full flex items-center justify-center p-6 text-text-primary">
-				<div className="max-w-lg w-full flex flex-col gap-4 rounded-xl border border-border-primary bg-kumo-elevated p-6">
-					<h1 className="text-lg font-medium">Start building this app?</h1>
+				<div className="max-w-lg w-full flex flex-col gap-4 rounded-xl border bg-kumo-elevated p-6">
+					<h1 className="text-lg font-medium">
+						Start building this app?
+					</h1>
 					<p className="text-sm text-text-secondary">
-						This link wants to start a new project with the prompt below.
-						Review it before continuing.
+						This link wants to start a new project with the prompt
+						below. Review it before continuing.
 					</p>
-					<div className="rounded-lg border border-border-primary bg-kumo-base p-4 max-h-64 overflow-y-auto">
+					<div className="rounded-lg border p-4 max-h-64 overflow-y-auto">
 						<p className="text-sm text-text-primary whitespace-pre-wrap break-words">
 							{displayQuery}
 						</p>
 					</div>
 					<div className="flex items-center justify-end gap-2">
-						<Button variant="secondary" onClick={() => navigate('/')}>
+						<Button
+							variant="secondary"
+							onClick={() => navigate('/')}
+						>
 							Cancel
 						</Button>
-						<Button variant="primary" onClick={confirmStart}>Start building</Button>
+						<Button variant="primary" onClick={confirmStart}>
+							Start building
+						</Button>
 					</div>
 				</div>
 			</div>
@@ -772,370 +1148,391 @@ export default function Chat() {
 
 	return (
 		<RollbackContext.Provider value={rollbackHandler}>
-		<div className="size-full flex flex-col min-h-0 text-text-primary">
-			{(blueprint?.title || appTitle || chatId || appLoading) && (
-				<div className="h-12 shrink-0 flex items-center px-4 border-b border-border-primary">
-					{appLoading ? (
-						<div className="flex items-center gap-2 text-text-tertiary text-sm">
-							<LoaderCircle className="size-4 animate-spin" />
-							Loading app...
-						</div>
-					) : (
-						<div className="flex min-w-0 flex-1 items-center max-w-md gap-2">
-							{app?.visibility === 'private' ? (
-								<LockKey
-									className="size-4 shrink-0 text-text-tertiary"
-									weight="duotone"
-									aria-label="Private"
-								/>
-							) : (
-								<GlobeHemisphereWestIcon
-									className="size-4 shrink-0 text-text-tertiary"
-									weight="duotone"
-									aria-label="Public"
-								/>
+			<div className="size-full flex flex-col min-h-0 text-text-primary">
+				<div className="flex-1 flex min-h-0 overflow-hidden justify-center">
+					<motion.div
+						layout="position"
+						className="flex-1 shrink-0 flex flex-col basis-0 max-w-2xl relative z-10 h-full min-h-0"
+					>
+						<div
+							className={cn(
+								'flex-1 overflow-y-auto min-h-0 chat-messages-scroll',
+								isDebugging && 'animate-debug-pulse',
 							)}
-							<div
-								className="text-sm font-semibold truncate min-w-0"
-								title={blueprint?.title || appTitle || undefined}
-							>
-								{blueprint?.title || appTitle}
-							</div>
-						</div>
-					)}
-					{behaviorType === 'think' && !appLoading && (
-						<div className="ml-auto flex items-center gap-2">
-							{cloudflareDeploymentUrl && (
-								<Button
-									variant="ghost"
-									className="h-8 shrink-0 px-2 text-xs text-text-tertiary hover:bg-kumo-elevated hover:text-text-primary"
-									onClick={() => window.open(cloudflareDeploymentUrl, '_blank')}
-								>
-									<ExternalLink className="size-3.5" />
-									View Live
-								</Button>
-							)}
-							<Button
-								variant="secondary"
-								className="h-8 shrink-0 border border-border-primary bg-kumo-elevated px-3 text-xs text-text-primary shadow-sm transition-colors hover:bg-kumo-base disabled:cursor-not-allowed disabled:opacity-50"
-								disabled={isDeploying || files.length === 0}
-								onClick={() => handleDeployToCloudflare(chatId || '', userAccountDeployEnabled ? 'user' : 'platform')}
-							>
-								{isDeploying ? (
-									<LoaderCircle className="size-3.5 animate-spin" />
-								) : (
-									<Rocket className="size-3.5" />
+							ref={messagesContainerRef}
+						>
+							<div className="pt-5 px-4 pb-4 text-sm flex flex-col gap-5">
+								{!appLoading && (
+									<UserMessage
+										message={query ?? displayQuery}
+									/>
 								)}
-								{isDeploying
-									? 'Deploying...'
-									: cloudflareDeploymentUrl
-										? 'Redeploy'
-										: userAccountDeployEnabled
-											? 'Deploy to My Account'
-											: 'Deploy'}
-							</Button>
-						</div>
-					)}
-				</div>
-			)}
-			<div className="flex-1 flex min-h-0 overflow-hidden justify-center">
-				<motion.div
-					layout="position"
-					className="flex-1 shrink-0 flex flex-col basis-0 max-w-2xl relative z-10 h-full min-h-0"
-				>
-					<div
-					className={clsx(
-						'flex-1 overflow-y-auto min-h-0 chat-messages-scroll',
-						isDebugging && 'animate-debug-pulse'
-					)}
-					ref={messagesContainerRef}
-				>
-						<div className="pt-5 px-4 pb-4 text-sm flex flex-col gap-5">
-							{!appLoading && (
-								<UserMessage
-									message={query ?? displayQuery}
-								/>
-							)}
 
-							{mainMessage?.role === 'assistant' && (
-							<div className="relative">
-								<AIMessage
-									message={mainMessage.content}
-									parts={mainMessage.parts}
-									isThinking={mainMessage.ui?.isThinking}
-									toolEvents={mainMessage.ui?.toolEvents}
-									richToolPreview={richToolPreview}
-								/>
-								{chatId && (
-									<div className="absolute right-1 top-1">
-										<DropdownMenu>
-											<DropdownMenu.Trigger
-												render={
-													<Button
-														variant="ghost"
-														size="sm"
-														shape="square"
-														aria-label="Chat actions"
-														icon={<MoreHorizontal className="h-4 w-4" />}
-													/>
-												}
-											/>
-											<DropdownMenu.Content align="end">
-												<DropdownMenu.Item
-													icon={<RotateCcw className="h-4 w-4" />}
-													onClick={() => setIsResetDialogOpen(true)}
-												>
-													Reset conversation
-												</DropdownMenu.Item>
-											</DropdownMenu.Content>
-										</DropdownMenu>
-									</div>
-								)}
-							</div>
-						)}
-
-							{otherMessages
-								.filter(message => message.role === 'assistant' && message.ui?.isThinking)
-								.map((message) => (
-									<div key={message.conversationId} className="mb-4">
+								{mainMessage?.role === 'assistant' && (
+									<div className="relative">
 										<AIMessage
-											message={message.content}
-											parts={message.parts}
-											isThinking={true}
-											toolEvents={message.ui?.toolEvents}
+											message={mainMessage.content}
+											parts={mainMessage.parts}
+											isThinking={
+												mainMessage.ui?.isThinking
+											}
+											toolEvents={
+												mainMessage.ui?.toolEvents
+											}
 											richToolPreview={richToolPreview}
 										/>
+										{chatId && (
+											<div className="absolute right-1 top-1">
+												<DropdownMenu>
+													<DropdownMenu.Trigger
+														render={
+															<Button
+																variant="ghost"
+																size="sm"
+																shape="square"
+																aria-label="Chat actions"
+																icon={
+																	MoreHorizontal
+																}
+															/>
+														}
+													/>
+													<DropdownMenu.Content align="end">
+														<DropdownMenu.Item
+															icon={RotateCcw}
+															onClick={() =>
+																setIsResetDialogOpen(
+																	true,
+																)
+															}
+														>
+															Reset conversation
+														</DropdownMenu.Item>
+													</DropdownMenu.Content>
+												</DropdownMenu>
+											</div>
+										)}
 									</div>
-								))}
+								)}
 
-							{isThinking && !otherMessages.some(m => m.ui?.isThinking) && (
-								<div className="mb-4">
-									<AIMessage
-										message="Planning next phase..."
-										isThinking={true}
-										richToolPreview={richToolPreview}
-									/>
-								</div>
-							)}
-
-							{/* Only show PhaseTimeline for phasic mode */}
-							{!isAgenticLikeBehavior(behaviorType) && (
-								<PhaseTimeline
-									projectStages={projectStages}
-									phaseTimeline={phaseTimeline}
-									files={files}
-									view={view}
-									activeFile={activeFile}
-									onFileClick={handleFileClick}
-									isThinkingNext={isThinking}
-									isPreviewDeploying={isPreviewDeploying}
-									progress={progress}
-									total={total}
-									parentScrollRef={messagesContainerRef}
-									onViewChange={(viewMode) => {
-										setView(viewMode);
-										hasSwitchedFile.current = true;
-									}}
-									chatId={chatId}
-									isDeploying={isDeploying}
-									handleDeployToCloudflare={handleDeployToCloudflare}
-									runtimeErrorCount={runtimeErrorCount}
-									staticIssueCount={staticIssueCount}
-									isDebugging={isDebugging}
-									isGenerating={isGenerating}
-									isThinking={isThinking}
-								/>
-							)}
-
-							{/* Deployment and Generation Controls - Only for phasic mode */}
-							{chatId && behaviorType === 'phasic' && (
-								<motion.div
-									ref={deploymentControlsRef}
-									initial={{ opacity: 0, y: 20 }}
-									animate={{ opacity: 1, y: 0 }}
-									transition={{ duration: 0.3, delay: 0.2 }}
-									className="px-4 mb-6"
-								>
-									<DeploymentControls
-										isPhase1Complete={isPhase1Complete}
-										isDeploying={isDeploying}
-										deploymentUrl={cloudflareDeploymentUrl}
-										instanceId={chatId || ''}
-										isRedeployReady={isRedeployReady}
-										deploymentError={deploymentError}
-										appId={app?.id || chatId}
-										appVisibility={app?.visibility}
-										isGenerating={
-											isGenerating ||
-											isGeneratingBlueprint
-										}
-										isPaused={isGenerationPaused}
-										onDeploy={(instanceId) => handleDeployToCloudflare(instanceId, 'platform')}
-										deploymentTarget="platform"
-										onStopGeneration={handleStopGeneration}
-										onResumeGeneration={
-											handleResumeGeneration
-										}
-										onVisibilityUpdate={(newVisibility) => {
-											// Update app state if needed
-											if (app) {
-												app.visibility = newVisibility;
-											}
-										}}
-									/>
-								</motion.div>
-							)}
-
-							{otherMessages
-								.filter(message => !message.ui?.isThinking)
-								.map((message) => {
-									if (message.role === 'assistant') {
-										return (
+								{otherMessages
+									.filter(
+										(message) =>
+											message.role === 'assistant' &&
+											message.ui?.isThinking,
+									)
+									.map((message) => (
+										<div
+											key={message.conversationId}
+											className="mb-4"
+										>
 											<AIMessage
-												key={message.conversationId}
 												message={message.content}
 												parts={message.parts}
-												isThinking={message.ui?.isThinking}
-												toolEvents={message.ui?.toolEvents}
-												richToolPreview={richToolPreview}
+												isThinking={true}
+												toolEvents={
+													message.ui?.toolEvents
+												}
+												richToolPreview={
+													richToolPreview
+												}
+											/>
+										</div>
+									))}
+
+								{isThinking &&
+									!otherMessages.some(
+										(m) => m.ui?.isThinking,
+									) && (
+										<div className="mb-4">
+											<AIMessage
+												message="Planning next phase..."
+												isThinking={true}
+												richToolPreview={
+													richToolPreview
+												}
+											/>
+										</div>
+									)}
+
+								{/* Only show PhaseTimeline for phasic mode */}
+								{behaviorType === 'phasic' && (
+									<PhaseTimeline
+										projectStages={projectStages}
+										phaseTimeline={phaseTimeline}
+										files={files}
+										view={view}
+										activeFile={activeFile}
+										onFileClick={handleFileClick}
+										isThinkingNext={isThinking}
+										isPreviewDeploying={isPreviewDeploying}
+										progress={progress}
+										total={total}
+										parentScrollRef={messagesContainerRef}
+										onViewChange={(viewMode) => {
+											setView(viewMode);
+											hasSwitchedFile.current = true;
+										}}
+										chatId={chatId}
+										isDeploying={isDeploying}
+										handleDeployToCloudflare={
+											handleDeployToCloudflare
+										}
+										runtimeErrorCount={runtimeErrorCount}
+										staticIssueCount={staticIssueCount}
+										isDebugging={isDebugging}
+										isGenerating={isGenerating}
+										isThinking={isThinking}
+									/>
+								)}
+
+								{/* Deployment and Generation Controls - Only for phasic mode */}
+								{chatId && behaviorType === 'phasic' && (
+										<motion.div
+											ref={deploymentControlsRef}
+											initial={{ opacity: 0, y: 20 }}
+											animate={{ opacity: 1, y: 0 }}
+											transition={{
+												duration: 0.3,
+												delay: 0.2,
+											}}
+											className="px-4 mb-6"
+										>
+											<DeploymentControls
+												isPhase1Complete={
+													isPhase1Complete
+												}
+												isDeploying={isDeploying}
+												deploymentUrl={
+													cloudflareDeploymentUrl
+												}
+												instanceId={chatId || ''}
+												isRedeployReady={
+													isRedeployReady
+												}
+												deploymentError={
+													deploymentError
+												}
+												appId={app?.id || chatId}
+												appVisibility={app?.visibility}
+												isGenerating={
+													isGenerating ||
+													isGeneratingBlueprint
+												}
+												isPaused={isGenerationPaused}
+												onDeploy={(instanceId) => handleDeployToCloudflare(instanceId, 'platform')}
+												deploymentTarget="platform"
+												onStopGeneration={
+													handleStopGeneration
+												}
+												onResumeGeneration={
+													handleResumeGeneration
+												}
+												onVisibilityUpdate={(
+													newVisibility,
+												) => {
+													if (!app?.id) return;
+
+													queryClient.setQueryData<AppDetailsData>(
+														queryKeys.account.apps.detail(
+															app.id,
+															user?.id,
+														),
+														(prev) =>
+															prev
+																? {
+																		...prev,
+																		visibility:
+																			newVisibility,
+																	}
+																: prev,
+													);
+													void queryClient.invalidateQueries(
+														{
+															queryKey:
+																queryKeys.account.apps.all(),
+														},
+													);
+												}}
+											/>
+										</motion.div>
+									)}
+
+								{otherMessages
+									.filter(
+										(message) => !message.ui?.isThinking,
+									)
+									.map((message) => {
+										if (message.role === 'assistant') {
+											return (
+												<AIMessage
+													key={message.conversationId}
+													message={message.content}
+													parts={message.parts}
+													isThinking={
+														message.ui?.isThinking
+													}
+													toolEvents={
+														message.ui?.toolEvents
+													}
+													richToolPreview={
+														richToolPreview
+													}
+												/>
+											);
+										}
+										return (
+											<UserMessage
+												key={message.conversationId}
+												message={message.content}
 											/>
 										);
-									}
-									return (
-										<UserMessage
-											key={message.conversationId}
-											message={message.content}
-										/>
-									);
-								})}
-
+									})}
+							</div>
 						</div>
-					</div>
 
-
-				<ChatInput
-					newMessage={newMessage}
-					onMessageChange={setNewMessage}
-					onSubmit={onNewMessage}
-					images={images}
-					onAddImages={addImages}
-					onRemoveImage={removeImage}
-					isProcessing={isProcessing}
-					isChatDragging={isChatDragging}
-					chatDragHandlers={chatDragHandlers}
-					isChatDisabled={isChatDisabled}
-					isRunning={isRunning}
-					isGenerating={isGenerating}
-					isGeneratingBlueprint={isGeneratingBlueprint}
-					isDebugging={isDebugging}
-					websocket={websocket}
-					chatFormRef={chatFormRef}
-					limitsData={limitsData}
-					onConnectCloudflare={() => { window.location.href = `/oauth/login?return_url=${encodeURIComponent(window.location.href)}`; }}
-					aboveContent={
-						<ClarifyingQuestionsPopup
-							questions={clarifyingQuestions ?? []}
-							open={clarifyingQuestions !== null && clarifyingQuestions.length > 0}
-							onSubmit={submitClarifyingAnswers}
-							onDismiss={dismissClarifyingQuestions}
+						<ChatInput
+							newMessage={newMessage}
+							onMessageChange={setNewMessage}
+							onSubmit={onNewMessage}
+							images={images}
+							onAddImages={addImages}
+							onRemoveImage={removeImage}
+							isProcessing={isProcessing}
+							isChatDragging={isChatDragging}
+							chatDragHandlers={chatDragHandlers}
+							isChatDisabled={isChatDisabled}
+							isRunning={isRunning}
+							isGenerating={isGenerating}
+							isGeneratingBlueprint={isGeneratingBlueprint}
+							isDebugging={isDebugging}
+							websocket={websocket}
+							chatFormRef={chatFormRef}
+							limitsData={limitsData}
+							onConnectCloudflare={() => {
+								window.location.href = `/oauth/login?return_url=${encodeURIComponent(window.location.href)}`;
+							}}
+							aboveContent={
+								<ClarifyingQuestionsPopup
+									questions={clarifyingQuestions ?? []}
+									open={
+										clarifyingQuestions !== null &&
+										clarifyingQuestions.length > 0
+									}
+									onSubmit={submitClarifyingAnswers}
+									onDismiss={dismissClarifyingQuestions}
+								/>
+							}
 						/>
-					}
+					</motion.div>
+
+					<AnimatePresence mode="wait">
+						{showMainView && (
+							<motion.div
+								key="main-content-panel"
+								initial={{ opacity: 0 }}
+								animate={{ opacity: 1 }}
+								exit={{ opacity: 0 }}
+								className="flex-1 flex shrink-0 basis-0 z-30 min-h-0"
+							>
+								<MainContentPanel
+									view={view}
+									onViewChange={handleViewModeChange}
+									hasDocumentation={hasDocumentation}
+									contentDetection={contentDetection}
+									projectType={projectType}
+									previewUrl={previewUrl}
+									previewAvailable={previewAvailable}
+									showTooltip={showTooltip}
+									shouldRefreshPreview={shouldRefreshPreview}
+									manualRefreshTrigger={manualRefreshTrigger}
+									onManualRefresh={() =>
+										setManualRefreshTrigger(Date.now())
+									}
+									blueprint={blueprint}
+									activeFile={activeFile}
+									allFiles={allFiles}
+									edit={edit}
+									onFileClick={handleFileClick}
+									isGenerating={isGenerating}
+									isGeneratingBlueprint={
+										isGeneratingBlueprint
+									}
+									modelConfigs={modelConfigs}
+									loadingConfigs={loadingConfigs}
+									onRequestConfigs={handleRequestConfigs}
+									onGitCloneClick={() =>
+										setIsGitCloneModalOpen(true)
+									}
+									isGitHubExportReady={isGitHubExportReady}
+									githubExport={githubExport}
+									behaviorType={behaviorType}
+									websocket={websocket}
+									previewRef={previewRef}
+									editorRef={editorRef}
+									templateDetails={templateDetails}
+									agentId={chatId}
+									databaseAvailable={
+										behaviorType === 'think' && !!chatId
+									}
+								/>
+							</motion.div>
+						)}
+					</AnimatePresence>
+				</div>
+
+				<ChatModals
+					debugMessages={debugMessages}
+					chatId={chatId}
+					onClearDebugMessages={clearDebugMessages}
+					isResetDialogOpen={isResetDialogOpen}
+					onResetDialogChange={setIsResetDialogOpen}
+					onResetConversation={handleResetConversation}
+					githubExport={githubExport}
+					app={app}
+					urlChatId={urlChatId}
+					isGitCloneModalOpen={isGitCloneModalOpen}
+					onGitCloneModalChange={setIsGitCloneModalOpen}
+					user={user}
 				/>
-				</motion.div>
 
-				<AnimatePresence mode="wait">
-					{showMainView && (
-						<motion.div
-							key="main-content-panel"
-							initial={{ opacity: 0 }}
-							animate={{ opacity: 1 }}
-							exit={{ opacity: 0 }}
-							className="flex-1 flex shrink-0 basis-0 z-30 min-h-0"
-						>
-							<MainContentPanel
-								view={view}
-								onViewChange={handleViewModeChange}
-								hasDocumentation={hasDocumentation}
-								contentDetection={contentDetection}
-								projectType={projectType}
-								previewUrl={previewUrl}
-								previewAvailable={previewAvailable}
-								showTooltip={showTooltip}
-								shouldRefreshPreview={shouldRefreshPreview}
-								manualRefreshTrigger={manualRefreshTrigger}
-								onManualRefresh={() => setManualRefreshTrigger(Date.now())}
-								blueprint={blueprint}
-								activeFile={activeFile}
-								allFiles={allFiles}
-								edit={edit}
-								onFileClick={handleFileClick}
-								isGenerating={isGenerating}
-								isGeneratingBlueprint={isGeneratingBlueprint}
-								modelConfigs={modelConfigs}
-								loadingConfigs={loadingConfigs}
-								onRequestConfigs={handleRequestConfigs}
-								onGitCloneClick={() => setIsGitCloneModalOpen(true)}
-								isGitHubExportReady={isGitHubExportReady}
-								githubExport={githubExport}
-								behaviorType={behaviorType}
-								websocket={websocket}
-								previewRef={previewRef}
-								editorRef={editorRef}
-								templateDetails={templateDetails}
-								agentId={chatId}
-								databaseAvailable={behaviorType === 'think' && !!chatId}
-							/>
-						</motion.div>
-					)}
-				</AnimatePresence>
+				<VaultUnlockModal
+					open={
+						vaultState.unlockRequested &&
+						vaultState.status === 'locked'
+					}
+					onOpenChange={(open) => {
+						if (!open) clearUnlockRequest();
+					}}
+					reason={vaultState.unlockReason ?? undefined}
+				/>
+
+				{/* Usage limit dialogs */}
+				{showLimitDialog}
+
+				{/* Deploy gate dialog (backend-reported CF connection failure) */}
+				{showDeployGateDialog}
+
+				{/* Backend error dialog - shows when backend blocks request due to limits */}
+				{(() => {
+					if (
+						backendErrorDialog.isOpen &&
+						backendErrorDialog.errorCode === 'USAGE_LIMIT_EXCEEDED'
+					) {
+						const limitCheckResult = getBackendLimitDialog(
+							limitsData,
+							() => {
+								setBackendErrorDialog({ isOpen: false });
+								window.location.href = '/settings';
+							},
+							() => setBackendErrorDialog({ isOpen: false }),
+						);
+
+						return limitCheckResult.dialogComponent || null;
+					}
+					return null;
+				})()}
 			</div>
-
-			<ChatModals
-				debugMessages={debugMessages}
-				chatId={chatId}
-				onClearDebugMessages={clearDebugMessages}
-				isResetDialogOpen={isResetDialogOpen}
-				onResetDialogChange={setIsResetDialogOpen}
-				onResetConversation={handleResetConversation}
-				githubExport={githubExport}
-				app={app}
-				urlChatId={urlChatId}
-				isGitCloneModalOpen={isGitCloneModalOpen}
-				onGitCloneModalChange={setIsGitCloneModalOpen}
-				user={user}
-			/>
-
-			<VaultUnlockModal
-				open={vaultState.unlockRequested && vaultState.status === 'locked'}
-				onOpenChange={(open) => {
-					if (!open) clearUnlockRequest();
-				}}
-				reason={vaultState.unlockReason ?? undefined}
-			/>
-
-			{/* Usage limit dialogs */}
-			{showLimitDialog}
-
-			{/* Deploy gate dialog (backend-reported CF connection failure) */}
-			{showDeployGateDialog}
-
-			{/* Backend error dialog - shows when backend blocks request due to limits */}
-			{(() => {
-				if (backendErrorDialog.isOpen && backendErrorDialog.errorCode === 'USAGE_LIMIT_EXCEEDED') {
-					const limitCheckResult = getBackendLimitDialog(
-						limitsData,
-						() => {
-							setBackendErrorDialog({ isOpen: false });
-							window.location.href = '/settings';
-						},
-						() => setBackendErrorDialog({ isOpen: false })
-					);
-
-					return limitCheckResult.dialogComponent || null;
-				}
-				return null;
-			})()}
-		</div>
 		</RollbackContext.Provider>
 	);
 }

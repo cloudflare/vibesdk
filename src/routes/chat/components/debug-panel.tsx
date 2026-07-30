@@ -538,12 +538,12 @@ function DebugPanelCore({ messages, onClear, chatSessionId }: DebugPanelProps) {
       {/* Debug Panel */}
       <div
         ref={panelRef}
-        className={`fixed right-0 top-0 h-full bg-kumo-base dark:bg-bg-4 shadow-2xl border-l border-border-primary z-[60] transform transition-all duration-300 ease-in-out flex flex-col ${
+        className={`fixed right-0 top-0 h-full bg-kumo-base dark:bg-bg-4 shadow-2xl border-l z-[60] transform transition-all duration-300 ease-in-out flex flex-col ${
           isMaximized ? 'w-[80vw]' : 'w-[600px]'
         } ${isOpen ? 'translate-x-0' : 'translate-x-full'}`}
       >
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-border-primary bg-gradient-to-r from-muted to-brand">
+        <div className="flex items-center justify-between p-4 border-b bg-gradient-to-r from-muted to-brand">
           <div className="flex items-center gap-2">
             <Bug className="w-5 h-5 text-text-primary" />
             <h3 className="font-semibold text-text-primary">Debug Console</h3>
@@ -625,14 +625,14 @@ function DebugPanelCore({ messages, onClear, chatSessionId }: DebugPanelProps) {
         </div>
 
         {/* Filters */}
-        <div className="p-3 border-b border-border-primary dark:border-border-primary bg-kumo-base/30 dark:bg-kumo-base/20">
+        <div className="p-3 border-b bg-kumo-base/30 dark:bg-kumo-base/20">
           <div className="flex gap-2 mb-3">
             <input
               type="text"
               placeholder="Search messages..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="flex-1 px-3 py-1.5 text-sm bg-input border border-border-primary rounded focus:outline-none focus:ring-2 focus:ring-ring text-text-primary"
+              className="flex-1 px-3 py-1.5 text-sm bg-input border rounded focus:outline-none focus:ring-2 focus:ring-ring text-text-primary"
             />
           </div>
           <div className="flex gap-1 flex-wrap">
@@ -654,7 +654,7 @@ function DebugPanelCore({ messages, onClear, chatSessionId }: DebugPanelProps) {
                 className={`px-3 py-1 text-xs rounded-full transition-all ${
                   filter === key
                     ? 'bg-blue-500 text-white'
-                    : 'bg-kumo-base text-text-primary hover:bg-kumo-base border border-border-primary'
+                    : 'bg-kumo-base text-text-primary hover:bg-kumo-base border'
                 }`}
               >
                 {label} ({count})
@@ -664,7 +664,7 @@ function DebugPanelCore({ messages, onClear, chatSessionId }: DebugPanelProps) {
 
           {/* WebSocket Category Filters - Show only when WebSocket filter is active */}
           {filter === 'websocket' && (
-            <div className="mt-3 pt-3 border-t border-border-primary">
+            <div className="mt-3 pt-3 border-t">
               <div className="text-xs text-text-tertiary mb-2 font-medium">WebSocket Message Types:</div>
               <div className="flex gap-1 flex-wrap">
                 {[
@@ -849,7 +849,7 @@ function DebugPanelCore({ messages, onClear, chatSessionId }: DebugPanelProps) {
                                       <div className="font-mono font-medium">{simpleStats.p99 > 1000 ? `${(simpleStats.p99/1000).toFixed(1)}s` : `${simpleStats.p99.toFixed(0)}ms`}</div>
                                     </div>
                                   </div>
-                                  <div className="pt-2 border-t border-border-primary text-center">
+                                  <div className="pt-2 border-t text-center">
                                     <div className="text-text-tertiary text-sm">{simpleStats.count} operations</div>
                                   </div>
                                 </div>

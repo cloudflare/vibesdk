@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Zap } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import clsx from 'clsx';
+import { cn } from '@cloudflare/kumo';
 
 export interface TerminalLog {
 	id: string;
@@ -96,7 +96,7 @@ export function Terminal({
 	const getLogTypeColor = (type: TerminalLog['type']) => {
 		switch (type) {
 			case 'command':
-				return 'text-brand-primary'; // Cloudflare orange
+				return 'text-kumo-brand-primary'; // Cloudflare orange
 			case 'stdout':
 				return 'text-green-600 dark:text-green-400';
 			case 'stderr':
@@ -114,7 +114,7 @@ export function Terminal({
 	};
 
 	return (
-		<div className={clsx(
+		<div className={cn(
 			'flex flex-col h-full font-mono text-sm',
 			'bg-white dark:bg-kumo-elevated',
 			className
@@ -128,7 +128,7 @@ export function Terminal({
 				>
 					<div className="p-4 space-y-2">
 						{logs.length === 0 ? (
-							<div className={clsx(
+							<div className={cn(
 								"flex flex-col items-center justify-center py-12 text-center",
 								"text-gray-500 dark:text-gray-400"
 							)}>
@@ -144,7 +144,7 @@ export function Terminal({
 							logs.map((log) => (
 								<div
 									key={log.id}
-									className={clsx(
+									className={cn(
 										'group flex items-start gap-3 py-1.5 px-2 -mx-2 rounded-md',
 										'hover:bg-gray-50 dark:hover:bg-kumo-base/50',
 										'transition-colors duration-150'
@@ -161,12 +161,12 @@ export function Terminal({
 										</span>
 									</div>
 									<div className="flex-1 min-w-0">
-										<div className={clsx(
+										<div className={cn(
 											'font-mono text-sm whitespace-pre-wrap break-words leading-relaxed',
 											getLogTypeColor(log.type)
 										)}>
 											{log.type === 'command' && (
-												<span className="text-brand-primary font-semibold mr-1">$</span>
+												<span className="text-kumo-brand-primary font-semibold mr-1">$</span>
 											)}
 											{log.type === 'stderr' && (
 												<span className="text-red-500 dark:text-red-400 mr-1">❌</span>
@@ -195,17 +195,17 @@ export function Terminal({
 			</div>
 
 			{/* Command Input */}
-			<div className={clsx(
+			<div className={cn(
 				'flex-shrink-0 px-4 py-3',
 				'bg-gray-50 dark:bg-kumo-elevated',
 				'border-t border-gray-200 dark:border-gray-700'
 			)}>
 				<div className="flex items-center gap-3">
 					<div className="flex items-center gap-2">
-						<span className={clsx(
+						<span className={cn(
 							"text-lg font-bold select-none",
 							isConnected
-								? "text-brand-primary"
+								? "text-kumo-brand-primary"
 								: "text-gray-400 dark:text-gray-600"
 						)}>
 							$
@@ -218,7 +218,7 @@ export function Terminal({
 						onKeyDown={handleKeyDown}
 						placeholder={isConnected ? "Type your command here..." : "Terminal not connected"}
 						disabled={!isConnected}
-						className={clsx(
+						className={cn(
 							"flex-1 bg-transparent border-none p-0 h-auto text-sm font-mono",
 							"text-gray-800 dark:text-gray-200",
 							"placeholder:text-gray-500 dark:placeholder:text-gray-400",

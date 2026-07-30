@@ -1,33 +1,24 @@
-import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { useParams, useNavigate, useSearchParams } from 'react-router';
-import type { AppDetailsData, FileType } from '@/api-types';
-import { apiClient, ApiError } from '@/lib/api-client';
-import { appEvents } from '@/lib/app-events';
+import type { FileType } from '@/api-types';
+import { MonacoEditor } from '@/components/monaco-editor/lazy-monaco-editor';
+import { AppLoadingSkeleton } from '@/components/shared/AppLoadingSkeleton';
+import { ConfirmDeleteDialog } from '@/components/shared/ConfirmDeleteDialog';
+import { FloatingBackgroundIcons } from '@/components/shared/FloatingBackgroundIcons';
+import { GitCloneModal } from '@/components/shared/GitCloneModal';
+import {
+	useApp,
+	useAppPreviewToken,
+	useDeleteApp,
+	useDeployPreview,
+	useToggleAppFavorite,
+	useToggleAppStar,
+	useUpdateAppVisibility,
+} from '@/hooks/use-app';
+import { useAuth } from '@/contexts/auth-context';
 import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard';
-import {
-	Eye,
-	Code2,
-	ChevronLeft,
-	ExternalLink,
-	Copy,
-	Check,
-	Loader2,
-	MessageSquare,
-	Play,
-} from 'lucide-react';
-import {
-	Code,
-	Star,
-	BookmarkSimple,
-	GitBranch,
-	GithubLogo,
-	Lock,
-	LockOpen,
-	Globe,
-	Trash,
-	DotsThree,
-	CopyIcon,
-} from '@phosphor-icons/react';
+import { useAuthGuard } from '@/hooks/useAuthGuard';
+import { ApiError } from '@/lib/api-client';
+import { capitalizeFirstLetter } from '@/lib/utils';
+import { getFileType } from '@/utils/string';
 import {
 	Badge,
 	Button,
@@ -36,25 +27,34 @@ import {
 	Tabs,
 	useKumoToastManager,
 } from '@cloudflare/kumo';
-import { MonacoEditor } from '@/components/monaco-editor/lazy-monaco-editor';
-import { getFileType } from '@/utils/string';
-import { useAuth } from '@/contexts/auth-context';
-import { toggleFavorite } from '@/hooks/use-apps';
-import { capitalizeFirstLetter, getPreviewUrl } from '@/lib/utils';
-import { ConfirmDeleteDialog } from '@/components/shared/ConfirmDeleteDialog';
-import { FloatingBackgroundIcons } from '@/components/shared/FloatingBackgroundIcons';
-import { GitCloneModal } from '@/components/shared/GitCloneModal';
 import {
-	GitCloneCommand,
-	GitClonePrivatePrompt,
-} from '@/components/shared/GitCloneInline';
-import { useAuthGuard } from '@/hooks/useAuthGuard';
-import { PreviewIframe } from '../chat/components/preview-iframe';
+	BookmarkSimple,
+	Code,
+	CopyIcon,
+	DotsThree,
+	GitBranch,
+	GithubLogo,
+	Globe,
+	Lock,
+	LockOpen,
+	Star,
+	TrashIcon,
+} from '@phosphor-icons/react';
+import {
+	Check,
+	ChevronLeft,
+	Code2,
+	Copy,
+	ExternalLink,
+	Eye,
+	MessageSquare,
+	Play,
+} from 'lucide-react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useNavigate, useParams, useSearchParams } from 'react-router';
+import { usePageHeader } from '@/components/layout/header-context';
 import { FileExplorer } from '../chat/components/file-explorer';
-import { useAppsData } from '@/contexts/apps-data-context';
-
-// Use proper types from API types
-type AppDetails = AppDetailsData;
+import { PreviewIframe } from '../chat/components/preview-iframe';
 
 // Define supported actions for OAuth redirect
 type PendingAction = 'favorite' | 'bookmark' | 'star' | 'fork' | 'remix';
@@ -90,11 +90,7 @@ export default function AppView() {
 	const [searchParams, setSearchParams] = useSearchParams();
 	const { user } = useAuth();
 	const { requireAuth } = useAuthGuard();
-	const [app, setApp] = useState<AppDetails | null>(null);
-	const [loading, setLoading] = useState(true);
-	const [error, setError] = useState<string | null>(null);
-	const [isFavorited, setIsFavorited] = useState(false);
-	const [isStarred, setIsStarred] = useState(false);
+	const { app, loading, error } = useApp(id);
 	const { copied: urlCopied, copy: copyUrl } = useCopyToClipboard();
 	const { copy: copyFile } = useCopyToClipboard({
 		successMessage: 'Code copied to clipboard',
@@ -103,91 +99,43 @@ export default function AppView() {
 		successMessage: 'Prompt copied to clipboard',
 	});
 	const [activeTab, setActiveTab] = useState('preview');
-	const [isDeploying, setIsDeploying] = useState(false);
 	const [deploymentProgress, setDeploymentProgress] = useState<string>('');
-	const [isUpdatingVisibility, setIsUpdatingVisibility] = useState(false);
 	const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-	const [isDeleting, setIsDeleting] = useState(false);
 	const [isGitCloneModalOpen, setIsGitCloneModalOpen] = useState(false);
 	const [activeFilePath, setActiveFilePath] = useState<string>();
-	// For a PRIVATE deployed app, the owner needs a deployment-scoped token to
-	// open the preview subdomain (main-domain session cookies aren't sent there).
-	const [ownerPreviewUrl, setOwnerPreviewUrl] = useState<string | null>(null);
 	const previewIframeRef = useRef<HTMLIFrameElement>(null);
 
-	const fetchAppDetails = useCallback(async () => {
-		if (!id) return;
-
-		try {
-			setLoading(true);
-			setError(null);
-
-			// Fetch app details using API client
-			const appResponse = await apiClient.getAppDetails(id);
-
-			if (appResponse.success && appResponse.data) {
-				const appData = appResponse.data;
-				setApp(appData);
-				setIsFavorited(appData.userFavorited || false);
-				setIsStarred(appData.userStarred || false);
-			} else {
-				throw new Error(
-					appResponse.error?.message || 'Failed to fetch app details',
-				);
-			}
-		} catch (err) {
-			console.error('Error fetching app:', err);
-			if (err instanceof ApiError) {
-				if (err.status === 404) {
-					setError('App not found');
-				} else {
-					setError(`Failed to load app: ${err.message}`);
-				}
-			} else {
-				setError(
-					err instanceof Error ? err.message : 'Failed to load app',
-				);
-			}
-		} finally {
-			setLoading(false);
-		}
+	// Route reuses this component across /app/:id — clear deploy UI on switch
+	useEffect(() => {
+		setDeploymentProgress('');
+		setActiveTab('preview');
+		setActiveFilePath(undefined);
 	}, [id]);
 
-	useEffect(() => {
-		fetchAppDetails();
-	}, [id, fetchAppDetails]);
+	const needsOwnerPreviewToken =
+		!!app &&
+		!!user &&
+		app.userId === user.id &&
+		app.visibility === 'private' &&
+		!!app.deploymentId;
 
-	// Mint an owner-preview token when the owner views their own PRIVATE deployed
-	// app, so the preview iframe / open-in-new-tab can reach the gated subdomain.
-	useEffect(() => {
-		let cancelled = false;
-		const needsToken =
-			!!app &&
-			!!user &&
-			app.userId === user.id &&
-			app.visibility === 'private' &&
-			!!app.deploymentId;
+	const { previewUrl: ownerPreviewUrl } = useAppPreviewToken(
+		app?.id,
+		needsOwnerPreviewToken,
+	);
 
-		if (!needsToken) {
-			setOwnerPreviewUrl(null);
-			return;
-		}
+	const { mutateAsync: toggleFavorite } = useToggleAppFavorite(app?.id);
+	const { mutateAsync: toggleStar } = useToggleAppStar(app?.id);
+	const {
+		mutateAsync: updateVisibility,
+		isPending: isUpdatingVisibility,
+	} = useUpdateAppVisibility(app?.id);
+	const { mutateAsync: deleteApp, isPending: isDeleting } = useDeleteApp();
+	const { mutateAsync: deployPreview, isPending: isDeploying } =
+		useDeployPreview(app?.id);
 
-		(async () => {
-			try {
-				const response = await apiClient.generatePreviewToken(app!.id);
-				if (!cancelled && response.success && response.data) {
-					setOwnerPreviewUrl(response.data.previewUrl);
-				}
-			} catch (err) {
-				console.error('Failed to generate owner preview token:', err);
-			}
-		})();
-
-		return () => {
-			cancelled = true;
-		};
-	}, [app, user]);
+	const isFavorited = app?.userFavorited || false;
+	const isStarred = app?.userStarred || false;
 
 	// Convert agent files to chat FileType format
 	const files = useMemo<FileType[]>(() => {
@@ -241,9 +189,7 @@ export default function AppView() {
 				action: 'favorite',
 				context: 'to bookmark apps',
 				handler: async () => {
-					if (!app) return;
-					const newState = await toggleFavorite(app.id);
-					setIsFavorited(newState);
+					const newState = await toggleFavorite();
 					toast.add({
 						title: newState
 							? 'Added to bookmarks'
@@ -257,67 +203,16 @@ export default function AppView() {
 				action: 'star',
 				context: 'to star apps',
 				handler: async () => {
-					if (!app) return;
-					const response = await apiClient.toggleAppStar(app.id);
-
-					if (response.success && response.data) {
-						setIsStarred(response.data.isStarred);
-						setApp((prev) =>
-							prev
-								? {
-										...prev,
-										starCount:
-											response.data?.starCount || 0,
-									}
-								: null,
-						);
-						toast.add({
-							title: response.data.isStarred
-								? 'Starred!'
-								: 'Unstarred',
-							variant: 'success',
-						});
-					} else {
-						throw new Error(
-							response.error?.message || 'Failed to star app',
-						);
-					}
+					const data = await toggleStar();
+					toast.add({
+						title: data.isStarred ? 'Starred!' : 'Unstarred',
+						variant: 'success',
+					});
 				},
 				errorMessage: 'Failed to update star',
 			},
-			// fork: {
-			// 	action: 'fork',
-			// 	context: 'to remix this app',
-			// 	handler: async () => {
-			// 		if (!app) return;
-			// 		const response = await apiClient.forkApp(app.id);
-
-			// 		if (response.success && response.data) {
-			// 			toast.add({
-			// 				title:
-			// 					response.data.message ||
-			// 					'App remixed successfully!',
-			// 				variant: 'success',
-			// 			});
-
-			// 			// Emit app-created event for sidebar updates
-			// 			appEvents.emitAppCreated(response.data.forkedAppId, {
-			// 				title: `${app.title} (Remix)`,
-			// 				description: app.description || undefined,
-			// 				isForked: true,
-			// 			});
-
-			// 			navigate(`/chat/${response.data.forkedAppId}`);
-			// 		} else {
-			// 			throw new Error(
-			// 				response.error?.message || 'Failed to remix app',
-			// 			);
-			// 		}
-			// 	},
-			// 	errorMessage: 'Failed to remix app',
-			// },
 		}),
-		[app, toast],
+		[toast, toggleFavorite, toggleStar],
 	);
 
 	// Reusable authenticated action handler
@@ -360,8 +255,6 @@ export default function AppView() {
 		[actionConfigs, app, requireAuth, toast],
 	);
 
-	const { refetchAll } = useAppsData();
-
 	// Create action handlers using the reusable pattern
 	const handleFavorite = useMemo(
 		() => createAuthenticatedHandler('favorite'),
@@ -372,10 +265,6 @@ export default function AppView() {
 		() => createAuthenticatedHandler('star'),
 		[createAuthenticatedHandler],
 	);
-	// const handleFork = useMemo(
-	// 	() => createAuthenticatedHandler('fork'),
-	// 	[createAuthenticatedHandler],
-	// );
 
 	// Handle pending actions after OAuth redirect
 	const executePendingAction = useCallback(
@@ -445,48 +334,28 @@ export default function AppView() {
 		executePendingAction,
 	]);
 
+	const isOwner = !!app && app.userId === user?.id;
+	const appUrl =
+		ownerPreviewUrl || app?.cloudflareUrl || app?.previewUrl || '';
+	const promptText = app?.agentSummary?.query || app?.originalPrompt || '';
+
 	const handleCopyUrl = () => {
 		if (!appUrl) return;
 		copyUrl(appUrl);
-	};
-
-	const getAppUrl = () => {
-		// Prefer the tokenized owner-preview URL for a private deployed app the
-		// owner is viewing; otherwise the plain deployed/preview URL.
-		return ownerPreviewUrl || app?.cloudflareUrl || app?.previewUrl || '';
 	};
 
 	const handlePreviewDeploy = async () => {
 		if (!app || isDeploying) return;
 
 		try {
-			setIsDeploying(true);
 			setDeploymentProgress('Connecting to agent...');
-			const response = await apiClient.deployPreview(app.id);
-			if (response.success && response.data) {
-				const data = response.data;
-				if (data.previewURL || data.tunnelURL) {
-					const newUrl = getPreviewUrl(
-						data.previewURL,
-						data.tunnelURL,
-					);
-					setApp((prev) =>
-						prev
-							? {
-									...prev,
-									cloudflareUrl: newUrl,
-									previewUrl: newUrl,
-								}
-							: null,
-					);
-					setDeploymentProgress('Deployment complete!');
-				}
+			const data = await deployPreview();
+			if (data.previewURL || data.tunnelURL) {
+				setDeploymentProgress('Deployment complete!');
 			}
-			setIsDeploying(false);
 		} catch (error) {
 			console.error('Error starting deployment:', error);
 			setDeploymentProgress('Failed to start deployment');
-			setIsDeploying(false);
 			toast.add({
 				title: 'Failed to start deployment',
 				variant: 'error',
@@ -494,7 +363,7 @@ export default function AppView() {
 		}
 	};
 
-	const handleToggleVisibility = async () => {
+	const handleToggleVisibility = useCallback(async () => {
 		if (!app || !user || !isOwner) {
 			toast.add({
 				title: 'You can only change visibility of your own apps',
@@ -504,32 +373,16 @@ export default function AppView() {
 		}
 
 		try {
-			setIsUpdatingVisibility(true);
 			const newVisibility =
 				app.visibility === 'private' ? 'public' : 'private';
+			const result = await updateVisibility(newVisibility);
 
-			const response = await apiClient.updateAppVisibility(
-				app.id,
-				newVisibility,
-			);
-
-			if (response.success && response.data) {
-				// Update the app state with new visibility
-				setApp((prev) =>
-					prev ? { ...prev, visibility: newVisibility } : null,
-				);
-
-				toast.add({
-					title:
-						response.data.message ||
-						`App is now ${newVisibility === 'private' ? 'private' : 'public'}`,
-					variant: 'success',
-				});
-			} else {
-				throw new Error(
-					response.error?.message || 'Failed to update visibility',
-				);
-			}
+			toast.add({
+				title:
+					result.message ||
+					`App is now ${newVisibility === 'private' ? 'private' : 'public'}`,
+				variant: 'success',
+			});
 		} catch (error) {
 			console.error('Error updating app visibility:', error);
 			toast.add({
@@ -539,97 +392,14 @@ export default function AppView() {
 						: 'Failed to update visibility',
 				variant: 'error',
 			});
-		} finally {
-			setIsUpdatingVisibility(false);
 		}
-	};
+	}, [app, user, isOwner, updateVisibility, toast]);
 
-	const handleDeleteApp = async () => {
-		if (!app) return;
+	const headerContent = useMemo(() => {
+		if (loading || error || !app) return null;
 
-		try {
-			setIsDeleting(true);
-			const response = await apiClient.deleteApp(app.id);
-
-			if (response.success) {
-				toast.add({
-					title: 'App deleted successfully',
-					variant: 'success',
-				});
-				setIsDeleteDialogOpen(false);
-
-				// Emit global app deleted event
-				appEvents.emitAppDeleted(app.id);
-
-				// Smart navigation after deletion
-				// Use window.history to go back if possible, otherwise navigate to apps page
-				if (window.history.length > 1) {
-					// Try to go back to previous page
-					window.history.back();
-				} else {
-					// No history available, go to apps page
-					navigate('/apps');
-				}
-			}
-		} catch (error) {
-			console.error('Error deleting app:', error);
-			toast.add({
-				title: 'An unexpected error occurred while deleting the app',
-				variant: 'error',
-			});
-		} finally {
-			setIsDeleting(false);
-		}
-	};
-
-	if (loading) {
-		return (
-			<div className="h-full bg-kumo-base flex items-center justify-center">
-				<div className="text-center">
-					<Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-text-tertiary" />
-					<p className="text-sm text-text-tertiary">Loading app...</p>
-				</div>
-			</div>
-		);
-	}
-
-	if (error || !app) {
-		return (
-			<div className="h-full bg-kumo-base flex items-center justify-center p-4">
-				<LayerCard className="max-w-md w-full px-5 py-6">
-					<div className="text-center grid gap-4">
-						<div className="grid gap-1.5">
-							<h2 className="text-lg font-semibold text-text-primary">
-								App not found
-							</h2>
-							<p className="text-sm text-text-tertiary">
-								{error ||
-									"The app you're looking for doesn't exist."}
-							</p>
-						</div>
-						<div className="flex justify-center">
-							<Button
-								variant="secondary"
-								size="sm"
-								icon={<ChevronLeft className="h-4 w-4" />}
-								onClick={() => navigate('/apps')}
-							>
-								Back to apps
-							</Button>
-						</div>
-					</div>
-				</LayerCard>
-			</div>
-		);
-	}
-
-	const isOwner = app.userId === user?.id;
-	const appUrl = getAppUrl();
-	const promptText = app?.agentSummary?.query || app?.originalPrompt || '';
-
-	return (
-		<div className="h-full bg-kumo-base flex flex-col min-h-0">
-			<header className="h-12 shrink-0 flex items-center gap-3 px-4 border-b border-border-primary">
+		return {
+			leading: (
 				<div className="min-w-0 flex-1 flex items-center gap-2">
 					<h1
 						className="text-sm font-semibold truncate min-w-0"
@@ -651,8 +421,9 @@ export default function AppView() {
 						</span>
 					</Badge>
 				</div>
-
-				<div className="flex items-center gap-1.5 shrink-0">
+			),
+			trailing: (
+				<>
 					{isOwner && (
 						<Button
 							variant="secondary"
@@ -663,12 +434,12 @@ export default function AppView() {
 							icon={
 								app.visibility === 'private' ? (
 									<LockOpen
-										className="h-3.5 w-3.5"
+										className="size-3.5"
 										weight="duotone"
 									/>
 								) : (
 									<Lock
-										className="h-3.5 w-3.5"
+										className="size-3.5"
 										weight="duotone"
 									/>
 								)
@@ -680,63 +451,13 @@ export default function AppView() {
 						</Button>
 					)}
 
-					<Button
-						variant="secondary"
-						size="sm"
-						icon={
-							<BookmarkSimple
-								className="h-3.5 w-3.5"
-								weight={isFavorited ? 'fill' : 'duotone'}
-							/>
-						}
-						onClick={async () => {
-							await handleFavorite();
-							refetchAll();
-						}}
-					>
-						{isFavorited ? 'Bookmarked' : 'Bookmark'}
-					</Button>
-
-					<Button
-						variant="secondary"
-						size="sm"
-						icon={
-							<Star
-								className="h-3.5 w-3.5"
-								weight={isStarred ? 'fill' : 'duotone'}
-							/>
-						}
-						onClick={handleStar}
-					>
-						{isStarred ? 'Starred' : 'Star'}
-						{(app.starCount || 0) > 0 && (
-							<span className="text-text-tertiary tabular-nums">
-								{app.starCount}
-							</span>
-						)}
-					</Button>
-
-					<Button
-						variant="secondary"
-						size="sm"
-						icon={
-							<GitBranch
-								className="h-3.5 w-3.5"
-								weight="duotone"
-							/>
-						}
-						onClick={() => setIsGitCloneModalOpen(true)}
-					>
-						Code
-					</Button>
-
 					{app.githubRepositoryUrl && (
 						<Button
 							variant="secondary"
 							size="sm"
 							icon={
 								<GithubLogo
-									className="h-3.5 w-3.5"
+									className="size-3.5"
 									weight="duotone"
 								/>
 							}
@@ -768,13 +489,13 @@ export default function AppView() {
 								size="sm"
 								icon={
 									<Code
-										className="h-3.5 w-3.5"
+										className="size-3.5"
 										weight="duotone"
 									/>
 								}
 								onClick={() => navigate(`/chat/${app.id}`)}
 							>
-								Continue editing
+								Make edits
 							</Button>
 
 							<DropdownMenu>
@@ -793,12 +514,7 @@ export default function AppView() {
 								/>
 								<DropdownMenu.Content align="end">
 									<DropdownMenu.Item
-										icon={
-											<Trash
-												className="h-4 w-4"
-												weight="duotone"
-											/>
-										}
+										icon={TrashIcon}
 										variant="danger"
 										onClick={() =>
 											setIsDeleteDialogOpen(true)
@@ -810,10 +526,83 @@ export default function AppView() {
 							</DropdownMenu>
 						</>
 					)}
-				</div>
-			</header>
+				</>
+			),
+		};
+	}, [
+		loading,
+		error,
+		app,
+		isOwner,
+		isUpdatingVisibility,
+		handleToggleVisibility,
+		navigate,
+	]);
 
-			<div className="shrink-0 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between px-4 py-2 border-b border-border-primary">
+	usePageHeader(headerContent);
+
+	const handleDeleteApp = async () => {
+		if (!app) return;
+
+		try {
+			await deleteApp(app.id);
+			toast.add({
+				title: 'App deleted successfully',
+				variant: 'success',
+			});
+			setIsDeleteDialogOpen(false);
+
+			if (window.history.length > 1) {
+				window.history.back();
+			} else {
+				navigate('/apps');
+			}
+		} catch (error) {
+			console.error('Error deleting app:', error);
+			toast.add({
+				title: 'An unexpected error occurred while deleting the app',
+				variant: 'error',
+			});
+		}
+	};
+
+	if (loading) {
+		return <AppLoadingSkeleton />;
+	}
+
+	if (error || !app) {
+		return (
+			<div className="size-full flex items-center justify-center p-4">
+				<LayerCard className="max-w-md w-full px-5 py-6">
+					<div className="text-center grid gap-4">
+						<div className="grid gap-1.5">
+							<h2 className="text-lg font-semibold text-text-primary">
+								App not found
+							</h2>
+							<p className="text-sm text-kumo-subtle">
+								{error ||
+									"The app you're looking for doesn't exist."}
+							</p>
+						</div>
+						<div className="flex justify-center">
+							<Button
+								variant="secondary"
+								size="sm"
+								icon={<ChevronLeft className="h-4 w-4" />}
+								onClick={() => navigate('/apps')}
+							>
+								Back to apps
+							</Button>
+						</div>
+					</div>
+				</LayerCard>
+			</div>
+		);
+	}
+
+	return (
+		<div className="size-full flex flex-col min-h-0">
+			<div className="shrink-0 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between px-4 py-2 border-b">
 				<Tabs
 					value={activeTab}
 					onValueChange={setActiveTab}
@@ -823,7 +612,7 @@ export default function AppView() {
 							value: 'preview',
 							label: (
 								<span className="inline-flex items-center gap-1.5">
-									<Eye className="h-3.5 w-3.5" />
+									<Eye className="size-3.5" />
 									Preview
 								</span>
 							),
@@ -832,10 +621,10 @@ export default function AppView() {
 							value: 'code',
 							label: (
 								<span className="inline-flex items-center gap-1.5">
-									<Code2 className="h-3.5 w-3.5" />
+									<Code2 className="size-3.5" />
 									Code
 									{files.length > 0 && (
-										<span className="text-text-tertiary tabular-nums">
+										<span className="text-kumo-subtle tabular-nums">
 											{files.length}
 										</span>
 									)}
@@ -846,7 +635,7 @@ export default function AppView() {
 							value: 'prompt',
 							label: (
 								<span className="inline-flex items-center gap-1.5">
-									<MessageSquare className="h-3.5 w-3.5" />
+									<MessageSquare className="size-3.5" />
 									Prompt
 								</span>
 							),
@@ -854,31 +643,66 @@ export default function AppView() {
 					]}
 				/>
 
-				<div className="shrink-0 max-w-full">
-					{app.visibility === 'public' ? (
-						<GitCloneCommand
-							cloneUrl={`${window.location.protocol}//${window.location.host}/apps/${app.id}.git`}
-							appTitle={app.title}
-						/>
-					) : isOwner ? (
-						<GitClonePrivatePrompt
-							onOpenModal={() => setIsGitCloneModalOpen(true)}
-						/>
-					) : null}
+				<div className="shrink-0 flex items-center gap-2 max-w-full">
+					<Button
+						variant="secondary"
+						size="sm"
+						icon={
+							<BookmarkSimple
+								className="size-3.5"
+								weight={isFavorited ? 'fill' : 'duotone'}
+							/>
+						}
+						onClick={() => {
+							void handleFavorite();
+						}}
+					>
+						{isFavorited ? 'Bookmarked' : 'Bookmark'}
+					</Button>
+
+					<Button
+						variant="secondary"
+						size="sm"
+						icon={
+							<Star
+								className="size-3.5"
+								weight={isStarred ? 'fill' : 'duotone'}
+							/>
+						}
+						onClick={handleStar}
+					>
+						{isStarred ? 'Starred' : 'Star'}
+						{(app.starCount || 0) > 0 && (
+							<span className="text-kumo-subtle tabular-nums">
+								{app.starCount}
+							</span>
+						)}
+					</Button>
+
+					<Button
+						variant="secondary"
+						size="sm"
+						icon={
+							<GitBranch className="size-3.5" weight="duotone" />
+						}
+						onClick={() => setIsGitCloneModalOpen(true)}
+					>
+						Clone
+					</Button>
 				</div>
 			</div>
 
 			{/* Full-bleed workspace */}
 			<div className="flex-1 min-h-0 flex flex-col">
 				{activeTab === 'preview' && (
-					<div className="flex-1 min-h-0 flex flex-col bg-kumo-base overflow-hidden">
+					<div className="flex-1 min-h-0 flex flex-col overflow-hidden">
 						<div className="shrink-0 flex items-center gap-2 px-3 py-2 border-b border-kumo-line bg-kumo-elevated/40">
 							<span className="text-sm font-medium text-text-primary shrink-0">
 								Live preview
 							</span>
 							{appUrl && (
 								<>
-									<code className="min-w-0 flex-1 truncate font-mono text-[0.9em] text-text-tertiary px-2">
+									<code className="min-w-0 flex-1 truncate font-mono text-[0.9em] text-kumo-subtle px-2">
 										{appUrl}
 									</code>
 									<div className="flex items-center gap-0.5 shrink-0">
@@ -899,9 +723,9 @@ export default function AppView() {
 											onClick={handleCopyUrl}
 											icon={
 												urlCopied ? (
-													<Check className="h-3.5 w-3.5" />
+													<Check className="size-3.5" />
 												) : (
-													<Copy className="h-3.5 w-3.5" />
+													<Copy className="size-3.5" />
 												)
 											}
 										/>
@@ -915,7 +739,7 @@ export default function AppView() {
 												window.open(appUrl, '_blank')
 											}
 											icon={
-												<ExternalLink className="h-3.5 w-3.5" />
+												<ExternalLink className="size-3.5" />
 											}
 										/>
 									</div>
@@ -974,14 +798,14 @@ export default function AppView() {
 				)}
 
 				{activeTab === 'code' && (
-					<div className="flex-1 min-h-0 flex flex-col bg-kumo-base overflow-hidden">
+					<div className="flex-1 min-h-0 flex flex-col overflow-hidden">
 						<div className="shrink-0 flex items-center justify-between gap-2 px-3 py-2 border-b border-kumo-line bg-kumo-elevated/40">
 							<div className="min-w-0 flex items-center gap-2">
 								<span className="text-sm font-medium text-text-primary shrink-0">
 									Project files
 								</span>
 								{/*{app?.agentSummary && (
-									<span className="text-xs text-text-tertiary">
+									<span className="text-xs text-kumo-subtle">
 										{files.length} files
 									</span>
 								)}*/}
@@ -1018,7 +842,7 @@ export default function AppView() {
 									{activeFile ? (
 										<>
 											{activeFile.explanation && (
-												<div className="shrink-0 px-3 py-1.5 border-b border-kumo-line text-xs text-text-tertiary truncate">
+												<div className="shrink-0 px-3 py-1.5 border-b border-kumo-line text-xs text-kumo-subtle truncate">
 													{activeFile.explanation}
 												</div>
 											)}
@@ -1045,7 +869,7 @@ export default function AppView() {
 										</>
 									) : (
 										<div className="flex-1 flex items-center justify-center">
-											<p className="text-sm text-text-tertiary">
+											<p className="text-sm text-kumo-subtle">
 												Select a file to view
 											</p>
 										</div>
@@ -1054,7 +878,7 @@ export default function AppView() {
 							</div>
 						) : (
 							<div className="flex-1 flex items-center justify-center">
-								<p className="text-sm text-text-tertiary">
+								<p className="text-sm text-kumo-subtle">
 									{app?.agentSummary === null
 										? 'Loading code...'
 										: 'No code has been generated yet.'}
@@ -1065,7 +889,7 @@ export default function AppView() {
 				)}
 
 				{activeTab === 'prompt' && (
-					<div className="flex-1 min-h-0 flex flex-col bg-kumo-base overflow-hidden relative">
+					<div className="flex-1 min-h-0 flex flex-col overflow-hidden relative">
 						<div className="flex-1 min-h-0 overflow-y-auto flex items-center justify-center p-6 sm:p-10">
 							{promptText ? (
 								<div className="w-full max-w-2xl grid gap-5">
@@ -1074,14 +898,14 @@ export default function AppView() {
 											<div className="flex items-center gap-2">
 												<span className="h-lh flex items-center shrink-0">
 													<span className="rounded-md bg-brand/10 p-1.5">
-														<MessageSquare className="size-3.5 text-brand" />
+														<MessageSquare className="size-3.5 text-kumo-brand" />
 													</span>
 												</span>
 												<h2 className="text-base font-semibold text-text-primary">
 													Original prompt
 												</h2>
 											</div>
-											<p className="text-sm text-text-tertiary pl-9">
+											<p className="text-sm text-kumo-subtle pl-9">
 												The idea that started this app
 											</p>
 										</div>
@@ -1110,7 +934,7 @@ export default function AppView() {
 							) : (
 								<div className="grid place-items-center gap-3 text-center">
 									<span className="rounded-full bg-kumo-elevated ring ring-kumo-line p-3">
-										<MessageSquare className="size-5 text-text-tertiary" />
+										<MessageSquare className="size-5 text-kumo-subtle" />
 									</span>
 									<div className="grid gap-1">
 										<p className="text-sm font-medium text-text-primary">
@@ -1119,7 +943,7 @@ export default function AppView() {
 												: 'No prompt available'}
 										</p>
 										{app?.agentSummary !== null && (
-											<p className="text-sm text-text-tertiary">
+											<p className="text-sm text-kumo-subtle">
 												This app has no saved original
 												prompt
 											</p>

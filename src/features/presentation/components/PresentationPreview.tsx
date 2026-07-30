@@ -1,6 +1,6 @@
 import { Presentation } from 'lucide-react';
 import { PreviewIframe } from '@/routes/chat/components/preview-iframe';
-import clsx from 'clsx';
+import { cn } from '@cloudflare/kumo';
 import { useState, useRef, useMemo } from 'react';
 import { HEADER_STYLES } from '@/routes/chat/components/view-header-styles';
 import {
@@ -74,10 +74,10 @@ export function PresentationPreview({
 			{/* Slide Explorer Sidebar */}
 			<div
 				ref={sidebarScrollRef}
-				className="shrink-0 w-[260px] lg:w-[280px] xl:w-[300px] bg-kumo-base border-r border-border-primary h-full overflow-y-auto"
+				className="shrink-0 w-[260px] lg:w-[280px] xl:w-[300px] bg-kumo-base border-r h-full overflow-y-auto"
 			>
 				<div className={`${HEADER_STYLES.padding} ${HEADER_STYLES.container} flex items-center gap-2 ${HEADER_STYLES.textBase} font-semibold`}>
-					<Presentation className="size-4 text-brand" />
+					<Presentation className="size-4 text-kumo-brand" />
 					<span>Slides</span>
 					<span className="ml-auto text-xs font-mono text-text-50/50">
 						{slideFiles.length}
@@ -88,7 +88,7 @@ export function PresentationPreview({
 						<button
 							key={slide.index}
 							onClick={() => navigateToSlide(slide.index)}
-							className={clsx(
+							className={cn(
 								'group relative rounded-lg overflow-hidden transition-all duration-200 border bg-kumo-base/80',
 								slide.index === currentSlideIndex
 									? 'border-brand shadow-md'
@@ -98,11 +98,11 @@ export function PresentationPreview({
 						>
 							{/* Slide number badge */}
 							<div
-								className={clsx(
+								className={cn(
 									'absolute top-2 left-2 z-10 text-xs font-medium px-2 py-0.5 rounded backdrop-blur-sm',
 									slide.index === currentSlideIndex
-										? 'bg-brand text-text-on-brand'
-										: 'bg-bg-4/95 text-text-50/70 border border-border-primary',
+										? 'bg-brand text-white'
+										: 'bg-bg-4/95 text-text-50/70 border',
 								)}
 							>
 								{slide.index + 1}
@@ -150,7 +150,7 @@ export function PresentationPreview({
 									<div className="absolute inset-0 bg-brand/20 backdrop-blur-sm flex items-center justify-center z-20">
 										<div className="flex flex-col items-center gap-2">
 											<div className="size-4 border-2 border-text-on-brand/30 border-t-text-on-brand rounded-full animate-spin" />
-											<span className="text-xs font-medium text-text-on-brand">
+											<span className="text-xs font-medium text-white">
 												Updating...
 											</span>
 										</div>
@@ -165,7 +165,7 @@ export function PresentationPreview({
 							</div>
 
 							{/* Slide filename */}
-							<div className="px-3 py-1.5 bg-kumo-elevated border-t border-border-primary">
+							<div className="px-3 py-1.5 bg-kumo-elevated border-t">
 								<p className="text-xs font-mono text-text-50/60 truncate">
 									{slide.fileName}
 								</p>
@@ -183,7 +183,7 @@ export function PresentationPreview({
 						<div className="flex flex-col border border-text/10 rounded-lg overflow-hidden">
 							<div className="px-3 py-2 bg-kumo-elevated border-b border-text/10">
 								<div className="flex items-center gap-2">
-									<Presentation className="size-4 text-brand" />
+									<Presentation className="size-4 text-kumo-brand" />
 									<span className="text-sm font-medium text-text-primary">
 										Current Slide
 									</span>
@@ -245,7 +245,7 @@ export function PresentationPreview({
 						<div className="flex flex-col border border-text/10 rounded-lg overflow-hidden">
 							<div className="px-3 py-2 bg-kumo-elevated border-b border-text/10">
 								<div className="flex items-center gap-2">
-									<Presentation className="size-4 text-brand" />
+									<Presentation className="size-4 text-kumo-brand" />
 									<span className="text-sm font-medium text-text-primary">
 										Current
 									</span>
@@ -288,7 +288,7 @@ export function PresentationPreview({
 				) : (
 					<div className="w-full h-full flex items-center justify-center bg-kumo-elevated p-6">
 						<div className="w-full h-full max-w-[95%] max-h-[95%] flex items-center justify-center">
-							<div className="w-full aspect-video rounded-xl overflow-hidden shadow-2xl border border-border-primary/30 bg-bg-4">
+							<div className="w-full aspect-video rounded-xl overflow-hidden shadow-2xl border/30 bg-bg-4">
 								<PreviewIframe
 									ref={iframeRef}
 									src={mainPreviewUrl}

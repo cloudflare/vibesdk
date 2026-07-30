@@ -16,7 +16,7 @@ export function getModelDisplayName(modelValue?: string): string {
  * Get provider badge info (name and color classes) from model value
  */
 export function getProviderInfo(modelValue?: string): ProviderInfo {
-	if (!modelValue) return { name: 'Default', color: 'bg-kumo-base text-text-tertiary' };
+	if (!modelValue) return { name: 'Default', color: 'bg-kumo-base text-kumo-subtle' };
 
 	// Check specific prefixes first to avoid incorrect matches
 	if (modelValue.includes('cerebras/')) {

@@ -1,297 +1,362 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
+import {
+	useInfiniteQuery,
+	useQueryClient,
+	type InfiniteData,
+} from '@tanstack/react-query';
 import { apiClient, ApiError } from '@/lib/api-client';
-import type { EnhancedAppData, AppWithUserAndStats, PaginationInfo, TimePeriod, AppSortOption } from '@/api-types';
+import type {
+	EnhancedAppData,
+	AppWithUserAndStats,
+	PaginationInfo,
+	TimePeriod,
+	AppSortOption,
+} from '@/api-types';
 import { appEvents } from '@/lib/app-events';
+import {
+	queryKeys,
+	type PaginatedAppsListFilters,
+} from '@/lib/query-keys';
 
 export type AppType = 'user' | 'public';
 export type AppListData = EnhancedAppData | AppWithUserAndStats;
 
 interface UsePaginatedAppsOptions {
-  type: AppType;
-  defaultSort?: AppSortOption;
-  defaultPeriod?: TimePeriod;
-  defaultFramework?: string;
-  defaultVisibility?: string;
-  includeVisibility?: boolean;
-  limit?: number;
-  autoFetch?: boolean;
+	type: AppType;
+	defaultSort?: AppSortOption;
+	defaultPeriod?: TimePeriod;
+	defaultFramework?: string;
+	defaultVisibility?: string;
+	includeVisibility?: boolean;
+	limit?: number;
+	autoFetch?: boolean;
 }
 
 interface FilterState {
-  searchQuery: string;
-  filterFramework: string;
-  filterVisibility: string;
-  sortBy: AppSortOption;
-  period: TimePeriod;
-}
-
-interface PaginationState {
-  currentPage: number;
-  totalCount: number;
-  hasMore: boolean;
+	searchQuery: string;
+	filterFramework: string;
+	filterVisibility: string;
+	sortBy: AppSortOption;
+	period: TimePeriod;
 }
 
 interface UsePaginatedAppsResult extends FilterState {
-  apps: AppListData[];
-  loading: boolean;
-  loadingMore: boolean;
-  error: string | null;
-  pagination: PaginationInfo;
-  hasMore: boolean;
-  totalCount: number;
-  
-  setSearchQuery: (query: string) => void;
-  handleSearchSubmit: (e: React.FormEvent) => void;
-  handleSortChange: (sort: string) => void;
-  handlePeriodChange: (period: TimePeriod) => void;
-  handleFrameworkChange: (framework: string) => void;
-  handleVisibilityChange: (visibility: string) => void;
-  
-  refetch: () => Promise<void>;
-  loadMore: () => Promise<void>;
-  removeApp: (appId: string) => void;
+	apps: AppListData[];
+	loading: boolean;
+	loadingMore: boolean;
+	error: string | null;
+	pagination: PaginationInfo;
+	hasMore: boolean;
+	totalCount: number;
+
+	setSearchQuery: (query: string) => void;
+	handleSearchSubmit: (e: React.FormEvent) => void;
+	handleSortChange: (sort: string) => void;
+	handlePeriodChange: (period: TimePeriod) => void;
+	handleFrameworkChange: (framework: string) => void;
+	handleVisibilityChange: (visibility: string) => void;
+
+	refetch: () => Promise<void>;
+	loadMore: () => Promise<void>;
+	removeApp: (appId: string) => void;
 }
 
-export function usePaginatedApps(options: UsePaginatedAppsOptions): UsePaginatedAppsResult {
-  const hasInitialized = useRef(false);
-  const currentPageRef = useRef(1);
-  const isLoadingMoreRef = useRef(false);
-  
-  const [filterState, setFilterState] = useState<FilterState>({
-    searchQuery: '',
-    filterFramework: options.defaultFramework || 'all',
-    filterVisibility: options.defaultVisibility || 'all',
-    sortBy: options.defaultSort || 'recent',
-    period: options.defaultPeriod || 'all'
-  });
+interface PaginatedAppsPage {
+	apps: AppListData[];
+	pagination: PaginationInfo;
+}
 
-  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
-  const [apps, setApps] = useState<AppListData[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [loadingMore, setLoadingMore] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  
-  const [paginationState, setPaginationState] = useState<PaginationState>({
-    currentPage: 1,
-    totalCount: 0,
-    hasMore: false
-  });
+const LIST_GC_TIME = 2 * 60_000;
+const LIST_STALE_TIME = 30_000;
 
-  const limit = options.limit || 20;
+function getErrorMessage(err: unknown, fallback: string): string {
+	if (err instanceof ApiError) {
+		return `${err.message} (${err.status})`;
+	}
+	if (err instanceof Error) {
+		return err.message;
+	}
+	return fallback;
+}
 
-  useEffect(() => {
-    const timeoutId = setTimeout(() => {
-      setDebouncedSearchQuery(filterState.searchQuery);
-    }, 500);
-    return () => clearTimeout(timeoutId);
-  }, [filterState.searchQuery]);
+async function fetchPaginatedAppsPage(
+	type: AppType,
+	includeVisibility: boolean | undefined,
+	filters: {
+		sortBy: AppSortOption;
+		period: TimePeriod;
+		filterFramework: string;
+		filterVisibility: string;
+		searchQuery: string;
+		limit: number;
+	},
+	page: number,
+): Promise<PaginatedAppsPage> {
+	const params = {
+		page,
+		limit: filters.limit,
+		sort: filters.sortBy,
+		period: filters.period,
+		framework:
+			filters.filterFramework === 'all'
+				? undefined
+				: filters.filterFramework,
+		search: filters.searchQuery || undefined,
+		visibility:
+			includeVisibility && filters.filterVisibility !== 'all'
+				? filters.filterVisibility
+				: undefined,
+	};
 
-  const fetchAppsInternal = useCallback(async (
-    append: boolean,
-    targetPage: number | undefined,
-    filters: {
-      sortBy: AppSortOption;
-      period: TimePeriod;
-      filterFramework: string;
-      filterVisibility: string;
-      searchQuery: string;
-    }
-  ) => {
-    try {
-      if (!append) {
-        setLoading(true);
-        setError(null);
-      } else {
-        setLoadingMore(true);
-      }
+	const cleanParams = Object.fromEntries(
+		Object.entries(params).filter(([, value]) => value !== undefined),
+	);
 
-      const page = targetPage ?? (append ? currentPageRef.current + 1 : 1);
+	const response =
+		type === 'user'
+			? await apiClient.getUserAppsWithPagination(cleanParams)
+			: await apiClient.getPublicApps(cleanParams);
 
-      const params = {
-        page,
-        limit,
-        sort: filters.sortBy,
-        period: filters.period,
-        framework: filters.filterFramework === 'all' ? undefined : filters.filterFramework,
-        search: filters.searchQuery || undefined,
-        visibility: (options.includeVisibility && filters.filterVisibility !== 'all') ? filters.filterVisibility : undefined,
-      };
+	if (!response.success || !response.data) {
+		throw new Error(response.error?.message || 'Failed to fetch apps');
+	}
 
-      const cleanParams = Object.fromEntries(
-        Object.entries(params).filter(([, value]) => value !== undefined)
-      );
+	const responseData = response.data as {
+		apps: AppListData[];
+		pagination: PaginationInfo;
+	};
 
-      const response = options.type === 'user' 
-        ? await apiClient.getUserAppsWithPagination(cleanParams)
-        : await apiClient.getPublicApps(cleanParams);
+	return {
+		apps: responseData.apps,
+		pagination: responseData.pagination,
+	};
+}
 
-      if (response.success && response.data) {
-        const responseData = response.data as { apps: AppListData[]; pagination: PaginationInfo };
-        const newApps = responseData.apps;
-        const newPagination = responseData.pagination;
+function removeAppFromInfiniteCache(
+	data: InfiniteData<PaginatedAppsPage> | undefined,
+	appId: string,
+): InfiniteData<PaginatedAppsPage> | undefined {
+	if (!data) return data;
 
-        if (append) {
-          setApps(prev => [...prev, ...newApps]);
-        } else {
-          setApps(newApps);
-        }
+	let removed = false;
+	const pages = data.pages.map((page) => {
+		const nextApps = page.apps.filter((app) => {
+			if (app.id === appId) {
+				removed = true;
+				return false;
+			}
+			return true;
+		});
+		return nextApps.length === page.apps.length
+			? page
+			: { ...page, apps: nextApps };
+	});
 
-        currentPageRef.current = page;
-        setPaginationState({
-          currentPage: page,
-          totalCount: newPagination.total,
-          hasMore: newPagination.hasMore
-        });
-      } else {
-        throw new Error(response.error?.message || 'Failed to fetch apps');
-      }
-    } catch (err) {
-      console.error('Error fetching apps:', err);
-      const errorMessage = err instanceof ApiError 
-        ? `${err.message} (${err.status})`
-        : err instanceof Error 
-          ? err.message 
-          : 'Failed to fetch apps';
-      setError(errorMessage);
-    } finally {
-      setLoading(false);
-      setLoadingMore(false);
-    }
-  }, [options.type, options.includeVisibility, limit]);
+	if (!removed) return data;
 
-  // Wrapper that uses current state
-  const fetchApps = useCallback(async (append = false, targetPage?: number) => {
-    return fetchAppsInternal(append, targetPage, {
-      ...filterState,
-      searchQuery: debouncedSearchQuery
-    });
-  }, [fetchAppsInternal, filterState, debouncedSearchQuery]);
+	return {
+		...data,
+		pages: pages.map((page) => ({
+			...page,
+			pagination: {
+				...page.pagination,
+				total: Math.max(0, page.pagination.total - 1),
+			},
+		})),
+	};
+}
 
-  const loadMore = useCallback(async () => {
-    // Use the current state directly to avoid stale closure
-    if (paginationState.hasMore && !loadingMore && !loading) {
-      isLoadingMoreRef.current = true;
-      await fetchApps(true);
-      isLoadingMoreRef.current = false;
-    }
-  }, [paginationState.hasMore, loadingMore, loading, fetchApps]);
+export function usePaginatedApps(
+	options: UsePaginatedAppsOptions,
+): UsePaginatedAppsResult {
+	const queryClient = useQueryClient();
+	const limit = options.limit || 20;
+	const autoFetch = options.autoFetch !== false;
 
-  const refetch = useCallback(async () => {
-    await fetchApps(false, 1);
-  }, [fetchApps]);
+	const [filterState, setFilterState] = useState<FilterState>({
+		searchQuery: '',
+		filterFramework: options.defaultFramework || 'all',
+		filterVisibility: options.defaultVisibility || 'all',
+		sortBy: options.defaultSort || 'recent',
+		period: options.defaultPeriod || 'all',
+	});
 
-  const removeApp = useCallback((appId: string) => {
-    setApps(prev => prev.filter(app => app.id !== appId));
-    setPaginationState(prev => ({ 
-      ...prev, 
-      totalCount: Math.max(0, prev.totalCount - 1) 
-    }));
-  }, []);
+	const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
 
-  const setSearchQuery = useCallback((query: string) => {
-    setFilterState(prev => ({ ...prev, searchQuery: query }));
-  }, []);
+	useEffect(() => {
+		const timeoutId = setTimeout(() => {
+			setDebouncedSearchQuery(filterState.searchQuery);
+		}, 500);
+		return () => clearTimeout(timeoutId);
+	}, [filterState.searchQuery]);
 
-  const handleSearchSubmit = useCallback((e: React.FormEvent) => {
-    e.preventDefault();
-    // Force immediate search by setting debounced value and triggering fetch
-    setDebouncedSearchQuery(filterState.searchQuery);
-  }, [filterState.searchQuery]);
+	const listFilters: PaginatedAppsListFilters = useMemo(
+		() => ({
+			sort: filterState.sortBy,
+			period: filterState.period,
+			framework: filterState.filterFramework,
+			visibility: options.includeVisibility
+				? filterState.filterVisibility
+				: 'all',
+			search: debouncedSearchQuery,
+			limit,
+		}),
+		[
+			filterState.sortBy,
+			filterState.period,
+			filterState.filterFramework,
+			filterState.filterVisibility,
+			options.includeVisibility,
+			debouncedSearchQuery,
+			limit,
+		],
+	);
 
-  const handleSortChange = useCallback((newSort: string) => {
-    const sort = newSort as AppSortOption;
-    setFilterState(prev => ({ ...prev, sortBy: sort }));
-  }, []);
+	const queryKey =
+		options.type === 'user'
+			? queryKeys.apps.user(listFilters)
+			: queryKeys.apps.public(listFilters);
 
-  const handlePeriodChange = useCallback((newPeriod: TimePeriod) => {
-    setFilterState(prev => ({ ...prev, period: newPeriod }));
-  }, []);
+	const query = useInfiniteQuery({
+		queryKey,
+		queryFn: ({ pageParam }) =>
+			fetchPaginatedAppsPage(
+				options.type,
+				options.includeVisibility,
+				{
+					sortBy: filterState.sortBy,
+					period: filterState.period,
+					filterFramework: filterState.filterFramework,
+					filterVisibility: filterState.filterVisibility,
+					searchQuery: debouncedSearchQuery,
+					limit,
+				},
+				pageParam,
+			),
+		initialPageParam: 1,
+		getNextPageParam: (lastPage, _pages, lastPageParam) =>
+			lastPage.pagination.hasMore ? lastPageParam + 1 : undefined,
+		enabled: autoFetch,
+		staleTime: LIST_STALE_TIME,
+		gcTime: LIST_GC_TIME,
+	});
 
-  const handleFrameworkChange = useCallback((framework: string) => {
-    setFilterState(prev => ({ ...prev, filterFramework: framework }));
-  }, []);
+	const apps = useMemo(
+		() => query.data?.pages.flatMap((page) => page.apps) ?? [],
+		[query.data],
+	);
 
-  const handleVisibilityChange = useCallback((visibility: string) => {
-    setFilterState(prev => ({ ...prev, filterVisibility: visibility }));
-  }, []);
+	const lastPage = query.data?.pages[query.data.pages.length - 1];
+	const totalCount = lastPage?.pagination.total ?? 0;
+	const hasMore = query.hasNextPage ?? false;
+	const currentPage = query.data?.pages.length ?? 0;
 
-  // Single consolidated effect for fetching apps
-  useEffect(() => {
-    // Skip if autoFetch is disabled and not initialized
-    if (options.autoFetch === false && !hasInitialized.current) {
-      return;
-    }
+	const pagination: PaginationInfo = {
+		limit,
+		offset: Math.max(0, (currentPage - 1) * limit),
+		total: totalCount,
+		hasMore,
+	};
 
-    // Skip if we're currently loading more (pagination)
-    if (isLoadingMoreRef.current) {
-      return;
-    }
+	const removeApp = useCallback(
+		(appId: string) => {
+			const rootKey =
+				options.type === 'user'
+					? queryKeys.apps.userAll()
+					: queryKeys.apps.publicAll();
 
-    // Reset pagination when filters change
-    currentPageRef.current = 1;
+			queryClient.setQueriesData<InfiniteData<PaginatedAppsPage>>(
+				{ queryKey: rootKey },
+				(prev) => removeAppFromInfiniteCache(prev, appId),
+			);
+		},
+		[options.type, queryClient],
+	);
 
-    // Fetch apps with current filters
-    const performFetch = async () => {
-      await fetchAppsInternal(false, 1, {
-        sortBy: filterState.sortBy,
-        period: filterState.period,
-        filterFramework: filterState.filterFramework,
-        filterVisibility: filterState.filterVisibility,
-        searchQuery: debouncedSearchQuery
-      });
-    };
+	useEffect(() => {
+		const unsubscribe = appEvents.on('app-deleted', (event) => {
+			removeApp(event.appId);
+		});
+		return unsubscribe;
+	}, [removeApp]);
 
-    performFetch();
-    hasInitialized.current = true;
-  }, [
-    // Only re-fetch when actual filter values change
-    filterState.sortBy,
-    filterState.period,
-    filterState.filterFramework,
-    filterState.filterVisibility,
-    debouncedSearchQuery,
-    fetchAppsInternal,
-    options.autoFetch
-  ]);
+	const setSearchQuery = useCallback((queryValue: string) => {
+		setFilterState((prev) => ({ ...prev, searchQuery: queryValue }));
+	}, []);
 
-  useEffect(() => {
-    const unsubscribe = appEvents.on('app-deleted', (event) => {
-      removeApp(event.appId);
-    });
-    return unsubscribe;
-  }, [removeApp]);
+	const handleSearchSubmit = useCallback(
+		(e: React.FormEvent) => {
+			e.preventDefault();
+			setDebouncedSearchQuery(filterState.searchQuery);
+		},
+		[filterState.searchQuery],
+	);
 
-  const pagination: PaginationInfo = {
-    limit,
-    offset: (paginationState.currentPage - 1) * limit,
-    total: paginationState.totalCount,
-    hasMore: paginationState.hasMore
-  };
+	const handleSortChange = useCallback((newSort: string) => {
+		setFilterState((prev) => ({
+			...prev,
+			sortBy: newSort as AppSortOption,
+		}));
+	}, []);
 
-  return {
-    searchQuery: filterState.searchQuery,
-    filterFramework: filterState.filterFramework,
-    filterVisibility: options.includeVisibility ? filterState.filterVisibility : 'all',
-    sortBy: filterState.sortBy,
-    period: filterState.period,
-    
-    apps,
-    loading,
-    loadingMore,
-    error,
-    pagination,
-    hasMore: paginationState.hasMore,
-    totalCount: paginationState.totalCount,
-    
-    setSearchQuery,
-    handleSearchSubmit,
-    handleSortChange,
-    handlePeriodChange,
-    handleFrameworkChange,
-    handleVisibilityChange,
-    
-    refetch,
-    loadMore,
-    removeApp,
-  };
+	const handlePeriodChange = useCallback((newPeriod: TimePeriod) => {
+		setFilterState((prev) => ({ ...prev, period: newPeriod }));
+	}, []);
+
+	const handleFrameworkChange = useCallback((framework: string) => {
+		setFilterState((prev) => ({ ...prev, filterFramework: framework }));
+	}, []);
+
+	const handleVisibilityChange = useCallback((visibility: string) => {
+		setFilterState((prev) => ({ ...prev, filterVisibility: visibility }));
+	}, []);
+
+	const {
+		refetch: queryRefetch,
+		fetchNextPage,
+		hasNextPage,
+		isFetchingNextPage,
+		isLoading,
+	} = query;
+
+	const refetch = useCallback(async () => {
+		await queryRefetch();
+	}, [queryRefetch]);
+
+	const loadMore = useCallback(async () => {
+		if (hasNextPage && !isFetchingNextPage && !isLoading) {
+			await fetchNextPage();
+		}
+	}, [hasNextPage, isFetchingNextPage, isLoading, fetchNextPage]);
+
+	return {
+		searchQuery: filterState.searchQuery,
+		filterFramework: filterState.filterFramework,
+		filterVisibility: options.includeVisibility
+			? filterState.filterVisibility
+			: 'all',
+		sortBy: filterState.sortBy,
+		period: filterState.period,
+
+		apps,
+		loading: query.isLoading,
+		loadingMore: query.isFetchingNextPage,
+		error: query.error
+			? getErrorMessage(query.error, 'Failed to fetch apps')
+			: null,
+		pagination,
+		hasMore,
+		totalCount,
+
+		setSearchQuery,
+		handleSearchSubmit,
+		handleSortChange,
+		handlePeriodChange,
+		handleFrameworkChange,
+		handleVisibilityChange,
+
+		refetch,
+		loadMore,
+		removeApp,
+	};
 }

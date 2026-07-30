@@ -34,7 +34,9 @@ function resolveTheme(theme: Theme, systemTheme: ResolvedTheme): ResolvedTheme {
 }
 
 function applyResolvedTheme(resolved: ResolvedTheme) {
-	window.document.documentElement.dataset.mode = resolved;
+	const root = window.document.documentElement;
+	root.dataset.mode = resolved;
+	root.style.colorScheme = resolved;
 }
 
 const ThemeContext = createContext<ThemeContextType | null>(null);
@@ -54,9 +56,13 @@ interface ThemeProviderProps {
 export function ThemeProvider({ children }: ThemeProviderProps) {
 	const [theme, setThemeState] = useState<Theme>(() => {
 		const savedTheme = localStorage.getItem('theme') as Theme | null;
-		return savedTheme === 'light' || savedTheme === 'dark' || savedTheme === 'system'
-			? savedTheme
-			: 'system';
+		const initial =
+			savedTheme === 'light' || savedTheme === 'dark' || savedTheme === 'system'
+				? savedTheme
+				: 'system';
+		// Apply before first paint so dark mode tokens (e.g. bg-bg-4) don't FOUC white
+		applyResolvedTheme(resolveTheme(initial, getSystemTheme()));
+		return initial;
 	});
 
 	const systemTheme = useSyncExternalStore(

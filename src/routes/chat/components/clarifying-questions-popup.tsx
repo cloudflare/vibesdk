@@ -119,10 +119,10 @@ export function ClarifyingQuestionsPopup({
 				>
 					<div
 						style={{ paddingBottom: 18, marginBottom: -12 }}
-						className="rounded-t-xl border border-b-0 border-border-secondary bg-kumo-elevated dark:bg-kumo-base shadow-sm px-4 pt-4"
+						className="rounded-t-xl border border-b-0 bg-kumo-elevated dark:bg-kumo-base shadow-sm px-4 pt-4"
 					>
 						<div className="flex items-start gap-3 mb-3">
-							<div className="mt-0.5 p-1.5 rounded-md bg-brand/10 text-brand">
+							<div className="mt-0.5 p-1.5 rounded-md bg-brand/10 text-kumo-brand">
 								<HelpCircle className="size-4" />
 							</div>
 							<div className="flex-1 min-w-0">
@@ -174,7 +174,7 @@ export function ClarifyingQuestionsPopup({
 									animate={{ opacity: 1, x: 0 }}
 									exit={{ opacity: 0, x: directionRef.current * -40 }}
 									transition={{ duration: 0.18 }}
-									className="flex flex-col gap-2 rounded-lg border border-border-secondary bg-bg-4/60 dark:bg-kumo-elevated/50 p-3"
+									className="flex flex-col gap-2 rounded-lg border bg-bg-4/60 dark:bg-kumo-elevated/50 p-3"
 								>
 									<div className="text-sm text-text-primary font-medium">
 										{q.question}

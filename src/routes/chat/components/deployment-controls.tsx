@@ -1,7 +1,7 @@
 import { useRef, useEffect, useState } from 'react';
 import { Button } from '../../../components/primitives/button';
 import { Loader, ExternalLink, Zap, Check, Globe, Lock, Share2 } from 'lucide-react';
-import clsx from 'clsx';
+import { cn } from '@cloudflare/kumo';
 import { apiClient } from '../../../lib/api-client';
 import { toast } from 'sonner';
 import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard';
@@ -180,7 +180,7 @@ export function DeploymentControls({
 		switch (state) {
 			case DeploymentState.WAITING_PHASE1:
 				return {
-					panelClass: "bg-kumo-base/30 dark:bg-kumo-base/20 border-border-primary/50 dark:border-border-primary/40",
+					panelClass: "bg-kumo-base/30 dark:bg-kumo-base/20 dark:border-border-primary/40",
 					iconClass: "bg-kumo-base-foreground/40 dark:bg-kumo-base-foreground/30 border-muted-foreground/40 dark:border-muted-foreground/30",
 					icon: null,
 					titleColor: "text-text-tertiary dark:text-text-tertiary",
@@ -266,14 +266,14 @@ export function DeploymentControls({
 			{currentState !== DeploymentState.DEPLOYED && (
 				<div
 					ref={deploymentRef}
-					className={clsx(
+					className={cn(
 						"border rounded-lg p-3 transition-all duration-500 mt-2",
 						stateConfig.panelClass
 					)}
 				>
 					<div className="flex items-center gap-3">
 						{/* Enhanced Status Icon with deployment state */}
-						<div className={clsx(
+						<div className={cn(
 							"flex-shrink-0 w-4 h-4 rounded border-2 flex items-center justify-center transition-all duration-500",
 							stateConfig.iconClass
 						)}>
@@ -282,13 +282,13 @@ export function DeploymentControls({
 
 						{/* Enhanced Deployment Section Content */}
 						<div className="flex-1">
-							<div className={clsx(
+							<div className={cn(
 								"text-sm font-medium transition-colors duration-300",
 								stateConfig.titleColor
 							)}>
 								{stateConfig.title}
 							</div>
-							<div className={clsx(
+							<div className={cn(
 								"text-xs mt-0.5 transition-colors duration-300",
 								stateConfig.subtitleColor
 							)}>
@@ -300,7 +300,7 @@ export function DeploymentControls({
 						<Button
 							onClick={handleDeploy}
 							disabled={stateConfig.buttonDisabled || isCurrentlyDeploying || isDeployButtonClicked}
-							className={clsx(
+							className={cn(
 								"h-8 px-4 text-sm font-medium transition-all duration-300 transform",
 								stateConfig.buttonClass
 							)}
@@ -364,18 +364,18 @@ export function DeploymentControls({
 					{/* Shareable Link - Only shown when app is public */}
 					{deploymentTarget === 'platform' && localVisibility === 'public' && appId && (
 						<div className="bg-brand/5 border border-brand/20 rounded-md p-3 mb-3">
-							<div className="text-xs text-brand font-medium mb-1 flex items-center gap-1">
+							<div className="text-xs text-kumo-brand font-medium mb-1 flex items-center gap-1">
 								<Share2 className="w-3 h-3" />
 								Shareable Link:
 							</div>
 							<div className="flex items-center gap-2">
-								<code className="flex-1 text-sm font-mono text-brand bg-brand/5 px-2 py-1 rounded text-ellipsis overflow-hidden">
+								<code className="flex-1 text-sm font-mono text-kumo-brand bg-brand/5 px-2 py-1 rounded text-ellipsis overflow-hidden">
 									{window.location.origin}/app/{appId}
 								</code>
 								<Button
 									onClick={() => copyLink(`${window.location.origin}/app/${appId}`)}
 									variant="secondary"
-									className="h-7 px-2 text-xs bg-brand/10 border border-brand/30 text-brand hover:bg-brand/20 transition-all flex-shrink-0"
+									className="h-7 px-2 text-xs bg-brand/10 border border-brand/30 text-kumo-brand hover:bg-brand/20 transition-all flex-shrink-0"
 								>
 									{linkCopied ? 'Copied!' : 'Copy Link'}
 								</Button>
@@ -384,7 +384,7 @@ export function DeploymentControls({
 					)}
 
 					{/* Action Buttons - Enhanced with visibility toggle */}
-					<div className={clsx(
+					<div className={cn(
 						"grid gap-3",
 						isRedeployReady ? "grid-cols-3" : "grid-cols-2"
 					)}>
@@ -404,11 +404,11 @@ export function DeploymentControls({
 								onClick={handleToggleVisibility}
 								disabled={isUpdatingVisibility}
 								variant="secondary"
-								className={clsx(
+								className={cn(
 									"h-10 text-sm font-medium transition-all duration-200 shadow-sm",
 									localVisibility === 'private'
 										? "bg-brand hover:bg-brand/90 text-white border-brand hover:shadow-md hover:scale-[1.02]"
-										: "bg-kumo-base hover:bg-bg-4 text-text-primary border-border-primary hover:shadow-sm hover:scale-[1.02]"
+										: "bg-kumo-base hover:bg-bg-4 text-text-primary hover:shadow-sm hover:scale-[1.02]"
 								)}
 							>
 								{isUpdatingVisibility ? (
@@ -436,7 +436,7 @@ export function DeploymentControls({
 								onClick={handleDeploy}
 								disabled={isDeploying || isDeployButtonClicked}
 								variant="secondary"
-								className={clsx(
+								className={cn(
 									"h-10 text-sm font-medium transition-all duration-200 shadow-sm",
 									!isDeploying
 										? "bg-blue-500 hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-700 text-white border-blue-500 dark:border-blue-600 hover:shadow-md dark:hover:shadow-blue-900/50 hover:scale-[1.02]"

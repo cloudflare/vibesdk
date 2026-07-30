@@ -2,7 +2,8 @@ import React from 'react';
 import { Outlet } from 'react-router';
 import { SidebarProvider, useSidebar } from '@cloudflare/kumo';
 import { AppSidebar } from './app-sidebar';
-import { AppsDataProvider } from '@/contexts/apps-data-context';
+import { GlobalHeader } from './global-header';
+import { HeaderProvider } from './header-context';
 
 const SIDEBAR_COOKIE_NAME = 'sidebar_state';
 const SIDEBAR_COOKIE_MAX_AGE = 60 * 60 * 24 * 7;
@@ -49,23 +50,25 @@ export function AppLayout({ children }: AppLayoutProps) {
 	const defaultOpen = React.useMemo(() => getSidebarDefaultOpen(), []);
 
 	return (
-		<AppsDataProvider>
-			<SidebarProvider
-				defaultOpen={defaultOpen}
-				collapsible="icon"
-				resizable={false}
-				// peekable
-				onOpenChange={persistSidebarState}
-				className="vibesdk-sidebar-wrapper"
-			>
+		<SidebarProvider
+			defaultOpen={defaultOpen}
+			collapsible="icon"
+			resizable={false}
+			mobileBreakpoint={768}
+			// peekable
+			onOpenChange={persistSidebarState}
+			className="vibesdk-sidebar-wrapper"
+		>
+			<HeaderProvider>
 				<SidebarKeyboardShortcut />
 				<AppSidebar />
-				<main className="bg-kumo-base flex flex-col h-screen relative flex-1 min-w-0 overflow-hidden">
-					<div className="flex-1 min-h-0 overflow-auto bg-kumo-base">
+				<main className="bg-kumo-canvas flex flex-col h-screen relative flex-1 min-w-0 overflow-hidden">
+					<GlobalHeader />
+					<div className="flex-1 min-h-0 overflow-auto bg-kumo-canvas">
 						{children || <Outlet />}
 					</div>
 				</main>
-			</SidebarProvider>
-		</AppsDataProvider>
+			</HeaderProvider>
+		</SidebarProvider>
 	);
 }

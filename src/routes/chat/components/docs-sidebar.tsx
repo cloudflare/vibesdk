@@ -1,6 +1,12 @@
 import { useState } from 'react';
-import { FileText, Folder, FolderOpen, Loader, ChevronRight } from 'lucide-react';
-import clsx from 'clsx';
+import {
+	FileText,
+	Folder,
+	FolderOpen,
+	Loader,
+	ChevronRight,
+} from 'lucide-react';
+import { cn } from '@cloudflare/kumo';
 import type { FileType } from '@/api-types';
 
 interface DocsSidebarProps {
@@ -17,9 +23,13 @@ interface FileNode {
 	file?: FileType;
 }
 
-export function DocsSidebar({ files, activeFile, onFileSelect }: DocsSidebarProps) {
+export function DocsSidebar({
+	files,
+	activeFile,
+	onFileSelect,
+}: DocsSidebarProps) {
 	const [expandedFolders, setExpandedFolders] = useState<Set<string>>(
-		new Set(['docs', 'documentation', '.'])
+		new Set(['docs', 'documentation', '.']),
 	);
 
 	// Build file tree from flat list
@@ -38,11 +48,13 @@ export function DocsSidebar({ files, activeFile, onFileSelect }: DocsSidebarProp
 	};
 
 	return (
-		<div className="w-64 bg-kumo-elevated border-r border-border-primary flex flex-col overflow-hidden">
+		<div className="w-64 bg-kumo-elevated border-r flex flex-col overflow-hidden">
 			{/* Header */}
-			<div className="px-4 py-3 border-b border-border-primary">
-				<h3 className="text-sm font-medium text-text-primary">Documentation</h3>
-				<p className="text-xs text-text-tertiary mt-0.5">
+			<div className="px-4 py-3 border-b">
+				<h3 className="text-sm font-medium text-text-primary">
+					Documentation
+				</h3>
+				<p className="text-xs text-kumo-subtle mt-0.5">
 					{files.length} {files.length === 1 ? 'file' : 'files'}
 				</p>
 			</div>
@@ -96,15 +108,15 @@ function TreeNode({
 					style={{ paddingLeft: `${depth * 12 + 12}px` }}
 				>
 					<ChevronRight
-						className={clsx(
+						className={cn(
 							'size-3 transition-transform flex-shrink-0',
-							isExpanded && 'rotate-90'
+							isExpanded && 'rotate-90',
 						)}
 					/>
 					{isExpanded ? (
-						<FolderOpen className="size-4 flex-shrink-0 text-brand" />
+						<FolderOpen className="size-4 flex-shrink-0 text-kumo-brand" />
 					) : (
-						<Folder className="size-4 flex-shrink-0 text-text-tertiary" />
+						<Folder className="size-4 flex-shrink-0 text-kumo-subtle" />
 					)}
 					<span className="truncate">{node.name}</span>
 				</button>
@@ -130,18 +142,18 @@ function TreeNode({
 	return (
 		<button
 			onClick={() => onFileSelect(node.path)}
-			className={clsx(
+			className={cn(
 				'w-full flex items-center gap-2 px-3 py-1.5 transition-colors text-sm',
 				isActive
-					? 'bg-brand/10 text-brand border-l-2 border-brand'
-					: 'hover:bg-kumo-base text-text-secondary hover:text-text-primary border-l-2 border-transparent'
+					? 'bg-brand/10 text-kumo-brand border-l-2 border-brand'
+					: 'hover:bg-kumo-base text-text-secondary hover:text-text-primary border-l-2 border-transparent',
 			)}
 			style={{ paddingLeft: `${depth * 12 + 12}px` }}
 		>
 			<FileText className="size-4 flex-shrink-0" />
 			<span className="truncate flex-1 text-left">{node.name}</span>
 			{isGenerating && (
-				<Loader className="size-3 animate-spin text-brand flex-shrink-0" />
+				<Loader className="size-3 animate-spin text-kumo-brand flex-shrink-0" />
 			)}
 		</button>
 	);
@@ -159,7 +171,9 @@ function buildFileTree(files: FileType[]): FileNode[] {
 	};
 
 	// Sort files by path for consistent ordering
-	const sortedFiles = [...files].sort((a, b) => a.filePath.localeCompare(b.filePath));
+	const sortedFiles = [...files].sort((a, b) =>
+		a.filePath.localeCompare(b.filePath),
+	);
 
 	for (const file of sortedFiles) {
 		const parts = file.filePath.split('/');
@@ -171,7 +185,7 @@ function buildFileTree(files: FileType[]): FileNode[] {
 			const path = parts.slice(0, i + 1).join('/');
 
 			let childNode = currentNode.children?.find(
-				(n) => n.name === part && n.isDirectory
+				(n) => n.name === part && n.isDirectory,
 			);
 
 			if (!childNode) {

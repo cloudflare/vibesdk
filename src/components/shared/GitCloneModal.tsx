@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { cn } from '@cloudflare/kumo';
 import {
 	Dialog,
 	DialogContent,
@@ -19,7 +20,7 @@ import {
 } from 'lucide-react';
 import { apiClient } from '@/lib/api-client';
 import { toast } from 'sonner';
-import { cn } from '@/lib/utils';
+
 import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard';
 import { normalizeAppTitle } from '@/utils/string';
 import type { GitCloneTokenData } from '@/api-types';
@@ -119,7 +120,7 @@ export function GitCloneModal({
 			<DialogContent className="sm:max-w-[550px] max-w-[calc(100%-2rem)]">
 				<DialogHeader>
 					<DialogTitle className="flex items-center gap-2">
-						<GitBranch className="h-5 w-5 text-brand-primary" />
+						<GitBranch className="h-5 w-5 text-kumo-brand-primary" />
 						Clone Repository
 					</DialogTitle>
 					<DialogDescription>
@@ -150,7 +151,7 @@ export function GitCloneModal({
 										)}
 									</Button>
 								</div>
-								<code className="block p-3 rounded-lg bg-bg-4 border border-border-primary font-mono text-sm text-text-primary break-all max-w-full">
+								<code className="block p-3 rounded-lg bg-bg-4 border font-mono text-sm text-text-primary break-all max-w-full">
 									{gitCloneCommand}
 								</code>
 							</div>
@@ -171,7 +172,7 @@ export function GitCloneModal({
 										)}
 									</Button>
 								</div>
-								<code className="block p-3 rounded-lg bg-bg-4 border border-border-primary font-mono text-sm text-text-primary whitespace-pre-wrap break-words max-w-full">
+								<code className="block p-3 rounded-lg bg-bg-4 border font-mono text-sm text-text-primary whitespace-pre-wrap break-words max-w-full">
 									{setupCommands}
 								</code>
 							</div>
@@ -180,13 +181,13 @@ export function GitCloneModal({
 						<>
 							{!tokenData ? (
 								<div className="space-y-4">
-									<div className="flex items-start gap-3 p-4 rounded-lg bg-bg-4 border border-border-primary">
-										<AlertCircle className="h-5 w-5 text-brand-primary mt-0.5" />
+									<div className="flex items-start gap-3 p-4 rounded-lg bg-bg-4 border">
+										<AlertCircle className="h-5 w-5 text-kumo-brand-primary mt-0.5" />
 										<div className="flex-1 space-y-1">
 											<p className="text-sm font-medium text-text-primary">
 												Private Repository
 											</p>
-											<p className="text-sm text-text-tertiary">
+											<p className="text-sm text-kumo-subtle">
 												Generate a temporary access token to clone this repository.
 												The token expires in 1 hour.
 											</p>
@@ -248,7 +249,7 @@ export function GitCloneModal({
 										<div className="relative">
 											<code
 												className={cn(
-													'block p-3 rounded-lg bg-bg-4 border border-border-primary font-mono text-sm text-text-primary break-all max-w-full',
+													'block p-3 rounded-lg bg-bg-4 border font-mono text-sm text-text-primary break-all max-w-full',
 													!tokenRevealed && 'blur-sm select-none',
 												)}
 											>
@@ -270,8 +271,8 @@ export function GitCloneModal({
 										</div>
 									</div>
 
-									<div className="flex items-center gap-2 p-3 rounded-lg bg-bg-4 border border-border-primary">
-										<Clock className="h-4 w-4 text-brand-primary" />
+									<div className="flex items-center gap-2 p-3 rounded-lg bg-bg-4 border">
+										<Clock className="h-4 w-4 text-kumo-brand-primary" />
 										<span className="text-sm text-text-secondary">
 											Token expires in:{' '}
 											<span className="font-medium text-text-primary">
@@ -296,7 +297,7 @@ export function GitCloneModal({
 												)}
 											</Button>
 										</div>
-										<code className="block p-3 rounded-lg bg-bg-4 border border-border-primary font-mono text-sm text-text-primary whitespace-pre-wrap break-words max-w-full">
+										<code className="block p-3 rounded-lg bg-bg-4 border font-mono text-sm text-text-primary whitespace-pre-wrap break-words max-w-full">
 											{setupCommands}
 										</code>
 									</div>

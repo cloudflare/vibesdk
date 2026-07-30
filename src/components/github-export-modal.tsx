@@ -14,7 +14,7 @@ import { apiClient } from '@/lib/api-client';
 
 // Shared button styles
 const BUTTON_STYLES = {
-    primary: 'bg-brand hover:bg-brand/90 text-text-on-brand py-2 px-4 rounded-lg transition-colors',
+    primary: 'bg-brand hover:bg-brand/90 text-white py-2 px-4 rounded-lg transition-colors',
     secondary: 'bg-kumo-elevated hover:bg-border text-text-primary py-2 px-4 rounded-lg transition-colors',
     ghost: 'bg-transparent hover:bg-kumo-elevated text-text-primary/60 hover:text-text-primary py-2 px-4 rounded-lg transition-colors',
     warning: 'bg-yellow-500 hover:bg-yellow-600 text-white py-2 px-4 rounded-lg font-medium transition-colors',
@@ -266,7 +266,7 @@ export function GitHubExportModal({
                     initial={{ scale: 0.95, opacity: 0 }}
                     animate={{ scale: 1, opacity: 1 }}
                     exit={{ scale: 0.95, opacity: 0 }}
-                    className="bg-bg-4 border border-border-primary rounded-xl max-w-md w-full p-6"
+                    className="bg-bg-4 border rounded-xl max-w-md w-full p-6"
                     onClick={(e) => e.stopPropagation()}
                 >
                     <ModalHeader
@@ -481,7 +481,7 @@ export function GitHubExportModal({
                                     value={repositoryName}
                                     onChange={(e) => setRepositoryName(e.target.value)}
                                     placeholder="my-awesome-app"
-                                    className="w-full px-3 py-2 bg-kumo-elevated border border-border-primary rounded-lg text-text-primary placeholder:text-text-primary/40 focus:outline-none focus:ring-2 focus:ring-brand/50 focus:border-brand"
+                                    className="w-full px-3 py-2 bg-kumo-elevated border rounded-lg text-text-primary placeholder:text-text-primary/40 focus:outline-none focus:ring-2 focus:ring-brand/50 focus:border-brand"
                                     required
                                 />
                             </div>
@@ -559,7 +559,7 @@ export function GitHubExportModal({
                                         onChange={(e) => setDescription(e.target.value)}
                                         placeholder="A brief description of your app..."
                                         rows={3}
-                                        className="w-full px-3 py-2 bg-kumo-elevated border border-border-primary rounded-lg text-text-primary placeholder:text-text-primary/40 focus:outline-none focus:ring-2 focus:ring-brand/50 focus:border-brand resize-none"
+                                        className="w-full px-3 py-2 bg-kumo-elevated border rounded-lg text-text-primary placeholder:text-text-primary/40 focus:outline-none focus:ring-2 focus:ring-brand/50 focus:border-brand resize-none"
                                     />
                                 </div>
                             )}

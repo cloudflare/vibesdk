@@ -178,7 +178,7 @@ export function CloudflareAccountSelector() {
 		try {
 			setSaving(true);
 			const response = await apiClient.setCloudflareSelection(selectedAccountId, selectedGatewayId);
-			
+
 			if (response.success) {
 				toast.success('Cloudflare configuration saved successfully');
 				// Refresh the page to update the badge
@@ -211,7 +211,7 @@ export function CloudflareAccountSelector() {
 	};
 
 	const cardHeader = (
-		<div className="flex items-center gap-2">
+		<div className="flex items-center gap-2 font-funky-mono tracking-tighter">
 			<span className="h-lh flex items-center">
 				<CloudflareLogo className="size-4" />
 			</span>

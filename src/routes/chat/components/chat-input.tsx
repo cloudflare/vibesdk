@@ -76,27 +76,28 @@ export function ChatInput({
 
 	const placeholder = isDebugging
 		? 'Deep debugging in progress... Please abort to continue'
-		: isChatDisabled
-			? 'Please wait for blueprint completion...'
-			: 'Send a message';
+		: 'Send a message';
 
-	const stopButton = (isGenerating || isGeneratingBlueprint || isDebugging) ? (
-		<button
-			type="button"
-			onClick={handleStopGeneration}
-			className="p-0.5 rounded-full hover:bg-red-500/10 text-text-tertiary hover:text-red-500 transition-all duration-200 group animated-border-ring"
-			aria-label="Stop generation"
-			title="Stop generation"
-		>
-			<Square className="size-2.5 fill-brand/90 text-brand/80" />
-		</button>
-	) : undefined;
+	const stopButton =
+		isGenerating || isGeneratingBlueprint || isDebugging ? (
+			<button
+				type="button"
+				onClick={handleStopGeneration}
+				className="p-0.5 rounded-full hover:bg-red-500/10 text-kumo-subtle hover:text-red-500 transition-all duration-200 group animated-border-ring"
+				aria-label="Stop generation"
+				title="Stop generation"
+			>
+				<Square className="size-2.5 fill-brand/90 text-kumo-brand/80" />
+			</button>
+		) : undefined;
 
 	return (
 		<PromptBox
 			value={newMessage}
 			onChange={onMessageChange}
-			onSubmit={() => onSubmit(new Event('submit') as unknown as FormEvent)}
+			onSubmit={() =>
+				onSubmit(new Event('submit') as unknown as FormEvent)
+			}
 			placeholder={placeholder}
 			images={images}
 			onAddImages={onAddImages}
@@ -113,7 +114,7 @@ export function ChatInput({
 			aboveContent={aboveContent}
 			maxWords={4000}
 			formRef={chatFormRef}
-			className="shrink-0 p-3 bg-transparent border-t border-border-primary"
+			className="shrink-0 p-3 bg-transparent"
 		/>
 	);
 }

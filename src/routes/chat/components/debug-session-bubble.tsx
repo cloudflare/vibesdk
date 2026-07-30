@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Check, ChevronDown, AlertTriangle, ArrowDown, Loader } from 'lucide-react';
-import clsx from 'clsx';
+import { cn } from '@cloudflare/kumo';
 import type { ChatMessage } from '../utils/message-helpers';
 import { formatElapsedTime } from '../hooks/use-debug-session';
 import { MessageContentRenderer, ToolStatusIndicator } from './messages';
@@ -65,7 +65,7 @@ exit={{ opacity: 0, y: 10 }}
 transition={{ duration: 0.2 }}
 className="my-4"
 >
-<div className={clsx(
+<div className={cn(
 "rounded-lg border overflow-hidden bg-kumo-elevated",
 			isActive && "border-brand/30",
 !isActive && hasError && "border-red-500/30",
@@ -74,16 +74,16 @@ className="my-4"
 {/* Header */}
 <button
 onClick={() => setIsExpanded(!isExpanded)}
-className={clsx(
+className={cn(
 "w-full px-4 py-3 flex items-center justify-between",
 "hover:bg-kumo-base/50 transition-colors",
-isExpanded && "border-b border-border-primary/30"
+isExpanded && "border-b"
 )}
 >
 <div className="flex items-center gap-2.5 flex-1 min-w-0">
 {/* Status icon - minimal */}
 {isActive ? (
-					<Loader className="size-4 text-brand animate-spin shrink-0" />
+					<Loader className="size-4 text-kumo-brand animate-spin shrink-0" />
 ) : hasError ? (
 <AlertTriangle className="size-4 text-red-500 shrink-0" />
 ) : (
@@ -91,9 +91,9 @@ isExpanded && "border-b border-border-primary/30"
 )}
 
 {/* Title */}
-<span className={clsx(
+<span className={cn(
 "text-sm font-medium",
-					isActive && "text-brand",
+					isActive && "text-kumo-brand",
 hasError && !isActive && "text-red-500",
 !isActive && !hasError && "text-green-500"
 )}>
@@ -175,9 +175,9 @@ initial={{ opacity: 0, y: 10 }}
 animate={{ opacity: 1, y: 0 }}
 exit={{ opacity: 0, y: 10 }}
 onClick={scrollToBottom}
-className={clsx(
+className={cn(
 "absolute bottom-3 right-3 size-8 rounded-md",
-"bg-kumo-base hover:bg-kumo-base/80 border border-border-primary/30",
+"bg-kumo-base hover:bg-kumo-base/80 border",
 "flex items-center justify-center",
 "transition-colors"
 )}

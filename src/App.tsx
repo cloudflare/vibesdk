@@ -1,4 +1,6 @@
+import { useState } from 'react';
 import { Outlet } from 'react-router';
+import { QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider } from './contexts/auth-context';
 import { AuthModalProvider } from './components/auth/AuthModalProvider';
 import { ThemeProvider } from './contexts/theme-context';
@@ -9,28 +11,46 @@ import { AppLayout } from './components/layout/app-layout';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { FeatureProvider } from './features';
 import { Toasty } from '@cloudflare/kumo';
+import { createQueryClient } from './lib/query-client';
+import { useAppsQuerySync } from './hooks/use-apps';
+import { AppLinkProvider } from './components/providers/app-link-provider';
+
+function AppsQuerySync() {
+	useAppsQuerySync();
+	return null;
+}
 
 export default function App() {
+	const [queryClient] = useState(createQueryClient);
+
 	return (
 		<ErrorBoundary>
-			<ThemeProvider>
-				<FeatureProvider>
-					<AuthProvider>
-						<VaultProvider>
-							<LimitsProvider>
-								<AuthModalProvider>
-									<AppLayout>
-										<Toasty>
-											<Outlet />
-										</Toasty>
-									</AppLayout>
-									<Toaster richColors position="top-right" />
-								</AuthModalProvider>
-							</LimitsProvider>
-						</VaultProvider>
-					</AuthProvider>
-				</FeatureProvider>
-			</ThemeProvider>
+			<QueryClientProvider client={queryClient}>
+				<ThemeProvider>
+					<FeatureProvider>
+						<AuthProvider>
+							<AppsQuerySync />
+							<VaultProvider>
+								<LimitsProvider>
+									<AuthModalProvider>
+										<AppLayout>
+											<Toasty>
+												<AppLinkProvider>
+													<Outlet />
+												</AppLinkProvider>
+											</Toasty>
+										</AppLayout>
+										<Toaster
+											richColors
+											position="top-right"
+										/>
+									</AuthModalProvider>
+								</LimitsProvider>
+							</VaultProvider>
+						</AuthProvider>
+					</FeatureProvider>
+				</ThemeProvider>
+			</QueryClientProvider>
 		</ErrorBoundary>
 	);
 }

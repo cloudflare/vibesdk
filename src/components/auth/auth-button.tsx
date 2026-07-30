@@ -1,22 +1,19 @@
 /**
- * Enhanced Auth Button
- * Provides OAuth + Email/Password authentication with enhanced UI
+ * Auth Button
+ * Account menu for authenticated users
  */
 
-import { useState } from 'react';
-import { Loader2, LogOut, LucideGlobeLock, Settings } from 'lucide-react';
+import { Loader2, LucideGlobeLock } from 'lucide-react';
 import { useNavigate } from 'react-router';
-import clsx from 'clsx';
-import { Button, DropdownMenu } from '@cloudflare/kumo';
+import { cn, Button, DropdownMenu } from '@cloudflare/kumo';
 import { useAuth } from '../../contexts/auth-context';
-import { LoginModal } from './login-modal';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import { Skeleton } from '../ui/skeleton';
 import {
 	useUsageLimitsBadgeState,
 	type UsageLimitsBadgeState,
 } from '../usage-limits-badge';
-import { SignInIcon } from '@phosphor-icons/react';
+import { GearIcon, SignOutIcon } from '@phosphor-icons/react';
 
 interface AuthButtonProps {
 	className?: string;
@@ -45,106 +42,28 @@ function getLimitsDetailText(limits: UsageLimitsBadgeState) {
 	return 'Use your Cloudflare AI Gateway credits';
 }
 
-function getLimitsActionLabel(limits: UsageLimitsBadgeState) {
-	if (limits.needsConfiguration) return 'Configure AI Gateway';
-	if (limits.showCredits) return 'Manage AI Gateway';
-	return 'Connect Cloudflare';
-}
-
 export function AuthButton({ className, display = 'icon' }: AuthButtonProps) {
-	const {
-		user,
-		isAuthenticated,
-		isLoading,
-		error,
-		login, // OAuth method
-		loginWithEmail,
-		register,
-		logout,
-		clearError,
-	} = useAuth();
+	const { user, isAuthenticated, isLoading, logout } = useAuth();
 
 	const navigate = useNavigate();
-	const [showLoginModal, setShowLoginModal] = useState(false);
 	const usageLimits = useUsageLimitsBadgeState();
 	const showLimitsState = !usageLimits.hidden;
 	const limitsStatusText = getLimitsStatusText(usageLimits);
 	const limitsDetailText = getLimitsDetailText(usageLimits);
-	const limitsActionLabel = getLimitsActionLabel(usageLimits);
-	const limitsStatusClassName = clsx(
+	const limitsStatusClassName = cn(
 		'text-kumo-subtle',
 		usageLimits.needsConfiguration && 'text-amber-500',
 		usageLimits.isExhausted && !usageLimits.hasUserToken && 'text-red-500',
 	);
-
-	const connectCloudflare = () => {
-		const url = new URL('/oauth/login', window.location.origin);
-		url.searchParams.set(
-			'return_url',
-			window.location.pathname + window.location.search,
-		);
-		window.location.href = url.toString();
-	};
-
-	const handleLimitsAction = () => {
-		if (usageLimits.needsConfiguration || usageLimits.showCredits) {
-			navigate('/settings');
-			return;
-		}
-
-		connectCloudflare();
-	};
 
 	if (isLoading) {
 		return <Skeleton className="w-10 h-10 rounded-full" />;
 	}
 
 	if (!isAuthenticated || !user) {
-		return (
-			<>
-				<Button
-					variant="ghost"
-					onClick={() => setShowLoginModal(true)}
-					className={clsx('gap-2 text-sm', className)}
-				>
-					<SignInIcon className="h-4 w-4" />
-					<span>Sign In</span>
-				</Button>
-
-				<LoginModal
-					isOpen={showLoginModal}
-					onClose={() => setShowLoginModal(false)}
-					onLogin={(provider: 'google' | 'github' | 'cloudflare') => {
-						// For backward compatibility with original login interface
-						login(provider);
-						setShowLoginModal(false);
-					}}
-					onEmailLogin={async (credentials) => {
-						await loginWithEmail(credentials);
-						if (!error) {
-							setShowLoginModal(false);
-						}
-					}}
-					onOAuthLogin={(
-						provider: 'google' | 'github' | 'cloudflare',
-					) => {
-						login(provider);
-						setShowLoginModal(false);
-					}}
-					onRegister={async (data) => {
-						await register(data);
-						if (!error) {
-							setShowLoginModal(false);
-						}
-					}}
-					error={error}
-					onClearError={clearError}
-				/>
-			</>
-		);
+		return null;
 	}
 
-	// Get user initials for avatar fallback
 	const getInitials = () => {
 		if (user.displayName) {
 			return user.displayName
@@ -165,7 +84,7 @@ export function AuthButton({ className, display = 'icon' }: AuthButtonProps) {
 						<Button
 							variant="ghost"
 							size="base"
-							className={clsx(
+							className={cn(
 								'h-auto min-h-10 min-w-0 flex-1 justify-start gap-2 rounded-lg px-2 py-1.5 text-left text-kumo-default',
 								className,
 							)}
@@ -185,7 +104,7 @@ export function AuthButton({ className, display = 'icon' }: AuthButtonProps) {
 								</span>
 								{showLimitsState && (
 									<span
-										className={clsx(
+										className={cn(
 											'block truncate text-xs font-normal',
 											limitsStatusClassName,
 										)}
@@ -201,7 +120,7 @@ export function AuthButton({ className, display = 'icon' }: AuthButtonProps) {
 							size="base"
 							shape="circle"
 							aria-label="Account menu"
-							className={clsx(
+							className={cn(
 								'relative rounded-full transition-all hover:ring-2 hover:ring-kumo-brand/20',
 								className,
 							)}
@@ -231,7 +150,7 @@ export function AuthButton({ className, display = 'icon' }: AuthButtonProps) {
 								<Loader2 className="mt-0.5 size-4 shrink-0 animate-spin text-kumo-subtle" />
 							) : (
 								<LucideGlobeLock
-									className={clsx(
+									className={cn(
 										'mt-0.5 size-4 shrink-0',
 										limitsStatusClassName,
 									)}
@@ -239,7 +158,7 @@ export function AuthButton({ className, display = 'icon' }: AuthButtonProps) {
 							)}
 							<div className="min-w-0">
 								<p
-									className={clsx(
+									className={cn(
 										'truncate text-sm font-medium text-kumo-default',
 										limitsStatusClassName,
 									)}
@@ -255,30 +174,39 @@ export function AuthButton({ className, display = 'icon' }: AuthButtonProps) {
 				)}
 
 				<DropdownMenu.Group>
-					{showLimitsState && !usageLimits.loading && (
-						<DropdownMenu.Item
-							onClick={handleLimitsAction}
-							className="cursor-pointer"
-						>
-							<LucideGlobeLock className="mr-1 h-4 w-4" />
-							{limitsActionLabel}
-						</DropdownMenu.Item>
-					)}
+					{showLimitsState &&
+						!usageLimits.loading &&
+						usageLimits.needsConfiguration && (
+							<DropdownMenu.Item
+								onClick={() => navigate('/settings')}
+								icon={LucideGlobeLock}
+							>
+								Configure AI Gateway
+							</DropdownMenu.Item>
+						)}
+					{showLimitsState &&
+						!usageLimits.loading &&
+						usageLimits.showCredits && (
+							<DropdownMenu.Item
+								onClick={() => navigate('/settings')}
+								icon={LucideGlobeLock}
+							>
+								Manage AI Gateway
+							</DropdownMenu.Item>
+						)}
 					<DropdownMenu.Item
 						onClick={() => navigate('/settings')}
-						className="cursor-pointer"
+						icon={GearIcon}
 					>
-						<Settings className="mr-1 h-4 w-4" />
 						Settings
 					</DropdownMenu.Item>
 				</DropdownMenu.Group>
 
 				<DropdownMenu.Item
 					onClick={() => logout()}
-					className="cursor-pointer"
+					icon={SignOutIcon}
 					variant="danger"
 				>
-					<LogOut className="mr-1 h-4 w-4" />
 					Sign Out
 				</DropdownMenu.Item>
 			</DropdownMenu.Content>

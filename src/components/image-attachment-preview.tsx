@@ -30,7 +30,7 @@ export function ImageAttachmentPreview({
 						animate={{ opacity: 1, scale: 1 }}
 						exit={{ opacity: 0, scale: 0.8 }}
 						transition={{ duration: 0.2 }}
-						className={`relative group ${compact ? 'w-12 h-12' : 'w-20 h-20'} rounded-lg overflow-hidden border border-border-primary bg-kumo-base`}
+						className={`relative group ${compact ? 'w-12 h-12' : 'w-20 h-20'} rounded-lg overflow-hidden border bg-kumo-base`}
 					>
 						<img
 							src={`data:${image.mimeType};base64,${image.base64Data}`}

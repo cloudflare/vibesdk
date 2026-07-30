@@ -66,28 +66,28 @@ export default function DiscoverPage() {
 	});
 
 	return (
-		<div className="min-h-screen">
-			<div className="container mx-auto px-4 py-8">
+		<div className="size-full">
+			<div className="container max-w-6xl mx-auto px-4 py-8">
 				<motion.div
 					initial={{ opacity: 0, y: -20 }}
 					animate={{ opacity: 1, y: 0 }}
 					transition={{ duration: 0.5 }}
 				>
 					{/* Header */}
-					<div className="mb-8">
-						<h1 className="flex gap-2 text-6xl font-funky-mono font-bold mb-3 text-brand">
+					<div className="mb-8 mt-6">
+						<h1 className="flex gap-2 text-6xl font-funky-mono font-bold mb-3 text-brand/90">
 							<GlobeIcon
 								weight="duotone"
-								className="text-brand/80 -rotate-30"
+								className="-rotate-30"
 							/>
 							Discover
 						</h1>
-						<p className="text-text-tertiary text-lg font-funky-mono">
+						<p className="text-kumo-subtle text-lg font-funky-mono tracking-tight">
 							Explore apps built by the community
 						</p>
 					</div>
 
-					<div className="flex items-start gap-4 justify-between">
+					<div className="flex flex-wrap items-start gap-3 justify-between mb-8">
 						{/* Search and Filters */}
 						<AppFiltersForm
 							searchQuery={searchQuery}

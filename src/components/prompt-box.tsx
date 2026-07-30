@@ -1,6 +1,6 @@
 import { type FormEvent, type ReactNode, type RefObject, useRef } from 'react';
-import { ArrowRight } from 'react-feather';
-import clsx from 'clsx';
+import { ArrowRightIcon } from '@phosphor-icons/react';
+import { cn } from '@cloudflare/kumo';
 import { ImageAttachmentPreview } from '@/components/image-attachment-preview';
 import { ImageUploadButton } from '@/components/image-upload-button';
 import { CreditsBanner } from '@/components/credits-banner';
@@ -10,7 +10,10 @@ import { type UsageSummary } from '@/hooks/use-limits';
 
 const MAX_WORDS = 4000;
 const countWords = (text: string): number => {
-	return text.trim().split(/\s+/).filter((word) => word.length > 0).length;
+	return text
+		.trim()
+		.split(/\s+/)
+		.filter((word) => word.length > 0).length;
 };
 
 interface DragHandlers {
@@ -98,7 +101,10 @@ export function PromptBox({
 	className,
 }: PromptBoxProps) {
 	const internalTextareaRef = useRef<HTMLTextAreaElement>(null);
-	const typewriterText = useTypewriterPlaceholder(placeholderPhrases, animatedPlaceholder);
+	const typewriterText = useTypewriterPlaceholder(
+		placeholderPhrases,
+		animatedPlaceholder,
+	);
 
 	const resolvedPlaceholder = animatedPlaceholder
 		? `${placeholder}${typewriterText}`
@@ -132,21 +138,26 @@ export function PromptBox({
 
 	const autoResize = (el: HTMLTextAreaElement) => {
 		el.style.height = '0px';
-		el.style.height = Math.min(Math.max(el.scrollHeight, isCompact ? 40 : 0), maxHeight) + 'px';
+		el.style.height =
+			Math.min(Math.max(el.scrollHeight, isCompact ? 40 : 0), maxHeight) +
+			'px';
 	};
 
 	const dragOverlay = isDragging && (
 		<div className="absolute inset-0 flex items-center justify-center bg-brand/10 backdrop-blur-sm rounded-xl z-50 pointer-events-none">
-			<p className="text-brand font-medium">Drop images here</p>
+			<p className="text-kumo-brand font-medium">Drop images here</p>
 		</div>
 	);
 
 	if (isCompact) {
 		return (
-			<div className={clsx('flex flex-col', className)} {...dragHandlers}>
+			<div className={cn('flex flex-col', className)} {...dragHandlers}>
 				{aboveContent}
-				<CreditsBanner limitsData={limitsData} onConnectCloudflare={onConnectCloudflare}>
-					<div className="min-h-10 rounded-xl transition-all duration-200 bg-bg-4 dark:bg-kumo-elevated border border-border-secondary box-border">
+				<CreditsBanner
+					limitsData={limitsData}
+					onConnectCloudflare={onConnectCloudflare}
+				>
+					<div className="min-h-10 rounded-xl transition-all duration-200 bg-bg-4 dark:bg-kumo-elevated border box-border">
 						<form ref={formRef} onSubmit={handleSubmit}>
 							<div className="relative flex min-h-10 items-center">
 								{dragOverlay}
@@ -169,10 +180,15 @@ export function PromptBox({
 									disabled={disabled}
 									placeholder={resolvedPlaceholder}
 									rows={1}
-									className="w-full bg-transparent rounded-xl px-3 pr-20 py-2 text-sm leading-5 ring-0 outline-none text-text-primary placeholder:text-text-primary/50! disabled:opacity-50 disabled:cursor-not-allowed resize-none overflow-y-auto no-scrollbar min-h-10 max-h-[120px] group"
-									style={{ height: '40px', minHeight: '40px' }}
+									className="w-full bg-transparent rounded-xl px-3 pr-20 py-3 text-sm leading-5 ring-0 outline-none text-text-primary placeholder:text-text-primary/50! disabled:opacity-50 disabled:cursor-not-allowed resize-none overflow-y-auto no-scrollbar min-h-10 max-h-[120px] group"
+									style={{
+										height: '40px',
+										minHeight: '40px',
+									}}
 									ref={(textarea) => {
-										(internalTextareaRef as React.MutableRefObject<HTMLTextAreaElement | null>).current = textarea;
+										(
+											internalTextareaRef as React.MutableRefObject<HTMLTextAreaElement | null>
+										).current = textarea;
 										if (textarea) autoResize(textarea);
 									}}
 								/>
@@ -180,10 +196,16 @@ export function PromptBox({
 									{rightActions}
 									<button
 										type="submit"
-										disabled={!value.trim() || disabled || submitDisabled}
+										disabled={
+											!value.trim() ||
+											disabled ||
+											submitDisabled
+										}
 										className="p-1.5 rounded-md bg-brand/90 hover:bg-brand/80 disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-transparent text-white disabled:text-text-primary transition-colors"
 									>
-										{submitIcon ?? <ArrowRight className="size-4" />}
+										{submitIcon ?? (
+											<ArrowRightIcon className="size-4" />
+										)}
 									</button>
 								</div>
 							</div>
@@ -199,19 +221,33 @@ export function PromptBox({
 		<CreditsBanner
 			limitsData={limitsData}
 			onConnectCloudflare={onConnectCloudflare}
-			className={clsx('w-full z-10', className)}
+			className={cn('w-full z-10', className)}
 			radius={borderRadius}
 		>
-			<div className="w-full rounded-[18px] bg-bg-4 dark:bg-kumo-elevated border border-border-secondary transition-all duration-200 shadow-sm">
+			<div
+				className="w-full rounded-[18px] bg-bg-4 dark:bg-kumo-elevated cursor-text border transition-all duration-200 shadow-sm"
+				onClick={(e) => {
+					const target = e.target as HTMLElement;
+					if (
+						target.closest(
+							'button, a, input, textarea, select, label, [role="button"]',
+						)
+					) {
+						return;
+					}
+					internalTextareaRef.current?.focus();
+				}}
+			>
 				<form
 					ref={formRef}
 					onSubmit={handleSubmit}
-					className="flex z-10 flex-col w-full min-h-[150px] bg-bg-4 ring-0 dark:bg-kumo-elevated rounded-[18px] p-4 transition-all duration-200"
+					className="flex z-10 flex-col w-full min-h-[136px] bg-bg-4 ring-0 dark:bg-kumo-elevated rounded-[18px] p-4 transition-all duration-200"
 				>
 					<div
-						className={clsx(
+						className={cn(
 							'flex-1 flex flex-col relative',
-							isDragging && 'ring-2 ring-brand ring-offset-2 rounded-lg',
+							isDragging &&
+								'ring-2 ring-brand ring-offset-2 rounded-lg',
 						)}
 						{...dragHandlers}
 					>
@@ -221,14 +257,20 @@ export function PromptBox({
 							value={value}
 							placeholder={resolvedPlaceholder}
 							ref={(textarea) => {
-								(internalTextareaRef as React.MutableRefObject<HTMLTextAreaElement | null>).current = textarea;
+								(
+									internalTextareaRef as React.MutableRefObject<HTMLTextAreaElement | null>
+								).current = textarea;
 								if (textarea) autoResize(textarea);
 							}}
 							onChange={(e) => {
 								handleTextChange(e.target.value);
 								autoResize(e.currentTarget);
 							}}
-							onInput={(e) => autoResize(e.currentTarget as HTMLTextAreaElement)}
+							onInput={(e) =>
+								autoResize(
+									e.currentTarget as HTMLTextAreaElement,
+								)
+							}
 							onKeyDown={handleKeyDown}
 							disabled={disabled}
 						/>
@@ -243,13 +285,18 @@ export function PromptBox({
 						)}
 					</div>
 					<div
-						className={clsx(
+						className={cn(
 							'flex items-center mt-4 pt-1',
 							leftActions ? 'justify-between' : 'justify-end',
 						)}
 					>
 						{leftActions}
-						<div className={clsx('flex items-center gap-2', leftActions && 'ml-4')}>
+						<div
+							className={cn(
+								'flex items-center gap-2',
+								leftActions && 'ml-4',
+							)}
+						>
 							{rightActions}
 							<ImageUploadButton
 								onFilesSelected={onAddImages}
@@ -257,10 +304,12 @@ export function PromptBox({
 							/>
 							<button
 								type="submit"
-								disabled={!value.trim() || disabled || submitDisabled}
+								disabled={
+									!value.trim() || disabled || submitDisabled
+								}
 								className="bg-brand text-white p-1 rounded-md *:size-5 transition-all duration-200 hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
 							>
-								{submitIcon ?? <ArrowRight />}
+								{submitIcon ?? <ArrowRightIcon />}
 							</button>
 						</div>
 					</div>
