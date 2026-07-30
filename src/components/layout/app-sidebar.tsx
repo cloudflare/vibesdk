@@ -1,30 +1,23 @@
 import React from 'react';
-import { ChevronRight, Plus, PlusIcon, Search, Users } from 'lucide-react';
 import {
 	BookmarkSimpleIcon,
+	CaretRightIcon,
 	CompassIcon,
 	GlobeHemisphereWestIcon,
-	LockKey,
-	UsersThree,
+	LockKeyIcon,
+	MagnifyingGlassIcon,
+	PlusIcon,
+	UsersThreeIcon,
 } from '@phosphor-icons/react';
 import { isValid } from 'date-fns';
 import { useLocation, useNavigate } from 'react-router';
 import {
+	Button,
 	CloudflareLogo,
 	InputGroup,
 	Sidebar,
-	SidebarContent,
-	SidebarFooter,
-	SidebarGroup,
-	SidebarHeader,
-	SidebarGroupLabel,
-	SidebarMenu,
-	SidebarMenuButton,
-	SidebarMenuItem,
-	SidebarSeparator,
-	SidebarTrigger,
-	useSidebar,
 	cn,
+	useSidebar,
 } from '@cloudflare/kumo';
 import { useAuth } from '@/contexts/auth-context';
 import { useApps, useFavoriteApps, useRecentApps } from '@/hooks/use-apps';
@@ -102,8 +95,8 @@ function AppMenuItem({
 	};
 
 	return (
-		<SidebarMenuItem className="group/app-item">
-			<SidebarMenuButton
+		<Sidebar.MenuItem className="group/app-item">
+			<Sidebar.MenuButton
 				active={active}
 				href={`/app/${app.id}`}
 				tooltip={app.title}
@@ -131,7 +124,7 @@ function AppMenuItem({
 						<span className="truncate">{formatTimestamp()}</span>
 					</span>
 				</span>
-			</SidebarMenuButton>
+			</Sidebar.MenuButton>
 
 			{!isCollapsed && showActions && (
 				<div className="absolute right-1.5 top-1/2 z-10 -translate-y-1/2 opacity-0 transition-opacity group-hover/app-item:opacity-100 focus-within:opacity-100">
@@ -144,7 +137,7 @@ function AppMenuItem({
 					/>
 				</div>
 			)}
-		</SidebarMenuItem>
+		</Sidebar.MenuItem>
 	);
 }
 
@@ -153,10 +146,6 @@ export function AppSidebar() {
 	const navigate = useNavigate();
 	const { pathname } = useLocation();
 	const [searchQuery, setSearchQuery] = React.useState('');
-	const [expandedGroups, setExpandedGroups] = React.useState<string[]>([
-		'apps',
-		'boards',
-	]);
 	const { state } = useSidebar();
 	const isCollapsed = state === 'collapsed';
 	const usageLimits = useUsageLimitsBadgeState();
@@ -245,16 +234,12 @@ export function AppSidebar() {
 	const getVisibilityIcon = (visibility: App['visibility']) => {
 		switch (visibility) {
 			case 'private':
-				return <LockKey className="size-3.5" weight="duotone" />;
+				return <LockKeyIcon className="size-3.5" weight="duotone" />;
 			case 'team':
-				return <UsersThree className="size-3.5" weight="duotone" />;
-			case 'board':
 				return (
-					<GlobeHemisphereWestIcon
-						className="size-3.5"
-						weight="duotone"
-					/>
+					<UsersThreeIcon className="size-3.5" weight="duotone" />
 				);
+			case 'board':
 			case 'public':
 				return (
 					<GlobeHemisphereWestIcon
@@ -265,135 +250,161 @@ export function AppSidebar() {
 		}
 	};
 
-	const toggleGroup = (group: string) => {
-		setExpandedGroups((prev) =>
-			prev.includes(group)
-				? prev.filter((g) => g !== group)
-				: [...prev, group],
-		);
-	};
-
-	// if (!user) return null;
-
 	return (
-		<Sidebar
-			contentClassName=""
-			className="[--sidebar-bg:var(--color-kumo-canvas)]"
-		>
-			<SidebarHeader className="h-12 justify-start px-4 pr-2 group-data-[state=collapsed]/sidebar:justify-center group-data-[state=collapsed]/sidebar:px-0">
-				<div className="flex w-full items-center gap-2.5 text-kumo-strong group-data-[state=collapsed]/sidebar:justify-center">
-					<CloudflareLogo
-						variant="glyph"
-						className="size-7 shrink-0 group-data-[state=collapsed]/sidebar:hidden group-data-[mobile=true]/sidebar:block"
-					/>
-					<span className="truncate text-sm font-black font-funky-mono uppercase tracking-[0.25em] group-data-[state=collapsed]/sidebar:hidden group-data-[mobile=true]/sidebar:inline">
-						Build
-					</span>
-					<SidebarTrigger
-						aria-label={
-							isCollapsed ? 'Open sidebar' : 'Collapse sidebar'
-						}
-						className="ml-auto group-data-[state=collapsed]/sidebar:ml-0"
-					/>
-				</div>
-			</SidebarHeader>
-			<SidebarContent>
-				{/* Full-bleed when collapsed: content uses px-[11px], so expand width to fit size-9 */}
-				<SidebarGroup className="gap-2 py-1 group-data-[state=collapsed]/sidebar:w-[calc(100%+22px)] group-data-[state=collapsed]/sidebar:min-w-[calc(100%+22px)] group-data-[state=collapsed]/sidebar:-ml-[11px] group-data-[state=collapsed]/sidebar:items-center">
-					<SidebarMenu className="gap-1 group-data-[state=collapsed]/sidebar:w-full group-data-[state=collapsed]/sidebar:items-center">
-						{pathname !== '/' && (
-							<Sidebar.MenuButton
-								icon={PlusIcon}
-								className={cn(
-									'bg-brand text-white hover:bg-brand/80 dark:bg-brand/80 dark:hover:bg-brand',
-									// Square, centered icon when collapsed (match ThemeToggle)
-									'group-data-[state=collapsed]/sidebar:size-9 group-data-[state=collapsed]/sidebar:w-9 group-data-[state=collapsed]/sidebar:min-h-9 group-data-[state=collapsed]/sidebar:min-w-9 group-data-[state=collapsed]/sidebar:justify-center group-data-[state=collapsed]/sidebar:px-0 group-data-[state=collapsed]/sidebar:py-0',
-									'group-data-[state=collapsed]/sidebar:[&>div]:translate-x-0 group-data-[state=collapsed]/sidebar:[&>div]:flex-none group-data-[state=collapsed]/sidebar:[&>div]:justify-center',
-									'group-data-[state=collapsed]/sidebar:[&>div>span]:hidden',
-								)}
-								tooltip="New build"
-								onClick={() => navigate('/')}
-							>
-								New build
-							</Sidebar.MenuButton>
-						)}
+		<Sidebar className="[--sidebar-bg:var(--color-kumo-canvas)]">
+			<Sidebar.Header
+				className={cn('h-12', isCollapsed ? 'justify-center px-0' : 'px-3')}
+			>
+				{isCollapsed ? (
+					<div className="relative flex size-9 items-center justify-center">
+						<CloudflareLogo
+							variant="glyph"
+							className="size-7 shrink-0 transition-opacity group-hover/sidebar:opacity-0 group-focus-within/sidebar:opacity-0"
+						/>
+						<Sidebar.Trigger
+							aria-label="Open sidebar"
+							className="absolute inset-0 flex size-9 items-center justify-center opacity-0 transition-opacity group-hover/sidebar:opacity-100 group-focus-within/sidebar:opacity-100"
+						/>
+					</div>
+				) : (
+					<div className="flex w-full min-w-0 items-center gap-2.5 text-kumo-strong">
+						<CloudflareLogo
+							variant="glyph"
+							className="size-7 shrink-0"
+						/>
+						<span className="min-w-0 flex-1 truncate text-sm font-black font-funky-mono uppercase tracking-[0.25em]">
+							Build
+						</span>
+						<Sidebar.Trigger
+							aria-label="Collapse sidebar"
+							className="ml-auto shrink-0"
+						/>
+					</div>
+				)}
+			</Sidebar.Header>
 
-						<Sidebar.MenuButton
-							active={pathname === '/discover'}
-							icon={CompassIcon}
-							id="discover-link"
-							tooltip="Discover"
-							className={cn(
-								'group-data-[state=collapsed]/sidebar:size-9 group-data-[state=collapsed]/sidebar:w-9 group-data-[state=collapsed]/sidebar:min-h-9 group-data-[state=collapsed]/sidebar:min-w-9 group-data-[state=collapsed]/sidebar:justify-center group-data-[state=collapsed]/sidebar:px-0 group-data-[state=collapsed]/sidebar:py-0',
-								'group-data-[state=collapsed]/sidebar:[&>div]:translate-x-0 group-data-[state=collapsed]/sidebar:[&>div]:flex-none group-data-[state=collapsed]/sidebar:[&>div]:justify-center',
-								'group-data-[state=collapsed]/sidebar:[&>div>span]:hidden',
-							)}
-							onClick={() => navigate('/discover')}
-						>
-							Discover
-						</Sidebar.MenuButton>
-
-						{!isCollapsed && user && (
-							<InputGroup>
-								<InputGroup.Addon>
-									<Search className="size-3.5 text-kumo-subtle" />
-								</InputGroup.Addon>
-								<InputGroup.Input
-									aria-label="Search apps"
-									placeholder="Search apps"
-									value={searchQuery}
-									onChange={(event) =>
-										setSearchQuery(event.target.value)
-									}
+			<Sidebar.Content>
+				<Sidebar.Group>
+					{isCollapsed ? (
+						<div className="flex flex-col items-center gap-1">
+							{pathname !== '/' && (
+								<Button
+									shape="square"
+									size="base"
+									aria-label="New build"
+									title="New build"
+									onClick={() => navigate('/')}
+									className="bg-brand text-white shadow-none ring-0 hover:bg-brand/80"
+									icon={<PlusIcon className="size-4" weight="bold" />}
 								/>
-							</InputGroup>
-						)}
-					</SidebarMenu>
-				</SidebarGroup>
+							)}
+							<Button
+								shape="square"
+								size="base"
+								variant="ghost"
+								id="discover-link"
+								aria-label="Discover"
+								title="Discover"
+								aria-current={
+									pathname === '/discover' ? 'page' : undefined
+								}
+								onClick={() => navigate('/discover')}
+								className={cn(
+									'text-kumo-subtle hover:text-kumo-default',
+									pathname === '/discover' &&
+										'bg-(--sidebar-active-bg) text-kumo-default',
+								)}
+								icon={<CompassIcon className="size-4" />}
+							/>
+						</div>
+					) : (
+						<div className="flex flex-col gap-1.5">
+							<Sidebar.Menu className="gap-y-1.5">
+								{pathname !== '/' && (
+									<Sidebar.MenuButton
+										icon={PlusIcon}
+										className="bg-brand text-white hover:bg-brand/80"
+										tooltip="New build"
+										onClick={() => navigate('/')}
+									>
+										New build
+									</Sidebar.MenuButton>
+								)}
+
+								<Sidebar.MenuButton
+									active={pathname === '/discover'}
+									icon={CompassIcon}
+									id="discover-link"
+									tooltip="Discover"
+									onClick={() => navigate('/discover')}
+								>
+									Discover
+								</Sidebar.MenuButton>
+							</Sidebar.Menu>
+
+							{user && (
+								<div className="px-0.5">
+									<InputGroup>
+										<InputGroup.Addon>
+											<MagnifyingGlassIcon className="size-3.5 text-kumo-subtle" />
+										</InputGroup.Addon>
+										<InputGroup.Input
+											aria-label="Search apps"
+											placeholder="Search apps"
+											value={searchQuery}
+											onChange={(event) =>
+												setSearchQuery(
+													event.target.value,
+												)
+											}
+										/>
+									</InputGroup>
+								</div>
+							)}
+						</div>
+					)}
+				</Sidebar.Group>
 
 				{!isCollapsed && showBookmarksSection && (
-					<SidebarGroup className="">
-						<SidebarGroupLabel className="flex items-center">
+					<Sidebar.Group>
+						<Sidebar.GroupLabel>
 							<span className="text-xs font-funky-mono">
 								Bookmarked
 							</span>
-						</SidebarGroupLabel>
-						<SidebarMenu>
+						</Sidebar.GroupLabel>
+						<Sidebar.Menu>
 							{isSearching ? (
-								<>
-									{favoriteAppsLoading ? (
-										<SidebarMenuItem>
-											<div className="px-3 py-3 text-sm text-kumo-subtle">
-												Searching bookmarks...
-											</div>
-										</SidebarMenuItem>
-									) : favoriteSearchResults.length > 0 ? (
-										favoriteSearchResults.map((app) => (
-											<AppMenuItem
-												key={app.id}
-												app={app}
-												active={
-													pathname ===
-													`/app/${app.id}`
-												}
-												onClick={(id) =>
-													navigate(`/app/${id}`)
-												}
-												variant="bookmarked"
-												isCollapsed={isCollapsed}
-												getVisibilityIcon={
-													getVisibilityIcon
-												}
-											/>
-										))
-									) : (
-										<SidebarMenuItem>
-											<div className="px-3 py-3 text-sm text-kumo-subtle">
-												{bookmarkSearchEmptyMessage}
-											</div>
-										</SidebarMenuItem>
-									)}
-								</>
+								favoriteAppsLoading ? (
+									<Sidebar.MenuItem>
+										<div className="px-3 py-3 text-sm text-kumo-subtle">
+											Searching bookmarks...
+										</div>
+									</Sidebar.MenuItem>
+								) : favoriteSearchResults.length > 0 ? (
+									favoriteSearchResults.map((app) => (
+										<AppMenuItem
+											key={app.id}
+											app={app}
+											active={
+												pathname === `/app/${app.id}`
+											}
+											onClick={(id) =>
+												navigate(`/app/${id}`)
+											}
+											variant="bookmarked"
+											isCollapsed={isCollapsed}
+											getVisibilityIcon={
+												getVisibilityIcon
+											}
+										/>
+									))
+								) : (
+									<Sidebar.MenuItem>
+										<div className="px-3 py-3 text-sm text-kumo-subtle">
+											{bookmarkSearchEmptyMessage}
+										</div>
+									</Sidebar.MenuItem>
+								)
 							) : (
 								favoriteApps.map((app) => (
 									<AppMenuItem
@@ -407,161 +418,144 @@ export function AppSidebar() {
 									/>
 								))
 							)}
-						</SidebarMenu>
-					</SidebarGroup>
+						</Sidebar.Menu>
+					</Sidebar.Group>
 				)}
 
-				{!isCollapsed &&
-					showAppsSection &&
-					expandedGroups.includes('apps') && (
-						<SidebarGroup className="">
-							<SidebarMenu>
-								<SidebarGroupLabel className="flex items-center">
-									<span className="text-xs font-funky-mono">
-										Apps
-									</span>
-								</SidebarGroupLabel>
-								{isSearching ? (
-									<>
-										{allAppsLoading ? (
-											<SidebarMenuItem>
-												<div className="px-3 py-3 text-sm text-kumo-subtle">
-													Searching apps...
-												</div>
-											</SidebarMenuItem>
-										) : appSearchResults.length > 0 ? (
-											appSearchResults.map((app) => (
-												<AppMenuItem
-													key={app.id}
-													app={app}
-													active={
-														pathname ===
-														`/app/${app.id}`
-													}
-													onClick={(id) =>
-														navigate(`/app/${id}`)
-													}
-													isCollapsed={isCollapsed}
-													getVisibilityIcon={
-														getVisibilityIcon
-													}
-												/>
-											))
-										) : (
-											<SidebarMenuItem>
-												<div className="px-3 py-3 text-sm text-kumo-subtle">
-													{appSearchEmptyMessage}
-												</div>
-											</SidebarMenuItem>
-										)}
-									</>
+				{!isCollapsed && showAppsSection && (
+					<Sidebar.Group>
+						<Sidebar.GroupLabel>
+							<span className="text-xs font-funky-mono">
+								Apps
+							</span>
+						</Sidebar.GroupLabel>
+						<Sidebar.Menu>
+							{isSearching ? (
+								allAppsLoading ? (
+									<Sidebar.MenuItem>
+										<div className="px-3 py-3 text-sm text-kumo-subtle">
+											Searching apps...
+										</div>
+									</Sidebar.MenuItem>
+								) : appSearchResults.length > 0 ? (
+									appSearchResults.map((app) => (
+										<AppMenuItem
+											key={app.id}
+											app={app}
+											active={
+												pathname === `/app/${app.id}`
+											}
+											onClick={(id) =>
+												navigate(`/app/${id}`)
+											}
+											isCollapsed={isCollapsed}
+											getVisibilityIcon={
+												getVisibilityIcon
+											}
+										/>
+									))
 								) : (
-									<>
-										{appsWithoutBookmarks.map((app) => (
-											<AppMenuItem
-												key={app.id}
-												app={app}
-												active={
-													pathname ===
-													`/app/${app.id}`
-												}
-												onClick={(id) =>
-													navigate(`/app/${id}`)
-												}
-												isCollapsed={isCollapsed}
-												getVisibilityIcon={
-													getVisibilityIcon
-												}
-											/>
-										))}
-										{moreAvailable && (
-											<SidebarMenuButton
-												active={pathname === '/apps'}
-												icon={
-													<ChevronRight className="size-4 text-kumo-subtle" />
-												}
-												tooltip="View all apps"
-												onClick={() =>
-													navigate('/apps')
-												}
-											>
-												View all apps
-											</SidebarMenuButton>
-										)}
-									</>
-								)}
-							</SidebarMenu>
-						</SidebarGroup>
-					)}
+									<Sidebar.MenuItem>
+										<div className="px-3 py-3 text-sm text-kumo-subtle">
+											{appSearchEmptyMessage}
+										</div>
+									</Sidebar.MenuItem>
+								)
+							) : (
+								<>
+									{appsWithoutBookmarks.map((app) => (
+										<AppMenuItem
+											key={app.id}
+											app={app}
+											active={
+												pathname === `/app/${app.id}`
+											}
+											onClick={(id) =>
+												navigate(`/app/${id}`)
+											}
+											isCollapsed={isCollapsed}
+											getVisibilityIcon={
+												getVisibilityIcon
+											}
+										/>
+									))}
+									{moreAvailable && (
+										<Sidebar.MenuButton
+											active={pathname === '/apps'}
+											icon={CaretRightIcon}
+											tooltip="View all apps"
+											onClick={() => navigate('/apps')}
+										>
+											View all apps
+										</Sidebar.MenuButton>
+									)}
+								</>
+							)}
+						</Sidebar.Menu>
+					</Sidebar.Group>
+				)}
 
 				{!isCollapsed && boards.length > 0 && (
 					<>
-						<SidebarSeparator />
-						<SidebarGroup className="py-2">
-							<SidebarGroupLabel
-								className="cursor-pointer"
-								onClick={() => toggleGroup('boards')}
-							>
-								<span className="flex items-center justify-between">
-									<span className="flex items-center gap-2">
-										<Users className="size-3.5" />
-										<span>My Boards</span>
-									</span>
-									<ChevronRight
-										className={cn(
-											'size-3.5 transition-transform',
-											expandedGroups.includes('boards') &&
-												'rotate-90',
-										)}
-									/>
-								</span>
-							</SidebarGroupLabel>
-							{expandedGroups.includes('boards') && (
-								<SidebarMenu>
-									{boards.map((board) => (
-										<SidebarMenuButton
-											key={board.id}
-											icon={
-												<UsersThree
-													className="size-4"
-													weight="duotone"
-												/>
+						<Sidebar.Separator />
+						<Sidebar.Group>
+							<Sidebar.Menu>
+								<Sidebar.MenuItem>
+									<Sidebar.Collapsible defaultOpen>
+										<Sidebar.CollapsibleTrigger
+											render={
+												<Sidebar.MenuButton
+													icon={UsersThreeIcon}
+												>
+													My boards
+													<Sidebar.MenuChevron />
+												</Sidebar.MenuButton>
 											}
-											tooltip={board.name}
-											onClick={() =>
-												navigate(
-													`/boards/${board.slug}`,
-												)
-											}
-										>
-											<span className="flex min-w-0 flex-col gap-0.5">
-												<span className="truncate">
-													{board.name}
-												</span>
-												<span className="truncate text-xs font-normal text-kumo-subtle">
-													{board.memberCount} members
-													/ {board.appCount} apps
-												</span>
-											</span>
-										</SidebarMenuButton>
-									))}
-									<SidebarMenuButton
-										icon={
-											<Plus className="size-4 text-kumo-subtle" />
-										}
-										tooltip="Browse all boards"
-										onClick={() => navigate('/boards')}
-									>
-										Browse all boards
-									</SidebarMenuButton>
-								</SidebarMenu>
-							)}
-						</SidebarGroup>
+										/>
+										<Sidebar.CollapsibleContent>
+											<Sidebar.MenuSub>
+												{boards.map((board) => (
+													<Sidebar.MenuSubButton
+														key={board.id}
+														onClick={() =>
+															navigate(
+																`/boards/${board.slug}`,
+															)
+														}
+													>
+														<span className="flex min-w-0 flex-col gap-0.5">
+															<span className="truncate">
+																{board.name}
+															</span>
+															<span className="truncate text-xs font-normal text-kumo-subtle">
+																{
+																	board.memberCount
+																}{' '}
+																members /{' '}
+																{board.appCount}{' '}
+																apps
+															</span>
+														</span>
+													</Sidebar.MenuSubButton>
+												))}
+												<Sidebar.MenuSubButton
+													onClick={() =>
+														navigate('/boards')
+													}
+												>
+													Browse all boards
+												</Sidebar.MenuSubButton>
+											</Sidebar.MenuSub>
+										</Sidebar.CollapsibleContent>
+									</Sidebar.Collapsible>
+								</Sidebar.MenuItem>
+							</Sidebar.Menu>
+						</Sidebar.Group>
 					</>
 				)}
-			</SidebarContent>
+			</Sidebar.Content>
 
-			<SidebarFooter className="h-auto border-t border-kumo-line p-3">
+			<Sidebar.Footer className="h-auto p-3">
 				<div className="flex w-full min-w-0 flex-col gap-2">
 					{showCloudflareCta && (
 						<button
@@ -588,22 +582,31 @@ export function AppSidebar() {
 							)}
 						</button>
 					)}
-					<div className="flex min-w-0 w-full items-center gap-2 group-data-[state=collapsed]/sidebar:flex-col">
-						{(!isCollapsed || user) && (
+					<div
+						className={cn(
+							'flex min-w-0 w-full items-center gap-2',
+							isCollapsed && 'flex-col',
+						)}
+					>
+						{user && (
 							<div className="min-w-0 flex-1">
 								<AuthButton
 									display="sidebar"
-									className="group-data-[state=collapsed]/sidebar:size-9 group-data-[state=collapsed]/sidebar:flex-none group-data-[state=collapsed]/sidebar:justify-center group-data-[state=collapsed]/sidebar:px-0 w-full"
+									className={cn(
+										'w-full',
+										isCollapsed &&
+											'size-9 flex-none justify-center px-0',
+									)}
 								/>
 							</div>
 						)}
 						<ThemeToggle
 							align="end"
-							className="size-9 shrink-0 rounded-lg group-data-[state=collapsed]/sidebar:ml-0"
+							className="size-9 shrink-0 rounded-lg"
 						/>
 					</div>
 				</div>
-			</SidebarFooter>
+			</Sidebar.Footer>
 		</Sidebar>
 	);
 }

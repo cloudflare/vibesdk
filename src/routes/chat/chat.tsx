@@ -85,6 +85,7 @@ import {
 import { queryKeys } from '@/lib/query-keys';
 import { ApiError } from '@/lib/api-client';
 import { capitalizeFirstLetter } from '@/lib/utils';
+import { usePageHeader } from '@/components/layout/header-context';
 
 const isPhasicBlueprint = (
 	blueprint?: BlueprintType | null,
@@ -339,6 +340,127 @@ export default function Chat() {
 
 	const [isResetDialogOpen, setIsResetDialogOpen] = useState(false);
 	const [isGitCloneModalOpen, setIsGitCloneModalOpen] = useState(false);
+
+	const headerTitle = blueprint?.title || appTitle;
+	const showHeader = Boolean(
+		headerTitle || chatId || appLoading || app?.visibility,
+	);
+
+	const headerContent = useMemo(() => {
+		if (!showHeader) return null;
+
+		if (appLoading) {
+			return {
+				leading: (
+					<div className="flex items-center gap-2 text-kumo-subtle text-sm">
+						<LoaderCircle className="size-4 animate-spin" />
+						Loading app...
+					</div>
+				),
+			};
+		}
+
+		return {
+			leading: (
+				<div className="min-w-0 flex-1 flex items-center gap-2">
+					<div
+						className="text-sm font-semibold truncate min-w-0"
+						title={headerTitle || undefined}
+					>
+						{headerTitle}
+					</div>
+					{app?.visibility && (
+						<Badge
+							className="shrink-0"
+							variant={
+								app.visibility === 'private'
+									? 'secondary'
+									: 'success'
+							}
+						>
+							<span className="inline-flex items-center gap-1">
+								<Globe className="h-3 w-3" weight="duotone" />
+								{capitalizeFirstLetter(app.visibility)}
+							</span>
+						</Badge>
+					)}
+				</div>
+			),
+			trailing: (
+				<>
+					{isOwner && app && (
+						<Button
+							variant="secondary"
+							size="sm"
+							onClick={handleToggleVisibility}
+							disabled={isUpdatingVisibility}
+							loading={isUpdatingVisibility}
+							icon={
+								app.visibility === 'private' ? (
+									<LockOpen
+										className="size-3.5"
+										weight="duotone"
+									/>
+								) : (
+									<Lock
+										className="size-3.5"
+										weight="duotone"
+									/>
+								)
+							}
+						>
+							{app.visibility === 'private'
+								? 'Make public'
+								: 'Make private'}
+						</Button>
+					)}
+					{app && (
+						<DropdownMenu>
+							<DropdownMenu.Trigger
+								render={
+									<Button
+										variant="secondary"
+										size="sm"
+										shape="square"
+										aria-label="More actions"
+										icon={<DotsThree className="h-4 w-4" />}
+									/>
+								}
+							/>
+							<DropdownMenu.Content align="end">
+								<DropdownMenu.Item
+									icon={BookmarkSimpleIcon}
+									onClick={() => {
+										void handleFavorite();
+									}}
+								>
+									{isFavorited ? 'Bookmarked' : 'Bookmark'}
+								</DropdownMenu.Item>
+								<DropdownMenu.Item
+									icon={GitBranch}
+									onClick={() => setIsGitCloneModalOpen(true)}
+								>
+									Clone
+								</DropdownMenu.Item>
+							</DropdownMenu.Content>
+						</DropdownMenu>
+					)}
+				</>
+			),
+		};
+	}, [
+		showHeader,
+		appLoading,
+		headerTitle,
+		app,
+		isOwner,
+		isUpdatingVisibility,
+		handleToggleVisibility,
+		handleFavorite,
+		isFavorited,
+	]);
+
+	usePageHeader(headerContent);
 
 	// Usage limits state
 	const { data: limitsData, loading: limitsLoading } = useLimitsContext();
@@ -968,122 +1090,6 @@ export default function Chat() {
 	return (
 		<RollbackContext.Provider value={rollbackHandler}>
 			<div className="size-full flex flex-col min-h-0 text-text-primary">
-				{(blueprint?.title || appTitle || chatId || appLoading) && (
-					<div className="h-12 shrink-0 flex items-center gap-3 px-4 border-b">
-						{appLoading ? (
-							<div className="flex items-center gap-2 text-kumo-subtle text-sm">
-								<LoaderCircle className="size-4 animate-spin" />
-								Loading app...
-							</div>
-						) : (
-							<>
-								<div className="min-w-0 flex-1 flex items-center gap-2">
-									<div
-										className="text-sm font-semibold truncate min-w-0"
-										title={
-											blueprint?.title ||
-											appTitle ||
-											undefined
-										}
-									>
-										{blueprint?.title || appTitle}
-									</div>
-									{app?.visibility && (
-										<Badge
-											className="shrink-0"
-											variant={
-												app.visibility === 'private'
-													? 'secondary'
-													: 'success'
-											}
-										>
-											<span className="inline-flex items-center gap-1">
-												<Globe
-													className="h-3 w-3"
-													weight="duotone"
-												/>
-												{capitalizeFirstLetter(
-													app.visibility,
-												)}
-											</span>
-										</Badge>
-									)}
-								</div>
-								<div className="flex items-center gap-1.5 shrink-0">
-									{isOwner && app && (
-										<Button
-											variant={
-												app.visibility === 'private'
-													? 'primary'
-													: 'secondary'
-											}
-											size="sm"
-											onClick={handleToggleVisibility}
-											disabled={isUpdatingVisibility}
-											loading={isUpdatingVisibility}
-											icon={
-												app.visibility === 'private' ? (
-													<LockOpen
-														className="size-3.5"
-														weight="duotone"
-													/>
-												) : (
-													<Lock
-														className="size-3.5"
-														weight="duotone"
-													/>
-												)
-											}
-										>
-											{app.visibility === 'private'
-												? 'Publish'
-												: 'Unpublish'}
-										</Button>
-									)}
-									{app && (
-										<DropdownMenu>
-											<DropdownMenu.Trigger
-												render={
-													<Button
-														variant="secondary"
-														size="sm"
-														shape="square"
-														aria-label="More actions"
-														icon={
-															<DotsThree className="h-4 w-4" />
-														}
-													/>
-												}
-											/>
-											<DropdownMenu.Content align="end">
-												<DropdownMenu.Item
-													icon={BookmarkSimpleIcon}
-													onClick={() => {
-														void handleFavorite();
-													}}
-												>
-													{isFavorited
-														? 'Bookmarked'
-														: 'Bookmark'}
-												</DropdownMenu.Item>
-												<DropdownMenu.Item
-													icon={GitBranch}
-													onClick={() =>
-														setIsGitCloneModalOpen(
-															true,
-														)
-													}
-												>
-													Clone
-												</DropdownMenu.Item>
-											</DropdownMenu.Content>
-										</DropdownMenu>
-									)}
-								</div>
-							</>
-						)}
-					</div>
-				)}
 				<div className="flex-1 flex min-h-0 overflow-hidden justify-center">
 					<motion.div
 						layout="position"
