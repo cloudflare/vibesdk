@@ -1,0 +1,25 @@
+src/routes/app/index.tsx
+  s_0d5c7c0de57848::t_d0b13e955fd5b3 19,108-109,114-115,343-355,382-413,822-824,827-829,837-857
+worker/agents/core/codingAgent.ts
+  s_0d5c7c0de57848::t_e33e38bd239043 386-389
+worker/api/controllers/appView/controller.ts
+  s_0d5c7c0de57848::t_4fa2563aaf5be2 13,64,69-76,88
+worker/api/controllers/appView/types.ts
+  s_0d5c7c0de57848::t_36e0989c8aff16 6,25
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "1a6ad37e74bb86a7a23d46698d9010df0c3db9ac",
+  "prompts": {},
+  "sessions": {
+    "s_0d5c7c0de57848": {
+      "agent_id": {
+        "tool": "windsurf",
+        "id": "marmalade-platypus",
+        "model": "unknown"
+      },
+      "human_author": "Karishnu Poddar <karishnu@cloudflare.com>"
+    }
+  }
+}
