@@ -34,6 +34,7 @@ interface App {
 	updatedAt: Date | string | null;
 	updatedAtFormatted?: string;
 	visibility: 'private' | 'team' | 'board' | 'public';
+	userId?: string | null;
 	isFavorite?: boolean;
 }
 
@@ -54,6 +55,7 @@ interface AppMenuItemProps {
 	showActions?: boolean;
 	isCollapsed: boolean;
 	getVisibilityIcon: (visibility: App['visibility']) => React.ReactNode;
+	appPath: string;
 }
 
 function AppMenuItem({
@@ -64,6 +66,7 @@ function AppMenuItem({
 	showActions = true,
 	isCollapsed,
 	getVisibilityIcon,
+	appPath,
 }: AppMenuItemProps) {
 	const formatTimestamp = () => {
 		const updatedAt =
@@ -99,7 +102,7 @@ function AppMenuItem({
 		<Sidebar.MenuItem className="group/app-item">
 			<Sidebar.MenuButton
 				active={active}
-				href={`/app/${app.id}`}
+				href={appPath}
 				tooltip={app.title}
 				className="min-h-12 items-start py-2 pr-9 text-sm"
 				onClick={(event) => {
@@ -179,6 +182,8 @@ export function AppSidebar() {
 	const { apps: favoriteApps, loading: favoriteAppsLoading } =
 		useFavoriteApps();
 	const { apps: allApps, loading: allAppsLoading } = useApps();
+	const getAppPath = (app: App) =>
+		app.userId === user?.id ? `/chat/${app.id}` : `/app/${app.id}`;
 
 	const boards: Board[] = [];
 
@@ -269,22 +274,24 @@ export function AppSidebar() {
 						/>
 					</div>
 				) : (
-					<Link
-						to="/"
-						className="flex w-full min-w-0 items-center gap-2.5 text-kumo-strong"
-					>
-						<CloudflareLogo
-							variant="glyph"
-							className="size-7 shrink-0"
-						/>
-						<span className="min-w-0 flex-1 truncate text-base font-black font-funky-mono uppercase tracking-wide">
-							Build
-						</span>
+					<div className="flex w-full min-w-0 items-center gap-2.5">
+						<Link
+							to="/"
+							className="flex min-w-0 flex-1 items-center gap-2.5 text-kumo-strong"
+						>
+							<CloudflareLogo
+								variant="glyph"
+								className="size-7 shrink-0"
+							/>
+							<span className="min-w-0 flex-1 truncate text-base font-black font-funky-mono uppercase tracking-wide">
+								Build
+							</span>
+						</Link>
 						<Sidebar.Trigger
 							aria-label="Collapse sidebar"
 							className="ml-auto shrink-0"
 						/>
-					</Link>
+					</div>
 				)}
 			</Sidebar.Header>
 
@@ -405,11 +412,12 @@ export function AppSidebar() {
 										<AppMenuItem
 											key={app.id}
 											app={app}
+											appPath={getAppPath(app)}
 											active={
-												pathname === `/app/${app.id}`
+												pathname === getAppPath(app)
 											}
-											onClick={(id) =>
-												navigate(`/app/${id}`)
+											onClick={() =>
+												navigate(getAppPath(app))
 											}
 											variant="bookmarked"
 											isCollapsed={isCollapsed}
@@ -430,8 +438,11 @@ export function AppSidebar() {
 									<AppMenuItem
 										key={app.id}
 										app={app}
-										active={pathname === `/app/${app.id}`}
-										onClick={(id) => navigate(`/app/${id}`)}
+										appPath={getAppPath(app)}
+										active={pathname === getAppPath(app)}
+										onClick={() =>
+											navigate(getAppPath(app))
+										}
 										variant="bookmarked"
 										isCollapsed={isCollapsed}
 										getVisibilityIcon={getVisibilityIcon}
@@ -462,11 +473,12 @@ export function AppSidebar() {
 										<AppMenuItem
 											key={app.id}
 											app={app}
+											appPath={getAppPath(app)}
 											active={
-												pathname === `/app/${app.id}`
+												pathname === getAppPath(app)
 											}
-											onClick={(id) =>
-												navigate(`/app/${id}`)
+											onClick={() =>
+												navigate(getAppPath(app))
 											}
 											isCollapsed={isCollapsed}
 											getVisibilityIcon={
@@ -487,11 +499,12 @@ export function AppSidebar() {
 										<AppMenuItem
 											key={app.id}
 											app={app}
+											appPath={getAppPath(app)}
 											active={
-												pathname === `/app/${app.id}`
+												pathname === getAppPath(app)
 											}
-											onClick={(id) =>
-												navigate(`/app/${id}`)
+											onClick={() =>
+												navigate(getAppPath(app))
 											}
 											isCollapsed={isCollapsed}
 											getVisibilityIcon={
