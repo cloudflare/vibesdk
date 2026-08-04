@@ -333,13 +333,19 @@ export class ThinkAgent extends Think<Env> {
 	 * On the final allowed step, disable tools and prime a text-only wrap-up so
 	 * the turn ends with a summary instead of a truncated tool call (see
 	 * `prompts/max-steps.txt`).
+	 *
+	 * The primer is injected as a `user` turn, not an `assistant` one: Gemini's
+	 * OpenAI-compat endpoint rejects any request whose final message is a model
+	 * turn (`400 INVALID_ARGUMENT: Requests ending with a model turn are not
+	 * supported`), and the prompt is a control directive that reads naturally as
+	 * user input.
 	 */
 	override beforeStep(ctx: PrepareStepContext): StepConfig | void {
 		if (ctx.stepNumber >= this.maxSteps - 1) {
 			return {
 				activeTools: [],
 				toolChoice: 'none',
-				messages: [...ctx.messages, { role: 'assistant', content: PROMPT_MAX_STEPS }],
+				messages: [...ctx.messages, { role: 'user', content: PROMPT_MAX_STEPS }],
 			};
 		}
 	}
