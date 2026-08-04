@@ -193,7 +193,7 @@ export function PromptBox({
 										if (textarea) autoResize(textarea);
 									}}
 								/>
-								<div className="absolute right-1.5 top-1/2 -translate-y-1/2 flex items-center gap-1">
+								<div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-2">
 									{rightActions}
 									<OrangeButton
 										type="submit"

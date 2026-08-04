@@ -127,10 +127,8 @@ export default function AppView() {
 
 	const { mutateAsync: toggleFavorite } = useToggleAppFavorite(app?.id);
 	const { mutateAsync: toggleStar } = useToggleAppStar(app?.id);
-	const {
-		mutateAsync: updateVisibility,
-		isPending: isUpdatingVisibility,
-	} = useUpdateAppVisibility(app?.id);
+	const { mutateAsync: updateVisibility, isPending: isUpdatingVisibility } =
+		useUpdateAppVisibility(app?.id);
 	const { mutateAsync: deleteApp, isPending: isDeleting } = useDeleteApp();
 	const { mutateAsync: deployPreview, isPending: isDeploying } =
 		useDeployPreview(app?.id);
@@ -556,7 +554,7 @@ export default function AppView() {
 			setIsDeleteDialogOpen(false);
 
 			if (window.history.length > 1) {
-				window.history.back();
+				navigate(-1);
 			} else {
 				navigate('/apps');
 			}

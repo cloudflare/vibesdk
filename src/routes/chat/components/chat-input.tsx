@@ -1,10 +1,11 @@
 import { type FormEvent, type ReactNode, type RefObject } from 'react';
 import { WebSocket } from 'partysocket';
-import { Square } from 'lucide-react';
 import { PromptBox } from '@/components/prompt-box';
 import { sendWebSocketMessage } from '../utils/websocket-helpers';
 import type { ImageAttachment } from '@/api-types';
 import { type UsageSummary } from '@/hooks/use-limits';
+import { Button } from '@cloudflare/kumo';
+import { SquareIcon } from '@phosphor-icons/react';
 
 interface ChatInputProps {
 	// Form state
@@ -80,15 +81,16 @@ export function ChatInput({
 
 	const stopButton =
 		isGenerating || isGeneratingBlueprint || isDebugging ? (
-			<button
+			<Button
 				type="button"
+				variant="secondary-destructive"
+				shape="square"
+				size="sm"
 				onClick={handleStopGeneration}
-				className="p-0.5 rounded-full hover:bg-red-500/10 text-kumo-subtle hover:text-red-500 transition-all duration-200 group animated-border-ring"
 				aria-label="Stop generation"
 				title="Stop generation"
-			>
-				<Square className="size-2.5 fill-brand/90 text-kumo-brand/80" />
-			</button>
+				icon={SquareIcon}
+			/>
 		) : undefined;
 
 	return (
