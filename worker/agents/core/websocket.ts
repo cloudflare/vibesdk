@@ -293,8 +293,10 @@ export async function handleWebSocketMessage(
                 try {
                     const loader = agent.getConversationMessageLoader();
                     const state = await loader.load();
-                    const debugState = agent.getBehavior().getDeepDebugSessionState();
-                    logger.info('Conversation state retrieved', state);
+					const debugState = agent
+						.getBehavior()
+						.getDeepDebugSessionState();
+					logger.info(`Conversation state retrieved for ${state.id}`);
                     sendToConnection(connection, WebSocketMessageResponses.CONVERSATION_STATE, {
                         state,
                         deepDebugSession: debugState
