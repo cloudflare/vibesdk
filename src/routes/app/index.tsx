@@ -16,7 +16,7 @@ import { useAuth } from '@/contexts/auth-context';
 import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard';
 import { useAuthGuard } from '@/hooks/useAuthGuard';
 import { ApiError } from '@/lib/api-client';
-import { capitalizeFirstLetter } from '@/lib/utils';
+import { capitalizeFirstLetter, getPreviewUrl } from '@/lib/utils';
 import { getFileType } from '@/utils/string';
 import {
 	Badge,
@@ -105,10 +105,14 @@ export default function AppView() {
 	const [isGitCloneModalOpen, setIsGitCloneModalOpen] = useState(false);
 	const [activeFilePath, setActiveFilePath] = useState<string>();
 	const previewIframeRef = useRef<HTMLIFrameElement>(null);
+	const autoDeployAppIdRef = useRef<string | undefined>(undefined);
+	const [thinkPreviewUrl, setThinkPreviewUrl] = useState<string>();
 
 	// Route reuses this component across /app/:id — clear deploy UI on switch
 	useEffect(() => {
 		setDeploymentProgress('');
+		autoDeployAppIdRef.current = undefined;
+		setThinkPreviewUrl(undefined);
 		setActiveTab('preview');
 		setActiveFilePath(undefined);
 	}, [id]);
@@ -334,8 +338,19 @@ export default function AppView() {
 	]);
 
 	const isOwner = !!app && app.userId === user?.id;
-	const appUrl =
-		ownerPreviewUrl || app?.cloudflareUrl || app?.previewUrl || '';
+	const isThink = app?.behaviorType === 'think';
+	// Think apps auto-load their live SpaceDO preview for signed-in viewers
+	// (see the effect below). Anonymous viewers can't hit the auth-gated deploy
+	// endpoint, so they fall back to the same manual affordance as non-Think apps.
+	const isAutoLoadingPreview = isThink && !!user;
+	// Think prefers its live preview over the production deployment link. For
+	// signed-in viewers we withhold the deployed link until the preview resolves
+	// so the preview always wins; anonymous viewers fall back to it.
+	const appUrl = isThink
+		? user
+			? thinkPreviewUrl || ''
+			: app?.cloudflareUrl || app?.previewUrl || ''
+		: ownerPreviewUrl || app?.cloudflareUrl || app?.previewUrl || '';
 	const promptText = app?.agentSummary?.query || app?.originalPrompt || '';
 
 	const handleCopyUrl = () => {
@@ -361,6 +376,38 @@ export default function AppView() {
 			});
 		}
 	};
+
+	// Auto-load the preview for Think apps so viewers don't have to click
+	// "Deploy". Gated to authenticated users: the preview endpoint requires
+	// auth (and applies per-user rate limiting), so anonymous visitors would
+	// only get a 401. They still see the manual deploy affordance below.
+	useEffect(() => {
+		if (
+			!app ||
+			!user ||
+			app.behaviorType !== 'think' ||
+			thinkPreviewUrl ||
+			autoDeployAppIdRef.current === app.id
+		) {
+			return;
+		}
+
+		autoDeployAppIdRef.current = app.id;
+		setDeploymentProgress('Loading preview...');
+		void deployPreview()
+			.then((data) => {
+				const url = getPreviewUrl(data.previewURL, data.tunnelURL);
+				if (url) setThinkPreviewUrl(url);
+			})
+			.catch((error) => {
+				console.error('Error loading Think preview:', error);
+				setDeploymentProgress('Failed to load preview');
+				toast.add({
+					title: 'Failed to load preview',
+					variant: 'error',
+				});
+			});
+	}, [app, thinkPreviewUrl, deployPreview, toast, user]);
 
 	const handleToggleVisibility = useCallback(async () => {
 		if (!app || !user || !isOwner) {
@@ -770,11 +817,14 @@ export default function AppView() {
 									<div className="relative z-10 text-center p-8 grid gap-4 max-w-md">
 										<div className="grid gap-1.5">
 											<h3 className="text-xl font-semibold">
-												Run app
+												{isAutoLoadingPreview
+													? 'Loading preview'
+													: 'Run app'}
 											</h3>
 											<p className="text-kumo-subtle text-sm">
-												Deploy a preview to see this app
-												live.
+												{isAutoLoadingPreview
+													? 'Preparing this app preview.'
+													: 'Deploy a preview to see this app live.'}
 											</p>
 											{deploymentProgress && (
 												<p className="text-sm text-kumo-subtle">
@@ -782,23 +832,27 @@ export default function AppView() {
 												</p>
 											)}
 										</div>
-										<div className="flex justify-center">
-											<Button
-												variant="primary"
-												onClick={handlePreviewDeploy}
-												disabled={isDeploying}
-												loading={isDeploying}
-												icon={
-													!isDeploying ? (
-														<Play className="h-4 w-4" />
-													) : undefined
-												}
-											>
-												{isDeploying
-													? 'Deploying...'
-													: 'Deploy for preview'}
-											</Button>
-										</div>
+										{!isAutoLoadingPreview && (
+											<div className="flex justify-center">
+												<Button
+													variant="primary"
+													onClick={
+														handlePreviewDeploy
+													}
+													disabled={isDeploying}
+													loading={isDeploying}
+													icon={
+														!isDeploying ? (
+															<Play className="h-4 w-4" />
+														) : undefined
+													}
+												>
+													{isDeploying
+														? 'Deploying...'
+														: 'Deploy for preview'}
+												</Button>
+											</div>
+										)}
 									</div>
 								</div>
 							)}

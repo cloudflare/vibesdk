@@ -435,7 +435,7 @@ export default function Chat() {
 							</Button>
 						</>
 					)}
-					{isOwner && app && (
+					{isOwner && app?.visibility === 'private' && (
 						<Button
 							variant="secondary"
 							size="sm"
@@ -443,22 +443,23 @@ export default function Chat() {
 							disabled={isUpdatingVisibility}
 							loading={isUpdatingVisibility}
 							icon={
-								app.visibility === 'private' ? (
-									<LockOpen
-										className="size-3.5"
-										weight="duotone"
-									/>
-								) : (
-									<Lock
-										className="size-3.5"
-										weight="duotone"
-									/>
-								)
+								<LockOpen
+									className="size-3.5"
+									weight="duotone"
+								/>
 							}
 						>
-							{app.visibility === 'private'
-								? 'Make public'
-								: 'Make private'}
+							Make public
+						</Button>
+					)}
+					{isOwner && app?.visibility === 'public' && (
+						<Button
+							variant="secondary"
+							size="sm"
+							onClick={() => navigate(`/app/${app.id}`)}
+							icon={<ExternalLink className="size-3.5" />}
+						>
+							View public preview
 						</Button>
 					)}
 					{app && (
@@ -483,6 +484,14 @@ export default function Chat() {
 								>
 									{isFavorited ? 'Bookmarked' : 'Bookmark'}
 								</DropdownMenu.Item>
+								{isOwner && app.visibility === 'public' && (
+									<DropdownMenu.Item
+										icon={Lock}
+										onClick={handleToggleVisibility}
+									>
+										Make private
+									</DropdownMenu.Item>
+								)}
 								<DropdownMenu.Item
 									icon={GitBranch}
 									onClick={() => setIsGitCloneModalOpen(true)}
@@ -501,6 +510,7 @@ export default function Chat() {
 		headerTitle,
 		app,
 		isOwner,
+		navigate,
 		isUpdatingVisibility,
 		handleToggleVisibility,
 		handleFavorite,

@@ -10,7 +10,7 @@ import {
     GitCloneTokenData,
     PreviewTokenData,
 } from './types';
-import { AgentSummary } from '../../../agents/core/types';
+import { AgentSummary, BehaviorType } from '../../../agents/core/types';
 import { createLogger } from '../../../logger';
 import { buildUserWorkerUrl, buildGitCloneUrl } from 'worker/utils/urls';
 import { JWTUtils } from '../../../utils/jwtUtils';
@@ -61,13 +61,19 @@ export class AppViewController extends BaseController {
             // Try to fetch current agent state to get latest generated code
             let agentSummary: AgentSummary | null = null;
             let previewUrl: string = '';
+            let behaviorType: BehaviorType | null = null;
             
             try {
                 // Use lightweight stub for read-only operations (faster - skips template loading)
                 const agentStub = await getAgentStubLightweight(env, appResult.id);
-                agentSummary = await agentStub.getSummary();
-
-                previewUrl = await agentStub.getPreviewUrlCache();
+                const [summary, previewUrlCache, agentBehaviorType] = await Promise.all([
+                    agentStub.getSummary(),
+                    agentStub.getPreviewUrlCache(),
+                    agentStub.getBehaviorType(),
+                ]);
+                agentSummary = summary;
+                previewUrl = previewUrlCache;
+                behaviorType = agentBehaviorType;
             } catch (agentError) {
                 // If agent doesn't exist or error occurred, fall back to database stored files
                 this.logger.warn('Could not fetch agent state, using stored files:', agentError);
@@ -79,6 +85,7 @@ export class AppViewController extends BaseController {
                 ...appResult, // Spread all EnhancedAppData fields including stats
                 cloudflareUrl: cloudflareUrl,
                 previewUrl: previewUrl || cloudflareUrl,
+                behaviorType,
                 user: {
                     id: appResult.userId!,
                     displayName: appResult.userName || 'Unknown',
