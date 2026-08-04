@@ -13,8 +13,10 @@ npm install @space-do/space
 
 Peer expectations: `compatibility_date >= 2024-09-23` and
 `compatibility_flags = ["nodejs_compat"]`. The class uses SQLite-backed
-Durable Object storage, an `ARTIFACTS` binding for durable git history, and a
-`LOADER` Worker Loader binding for Dynamic Worker previews.
+Durable Object storage and a `LOADER` Worker Loader binding for Dynamic Worker
+previews. Set `ENABLE_ARTIFACTS="true"` with an `ARTIFACTS` binding to use
+Cloudflare Artifacts for git/version history; otherwise SpaceDO uses its
+SQLite-backed workspace filesystem.
 
 ## Usage
 
@@ -44,10 +46,13 @@ tag = "v1"
 new_sqlite_classes = ["SpaceDO"]
 ```
 
-Each named `SpaceDO` instance is an isolated workspace and file layer. The
-Artifacts binding stores its durable commits, branches, history, and restore
-points. Address SpaceDO by forwarding a `Request` to a stub from
-`env.SPACE_DO.get(...)`, or call its typed RPC methods directly via DO RPC.
+Each named `SpaceDO` instance is an isolated workspace and file layer. Its
+filesystem backend is selected when the instance is first initialized and
+remains pinned for that app: `ENABLE_ARTIFACTS="true"` selects Artifacts for
+git/version history, while the default uses the SQLite workspace filesystem.
+Changing the flag affects only newly-created spaces. Address SpaceDO by
+forwarding a `Request` to a stub from `env.SPACE_DO.get(...)`, or call its typed
+RPC methods directly via DO RPC.
 
 ## HTTP contract
 

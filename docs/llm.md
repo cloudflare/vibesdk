@@ -6,12 +6,12 @@
 
 - `ThinkAgent` is an Agent powered by Cloudflare Think and backed by a Durable Object. It owns conversation history, context selection, skills, streaming, tools, and step limits.
 - `SpaceDO` is a Durable Object that provides each project's isolated workspace and files. Think's explicit workspace tools call it through Durable Object RPC; workspace bash is disabled.
-- Cloudflare Artifacts is the durable git and version-history layer for commits, branches, history, and restore points.
+- When `ENABLE_ARTIFACTS="true"` is selected for a SpaceDO, Cloudflare Artifacts is its durable git and version-history layer for commits, branches, history, and restore points; otherwise the SQLite workspace filesystem stores its local git history.
 - `@cloudflare/worker-bundler` builds committed project files, and a Worker Loader binding loads them as a Dynamic Worker preview.
 - Generated apps export an `App` Durable Object class that SpaceDO hosts as a Facet with isolated SQLite storage.
 - AI Gateway routes configured model providers and provides centralized observability and caching.
 
-SpaceDO is the workspace and file layer. Cloudflare Artifacts is the git and history layer. Do not describe SpaceDO itself as git-backed.
+SpaceDO is the workspace and file layer. For Artifacts-backed spaces, Cloudflare Artifacts is the git and history layer; SQL-backed spaces retain local git history in SQLite. Do not describe SpaceDO itself as git-backed.
 
 ## Current coding loop
 

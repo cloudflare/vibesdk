@@ -1,11 +1,6 @@
 import { DurableObject } from "cloudflare:workers"
-import {
-  InMemoryFs,
-  FileSystemStateBackend,
-  type FileSystem,
-  type FileInfo,
-} from "@cloudflare/shell"
-import { createGit, type Git, type GitLogEntry, type GitStatusEntry } from "@cloudflare/shell/git"
+import { type FileSystem, type FileInfo } from "@cloudflare/shell"
+import { type Git, type GitLogEntry, type GitStatusEntry } from "@cloudflare/shell/git"
 import type { Env } from "../env"
 import {
   buildBranchDeployment,
@@ -19,36 +14,8 @@ import {
   buildInspectorWrapperSource,
   VIBE_APP_MODULE,
 } from "./inspector-wrapper"
-import { ArtifactsSync, type ArtifactsRemoteStore } from "./artifacts-sync"
-import { ArtifactsFileSystem } from "./artifacts-fs"
-import { createArtifactsBaseSource, stageWorkdir } from "./git-objects"
-import { CheckpointStore } from "./checkpoint"
-
-/** Default branch imported as the ArtifactsFileSystem base on a fresh DO. */
-const ARTIFACTS_BASE_BRANCH = "main"
-
-// Durable DO-storage key holding the app's Artifacts git remote URL. Persisted
-// so a cold-started DO (empty in-memory FS) can push/fetch without re-reading
-// it off a `get()` handle, whose data properties are unreadable via the
-// local-dev remote-binding proxy.
-const ARTIFACTS_REMOTE_URL_KEY = "artifacts:remoteUrl"
-const ARTIFACTS_INIT_TIMEOUT_MS = 10_000
-// Debounce for mirroring overlay writes into DO-storage checkpoint rows.
-const CHECKPOINT_DEBOUNCE_MS = 2_000
-
-async function withTimeout<T>(operation: Promise<T>, timeoutMs: number): Promise<T> {
-  let timeout: ReturnType<typeof setTimeout> | undefined
-  try {
-    return await Promise.race([
-      operation,
-      new Promise<never>((_, reject) => {
-        timeout = setTimeout(() => reject(new Error("Operation timed out")), timeoutMs)
-      }),
-    ])
-  } finally {
-    if (timeout) clearTimeout(timeout)
-  }
-}
+import { ArtifactsBackend, resolveSpaceFsBackendMode, SqlBackend, type SpaceFsBackend } from "./fs-backend"
+import { stageWorkdir } from "./git-objects"
 
 // ─── Inspector result types ────────────────────────────────────────────────
 // These mirror the shapes returned by the wrapper-subclass injected into
@@ -119,142 +86,31 @@ const ASSET_CACHE_MAX_ENTRIES = 8
 const ASSET_CACHE_TTL_MS = 5 * 60 * 1000 // 5 minutes
 
 export class SpaceDO extends DurableObject<Env> {
-  // Raw in-memory overlay (the writable layer under `afs`). Cloudflare
-  // Artifacts is the only durable store for app files; uncommitted edits are
-  // lost on DO eviction. Used directly where a base-unaware view is wanted
-  // (after an explicit hydrate/materialize).
-  private overlay: FileSystem
-  private fs: FileSystem
-  // The base-aware overlay FS whose readiness/materialization gates the DO
-  // drives explicitly. Always present: the SpaceDO requires the Artifacts binding.
-  private afs: ArtifactsFileSystem
-  private git: Git
-  private stateBackend: FileSystemStateBackend
+  private backend!: SpaceFsBackend
   private initializationPromise: Promise<void> | null = null
-  // Keyed by `${branch}:${commitHash}` — commitHash makes redeploys self-invalidate.
   private assetCache = new Map<string, CachedAssets>()
-  // Lazily constructed on first use (bound to the overlay-aware git/FS).
-  private artifactsSync?: ArtifactsSync
-  private artifactsRemoteStore: ArtifactsRemoteStore
-  // Durable checkpoint of overlay writes in DO storage (SQLite), so
-  // uncommitted work survives DO resets — see checkpoint.ts. Paths dirtied
-  // since the last flush, coalesced by a debounce timer.
-  private checkpointStore: CheckpointStore
-  private readonly checkpointDirty = new Set<string>()
-  private checkpointTimer: ReturnType<typeof setTimeout> | null = null
+
+  private get overlay(): FileSystem { return this.backend.overlay }
+  private get fs(): FileSystem { return this.backend.fs }
+  private get git(): Git { return this.backend.git }
+  private get stateBackend() { return this.backend.stateBackend }
 
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env)
-
-    if (!env.ARTIFACTS) {
-      // The SpaceDO is Artifacts-backed; there is no plain-overlay fallback.
-      throw new Error("SpaceDO requires the ARTIFACTS binding")
-    }
-
-    // In-memory overlay: no SQLite for file storage. The Artifacts base is
-    // fetched into the overlay `.git` and rehydrated on cold start.
-    const overlay = new InMemoryFs()
-    this.overlay = overlay
-    // Base = the app's Artifacts branch, fetched into the overlay `.git` by a
-    // dedicated sync bound to the overlay (kept separate from the push-sync so
-    // fetch never re-enters the overlay-aware FS mid-initialization).
-    const repoName = ctx.id.name ?? "space"
-    // Durable persistence for the Artifacts remote URL (survives DO eviction).
-    const remoteStore: ArtifactsRemoteStore = {
-      read: () => ctx.storage.get<string>(ARTIFACTS_REMOTE_URL_KEY).then((v) => v ?? null),
-      write: (url) => ctx.storage.put(ARTIFACTS_REMOTE_URL_KEY, url).then(() => undefined),
-    }
-    this.artifactsRemoteStore = remoteStore
-    const fetchSync = new ArtifactsSync(env.ARTIFACTS, createGit(overlay), repoName, remoteStore)
-    const source = createArtifactsBaseSource({
-      overlay,
-      branch: ARTIFACTS_BASE_BRANCH,
-      hasRemote: async () => (await remoteStore.read()) !== null,
-      fetchBranch: async () => {
-        try {
-          return await withTimeout(fetchSync.fetch(ARTIFACTS_BASE_BRANCH), ARTIFACTS_INIT_TIMEOUT_MS)
-        } catch {
-          return false
-        }
-      },
-    })
-    this.checkpointStore = new CheckpointStore(ctx.storage)
-    this.afs = new ArtifactsFileSystem(overlay, {
-      source,
-      branch: ARTIFACTS_BASE_BRANCH,
-      checkpoint: this.checkpointStore,
-      onChange: (path) => this.noteCheckpointDirty(path),
-    })
-    this.fs = this.afs
-    this.git = createGit(this.fs)
-    this.stateBackend = new FileSystemStateBackend(overlay)
   }
 
-  // ── Checkpointing (durable overlay mirror in DO storage) ──────────
-
-  /** Record a mutated path and schedule a coalesced flush. Never throws. */
-  private noteCheckpointDirty(path: string): void {
-    if (isReservedPath(path)) return
-    this.checkpointDirty.add(path)
-    if (this.checkpointTimer !== null) return
-    this.checkpointTimer = setTimeout(() => {
-      this.checkpointTimer = null
-      void this.flushCheckpoint()
-    }, CHECKPOINT_DEBOUNCE_MS)
-  }
-
-  /**
-   * Write every dirty path's current bytes (or a tombstone for deletions)
-   * into DO storage. Best-effort: per-path failures are logged, never thrown.
-   *
-   * Reads the raw overlay (not the base-aware `afs`): the checkpoint is a delta
-   * against the last-pushed base, so it must capture only overlay writes — base
-   * files are already durable in Artifacts and must never be materialized into
-   * the checkpoint.
-   */
   private async flushCheckpoint(): Promise<void> {
-    if (this.checkpointDirty.size === 0) return
-    const paths = [...this.checkpointDirty]
-    this.checkpointDirty.clear()
-    for (const path of paths) {
-      try {
-        if (await this.overlay.exists(path)) {
-          const st = await this.overlay.stat(path)
-          if (st.type === "directory") continue
-          this.checkpointStore.save(path, await this.overlay.readFileBytes(path))
-        } else {
-          this.checkpointStore.save(path, null)
-        }
-      } catch (error) {
-        console.warn(`Checkpoint flush failed for ${path}`, error)
-      }
-    }
-  }
-
-  /**
-   * After a successful Artifacts push the base covers everything checkpointed,
-   * so the checkpoint restarts empty — then immediately re-flush anything
-   * dirtied since (writes that raced the push).
-   */
-  private resetCheckpointAfterPush(): void {
-    try {
-      this.checkpointStore.clear()
-      void this.flushCheckpoint()
-    } catch (error) {
-      console.warn("Checkpoint reset after push failed", error)
-    }
+    await this.backend.flushCheckpoint()
   }
 
   // ── ArtifactsFileSystem hydration helpers ──
 
-  /** Hydrate one path from the Artifacts base into the overlay, on demand. */
   private async hydrate(path: string): Promise<void> {
-    await this.afs.hydrate(path)
+    await this.backend.hydrate(path)
   }
 
-  /** Ensure the entire base tree is materialized into the overlay Workspace. */
   private async materializeAll(): Promise<void> {
-    await this.afs.whenFullyMaterialized()
+    await this.backend.materializeAll()
   }
 
   private async ensureInit(): Promise<void> {
@@ -268,6 +124,8 @@ export class SpaceDO extends DurableObject<Env> {
   }
 
   private async initializeSpace(): Promise<void> {
+    await this.initializeBackend()
+
     // Table needed by the deploy engine. (Git objects/refs live in the
     // Workspace FS under `.git/`, managed by isomorphic-git — the old `refs`
     // and `git_internal` tables from the retired smart-HTTP server are gone.)
@@ -294,15 +152,15 @@ export class SpaceDO extends DurableObject<Env> {
       // Already initialized — ignore
     }
 
-    // Build the Artifacts base index (fast; no blob copies). Best-effort: a
-    // transient fetch failure leaves the base empty until the next init.
-    {
-      try {
-        await this.afs.ready()
-      } catch {
-        // Base fetch failed this time — proceed with whatever is local.
-      }
-    }
+    await this.backend.ready()
+  }
+
+  private async initializeBackend(): Promise<void> {
+    const mode = await resolveSpaceFsBackendMode(this.ctx.storage, this.env)
+    const repoName = this.ctx.id.name ?? "space"
+    this.backend = mode === "artifacts"
+      ? new ArtifactsBackend(this.ctx, this.env, repoName)
+      : new SqlBackend(this.ctx, repoName)
   }
 
   // ── Filesystem RPC methods ──────────────────────────────────────
@@ -456,23 +314,6 @@ export class SpaceDO extends DurableObject<Env> {
     return { applied, failed }
   }
 
-  // ── Artifacts sync ──────────────────────────────────────────────
-
-  /**
-   * Lazily resolve the Artifacts sync helper. The ARTIFACTS binding is required
-   * (asserted in the constructor), so this always returns a helper.
-   */
-  private getArtifactsSync(): ArtifactsSync {
-    if (this.artifactsSync !== undefined) return this.artifactsSync
-    this.artifactsSync = new ArtifactsSync(
-      this.env.ARTIFACTS,
-      this.git,
-      this.ctx.id.name ?? "space",
-      this.artifactsRemoteStore,
-    )
-    return this.artifactsSync
-  }
-
   /** Resolve the branch HEAD currently points at (best-effort). */
   private async currentBranch(): Promise<string | null> {
     try {
@@ -520,13 +361,10 @@ export class SpaceDO extends DurableObject<Env> {
       author: author ?? { name: "Agent", email: "agent@vibesdk.local" },
     })
 
-    // Mirror to Artifacts so the commit becomes a durable restore point.
-    // Fire-and-forget: pushing must never block or fail the commit.
-    const sync = this.getArtifactsSync()
     this.ctx.waitUntil(
       (async () => {
         const branch = await this.currentBranch()
-        if (branch && (await sync.push(branch))) this.resetCheckpointAfterPush()
+        if (branch) await this.backend.push(branch)
       })(),
     )
 
@@ -571,10 +409,7 @@ export class SpaceDO extends DurableObject<Env> {
     // fully materialized into the overlay first.
     await this.materializeAll()
 
-    // Reconcile the local mirror with Artifacts (source of truth) before
-    // verifying, so a rollback still works if this DO lost/never-had the commit
-    // locally. Best-effort: falls back to local history if the fetch fails.
-    await this.getArtifactsSync().fetch(branch)
+    await this.backend.fetch(branch)
 
     // Verify the target commit exists on this branch's history.
     const history = await this.git.log({ ref: branch, depth: 1000 })
@@ -647,10 +482,7 @@ export class SpaceDO extends DurableObject<Env> {
     const spaceName = this.ctx.id.name ?? "space"
     data.preview_url = `/space/${spaceName}/preview/${encodeURIComponent(branch)}/`
 
-    // Mirror the deployed commit to Artifacts (best-effort) only on success.
-    if (!data.error) {
-      if (await this.getArtifactsSync().push(branch)) this.resetCheckpointAfterPush()
-    }
+    if (!data.error) await this.backend.push(branch)
 
     return data
   }
