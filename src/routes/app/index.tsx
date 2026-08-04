@@ -401,7 +401,7 @@ export default function AppView() {
 			leading: (
 				<div className="min-w-0 flex-1 flex items-center gap-2">
 					<h1
-						className="text-sm font-semibold truncate min-w-0"
+						className="text-sm max-w-sm font-semibold truncate min-w-0"
 						title={app.title}
 					>
 						{app.title}

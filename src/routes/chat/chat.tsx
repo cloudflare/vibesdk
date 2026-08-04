@@ -378,7 +378,7 @@ export default function Chat() {
 			leading: (
 				<div className="min-w-0 flex-1 flex items-center gap-2">
 					<div
-						className="text-sm font-semibold truncate min-w-0"
+						className="text-sm font-semibold max-w-sm truncate min-w-0"
 						title={headerTitle || undefined}
 					>
 						{headerTitle}
