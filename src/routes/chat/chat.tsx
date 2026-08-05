@@ -115,7 +115,7 @@ function dropLeadingUserForThink(
 	return messages[0]?.role === 'user' ? messages.slice(1) : messages;
 }
 
-export default function Chat() {
+function ChatSession() {
 	const { chatId: urlChatId } = useParams();
 
 	const [searchParams] = useSearchParams();
@@ -1490,4 +1490,28 @@ export default function Chat() {
 			</div>
 		</RollbackContext.Provider>
 	);
+}
+
+/**
+ * The router reuses a single `ChatSession` instance across `/chat/:chatId`, so
+ * navigating between two existing apps (e.g. from the sidebar) would otherwise
+ * leave the previous session's websocket, messages, and files in place because
+ * `useChat` only initializes while its connection is idle. Remount on a genuine
+ * switch by keying on the URL id, but preserve the instance across the
+ * `new -> realId` replace performed after a new session is created — remounting
+ * there would tear down the live generation session.
+ */
+export default function Chat() {
+	const { chatId } = useParams();
+	const [mountKey, setMountKey] = useState(() => chatId ?? 'new');
+	const prevChatId = useRef(chatId);
+
+	useEffect(() => {
+		if (chatId === prevChatId.current) return;
+		const wasNewSession = prevChatId.current === 'new';
+		prevChatId.current = chatId;
+		if (!wasNewSession) setMountKey(chatId ?? 'new');
+	}, [chatId]);
+
+	return <ChatSession key={mountKey} />;
 }
