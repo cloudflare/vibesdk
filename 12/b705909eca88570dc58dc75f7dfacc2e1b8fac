@@ -1,0 +1,23 @@
+worker/index.ts
+  s_72824f9e4eb8aa::t_b7a2ea5a47abb9 313-316,318-325
+worker/services/aigateway-proxy/controller.test.ts
+  s_72824f9e4eb8aa::t_12b566711de397 1-149
+worker/services/aigateway-proxy/controller.ts
+  s_72824f9e4eb8aa::t_c8ed377b169761 11-60,79,86-98,124-132,197-216,219-221,225-246,285-299,358-359
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "12b705909eca88570dc58dc75f7dfacc2e1b8fac",
+  "prompts": {},
+  "sessions": {
+    "s_72824f9e4eb8aa": {
+      "agent_id": {
+        "tool": "windsurf",
+        "id": "organized-overcoat",
+        "model": "unknown"
+      },
+      "human_author": "Karishnu Poddar <karishnu@cloudflare.com>"
+    }
+  }
+}
