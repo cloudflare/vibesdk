@@ -4,7 +4,7 @@ Set up VibeSDK for local development and production deployment.
 
 **Make sure to read through the entire guide for important notes, and have all the required information ready before starting.**
 
-Current generated-app previews use SpaceDO, Cloudflare Artifacts, a Worker Loader binding, and Dynamic Workers. They do not require a sandbox container or persistent preview server.
+Current generated-app previews use SpaceDO, a Worker Loader binding, and Dynamic Workers. Cloudflare Artifacts is optional behind `ENABLE_ARTIFACTS`; it is not required for the default SQLite workspace filesystem. Previews do not require a sandbox container or persistent preview server.
 
 ## Prerequisites
 
@@ -198,7 +198,7 @@ tier and can connect later.
 
 ### Generated-app preview requirements
 
-Generated-app previews use the `SPACE_DO`, `ARTIFACTS`, and `LOADER` bindings. Docker is not required for the current Think/SpaceDO preview path. `SandboxDockerfile` and container setup remain only for legacy tooling.
+Generated-app previews use the `SPACE_DO` and `LOADER` bindings. Add the `ARTIFACTS` binding for Artifacts-backed spaces. Artifacts defaults to disabled (closed beta): `ENABLE_ARTIFACTS` is intentionally not committed to the wrangler `vars`, so an unset value reads as disabled. Enable it per deployed environment by setting the `ENABLE_ARTIFACTS` variable (to `"true"`) in the Cloudflare dashboard; `keep_vars: true` in the wrangler config prevents `wrangler deploy` from deleting that dashboard-managed value. For local dev, set `ENABLE_ARTIFACTS="true"` in `.dev.vars`. Docker is not required for the current Think/SpaceDO preview path. `SandboxDockerfile` and container setup remain only for legacy tooling.
 
 ## Manual Setup (Alternative)
 
@@ -289,7 +289,7 @@ Visit your app at `http://localhost:5173`
 - **AI Gateway creation failed**: Ensure your API token has AI Gateway permissions
 
 **Dynamic Worker Preview Issues**:
-- Confirm the `SPACE_DO`, `ARTIFACTS`, and `LOADER` bindings are configured.
+- Confirm the `SPACE_DO` and `LOADER` bindings are configured; confirm `ARTIFACTS` only when `ENABLE_ARTIFACTS="true"`.
 - Check the branch deployment and signed preview URL.
 - Use `bun run dev:browser` when local browser-console inspection is needed.
 
@@ -428,4 +428,4 @@ The "Deploy to Cloudflare" button in the chat interface (for generated apps) has
 
 ### **Dynamic Worker preview troubleshooting**
 
-For current previews, verify the SpaceDO Durable Object binding, Artifacts namespace, Worker Loader binding, branch deployment, and signed preview URL. Build failures originate in `@cloudflare/worker-bundler`; application runtime failures should be inspected through browser console logs. If an issue persists, open a GitHub issue with the setup report and deployment error.
+For current previews, verify the SpaceDO Durable Object binding, Worker Loader binding, branch deployment, and signed preview URL. Verify the Artifacts namespace only when `ENABLE_ARTIFACTS="true"`. Build failures originate in `@cloudflare/worker-bundler`; application runtime failures should be inspected through browser console logs. If an issue persists, open a GitHub issue with the setup report and deployment error.
