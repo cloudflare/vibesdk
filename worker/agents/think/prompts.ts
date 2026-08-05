@@ -14,7 +14,7 @@ import PROMPT_GPT from './prompts/gpt.txt?raw';
 import PROMPT_KIMI from './prompts/kimi.txt?raw';
 import PROMPT_CODEX from './prompts/codex.txt?raw';
 import PROMPT_TRINITY from './prompts/trinity.txt?raw';
-// Injected as a final assistant message when the step budget is exhausted, to
+// Injected as a final user message when the step budget is exhausted, to
 // force a tool-free wrap-up (see max-steps.txt).
 import PROMPT_MAX_STEPS from './prompts/max-steps.txt?raw';
 
