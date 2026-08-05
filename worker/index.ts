@@ -310,18 +310,20 @@ const worker = {
 			}
 			// AI Gateway proxy for generated apps
 			if (pathname.startsWith('/api/proxy/openai')) {
-                // Only handle requests from valid origins of the preview domain
+                // Browser-originated requests must come from a preview-domain
+                // subdomain or an explicitly allowed origin. Server-side calls
+                // from generated apps carry no Origin header and are allowed
+                // through (auth is enforced by the app-proxy JWT downstream).
                 const origin = request.headers.get('Origin');
-                const previewDomain = getPreviewDomain(env);
-
-                logger.info(`Origin: ${origin}, Preview Domain: ${previewDomain}`);
-
+                if (origin) {
+                    const previewDomain = getPreviewDomain(env);
+                    const originAllowed = isOriginAllowed(env, origin) || origin.endsWith(`.${previewDomain}`);
+                    if (!originAllowed) {
+                        logger.warn(`Access denied. Invalid origin: ${origin}, preview domain: ${previewDomain}`);
+                        return new Response('Access denied. Invalid origin.', { status: 403 });
+                    }
+                }
                 return proxyToAiGateway(request, env, ctx);
-				// if (origin && origin.endsWith(`.${previewDomain}`)) {
-                //     return proxyToAiGateway(request, env, ctx);
-                // }
-                // logger.warn(`Access denied. Invalid origin: ${origin}, preview domain: ${previewDomain}`);
-                // return new Response('Access denied. Invalid origin.', { status: 403 });
 			}
 
 			// Handle all API requests with the main Hono application.
