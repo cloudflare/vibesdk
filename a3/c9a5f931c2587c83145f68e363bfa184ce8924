@@ -1,0 +1,59 @@
+migrations/0006_puzzling_bloodstrike.sql
+  s_9a566ee1fc9311::t_8c61bbccca0b6b 1-6
+migrations/meta/0008_snapshot.json
+  s_9a566ee1fc9311::t_7aad1abd3631e2 1-2787
+migrations/meta/_journal.json
+  s_9a566ee1fc9311::t_dcc9d319ae1cdd 60-66
+space/src/space/preview-headers.test.ts
+  s_9a566ee1fc9311::t_8904e107132932 1-55
+space/src/space/preview-headers.ts
+  s_9a566ee1fc9311::t_e9d6ebb679dcb8 1-38
+worker/agents/output-formats/diff-formats/udiff.test.ts
+  s_9a566ee1fc9311::t_1e842a5d803e8a 357-370
+worker/agents/output-formats/diff-formats/udiff.ts
+  s_9a566ee1fc9311::t_165707ed3706d2 172-175,384-386,557-558
+worker/api/controllers/apps/controller.ts
+  s_9a566ee1fc9311::t_c697bead2ddfe3 15-16,19-20,117,119-128,130-136,141,157-159,161-170
+worker/api/controllers/apps/publicAppDto.test.ts
+  s_9a566ee1fc9311::t_fe92772f90d20e 1-168
+worker/api/controllers/apps/publicAppDto.ts
+  s_9a566ee1fc9311::t_9301e1cacdc98b 1-87
+worker/api/controllers/apps/publicAppsQuery.test.ts
+  s_9a566ee1fc9311::t_4757a3463c8448 1-68
+worker/api/controllers/apps/publicAppsQuery.ts
+  s_9a566ee1fc9311::t_5896102010b951 1-57
+worker/api/controllers/apps/types.ts
+  s_9a566ee1fc9311::t_069d10978f8e2f 6,9-10,12
+worker/database/schema.ts
+  s_9a566ee1fc9311::t_0032831452961e 341-346,361
+worker/database/services/AppService.ts
+  s_9a566ee1fc9311::t_6d86cef520a054 37-55,63-74,113,121,136,139,664,666,764-770,772,774,780-781,784-786,793-807,945-947,975,1029
+worker/database/types.ts
+  s_9a566ee1fc9311::t_64cb5f520ccefe 38-80
+worker/index.ts
+  s_9a566ee1fc9311::t_0ccaec36594607 313-316,318-325
+worker/services/aigateway-proxy/controller.test.ts
+  s_9a566ee1fc9311::t_08bda11a620c00 1-149
+worker/services/aigateway-proxy/controller.ts
+  s_9a566ee1fc9311::t_2e39c42a6b746f 11-60,79,86-98,124-132,197-216,219-221,225-246,285-299,358-359
+worker/services/rate-limit/config.ts
+  s_9a566ee1fc9311::t_876299fb8f7cdb 56,65,97-106
+worker/services/rate-limit/rateLimits.ts
+  s_9a566ee1fc9311::t_3a4cdf39c729f7 155-199
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "a3c9a5f931c2587c83145f68e363bfa184ce8924",
+  "prompts": {},
+  "sessions": {
+    "s_9a566ee1fc9311": {
+      "agent_id": {
+        "tool": "windsurf",
+        "id": "gelatinous-titanium",
+        "model": "unknown"
+      },
+      "human_author": "Karishnu Poddar <karishnu@cloudflare.com>"
+    }
+  }
+}
