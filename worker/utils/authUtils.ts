@@ -22,7 +22,7 @@ export function enforceAllowedEmail(
 	email: string,
 	action: 'register' | 'login' | 'oauth',
 ): void {
-	const allowedEmail: string = env.ALLOWED_EMAIL;
+	const allowedEmail = env.ALLOWED_EMAIL ?? '';
 	if (!allowedEmail) return;
 	if (email.toLowerCase() !== allowedEmail.toLowerCase()) {
 		throw new SecurityError(

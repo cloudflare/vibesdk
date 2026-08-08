@@ -15,8 +15,8 @@
 	// Bumped for Durable Object Facets (see wrangler.jsonc for context).
 	"compatibility_date": "2026-05-23",
 	"compatibility_flags": ["nodejs_compat"],
-	// Preserve dashboard-managed plaintext vars on deploy so dashboard-only
-	// toggles (e.g. ENABLE_ARTIFACTS) are not deleted by `wrangler deploy`.
+	// Preserve dashboard-managed vars on deploy so dashboard-only settings
+	// (e.g. ENABLE_ARTIFACTS and ENABLE_READ_REPLICAS) are not deleted by `wrangler deploy`.
 	"keep_vars": true,
 	// Treat imported `.md` files (e.g. Think agent SKILL.md) as Text modules so
 	// `wrangler deploy` can bundle markdown imports. Unlike `.txt`, `.md` has no
@@ -203,12 +203,7 @@
     ],
 	"vars": {
         "TEMPLATES_REPOSITORY": "https://github.com/cloudflare/vibesdk-templates",
-        "ALLOWED_EMAIL": "",
         "DISPATCH_NAMESPACE": "vibesdk-staging-namespace",
-        "ENABLE_READ_REPLICAS": "true",
-        "ENABLE_EMAIL_AUTH": "true",
-        "ENABLE_CLOUDFLARE_LIMITS": "false",
-        "ENABLE_USER_ACCOUNT_DEPLOY": "false",
         "CLOUDFLARE_AI_GATEWAY": "vibesdk-gateway",
         "PLATFORM_CAPABILITIES": {
             "features": {

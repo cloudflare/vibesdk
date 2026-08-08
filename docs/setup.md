@@ -182,15 +182,16 @@ Add the client credentials to `.dev.vars` (and `.prod.vars` for production):
 ```bash
 CLOUDFLARE_OAUTH_CLIENT_ID="<your-oauth-client-id>"        # required for Login with Cloudflare
 CLOUDFLARE_OAUTH_CLIENT_SECRET="<your-oauth-client-secret>"
-ENABLE_CLOUDFLARE_LIMITS="true"                            # enables the AI Gateway connect feature
 CF_OAUTH_ENCRYPTION_KEY="<32-byte base64 key>"             # required for AI Gateway; encrypts the token cookie
 ```
+
+Set `ENABLE_CLOUDFLARE_LIMITS="true"` in the Cloudflare dashboard for production, or in `.dev.vars` for local development.
 
 The **"Login with Cloudflare" button** appears as soon as `CLOUDFLARE_OAUTH_CLIENT_ID`
 and `CLOUDFLARE_OAUTH_CLIENT_SECRET` are set — identity login needs nothing else.
 
 The **AI Gateway connect/auto-connect** (running generations on the user's own
-credits) additionally requires `ENABLE_CLOUDFLARE_LIMITS="true"` and
+credits) additionally requires the dashboard-managed `ENABLE_CLOUDFLARE_LIMITS="true"` and
 `CF_OAUTH_ENCRYPTION_KEY` (generate with `openssl rand -base64 32`). If the key is
 missing, the gateway feature is disabled (same as leaving `ENABLE_CLOUDFLARE_LIMITS`
 unset) and login simply skips the gateway auto-connect — users fall back to the free
@@ -198,7 +199,25 @@ tier and can connect later.
 
 ### Generated-app preview requirements
 
-Generated-app previews use the `SPACE_DO` and `LOADER` bindings. Add the `ARTIFACTS` binding for Artifacts-backed spaces. Artifacts defaults to disabled (closed beta): `ENABLE_ARTIFACTS` is intentionally not committed to the wrangler `vars`, so an unset value reads as disabled. Enable it per deployed environment by setting the `ENABLE_ARTIFACTS` variable (to `"true"`) in the Cloudflare dashboard; `keep_vars: true` in the wrangler config prevents `wrangler deploy` from deleting that dashboard-managed value. For local dev, set `ENABLE_ARTIFACTS="true"` in `.dev.vars`. Docker is not required for the current Think/SpaceDO preview path. `SandboxDockerfile` and container setup remain only for legacy tooling.
+Generated-app previews use the `SPACE_DO` and `LOADER` bindings. Add the `ARTIFACTS` binding for Artifacts-backed spaces. Docker is not required for the current Think/SpaceDO preview path. `SandboxDockerfile` and container setup remain only for legacy tooling.
+
+### Dashboard-managed feature toggles
+
+Feature settings are intentionally omitted from the committed wrangler `vars`. For deployed environments, set them in the Cloudflare dashboard; `keep_vars: true` preserves their values when `wrangler deploy` runs. For local development, set them in `.dev.vars`. Do not add these settings back to `wrangler.jsonc` or `wrangler.staging.jsonc`.
+
+| Variable | Effect | Unset default | Notes |
+| --- | --- | --- | --- |
+| `ENABLE_ARTIFACTS` | Uses Artifacts-backed spaces | Off | Requires the `ARTIFACTS` binding. |
+| `ENABLE_READ_REPLICAS` | Enables D1 read replicas | Off | Set to `"true"` to enable. |
+| `ENABLE_EMAIL_AUTH` | Enables email/password authentication | On | Set to `"false"` to make the deployment OAuth-only. |
+| `ENABLE_CLOUDFLARE_LIMITS` | Enables AI Gateway connect | Off | Requires `CF_OAUTH_ENCRYPTION_KEY`; set to `"true"` to enable. |
+| `ENABLE_USER_ACCOUNT_DEPLOY` | Deploys Think apps to the user's Cloudflare account | Off | Set to `"true"` to enable. |
+| `ALLOWED_EMAIL` | Restricts sign-in to one email address | Off | Set the allowed address; empty or unset disables the allowlist. |
+| `ALLOCATION_STRATEGY` | Selects the legacy sandbox allocation strategy | Default strategy | Managed in the dashboard rather than through production secrets. |
+| `USE_CLOUDFLARE_IMAGES` | Enables Cloudflare Images uploads | Off | Set a non-empty value to enable. |
+| `USE_TUNNEL_FOR_PREVIEW` | Uses a tunnel for local previews | Off | Dev-only; set in `.dev.vars`, not the production dashboard. |
+
+Existing deployments retain previously configured dashboard values when this configuration is deployed. New deployments must explicitly set `ENABLE_READ_REPLICAS="true"` or `ENABLE_CLOUDFLARE_LIMITS="true"` in the dashboard to preserve the former committed defaults.
 
 ## Manual Setup (Alternative)
 

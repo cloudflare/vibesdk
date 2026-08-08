@@ -111,6 +111,10 @@ Open `http://localhost:5173`. The setup script configures local and production e
 
 For all setup options and troubleshooting, read [`docs/setup.md`](docs/setup.md).
 
+### Feature toggles
+
+Feature settings are dashboard-managed rather than committed in `wrangler.jsonc`, so production values survive deploys through `keep_vars: true`. Set them in the Cloudflare dashboard for each deployed environment, or in `.dev.vars` for local development. Unset values default to off unless noted otherwise: `ENABLE_ARTIFACTS`, `ENABLE_READ_REPLICAS`, `ENABLE_CLOUDFLARE_LIMITS`, `ENABLE_USER_ACCOUNT_DEPLOY`, `ALLOWED_EMAIL`, `USE_CLOUDFLARE_IMAGES`, and `USE_TUNNEL_FOR_PREVIEW`; `ENABLE_EMAIL_AUTH` defaults to on. `ALLOCATION_STRATEGY` uses its normal default when unset. See the [feature-toggle setup reference](docs/setup.md#dashboard-managed-feature-toggles) for dependencies and behavior.
+
 ### Development commands
 
 | Command | Purpose |
