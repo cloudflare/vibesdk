@@ -9,6 +9,11 @@ import { RateLimitExceededError, SecurityError } from 'shared/types/errors';
 import { isDev } from 'worker/utils/envs';
 import { AI_MODEL_CONFIG, AIModels } from 'worker/agents/inferutils/config.types';
 
+interface LLMCallRateLimitOptions {
+	creditCost?: number;
+	throwOnExceeded?: boolean;
+}
+
 export class RateLimitService {
     static logger = createObjectLogger(this, 'RateLimitService');
 
@@ -349,7 +354,8 @@ export class RateLimitService {
         model: AIModels | string,
         suffix: string = "",
 		isUsingBYOK: boolean = false,
-		hasCloudflareConfigured: boolean = false
+		hasCloudflareConfigured: boolean = false,
+		options: LLMCallRateLimitOptions = {},
 	): Promise<void> {
 
 		const llmConfig = config[RateLimitType.LLM_CALLS];
@@ -374,12 +380,13 @@ export class RateLimitService {
 		const key = this.buildRateLimitKey(RateLimitType.LLM_CALLS, `${identifier}${suffix}`);
 		
 		try {
-            // Increment by model's credit cost
-            const modelConfig = AI_MODEL_CONFIG[model as AIModels];
-            const incrementBy = modelConfig.creditCost;
+			const incrementBy = options.creditCost ?? AI_MODEL_CONFIG[model as AIModels]?.creditCost;
+			if (!incrementBy || incrementBy <= 0) {
+				return;
+			}
 
 			const result = await this.enforce(env, key, config, RateLimitType.LLM_CALLS, incrementBy);
-			if (!result.success) {
+			if (!result.success && options.throwOnExceeded !== false) {
 				this.logger.warn('LLM calls rate limit exceeded', {
 					identifier,
 					key,

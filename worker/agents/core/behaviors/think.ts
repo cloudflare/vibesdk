@@ -526,6 +526,9 @@ export class ThinkCodingBehavior
 		try {
 			await stub.chat(text, forwarder);
 		} finally {
+			this.broadcast(WebSocketMessageResponses.USAGE_UPDATED, {
+				message: 'Usage data updated',
+			});
 			const disposeSymbol = (Symbol as unknown as { dispose?: symbol }).dispose;
 			if (disposeSymbol) {
 				const dispose = (forwarder as unknown as Record<symbol, unknown>)[disposeSymbol];

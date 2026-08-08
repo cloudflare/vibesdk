@@ -21,6 +21,11 @@ import { createDeploySpaceTool } from './deploy-tool';
 import { createCommitTool } from './commit-tool';
 import { createSetTitleTool } from './set-title-tool';
 import { selectThinkContextMessages } from './context-selector';
+import { getUserConfigurableSettings } from '../../config';
+import { RateLimitService } from '../../services/rate-limit/rateLimits';
+import { hasCloudflareConfigured } from '../../services/rate-limit/usageChecker';
+import type { RateLimitSettings } from '../../services/rate-limit/config';
+import { THINK_MODEL_CONFIG } from './model-config';
 
 /**
  * Per-instance configuration pushed into a {@link ThinkAgent} by the host
@@ -164,6 +169,7 @@ export class ThinkAgent extends Think<Env> {
 	 * the `extra_content` Google requires for multi-step function calling).
 	 */
 	private readonly thoughtSignatures = new Map<string, string>();
+	private turnUsage: { config: RateLimitSettings; hasCloudflareConfigured: boolean } | null = null;
 
 	/**
 	 * Re-attach harvested Gemini `thought_signature`s to the `tool_calls` in an
@@ -283,11 +289,24 @@ export class ThinkAgent extends Think<Env> {
 		return `${base}\n\n${projectContext}`;
 	}
 
-	override beforeTurn(ctx: TurnContext): TurnConfig {
+	override async beforeTurn(ctx: TurnContext): Promise<TurnConfig> {
 		const messages = selectThinkContextMessages(ctx.messages);
+		const config = this.getConfig<ThinkAgentConfig>();
+		this.turnUsage = null;
+		if (config) {
+			try {
+				const userConfig = await getUserConfigurableSettings(this.env, config.userId);
+				this.turnUsage = {
+					config: userConfig.security.rateLimit,
+					hasCloudflareConfigured: await hasCloudflareConfigured(this.env, config.userId),
+				};
+			} catch (error) {
+				console.warn('Failed to resolve Think credit metering configuration', error);
+			}
+		}
 		console.info('Think context selected', {
-			model: this.getConfig<ThinkAgentConfig>()?.model.modelName,
-			contextSize: this.getConfig<ThinkAgentConfig>()?.model.contextSize,
+			model: config?.model.modelName,
+			contextSize: config?.model.contextSize,
 			originalMessageCount: ctx.messages.length,
 			selectedMessageCount: messages.length,
 		});
@@ -340,7 +359,20 @@ export class ThinkAgent extends Think<Env> {
 	 * supported`), and the prompt is a control directive that reads naturally as
 	 * user input.
 	 */
-	override beforeStep(ctx: PrepareStepContext): StepConfig | void {
+	override async beforeStep(ctx: PrepareStepContext): Promise<StepConfig | void> {
+		const config = this.getConfig<ThinkAgentConfig>();
+		if (this.turnUsage && config) {
+			await RateLimitService.enforceLLMCallsRateLimit(
+				this.env,
+				this.turnUsage.config,
+				config.userId,
+				'Think',
+				'',
+				false,
+				this.turnUsage.hasCloudflareConfigured,
+				{ creditCost: THINK_MODEL_CONFIG.creditCost, throwOnExceeded: false },
+			);
+		}
 		if (ctx.stepNumber >= this.maxSteps - 1) {
 			return {
 				activeTools: [],
