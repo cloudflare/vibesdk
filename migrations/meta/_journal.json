@@ -57,6 +57,13 @@
       "when": 1783593382020,
       "tag": "0007_violet_nebula",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1784039913365,
+      "tag": "0006_puzzling_bloodstrike",
+      "breakpoints": true
     }
   ]
 }

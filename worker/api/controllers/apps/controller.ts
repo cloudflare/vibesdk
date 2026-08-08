@@ -12,8 +12,12 @@ import {
     UpdateAppVisibilityData,
     AppDeleteData
 } from './types';
+import { toPublicAppListItem } from './publicAppDto';
+import { parsePublicAppsQuery } from './publicAppsQuery';
 // import { withCache } from '../../../services/cache/wrapper';
 import { createLogger } from '../../../logger';
+import { RateLimitService } from '../../../services/rate-limit/rateLimits';
+import { RateLimitExceededError } from 'shared/types/errors';
 
 export class AppController extends BaseController {
     static logger = createLogger('AppController');
@@ -110,21 +114,31 @@ export class AppController extends BaseController {
     }
 
     // Get public apps feed (like a global board)
-   static getPublicApps = async function(this: AppController, request: Request, env: Env, _ctx: ExecutionContext, _context: RouteContext): Promise<ControllerResponse<ApiResponse<PublicAppsData>>> {
+   static getPublicApps = async function(this: AppController, request: Request, env: Env, _ctx: ExecutionContext, context: RouteContext): Promise<ControllerResponse<ApiResponse<PublicAppsData>>> {
         try {
+            const user = await AppController.getOptionalUser(request, env);
+            try {
+                await RateLimitService.enforcePublicAppsRateLimit(env, context.config.security.rateLimit, user ?? null, request);
+            } catch (error) {
+                if (error instanceof RateLimitExceededError) {
+                    return AppController.createErrorResponse<PublicAppsData>('Too many requests', 429);
+                }
+                throw error;
+            }
+
             const url = new URL(request.url);
-            
-            // Parse query parameters with type safety
-            const limit = Math.min(parseInt(url.searchParams.get('limit') || '20'), 100);
-            const page = parseInt(url.searchParams.get('page') || '1');
-            const offset = (page - 1) * limit;
+
+            // Validate + bound attacker-controlled pagination/search params.
+            const parsed = parsePublicAppsQuery(url.searchParams);
+            if (!parsed.ok) {
+                return AppController.createErrorResponse<PublicAppsData>(parsed.error, 400);
+            }
+            const { limit, offset, search } = parsed.value;
             const sort = (url.searchParams.get('sort') || 'recent') as AppSortOption;
             const order = (url.searchParams.get('order') || 'desc') as SortOrder;
             const period = (url.searchParams.get('period') || 'all') as TimePeriod;
             const framework = url.searchParams.get('framework') || undefined;
-            const search = url.searchParams.get('search') || undefined;
-            
-            const user = await AppController.getOptionalUser(request, env);
+
             const userId = user?.id;
             
             // Get apps
@@ -140,15 +154,20 @@ export class AppController extends BaseController {
                 userId
             });
             
-            // Format response with relative timestamps
+            // Format response with relative timestamps.
+            // Whitelist each row through the safe public projection before it
+            // leaves the worker (drops prompts, deploymentId, userId, etc.).
             const responseData: PublicAppsData = {
-                apps: result.data.map(app => ({
-                    ...app,
-                    userName: app.userName || 'Anonymous User',
-                    userAvatar: app.userAvatar || null,
-                    updatedAtFormatted: formatRelativeTime(app.updatedAt),
-                    createdAtFormatted: app.createdAt ? formatRelativeTime(app.createdAt) : ''
-                })),
+                apps: result.data.map(app => {
+                    const safeApp = toPublicAppListItem(app);
+                    return {
+                        ...safeApp,
+                        userName: safeApp.userName || 'Anonymous User',
+                        userAvatar: safeApp.userAvatar || null,
+                        updatedAtFormatted: formatRelativeTime(safeApp.updatedAt),
+                        createdAtFormatted: safeApp.createdAt ? formatRelativeTime(safeApp.createdAt) : ''
+                    };
+                }),
                 pagination: result.pagination
             };
             

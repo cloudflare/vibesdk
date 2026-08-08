@@ -3,12 +3,13 @@
  */
 
 import { App } from '../../../database/schema';
-import { AppWithFavoriteStatus, PaginationInfo, FavoriteToggleResult, EnhancedAppData } from '../../../database/types';
+import { AppWithFavoriteStatus, PaginationInfo, FavoriteToggleResult, PublicAppListData } from '../../../database/types';
 
 /**
- * App with extended user and social stats for public listings
+ * App with extended user and social stats for public listings.
+ * Uses the safe public projection - no sensitive/operational columns.
  */
-export type AppWithUserAndStats = EnhancedAppData & {
+export type AppWithUserAndStats = PublicAppListData & {
     updatedAtFormatted: string;
 };
 

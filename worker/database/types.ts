@@ -36,6 +36,49 @@ export interface EnhancedAppData extends schema.App {
 }
 
 /**
+ * Safe public projection of an app for listing responses. Explicitly excludes
+ * sensitive/operational columns (originalPrompt, finalPrompt, sessionToken,
+ * userId, deploymentId, parentAppId, etc.). GitHub fields are only populated
+ * for public repositories.
+ */
+export type PublicAppListData = Pick<
+    EnhancedAppData,
+    | 'id'
+    | 'title'
+    | 'description'
+    | 'iconUrl'
+    | 'framework'
+    | 'visibility'
+    | 'status'
+    | 'isFeatured'
+    | 'screenshotUrl'
+    | 'createdAt'
+    | 'updatedAt'
+    | 'lastDeployedAt'
+    | 'githubRepositoryUrl'
+    | 'githubRepositoryVisibility'
+    | 'userName'
+    | 'userAvatar'
+    | 'starCount'
+    | 'viewCount'
+    | 'forkCount'
+    | 'likeCount'
+    | 'userStarred'
+    | 'userFavorited'
+>;
+
+/**
+ * Safe public projection of an app for the detail endpoint. Adds the original
+ * prompt (intended public feature on public apps). Owner-only operational
+ * fields (userId, deploymentId) are populated only when the viewer owns the app.
+ */
+export type PublicAppDetailData = PublicAppListData &
+    Pick<EnhancedAppData, 'originalPrompt'> & {
+        userId?: string | null;
+        deploymentId?: string | null;
+    };
+
+/**
  * App with favorite status for user-specific queries
  */
 export interface AppWithFavoriteStatus extends schema.App {

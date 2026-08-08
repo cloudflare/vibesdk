@@ -169,7 +169,10 @@ function tryDirectApplication(content: string, hunk: string[]): string | null {
 
 	if (occurrences === 1) {
 		const afterBlock = after.join('\n');
-		return content.replace(beforeBlock, afterBlock);
+		// Use a replacer function so `$`-sequences in the generated replacement
+		// (e.g. `$&`, `$$`, `$1`) are inserted literally, not interpreted by
+		// String.prototype.replace.
+		return content.replace(beforeBlock, () => afterBlock);
 	}
 
 	// Strategy 2: Try with whitespace normalization
@@ -378,8 +381,9 @@ function tryWithNormalizedWhitespace(content: string, hunk: string[]): string | 
 		line.length > 0 ? actualIndentation + line : line
 	);
 	const replacementText = replacementLines.join('\n');
-	
-	return content.replace(matchedText, replacementText);
+
+	// Replacer function: insert the replacement literally (no `$`-pattern expansion).
+	return content.replace(matchedText, () => replacementText);
 }
 
 /**
@@ -550,7 +554,8 @@ function tryContextReduction(content: string, hunk: string[]): string | null {
 					...contextAfter,
 				]).after;
 				const replaceBlock = replaceAfter.join('\n');
-				return content.replace(searchBlock, replaceBlock);
+				// Replacer function: insert the replacement literally (no `$`-pattern expansion).
+				return content.replace(searchBlock, () => replaceBlock);
 			}
 		}
 	}

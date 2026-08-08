@@ -338,6 +338,12 @@ export const appViews = sqliteTable('app_views', {
     userId: text('user_id').references(() => users.id, { onDelete: 'cascade' }), // Null for anonymous
     sessionToken: text('session_token'), // For anonymous tracking
     ipAddressHash: text('ip_address_hash'), // Hashed IP for privacy
+    // Stable per-viewer, per-time-bucket identity used to deduplicate views so
+    // a single client cannot arbitrarily inflate view counts. For authenticated
+    // viewers derived from the user id; for anonymous viewers from a hash of
+    // ip + user-agent + appId. Combined with the unique index below and an
+    // upsert on insert, this bounds how fast counts can grow.
+    viewerHash: text('viewer_hash'),
     
     // View Context
     referrer: text('referrer'),
@@ -352,6 +358,7 @@ export const appViews = sqliteTable('app_views', {
     userIdx: index('app_views_user_idx').on(table.userId),
     viewedAtIdx: index('app_views_viewed_at_idx').on(table.viewedAt),
     appViewedAtIdx: index('app_views_app_viewed_at_idx').on(table.appId, table.viewedAt),
+    appViewerIdx: uniqueIndex('app_views_app_viewer_idx').on(table.appId, table.viewerHash),
 }));
 
 // ========================================

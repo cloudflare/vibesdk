@@ -34,12 +34,43 @@ type RankedAppQueryResult = {
     recentStars?: number;
 };
 
+// Bounds the time the worker waits on the public-listing D1 reads. D1 has no
+// query-cancellation, so this caps the worker's wait (and surfaces a clear
+// error) rather than aborting the underlying query.
+const PUBLIC_APPS_QUERY_TIMEOUT_MS = 2000;
+
+// Time-bucket window for view deduplication. Repeated views from the same
+// viewer within this window collapse to a single recorded view.
+const VIEW_DEDUP_BUCKET_MS = 10 * 60 * 1000; // 10 minutes
+
+/**
+ * Identity of a viewer for view-count deduplication. Either an authenticated
+ * user id, or anonymous request metadata (ip + user-agent).
+ */
+export interface ViewerIdentity {
+    userId?: string;
+    ipAddress?: string;
+    userAgent?: string;
+}
+
 export class AppService extends BaseService {
     private readonly RANKING_WEIGHTS = {
         VIEWS: 1,
         STARS: 3,
         FORKS: 5
     };
+
+    /**
+     * Race a query promise against a timeout so a single expensive scan cannot
+     * hold the worker open indefinitely.
+     */
+    private withQueryTimeout<T>(promise: Promise<T>, label: string, ms: number = PUBLIC_APPS_QUERY_TIMEOUT_MS): Promise<T> {
+        let timer: ReturnType<typeof setTimeout>;
+        const timeout = new Promise<never>((_, reject) => {
+            timer = setTimeout(() => reject(new Error(`${label} timed out after ${ms}ms`)), ms);
+        });
+        return Promise.race([promise, timeout]).finally(() => clearTimeout(timer)) as Promise<T>;
+    }
 
 
 
@@ -79,7 +110,7 @@ export class AppService extends BaseService {
             const whereClause = this.buildWhereConditions(whereConditions);
             const readDb = this.getReadDb('fast');
             
-            const basicApps = await this.executeRankedQuery(
+            const basicApps = await this.withQueryTimeout(this.executeRankedQuery(
                 readDb,
                 whereClause,
                 sort,
@@ -87,7 +118,7 @@ export class AppService extends BaseService {
                 order,
                 limit,
                 offset
-            ).catch((error: unknown) => {
+            ), 'getPublicApps ranked query').catch((error: unknown) => {
                 this.logger.error('executeRankedQuery failed', {
                     errorMessage: error instanceof Error ? error.message : String(error),
                     errorName: error instanceof Error ? error.name : 'UnknownError',
@@ -102,10 +133,10 @@ export class AppService extends BaseService {
             });
 
             // Get total count for pagination
-            const totalCountResult = await readDb
+            const totalCountResult = await this.withQueryTimeout(readDb
                 .select({ count: sql<number>`COUNT(*)` })
                 .from(schema.apps)
-                .where(whereClause)
+                .where(whereClause), 'getPublicApps count query')
                 .catch((error: unknown) => {
                     this.logger.error('Count query failed', {
                         errorMessage: error instanceof Error ? error.message : String(error),
@@ -630,9 +661,9 @@ export class AppService extends BaseService {
         const userReadDb = userId ? this.getReadDb('fresh') : readDb;
         
         const [viewCount, starCount, isFavorite, userHasStarred] = await Promise.all([
-            // View count
+            // View count (distinct viewers so flooding cannot inflate it)
             readDb
-                .select({ count: sql<number>`count(*)` })
+                .select({ count: sql<number>`count(distinct ${schema.appViews.viewerHash})` })
                 .from(schema.appViews)
                 .where(eq(schema.appViews.appId, appId))
                 .get()
@@ -730,22 +761,48 @@ export class AppService extends BaseService {
     }
 
     /**
-     * Record app view with duplicate prevention
+     * Record an app view, deduplicated per viewer per time bucket.
+     *
+     * A stable `viewerHash` is derived from the authenticated user id, or (for
+     * anonymous viewers) from a hash of ip + user-agent + appId, bucketed to a
+     * fixed window. The unique index on (appId, viewerHash) plus an upsert means
+     * repeated views from the same client within a bucket collapse to a single
+     * row, so view counts cannot be arbitrarily inflated.
      */
-    async recordAppView(appId: string, userId: string): Promise<void> {
+    async recordAppView(appId: string, viewer: ViewerIdentity): Promise<void> {
         try {
+            const viewerHash = await this.computeViewerHash(appId, viewer);
             await this.database
                 .insert(schema.appViews)
                 .values({
                     id: generateId(),
                     appId,
-                    userId,
+                    userId: viewer.userId ?? null,
+                    viewerHash,
                     viewedAt: new Date()
+                })
+                .onConflictDoNothing({
+                    target: [schema.appViews.appId, schema.appViews.viewerHash]
                 })
                 .run();
         } catch {
             // Ignore duplicate view errors
         }
+    }
+
+    /**
+     * Derive a stable, non-reversible per-viewer, per-time-bucket identity.
+     */
+    private async computeViewerHash(appId: string, viewer: ViewerIdentity): Promise<string> {
+        const bucket = Math.floor(Date.now() / VIEW_DEDUP_BUCKET_MS);
+        const seed = viewer.userId
+            ? `u:${viewer.userId}`
+            : `a:${viewer.ipAddress ?? 'unknown'}:${viewer.userAgent ?? 'unknown'}:${appId}`;
+        const data = new TextEncoder().encode(`${seed}:${bucket}`);
+        const digest = await crypto.subtle.digest('SHA-256', data);
+        return Array.from(new Uint8Array(digest))
+            .map(b => b.toString(16).padStart(2, '0'))
+            .join('');
     }
 
     /**
@@ -885,8 +942,9 @@ export class AppService extends BaseService {
             const periodThreshold = sort === 'trending' ? this.getTimePeriodThreshold(period) : null;
             const periodUnixTimestamp = periodThreshold ? Math.floor(periodThreshold.getTime() / 1000) : 0;
             
-            // Define count subqueries
-            const viewCountSubquery = sql<number>`(SELECT COUNT(*) FROM ${schema.appViews} WHERE ${schema.appViews.appId} = ${schema.apps.id})`;
+            // Define count subqueries. Views are counted by distinct viewer
+            // hash so retroactive/repeated views cannot re-inflate rankings.
+            const viewCountSubquery = sql<number>`(SELECT COUNT(DISTINCT ${schema.appViews.viewerHash}) FROM ${schema.appViews} WHERE ${schema.appViews.appId} = ${schema.apps.id})`;
             const starCountSubquery = sql<number>`(SELECT COUNT(*) FROM ${schema.stars} WHERE ${schema.stars.appId} = ${schema.apps.id})`;
             const forkCountSubquery = sql<number>`(SELECT COUNT(*) FROM ${schema.apps} AS forks WHERE forks.parent_app_id = ${schema.apps.id})`;
             
@@ -914,7 +972,7 @@ export class AppService extends BaseService {
                     .offset(offset);
             } else { // trending
                 // Trending algorithm: Activity score (scaled by 10M) + recency bonus
-                const recentViewsSubquery = sql<number>`(SELECT COUNT(*) FROM ${schema.appViews} WHERE ${schema.appViews.appId} = ${schema.apps.id} AND ${schema.appViews.viewedAt} >= ${periodUnixTimestamp})`;
+                const recentViewsSubquery = sql<number>`(SELECT COUNT(DISTINCT ${schema.appViews.viewerHash}) FROM ${schema.appViews} WHERE ${schema.appViews.appId} = ${schema.apps.id} AND ${schema.appViews.viewedAt} >= ${periodUnixTimestamp})`;
                 const recentStarsSubquery = sql<number>`(SELECT COUNT(*) FROM ${schema.stars} WHERE ${schema.stars.appId} = ${schema.apps.id} AND ${schema.stars.starredAt} >= ${periodUnixTimestamp})`;
                 
                 const orderByExpression = sql`(
@@ -968,7 +1026,7 @@ export class AppService extends BaseService {
 
     private getCountSubqueries() {
         return {
-            viewCount: sql<number>`(SELECT COUNT(*) FROM ${schema.appViews} WHERE ${schema.appViews.appId} = ${schema.apps.id})`,
+            viewCount: sql<number>`(SELECT COUNT(DISTINCT ${schema.appViews.viewerHash}) FROM ${schema.appViews} WHERE ${schema.appViews.appId} = ${schema.apps.id})`,
             starCount: sql<number>`(SELECT COUNT(*) FROM ${schema.stars} WHERE ${schema.stars.appId} = ${schema.apps.id})`,
             forkCount: sql<number>`(SELECT COUNT(*) FROM ${schema.apps} AS forks WHERE forks.parent_app_id = ${schema.apps.id})`
         };

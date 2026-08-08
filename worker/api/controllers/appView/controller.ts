@@ -11,7 +11,11 @@ import {
     PreviewTokenData,
 } from './types';
 import { AgentSummary, BehaviorType } from '../../../agents/core/types';
+import { toPublicAppDetail } from '../apps/publicAppDto';
 import { createLogger } from '../../../logger';
+import { RateLimitService } from '../../../services/rate-limit/rateLimits';
+import { RateLimitExceededError } from 'shared/types/errors';
+import { extractRequestMetadata } from '../../../utils/authUtils';
 import { buildUserWorkerUrl, buildGitCloneUrl } from 'worker/utils/urls';
 import { JWTUtils } from '../../../utils/jwtUtils';
 import {
@@ -35,6 +39,15 @@ export class AppViewController extends BaseController {
             const user = await AppViewController.getOptionalUser(request, env);
             const userId = user?.id;
 
+            try {
+                await RateLimitService.enforcePublicAppsRateLimit(env, context.config.security.rateLimit, user ?? null, request);
+            } catch (error) {
+                if (error instanceof RateLimitExceededError) {
+                    return AppViewController.createErrorResponse<AppDetailsData>('Too many requests', 429);
+                }
+                throw error;
+            }
+
             // Get app details with stats using app service
             const appService = new AppService(env);
             const appResult = await appService.getAppDetails(appId, userId);
@@ -48,14 +61,18 @@ export class AppViewController extends BaseController {
                 return AppViewController.createErrorResponse<AppDetailsData>('App not found', 404);
             }
 
-            // Track view for all users (including owners and anonymous users)
+            // Track view for all users (including owners and anonymous users).
+            // Views are deduplicated per viewer per time bucket by AppService,
+            // so anonymous viewers are identified by request metadata rather
+            // than a unique-per-request token.
             if (userId) {
-                // Authenticated user view
-                await appService.recordAppView(appId, userId);
+                await appService.recordAppView(appId, { userId });
             } else {
-                // Anonymous user view - use a special anonymous identifier
-                // This could be enhanced with session tracking or IP-based deduplication
-                await appService.recordAppView(appId, 'anonymous-' + Date.now());
+                const metadata = extractRequestMetadata(request);
+                await appService.recordAppView(appId, {
+                    ipAddress: metadata.ipAddress,
+                    userAgent: metadata.userAgent,
+                });
             }
 
             // Try to fetch current agent state to get latest generated code
@@ -81,13 +98,18 @@ export class AppViewController extends BaseController {
 
             const cloudflareUrl = appResult.deploymentId ? buildUserWorkerUrl(env, appResult.deploymentId) : '';
 
+            // Only the owner may see operational fields (userId, deploymentId,
+            // private-repo GitHub URL). The prompt + generated code remain
+            // visible to all viewers of a public app (intended feature).
+            const isOwner = !!userId && appResult.userId === userId;
+
             const responseData: AppDetailsData = {
-                ...appResult, // Spread all EnhancedAppData fields including stats
+                ...toPublicAppDetail(appResult, isOwner),
                 cloudflareUrl: cloudflareUrl,
                 previewUrl: previewUrl || cloudflareUrl,
                 behaviorType,
                 user: {
-                    id: appResult.userId!,
+                    id: isOwner ? appResult.userId! : '',
                     displayName: appResult.userName || 'Unknown',
                     avatarUrl: appResult.userAvatar
                 },

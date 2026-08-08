@@ -4,7 +4,7 @@
  */
 
 import { AgentSummary, BehaviorType } from '../../../agents/core/types';
-import { EnhancedAppData } from '../../../database/types';
+import { PublicAppDetailData } from '../../../database/types';
 
 /**
  * Generated code file structure
@@ -16,10 +16,11 @@ export interface GeneratedCodeFile {
 }
 
 /**
- * Response data for getAppDetails - extends existing EnhancedAppData
- * Adds only fields unique to app view response, uses EnhancedAppData stats directly
+ * Response data for getAppDetails - extends the safe public detail projection.
+ * Adds only fields unique to app view response; owner-only fields (userId,
+ * deploymentId) are optional and populated only when the viewer owns the app.
  */
-export interface AppDetailsData extends EnhancedAppData {
+export interface AppDetailsData extends PublicAppDetailData {
     cloudflareUrl: string | null;
     previewUrl: string | null;
     behaviorType: BehaviorType | null;

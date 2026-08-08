@@ -354,4 +354,18 @@ stays the same`;
     const result = applyUnifiedDiff(original, diff);
     expect(result).toBe(expected);
   });
+
+  it('inserts $-sequences in replacement content literally ($&)', () => {
+    const original = `const a = 1;\nconst label = old;\nconst b = 2;`;
+    const diff = `@@ ... @@\n const a = 1;\n-const label = old;\n+const label = text.replace(/x/g, '[$&]');\n const b = 2;`;
+    const expected = `const a = 1;\nconst label = text.replace(/x/g, '[$&]');\nconst b = 2;`;
+    expect(applyUnifiedDiff(original, diff)).toBe(expected);
+  });
+
+  it('does not collapse $$ in replacement content', () => {
+    const original = `line1\nTODO\nline3`;
+    const diff = `@@ ... @@\n line1\n-TODO\n+const price = "$$5";\n line3`;
+    const expected = `line1\nconst price = "$$5";\nline3`;
+    expect(applyUnifiedDiff(original, diff)).toBe(expected);
+  });
 });
