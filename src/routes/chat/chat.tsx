@@ -17,7 +17,6 @@ import { AnimatePresence, motion } from 'framer-motion';
 import {
 	ExternalLink,
 	LoaderCircle,
-	Rocket,
 	RotateCcw,
 } from 'lucide-react';
 import {
@@ -92,6 +91,7 @@ import { queryKeys } from '@/lib/query-keys';
 import { ApiError } from '@/lib/api-client';
 import { capitalizeFirstLetter } from '@/lib/utils';
 import { usePageHeader } from '@/components/layout/header-context';
+import { CloudflareLogo } from '@/components/icons/logos';
 
 const isPhasicBlueprint = (
 	blueprint?: BlueprintType | null,
@@ -416,14 +416,14 @@ function ChatSession() {
 							)}
 							<Button
 								variant="secondary"
-								className="h-8 shrink-0 border border-border-primary bg-kumo-elevated px-3 text-xs text-text-primary shadow-sm transition-colors hover:bg-kumo-base disabled:cursor-not-allowed disabled:opacity-50"
+								size="sm"
 								disabled={isDeploying || files.length === 0}
 								onClick={() => handleDeployToCloudflare(chatId || '', userAccountDeployEnabled ? 'user' : 'platform')}
 							>
 								{isDeploying ? (
 									<LoaderCircle className="size-3.5 animate-spin" />
 								) : (
-									<Rocket className="size-3.5" />
+									<CloudflareLogo className="size-3.5" />
 								)}
 								{isDeploying
 									? 'Deploying...'
