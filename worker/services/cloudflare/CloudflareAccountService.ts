@@ -207,7 +207,7 @@ export class CloudflareAccountService extends BaseService {
 	): Promise<number | null> {
 		try {
 			const response = await fetch(
-				`https://api.cloudflare.com/client/v4/accounts/${accountId}/ai-gateway-billing/credit_balance`,
+				`https://api.cloudflare.com/client/v4/accounts/${accountId}/ai-gateway/billing/credit-balance`,
 				{
 					headers: {
 						'Authorization': `Bearer ${accessToken}`,
