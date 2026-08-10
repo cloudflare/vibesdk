@@ -2,6 +2,12 @@
 #CUSTOM_DOMAIN="your-domain.com" # Your custom domain for CORS
 #ENVIRONMENT="prod" # Options: dev, staging, prod
 
+# Feature flags
+# Cloudflare Artifacts filesystem backend for SpaceDO (closed beta). Disabled
+# unless set to "true". In deployed environments this is managed from the
+# Cloudflare dashboard (not committed); set it here only for local dev.
+#ENABLE_ARTIFACTS="true"
+
 # Cloudflare Credentials (Required for manual deployment via `bun run deploy`)
 # These are automatically provided when using "Deploy to Cloudflare" button
 # Get these from: https://dash.cloudflare.com/profile/api-tokens

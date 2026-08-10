@@ -1,35 +1,74 @@
 import React from 'react';
-import { Outlet, useLocation } from 'react-router';
-import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar';
+import { Outlet } from 'react-router';
+import { SidebarProvider, useSidebar } from '@cloudflare/kumo';
 import { AppSidebar } from './app-sidebar';
 import { GlobalHeader } from './global-header';
-import { AppsDataProvider } from '@/contexts/apps-data-context';
-import clsx from 'clsx';
+import { HeaderProvider } from './header-context';
+
+const SIDEBAR_COOKIE_NAME = 'sidebar_state';
+const SIDEBAR_COOKIE_MAX_AGE = 60 * 60 * 24 * 7;
+const SIDEBAR_KEYBOARD_SHORTCUT = 'b';
 
 interface AppLayoutProps {
-  children?: React.ReactNode;
+	children?: React.ReactNode;
+}
+
+function SidebarKeyboardShortcut() {
+	const { toggleSidebar } = useSidebar();
+
+	React.useEffect(() => {
+		const handleKeyDown = (event: KeyboardEvent) => {
+			if (
+				event.key === SIDEBAR_KEYBOARD_SHORTCUT &&
+				(event.metaKey || event.ctrlKey)
+			) {
+				event.preventDefault();
+				toggleSidebar();
+			}
+		};
+
+		window.addEventListener('keydown', handleKeyDown);
+		return () => window.removeEventListener('keydown', handleKeyDown);
+	}, [toggleSidebar]);
+
+	return null;
+}
+
+function persistSidebarState(open: boolean) {
+	document.cookie = `${SIDEBAR_COOKIE_NAME}=${open}; path=/; max-age=${SIDEBAR_COOKIE_MAX_AGE}`;
+}
+
+function getSidebarDefaultOpen(): boolean {
+	const match = document.cookie.match(
+		new RegExp(`(?:^|; )${SIDEBAR_COOKIE_NAME}=([^;]*)`),
+	);
+	if (!match) return true;
+	return match[1] === 'true';
 }
 
 export function AppLayout({ children }: AppLayoutProps) {
-  const { pathname } = useLocation();
-  return (
-    <AppsDataProvider>
-      <SidebarProvider 
-        defaultOpen={false}
-        style={{
-          "--sidebar-width": "320px",
-          "--sidebar-width-mobile": "280px",
-          "--sidebar-width-icon": "52px"
-        } as React.CSSProperties}
-      >
-        <AppSidebar />
-        <SidebarInset className={clsx("bg-bg-3 flex flex-col h-screen relative", pathname !== "/" && "overflow-hidden")}>
-          <GlobalHeader />
-          <div className={clsx("flex-1 bg-bg-3", pathname !== "/" && "min-h-0 overflow-auto")}>
-            {children || <Outlet />}
-          </div>
-        </SidebarInset>
-      </SidebarProvider>
-    </AppsDataProvider>
-  );
+	const defaultOpen = React.useMemo(() => getSidebarDefaultOpen(), []);
+
+	return (
+		<SidebarProvider
+			defaultOpen={defaultOpen}
+			collapsible="icon"
+			resizable={false}
+			mobileBreakpoint={768}
+			// peekable
+			onOpenChange={persistSidebarState}
+			className="vibesdk-sidebar-wrapper"
+		>
+			<HeaderProvider>
+				<SidebarKeyboardShortcut />
+				<AppSidebar />
+				<main className="bg-kumo-canvas flex flex-col h-screen relative flex-1 min-w-0 overflow-hidden">
+					<GlobalHeader />
+					<div className="flex-1 min-h-0 overflow-auto bg-kumo-canvas">
+						{children || <Outlet />}
+					</div>
+				</main>
+			</HeaderProvider>
+		</SidebarProvider>
+	);
 }

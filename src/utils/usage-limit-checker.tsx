@@ -4,6 +4,7 @@
  */
 
 import { UsageSummary } from '@/hooks/use-limits';
+import type { CloudflareDeploymentErrorCode } from '@/api-types';
 import {
 	Dialog,
 	DialogContent,
@@ -174,6 +175,116 @@ function createInsufficientBalanceDialog(balance: number, accountId: string | un
 			</DialogContent>
 		</Dialog>
 	);
+}
+
+/**
+ * Internal helper: Create "Connect to Deploy" dialog
+ * Shown when a user-account deploy fails because no Cloudflare OAuth token exists.
+ */
+function createDeployConnectDialog(onConnect: () => void, onClose: () => void): React.ReactElement {
+	return (
+		<Dialog open={true} onOpenChange={onClose}>
+			<DialogContent className="sm:max-w-md">
+				<DialogHeader>
+					<div className="mb-2">
+						<AlertCircle className="h-10 w-10 text-text-tertiary" />
+					</div>
+					<DialogTitle className="text-xl">
+						Connect Cloudflare to deploy
+					</DialogTitle>
+					<DialogDescription className="pt-2 text-sm">
+						Connect your Cloudflare account to deploy this app to your own Workers account and keep it running on your credits.
+					</DialogDescription>
+				</DialogHeader>
+				<DialogFooter className="sm:justify-start gap-2">
+					<Button
+						type="button"
+						onClick={() => {
+							onClose();
+							onConnect();
+						}}
+						className="w-full sm:w-auto bg-brand-primary hover:bg-brand-primary/90 text-white"
+					>
+						<CloudflareLogo className="w-4 h-4 mr-2" color1="#fff" color2="#fff" />
+						Connect Cloudflare
+					</Button>
+					<Button
+						type="button"
+						variant="outline"
+						onClick={onClose}
+						className="w-full sm:w-auto"
+					>
+						Cancel
+					</Button>
+				</DialogFooter>
+			</DialogContent>
+		</Dialog>
+	);
+}
+
+/**
+ * Internal helper: Create "Select account to Deploy" dialog
+ * Shown when a user-account deploy fails because no account/gateway is selected.
+ */
+function createDeployNotConfiguredDialog(onClose: () => void): React.ReactElement {
+	return (
+		<Dialog open={true} onOpenChange={onClose}>
+			<DialogContent className="sm:max-w-md">
+				<DialogHeader>
+					<div className="mb-2">
+						<AlertCircle className="h-10 w-10 text-text-tertiary" />
+					</div>
+					<DialogTitle className="text-xl">
+						Select a Cloudflare account
+					</DialogTitle>
+					<DialogDescription className="pt-2 text-sm">
+						You have multiple Cloudflare accounts connected. Select which one to deploy to in Settings.
+					</DialogDescription>
+				</DialogHeader>
+				<DialogFooter className="sm:justify-start gap-2">
+					<Button
+						type="button"
+						onClick={() => {
+							onClose();
+							window.location.href = '/settings?config_needed=true';
+						}}
+						className="w-full sm:w-auto bg-brand-primary hover:bg-brand-primary/90 text-white"
+					>
+						<CloudflareLogo className="w-4 h-4 mr-2" color1="#fff" color2="#fff" />
+						Open Settings
+					</Button>
+					<Button
+						type="button"
+						variant="outline"
+						onClick={onClose}
+						className="w-full sm:w-auto"
+					>
+						Cancel
+					</Button>
+				</DialogFooter>
+			</DialogContent>
+		</Dialog>
+	);
+}
+
+/**
+ * Map a backend `cloudflare_deployment_error` code to the matching
+ * connection-gate dialog. Returns null for codes that shouldn't pop a dialog
+ * (generic deploy failures keep the toast/chat-message treatment).
+ */
+export function getDeployGateDialog(
+	code: CloudflareDeploymentErrorCode,
+	onConnect: () => void,
+	onClose: () => void
+): React.ReactElement | null {
+	switch (code) {
+		case 'cloudflare_not_connected':
+			return createDeployConnectDialog(onConnect, onClose);
+		case 'cloudflare_not_configured':
+			return createDeployNotConfiguredDialog(onClose);
+		default:
+			return null;
+	}
 }
 
 /**

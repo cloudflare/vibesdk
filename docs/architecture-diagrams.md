@@ -1,6 +1,27 @@
-# Cloudflare Orange Build - Architecture Diagrams
+# VibeSDK Architecture Diagrams
 
-This document contains comprehensive Mermaid diagrams representing the architecture of the Cloudflare Orange Build project.
+## Current architecture
+
+```mermaid
+flowchart LR
+    U[User] <--> UI[VibeSDK UI on Workers]
+    UI <--> T[ThinkAgent<br/>Cloudflare Think + Durable Object]
+    T <--> G[Models through AI Gateway]
+    T <--> S[SpaceDO<br/>workspace and files]
+    S <--> A[Cloudflare Artifacts<br/>commits and history]
+    S --> B[worker-bundler]
+    B --> L[Worker Loader]
+    L --> P[Dynamic Worker preview]
+    P <--> F[App Facet<br/>isolated SQLite]
+```
+
+Think runs the iterative model-and-tool loop. Its explicit tools edit files in SpaceDO, create Artifacts-backed restore points, deploy Dynamic Worker previews, inspect browser logs, and repair errors. SpaceDO is the workspace and file layer; Cloudflare Artifacts is the durable git and version-history layer.
+
+Rollback applies a selected commit tree to the current branch, creates a new commit, and redeploys without rewriting history. Generated applications export an `App` Durable Object class that SpaceDO hosts as a Facet with isolated SQLite storage.
+
+## Legacy architecture reference
+
+> The diagrams below document the retired phase-based sandbox architecture. They are retained only as historical context and must not be used to describe the current Think, SpaceDO, Artifacts, Worker Loader, and App Facet implementation.
 
 ## Presentation-Ready Architecture Diagram
 

@@ -24,10 +24,15 @@ import {
 import { isDev } from 'worker/utils/envs';
 import { signSpacePreviewToken } from 'worker/utils/spacePreviewToken';
 import { AppService } from 'worker/database/services/AppService';
-import { AGENT_CONFIG } from '../../inferutils/config';
-import { AI_MODEL_CONFIG, AIModels, AIModelConfig, ModelSize } from '../../inferutils/config.types';
 import { getConfigurationForModel } from '../../inferutils/core';
 import type { ThinkAgentConfig } from '../../think/ThinkAgent';
+import { withDurableObjectResetRetry } from '../../think/space-workspace-ops';
+import { THINK_MODEL_CONFIG, THINK_MODEL_ID } from '../../think/model-config';
+import type { BranchDeploymentBundle } from '@space-do/space';
+import { CloudflareAccountService } from '../../../services/cloudflare/CloudflareAccountService';
+import { deployThinkBundleToPlatform, deployThinkBundleToUserAccount } from '../../../services/deployer/think-user-deploy';
+import { resolveCloudflareAccessToken } from '../../../services/rate-limit/usageChecker';
+import type { CloudflareDeploymentErrorCode } from '../../../api/websocketTypes';
 
 /**
  * Minimal stub shape for the `ThinkAgent` DO (see `worker/agents/think/ThinkAgent.ts`).
@@ -40,9 +45,28 @@ type ThinkAgentStub = {
 	clearMessages: () => Promise<void>;
 };
 
+/** SpaceDO RPC surface this behavior drives (see `space/src/space/durable-object.ts`). */
+type SpaceRpcStub = {
+	writeFile: (path: string, content: string) => Promise<unknown>;
+	readFile: (path: string, opts?: { offset?: number; limit?: number }) => Promise<string>;
+	gitCommit: (
+		msg: string,
+		author?: { name: string; email: string },
+	) => Promise<{ sha?: string }>;
+	gitCommitLocal: (msg: string, author?: { name: string; email: string }) => Promise<unknown>;
+	deploy: (
+		branch: string,
+	) => Promise<{ preview_url?: string; commit_hash?: string; error?: string; details?: string }>;
+	getDeploymentBundle: (branch: string) => Promise<BranchDeploymentBundle>;
+	rollbackToCommit: (branch: string, commitHash: string) => Promise<unknown>;
+};
+
 /** Subset of AI-SDK `UIMessageChunk` shapes this behavior reacts to. */
 type ThinkChunk =
 	| { type: 'text-delta'; id: string; delta: string }
+	| { type: 'reasoning-start'; id: string }
+	| { type: 'reasoning-delta'; id: string; delta: string }
+	| { type: 'reasoning-end'; id: string }
 	| { type: 'tool-input-start'; toolCallId: string; toolName: string }
 	| { type: 'tool-input-available'; toolCallId: string; toolName: string; input: unknown }
 	| { type: 'tool-output-available'; toolCallId: string; output: unknown }
@@ -113,6 +137,18 @@ export class ThinkCodingBehavior
 		return ns.get(ns.idFromName(this.getAgentId()));
 	}
 
+	/**
+	 * SpaceDO RPC with a single retry on "Durable Object reset" — the transient
+	 * error thrown on in-flight calls when the worker version changes (deploy /
+	 * dev rebuild). The stub is re-resolved so the retry hits the new instance.
+	 */
+	private callSpace<T>(call: (space: SpaceRpcStub) => Promise<T>): Promise<T> {
+		return withDurableObjectResetRetry(
+			() => this.getSpaceStub() as unknown as SpaceRpcStub,
+			call,
+		);
+	}
+
 	// ──────────────────────────────────────────────────────────────
 	// Initialize
 
@@ -159,15 +195,17 @@ export class ThinkCodingBehavior
 			currentBranch: 'main',
 		});
 
-		// Push model/space/prompt config into the ThinkAgent DO.
+		const configureStartedAt = performance.now();
 		await this.configureThinkAgent();
+		const configureDurationMs = performance.now() - configureStartedAt;
 
-		// Materialize the SpaceDO (git init + main branch) so file tools and the
-		// preview/deploy path have a valid HEAD from the first turn.
+		const seedStartedAt = performance.now();
 		await this.seedEmptySpace();
+		const seedDurationMs = performance.now() - seedStartedAt;
 
 		this.logger.info(
 			`Think agent ${this.getAgentId()} initialized (space=${agentName})`,
+			{ configureDurationMs, seedDurationMs },
 		);
 		return this.state;
 	}
@@ -180,21 +218,8 @@ export class ThinkCodingBehavior
 		const inf = this.getInferenceContext();
 		const userId = this.state.metadata.userId;
 
-		const modelConfig =
-			inf.userModelConfigs?.agenticProjectBuilder ?? AGENT_CONFIG.agenticProjectBuilder;
-		const modelName = String(modelConfig.name);
-
-		// Map to an AIModelConfig (provider/etc.) for gateway resolution. Fall
-		// back to deriving the provider from the `provider/model` id for any
-		// model not in the platform catalog.
-		const aiModelConfig: AIModelConfig =
-			AI_MODEL_CONFIG[modelName as AIModels] ?? {
-				name: modelName,
-				size: ModelSize.REGULAR,
-				provider: modelName.includes('/') ? modelName.split('/')[0] : 'google-ai-studio',
-				creditCost: 0,
-				contextSize: 0,
-			};
+		const modelName = THINK_MODEL_ID;
+		const aiModelConfig = THINK_MODEL_CONFIG;
 
 		let conf: { baseURL: string; apiKey: string; defaultHeaders?: Record<string, string> };
 		try {
@@ -248,11 +273,12 @@ export class ThinkCodingBehavior
 				baseURL,
 				apiKey: conf.apiKey,
 				modelName,
+				contextSize: aiModelConfig.contextSize,
 				headers: Object.keys(headers).length > 0 ? headers : undefined,
 				useStoredKeys: usesStoredKeys,
 			},
 			systemPrompt: this.buildSystemPrompt(modelName, aiModelConfig.provider),
-			previewUrl: await this.getBrowserPreviewURL().catch(() => undefined),
+			previewUrl: await this.getBrowserPreviewURL(0).catch(() => undefined),
 		};
 
 		try {
@@ -289,8 +315,8 @@ export class ThinkCodingBehavior
 			'## Clarify before building',
 			'If the request is underspecified or ambiguous (e.g. a one-line idea with no details on features, scope, data, or design), do NOT start writing files yet. Instead, on this turn:',
 			'1. Briefly state the assumptions you would make to proceed.',
-			'2. Ask a few concise, targeted clarifying questions about the most important unknowns.',
-			'3. End your turn and wait for the user. Do not write/edit files or deploy until the scope is clear or the user tells you to proceed with your assumptions.',
+			'2. Call the `ask_questions` tool with all the concise, targeted clarifying questions you need answered. Each question can include predefined options and can allow multiple selections and/or a custom free-text answer.',
+			'3. End your turn after calling `ask_questions`. Do not write/edit files or deploy until the scope is clear or the user tells you to proceed with your assumptions.',
 			'If the request is already clear and specific, skip this and go straight to building.',
 			'',
 			'## Deploy & verify workflow (VibeSDK-specific)',
@@ -299,6 +325,9 @@ export class ThinkCodingBehavior
 			'2. Then call `get_browser_console_logs` to inspect the running preview for client-side errors (JS exceptions, failed fetches, missing assets, hydration errors).',
 			'3. If the deploy reports build errors or the console shows errors, fix the code and repeat from step 1 until the deploy succeeds and the console is clean.',
 			'A building turn should finish with a successful `deploy_space` and a clean `get_browser_console_logs` check.',
+			'',
+			'## Commits & restore points',
+			'Each commit is a restore point the user can roll back to, and YOU decide when to create them. Use the `commit` tool to snapshot a coherent unit of work with a short, descriptive message (e.g. before a risky refactor, or after finishing a feature). You do not need to `commit` right before `deploy_space` — deploying already commits. Do not commit after every tiny edit; group related changes into meaningful restore points.',
 		].join('\n');
 	}
 
@@ -307,18 +336,14 @@ export class ThinkCodingBehavior
 	 * instantiated with a `main` branch and a valid HEAD.
 	 */
 	private async seedEmptySpace(): Promise<void> {
-		const space = this.getSpaceStub() as unknown as {
-			writeFile: (path: string, content: string) => Promise<unknown>;
-			gitCommit: (msg: string, author?: { name: string; email: string }) => Promise<unknown>;
-		};
 		const marker = JSON.stringify(
 			{ agentId: this.getAgentId(), createdAt: new Date().toISOString(), seededBy: 'vibesdk-think' },
 			null,
 			2,
 		);
 		try {
-			await space.writeFile('.think/space.json', marker);
-			await space.gitCommit('chore: initialize think space');
+			await this.callSpace((space) => space.writeFile('.think/space.json', marker));
+			await this.callSpace((space) => space.gitCommitLocal('chore: initialize think space'));
 		} catch (e) {
 			this.logger.warn('SpaceDO empty-seed failed (continuing)', e);
 		}
@@ -346,7 +371,7 @@ export class ThinkCodingBehavior
 		return `https://${host}`;
 	}
 
-	public async getBrowserPreviewURL(): Promise<string> {
+	public async getBrowserPreviewURL(previewVersionOverride?: number): Promise<string> {
 		const spaceName = this.getAgentId();
 		const branch = this.state.currentBranch || 'main';
 		const previewBaseUrl = `${await this.getPublicOrigin()}${buildSpacePreviewPath(spaceName, branch)}`;
@@ -356,7 +381,7 @@ export class ThinkCodingBehavior
 		// `get_browser_console_logs` browser, which carry no cookie.
 		// Embed the app's current preview-token revocation epoch so a later
 		// visibility toggle (which bumps it) invalidates this token.
-		const previewVersion =
+		const previewVersion = previewVersionOverride ??
 			(await new AppService(this.env).getPreviewVersion(spaceName)) ?? 0;
 		const token = await signSpacePreviewToken(this.env, {
 			spaceName,
@@ -461,9 +486,9 @@ export class ThinkCodingBehavior
 				this.setMVPGenerated();
 			}
 
-			// Deploys (and the preview) are driven entirely by the model calling
-			// `deploy_space`; its tool output surfaces the preview via
-			// `handleDeploySpaceOutput`. The harness no longer deploys on its own.
+			// Commits (and deploys) are driven entirely by the model: it calls the
+			// `commit` tool to snapshot a restore point when it decides, and
+			// `deploy_space` to build/preview. The harness does neither on its own.
 		}
 	}
 
@@ -501,6 +526,14 @@ export class ThinkCodingBehavior
 		try {
 			await stub.chat(text, forwarder);
 		} finally {
+			this.broadcast(WebSocketMessageResponses.USAGE_UPDATED, {
+				message: 'Usage data updated',
+			});
+			const disposeSymbol = (Symbol as unknown as { dispose?: symbol }).dispose;
+			if (disposeSymbol) {
+				const dispose = (forwarder as unknown as Record<symbol, unknown>)[disposeSymbol];
+				if (typeof dispose === 'function') dispose.call(forwarder);
+			}
 			// Think's non-streaming finalize: the FE replaces content with this
 			// terminal payload, so only send it when we actually accumulated text.
 			if (accumulated.text) {
@@ -535,6 +568,27 @@ export class ThinkCodingBehavior
 				}
 				return;
 			}
+			case 'reasoning-delta': {
+				const delta = (chunk as { delta?: string }).delta;
+				if (typeof delta === 'string' && delta.length > 0) {
+					this.broadcast(WebSocketMessageResponses.CONVERSATION_RESPONSE, {
+						message: '',
+						conversationId,
+						isStreaming: true,
+						reasoning: { delta },
+					});
+				}
+				return;
+			}
+			case 'reasoning-end': {
+				this.broadcast(WebSocketMessageResponses.CONVERSATION_RESPONSE, {
+					message: '',
+					conversationId,
+					isStreaming: true,
+					reasoning: { done: true },
+				});
+				return;
+			}
 			case 'tool-input-start': {
 				const { toolCallId, toolName } = chunk as { toolCallId: string; toolName: string };
 				toolNames.set(toolCallId, toolName);
@@ -542,7 +596,7 @@ export class ThinkCodingBehavior
 					message: '',
 					conversationId,
 					isStreaming: true,
-					tool: this.buildToolBroadcastPayload(toolName, undefined, 'start'),
+					tool: this.buildToolBroadcastPayload(toolName, undefined, 'start', toolCallId),
 				});
 				return;
 			}
@@ -574,12 +628,14 @@ export class ThinkCodingBehavior
 					message: '',
 					conversationId,
 					isStreaming: false,
-					tool: this.buildToolBroadcastPayload(toolName, { input: args, output }, 'success'),
+					tool: this.buildToolBroadcastPayload(toolName, { input: args, output }, 'success', toolCallId),
 				});
 				if (toolName === 'deploy_space') {
 					await this.handleDeploySpaceOutput(output);
 				} else if (toolName === 'set_title') {
 					await this.handleSetTitleOutput(args, output);
+				} else if (isFileDeleteTool(toolName)) {
+					await this.maybeDeleteFile(toolName, args, seenWrittenFiles);
 				} else {
 					await this.maybeMirrorFile(toolName, args, seenWrittenFiles);
 				}
@@ -593,7 +649,7 @@ export class ThinkCodingBehavior
 					message: '',
 					conversationId,
 					isStreaming: false,
-					tool: this.buildToolBroadcastPayload(toolName, { input: args, error: errorText }, 'error'),
+					tool: this.buildToolBroadcastPayload(toolName, { input: args, error: errorText }, 'error', toolCallId),
 				});
 				return;
 			}
@@ -606,11 +662,13 @@ export class ThinkCodingBehavior
 		toolName: string,
 		state: { input?: Record<string, unknown>; output?: unknown; error?: string } | undefined,
 		status: 'start' | 'success' | 'error',
-	): { name: string; status: 'start' | 'success' | 'error'; args?: Record<string, unknown>; result?: string } {
-		const payload: { name: string; status: 'start' | 'success' | 'error'; args?: Record<string, unknown>; result?: string } = {
+		id?: string,
+	): { name: string; status: 'start' | 'success' | 'error'; args?: Record<string, unknown>; result?: string; id?: string } {
+		const payload: { name: string; status: 'start' | 'success' | 'error'; args?: Record<string, unknown>; result?: string; id?: string } = {
 			name: toolName,
 			status,
 			args: state?.input,
+			id,
 		};
 		if (status === 'success') {
 			if (typeof state?.output === 'string') payload.result = state.output;
@@ -631,28 +689,56 @@ export class ThinkCodingBehavior
 		if (!filePath) return;
 		seen.add(filePath);
 
-		const space = this.getSpaceStub() as unknown as {
-			readFile: (path: string, opts?: { offset?: number; limit?: number }) => Promise<string>;
-		};
 		let contents = '';
 		try {
-			contents = await space.readFile(filePath);
+			contents = await this.callSpace((space) => space.readFile(filePath));
 		} catch {
 			contents = pickStringField(args, 'content', 'contents', 'new_string') || '';
 		}
 
+		// SpaceDO uses absolute paths (leading slash); the editor pane and the
+		// FILE_GENERATING placeholder use slash-stripped paths. Mirror under the
+		// stripped path so the content lands on the same file the UI displays.
+		const displayPath = filePath.replace(/^\/+/, '');
 		try {
 			const saved = await this.fileManager.saveGeneratedFile(
-				{ filePath, fileContents: contents, filePurpose: 'Generated by think' },
+				{ filePath: displayPath, fileContents: contents, filePurpose: 'Generated by think' },
 				undefined,
 				true,
 			);
 			this.broadcast(WebSocketMessageResponses.FILE_GENERATED, {
-				message: `Updated ${filePath}`,
+				message: `Updated ${displayPath}`,
 				file: saved,
 			});
 		} catch (e) {
-			this.logger.warn('Failed to mirror think file write', { filePath, e });
+			this.logger.warn('Failed to mirror think file write', { filePath: displayPath, e });
+		}
+	}
+
+	/**
+	 * Mirror a SpaceDO file deletion into the editor pane: drop it from
+	 * FileManager and tell the FE to remove it from the file list. Without this,
+	 * a file deleted by the model lingers in the tree even though it is gone from
+	 * the workspace and the preview.
+	 */
+	private async maybeDeleteFile(
+		toolName: string,
+		args: Record<string, unknown>,
+		seen: Set<string>,
+	): Promise<void> {
+		if (!isFileDeleteTool(toolName)) return;
+		const filePath = pickStringField(args, 'path', 'filePath', 'file');
+		if (!filePath) return;
+		// SpaceDO uses absolute paths; the editor pane uses slash-stripped paths.
+		const displayPath = filePath.replace(/^\/+/, '');
+		seen.delete(filePath);
+		try {
+			this.fileManager.deleteFiles([displayPath]);
+			this.broadcast(WebSocketMessageResponses.FILE_DELETED, {
+				filePath: displayPath,
+			});
+		} catch (e) {
+			this.logger.warn('Failed to mirror think file delete', { filePath: displayPath, e });
 		}
 	}
 
@@ -685,6 +771,42 @@ export class ThinkCodingBehavior
 			this.broadcast(WebSocketMessageResponses.DEPLOYMENT_COMPLETED, { previewURL: url });
 		} catch (e) {
 			this.logger.warn('Failed to surface preview after deploy_space', e);
+		}
+	}
+
+	/**
+	 * Restore the SpaceDO to a prior commit and redeploy. Driven by the FE
+	 * "Rollback" control on a commit/deploy tool event. Refuses while a
+	 * generation turn is active, then reuses `handleDeploySpaceOutput` so the
+	 * preview + deploy status surface exactly like a model-driven deploy.
+	 */
+	async rollbackToCommit(commitHash: string): Promise<void> {
+		const hash = (commitHash ?? '').trim();
+		if (!hash) {
+			this.broadcast(WebSocketMessageResponses.DEPLOYMENT_FAILED, { error: 'Missing commit hash for rollback' });
+			return;
+		}
+		if (this.isCodeGenerating()) {
+			this.broadcast(WebSocketMessageResponses.DEPLOYMENT_FAILED, {
+				error: 'Cannot roll back while a turn is in progress. Stop generation first.',
+			});
+			return;
+		}
+
+		const branch = this.state.currentBranch || 'main';
+		try {
+			const output = await this.callSpace((space) => space.rollbackToCommit(branch, hash));
+			await this.handleDeploySpaceOutput(output);
+			this.broadcast(WebSocketMessageResponses.CONVERSATION_RESPONSE, {
+				message: `Rolled back to commit \`${hash.slice(0, 8)}\` and redeployed.`,
+				conversationId: IdGenerator.generateConversationId(),
+				isStreaming: false,
+			});
+		} catch (e) {
+			this.logger.warn('SpaceDO.rollbackToCommit failed', e);
+			this.broadcast(WebSocketMessageResponses.DEPLOYMENT_FAILED, {
+				error: e instanceof Error ? e.message : String(e),
+			});
 		}
 	}
 
@@ -740,22 +862,30 @@ export class ThinkCodingBehavior
 
 	private async deployCurrentBranch(): Promise<string | null> {
 		try {
-			const space = this.getSpaceStub() as unknown as {
-				gitCommit: (msg: string, author?: { name: string; email: string }) => Promise<{ sha?: string }>;
-				deploy: (branch: string) => Promise<{ preview_url?: string; commit_hash?: string }>;
-			};
 			const branch = this.state.currentBranch || 'main';
 			this.broadcast(WebSocketMessageResponses.DEPLOYMENT_STARTED, {});
 
 			// SpaceDO.deploy reads files from the committed git branch, so commit
 			// the working-tree changes the ThinkAgent's tools just made first.
 			try {
-				await space.gitCommit('chore: think turn changes');
+				await this.callSpace((space) => space.gitCommit('chore: think turn changes'));
 			} catch (e) {
 				this.logger.debug('gitCommit before deploy (no-op or failed)', e);
 			}
 
-			const result = await space.deploy(branch);
+			const result = await this.callSpace((space) => space.deploy(branch));
+
+			// SpaceDO.deploy reports build/config failures in the payload rather
+			// than throwing (and still fills in preview_url). Surface those as a
+			// real deployment failure so the FE/agent sees the build error (e.g.
+			// a syntax error in the generated code) instead of a broken preview.
+			if (result?.error) {
+				const message = result.details ? `${result.error}: ${result.details}` : result.error;
+				this.logger.warn('SpaceDO.deploy reported a build failure', { branch, error: message });
+				this.broadcast(WebSocketMessageResponses.DEPLOYMENT_FAILED, { error: message });
+				return null;
+			}
+
 			if (result?.commit_hash) {
 				this.setState({ ...this.state, lastDeployedCommit: result.commit_hash });
 			}
@@ -772,10 +902,146 @@ export class ThinkCodingBehavior
 		}
 	}
 
-	// Cloudflare deploy is a no-op for think in MVP — previews already run on
-	// Workers via SpaceDO's worker_loaders.
-	async deployToCloudflare(_target?: DeploymentTarget): Promise<null> {
-		return null;
+	async deployToCloudflare(
+		target: DeploymentTarget = 'user',
+	): Promise<{ deploymentUrl?: string; workersUrl?: string } | null> {
+		const userAccountDeployEnabled = this.env.ENABLE_USER_ACCOUNT_DEPLOY === 'true';
+
+		if (!userAccountDeployEnabled) {
+			return this.deployThinkAppToPlatform();
+		}
+
+		if (target !== 'user') {
+			this.broadcast(WebSocketMessageResponses.CLOUDFLARE_DEPLOYMENT_ERROR, {
+				message: 'Think apps can only be deployed to your Cloudflare account',
+				error: `Unsupported deployment target "${target}"`,
+				instanceId: this.getAgentId(),
+			});
+			return null;
+		}
+
+		const instanceId = this.getAgentId();
+		let gateCode: CloudflareDeploymentErrorCode | undefined;
+		this.broadcast(WebSocketMessageResponses.CLOUDFLARE_DEPLOYMENT_STARTED, {
+			message: 'Starting deployment to your Cloudflare account...',
+			instanceId,
+		});
+		try {
+			const token = await resolveCloudflareAccessToken(
+				this.env,
+				this.state.metadata.userId,
+				this.state.cloudflareToken,
+				this.state.wsOrigin,
+			);
+			if (token.refreshedBlob) {
+				this.setState({ ...this.state, cloudflareToken: token.refreshedBlob });
+			}
+			if (!token.accessToken) {
+				gateCode = 'cloudflare_not_connected';
+				throw new Error('Reconnect Cloudflare to grant Worker deployment access');
+			}
+
+			// Deploying only needs an account ID — no AI Gateway selection.
+			// getDeployAccount falls back to the user's sole connected account
+			// and only returns null when the target account is ambiguous.
+			const account = await new CloudflareAccountService(this.env)
+				.getDeployAccount(this.state.metadata.userId);
+			if (!account) {
+				gateCode = 'cloudflare_not_configured';
+				throw new Error('Select a Cloudflare account in Settings before deploying');
+			}
+
+			const branch = this.state.currentBranch || 'main';
+			try {
+				await this.callSpace((space) => space.gitCommit('deploy: publish to user account'));
+			} catch (error) {
+				this.logger.debug('No new workspace changes to commit before publishing', error);
+			}
+			const bundle = await this.callSpace((space) => space.getDeploymentBundle(branch));
+			const result = await deployThinkBundleToUserAccount({
+				accountId: account.accountId,
+				accessToken: token.accessToken,
+				appName: this.state.blueprint.title || this.state.projectName || `vibe-${instanceId}`,
+				bundle,
+			});
+			await new AppService(this.env).updateDeploymentId(instanceId, result.deploymentId);
+			this.setState({ ...this.state, cloudflareDeploymentUrl: result.deploymentUrl });
+			this.broadcast(WebSocketMessageResponses.CLOUDFLARE_DEPLOYMENT_COMPLETED, {
+				message: 'Successfully deployed to your Cloudflare account',
+				instanceId,
+				deploymentUrl: result.deploymentUrl,
+				workersUrl: result.deploymentUrl,
+			});
+			return { deploymentUrl: result.deploymentUrl, workersUrl: result.deploymentUrl };
+		} catch (error) {
+			const message = error instanceof Error ? error.message : String(error);
+			this.logger.error('Think user-account deployment failed', error);
+			this.broadcast(WebSocketMessageResponses.CLOUDFLARE_DEPLOYMENT_ERROR, {
+				message: 'Deployment failed',
+				instanceId,
+				error: message,
+				...(gateCode ? { code: gateCode } : {}),
+			});
+			return null;
+		}
+	}
+
+	/**
+	 * Default think deploy when `ENABLE_USER_ACCOUNT_DEPLOY` is off: publish the
+	 * SpaceDO bundle to the platform's dispatch namespace with platform creds.
+	 */
+	private async deployThinkAppToPlatform(): Promise<{ deploymentUrl?: string; workersUrl?: string } | null> {
+		const instanceId = this.getAgentId();
+		this.broadcast(WebSocketMessageResponses.CLOUDFLARE_DEPLOYMENT_STARTED, {
+			message: 'Starting deployment to Cloudflare Workers...',
+			instanceId,
+		});
+		try {
+			const accountId = this.env.CLOUDFLARE_ACCOUNT_ID;
+			const apiToken = this.env.CLOUDFLARE_API_TOKEN;
+			if (!accountId || !apiToken) {
+				throw new Error('CLOUDFLARE_ACCOUNT_ID and CLOUDFLARE_API_TOKEN must be set in environment');
+			}
+			const dispatchNamespace = (this.env as unknown as { DISPATCH_NAMESPACE?: string })
+				.DISPATCH_NAMESPACE;
+			if (!dispatchNamespace) {
+				throw new Error('DISPATCH_NAMESPACE not found in environment variables, cannot deploy without dispatch namespace');
+			}
+
+			const branch = this.state.currentBranch || 'main';
+			try {
+				await this.callSpace((space) => space.gitCommit('deploy: publish to platform'));
+			} catch (error) {
+				this.logger.debug('No new workspace changes to commit before publishing', error);
+			}
+			const bundle = await this.callSpace((space) => space.getDeploymentBundle(branch));
+			const result = await deployThinkBundleToPlatform({
+				accountId,
+				apiToken,
+				dispatchNamespace,
+				previewDomain: getPreviewDomain(this.env),
+				appName: this.state.blueprint.title || this.state.projectName || `vibe-${instanceId}`,
+				bundle,
+			});
+			await new AppService(this.env).updateDeploymentId(instanceId, result.deploymentId);
+			this.setState({ ...this.state, cloudflareDeploymentUrl: result.deploymentUrl });
+			this.broadcast(WebSocketMessageResponses.CLOUDFLARE_DEPLOYMENT_COMPLETED, {
+				message: 'Successfully deployed to Cloudflare Workers',
+				instanceId,
+				deploymentUrl: result.deploymentUrl,
+				workersUrl: result.deploymentUrl,
+			});
+			return { deploymentUrl: result.deploymentUrl, workersUrl: result.deploymentUrl };
+		} catch (error) {
+			const message = error instanceof Error ? error.message : String(error);
+			this.logger.error('Think platform deployment failed', error);
+			this.broadcast(WebSocketMessageResponses.CLOUDFLARE_DEPLOYMENT_ERROR, {
+				message: 'Deployment failed',
+				instanceId,
+				error: message,
+			});
+			return null;
+		}
 	}
 }
 
@@ -791,5 +1057,10 @@ function pickStringField(obj: Record<string, unknown>, ...keys: string[]): strin
 
 function isFileWriteTool(name: string): boolean {
 	const n = name.toLowerCase();
-	return n === 'write' || n === 'edit' || n === 'patch' || n === 'create' || n === 'delete';
+	return n === 'write' || n === 'edit' || n === 'patch' || n === 'create';
+}
+
+function isFileDeleteTool(name: string): boolean {
+	const n = name.toLowerCase();
+	return n === 'delete' || n === 'rm' || n === 'remove';
 }

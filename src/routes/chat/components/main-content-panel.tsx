@@ -1,6 +1,6 @@
 import { type RefObject, type ReactNode, Suspense, useState, useCallback } from 'react';
 import { WebSocket } from 'partysocket';
-import { MonacoEditor } from '../../../components/monaco-editor/monaco-editor';
+import { MonacoEditor } from '../../../components/monaco-editor/lazy-monaco-editor';
 import { motion } from 'framer-motion';
 import { RefreshCw } from 'lucide-react';
 import { Blueprint } from './blueprint';
@@ -184,8 +184,8 @@ export function MainContentPanel(props: MainContentPanelProps) {
 		const previewContent = FeaturePreviewComponent ? (
 			<Suspense
 				fallback={
-					<div className="flex-1 w-full h-full flex items-center justify-center bg-bg-3">
-						<RefreshCw className="size-6 text-brand animate-spin" />
+					<div className="flex-1 w-full h-full flex items-center justify-center bg-kumo-base">
+						<RefreshCw className="size-6 text-kumo-brand animate-spin" />
 					</div>
 				}
 			>
@@ -280,7 +280,7 @@ export function MainContentPanel(props: MainContentPanelProps) {
 				</span>
 				{showManualRefresh && (
 					<button
-						className="shrink-0 p-1 hover:bg-bg-2 rounded transition-colors"
+						className="shrink-0 p-1 hover:bg-kumo-elevated rounded transition-colors"
 						onClick={onManualRefresh}
 						title="Refresh preview"
 					>
@@ -302,7 +302,7 @@ export function MainContentPanel(props: MainContentPanelProps) {
 				<span className="text-sm text-text-50/70 font-mono">Blueprint.md</span>
 				{previewUrl && <Copy text={previewUrl} />}
 			</div>,
-			<div className="flex-1 overflow-y-auto bg-bg-3">
+			<div className="flex-1 overflow-y-auto bg-kumo-base">
 				<div className="py-12 mx-auto">
 					<Blueprint
 						blueprint={blueprint ?? ({} as BlueprintType)}
@@ -326,7 +326,7 @@ export function MainContentPanel(props: MainContentPanelProps) {
 							currentFile={undefined}
 							onFileClick={onFileClick}
 						/>
-						<div className="flex-1 flex items-center justify-center bg-bg-3">
+						<div className="flex-1 flex items-center justify-center bg-kumo-base">
 							<span className="text-text-50/50 text-sm">No file selected</span>
 						</div>
 					</div>
@@ -358,6 +358,8 @@ export function MainContentPanel(props: MainContentPanelProps) {
 					<div className="flex-1">
 						<MonacoEditor
 							className="h-full"
+							path={activeFile.filePath}
+							stickToBottom={!!activeFile.isGenerating}
 							createOptions={{
 								value: activeFile.fileContents || '',
 								language: activeFile.language || 'plaintext',
@@ -366,7 +368,6 @@ export function MainContentPanel(props: MainContentPanelProps) {
 								lineNumbers: 'on',
 								scrollBeyondLastLine: false,
 								fontSize: 13,
-								theme: 'vibesdk',
 								automaticLayout: true,
 							}}
 							find={edit?.filePath === activeFile.filePath ? edit.search : undefined}

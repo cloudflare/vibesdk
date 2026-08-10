@@ -294,6 +294,39 @@ export class CloudflareAPI {
 		console.log(`✅ Worker deployed successfully: ${scriptName}`);
 	}
 
+	async enableWorkersDev(scriptName: string): Promise<void> {
+		const response = await fetch(
+			`${this.baseUrl}/accounts/${this.accountId}/workers/scripts/${encodeURIComponent(scriptName)}/subdomain`,
+			{
+				method: 'POST',
+				headers: this.getHeaders('application/json'),
+				body: JSON.stringify({ enabled: true }),
+			},
+		);
+		if (!response.ok) {
+			throw new Error(`Failed to enable public workers.dev URL: ${response.status} - ${await response.text()}`);
+		}
+	}
+
+	async getWorkersDevSubdomain(): Promise<string> {
+		const response = await fetch(
+			`${this.baseUrl}/accounts/${this.accountId}/workers/subdomain`,
+			{ headers: this.getHeaders() },
+		);
+		if (!response.ok) {
+			throw new Error(`Failed to resolve workers.dev subdomain: ${response.status} - ${await response.text()}`);
+		}
+		const data = (await response.json()) as {
+			success: boolean;
+			result?: { subdomain?: string };
+		};
+		const subdomain = data.result?.subdomain;
+		if (!data.success || !subdomain) {
+			throw new Error('workers.dev is not enabled for the selected Cloudflare account');
+		}
+		return subdomain;
+	}
+
 	/**
 	 * Test a deployed Worker by making a request to its endpoint
 	 */

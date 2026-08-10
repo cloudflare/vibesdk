@@ -1,5 +1,5 @@
 import { Think } from '@cloudflare/think';
-import type { PrepareStepContext, StepConfig, Session } from '@cloudflare/think';
+import type { PrepareStepContext, StepConfig, Session, TurnContext, TurnConfig } from '@cloudflare/think';
 import { createOpenAI } from '@ai-sdk/openai';
 import type { LanguageModel, ToolSet } from 'ai';
 import {
@@ -15,9 +15,17 @@ import type { SkillSource } from 'agents/skills';
 import { createSpaceWorkspaceOps, type SpaceWorkspaceStub } from './space-workspace-ops';
 import { selectSystemPrompt, PROMPT_MAX_STEPS } from './prompts';
 import { createThinkSkillSource } from './skills';
+import { createAskQuestionsTool } from './ask-questions-tool';
 import { createBrowserConsoleLogsTool } from './browser-logs-tool';
 import { createDeploySpaceTool } from './deploy-tool';
+import { createCommitTool } from './commit-tool';
 import { createSetTitleTool } from './set-title-tool';
+import { selectThinkContextMessages } from './context-selector';
+import { getUserConfigurableSettings } from '../../config';
+import { RateLimitService } from '../../services/rate-limit/rateLimits';
+import { hasCloudflareConfigured } from '../../services/rate-limit/usageChecker';
+import type { RateLimitSettings } from '../../services/rate-limit/config';
+import { THINK_MODEL_CONFIG } from './model-config';
 
 /**
  * Per-instance configuration pushed into a {@link ThinkAgent} by the host
@@ -38,6 +46,7 @@ export interface ThinkAgentConfig {
 		baseURL: string;
 		apiKey: string;
 		modelName: string;
+		contextSize?: number;
 		headers?: Record<string, string>;
 		/**
 		 * When true, the AI Gateway holds the provider keys (BYOK / stored
@@ -160,6 +169,7 @@ export class ThinkAgent extends Think<Env> {
 	 * the `extra_content` Google requires for multi-step function calling).
 	 */
 	private readonly thoughtSignatures = new Map<string, string>();
+	private turnUsage: { config: RateLimitSettings; hasCloudflareConfigured: boolean } | null = null;
 
 	/**
 	 * Re-attach harvested Gemini `thought_signature`s to the `tool_calls` in an
@@ -279,6 +289,30 @@ export class ThinkAgent extends Think<Env> {
 		return `${base}\n\n${projectContext}`;
 	}
 
+	override async beforeTurn(ctx: TurnContext): Promise<TurnConfig> {
+		const messages = selectThinkContextMessages(ctx.messages);
+		const config = this.getConfig<ThinkAgentConfig>();
+		this.turnUsage = null;
+		if (config) {
+			try {
+				const userConfig = await getUserConfigurableSettings(this.env, config.userId);
+				this.turnUsage = {
+					config: userConfig.security.rateLimit,
+					hasCloudflareConfigured: await hasCloudflareConfigured(this.env, config.userId),
+				};
+			} catch (error) {
+				console.warn('Failed to resolve Think credit metering configuration', error);
+			}
+		}
+		console.info('Think context selected', {
+			model: config?.model.modelName,
+			contextSize: config?.model.contextSize,
+			originalMessageCount: ctx.messages.length,
+			selectedMessageCount: messages.length,
+		});
+		return { messages };
+	}
+
 	override getSkills(): SkillSource[] {
 		// SKILL.md catalog. Think registers the skill-loading tool
 		// and injects the catalog into the system prompt automatically.
@@ -286,7 +320,7 @@ export class ThinkAgent extends Think<Env> {
 	}
 
 	override getTools(): ToolSet {
-		const ops = createSpaceWorkspaceOps(this.getSpaceStub());
+		const ops = createSpaceWorkspaceOps(() => this.getSpaceStub());
 		const previewUrl = this.getConfig<ThinkAgentConfig>()?.previewUrl;
 		// Same names as Think's built-in workspace tools, so these SpaceDO-backed
 		// versions win the tool-merge. Bash is disabled via `workspaceBash`.
@@ -298,10 +332,14 @@ export class ThinkAgent extends Think<Env> {
 			find: createFindTool({ ops }),
 			grep: createGrepTool({ ops }),
 			delete: createDeleteTool({ ops }),
+			// Save a restore point without deploying. The model decides when.
+			commit: createCommitTool({ getStub: () => this.getSpaceStub() }),
 			// Commit + deploy the SpaceDO branch so the preview rebuilds.
 			deploy_space: createDeploySpaceTool({ getStub: () => this.getSpaceStub() }),
 			// Set the project's short display title (host observes the output).
 			set_title: createSetTitleTool(),
+			// Ask the user clarifying questions via a frontend popup.
+			ask_questions: createAskQuestionsTool(),
 			// Client-side debugging via a real headless browser.
 			get_browser_console_logs: createBrowserConsoleLogsTool({
 				env: this.env,
@@ -314,13 +352,32 @@ export class ThinkAgent extends Think<Env> {
 	 * On the final allowed step, disable tools and prime a text-only wrap-up so
 	 * the turn ends with a summary instead of a truncated tool call (see
 	 * `prompts/max-steps.txt`).
+	 *
+	 * The primer is injected as a `user` turn, not an `assistant` one: Gemini's
+	 * OpenAI-compat endpoint rejects any request whose final message is a model
+	 * turn (`400 INVALID_ARGUMENT: Requests ending with a model turn are not
+	 * supported`), and the prompt is a control directive that reads naturally as
+	 * user input.
 	 */
-	override beforeStep(ctx: PrepareStepContext): StepConfig | void {
+	override async beforeStep(ctx: PrepareStepContext): Promise<StepConfig | void> {
+		const config = this.getConfig<ThinkAgentConfig>();
+		if (this.turnUsage && config) {
+			await RateLimitService.enforceLLMCallsRateLimit(
+				this.env,
+				this.turnUsage.config,
+				config.userId,
+				'Think',
+				'',
+				false,
+				this.turnUsage.hasCloudflareConfigured,
+				{ creditCost: THINK_MODEL_CONFIG.creditCost, throwOnExceeded: false },
+			);
+		}
 		if (ctx.stepNumber >= this.maxSteps - 1) {
 			return {
 				activeTools: [],
 				toolChoice: 'none',
-				messages: [...ctx.messages, { role: 'assistant', content: PROMPT_MAX_STEPS }],
+				messages: [...ctx.messages, { role: 'user', content: PROMPT_MAX_STEPS }],
 			};
 		}
 	}

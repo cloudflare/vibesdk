@@ -16,7 +16,7 @@ import {
 	ChevronRight,
 	Trash2,
 } from 'lucide-react';
-import clsx from 'clsx';
+import { cn } from '@cloudflare/kumo';
 import { useDatabaseViewer } from '../hooks/use-database-viewer';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -72,23 +72,23 @@ export function DatabaseViewer({ agentId, enabled }: DatabaseViewerProps) {
 	};
 
 	return (
-		<div className="flex-1 flex flex-col overflow-hidden bg-bg-3 text-text-primary">
+		<div className="flex-1 flex flex-col overflow-hidden bg-kumo-base text-text-primary">
 			<div className="flex items-center gap-2 px-3 py-2 border-b border-bg-2 bg-bg-4/40">
 				<DatabaseIcon className="size-4 text-text-50/70" />
 				<span className="text-xs font-mono text-text-50/70">App database</span>
 				<span className="text-xs text-text-50/40 ml-2">read-only</span>
 				<div className="ml-auto flex items-center gap-1">
 					<button
-						className="p-1 hover:bg-bg-2 rounded transition-colors text-text-50/70"
+						className="p-1 hover:bg-kumo-elevated rounded transition-colors text-text-50/70"
 						onClick={() => void refreshAll()}
 						title="Refresh"
 					>
 						<RefreshCw
-							className={clsx('size-4', (loadingTables || loadingQuery) && 'animate-spin')}
+							className={cn('size-4', (loadingTables || loadingQuery) && 'animate-spin')}
 						/>
 					</button>
 					<button
-						className="p-1 hover:bg-bg-2 rounded transition-colors text-red-500/80 hover:text-red-500"
+						className="p-1 hover:bg-kumo-elevated rounded transition-colors text-red-500/80 hover:text-red-500"
 						onClick={() => setConfirmingWipe(true)}
 						title="Reset database"
 					>
@@ -122,9 +122,9 @@ export function DatabaseViewer({ agentId, enabled }: DatabaseViewerProps) {
 						<button
 							key={t.name}
 							onClick={() => selectTable(t.name)}
-							className={clsx(
-								'flex items-center justify-between px-3 py-1.5 text-xs font-mono text-left hover:bg-bg-2 transition-colors',
-								selectedTable === t.name && 'bg-bg-2 text-text-primary',
+							className={cn(
+								'flex items-center justify-between px-3 py-1.5 text-xs font-mono text-left hover:bg-kumo-elevated transition-colors',
+								selectedTable === t.name && 'bg-kumo-elevated text-text-primary',
 							)}
 						>
 							<span className="truncate">{t.name}</span>
@@ -156,7 +156,7 @@ export function DatabaseViewer({ agentId, enabled }: DatabaseViewerProps) {
 													<th
 														key={col}
 														onClick={() => onColumnHeaderClick(col)}
-														className="px-3 py-1.5 text-left font-medium text-text-50/70 cursor-pointer select-none hover:bg-bg-2"
+														className="px-3 py-1.5 text-left font-medium text-text-50/70 cursor-pointer select-none hover:bg-kumo-elevated"
 													>
 														{col}
 														{orderBy === col && (
@@ -172,7 +172,7 @@ export function DatabaseViewer({ agentId, enabled }: DatabaseViewerProps) {
 											{queryResult.rows.map((row, i) => (
 												<tr
 													key={i}
-													className="border-b border-bg-2/50 hover:bg-bg-2/30"
+													className="border-b border-bg-2/50 hover:bg-kumo-elevated/30"
 												>
 													{queryResult.columns.map((col) => (
 														<td key={col} className="px-3 py-1.5 align-top">
@@ -200,14 +200,14 @@ export function DatabaseViewer({ agentId, enabled }: DatabaseViewerProps) {
 										Page {page + 1} / {totalPages}
 									</span>
 									<button
-										className="p-1 rounded hover:bg-bg-2 text-text-50/60 hover:text-text-primary disabled:opacity-30 disabled:cursor-not-allowed"
+										className="p-1 rounded hover:bg-kumo-elevated text-text-50/60 hover:text-text-primary disabled:opacity-30 disabled:cursor-not-allowed"
 										onClick={() => setPage(Math.max(0, page - 1))}
 										disabled={page === 0}
 									>
 										<ChevronLeft className="size-3.5" />
 									</button>
 									<button
-										className="p-1 rounded hover:bg-bg-2 text-text-50/60 hover:text-text-primary disabled:opacity-30 disabled:cursor-not-allowed"
+										className="p-1 rounded hover:bg-kumo-elevated text-text-50/60 hover:text-text-primary disabled:opacity-30 disabled:cursor-not-allowed"
 										onClick={() => setPage(Math.min(totalPages - 1, page + 1))}
 										disabled={page >= totalPages - 1}
 									>
@@ -218,7 +218,7 @@ export function DatabaseViewer({ agentId, enabled }: DatabaseViewerProps) {
 										<select
 											value={pageSize}
 											onChange={(e) => setPageSize(Number(e.target.value))}
-											className="bg-bg-2 border border-bg-1 rounded px-1 py-0.5 text-text-primary"
+											className="bg-kumo-elevated border border-bg-1 rounded px-1 py-0.5 text-text-primary"
 										>
 											{PAGE_SIZE_OPTIONS.map((n) => (
 												<option key={n} value={n}>

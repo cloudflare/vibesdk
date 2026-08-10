@@ -11,7 +11,7 @@ export interface WranglerConfig {
 	assets?: {
 		directory?: string;
 		not_found_handling?: string;
-		run_worker_first?: string[];
+		run_worker_first?: boolean | string[];
 		binding?: string;
 	};
 	observability?: {
@@ -65,7 +65,7 @@ export interface AssetConfig {
 		| 'none';
 	not_found_handling?: 'single-page-application' | '404-page' | 'none';
 	serve_directly?: boolean;
-	run_worker_first?: string[];
+	run_worker_first?: boolean | string[];
 	binding?: string;
 }
 
@@ -73,6 +73,22 @@ export interface AssetConfig {
  * Worker deployment metadata
  * Used in the multipart form data when deploying
  */
+export interface WorkerObservability {
+	enabled: boolean;
+	head_sampling_rate: number;
+	logs: {
+		enabled: boolean;
+		head_sampling_rate: number;
+		persist: boolean;
+		invocation_logs: boolean;
+	};
+	traces: {
+		enabled: boolean;
+		persist: boolean;
+		head_sampling_rate: number;
+	};
+}
+
 export interface WorkerMetadata {
 	main_module: string;
 	compatibility_date: string;
@@ -85,6 +101,7 @@ export interface WorkerMetadata {
 	vars?: Record<string, string>;
 	migrations?: DurableObjectMigration;
 	exported_handlers?: string[]; // For Durable Object class exports
+	observability?: WorkerObservability;
 }
 
 /**

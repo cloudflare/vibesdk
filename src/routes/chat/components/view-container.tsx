@@ -6,7 +6,7 @@ interface ViewContainerProps {
 
 export function ViewContainer({ children }: ViewContainerProps) {
 	return (
-		<div className="flex-1 flex flex-col bg-bg-3 rounded-xl shadow-md shadow-bg-2 overflow-hidden border border-border-primary">
+		<div className="flex-1 flex flex-col bg-kumo-base overflow-hidden border-l">
 			{children}
 		</div>
 	);

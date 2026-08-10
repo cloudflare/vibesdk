@@ -12,6 +12,7 @@ import {
 	type BehaviorType,
 	type FileType,
 	type TemplateDetails,
+	type CloudflareDeploymentErrorCode,
 	getBehaviorTypeForProject,
 } from '@/api-types';
 import {
@@ -24,7 +25,7 @@ import { mergeFiles } from '@/utils/file-helpers';
 import { apiClient } from '@/lib/api-client';
 import { appEvents } from '@/lib/app-events';
 import { createWebSocketMessageHandler, type HandleMessageDeps, type BackendErrorDialogState } from '../utils/handle-websocket-message';
-import { isConversationalMessage, addOrUpdateMessage, createUserMessage, handleRateLimitError, createAIMessage, type ChatMessage } from '../utils/message-helpers';
+import { isConversationalMessage, addOrUpdateMessage, createUserMessage, handleRateLimitError, createAIMessage, type ChatMessage, type ClarifyingQuestion } from '../utils/message-helpers';
 import { sendWebSocketMessage } from '../utils/websocket-helpers';
 import { initialStages as defaultStages, updateStage as updateStageHelper } from '../utils/project-stage-helpers';
 import type { ProjectStage } from '../utils/project-stage-helpers';
@@ -56,7 +57,7 @@ export function useChat({
 	autoStart = true,
 	onDebugMessage,
 	onTerminalMessage,
-	onVaultUnlockRequired,
+	onCloudflareDeployGate,
 }: {
 	chatId?: string;
 	query: string | null;
@@ -73,7 +74,7 @@ export function useChat({
 	autoStart?: boolean;
 	onDebugMessage?: (type: 'error' | 'warning' | 'info' | 'websocket', message: string, details?: string, source?: string, messageType?: string, rawMessage?: unknown) => void;
 	onTerminalMessage?: (log: { id: string; content: string; type: 'command' | 'stdout' | 'stderr' | 'info' | 'error' | 'warn' | 'debug'; timestamp: number; source?: string }) => void;
-	onVaultUnlockRequired?: (reason: string) => void;
+	onCloudflareDeployGate?: (code: CloudflareDeploymentErrorCode) => void;
 }) {
 	// Derive initial behavior type from explicit override or project type using feature system
 	const getInitialBehaviorType = (): BehaviorType => {
@@ -183,6 +184,9 @@ export function useChat({
 	// Track whether we've completed initial state restoration to avoid disrupting active sessions
 	const [isInitialStateRestored, setIsInitialStateRestored] = useState(false);
 
+	// Pending clarifying questions surfaced by the agent's `ask_questions` tool.
+	const [clarifyingQuestions, setClarifyingQuestions] = useState<ClarifyingQuestion[] | null>(null);
+
 	const updateStage = useCallback(
 		(stageId: ProjectStage['id'], data: Partial<Omit<ProjectStage, 'id'>>) => {
 			logger.debug('updateStage', { stageId, ...data });
@@ -216,6 +220,31 @@ export function useChat({
 
 	const sendUserMessage = useCallback((message: string) => {
 		setMessages(prev => [...prev, createUserMessage(message)]);
+	}, []);
+
+	const submitClarifyingAnswers = useCallback((answers: { question: string; selected: string[]; custom: string }[]) => {
+		if (!websocket) return;
+
+		const lines = answers
+			.map((a) => {
+				const parts = [...a.selected];
+				if (a.custom.trim()) parts.push(a.custom.trim());
+				if (parts.length === 0) return null;
+				return `Q: ${a.question}\nA: ${parts.join(', ')}`;
+			})
+			.filter((s): s is string => typeof s === 'string')
+			.join('\n\n');
+
+		if (!lines) return;
+
+		const message = `Here are my answers:\n\n${lines}`;
+		sendWebSocketMessage(websocket, 'user_suggestion', { message });
+		sendUserMessage(message);
+		setClarifyingQuestions(null);
+	}, [websocket, sendUserMessage]);
+
+	const dismissClarifyingQuestions = useCallback(() => {
+		setClarifyingQuestions(null);
 	}, []);
 
 	const loadBootstrapFiles = useCallback((files: FileType[]) => {
@@ -259,6 +288,7 @@ export function useChat({
 			setInternalProjectType,
 			setTemplateDetails,
 			setBackendErrorDialog,
+			setClarifyingQuestions,
 			// Current state
 			isInitialStateRestored,
 			blueprint,
@@ -278,7 +308,7 @@ export function useChat({
 			refetchLimits,
 			onDebugMessage,
 			onTerminalMessage,
-			onVaultUnlockRequired,
+			onCloudflareDeployGate,
 			clearDeploymentTimeout,
 			onPresentationFileEvent: (evt) => {
 				if (!evt.path.includes('/slides/')) return;
@@ -303,8 +333,9 @@ export function useChat({
 			refetchLimits,
 			onDebugMessage,
 			onTerminalMessage,
-			onVaultUnlockRequired,
+			onCloudflareDeployGate,
 			clearDeploymentTimeout,
+			setClarifyingQuestions,
 		],
 	);
 
@@ -733,10 +764,13 @@ export function useChat({
 		sendWebSocketMessage(websocket, 'resume_generation');
 	}, [websocket]);
 
-	const handleDeployToCloudflare = useCallback(async (instanceId: string) => {
+	const handleDeployToCloudflare = useCallback(async (
+		instanceId: string,
+		target: 'platform' | 'user' = 'platform',
+	) => {
 		try {
 			// Send deployment command via WebSocket instead of HTTP request
-			if (sendWebSocketMessage(websocket, 'deploy', { instanceId })) {
+			if (sendWebSocketMessage(websocket, 'deploy', { instanceId, target })) {
 				logger.debug('🚀 Deployment WebSocket message sent:', instanceId);
 
 				// Clear any existing deployment timeout
@@ -838,5 +872,9 @@ export function useChat({
 		// Externally-sourced session start gate
 		awaitingStartConfirmation,
 		confirmStart,
+		// Clarifying questions popup state
+		clarifyingQuestions,
+		submitClarifyingAnswers,
+		dismissClarifyingQuestions,
 	};
 }

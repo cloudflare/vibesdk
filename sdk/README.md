@@ -22,9 +22,9 @@ npm install @cf-vibesdk/sdk
 ## Quick Start
 
 ```ts
-import { PhasicClient } from '@cf-vibesdk/sdk';
+import { AgenticClient } from '@cf-vibesdk/sdk';
 
-const client = new PhasicClient({
+const client = new AgenticClient({
   baseUrl: 'https://build.cloudflare.dev',
   apiKey: process.env.VIBESDK_API_KEY!,
 });
@@ -68,9 +68,9 @@ const client = new PhasicClient({
 
 | Client | Default Behavior |
 |--------|------------------|
-| `VibeClient` | No default - specify `behaviorType` in build options |
-| `PhasicClient` | `behaviorType: 'phasic'` (phase-based generation) |
-| `AgenticClient` | `behaviorType: 'agentic'` (autonomous agent) |
+| `AgenticClient` | `behaviorType: 'agentic'` (Think-powered model-and-tool loop) |
+| `PhasicClient` | `behaviorType: 'phasic'` (legacy phase-based generation) |
+| `VibeClient` | No default; specify `behaviorType` in build options |
 
 All clients share the same API. The specialized clients simply set a default `behaviorType`.
 
@@ -83,7 +83,7 @@ Create a new app from a natural language prompt.
 ```ts
 const session = await client.build('Build a weather dashboard', {
   projectType: 'app',           // 'app' | 'component' | 'api'
-  behaviorType: 'phasic',       // 'phasic' | 'agentic'
+  behaviorType: 'agentic',      // 'agentic' | 'phasic'
   language: 'typescript',       // Optional
   frameworks: ['react'],        // Optional
   selectedTemplate: 'vite',     // Optional template name
@@ -344,7 +344,7 @@ await session.connect({ retry: { enabled: false } });
 HTTP requests automatically retry on 5xx errors.
 
 ```ts
-const client = new PhasicClient({
+const client = new AgenticClient({
   baseUrl: 'https://build.cloudflare.dev',
   apiKey: 'vibe_xxx',
   retry: {

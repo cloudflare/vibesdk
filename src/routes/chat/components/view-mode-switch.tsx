@@ -1,4 +1,4 @@
-import clsx from 'clsx';
+import { cn } from '@cloudflare/kumo';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Eye, Code, FileText, Presentation, Database } from 'lucide-react';
 import { featureRegistry } from '@/features';
@@ -52,7 +52,7 @@ export function ViewModeSwitch({
 						initial={{ opacity: 0, scale: 0.4 }}
 						animate={{ opacity: 1, scale: 1 }}
 						exit={{ opacity: 0, scale: 0 }}
-						className="absolute z-50 top-10 left-0 bg-bg-2 text-text-primary text-xs px-2 py-1 rounded whitespace-nowrap animate-fade-in"
+						className="absolute z-50 top-10 left-0 bg-kumo-elevated text-text-primary text-xs px-2 py-1 rounded whitespace-nowrap animate-fade-in"
 					>
 						You can view code anytime from here
 					</motion.div>
@@ -63,7 +63,7 @@ export function ViewModeSwitch({
 			{previewUrl && (
 				<button
 					onClick={() => onChange('preview')}
-					className={clsx(
+					className={cn(
 						'p-1 flex items-center justify-between h-full rounded-md transition-colors',
 						view === 'preview' || view === 'presentation'
 							? 'bg-bg-4 text-text-primary'
@@ -77,7 +77,7 @@ export function ViewModeSwitch({
 
 			<button
 				onClick={() => onChange('editor')}
-				className={clsx(
+				className={cn(
 					'p-1 flex items-center justify-between h-full rounded-md transition-colors',
 					view === 'editor'
 						? 'bg-bg-4 text-text-primary'
@@ -92,7 +92,7 @@ export function ViewModeSwitch({
 			{hasDocumentation && (
 				<button
 					onClick={() => onChange('docs')}
-					className={clsx(
+					className={cn(
 						'p-1 flex items-center justify-between h-full rounded-md transition-colors',
 						view === 'docs'
 							? 'bg-bg-4 text-text-primary'
@@ -108,7 +108,7 @@ export function ViewModeSwitch({
 			{databaseAvailable && (
 				<button
 					onClick={() => onChange('database')}
-					className={clsx(
+					className={cn(
 						'p-1 flex items-center justify-between h-full rounded-md transition-colors',
 						view === 'database'
 							? 'bg-bg-4 text-text-primary'
@@ -122,7 +122,7 @@ export function ViewModeSwitch({
 			{/* {terminalAvailable && (
 				<button
 					onClick={() => onChange('terminal')}
-					className={clsx(
+					className={cn(
 						'p-1 flex items-center justify-between h-full rounded-md transition-colors',
 						view === 'terminal'
 							? 'bg-bg-4 text-text-primary'

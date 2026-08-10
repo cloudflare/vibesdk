@@ -3,7 +3,7 @@ import { createBrowserRouter } from 'react-router';
 import { RouterProvider } from 'react-router/dom';
 import { initSentry } from './utils/sentry';
 
-import { routes } from './routes.ts';
+import { routes } from './routes.tsx';
 import './index.css';
 
 // Initialize Sentry before rendering

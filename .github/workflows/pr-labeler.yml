@@ -1,7 +1,7 @@
 name: PR Size & Type Labeler
 
 on:
-  pull_request:
+  pull_request_target:
     types: [opened, synchronize]
 
 jobs:
@@ -9,7 +9,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       pull-requests: write
-    
+
     steps:
       - uses: codelytv/pr-size-labeler@v1
         with:
@@ -29,9 +29,9 @@ jobs:
     permissions:
       pull-requests: write
       contents: read
-    
+
     steps:
-      - uses: actions/labeler@v5
+      - uses: actions/labeler@v7
         with:
           repo-token: ${{ secrets.GITHUB_TOKEN }}
           configuration-path: .github/labeler.yml

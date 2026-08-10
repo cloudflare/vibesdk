@@ -95,6 +95,7 @@ interface InferenceParamsBase {
     stream?: {
         chunk_size: number;
         onChunk: (chunk: string) => void;
+        onReasoning?: (delta: string) => void;
     };
     reasoning_effort?: ReasoningEffort;
     context: InferenceContext;

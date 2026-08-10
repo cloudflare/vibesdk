@@ -39,7 +39,7 @@ const getRetryDelay = (attempt: number): number => {
 
 export const PreviewIframe = forwardRef<HTMLIFrameElement, PreviewIframeProps>(
 	({ src, className = '', title = 'Preview', shouldRefreshPreview = false, manualRefreshTrigger, webSocket }, ref) => {
-		
+
 		const [loadState, setLoadState] = useState<LoadState>({
 			status: 'idle',
 			attempt: 0,
@@ -67,16 +67,16 @@ export const PreviewIframe = forwardRef<HTMLIFrameElement, PreviewIframeProps>(
 					signal: AbortSignal.timeout(8000),
 				});
                 console.log('Preview availability test response:', response, response.headers.forEach((value, key) => console.log("Header: ",key, value)));
-				
+
 				if (!response.ok) {
 					console.log('Preview not ready (status:', response.status, ')');
 					return null;
 				}
-				
+
 				// Read the custom header to determine preview type
 				// Header will only be present if origin validation passed on server
 				const previewType = response.headers.get('X-Preview-Type');
-				
+
                 if (previewType === 'sandbox-error') {
                     console.log('Preview not ready (sandbox error)');
                     return null;
@@ -84,7 +84,7 @@ export const PreviewIframe = forwardRef<HTMLIFrameElement, PreviewIframeProps>(
 					console.log('Preview available, type:', previewType);
 					return previewType;
 				}
-				
+
 				// Fallback: If no header present (shouldn't happen with valid origin)
 				// but the response is OK, assume sandbox for backward compatibility
 				console.log('Preview available (type unknown, assuming sandbox)');
@@ -110,7 +110,7 @@ export const PreviewIframe = forwardRef<HTMLIFrameElement, PreviewIframeProps>(
 			}
 
 			console.log('Requesting automatic preview redeployment');
-			
+
 			try {
 				webSocket.send(JSON.stringify({
 					type: 'preview',
@@ -131,7 +131,7 @@ export const PreviewIframe = forwardRef<HTMLIFrameElement, PreviewIframeProps>(
 			}
 
 			console.log('Requesting screenshot capture');
-			
+
 			try {
 				webSocket.send(JSON.stringify({
 					type: 'capture_screenshot',
@@ -207,7 +207,7 @@ export const PreviewIframe = forwardRef<HTMLIFrameElement, PreviewIframeProps>(
 				// Not available yet - retry with backoff
 				const delay = getRetryDelay(attempt);
 				const nextAttempt = attempt + 1;
-				
+
 				console.log(`Preview not ready. Retrying in ${Math.ceil(delay / 1000)}s (attempt ${nextAttempt}/${MAX_RETRIES})`);
 
 				// Auto-redeploy after 3 failed attempts
@@ -228,7 +228,7 @@ export const PreviewIframe = forwardRef<HTMLIFrameElement, PreviewIframeProps>(
 		const forceReload = useCallback(() => {
 			console.log('Force reloading preview');
 			hasRequestedRedeployRef.current = false;
-			
+
 			if (retryTimeoutRef.current) {
 				clearTimeout(retryTimeoutRef.current);
 				retryTimeoutRef.current = null;
@@ -262,7 +262,7 @@ export const PreviewIframe = forwardRef<HTMLIFrameElement, PreviewIframeProps>(
 
 			console.log('Preview src changed, starting load:', src);
 			hasRequestedRedeployRef.current = false;
-			
+
 			if (retryTimeoutRef.current) {
 				clearTimeout(retryTimeoutRef.current);
 				retryTimeoutRef.current = null;
@@ -360,7 +360,7 @@ export const PreviewIframe = forwardRef<HTMLIFrameElement, PreviewIframeProps>(
 			const delaySeconds = Math.ceil(delay / 1000);
 
 			return (
-				<div className={`${className} relative flex flex-col items-center justify-center bg-bg-3 border border-text/10 rounded-lg`}>
+				<div className={`${className} relative flex flex-col items-center justify-center bg-kumo-base border border-text/10 rounded-lg`}>
                     {loadState.status === 'postload' && loadState.loadedSrc && (
                         <iframe
                             sandbox="allow-scripts allow-same-origin allow-pointer-lock allow-forms allow-modals allow-orientation-lock	allow-popups allow-presentation"
@@ -380,7 +380,7 @@ export const PreviewIframe = forwardRef<HTMLIFrameElement, PreviewIframeProps>(
                         />
                     )}
 					<div className="text-center p-8 max-w-md">
-						<RefreshCw className="size-8 text-brand animate-spin mx-auto mb-4" />
+						<RefreshCw className="size-8 text-kumo-brand animate-spin mx-auto mb-4" />
 						<h3 className="text-lg font-medium text-text-primary mb-2">
 							Loading Preview
 						</h3>
@@ -391,7 +391,7 @@ export const PreviewIframe = forwardRef<HTMLIFrameElement, PreviewIframeProps>(
 							}
 						</p>
 						{loadState.attempt >= REDEPLOY_AFTER_ATTEMPT && (
-							<p className="text-xs text-brand/70">
+							<p className="text-xs text-kumo-brand/70">
 								Auto-redeployment triggered to refresh the preview
 							</p>
 						)}
@@ -405,7 +405,7 @@ export const PreviewIframe = forwardRef<HTMLIFrameElement, PreviewIframeProps>(
 
 		// Error state - after max retries
 		return (
-			<div className={`${className} flex flex-col items-center justify-center bg-bg-3 border border-text/10 rounded-lg`}>
+			<div className={`${className} flex flex-col items-center justify-center bg-kumo-base border border-text/10 rounded-lg`}>
 				<div className="text-center p-8 max-w-md">
 					<AlertCircle className="size-8 text-orange-500 mx-auto mb-4" />
 					<h3 className="text-lg font-medium text-text-primary mb-2">

@@ -1,5 +1,5 @@
 import type { WebSocket } from 'partysocket';
-import type { WebSocketMessage, BlueprintType, ConversationMessage, AgentState, PhasicState, BehaviorType, ProjectType, TemplateDetails } from '@/api-types';
+import type { WebSocketMessage, BlueprintType, ConversationMessage, AgentState, PhasicState, BehaviorType, ProjectType, TemplateDetails, CloudflareDeploymentErrorCode } from '@/api-types';
 import { deduplicateMessages, isAssistantMessageDuplicate } from './deduplicate-messages';
 import { logger } from '@/utils/logger';
 import { getFileType } from '@/utils/string';
@@ -9,14 +9,23 @@ import {
     appendFileChunk,
     setFileCompleted,
     setAllFilesCompleted,
+    removeFileFromArray,
     updatePhaseFileStatus,
 } from './file-state-helpers';
 import {
     createAIMessage,
+    createAssistantFromParts,
     handleRateLimitError,
-    handleStreamingMessage,
+    appendTextDelta,
+    appendReasoningDelta,
+    setAssistantText,
     appendToolEvent,
     type ChatMessage,
+    type MessagePart,
+    type ToolEvent,
+    parseClarifyingQuestions,
+    findPendingClarifyingQuestions,
+    hasAnswerAfterMessage,
 } from './message-helpers';
 import { completeStages, type ProjectStage } from './project-stage-helpers';
 import { sendWebSocketMessage } from './websocket-helpers';
@@ -34,41 +43,6 @@ const isPhasicState = (state: AgentState): state is PhasicState => {
 	}
 	return false;
 };
-
-/**
- * Tool input (args) is think-only UI. Centralised here so the live
- * (`conversation_response`) and reload (`conversation_state`) paths
- * stay in sync. For phasic/agentic the FE intentionally drops args so
- * their tool widgets render with today's exact UX.
- */
-function shouldAttachToolArgs(behaviorType: BehaviorType): boolean {
-	return behaviorType === 'think';
-}
-
-/**
- * OpenAI-canonical tool input lives on the assistant message's
- * `tool_calls[].function.arguments` (a JSON string). Find the entry
- * matching `toolCallId` on the most recent assistant ChatMessage and
- * parse it back into an args object. Returns undefined when the
- * assistant message is missing, the id doesn't match, or the JSON is
- * malformed — callers gracefully omit the Input section in that case.
- */
-function lookupToolArgsFromAssistant(
-	assistant: ChatMessage | null,
-	toolCallId: string | undefined,
-): Record<string, unknown> | undefined {
-	if (!assistant || !toolCallId) return undefined;
-	const calls = assistant.tool_calls;
-	if (!calls || calls.length === 0) return undefined;
-	const match = calls.find((tc) => tc && 'id' in tc && tc.id === toolCallId);
-	if (!match || !('function' in match) || !match.function?.arguments) return undefined;
-	try {
-		const parsed = JSON.parse(match.function.arguments);
-		return parsed && typeof parsed === 'object' ? (parsed as Record<string, unknown>) : undefined;
-	} catch {
-		return undefined;
-	}
-}
 
 export interface BackendErrorDialogState {
     isOpen: boolean;
@@ -107,6 +81,7 @@ export interface HandleMessageDeps {
     clearDeploymentTimeout?: () => void;
 
     setBackendErrorDialog: React.Dispatch<React.SetStateAction<BackendErrorDialogState>>;
+    setClarifyingQuestions?: React.Dispatch<React.SetStateAction<import('./message-helpers').ClarifyingQuestion[] | null>>;
     
     // Current state
     isInitialStateRestored: boolean;
@@ -141,7 +116,7 @@ export interface HandleMessageDeps {
         timestamp: number;
         source?: string
     }) => void;
-    onVaultUnlockRequired?: (reason: string) => void;
+    onCloudflareDeployGate?: (code: CloudflareDeploymentErrorCode) => void;
 }
 
 export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
@@ -186,6 +161,7 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
             setInternalProjectType,
             setTemplateDetails,
             setBackendErrorDialog,
+            setClarifyingQuestions,
             isInitialStateRestored,
             blueprint,
             query,
@@ -203,6 +179,7 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
             refetchLimits,
             onDebugMessage,
             onTerminalMessage,
+            onCloudflareDeployGate,
             clearDeploymentTimeout,
         } = deps;
 
@@ -403,6 +380,9 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
                 if (state.projectType) {
                     setInternalProjectType(state.projectType);
                 }
+                if (state.behaviorType === 'think' && state.cloudflareDeploymentUrl) {
+                    setCloudflareDeploymentUrl(state.cloudflareDeploymentUrl);
+                }
 
                 if (state.shouldBeGenerating && !isGenerating) {
                     logger.debug('🔄 shouldBeGenerating=true, updating UI to active state');
@@ -442,75 +422,106 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
                 logger.debug('Received conversation_state with messages:', history.length, 'deepDebugSession:', deepDebugSession);
 
                 const restoredMessages: ChatMessage[] = [];
+                // The bubble currently being assembled and the ordered parts we
+                // are appending to it. Consecutive assistant/tool history entries
+                // merge into one bubble; a user turn flushes it.
                 let currentAssistant: ChatMessage | null = null;
-                
-                const ensureToolEvents = (assistant: ChatMessage) => {
-                    if (!assistant.ui) assistant.ui = { toolEvents: [] };
-                    if (!assistant.ui.toolEvents) assistant.ui.toolEvents = [];
+                let currentParts: MessagePart[] = [];
+
+                const flushAssistant = () => {
+                    if (currentAssistant) {
+                        // Rebuild the finalized bubble from its accumulated parts
+                        // so `content`/`ui.toolEvents` mirrors stay in sync.
+                        const idx = restoredMessages.indexOf(currentAssistant);
+                        const rebuilt = createAssistantFromParts(currentAssistant.conversationId, currentParts);
+                        if (idx !== -1) restoredMessages[idx] = rebuilt;
+                    }
+                    currentAssistant = null;
+                    currentParts = [];
                 };
-                
+
+                const startAssistant = (conversationId: string) => {
+                    flushAssistant();
+                    currentParts = [];
+                    currentAssistant = createAssistantFromParts(conversationId, currentParts);
+                    restoredMessages.push(currentAssistant);
+                };
+
                 for (const msg of history) {
                     const text = extractTextContent(msg.content);
                     if (text?.includes('<Internal Memo>')) continue;
-                    
+
                     if (msg.role === 'user') {
+                        flushAssistant();
                         restoredMessages.push({
                             role: 'user',
                             conversationId: msg.conversationId,
                             content: text || '',
                         });
-                        currentAssistant = null;
                     } else if (msg.role === 'assistant') {
-                        const content = msg.conversationId.startsWith('archive-') 
-                            ? 'previous history was compacted' 
+                        if (!currentAssistant) startAssistant(msg.conversationId);
+
+                        // Reasoning ("thinking") part — persisted on the assistant
+                        // turn for phasic/agentic, and as a standalone entry for think.
+                        const reasoning = (msg as { reasoning?: string }).reasoning;
+                        if (typeof reasoning === 'string' && reasoning.trim().length > 0) {
+                            currentParts.push({ type: 'reasoning', text: reasoning, done: true });
+                        }
+
+                        // Text part (archived turns collapse to a compaction notice).
+                        const content = msg.conversationId.startsWith('archive-')
+                            ? 'previous history was compacted'
                             : (text || '');
-                        
-                        const hasToolCalls = msg.tool_calls && msg.tool_calls.length > 0;
-                        
-                        // Merge all consecutive assistant messages into one bubble
-                        if (currentAssistant) {
-                            // Append content if present
-                            if (content) {
-                                currentAssistant.content += (currentAssistant.content ? '\n\n' : '') + content;
-                            }
-                            // Append tool_calls if present
-                            if (hasToolCalls) {
-                                if (!currentAssistant.tool_calls) {
-                                    currentAssistant.tool_calls = [];
+                        if (content) {
+                            currentParts.push({ type: 'text', text: content });
+                        }
+
+                        // Tool invocations — emit a running tool part per call; the
+                        // matching `tool` history entry (below) fills in the result.
+                        if (msg.tool_calls && msg.tool_calls.length > 0) {
+                            for (const tc of msg.tool_calls) {
+                                if (!('function' in tc) || !tc.function?.name) continue;
+                                let args: Record<string, unknown> | undefined;
+                                try {
+                                    const parsed = JSON.parse(tc.function.arguments || '{}');
+                                    args = parsed && typeof parsed === 'object' ? parsed : undefined;
+                                } catch {
+                                    args = undefined;
                                 }
-                                currentAssistant.tool_calls.push(...msg.tool_calls!);
-                                ensureToolEvents(currentAssistant);
+                                const event: ToolEvent = {
+                                    name: tc.function.name,
+                                    status: 'start',
+                                    timestamp: Date.now(),
+                                    id: tc.id,
+                                    args,
+                                };
+                                currentParts.push({ type: 'tool', event });
                             }
-                        } else {
-                            // Create new assistant message
-                            currentAssistant = {
-                                role: 'assistant',
-                                conversationId: msg.conversationId,
-                                content,
-                                ui: hasToolCalls ? { toolEvents: [] } : undefined,
-                                tool_calls: hasToolCalls ? [...msg.tool_calls!] : undefined,
-                            };
-                            restoredMessages.push(currentAssistant);
                         }
                     } else if (msg.role === 'tool' && 'name' in msg && msg.name && currentAssistant) {
-                        ensureToolEvents(currentAssistant);
-                        // Restored tool events: omit `contentLength` so they render
-                        // as `topToolEvents` (bottom of bubble) per the convention
-                        // in messages.tsx. Setting contentLength would mark them as
-                        // inline-streaming events and they'd be hidden after reload.
                         const toolCallId = 'tool_call_id' in msg ? (msg as { tool_call_id?: string }).tool_call_id : undefined;
-                        const args = shouldAttachToolArgs(behaviorType)
-                            ? lookupToolArgsFromAssistant(currentAssistant, toolCallId)
-                            : undefined;
-                        currentAssistant.ui!.toolEvents!.push({
-                            name: msg.name,
-                            status: 'success',
-                            timestamp: Date.now(),
-                            result: text || undefined,
-                            args,
-                        });
+                        // Finalize the matching running tool part (by id, else by name).
+                        let matched = false;
+                        for (let i = currentParts.length - 1; i >= 0; i--) {
+                            const p = currentParts[i];
+                            if (p.type !== 'tool') continue;
+                            const idMatch = toolCallId && p.event.id === toolCallId;
+                            const nameMatch = !toolCallId && p.event.name === msg.name && p.event.status === 'start';
+                            if (idMatch || nameMatch) {
+                                currentParts[i] = { type: 'tool', event: { ...p.event, status: 'success', result: text || p.event.result } };
+                                matched = true;
+                                break;
+                            }
+                        }
+                        if (!matched) {
+                            currentParts.push({
+                                type: 'tool',
+                                event: { name: msg.name, status: 'success', timestamp: Date.now(), id: toolCallId, result: text || undefined },
+                            });
+                        }
                     }
                 }
+                flushAssistant();
 
                 // Restore active debug session if one is running
                 if (deepDebugSession?.conversationId) {
@@ -561,6 +572,13 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
                 if (restoredMessages.length > 0) {
                     // Deduplicate assistant messages with identical content (even if separated by tool messages)
                     const deduplicated = deduplicateMessages(restoredMessages);
+
+                    // Reopen the clarifying questions popup if an unanswered
+                    // `ask_questions` tool exists in the restored transcript.
+                    const pending = findPendingClarifyingQuestions(deduplicated);
+                    if (pending && !hasAnswerAfterMessage(deduplicated, pending.messageIndex)) {
+                        setClarifyingQuestions?.(pending.questions);
+                    }
                     
                     logger.debug('Merging conversation_state with', deduplicated.length, 'messages (', restoredMessages.length - deduplicated.length, 'duplicates removed)');
                     setMessages(prev => {
@@ -595,6 +613,11 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
 			case 'file_chunk_generated': {
 				setFiles((prev) => appendFileChunk(prev, message.filePath, message.chunk));
 				deps.onPresentationFileEvent?.({ type: 'file_chunk', path: message.filePath, chunk: message.chunk });
+				break;
+			}
+
+			case 'file_deleted': {
+				setFiles((prev) => removeFileFromArray(prev, message.filePath));
 				break;
 			}
 
@@ -922,6 +945,12 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
                 sendMessage(createAIMessage('cloudflare_deployment_error', `Deployment failed: ${message.error}\n\nYou can try deploying again.`));
 
                 toast.error(`Error: ${message.error}`);
+
+                // Connection-gate failures (no OAuth token / no account selected)
+                // additionally surface a connect/configure popup.
+                if (message.code) {
+                    onCloudflareDeployGate?.(message.code);
+                }
                 
                 onDebugMessage?.('error', 
                     'Deployment Failed - State Reset',
@@ -980,8 +1009,17 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
                         name: tool.name, 
                         status: tool.status,
                         result: tool.result,
-                        args: shouldAttachToolArgs(behaviorType) ? tool.args : undefined,
+                        args: tool.args,
+                        id: tool.id,
                     }));
+
+                    // Surface clarifying questions to the frontend popup.
+                    if (tool.name === 'ask_questions' && tool.status === 'success' && tool.args) {
+                        const questions = parseClarifyingQuestions({ name: tool.name, status: tool.status, args: tool.args, timestamp: Date.now() });
+                        if (questions.length > 0 && setClarifyingQuestions) {
+                            setClarifyingQuestions(questions);
+                        }
+                    }
 
                     // Refresh the preview iframe when the `deploy` tool
                     // finishes — the SpaceDO has just produced a new build and
@@ -1003,17 +1041,31 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
                     break;
                 }
 
+                // Reasoning ("thinking") delta/close — append to the ordered parts.
+                if (message.reasoning) {
+                    const { delta, done } = message.reasoning;
+                    if (delta || done) {
+                        setMessages(prev => appendReasoningDelta(prev, conversationId, delta ?? '', done));
+                    }
+                    break;
+                }
+
                 if (message.isStreaming) {
-                    setMessages(prev => handleStreamingMessage(prev, conversationId, isArchive ? placeholder : message.message, false));
+                    const chunk = isArchive ? placeholder : message.message;
+                    if (chunk) {
+                        setMessages(prev => appendTextDelta(prev, conversationId, chunk));
+                    }
                     break;
                 }
 
                 setMessages(prev => {
                     const idx = prev.findIndex(m => m.role === 'assistant' && m.conversationId === conversationId);
-                    if (idx !== -1) return prev.map((m, i) => i === idx ? { ...m, content: (isArchive ? placeholder : message.message) } : m);
-                    
-                    // Deduplicate: Don't add if last assistant message has identical content
                     const newContent = isArchive ? placeholder : message.message;
+                    // Finalize an existing streamed turn: keep interleaved parts,
+                    // only seed text when nothing streamed.
+                    if (idx !== -1) return setAssistantText(prev, conversationId, newContent);
+
+                    // Deduplicate: Don't add if last assistant message has identical content
                     if (isAssistantMessageDuplicate(prev, newContent)) {
                         logger.debug('Skipping duplicate assistant message');
                         return prev; // Skip duplicate
@@ -1074,24 +1126,6 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
                 break;
             }
 
-            case 'vault_required': {
-                // Agent needs access to secrets but vault is locked
-                logger.info('Agent requested vault unlock:', message.reason);
-                const reason = message.reason || 'Please unlock your vault to continue';
-
-                // Trigger unlock modal via callback if available
-                if (deps.onVaultUnlockRequired) {
-                    deps.onVaultUnlockRequired(reason);
-                } else {
-                    // Fallback to toast if callback not provided
-                    toast.info('Vault unlock required', {
-                        description: reason,
-                        duration: 5000,
-                    });
-                }
-                break;
-            }
-            
             case 'usage_updated': {
                 // Dispatch global event so all components can react
                 window.dispatchEvent(new CustomEvent('usage-updated'));

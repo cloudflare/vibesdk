@@ -6,6 +6,7 @@ import { MAX_IMAGES_PER_MESSAGE, MAX_IMAGE_SIZE_BYTES, type ImageAttachment } fr
 import { type CredentialsPayload } from '../inferutils/config.types';
 import { checkUsageAndBalance } from '../../services/rate-limit';
 import type { CodeGeneratorAgent } from './codingAgent';
+import type { DeploymentTarget } from './types';
 
 // Type for incoming WebSocket messages
 interface IncomingWebSocketMessage {
@@ -13,6 +14,8 @@ interface IncomingWebSocketMessage {
     message?: string;
     images?: ImageAttachment[];
     credentials?: CredentialsPayload;
+    commitHash?: string;
+    target?: DeploymentTarget;
     data?: {
         url?: string;
         viewport?: unknown;
@@ -70,17 +73,25 @@ export async function handleWebSocketMessage(
                     }
                 });
                 break;
-            case WebSocketMessageRequests.DEPLOY:
-                agent.deployProject().then((deploymentResult) => {
-                    if (!deploymentResult.success) {
-                        logger.error('Deployment failed', deploymentResult);
+            case WebSocketMessageRequests.DEPLOY: {
+                const target = parsedMessage.target ??
+                    (agent.state.behaviorType === 'think' ? 'user' : 'platform');
+                if (target !== 'platform' && target !== 'user') {
+                    sendError(connection, `Unsupported deployment target: ${String(target)}`);
+                    return;
+                }
+                agent.deployToCloudflare(target).then((deploymentResult) => {
+                    if (!deploymentResult?.deploymentUrl) {
+                        logger.error('Deployment failed', { target });
                         return;
                     }
                     logger.info('Deployment completed', deploymentResult);
                 }).catch((error: unknown) => {
                     logger.error('Error during deployment:', error);
+                    sendError(connection, error instanceof Error ? error.message : String(error));
                 });
                 break;
+            }
             case WebSocketMessageRequests.PREVIEW:
                 // Deploy current state for preview
                 logger.info('Deploying for preview');
@@ -90,6 +101,26 @@ export async function handleWebSocketMessage(
                     logger.error('Error during preview deployment:', error);
                 });
                 break;
+            case WebSocketMessageRequests.ROLLBACK_TO_COMMIT: {
+                const commitHash = parsedMessage.commitHash;
+                if (!commitHash) {
+                    sendError(connection, 'Missing commitHash for rollback');
+                    return;
+                }
+                const behavior = agent.getBehavior() as unknown as {
+                    rollbackToCommit?: (commitHash: string) => Promise<void>;
+                };
+                if (typeof behavior.rollbackToCommit !== 'function') {
+                    sendError(connection, 'Rollback is not supported for this app');
+                    return;
+                }
+                logger.info('Rolling back to commit', { commitHash });
+                behavior.rollbackToCommit(commitHash).catch((error: unknown) => {
+                    logger.error('Error during rollback:', error);
+                    sendError(connection, `Error during rollback: ${error instanceof Error ? error.message : String(error)}`);
+                });
+                break;
+            }
             case WebSocketMessageRequests.CAPTURE_SCREENSHOT:
                 if (!parsedMessage.data?.url) {
                     sendError(connection, 'Missing url for screenshot capture');
@@ -262,8 +293,10 @@ export async function handleWebSocketMessage(
                 try {
                     const loader = agent.getConversationMessageLoader();
                     const state = await loader.load();
-                    const debugState = agent.getBehavior().getDeepDebugSessionState();
-                    logger.info('Conversation state retrieved', state);
+					const debugState = agent
+						.getBehavior()
+						.getDeepDebugSessionState();
+					logger.info(`Conversation state retrieved for ${state.id}`);
                     sendToConnection(connection, WebSocketMessageResponses.CONVERSATION_STATE, {
                         state,
                         deepDebugSession: debugState

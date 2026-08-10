@@ -1,9 +1,8 @@
 "use client"
 
 import * as React from "react"
+import { cn } from '@cloudflare/kumo';
 import * as SwitchPrimitive from "@radix-ui/react-switch"
-
-import { cn } from "@/lib/utils"
 
 function Switch({
   className,
@@ -21,7 +20,7 @@ function Switch({
       <SwitchPrimitive.Thumb
         data-slot="switch-thumb"
         className={cn(
-          "bg-bg-3 dark:data-[state=unchecked]:bg-foreground dark:data-[state=checked]:bg-text-text-secondary pointer-events-none block size-4 rounded-full ring-0 transition-transform data-[state=checked]:translate-x-[calc(100%-2px)] data-[state=unchecked]:translate-x-0"
+          "bg-kumo-base dark:data-[state=unchecked]:bg-foreground dark:data-[state=checked]:bg-text-text-secondary pointer-events-none block size-4 rounded-full ring-0 transition-transform data-[state=checked]:translate-x-[calc(100%-2px)] data-[state=unchecked]:translate-x-0"
         )}
       />
     </SwitchPrimitive.Root>

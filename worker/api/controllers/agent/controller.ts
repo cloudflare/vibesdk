@@ -254,11 +254,19 @@ export class CodingAgentController extends BaseController {
                 : { ...baseInitArgs, templateInfo: { templateDetails: templateResult!.templateDetails, selection: templateResult!.selection } };
 
             const agentPromise = agentInstance.initialize(initArgs) as Promise<AgentState>;
-            agentPromise.then(async (_state: AgentState) => {
-                writer.write("terminate");
-                writer.close();
-                this.logger.info(`Agent ${agentId} terminated successfully`);
-            });
+            void (async () => {
+                try {
+                    await agentPromise;
+                    this.logger.info(`Agent ${agentId} initialized successfully`);
+                } catch (error) {
+                    const message = error instanceof Error ? error.message : String(error);
+                    this.logger.error(`Agent ${agentId} initialization failed`, error);
+                    await writer.write({ error: { message } }).catch(() => undefined);
+                } finally {
+                    await writer.write("terminate").catch(() => undefined);
+                    await writer.close().catch(() => undefined);
+                }
+            })();
 
             this.logger.info(`Agent ${agentId} init launched successfully`);
             

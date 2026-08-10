@@ -24,6 +24,10 @@ export interface Env {
   // bindings and `getDurableObjectClass(name)` on the returned stub.
   LOADER: WorkerLoader
 
+  /** Cloudflare Artifacts binding, required only for Artifacts-backed spaces. */
+  ARTIFACTS?: Artifacts
+  ENABLE_ARTIFACTS?: string
+
   // AI binding (optional — for AI Gateway zero-config fallback)
   AI?: Ai
 

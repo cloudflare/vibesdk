@@ -1,10 +1,10 @@
-# VibSDK Setup Guide
+# VibeSDK Setup Guide
 
-Local first time setup guide for VibSDK - get your AI coding platform running locally and also ready to be deployed. 
+Set up VibeSDK for local development and production deployment.
 
 **Make sure to read through the entire guide for important notes, and have all the required information ready before starting.**
 
-**Important Note: Cloudflare WARP has been known to cause issues with anonymous Cloudflared tunnels used in local development. It may cause previews to not load. If you experience issues with local development previews, try disabling WARP (full mode) while working with VibSDK. You may use WARP in DNS only (1.1.1.1) mode**
+Current generated-app previews use SpaceDO, a Worker Loader binding, and Dynamic Workers. Cloudflare Artifacts is optional behind `ENABLE_ARTIFACTS`; it is not required for the default SQLite workspace filesystem. Previews do not require a sandbox container or persistent preview server.
 
 ## Prerequisites
 
@@ -26,10 +26,10 @@ Before getting started, make sure you have:
 
 ## Quick Start
 
-The fastest way to get VibSDK running is with our automated setup script:
+The fastest way to get VibeSDK running is with our automated setup script:
 
 ```bash
-# Bun is recommended for the projec instead of npm. First install bun if you don't have it already
+# Bun is recommended. Install it first if needed.
 curl -fsSL https://bun.sh/install | bash
 # Then install dependencies and run setup
 bun install
@@ -182,23 +182,42 @@ Add the client credentials to `.dev.vars` (and `.prod.vars` for production):
 ```bash
 CLOUDFLARE_OAUTH_CLIENT_ID="<your-oauth-client-id>"        # required for Login with Cloudflare
 CLOUDFLARE_OAUTH_CLIENT_SECRET="<your-oauth-client-secret>"
-ENABLE_CLOUDFLARE_LIMITS="true"                            # enables the AI Gateway connect feature
 CF_OAUTH_ENCRYPTION_KEY="<32-byte base64 key>"             # required for AI Gateway; encrypts the token cookie
 ```
+
+Set `ENABLE_CLOUDFLARE_LIMITS="true"` in the Cloudflare dashboard for production, or in `.dev.vars` for local development.
 
 The **"Login with Cloudflare" button** appears as soon as `CLOUDFLARE_OAUTH_CLIENT_ID`
 and `CLOUDFLARE_OAUTH_CLIENT_SECRET` are set — identity login needs nothing else.
 
 The **AI Gateway connect/auto-connect** (running generations on the user's own
-credits) additionally requires `ENABLE_CLOUDFLARE_LIMITS="true"` and
+credits) additionally requires the dashboard-managed `ENABLE_CLOUDFLARE_LIMITS="true"` and
 `CF_OAUTH_ENCRYPTION_KEY` (generate with `openssl rand -base64 32`). If the key is
 missing, the gateway feature is disabled (same as leaving `ENABLE_CLOUDFLARE_LIMITS`
 unset) and login simply skips the gateway auto-connect — users fall back to the free
 tier and can connect later.
 
-### Docker Requirement
+### Generated-app preview requirements
 
-For local development with sandbox instances, Docker is required. Make sure Docker is installed and running on your machine before running the platform.
+Generated-app previews use the `SPACE_DO` and `LOADER` bindings. Add the `ARTIFACTS` binding for Artifacts-backed spaces. Docker is not required for the current Think/SpaceDO preview path. `SandboxDockerfile` and container setup remain only for legacy tooling.
+
+### Dashboard-managed feature toggles
+
+Feature settings are intentionally omitted from the committed wrangler `vars`. For deployed environments, set them in the Cloudflare dashboard; `keep_vars: true` preserves their values when `wrangler deploy` runs. For local development, set them in `.dev.vars`. Do not add these settings back to `wrangler.jsonc` or `wrangler.staging.jsonc`.
+
+| Variable | Effect | Unset default | Notes |
+| --- | --- | --- | --- |
+| `ENABLE_ARTIFACTS` | Uses Artifacts-backed spaces | Off | Requires the `ARTIFACTS` binding. |
+| `ENABLE_READ_REPLICAS` | Enables D1 read replicas | Off | Set to `"true"` to enable. |
+| `ENABLE_EMAIL_AUTH` | Enables email/password authentication | On | Set to `"false"` to make the deployment OAuth-only. |
+| `ENABLE_CLOUDFLARE_LIMITS` | Enables AI Gateway connect | Off | Requires `CF_OAUTH_ENCRYPTION_KEY`; set to `"true"` to enable. |
+| `ENABLE_USER_ACCOUNT_DEPLOY` | Deploys Think apps to the user's Cloudflare account | Off | Set to `"true"` to enable. |
+| `ALLOWED_EMAIL` | Restricts sign-in to one email address | Off | Set the allowed address; empty or unset disables the allowlist. |
+| `ALLOCATION_STRATEGY` | Selects the legacy sandbox allocation strategy | Default strategy | Managed in the dashboard rather than through production secrets. |
+| `USE_CLOUDFLARE_IMAGES` | Enables Cloudflare Images uploads | Off | Set a non-empty value to enable. |
+| `USE_TUNNEL_FOR_PREVIEW` | Uses a tunnel for local previews | Off | Dev-only; set in `.dev.vars`, not the production dashboard. |
+
+Existing deployments retain previously configured dashboard values when this configuration is deployed. New deployments must explicitly set `ENABLE_READ_REPLICAS="true"` or `ENABLE_CLOUDFLARE_LIMITS="true"` in the dashboard to preserve the former committed defaults.
 
 ## Manual Setup (Alternative)
 
@@ -288,26 +307,19 @@ Visit your app at `http://localhost:5173`
 - **Custom provider not recognized**: Check that the provider was added to `worker-configuration.d.ts`
 - **AI Gateway creation failed**: Ensure your API token has AI Gateway permissions
 
-**Local Development & Tunnel Issues**:
-- **Cloudflared tunnel timeout**: Wait 20-30 seconds, then refresh. Tunnel creation can be slow
-- **"Tunnel creation failed"**: This is normal occasionally. The app will still work with regular preview URLs
-- **Sandbox instances dying**: Normal behavior if they restart successfully. Only worry if persistent
-- **Preview URL not accessible**: Check if tunnel is still creating, or try refreshing the instance
-- **Multiple port exposure issues on macOS**: Use tunnels (`USE_TUNNEL_FOR_PREVIEW=true`) - this is the default
+**Dynamic Worker Preview Issues**:
+- Confirm the `SPACE_DO` and `LOADER` bindings are configured; confirm `ARTIFACTS` only when `ENABLE_ARTIFACTS="true"`.
+- Check the branch deployment and signed preview URL.
+- Use `bun run dev:browser` when local browser-console inspection is needed.
 
 **Deploy to Cloudflare Button Issues (Chat Interface)**:
 - **"Deploy button not working locally"**: Chat interface deploy button requires custom domain, initial deployment, and remote dispatch bindings
-- **"Dispatch namespace not found"**: Deploy your VibSDK project to Cloudflare at least once first
+- **"Dispatch namespace not found"**: Deploy your VibeSDK project to Cloudflare at least once first
 - **"Deploy fails with authentication error"**: Ensure your custom domain is properly configured and deployed
 - **Note**: This refers to deploying generated apps from the chat interface, not GitHub repository deployments
 
-**Corporate Network Issues**:
-- **SSL/TLS certificate errors in Docker containers**: Corporate networks often use custom root CA certificates
-- **Cloudflared tunnel failures**: May be blocked by corporate proxies or require certificate trust
-- **Package installation failures**: npm/bun installs may fail due to certificate validation
-
-**Corporate Network Solutions**:
-If you're on a corporate network with custom SSL certificates, you'll need to modify the `SandboxDockerfile`:
+**Legacy Corporate Container Setup**:
+The following certificate setup applies only when intentionally running legacy Docker-based tooling:
 
 1. **Copy your corporate root CA certificate** to the project root (don't commit to git!)
 2. **Edit SandboxDockerfile** to include your certificate:
@@ -352,7 +364,7 @@ If you only set up for local development initially, you can configure production
 
 1. **Run setup again** and choose "yes" for remote deployment configuration
 2. **Provide production domain** when prompted
-3. **Deploy** using `npm run deploy`
+3. **Deploy** using `bun run deploy`
 
 ### Manual Production Setup
 
@@ -365,10 +377,10 @@ Alternatively, create `.prod.vars` manually based on `.dev.vars` but with:
 
 Once setup is complete:
 
-1. **Start developing** with `npm run dev`
-2. **Visit** `http://localhost:5173` to access VibSDK
+1. **Start developing** with `bun run dev`
+2. **Visit** `http://localhost:5173` to access VibeSDK
 3. **Try generating** your first AI-powered application
-4. **Deploy to production** when ready with `npm run deploy`
+4. **Deploy to production** when ready with `bun run deploy`
 
 ## File Structure After Setup
 
@@ -386,7 +398,7 @@ vibesdk/
 
 ## Summary
 
-The VibSDK setup script provides a comprehensive, intelligent configuration experience:
+The VibeSDK setup script provides a comprehensive, intelligent configuration experience:
 
 ### **Key Features:**
 - **Simplified domain setup** - One-time domain configuration with clear feature implications
@@ -410,25 +422,15 @@ For any issues during setup, check the troubleshooting section above or refer to
 
 ## Important Caveats & Known Issues
 
-### **Local Development with Cloudflared Tunnels**
+### **Legacy tunnel and container configuration**
 
-**Default Behavior**: Local development uses cloudflared tunnels by default (`USE_TUNNEL_FOR_PREVIEW=true`)
-
-**Why Tunnels?**
-- **MacBook compatibility**: Cloudflare sandbox SDK Docker images have issues with multiple exposed ports on macOS
-- **Simplified networking**: Avoids complex localhost proxying setup
-- **Quick development**: Provides immediate external access for testing
-
-**Tunnel Limitations**:
-- **Startup time**: Tunnel creation can take 10-20 seconds
-- **Timeouts**: Tunnel creation may timeout occasionally (this is normal)
-- **External dependency**: Requires internet connection and cloudflare.com access
+`USE_TUNNEL_FOR_PREVIEW`, `SandboxDockerfile`, and container instance settings belong to the retired sandbox preview path. Current generated-app previews run as Dynamic Workers loaded by SpaceDO. Do not troubleshoot the current preview path as a Docker or cloudflared tunnel unless you are intentionally running legacy tooling.
 
 ### **"Deploy to Cloudflare" Button Limitations (Chat Interface)**
 
 The "Deploy to Cloudflare" button in the chat interface (for generated apps) has specific requirements for local development:
 
-> **Note**: This refers to the deployment button within the VibSDK platform's chat interface, not the GitHub repository deploy button.
+> **Note**: This refers to the deployment button within the VibeSDK platform's chat interface, not the GitHub repository deploy button.
 
 **Requirements**:
 1. **Custom domain** must be properly configured during setup
@@ -443,19 +445,6 @@ The "Deploy to Cloudflare" button in the chat interface (for generated apps) has
 
 **Current Status**: Making "Deploy to Cloudflare" work completely in local-only mode is not yet implemented.
 
-### **Sandbox Instance Behavior**
+### **Dynamic Worker preview troubleshooting**
 
-**Normal Behavior**:
-- **Instance restarts**: Sandbox deployments may occasionally die and restart
-- **Temporary failures**: Short-term deployment failures are expected
-- **Self-healing**: The system will retry and recover automatically
-
-**When to Be Concerned**:
-- Consistent failures over 5+ minutes
-- Complete inability to create instances
-- Persistent networking issues
-
-**What's Normal**:
-- Individual instance failures that resolve quickly
-- Occasional tunnel connection issues
-- Brief periods of unavailability during restarts If issue persists, please open an issue on GitHub with the status report and any additional information you think would be helpful.
+For current previews, verify the SpaceDO Durable Object binding, Worker Loader binding, branch deployment, and signed preview URL. Verify the Artifacts namespace only when `ENABLE_ARTIFACTS="true"`. Build failures originate in `@cloudflare/worker-bundler`; application runtime failures should be inspected through browser console logs. If an issue persists, open a GitHub issue with the setup report and deployment error.

@@ -207,7 +207,7 @@ export class CloudflareAccountService extends BaseService {
 	): Promise<number | null> {
 		try {
 			const response = await fetch(
-				`https://api.cloudflare.com/client/v4/accounts/${accountId}/ai-gateway-billing/credit_balance`,
+				`https://api.cloudflare.com/client/v4/accounts/${accountId}/ai-gateway/billing/credit-balance`,
 				{
 					headers: {
 						'Authorization': `Bearer ${accessToken}`,
@@ -487,6 +487,30 @@ export class CloudflareAccountService extends BaseService {
 	 */
 	async getSelectedGatewayWithAccount(userId: string): Promise<ActiveGatewayWithAccount | null> {
 		return this.getActiveGatewayWithAccount(userId);
+	}
+
+	/**
+	 * Resolve the account to deploy Workers into. Deploying only needs an
+	 * account ID (no AI Gateway), so this falls back to the user's sole
+	 * connected account when no explicit account+gateway selection exists.
+	 * Returns null only when the target account is ambiguous (multiple
+	 * connected accounts and none selected in Settings).
+	 */
+	async getDeployAccount(userId: string): Promise<typeof schema.cloudflareAccounts.$inferSelect | null> {
+		const selected = await this.getActiveGatewayWithAccount(userId);
+		if (selected) return selected.account;
+
+		try {
+			const accounts = await this.database
+				.select()
+				.from(schema.cloudflareAccounts)
+				.where(eq(schema.cloudflareAccounts.userId, userId))
+				.all();
+			return accounts.length === 1 ? accounts[0] : null;
+		} catch (error) {
+			this.logger.error('Error resolving deploy account', { userId, error });
+			return null;
+		}
 	}
 
 	/**

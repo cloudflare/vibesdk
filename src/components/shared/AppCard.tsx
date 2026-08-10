@@ -1,13 +1,11 @@
 import React from 'react';
+import { cn } from '@cloudflare/kumo';
 import { motion } from 'framer-motion';
-import { Card } from '@/components/ui/card';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
 	Star,
 	Eye,
 	Shuffle,
 	Code2,
-	User,
 	Lock,
 	Users2,
 	Globe,
@@ -16,7 +14,7 @@ import {
 	Loader2,
 	Github,
 } from 'lucide-react';
-import { cn } from '@/lib/utils';
+
 import { formatDistanceToNow } from 'date-fns';
 import type {
 	AppWithFavoriteStatus,
@@ -24,15 +22,14 @@ import type {
 	EnhancedAppData,
 } from '@/api-types';
 import { AppActionsDropdown } from './AppActionsDropdown';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import type { LucideIcon } from 'lucide-react';
 
-// Union type for both app types - make updatedAtFormatted optional
 type AppCardData =
 	| AppWithFavoriteStatus
 	| (EnhancedAppData & { updatedAtFormatted?: string })
 	| AppWithUserAndStats;
 
-// Type definitions for deployment and stats
 type DeploymentStatus = 'none' | 'deploying' | 'deployed' | 'failed';
 
 interface AppWithDeployment {
@@ -55,7 +52,6 @@ interface StatsData {
 	userStarred?: boolean;
 }
 
-// Layout and design types for enhanced UI
 type CardLayout = 'compact' | 'detailed';
 
 interface LayoutConfig {
@@ -65,7 +61,6 @@ interface LayoutConfig {
 	showDeploymentStatus: boolean;
 }
 
-// Constants - Single source of truth for deployment status configurations
 const DEPLOYMENT_STATUS_CONFIG: Record<DeploymentStatus, DeploymentStatusInfo> =
 	{
 		deployed: {
@@ -95,14 +90,12 @@ const DEPLOYMENT_STATUS_CONFIG: Record<DeploymentStatus, DeploymentStatusInfo> =
 		},
 	};
 
-// Stats icons mapping
 const STATS_ICONS = {
 	viewCount: Eye,
 	starCount: Star,
 	forkCount: Shuffle,
 } as const;
 
-// Type-safe utility functions
 function hasDeploymentFields(
 	app: AppCardData,
 ): app is AppCardData & AppWithDeployment {
@@ -111,11 +104,7 @@ function hasDeploymentFields(
 
 function getAppDeploymentStatus(app: AppCardData): DeploymentStatus {
 	if (!hasDeploymentFields(app)) return 'none';
-
-	// If has deployment URL, it's deployed
 	if (app.deploymentUrl) return 'deployed';
-
-	// Return deployment status or default to 'none'
 	return app.deploymentStatus || 'none';
 }
 
@@ -130,7 +119,6 @@ function getAppStats(app: AppCardData): StatsData {
 	}
 
 	if (isUserApp(app) || isEnhancedApp(app)) {
-		// Type-safe access to stats fields that exist on enhanced/user app types
 		const enhancedApp = app as EnhancedAppData;
 		return {
 			viewCount: enhancedApp.viewCount,
@@ -143,7 +131,6 @@ function getAppStats(app: AppCardData): StatsData {
 	return {};
 }
 
-// Type guards
 function isPublicApp(app: AppCardData): app is AppWithUserAndStats {
 	return (
 		'userName' in app &&
@@ -198,7 +185,6 @@ function getDeploymentStatusInfo(
 	app: AppCardData,
 ): DeploymentStatusInfo | null {
 	if (!hasDeploymentFields(app)) return null;
-
 	const status = getAppDeploymentStatus(app);
 	return DEPLOYMENT_STATUS_CONFIG[status];
 }
@@ -215,41 +201,65 @@ function getLayoutConfig(
 	};
 }
 
-// Reusable components to eliminate duplicate JSX
+function formatStat(value: number): string {
+	if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(1).replace(/\.0$/, '')}M`;
+	if (value >= 1_000) return `${(value / 1_000).toFixed(1).replace(/\.0$/, '')}k`;
+	return String(value || 0);
+}
+
 const StatItem = ({
 	icon: Icon,
 	value,
-	highlighted = false,
 }: {
 	icon: LucideIcon;
 	value: number;
-	highlighted?: boolean;
 }) => (
-	<div className="flex items-center gap-1 group-hover:scale-105 transition-transform duration-200">
-		<Icon
-			className={cn(
-				'h-4 w-4 transition-all duration-200 text-gray-400',
-				highlighted && 'fill-yellow-500 text-yellow-500 drop-shadow-sm',
-				!highlighted && 'group-hover:text-bg-2',
-			)}
-		/>
-		<span className="font-medium text-xs text-text-tertiary group-hover:text-bg-2">
-			{value || 0}
+	<span className="inline-flex items-center gap-1">
+		<Icon className="size-3.5 text-kumo-subtle" />
+		<span className="text-xs font-medium tabular-nums text-kumo-subtle">
+			{formatStat(value)}
 		</span>
-	</div>
+	</span>
 );
 
 const StatsDisplay = ({ stats }: { stats: StatsData }) => (
-	<div className="flex items-center gap-2 text-sm text-text-tertiary/80">
-		<StatItem
-			icon={STATS_ICONS.starCount}
-			value={stats.starCount || 0}
-			highlighted={stats.userStarred}
-		/>
-		{/* Fork functionality temporarily removed - showing view count instead */}
-		{/* <StatItem icon={STATS_ICONS.forkCount} value={stats.forkCount || 0} /> */}
+	<div className="flex items-center gap-3">
+		<StatItem icon={STATS_ICONS.starCount} value={stats.starCount || 0} />
 		<StatItem icon={STATS_ICONS.viewCount} value={stats.viewCount || 0} />
 	</div>
+);
+
+function getUserInitials(name: string | null | undefined): string {
+	if (!name?.trim()) return '?';
+	const parts = name.trim().split(/\s+/);
+	if (parts.length >= 2) {
+		return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
+	}
+	return name.slice(0, 2).toUpperCase();
+}
+
+const UserAvatar = ({
+	name,
+	avatarUrl,
+	className,
+}: {
+	name: string | null | undefined;
+	avatarUrl: string | null | undefined;
+	className?: string;
+}) => (
+	<Avatar
+		className={cn(
+			'size-8 shrink-0 ring-2 ring-kumo-base shadow-sm',
+			className,
+		)}
+	>
+		{avatarUrl ? (
+			<AvatarImage src={avatarUrl} alt={name || 'User'} />
+		) : null}
+		<AvatarFallback className="bg-kumo-elevated text-[11px] font-semibold text-kumo-default">
+			{getUserInitials(name)}
+		</AvatarFallback>
+	</Avatar>
 );
 
 const AppMetadata = ({
@@ -262,30 +272,24 @@ const AppMetadata = ({
 	hasOverlayStatus?: boolean;
 }) => {
 	if (layoutConfig.primaryMetadata === 'social' && isPublicApp(app)) {
-		// Discover page layout - show user info
 		return (
-			<div className="flex items-center gap-3 text-sm">
-				{app.userName === 'Anonymous User' ? (
-					<div className="flex items-center gap-2 text-text-tertiary">
-						<div className="h-8 w-8 rounded-full bg-gradient-to-br from-gray-300 to-gray-400 flex items-center justify-center shadow-sm">
-							<User className="h-4 w-4 text-white" />
-						</div>
-					</div>
-				) : (
-					<div className="flex items-center gap-2">
-						<Avatar className="h-8 w-8">
-							<AvatarImage src={app.userAvatar || undefined} />
-							<AvatarFallback className="text-[10px] bg-gradient-to-br from-red-200 to-red-300 font-semibold">
-								{app.userName?.charAt(0).toUpperCase() || '?'}
-							</AvatarFallback>
-						</Avatar>
-					</div>
-				)}
-				<div className="flex flex-col line-clamp-1 gap-1 w-full text-text-primary group-hover:text-bg-2 ">
-					<span className="truncate text-ellipsis max-w-60 font-medium">
+			<div className="flex min-w-0 flex-1 items-center gap-2.5">
+				<UserAvatar name={app.userName} avatarUrl={app.userAvatar} />
+				<div className="flex min-w-0 flex-1 flex-col gap-0.5">
+					<span className="truncate text-sm font-semibold leading-snug text-kumo-strong">
 						{app.title}
 					</span>
-					<StatsDisplay stats={getAppStats(app)} />
+					<div className="flex min-w-0 items-center gap-2">
+						{app.userName ? (
+							<span className="truncate text-xs text-kumo-subtle">
+								{app.userName}
+							</span>
+						) : null}
+						{app.userName ? (
+							<span className="text-kumo-subtle/40">·</span>
+						) : null}
+						<StatsDisplay stats={getAppStats(app)} />
+					</div>
 				</div>
 			</div>
 		);
@@ -295,57 +299,49 @@ const AppMetadata = ({
 		layoutConfig.primaryMetadata === 'deployment' &&
 		(isUserApp(app) || isEnhancedApp(app))
 	) {
-		// My Apps page layout - show deployment status and update time
 		const deploymentStatus = getDeploymentStatusInfo(app);
 		return (
-			<div className='flex flex-col'>
-				<span className="truncate text-ellipsis max-w-60 font-medium group-hover:text-bg-2">
+			<div className="flex min-w-0 flex-1 flex-col gap-0.5">
+				<span className="truncate text-sm font-semibold leading-snug text-kumo-strong">
 					{app.title}
 				</span>
-				<div className="flex items-center gap-2.5 text-sm">
-					{/* Only show deployment status if there's no overlay status indicator */}
+				<div className="flex items-center gap-2 text-sm">
 					{deploymentStatus && !hasOverlayStatus && (
 						<>
 							<div className="flex items-center gap-1.5">
 								<div
 									className={cn(
-										'w-2 h-2 rounded-full transition-all duration-200',
+										'size-1.5 rounded-full',
 										deploymentStatus.color ===
 											'text-green-500' &&
-											'bg-green-500 shadow-sm shadow-green-500/20',
+											'bg-kumo-success shadow-[0_0_0_3px] shadow-kumo-success/15',
 										deploymentStatus.color ===
 											'text-green-400' &&
-											'bg-green-400 animate-pulse shadow-sm shadow-green-400/20',
+											'bg-kumo-success animate-pulse shadow-[0_0_0_3px] shadow-kumo-success/15',
 										deploymentStatus.color ===
-											'text-gray-500' &&
-											'bg-gray-400 shadow-sm shadow-gray-400/20',
-										deploymentStatus.color ===
-											'text-gray-500 ' && 'bg-gray-400',
+											'text-gray-500' && 'bg-kumo-subtle/50',
 									)}
 								/>
 								<span
 									className={cn(
-										'text-xs font-medium transition-colors',
+										'text-xs font-medium',
 										deploymentStatus.color ===
 											'text-green-500' &&
-											'text-green-600',
+											'text-kumo-success',
 										deploymentStatus.color ===
 											'text-green-400' &&
-											'text-green-600',
+											'text-kumo-success',
 										deploymentStatus.color ===
-											'text-gray-500' && 'text-gray-600 group-hover:text-bg-2',
-										deploymentStatus.color ===
-											'text-gray-500' &&
-											'text-text-tertiary',
+											'text-gray-500' && 'text-kumo-subtle',
 									)}
 								>
 									{deploymentStatus.text}
 								</span>
 							</div>
-							<span className="text-text-tertiary/60">•</span>
+							<span className="text-kumo-subtle/40">·</span>
 						</>
 					)}
-					<span className="text-xs text-text-tertiary/80 group-hover:text-bg-1 font-medium">
+					<span className="text-xs text-kumo-subtle">
 						Updated{' '}
 						{isUserApp(app)
 							? app.updatedAtFormatted
@@ -360,10 +356,12 @@ const AppMetadata = ({
 		);
 	}
 
-	// Fallback for other cases
 	return (
-		<div className="flex items-center gap-2 text-sm">
-			<span className="text-xs text-text-tertiary/80 font-medium">
+		<div className="flex min-w-0 flex-1 flex-col gap-0.5">
+			<span className="truncate text-sm font-semibold text-kumo-strong">
+				{app.title}
+			</span>
+			<span className="text-xs text-kumo-subtle">
 				{isUserApp(app)
 					? `Updated ${app.updatedAtFormatted}`
 					: 'Recently updated'}
@@ -381,25 +379,27 @@ export const AppCard = React.memo<AppCardProps>(
 		className,
 	}) => {
 		const layoutConfig = getLayoutConfig(showUser, showActions);
-		const deploymentStatus = getDeploymentStatusInfo(app);
+		const deploymentState = getAppDeploymentStatus(app);
+		const isDeploying = deploymentState === 'deploying';
+		const isFailed = deploymentState === 'failed';
 
 		const itemVariants = {
-			hidden: { y: 10, opacity: 0 },
+			hidden: { y: 12, opacity: 0 },
 			visible: {
 				y: 0,
 				opacity: 1,
 				transition: {
 					type: 'spring' as const,
-					stiffness: 200,
-					damping: 20,
+					stiffness: 260,
+					damping: 24,
 				},
 			},
 			exit: {
-				y: -10,
+				y: -8,
 				opacity: 0,
 				scale: 0.98,
 				transition: {
-					duration: 0.2,
+					duration: 0.18,
 				},
 			},
 		};
@@ -411,219 +411,171 @@ export const AppCard = React.memo<AppCardProps>(
 				animate="visible"
 				exit="exit"
 				layout
-				className={className}
+				className={cn('h-full', className)}
 			>
-				{/* Anchor wrapper for right-click context menu support */}
 				<a
 					href={`/app/${app.id}`}
 					onClick={(e) => {
 						e.preventDefault();
 						onClick(app.id);
 					}}
-					className="block h-full no-underline"
+					className="group block h-full no-underline outline-none"
 				>
-					<Card
+					<article
 						className={cn(
-							'h-full transition-all duration-300 ease-out cursor-pointer group relative overflow-hidden rounded-md p-2 bg-bg-1 hover:!bg-text hover:dark:!bg-text-primary',
-							'border border-border-primary hover:border-border-primary/60',
+							'relative flex h-full flex-col overflow-hidden rounded-2xl',
+							'bg-kumo-base ring-1 ring-kumo-line/80',
+							'shadow-[0_1px_2px_rgba(0,0,0,0.04)]',
+							'hover:shadow-[0_12px_40px_-12px_rgba(0,0,0,0.18)]',
+							'hover:ring-kumo-line',
+							'focus-visible:ring-2 focus-visible:ring-kumo-brand/40',
 						)}
 					>
-					{/* Enhanced Preview Section with High-Quality Rendering */}
-					<div className="relative aspect-[16/9] rounded-lg overflow-hidden bg-gradient-to-br from-red-50 to-red-100 dark:from-red-950/20 dark:to-orange-900/20">
-						{app.screenshotUrl ? (
-							<img
-								src={app.screenshotUrl}
-								alt={`${app.title} preview`}
-								className={cn(
-									'w-full h-full transition-all duration-300 ease-out',
-									// High-quality rendering with smart cropping for better visual appeal
-									'object-cover object-center',
-									'bg-gradient-to-br from-red-50/60 to-red-100/60 dark:from-red-950/15 dark:to-red-900/15',
-								)}
-								loading="lazy"
-								fetchPriority="low"
-								sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
-								srcSet={`${app.screenshotUrl} 1x, ${app.screenshotUrl} 1.5x, ${app.screenshotUrl} 2x, ${app.screenshotUrl} 3x`}
-								decoding="async"
-								onError={(e) => {
-									// Smooth fallback to placeholder
-									const target = e.target as HTMLImageElement;
-									target.style.opacity = '0';
-									setTimeout(() => {
-										target.style.display = 'none';
-										const placeholder =
-											target.parentElement?.querySelector(
-												'.screenshot-placeholder',
-											) as HTMLElement;
-										if (placeholder) {
-											placeholder.classList.remove(
-												'hidden',
-											);
-											placeholder.style.opacity = '1';
-										}
-									}, 150);
-								}}
-								onLoad={(e) => {
-									// Ensure smooth appearance with advanced quality enhancement
-									const target = e.target as HTMLImageElement;
-									target.style.opacity = '1';
-									// Apply dynamic quality optimizations after load
-									const devicePixelRatio =
-										window.devicePixelRatio || 1;
-									if (devicePixelRatio >= 2) {
-										target.style.imageRendering =
-											'high-quality';
-										target.style.filter =
-											'contrast(1.05) saturate(1.06) brightness(1.02) unsharp-mask(0.7px 0.7px 0px)';
-									} else {
-										target.style.imageRendering = 'auto';
-										target.style.filter =
-											'contrast(1.04) saturate(1.05) brightness(1.02) unsharp-mask(0.5px 0.5px 0px)';
-									}
-									target.style.backfaceVisibility = 'hidden';
-									target.style.willChange = 'transform';
-								}}
-								style={{
-									opacity: 0,
-									transition: 'opacity 0.3s ease-out',
-									// Advanced CSS-level quality optimizations
-									imageRendering: 'auto',
-									backfaceVisibility: 'hidden',
-									transform: 'translate3d(0, 0, 0)',
-									willChange: 'transform',
-									contain: 'layout style paint',
-									isolation: 'isolate',
-									// Enhanced quality filters with cross-browser support
-									filter: 'contrast(1.04) saturate(1.05) brightness(1.02)',
-									WebkitFontSmoothing: 'subpixel-antialiased',
-									textRendering: 'optimizeLegibility',
-									fontFeatureSettings: '"kern" 1',
-								}}
-							/>
-						) : null}
+						<div className="relative aspect-[16/10] overflow-hidden bg-kumo-recessed">
+							{app.screenshotUrl ? (
+								<img
+									src={app.screenshotUrl}
+									alt={`${app.title} preview`}
+									className={cn(
+										'h-full w-full object-cover object-center',
+										'scale-[1.01] duration-500 ease-out group-hover:scale-[1.05]',
+										'bg-kumo-tint',
+									)}
+									loading="lazy"
+									fetchPriority="low"
+									sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+									srcSet={`${app.screenshotUrl} 1x, ${app.screenshotUrl} 1.5x, ${app.screenshotUrl} 2x, ${app.screenshotUrl} 3x`}
+									decoding="async"
+									onError={(e) => {
+										const target = e.target as HTMLImageElement;
+										target.style.opacity = '0';
+										setTimeout(() => {
+											target.style.display = 'none';
+											const placeholder =
+												target.parentElement?.querySelector(
+													'.screenshot-placeholder',
+												) as HTMLElement;
+											if (placeholder) {
+												placeholder.classList.remove('hidden');
+												placeholder.style.opacity = '1';
+											}
+										}, 150);
+									}}
+									onLoad={(e) => {
+										const target = e.target as HTMLImageElement;
+										target.style.opacity = '1';
+									}}
+									style={{
+										opacity: 0,
+										transition: 'opacity 0.35s ease-out, transform 0.5s ease-out',
+									}}
+								/>
+							) : null}
 
-						<div
-							className={cn(
-								'screenshot-placeholder w-full h-full flex flex-col items-center justify-center absolute inset-0 transition-all duration-300',
-								app.screenshotUrl
-									? 'hidden opacity-0'
-									: 'opacity-100',
-								// Enhanced placeholder design
-								'bg-gradient-to-br from-red-50 via-red-100/80 to-red-200/60 dark:from-red-950/30 dark:via-red-900/20 dark:to-red-800/10',
-							)}
-						>
-							<div className="flex flex-col items-center gap-3 text-red-400/70 dark:text-red-500/50">
-								<div className="relative">
-									<Code2 className="h-12 w-12 drop-shadow-sm" />
-									<div className="absolute inset-0 bg-gradient-to-t from-red-200/30 to-transparent rounded blur-sm" />
-								</div>
-								<div className="text-xs font-medium text-center px-4 opacity-60">
-									Preview Unavailable
+							<div
+								className={cn(
+									'screenshot-placeholder absolute inset-0 flex flex-col items-center justify-center',
+									app.screenshotUrl ? 'hidden opacity-0' : 'opacity-100',
+									'bg-[radial-gradient(ellipse_at_top,var(--color-kumo-tint)_0%,var(--color-kumo-recessed)_70%)]',
+								)}
+							>
+								<div className="flex flex-col items-center gap-2.5 text-kumo-subtle">
+									<div className="flex size-12 items-center justify-center rounded-2xl bg-kumo-base/70 ring-1 ring-kumo-hairline backdrop-blur-sm">
+										<Code2 className="size-5" />
+									</div>
+									<span className="text-xs font-medium">
+										Preview unavailable
+									</span>
 								</div>
 							</div>
-						</div>
 
-						{/* Deploying status indicator - only show when actually deploying */}
-						{deploymentStatus?.color === 'text-green-400' &&
-							getAppDeploymentStatus(app) === 'deploying' && (
+							{/* Bottom vignette for depth */}
+							<div
+								aria-hidden
+								className="pointer-events-none absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-t from-black/20 via-black/5 to-transparent opacity-60"
+							/>
+
+							{/* Top gloss */}
+							<div
+								aria-hidden
+								className="pointer-events-none absolute inset-x-0 top-0 h-1/4 bg-gradient-to-b from-white/10 to-transparent"
+							/>
+
+							{isDeploying && (
 								<div
-									className="absolute top-2 left-2 h-4 w-4 rounded-full bg-green-300/70 backdrop-blur-sm flex items-center justify-center shadow-sm border border-green-200/20"
+									className="absolute left-3 top-3 inline-flex items-center gap-1.5 rounded-full bg-kumo-base/90 px-2 py-1 text-xs font-medium text-kumo-success shadow-sm ring-1 ring-kumo-success/20 backdrop-blur-md"
 									title="App is deploying"
 									aria-label="App deployment in progress"
 								>
-									<Loader2 className="w-2 h-2 text-white/90 animate-spin" />
+									<Loader2 className="size-3 animate-spin" />
+									Deploying
 								</div>
 							)}
 
-						{/* Failed deployment status indicator - only show when deployment actually failed */}
-						{deploymentStatus?.color === 'text-gray-500' &&
-							getAppDeploymentStatus(app) === 'failed' && (
+							{isFailed && (
 								<div
-									className="absolute top-2 left-2 h-4 w-4 rounded-full bg-gray-400/70 backdrop-blur-sm flex items-center justify-center shadow-sm border border-gray-300/20"
+									className="absolute left-3 top-3 inline-flex items-center gap-1.5 rounded-full bg-kumo-base/90 px-2 py-1 text-xs font-medium text-kumo-subtle shadow-sm ring-1 ring-kumo-line backdrop-blur-md"
 									title="Deployment failed"
 									aria-label="App deployment failed"
 								>
-									<CloudOff className="w-2 h-2 text-white/90" />
+									<CloudOff className="size-3" />
+									Failed
 								</div>
 							)}
 
-						{/* GitHub Repository Badge - moved to app info section, removed from screenshot overlay */}
+							{showActions && (
+								<div
+									className="absolute right-3 top-3 opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-focus-within:opacity-100"
+									onClick={(e) => e.preventDefault()}
+								>
+									<AppActionsDropdown
+										appId={app.id}
+										appTitle={app.title}
+										showOnHover={false}
+										className="size-8 text-kumo-subtle hover:text-kumo-default bg-kumo-base/90 shadow-sm ring-1 ring-kumo-hairline backdrop-blur-md hover:bg-kumo-base"
+										size="sm"
+									/>
+								</div>
+							)}
 
-						{/* Actions Dropdown - positioned in top-right on hover */}
-						{showActions && (
-							<div className="absolute top-2 right-2">
-								<AppActionsDropdown
-									appId={app.id}
-									appTitle={app.title}
-									showOnHover={true}
-									className="h-6 w-6 text-text-tertiary hover:text-text-primary bg-bg-3/90 backdrop-blur-sm hover:bg-bg-3"
-									size="sm"
-								/>
-							</div>
-						)}
-
-						{/* Visibility Badge for user apps (when not showing status overlays) */}
-						{(isUserApp(app) || isEnhancedApp(app)) &&
-							!deploymentStatus && (
-								<div className="absolute bottom-2 left-2 bg-bg-3/90 dark:bg-bg-4/90 backdrop-blur-sm rounded-md p-1">
+							{(isUserApp(app) || isEnhancedApp(app)) && (
+								<div className="absolute bottom-3 left-3 inline-flex items-center gap-1 rounded-full bg-kumo-base/90 px-2 py-1 text-kumo-subtle shadow-sm ring-1 ring-kumo-hairline backdrop-blur-md">
 									{getVisibilityIcon(app.visibility)}
 								</div>
 							)}
-
-						{/* Visibility Badge positioned differently when status overlay exists */}
-						{(isUserApp(app) || isEnhancedApp(app)) &&
-							deploymentStatus && (
-								<div className="absolute bottom-2 left-2 bg-bg-3/90 dark:bg-bg-4/90 backdrop-blur-sm rounded-md p-1">
-									{getVisibilityIcon(app.visibility)}
-								</div>
-							)}
-					</div>
-
-					<div className="flex items-start justify-between gap-2 p-2 pb-1">
-						<div className="flex-1 min-w-0">
-							{/* Enhanced Adaptive Metadata with GitHub integration */}
-							<div className="transition-all duration-200 ease-out ">
-								<div className="flex items-center gap-3">
-									<div className="flex-1">
-										<AppMetadata
-											app={app}
-											layoutConfig={layoutConfig}
-											hasOverlayStatus={
-												!!deploymentStatus &&
-												deploymentStatus.color !==
-													'text-gray-500'
-											}
-										/>
-									</div>
-									{/* GitHub Repository Button - integrated into app info */}
-									{app.githubRepositoryUrl &&
-										app.githubRepositoryVisibility !==
-											'private' && (
-											<button
-												className="group/github flex items-center gap-1.5 px-2 py-1 rounded-full bg-gray-50 hover:bg-gray-100 dark:bg-gray-800 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 transition-all duration-200"
-												onClick={(e) => {
-													e.stopPropagation();
-													if (
-														app.githubRepositoryUrl
-													) {
-														window.open(
-															app.githubRepositoryUrl,
-															'_blank',
-															'noopener,noreferrer',
-														);
-													}
-												}}
-												title={`View on GitHub (${app.githubRepositoryVisibility || 'public'})`}
-												aria-label="View repository on GitHub"
-											>
-												<Github className="w-4 h-4 text-gray-600 dark:text-gray-400 group-hover/github:text-gray-800 dark:group-hover/github:text-gray-200 transition-colors" />
-											</button>
-										)}
-								</div>
-							</div>
 						</div>
-					</div>
-					</Card>
+
+						<div className="flex items-center gap-2 px-3.5 py-3">
+							<AppMetadata
+								app={app}
+								layoutConfig={layoutConfig}
+								hasOverlayStatus={isDeploying || isFailed}
+							/>
+
+							{app.githubRepositoryUrl &&
+								app.githubRepositoryVisibility !== 'private' && (
+									<button
+										type="button"
+										className="inline-flex size-8 shrink-0 items-center justify-center rounded-full bg-kumo-tint text-kumo-subtle ring-1 ring-kumo-hairline hover:bg-kumo-fill hover:text-kumo-default"
+										onClick={(e) => {
+											e.preventDefault();
+											e.stopPropagation();
+											if (app.githubRepositoryUrl) {
+												window.open(
+													app.githubRepositoryUrl,
+													'_blank',
+													'noopener,noreferrer',
+												);
+											}
+										}}
+										title={`View on GitHub (${app.githubRepositoryVisibility || 'public'})`}
+										aria-label="View repository on GitHub"
+									>
+										<Github className="size-3.5" />
+									</button>
+								)}
+						</div>
+					</article>
 				</a>
 			</motion.div>
 		);

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Loader, Check, type LucideIcon } from 'lucide-react';
-import clsx from 'clsx';
+import { cn } from '@cloudflare/kumo';
 
 interface ExportButtonProps {
 	icon: LucideIcon;
@@ -9,7 +9,12 @@ interface ExportButtonProps {
 	disabled?: boolean;
 }
 
-export function ExportButton({ icon: Icon, onClick, tooltip, disabled }: ExportButtonProps) {
+export function ExportButton({
+	icon: Icon,
+	onClick,
+	tooltip,
+	disabled,
+}: ExportButtonProps) {
 	const [state, setState] = useState<'idle' | 'loading' | 'success'>('idle');
 
 	const handleClick = async () => {
@@ -26,24 +31,26 @@ export function ExportButton({ icon: Icon, onClick, tooltip, disabled }: ExportB
 		}
 	};
 
-	const CurrentIcon = state === 'loading' ? Loader : state === 'success' ? Check : Icon;
+	const CurrentIcon =
+		state === 'loading' ? Loader : state === 'success' ? Check : Icon;
 
 	return (
 		<button
 			onClick={handleClick}
 			disabled={disabled || state !== 'idle'}
 			title={tooltip}
-			className={clsx(
+			className={cn(
 				'p-1.5 rounded-md transition-colors',
-				'hover:bg-bg-3 disabled:opacity-50 disabled:cursor-not-allowed',
-				state === 'idle' && 'text-text-primary/70 hover:text-text-primary'
+				'hover:bg-kumo-base disabled:opacity-50 disabled:cursor-not-allowed',
+				state === 'idle' &&
+					'text-text-primary/70 hover:text-text-primary',
 			)}
 		>
 			<CurrentIcon
-				className={clsx(
+				className={cn(
 					'size-4',
 					state === 'loading' && 'animate-spin',
-					state === 'success' && 'text-green-500'
+					state === 'success' && 'text-green-500',
 				)}
 			/>
 		</button>

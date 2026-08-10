@@ -5,18 +5,32 @@ import { AppListContainer } from '@/components/shared/AppListContainer';
 import { AppFiltersForm } from '@/components/shared/AppFiltersForm';
 import { AppSortTabs } from '@/components/shared/AppSortTabs';
 import type { AppSortOption } from '@/api-types';
+import { GlobeIcon } from '@phosphor-icons/react';
+import { BrandEmphasisIcon } from '@/components/shared/BrandEmphasisIcon';
 
 export default function DiscoverPage() {
 	const navigate = useNavigate();
 	const [searchParams, setSearchParams] = useSearchParams();
 
 	// Derive initial sort from URL or localStorage, fallback to 'popular'
-	const allowedSorts: AppSortOption[] = ['recent', 'popular', 'trending', 'starred'];
+	const allowedSorts: AppSortOption[] = [
+		'recent',
+		'popular',
+		'trending',
+		'starred',
+	];
 	const sortParam = searchParams.get('sort') as AppSortOption | null;
-	const savedSort = (typeof localStorage !== 'undefined' ? localStorage.getItem('discover.sort') : null) as AppSortOption | null;
-	const initialSort: AppSortOption = (sortParam && allowedSorts.includes(sortParam))
-		? sortParam
-		: (savedSort && allowedSorts.includes(savedSort) ? savedSort : 'popular');
+	const savedSort = (
+		typeof localStorage !== 'undefined'
+			? localStorage.getItem('discover.sort')
+			: null
+	) as AppSortOption | null;
+	const initialSort: AppSortOption =
+		sortParam && allowedSorts.includes(sortParam)
+			? sortParam
+			: savedSort && allowedSorts.includes(savedSort)
+				? savedSort
+				: 'popular';
 
 	const {
 		// Filter state
@@ -53,24 +67,30 @@ export default function DiscoverPage() {
 	});
 
 	return (
-		<div className="min-h-screen">
-			<div className="container mx-auto px-4 py-8">
+		<div className="size-full">
+			<title>Discover - Build</title>
+			<div className="container max-w-6xl mx-auto px-4 py-8">
 				<motion.div
 					initial={{ opacity: 0, y: -20 }}
 					animate={{ opacity: 1, y: 0 }}
 					transition={{ duration: 0.5 }}
 				>
 					{/* Header */}
-					<div className="mb-8">
-						<h1 className="text-6xl font-bold mb-3 font-[departureMono] text-brand">
-							DISCOVER
+					<div className="mb-8 mt-6">
+						<h1 className="flex items-center gap-2 text-6xl font-funky-mono font-bold mb-3 text-brand-emphasis">
+							<BrandEmphasisIcon
+								icon={GlobeIcon}
+								weight="duotone"
+								className="-rotate-30"
+							/>
+							Discover
 						</h1>
-						<p className="text-text-tertiary text-lg">
+						<p className="text-kumo-subtle text-lg font-funky-mono tracking-tight">
 							Explore apps built by the community
 						</p>
 					</div>
 
-					<div className="flex items-start gap-4 justify-between">
+					<div className="flex flex-wrap items-start gap-3 justify-between mb-8">
 						{/* Search and Filters */}
 						<AppFiltersForm
 							searchQuery={searchQuery}
@@ -83,23 +103,32 @@ export default function DiscoverPage() {
 							onFrameworkChange={handleFrameworkChange}
 							onPeriodChange={handlePeriodChange}
 							sortBy={sortBy}
-					/>
+						/>
 
 						{/* Sort Tabs */}
-					<AppSortTabs
-						value={sortBy}
-						onValueChange={(v) => {
-							handleSortChange(v);
-							// Persist to URL and localStorage
-							try { localStorage.setItem('discover.sort', v); } catch {
-								console.error('Failed to persist sort to localStorage');
-							}
-							const next = new URLSearchParams(searchParams);
-							next.set('sort', v);
-							setSearchParams(next, { replace: true });
-						}}
-						availableSorts={['recent', 'popular', 'trending', 'starred']}
-					/>
+						<AppSortTabs
+							value={sortBy}
+							onValueChange={(v) => {
+								handleSortChange(v);
+								// Persist to URL and localStorage
+								try {
+									localStorage.setItem('discover.sort', v);
+								} catch {
+									console.error(
+										'Failed to persist sort to localStorage',
+									);
+								}
+								const next = new URLSearchParams(searchParams);
+								next.set('sort', v);
+								setSearchParams(next, { replace: true });
+							}}
+							availableSorts={[
+								'recent',
+								'popular',
+								'trending',
+								'starred',
+							]}
+						/>
 					</div>
 
 					{/* Unified App List */}

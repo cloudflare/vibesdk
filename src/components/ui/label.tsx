@@ -1,7 +1,6 @@
 import * as React from "react"
+import { cn } from '@cloudflare/kumo';
 import * as LabelPrimitive from "@radix-ui/react-label"
-
-import { cn } from "@/lib/utils"
 
 function Label({
   className,

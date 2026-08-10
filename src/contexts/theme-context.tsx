@@ -1,72 +1,93 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, {
+	createContext,
+	useCallback,
+	useContext,
+	useEffect,
+	useMemo,
+	useState,
+	useSyncExternalStore,
+} from 'react';
 
 type Theme = 'light' | 'dark' | 'system';
+type ResolvedTheme = 'light' | 'dark';
 
 interface ThemeContextType {
-  theme: Theme;
-  setTheme: (theme: Theme) => void;
+	theme: Theme;
+	resolvedTheme: ResolvedTheme;
+	setTheme: (theme: Theme) => void;
 }
 
-const ThemeContext = createContext<ThemeContextType>({
-  theme: 'system',
-  setTheme: () => {},
-});
+const MEDIA_QUERY = '(prefers-color-scheme: dark)';
+
+function getSystemTheme(): ResolvedTheme {
+	return window.matchMedia(MEDIA_QUERY).matches ? 'dark' : 'light';
+}
+
+function subscribeSystemTheme(onStoreChange: () => void) {
+	const mediaQuery = window.matchMedia(MEDIA_QUERY);
+	mediaQuery.addEventListener('change', onStoreChange);
+	return () => mediaQuery.removeEventListener('change', onStoreChange);
+}
+
+function resolveTheme(theme: Theme, systemTheme: ResolvedTheme): ResolvedTheme {
+	return theme === 'system' ? systemTheme : theme;
+}
+
+function applyResolvedTheme(resolved: ResolvedTheme) {
+	const root = window.document.documentElement;
+	root.dataset.mode = resolved;
+	root.style.colorScheme = resolved;
+}
+
+const ThemeContext = createContext<ThemeContextType | null>(null);
 
 export const useTheme = () => {
-  const context = useContext(ThemeContext);
-  if (!context) {
-    throw new Error('useTheme must be used within a ThemeProvider');
-  }
-  return context;
+	const context = useContext(ThemeContext);
+	if (!context) {
+		throw new Error('useTheme must be used within a ThemeProvider');
+	}
+	return context;
 };
 
 interface ThemeProviderProps {
-  children: React.ReactNode;
+	children: React.ReactNode;
 }
 
 export function ThemeProvider({ children }: ThemeProviderProps) {
-  const [theme, setTheme] = useState<Theme>(() => {
-    const savedTheme = localStorage.getItem('theme') as Theme;
-    return savedTheme || 'system';
-  });
+	const [theme, setThemeState] = useState<Theme>(() => {
+		const savedTheme = localStorage.getItem('theme') as Theme | null;
+		const initial =
+			savedTheme === 'light' || savedTheme === 'dark' || savedTheme === 'system'
+				? savedTheme
+				: 'system';
+		// Apply before first paint so dark mode tokens (e.g. bg-bg-4) don't FOUC white
+		applyResolvedTheme(resolveTheme(initial, getSystemTheme()));
+		return initial;
+	});
 
-  const applyTheme = (newTheme: Theme) => {
-    const root = window.document.documentElement;
-    root.classList.remove('light', 'dark');
+	const systemTheme = useSyncExternalStore(
+		subscribeSystemTheme,
+		getSystemTheme,
+		() => 'light' as ResolvedTheme,
+	);
 
-    if (newTheme === 'system') {
-      const systemTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-      root.classList.add(systemTheme);
-    } else {
-      root.classList.add(newTheme);
-    }
-  };
+	const resolvedTheme = resolveTheme(theme, systemTheme);
 
-  useEffect(() => {
-    applyTheme(theme);
+	useEffect(() => {
+		applyResolvedTheme(resolvedTheme);
+	}, [resolvedTheme]);
 
-    // Listen for system theme changes
-    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-    const handleChange = () => {
-      if (theme === 'system') {
-        applyTheme('system');
-      }
-    };
+	const setTheme = useCallback((newTheme: Theme) => {
+		setThemeState(newTheme);
+		localStorage.setItem('theme', newTheme);
+	}, []);
 
-    mediaQuery.addEventListener('change', handleChange);
-    return () => mediaQuery.removeEventListener('change', handleChange);
-  }, [theme]);
+	const value = useMemo(
+		() => ({ theme, resolvedTheme, setTheme }),
+		[theme, resolvedTheme, setTheme],
+	);
 
-  const handleSetTheme = (newTheme: Theme) => {
-    setTheme(newTheme);
-    localStorage.setItem('theme', newTheme);
-    // Apply theme immediately for instant feedback
-    applyTheme(newTheme);
-  };
-
-  return (
-    <ThemeContext.Provider value={{ theme, setTheme: handleSetTheme }}>
-      {children}
-    </ThemeContext.Provider>
-  );
+	return (
+		<ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>
+	);
 }

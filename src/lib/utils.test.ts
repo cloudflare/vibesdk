@@ -1,5 +1,18 @@
 import { describe, expect, it } from 'vitest';
-import { getRegistrableDomain } from './utils';
+import { getInitials, getRegistrableDomain } from './utils';
+
+describe('getInitials', () => {
+	it('uses first letters of first and last name', () => {
+		expect(getInitials('Jane Doe')).toBe('JD');
+		expect(getInitials('Ada Lovelace Byron')).toBe('AL');
+	});
+
+	it('falls back to email initial, then default', () => {
+		expect(getInitials(undefined, 'user@example.com')).toBe('U');
+		expect(getInitials(null, null)).toBe('?');
+		expect(getInitials('  ', '  ', 'X')).toBe('X');
+	});
+});
 
 // Note: `isCrossSitePreview` and `isAppleWebKitBrowser` depend on `window`/
 // `navigator` and are exercised in the browser, not this workers-pool harness.

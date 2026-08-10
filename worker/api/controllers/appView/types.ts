@@ -3,7 +3,7 @@
  * Following strict DRY principles by reusing existing database types
  */
 
-import { AgentSummary } from '../../../agents/core/types';
+import { AgentSummary, BehaviorType } from '../../../agents/core/types';
 import { PublicAppDetailData } from '../../../database/types';
 
 /**
@@ -23,6 +23,7 @@ export interface GeneratedCodeFile {
 export interface AppDetailsData extends PublicAppDetailData {
     cloudflareUrl: string | null;
     previewUrl: string | null;
+    behaviorType: BehaviorType | null;
     user: {
         id: string;
         displayName: string;

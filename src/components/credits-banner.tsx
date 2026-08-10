@@ -218,9 +218,9 @@ function BannerContent({
 	return (
 		<div
 			style={style}
-			className={`flex items-center justify-between px-3 py-1.5 bg-bg-2 border border-brand-primary/30 shadow-md ${style?.borderTopLeftRadius !== undefined ? '' : 'rounded-lg'} ${className ?? ''}`}
+			className={`flex items-center justify-between px-3 py-1.5 bg-kumo-elevated border border-brand-primary/30 shadow-md ${style?.borderTopLeftRadius !== undefined ? '' : 'rounded-lg'} ${className ?? ''}`}
 		>
-			<span className="text-xs font-medium text-brand-primary">
+			<span className="text-xs font-medium text-kumo-brand-primary">
 				{bannerInfo.content}
 			</span>
 			<div className="flex items-center gap-1.5">
@@ -237,7 +237,7 @@ function BannerContent({
 				<button
 					type="button"
 					onClick={onDismiss}
-					className="p-0.5 rounded hover:bg-bg-3 text-text-tertiary hover:text-text-primary transition-colors"
+					className="p-0.5 rounded hover:bg-kumo-base text-kumo-subtle hover:text-text-primary transition-colors"
 				>
 					<X className="size-3.5" />
 				</button>

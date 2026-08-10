@@ -1,13 +1,6 @@
 import { useState } from 'react';
-import { MoreVertical, Trash2 } from 'lucide-react';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import { Button } from '@/components/ui/button';
-import { ConfirmDeleteDialog } from './ConfirmDeleteDialog';
+import { DotsThreeVertical, Trash } from '@phosphor-icons/react';
+import { Button, DeleteResource, DropdownMenu } from '@cloudflare/kumo';
 import { apiClient } from '@/lib/api-client';
 import { toast } from 'sonner';
 import { appEvents } from '@/lib/app-events';
@@ -33,70 +26,82 @@ export function AppActionsDropdown({
 }: AppActionsDropdownProps) {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string>();
 
   const handleDeleteApp = async () => {
     try {
       setIsDeleting(true);
+      setDeleteError(undefined);
       const response = await apiClient.deleteApp(appId);
-      
+
       if (response.success) {
         toast.success('App deleted successfully');
         setIsDeleteDialogOpen(false);
-        
+
         appEvents.emitAppDeleted(appId);
         onAppDeleted?.();
       }
     } catch (error) {
       console.error('Error deleting app:', error);
-      toast.error('An unexpected error occurred while deleting the app');
+      setDeleteError('An unexpected error occurred while deleting the app');
     } finally {
       setIsDeleting(false);
     }
   };
 
-  const buttonClasses = showOnHover 
-    ? `opacity-0 group-hover:opacity-100 transition-all duration-200 hover:bg-bg-3/80 cursor-pointer ${className}`
-    : `hover:bg-bg-3/80 cursor-pointer ${className}`;
+  const buttonClasses = showOnHover
+    ? `opacity-0 transition-all duration-200 group-hover:opacity-100 ${className}`
+    : className;
+
+  const kumoSize = size === 'default' ? 'base' : 'sm';
+  const kumoVariant = variant === 'default' ? 'secondary' : variant;
 
   return (
     <>
       <DropdownMenu>
-        <DropdownMenuTrigger asChild>
+        <DropdownMenu.Trigger
+          render={
           <Button
-            variant={variant}
-            size={size}
+            variant={kumoVariant}
+            size={kumoSize}
+            shape="square"
+            aria-label="App actions"
             className={buttonClasses}
             onClick={(e) => {
               e.stopPropagation();
               e.preventDefault();
             }}
           >
-            <MoreVertical className="h-4 w-4" />
-            <span className="sr-only">App actions</span>
+            <DotsThreeVertical className="h-4 w-4" weight="bold" />
           </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-48">
-          <DropdownMenuItem
+          }
+        />
+        <DropdownMenu.Content align="start">
+          <DropdownMenu.Item
+            icon={Trash}
+            variant="danger"
             onClick={(e) => {
               e.stopPropagation();
               e.preventDefault();
+              setDeleteError(undefined);
               setIsDeleteDialogOpen(true);
             }}
-            className="text-destructive focus:text-destructive focus:bg-destructive/10"
           >
-            <Trash2 className="h-4 w-4 mr-2" />
             Delete app
-          </DropdownMenuItem>
+          </DropdownMenu.Item>
 
-        </DropdownMenuContent>
+        </DropdownMenu.Content>
       </DropdownMenu>
 
-      <ConfirmDeleteDialog
+      <DeleteResource
         open={isDeleteDialogOpen}
         onOpenChange={setIsDeleteDialogOpen}
-        onConfirm={handleDeleteApp}
-        isLoading={isDeleting}
-        appTitle={appTitle}
+        resourceType="App"
+        resourceName={appTitle}
+        onDelete={handleDeleteApp}
+        isDeleting={isDeleting}
+        errorMessage={deleteError}
+        className="sm:w-[32rem]"
       />
     </>
   );

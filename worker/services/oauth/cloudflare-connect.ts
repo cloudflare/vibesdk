@@ -20,6 +20,7 @@ const CLOUDFLARE_GATEWAY_SCOPES = [
 	'aig.read',
 	'aig.run',
 	'aig.write',
+	'workers-scripts.write',
 	'offline_access',
 ] as const;
 

@@ -34,6 +34,7 @@ export type Message = {
 	name?: string; // Optional name field required for function messages
 	tool_calls?: ToolCall[];
     tool_call_id?: string;  // For role = tool
+    reasoning?: string; // Optional assistant reasoning ("thinking") text, preserved for UI reload
 };
 
 export interface ConversationMessage extends Message {

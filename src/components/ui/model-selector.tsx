@@ -4,13 +4,13 @@
  */
 
 import { useState, useRef, useMemo } from 'react';
+import { cn } from '@cloudflare/kumo';
 import { Check, ChevronDown, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { cn } from '@/lib/utils';
 
 interface ModelOption {
   value: string;
@@ -55,7 +55,7 @@ export function ModelSelector({
   // Filter models based on search
   const filteredModels = useMemo(() => {
     if (!search) return availableModels;
-    return availableModels.filter(model => 
+    return availableModels.filter(model =>
       model.label.toLowerCase().includes(search.toLowerCase())
     );
   }, [availableModels, search]);
@@ -117,7 +117,7 @@ export function ModelSelector({
         </PopoverTrigger>
         <PopoverContent className="w-full p-0" style={{ width: 'var(--radix-popover-trigger-width)' }}>
           {/* Search Input */}
-          <div className="flex items-center border-b border-border-primary px-3 py-2">
+          <div className="flex items-center border-b px-3 py-2">
             <Search className="mr-2 h-4 w-4 shrink-0 text-text-tertiary" />
             <Input
               placeholder="Search models..."
@@ -126,9 +126,9 @@ export function ModelSelector({
               className="h-8 border-0 bg-transparent p-0 placeholder:text-text-tertiary focus-visible:outline-none focus-visible:ring-0 focus-visible:ring-offset-0"
             />
           </div>
-          
+
           {/* Scrollable List */}
-          <div 
+          <div
             ref={listRef}
             className="max-h-[300px] overflow-y-auto p-1 scroll-smooth"
             onWheel={(e) => {
@@ -142,7 +142,7 @@ export function ModelSelector({
                 No models found.
               </div>
             )}
-            
+
             {/* Default option if requested */}
             {includeDefaultOption && (
               <div
@@ -168,7 +168,7 @@ export function ModelSelector({
                 </div>
               </div>
             )}
-            
+
             {/* Available models */}
             {filteredModels.map((model) => (
               <div
@@ -200,7 +200,7 @@ export function ModelSelector({
           </div>
         </PopoverContent>
       </Popover>
-      
+
       {/* System default display */}
       {systemDefault && (
         <p className="text-xs text-text-tertiary truncate">

@@ -100,6 +100,13 @@ export interface PlatformCapabilities {
 
 	/** Platform version */
 	version: string;
+
+	/**
+	 * Whether think apps deploy to the user's own Cloudflare account
+	 * (ENABLE_USER_ACCOUNT_DEPLOY). When false, think deploys target the
+	 * platform dispatch namespace instead.
+	 */
+	userAccountDeploy: boolean;
 }
 
 /**

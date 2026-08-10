@@ -70,6 +70,11 @@ type FileGeneratedMessage = {
 	file: FileOutputType;
 };
 
+type FileDeletedMessage = {
+	type: 'file_deleted';
+	filePath: string;
+};
+
 type FileRegeneratedMessage = {
 	type: 'file_regenerated';
 	file: FileOutputType;
@@ -245,11 +250,21 @@ export type CloudflareDeploymentCompletedMessage = {
 	workersUrl?: string;
 };
 
+/**
+ * Optional structured code on `cloudflare_deployment_error` letting clients
+ * distinguish Cloudflare-connection gate failures (missing OAuth token /
+ * no account selected) from generic deploy errors.
+ */
+export type CloudflareDeploymentErrorCode =
+	| 'cloudflare_not_connected'
+	| 'cloudflare_not_configured';
+
 export type CloudflareDeploymentErrorMessage = {
 	type: 'cloudflare_deployment_error';
 	message: string;
 	instanceId: string;
 	error: string;
+	code?: CloudflareDeploymentErrorCode;
 };
 
 type ScreenshotCaptureStartedMessage = {
@@ -335,11 +350,17 @@ type ConversationResponseMessage = {
 	enhancedRequest?: string;
 	pendingInputsCount?: number;
 	isStreaming?: boolean;
+	isDelta?: boolean;
+	reasoning?: {
+		delta?: string;
+		done?: boolean;
+	};
 	tool?: {
 		name: string;
 		status: 'start' | 'success' | 'error';
 		args?: Record<string, unknown>;
 		result?: string;
+		id?: string;
 	};
 };
 
@@ -579,6 +600,7 @@ export type WebSocketMessage =
 	| FileRegeneratingMessage
 	| FileChunkGeneratedMessage
 	| FileGeneratedMessage
+	| FileDeletedMessage
 	| FileRegeneratedMessage
 	| GenerationCompleteMessage
 	| DeploymentStartedMessage

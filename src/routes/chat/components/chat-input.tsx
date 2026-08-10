@@ -1,10 +1,11 @@
-import { type FormEvent, type RefObject } from 'react';
+import { type FormEvent, type ReactNode, type RefObject } from 'react';
 import { WebSocket } from 'partysocket';
-import { Square } from 'lucide-react';
 import { PromptBox } from '@/components/prompt-box';
 import { sendWebSocketMessage } from '../utils/websocket-helpers';
 import type { ImageAttachment } from '@/api-types';
 import { type UsageSummary } from '@/hooks/use-limits';
+import { Button } from '@cloudflare/kumo';
+import { SquareIcon } from '@phosphor-icons/react';
 
 interface ChatInputProps {
 	// Form state
@@ -43,6 +44,9 @@ interface ChatInputProps {
 	// Usage limits
 	limitsData?: UsageSummary | null;
 	onConnectCloudflare?: () => void;
+
+	// Content tucked behind the top of the input box
+	aboveContent?: ReactNode;
 }
 
 export function ChatInput({
@@ -63,6 +67,7 @@ export function ChatInput({
 	chatFormRef,
 	limitsData,
 	onConnectCloudflare,
+	aboveContent,
 }: ChatInputProps) {
 	const handleStopGeneration = () => {
 		if (websocket) {
@@ -72,27 +77,29 @@ export function ChatInput({
 
 	const placeholder = isDebugging
 		? 'Deep debugging in progress... Please abort to continue'
-		: isChatDisabled
-			? 'Please wait for blueprint completion...'
-			: 'Send a message';
+		: 'Send a message';
 
-	const stopButton = (isGenerating || isGeneratingBlueprint || isDebugging) ? (
-		<button
-			type="button"
-			onClick={handleStopGeneration}
-			className="p-0.5 rounded-full hover:bg-red-500/10 text-text-tertiary hover:text-red-500 transition-all duration-200 group animated-border-ring"
-			aria-label="Stop generation"
-			title="Stop generation"
-		>
-			<Square className="size-2.5 fill-brand/90 text-brand/80" />
-		</button>
-	) : undefined;
+	const stopButton =
+		isGenerating || isGeneratingBlueprint || isDebugging ? (
+			<Button
+				type="button"
+				variant="secondary-destructive"
+				shape="square"
+				size="sm"
+				onClick={handleStopGeneration}
+				aria-label="Stop generation"
+				title="Stop generation"
+				icon={SquareIcon}
+			/>
+		) : undefined;
 
 	return (
 		<PromptBox
 			value={newMessage}
 			onChange={onMessageChange}
-			onSubmit={() => onSubmit(new Event('submit') as unknown as FormEvent)}
+			onSubmit={() =>
+				onSubmit(new Event('submit') as unknown as FormEvent)
+			}
 			placeholder={placeholder}
 			images={images}
 			onAddImages={onAddImages}
@@ -106,9 +113,10 @@ export function ChatInput({
 			onConnectCloudflare={onConnectCloudflare}
 			variant="compact"
 			rightActions={stopButton}
+			aboveContent={aboveContent}
 			maxWords={4000}
 			formRef={chatFormRef}
-			className="shrink-0 p-4 pb-5 bg-transparent"
+			className="shrink-0 p-3 bg-transparent"
 		/>
 	);
 }

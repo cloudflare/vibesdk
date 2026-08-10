@@ -33,11 +33,17 @@ export interface ToolCallStatusArgs {
 
 export type RenderToolCall = ( args: ToolCallStatusArgs ) => void;
 
+export type ReasoningStatus = {
+    delta?: string;
+    done?: boolean;
+};
+
 type ConversationResponseCallback = (
     message: string,
     conversationId: string,
     isStreaming: boolean,
-    tool?: ToolCallStatusArgs
+    tool?: ToolCallStatusArgs,
+    reasoning?: ReasoningStatus
 ) => void;
 
 export function buildToolCallRenderer(callback: ConversationResponseCallback, conversationId: string): RenderToolCall {
@@ -400,6 +406,9 @@ export class UserConversationProcessor extends AgentOperation<GenerationContext,
                             logger.info("Processing user message chunk", { chunkLength: chunk.length, aiConversationId });
                             inputs.conversationResponseCallback(chunk, aiConversationId, true);
                             extractedUserResponse += chunk;
+                        },
+                        onReasoning: (delta) => {
+                            inputs.conversationResponseCallback('', aiConversationId, true, undefined, { delta });
                         },
                         chunk_size: CHUNK_SIZE
                     }

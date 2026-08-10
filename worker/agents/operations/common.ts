@@ -79,6 +79,7 @@ export interface ToolSession {
 
 export interface ToolCallbacks {
     streamCb?: (chunk: string) => void;
+    reasoningCb?: (delta: string) => void;
     onAssistantMessage?: (message: Message) => Promise<void>;
     toolRenderer?: RenderToolCall;
     onToolComplete?: (message: Message) => Promise<void>;
@@ -154,6 +155,7 @@ export abstract class AgentOperationWithTools<
             tools: ToolDefinition<unknown, unknown>[];
             agentActionName: AgentActionKey;
             streamCb?: (chunk: string) => void;
+            reasoningCb?: (delta: string) => void;
             onAssistantMessage?: (message: Message) => Promise<void>;
             completionConfig?: CompletionConfig;
         },
@@ -164,6 +166,7 @@ export abstract class AgentOperationWithTools<
             tools,
             agentActionName,
             streamCb,
+            reasoningCb,
             onAssistantMessage,
             completionConfig,
         } = params;
@@ -234,10 +237,11 @@ export abstract class AgentOperationWithTools<
             agentActionName,
             messages,
             tools: wrappedTools,
-            stream: wrappedStreamCb
+            stream: (wrappedStreamCb || reasoningCb)
                 ? {
                       chunk_size: 64,
-                      onChunk: wrappedStreamCb,
+                      onChunk: wrappedStreamCb ?? (() => {}),
+                      onReasoning: reasoningCb,
                   }
                 : undefined,
             onAssistantMessage,
@@ -276,6 +280,7 @@ export abstract class AgentOperationWithTools<
             tools: rawTools,
             agentActionName,
             streamCb: callbacks.streamCb,
+            reasoningCb: callbacks.reasoningCb,
             onAssistantMessage: callbacks.onAssistantMessage,
             completionConfig,
         });

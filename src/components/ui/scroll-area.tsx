@@ -1,9 +1,8 @@
 "use client"
 
 import * as React from "react"
+import { cn } from '@cloudflare/kumo';
 import * as ScrollAreaPrimitive from "@radix-ui/react-scroll-area"
-
-import { cn } from "@/lib/utils"
 
 function ScrollArea({
   className,

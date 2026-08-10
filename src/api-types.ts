@@ -146,7 +146,8 @@ export type {
   CodeFixEdits,
   ModelConfigsInfoMessage,
   AgentDisplayConfig,
-  ModelConfigsInfo
+  ModelConfigsInfo,
+  CloudflareDeploymentErrorCode
 } from 'worker/api/websocketTypes';
 
 // Database/Schema Types commonly used in frontend

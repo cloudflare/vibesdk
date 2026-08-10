@@ -1775,10 +1775,8 @@ class CloudflareDeploymentManager {
 			'CUSTOM_PREVIEW_DOMAIN',
 			'SANDBOX_INSTANCE_TYPE',
 			'DISPATCH_NAMESPACE',
-			'ALLOCATION_STRATEGY',
 			'ENVIRONMENT',
 			'PLATFORM_MODEL_PROVIDERS',
-			'USE_CLOUDFLARE_IMAGES',
 		];
 
 		const prodVarsContent: string[] = [

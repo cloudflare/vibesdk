@@ -383,6 +383,10 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
         return this.behavior.getSummary();
     }
 
+    getBehaviorType(): BehaviorType {
+        return this.state.behaviorType;
+    }
+
     /**
      * Public RPC entrypoint for the think agent's tools (and any other caller
      * holding a `CodeGenObject` stub) to capture browser console

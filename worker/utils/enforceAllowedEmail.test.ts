@@ -6,6 +6,10 @@ const envWith = (allowed: string) => ({ ALLOWED_EMAIL: allowed }) as unknown as 
 
 describe('enforceAllowedEmail', () => {
 	it('is a no-op when ALLOWED_EMAIL is unset', () => {
+		expect(() => enforceAllowedEmail({} as Env, 'anyone@example.com', 'oauth')).not.toThrow();
+	});
+
+	it('is a no-op when ALLOWED_EMAIL is empty', () => {
 		expect(() => enforceAllowedEmail(envWith(''), 'anyone@example.com', 'oauth')).not.toThrow();
 	});
 

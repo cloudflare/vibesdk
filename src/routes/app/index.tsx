@@ -1,55 +1,60 @@
-import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { useParams, useNavigate, useSearchParams } from 'react-router';
-import type { AppDetailsData, FileType } from '@/api-types';
-import { apiClient, ApiError } from '@/lib/api-client';
-import { appEvents } from '@/lib/app-events';
-import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard';
-import {
-	Star,
-	Eye,
-	Code2,
-	ChevronLeft,
-	ExternalLink,
-	Copy,
-	Check,
-	Loader2,
-	MessageSquare,
-	Calendar,
-	User,
-	Play,
-	Lock,
-	Unlock,
-	Bookmark,
-	Globe,
-	Trash2,
-	Github,
-	GitBranch,
-} from 'lucide-react';
-import { MonacoEditor } from '@/components/monaco-editor/monaco-editor';
-import { getFileType } from '@/utils/string';
-import { Button } from '@/components/ui/button';
-import {
-	Card,
-	CardContent,
-	CardDescription,
-	CardHeader,
-	CardTitle,
-} from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { useAuth } from '@/contexts/auth-context';
-import { toggleFavorite } from '@/hooks/use-apps';
-import { formatDistanceToNow, isValid } from 'date-fns';
-import { toast } from 'sonner';
-import { capitalizeFirstLetter, cn, getPreviewUrl } from '@/lib/utils';
-import { ConfirmDeleteDialog } from '@/components/shared/ConfirmDeleteDialog';
+import type { FileType } from '@/api-types';
+import { MonacoEditor } from '@/components/monaco-editor/lazy-monaco-editor';
+import { AppLoadingSkeleton } from '@/components/shared/AppLoadingSkeleton';
+import { FloatingBackgroundIcons } from '@/components/shared/FloatingBackgroundIcons';
 import { GitCloneModal } from '@/components/shared/GitCloneModal';
-import { GitCloneCommand, GitClonePrivatePrompt } from '@/components/shared/GitCloneInline';
+import {
+	useApp,
+	useAppPreviewToken,
+	useDeleteApp,
+	useDeployPreview,
+	useToggleAppFavorite,
+	useToggleAppStar,
+	useUpdateAppVisibility,
+} from '@/hooks/use-app';
+import { useAuth } from '@/contexts/auth-context';
+import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard';
 import { useAuthGuard } from '@/hooks/useAuthGuard';
+import { ApiError } from '@/lib/api-client';
+import { capitalizeFirstLetter, getPreviewUrl } from '@/lib/utils';
+import { getFileType } from '@/utils/string';
+import {
+	Badge,
+	Button,
+	DeleteResource,
+	DropdownMenu,
+	LayerCard,
+	Tabs,
+	useKumoToastManager,
+} from '@cloudflare/kumo';
+import {
+	BookmarkSimple,
+	Code,
+	CopyIcon,
+	DotsThree,
+	GitBranch,
+	GithubLogo,
+	Globe,
+	Lock,
+	LockOpen,
+	Star,
+	TrashIcon,
+} from '@phosphor-icons/react';
+import {
+	Check,
+	ChevronLeft,
+	Code2,
+	Copy,
+	ExternalLink,
+	Eye,
+	MessageSquare,
+	Play,
+} from 'lucide-react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useNavigate, useParams, useSearchParams } from 'react-router';
+import { usePageHeader } from '@/components/layout/header-context';
+import { FileExplorer } from '../chat/components/file-explorer';
 import { PreviewIframe } from '../chat/components/preview-iframe';
-
-// Use proper types from API types
-type AppDetails = AppDetailsData;
 
 // Define supported actions for OAuth redirect
 type PendingAction = 'favorite' | 'bookmark' | 'star' | 'fork' | 'remix';
@@ -85,111 +90,71 @@ export default function AppView() {
 	const [searchParams, setSearchParams] = useSearchParams();
 	const { user } = useAuth();
 	const { requireAuth } = useAuthGuard();
-	const [app, setApp] = useState<AppDetails | null>(null);
-	const [loading, setLoading] = useState(true);
-	const [error, setError] = useState<string | null>(null);
-	const [isFavorited, setIsFavorited] = useState(false);
-	const [isStarred, setIsStarred] = useState(false);
+	const { app, loading, error } = useApp(id);
 	const { copied: urlCopied, copy: copyUrl } = useCopyToClipboard();
-	const { copy: copyFile } = useCopyToClipboard({ successMessage: 'Code copied to clipboard' });
-	const { copy: copyPrompt } = useCopyToClipboard({ successMessage: 'Prompt copied to clipboard' });
+	const { copy: copyFile } = useCopyToClipboard({
+		successMessage: 'Code copied to clipboard',
+	});
+	const { copy: copyPrompt } = useCopyToClipboard({
+		successMessage: 'Prompt copied to clipboard',
+	});
 	const [activeTab, setActiveTab] = useState('preview');
-	const [isDeploying, setIsDeploying] = useState(false);
 	const [deploymentProgress, setDeploymentProgress] = useState<string>('');
-	const [isUpdatingVisibility, setIsUpdatingVisibility] = useState(false);
 	const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-	const [isDeleting, setIsDeleting] = useState(false);
+	const [deleteError, setDeleteError] = useState<string>();
 	const [isGitCloneModalOpen, setIsGitCloneModalOpen] = useState(false);
 	const [activeFilePath, setActiveFilePath] = useState<string>();
-	// For a PRIVATE deployed app, the owner needs a deployment-scoped token to
-	// open the preview subdomain (main-domain session cookies aren't sent there).
-	const [ownerPreviewUrl, setOwnerPreviewUrl] = useState<string | null>(null);
 	const previewIframeRef = useRef<HTMLIFrameElement>(null);
+	const autoDeployAppIdRef = useRef<string | undefined>(undefined);
+	const [thinkPreviewUrl, setThinkPreviewUrl] = useState<string>();
 
-	const fetchAppDetails = useCallback(async () => {
-		if (!id) return;
-
-		try {
-			setLoading(true);
-			setError(null);
-
-			// Fetch app details using API client
-			const appResponse = await apiClient.getAppDetails(id);
-
-			if (appResponse.success && appResponse.data) {
-				const appData = appResponse.data;
-				setApp(appData);
-				setIsFavorited(appData.userFavorited || false);
-				setIsStarred(appData.userStarred || false);
-			} else {
-				throw new Error(
-					appResponse.error?.message || 'Failed to fetch app details',
-				);
-			}
-		} catch (err) {
-			console.error('Error fetching app:', err);
-			if (err instanceof ApiError) {
-				if (err.status === 404) {
-					setError('App not found');
-				} else {
-					setError(`Failed to load app: ${err.message}`);
-				}
-			} else {
-				setError(
-					err instanceof Error ? err.message : 'Failed to load app',
-				);
-			}
-		} finally {
-			setLoading(false);
-		}
+	// Route reuses this component across /app/:id — clear deploy UI on switch
+	useEffect(() => {
+		setDeploymentProgress('');
+		autoDeployAppIdRef.current = undefined;
+		setThinkPreviewUrl(undefined);
+		setActiveTab('preview');
+		setActiveFilePath(undefined);
 	}, [id]);
 
-	useEffect(() => {
-		fetchAppDetails();
-	}, [id, fetchAppDetails]);
+	const needsOwnerPreviewToken =
+		!!app &&
+		!!user &&
+		app.userId === user.id &&
+		app.visibility === 'private' &&
+		!!app.deploymentId;
 
-	// Mint an owner-preview token when the owner views their own PRIVATE deployed
-	// app, so the preview iframe / open-in-new-tab can reach the gated subdomain.
-	useEffect(() => {
-		let cancelled = false;
-		const needsToken =
-			!!app &&
-			!!user &&
-			app.userId === user.id &&
-			app.visibility === 'private' &&
-			!!app.deploymentId;
+	const { previewUrl: ownerPreviewUrl } = useAppPreviewToken(
+		app?.id,
+		needsOwnerPreviewToken,
+	);
 
-		if (!needsToken) {
-			setOwnerPreviewUrl(null);
-			return;
-		}
+	const { mutateAsync: toggleFavorite } = useToggleAppFavorite(app?.id);
+	const { mutateAsync: toggleStar } = useToggleAppStar(app?.id);
+	const { mutateAsync: updateVisibility, isPending: isUpdatingVisibility } =
+		useUpdateAppVisibility(app?.id);
+	const { mutateAsync: deleteApp, isPending: isDeleting } = useDeleteApp();
+	const { mutateAsync: deployPreview, isPending: isDeploying } =
+		useDeployPreview(app?.id);
 
-		(async () => {
-			try {
-				const response = await apiClient.generatePreviewToken(app!.id);
-				if (!cancelled && response.success && response.data) {
-					setOwnerPreviewUrl(response.data.previewUrl);
-				}
-			} catch (err) {
-				console.error('Failed to generate owner preview token:', err);
-			}
-		})();
-
-		return () => {
-			cancelled = true;
-		};
-	}, [app, user]);
-
+	const isFavorited = app?.userFavorited || false;
+	const isStarred = app?.userStarred || false;
 
 	// Convert agent files to chat FileType format
 	const files = useMemo<FileType[]>(() => {
 		if (!app?.agentSummary?.generatedCode) return [];
 		return app.agentSummary.generatedCode
-			.filter((file) => file && file.filePath && typeof file.filePath === 'string')
+			.filter(
+				(file) =>
+					file && file.filePath && typeof file.filePath === 'string',
+			)
 			.map((file) => ({
 				filePath: file.filePath,
 				fileContents: file.fileContents || '',
-				explanation: file.filePurpose,
+				explanation:
+					file.filePurpose === 'Generated by think'
+						? undefined
+						: file.filePurpose,
 				language: getFileType(file.filePath),
 				isGenerating: false,
 				needsFixing: false,
@@ -202,9 +167,13 @@ export default function AppView() {
 		return files.find((file) => file.filePath === activeFilePath);
 	}, [files, activeFilePath]);
 
-	// Auto-select first file when files are loaded
+	// Auto-select first file; recover if selected path vanished from the list
 	useEffect(() => {
-		if (files.length > 0 && !activeFilePath) {
+		if (files.length === 0) return;
+		const stillThere = files.some(
+			(file) => file.filePath === activeFilePath,
+		);
+		if (!activeFilePath || !stillThere) {
 			setActiveFilePath(files[0].filePath);
 		}
 	}, [files, activeFilePath]);
@@ -214,6 +183,8 @@ export default function AppView() {
 		setActiveFilePath(file.filePath);
 	}, []);
 
+	const toast = useKumoToastManager();
+
 	// Action configuration for reusability
 	const actionConfigs: Record<string, ActionConfig> = useMemo(
 		() => ({
@@ -221,14 +192,13 @@ export default function AppView() {
 				action: 'favorite',
 				context: 'to bookmark apps',
 				handler: async () => {
-					if (!app) return;
-					const newState = await toggleFavorite(app.id);
-					setIsFavorited(newState);
-					toast.success(
-						newState
+					const newState = await toggleFavorite();
+					toast.add({
+						title: newState
 							? 'Added to bookmarks'
 							: 'Removed from bookmarks',
-					);
+						variant: 'success',
+					});
 				},
 				errorMessage: 'Failed to update bookmarks',
 			},
@@ -236,59 +206,16 @@ export default function AppView() {
 				action: 'star',
 				context: 'to star apps',
 				handler: async () => {
-					if (!app) return;
-					const response = await apiClient.toggleAppStar(app.id);
-
-					if (response.success && response.data) {
-						setIsStarred(response.data.isStarred);
-						setApp((prev) =>
-							prev
-								? {
-										...prev,
-										starCount: response.data?.starCount || 0,
-									}
-								: null,
-						);
-						toast.success(
-							response.data.isStarred ? 'Starred!' : 'Unstarred',
-						);
-					} else {
-						throw new Error(response.error?.message || 'Failed to star app');
-					}
+					const data = await toggleStar();
+					toast.add({
+						title: data.isStarred ? 'Starred!' : 'Unstarred',
+						variant: 'success',
+					});
 				},
 				errorMessage: 'Failed to update star',
 			},
-			// fork: {
-			// 	action: 'fork',
-			// 	context: 'to remix this app',
-			// 	handler: async () => {
-			// 		if (!app) return;
-			// 		const response = await apiClient.forkApp(app.id);
-
-			// 		if (response.success && response.data) {
-			// 			toast.success(
-			// 				response.data.message ||
-			// 					'App remixed successfully!',
-			// 			);
-
-			// 			// Emit app-created event for sidebar updates
-			// 			appEvents.emitAppCreated(response.data.forkedAppId, {
-			// 				title: `${app.title} (Remix)`,
-			// 				description: app.description || undefined,
-			// 				isForked: true,
-			// 			});
-
-			// 			navigate(`/chat/${response.data.forkedAppId}`);
-			// 		} else {
-			// 			throw new Error(
-			// 				response.error?.message || 'Failed to remix app',
-			// 			);
-			// 		}
-			// 	},
-			// 	errorMessage: 'Failed to remix app',
-			// },
 		}),
-		[app],
+		[toast, toggleFavorite, toggleStar],
 	);
 
 	// Reusable authenticated action handler
@@ -318,15 +245,17 @@ export default function AppView() {
 					await config.handler();
 				} catch (error) {
 					console.error(`${config.action} error:`, error);
-					toast.error(
-						error instanceof ApiError
-							? error.message
-							: config.errorMessage,
-					);
+					toast.add({
+						title:
+							error instanceof ApiError
+								? error.message
+								: config.errorMessage,
+						variant: 'error',
+					});
 				}
 			};
 		},
-		[actionConfigs, app, requireAuth],
+		[actionConfigs, app, requireAuth, toast],
 	);
 
 	// Create action handlers using the reusable pattern
@@ -334,14 +263,11 @@ export default function AppView() {
 		() => createAuthenticatedHandler('favorite'),
 		[createAuthenticatedHandler],
 	);
+
 	const handleStar = useMemo(
 		() => createAuthenticatedHandler('star'),
 		[createAuthenticatedHandler],
 	);
-	// const handleFork = useMemo(
-	// 	() => createAuthenticatedHandler('fork'),
-	// 	[createAuthenticatedHandler],
-	// );
 
 	// Handle pending actions after OAuth redirect
 	const executePendingAction = useCallback(
@@ -368,14 +294,16 @@ export default function AppView() {
 					action,
 					error,
 				);
-				toast.error(
-					error instanceof ApiError
-						? error.message
-						: config.errorMessage,
-				);
+				toast.add({
+					title:
+						error instanceof ApiError
+							? error.message
+							: config.errorMessage,
+					variant: 'error',
+				});
 			}
 		},
-		[actionConfigs, app],
+		[actionConfigs, app, toast],
 	);
 
 	// Effect to handle pending actions after OAuth redirect
@@ -409,734 +337,701 @@ export default function AppView() {
 		executePendingAction,
 	]);
 
+	const isOwner = !!app && app.userId === user?.id;
+	const isThink = app?.behaviorType === 'think';
+	// Think apps auto-load their live SpaceDO preview for signed-in viewers
+	// (see the effect below). Anonymous viewers can't hit the auth-gated deploy
+	// endpoint, so they fall back to the same manual affordance as non-Think apps.
+	const isAutoLoadingPreview = isThink && !!user;
+	// Think prefers its live preview over the production deployment link. For
+	// signed-in viewers we withhold the deployed link until the preview resolves
+	// so the preview always wins; anonymous viewers fall back to it.
+	const appUrl = isThink
+		? user
+			? thinkPreviewUrl || ''
+			: app?.cloudflareUrl || app?.previewUrl || ''
+		: ownerPreviewUrl || app?.cloudflareUrl || app?.previewUrl || '';
+	const promptText = app?.agentSummary?.query || app?.originalPrompt || '';
+
 	const handleCopyUrl = () => {
 		if (!appUrl) return;
 		copyUrl(appUrl);
-	};
-
-	const getAppUrl = () => {
-		// Prefer the tokenized owner-preview URL for a private deployed app the
-		// owner is viewing; otherwise the plain deployed/preview URL.
-		return ownerPreviewUrl || app?.cloudflareUrl || app?.previewUrl || '';
 	};
 
 	const handlePreviewDeploy = async () => {
 		if (!app || isDeploying) return;
 
 		try {
-			setIsDeploying(true);
 			setDeploymentProgress('Connecting to agent...');
-            const response = await apiClient.deployPreview(app.id);
-            if (response.success && response.data) {
-                const data = response.data;
-                if (data.previewURL || data.tunnelURL) {
-                    const newUrl = getPreviewUrl(
-                        data.previewURL,
-                        data.tunnelURL,
-                    );
-                    setApp((prev) =>
-                        prev
-                            ? {
-                                    ...prev,
-                                    cloudflareUrl: newUrl,
-                                    previewUrl: newUrl,
-                                }
-                            : null,
-                    );
-                    setDeploymentProgress('Deployment complete!');
-                }
-            }
-            setIsDeploying(false);
+			const data = await deployPreview();
+			if (data.previewURL || data.tunnelURL) {
+				setDeploymentProgress('Deployment complete!');
+			}
 		} catch (error) {
 			console.error('Error starting deployment:', error);
 			setDeploymentProgress('Failed to start deployment');
-			setIsDeploying(false);
-			toast.error('Failed to start deployment');
+			toast.add({
+				title: 'Failed to start deployment',
+				variant: 'error',
+			});
 		}
 	};
 
-	const handleToggleVisibility = async () => {
+	// Auto-load the preview for Think apps so viewers don't have to click
+	// "Deploy". Gated to authenticated users: the preview endpoint requires
+	// auth (and applies per-user rate limiting), so anonymous visitors would
+	// only get a 401. They still see the manual deploy affordance below.
+	useEffect(() => {
+		if (
+			!app ||
+			!user ||
+			app.behaviorType !== 'think' ||
+			thinkPreviewUrl ||
+			autoDeployAppIdRef.current === app.id
+		) {
+			return;
+		}
+
+		autoDeployAppIdRef.current = app.id;
+		setDeploymentProgress('Loading preview...');
+		void deployPreview()
+			.then((data) => {
+				const url = getPreviewUrl(data.previewURL, data.tunnelURL);
+				if (url) setThinkPreviewUrl(url);
+			})
+			.catch((error) => {
+				console.error('Error loading Think preview:', error);
+				setDeploymentProgress('Failed to load preview');
+				toast.add({
+					title: 'Failed to load preview',
+					variant: 'error',
+				});
+			});
+	}, [app, thinkPreviewUrl, deployPreview, toast, user]);
+
+	const handleToggleVisibility = useCallback(async () => {
 		if (!app || !user || !isOwner) {
-			toast.error('You can only change visibility of your own apps');
+			toast.add({
+				title: 'You can only change visibility of your own apps',
+				variant: 'error',
+			});
 			return;
 		}
 
 		try {
-			setIsUpdatingVisibility(true);
 			const newVisibility =
 				app.visibility === 'private' ? 'public' : 'private';
+			const result = await updateVisibility(newVisibility);
 
-			const response = await apiClient.updateAppVisibility(
-				app.id,
-				newVisibility,
-			);
-
-			if (response.success && response.data) {
-				// Update the app state with new visibility
-				setApp((prev) =>
-					prev ? { ...prev, visibility: newVisibility } : null,
-				);
-
-				toast.success(
-					response.data.message ||
-						`App is now ${newVisibility === 'private' ? 'private' : 'public'}`,
-				);
-			} else {
-				throw new Error(
-					response.error?.message || 'Failed to update visibility',
-				);
-			}
+			toast.add({
+				title:
+					result.message ||
+					`App is now ${newVisibility === 'private' ? 'private' : 'public'}`,
+				variant: 'success',
+			});
 		} catch (error) {
 			console.error('Error updating app visibility:', error);
-			toast.error(
-				error instanceof ApiError
-					? error.message
-					: 'Failed to update visibility',
-			);
-		} finally {
-			setIsUpdatingVisibility(false);
+			toast.add({
+				title:
+					error instanceof ApiError
+						? error.message
+						: 'Failed to update visibility',
+				variant: 'error',
+			});
 		}
-	};
+	}, [app, user, isOwner, updateVisibility, toast]);
+
+	const headerContent = useMemo(() => {
+		if (loading || error || !app) return null;
+
+		return {
+			leading: (
+				<div className="min-w-0 flex-1 flex items-center gap-2">
+					<h1
+						className="text-sm max-w-sm font-semibold truncate min-w-0"
+						title={app.title}
+					>
+						{app.title}
+					</h1>
+					<Badge
+						className="shrink-0"
+						variant={
+							app.visibility === 'private'
+								? 'secondary'
+								: 'success'
+						}
+					>
+						<span className="inline-flex items-center gap-1">
+							<Globe className="h-3 w-3" weight="duotone" />
+							{capitalizeFirstLetter(app.visibility)}
+						</span>
+					</Badge>
+				</div>
+			),
+			trailing: (
+				<>
+					{isOwner && (
+						<Button
+							variant="secondary"
+							size="sm"
+							onClick={handleToggleVisibility}
+							disabled={isUpdatingVisibility}
+							loading={isUpdatingVisibility}
+							icon={
+								app.visibility === 'private' ? (
+									<LockOpen
+										className="size-3.5"
+										weight="duotone"
+									/>
+								) : (
+									<Lock
+										className="size-3.5"
+										weight="duotone"
+									/>
+								)
+							}
+						>
+							{app.visibility === 'private'
+								? 'Make public'
+								: 'Make private'}
+						</Button>
+					)}
+
+					{app.githubRepositoryUrl && (
+						<Button
+							variant="secondary"
+							size="sm"
+							icon={
+								<GithubLogo
+									className="size-3.5"
+									weight="duotone"
+								/>
+							}
+							title={`View on GitHub (${app.githubRepositoryVisibility || 'public'})`}
+							onClick={() => {
+								if (app.githubRepositoryUrl) {
+									window.open(
+										app.githubRepositoryUrl,
+										'_blank',
+										'noopener,noreferrer',
+									);
+								}
+							}}
+						>
+							GitHub
+							{app.githubRepositoryVisibility === 'private' && (
+								<Lock
+									className="h-3 w-3 opacity-70"
+									weight="duotone"
+								/>
+							)}
+						</Button>
+					)}
+
+					{isOwner && (
+						<>
+							<Button
+								variant="primary"
+								size="sm"
+								icon={
+									<Code
+										className="size-3.5"
+										weight="duotone"
+									/>
+								}
+								onClick={() => navigate(`/chat/${app.id}`)}
+							>
+								Make edits
+							</Button>
+
+							<DropdownMenu>
+								<DropdownMenu.Trigger
+									render={
+										<Button
+											variant="secondary"
+											size="sm"
+											shape="square"
+											aria-label="More actions"
+											icon={
+												<DotsThree className="h-4 w-4" />
+											}
+										/>
+									}
+								/>
+								<DropdownMenu.Content align="end">
+									<DropdownMenu.Item
+										icon={TrashIcon}
+										variant="danger"
+										onClick={() => {
+											setDeleteError(undefined);
+											setIsDeleteDialogOpen(true);
+										}}
+									>
+										Delete app
+									</DropdownMenu.Item>
+								</DropdownMenu.Content>
+							</DropdownMenu>
+						</>
+					)}
+				</>
+			),
+		};
+	}, [
+		loading,
+		error,
+		app,
+		isOwner,
+		isUpdatingVisibility,
+		handleToggleVisibility,
+		navigate,
+	]);
+
+	usePageHeader(headerContent);
 
 	const handleDeleteApp = async () => {
 		if (!app) return;
 
 		try {
-			setIsDeleting(true);
-			const response = await apiClient.deleteApp(app.id);
+			setDeleteError(undefined);
+			await deleteApp(app.id);
+			toast.add({
+				title: 'App deleted successfully',
+				variant: 'success',
+			});
+			setIsDeleteDialogOpen(false);
 
-			if (response.success) {
-				toast.success('App deleted successfully');
-				setIsDeleteDialogOpen(false);
-
-				// Emit global app deleted event
-				appEvents.emitAppDeleted(app.id);
-
-				// Smart navigation after deletion
-				// Use window.history to go back if possible, otherwise navigate to apps page
-				if (window.history.length > 1) {
-					// Try to go back to previous page
-					window.history.back();
-				} else {
-					// No history available, go to apps page
-					navigate('/apps');
-				}
-            }
+			if (window.history.length > 1) {
+				navigate(-1);
+			} else {
+				navigate('/apps');
+			}
 		} catch (error) {
 			console.error('Error deleting app:', error);
-			toast.error('An unexpected error occurred while deleting the app');
-		} finally {
-			setIsDeleting(false);
+			setDeleteError(
+				error instanceof ApiError
+					? error.message
+					: 'An unexpected error occurred while deleting the app',
+			);
 		}
 	};
 
 	if (loading) {
 		return (
-			<div className="min-h-screen bg-bg-3 flex items-center justify-center">
-				<div className="text-center">
-					<Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-text-tertiary" />
-					<p className="text-text-tertiary">Loading app...</p>
-				</div>
-			</div>
+			<>
+				<title>Loading - Build</title>
+				<AppLoadingSkeleton />
+			</>
 		);
 	}
 
 	if (error || !app) {
 		return (
-			<div className="min-h-screen bg-bg-3 flex items-center justify-center">
-				<Card className="max-w-md">
-					<CardContent className="pt-6">
-						<div className="text-center">
-							<h2 className="text-xl font-semibold mb-2">
+			<div className="size-full flex items-center justify-center p-4">
+				<title>App not found - Build</title>
+				<LayerCard className="max-w-md w-full px-5 py-6">
+					<div className="text-center grid gap-4">
+						<div className="grid gap-1.5">
+							<h2 className="text-lg font-semibold text-text-primary">
 								App not found
 							</h2>
-							<p className="text-text-tertiary mb-4">
+							<p className="text-sm text-kumo-subtle">
 								{error ||
 									"The app you're looking for doesn't exist."}
 							</p>
-							<Button onClick={() => navigate('/apps')}>
-								<ChevronLeft className="mr-2 h-4 w-4" />
-								Back to Apps
+						</div>
+						<div className="flex justify-center">
+							<Button
+								variant="secondary"
+								size="sm"
+								icon={<ChevronLeft className="h-4 w-4" />}
+								onClick={() => navigate('/apps')}
+							>
+								Back to apps
 							</Button>
 						</div>
-					</CardContent>
-				</Card>
+					</div>
+				</LayerCard>
 			</div>
 		);
 	}
 
-	const isOwner = app.userId === user?.id;
-	const appUrl = getAppUrl();
-	const createdDate = app.createdAt ? new Date(app.createdAt) : new Date();
-
 	return (
-		<div className="min-h-screen bg-bg-3 flex flex-col">
-			<div className="container mx-auto px-4 pb-6 space-y-6 flex flex-col flex-1">
-				{/* Back button */}
-				<button
-					onClick={() => history.back()}
-					className="gap-2 flex items-center text-text-primary/80"
-				>
-					<ChevronLeft className="h-4 w-4" />
-					Back
-				</button>
-
-				{/* App Info Section */}
-				<div className="flex flex-col items-start justify-between gap-4 text-bg-4 w-fit rounded-lg p-5">
-					<div className="flex-1">
-						<div className="flex rounded w-fit pb-3 pt-2 flex-col mb-6">
-							<div className="flex items-center gap-3 mb-2">
-								<h1 className="text-4xl font-semibold tracking-tight text-text-primary">
-									{app.title}
-								</h1>
-
-								<div className="flex items-center gap-2 border rounded-xl">
-									<Badge variant={'default'}>
-										<Globe />
-										{capitalizeFirstLetter(app.visibility)}
-									</Badge>
-									{isOwner && (
-										<Button
-											variant="ghost"
-											size="sm"
-											onClick={handleToggleVisibility}
-											disabled={isUpdatingVisibility}
-											className="h-6 w-6 p-0 hover:bg-bg-3/50 -ml-1.5 !mr-1.5"
-											title={`Make ${app.visibility === 'private' ? 'public' : 'private'}`}
-										>
-											{isUpdatingVisibility ? (
-												<Loader2 className="h-3 w-3 animate-spin text-text-primary" />
-											) : app.visibility === 'private' ? (
-												<Unlock className="h-3 w-3 text-text-primary" />
-											) : (
-												<Lock className="h-3 w-3 text-text-primary" />
-											)}
-										</Button>
-									)}
-								</div>
-							</div>
-							<div className="flex flex-wrap gap-2">
-								<Button
-									variant="outline"
-									size="sm"
-									onClick={handleFavorite}
-									className={cn(
-										'gap-2 text-text-primary',
-									)}
-								>
-									<Bookmark
-										className={cn(
-											'h-4 w-4',
-											isFavorited && 'fill-current',
-										)}
-									/>
-									{isFavorited ? 'Bookmarked' : 'Bookmark'}
-								</Button>
-
-								<Button
-									variant="outline"
-									size="sm"
-									onClick={handleStar}
-									className={cn('gap-2 text-text-primary')}
-								>
-									<Star
-										className={cn(
-											'h-4 w-4',
-											isStarred && 'fill-current',
-										)}
-									/>
-									{isStarred ? 'Starred' : 'Star'}
-								</Button>
-
-								{/* Git Clone Button */}
-								<Button
-									variant="outline"
-									size="sm"
-									onClick={() => setIsGitCloneModalOpen(true)}
-									className="gap-2 text-text-primary"
-								>
-									<GitBranch className="h-4 w-4" />
-									Git Clone
-								</Button>
-
-								{/* GitHub Repository Button */}
-								{app.githubRepositoryUrl && (
-									<Button
-										variant="outline"
-										size="sm"
-										onClick={() => {
-											if (app.githubRepositoryUrl) {
-												window.open(
-													app.githubRepositoryUrl,
-													'_blank',
-													'noopener,noreferrer',
-												);
-											}
-										}}
-										className={cn('gap-2 text-text-primary')}
-										title={`View on GitHub (${app.githubRepositoryVisibility || 'public'})`}
-									>
-										<Github className="h-4 w-4" />
-										View on GitHub
-										{app.githubRepositoryVisibility ===
-											'private' && (
-											<Lock className="h-3 w-3 opacity-70" />
-										)}
-									</Button>
-								)}
-
-								{isOwner ? (
-									<>
-										<Button
-											size="sm"
-											onClick={() =>
-												navigate(`/chat/${app.id}`)
-											}
-											className="gap-2 bg-text-primary text-bg-4 border-bg-4 border"
-										>
-											<Code2 className="h-4 w-4" />
-											Continue Editing
-										</Button>
-										<Button
-											variant="outline"
-											size="sm"
-											onClick={() =>
-												setIsDeleteDialogOpen(true)
-											}
-											className="gap-2 text-text-on-brand !border-0 bg-destructive hover:opacity-90 transition-colors"
-										>
-											<Trash2 className="h-4 w-4" />
-											Delete App
-										</Button>
-									</>
-								) 
-                                : (
-									<>
-										{/*
-										<Button
-											size="sm"
-											variant="secondary"
-											onClick={handleFork}
-											className="gap-2 bg-text-primary text-bg-1"
-										>
-											<Shuffle className="h-4 w-4" />
-											Remix
-										</Button>
-										*/}
-									</>
-								)
-                                }
-							</div>
-						</div>
-
-						{app.description && (
-							<p className="text-text-primary my-3 max-w-4xl">
-								{app.description}
-							</p>
-						)}
-
-						<div className="flex flex-wrap items-center gap-4 text-sm text-text-secondary">
-							{app.user && (
-								<div className="flex items-center gap-2">
-									<User className="h-4 w-4" />
-									<span>{app.user.displayName}</span>
-								</div>
-							)}
-							<div className="flex items-center gap-2">
-								<Calendar className="h-4 w-4" />
-								<span>
-									{isValid(createdDate)
-										? formatDistanceToNow(createdDate, {
-												addSuffix: true,
-											})
-										: 'recently'}
-								</span>
-							</div>
-							<div className="flex items-center gap-2">
-								<Eye className="h-4 w-4" />
-								<span>{app.viewCount || 0}</span>
-							</div>
-							<div className="flex items-center gap-2">
-								<Star className="h-4 w-4" />
-								<span>{app.starCount || 0}</span>
-							</div>
-						</div>
-					</div>
-				</div>
+		<div className="size-full flex flex-col min-h-0">
+			<title>{app.title ? `${app.title} - Build` : 'App - Build'}</title>
+			<div className="shrink-0 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between px-4 py-2 border-b bg-kumo-base">
 				<Tabs
 					value={activeTab}
 					onValueChange={setActiveTab}
-					className="flex flex-col flex-1 gap-2"
-				>
-					{/* Tab switcher and Git Clone inline */}
-					<div className="flex items-center gap-4">
-						{/* Using proper TabsList and TabsTrigger components */}
-						<TabsList className="inline-flex h-auto w-fit items-center gap-0.5 bg-bg-2 dark:bg-bg-1 rounded-md p-0.5 border border-border-primary/30">
-						<TabsTrigger 
-							value="preview" 
-							className="px-3 py-1.5 rounded text-xs font-medium data-[state=active]:bg-bg-4 dark:data-[state=active]:bg-bg-3 data-[state=active]:text-text-primary data-[state=active]:shadow-sm"
-						>
-							<Eye className={cn(
-								"h-3.5 w-3.5 mr-1.5",
-								activeTab === 'preview' ? 'text-brand' : 'text-brand/60'
-							)} />
-							Preview
-						</TabsTrigger>
-						<TabsTrigger 
-							value="code" 
-							className="px-3 py-1.5 rounded text-xs font-medium data-[state=active]:bg-bg-4 dark:data-[state=active]:bg-bg-3 data-[state=active]:text-text-primary data-[state=active]:shadow-sm"
-						>
-							<Code2 className={cn(
-								"h-3.5 w-3.5 mr-1.5",
-								activeTab === 'code' ? 'text-brand' : 'text-brand/60'
-							)} />
-							Code
-						</TabsTrigger>
-						<TabsTrigger 
-							value="prompt" 
-							className="px-3 py-1.5 rounded text-xs font-medium data-[state=active]:bg-bg-4 dark:data-[state=active]:bg-bg-3 data-[state=active]:text-text-primary data-[state=active]:shadow-sm"
-						>
-							<MessageSquare className={cn(
-								"h-3.5 w-3.5 mr-1.5",
-								activeTab === 'prompt' ? 'text-brand' : 'text-brand/60'
-							)} />
-							Prompt
-						</TabsTrigger>
-						</TabsList>
-						
-						{/* Git Clone - Inline with tabs */}
-						<div className="flex-shrink-0">
-							{app.visibility === 'public' ? (
-								<GitCloneCommand
-									cloneUrl={`${window.location.protocol}//${window.location.host}/apps/${app.id}.git`}
-									appTitle={app.title}
+					className="w-fit"
+					tabs={[
+						{
+							value: 'preview',
+							label: (
+								<span className="inline-flex items-center gap-1.5">
+									<Eye className="size-3.5" />
+									Preview
+								</span>
+							),
+						},
+						{
+							value: 'code',
+							label: (
+								<span className="inline-flex items-center gap-1.5">
+									<Code2 className="size-3.5" />
+									Code
+									{files.length > 0 && (
+										<span className="text-kumo-subtle tabular-nums">
+											{files.length}
+										</span>
+									)}
+								</span>
+							),
+						},
+						{
+							value: 'prompt',
+							label: (
+								<span className="inline-flex items-center gap-1.5">
+									<MessageSquare className="size-3.5" />
+									Prompt
+								</span>
+							),
+						},
+					]}
+				/>
+
+				<div className="shrink-0 flex items-center gap-2 max-w-full">
+					<Button
+						variant="secondary"
+						size="sm"
+						icon={
+							<BookmarkSimple
+								className="size-3.5"
+								weight={isFavorited ? 'fill' : 'duotone'}
+							/>
+						}
+						onClick={() => {
+							void handleFavorite();
+						}}
+					>
+						{isFavorited ? 'Bookmarked' : 'Bookmark'}
+					</Button>
+
+					<Button
+						variant="secondary"
+						size="sm"
+						icon={
+							<Star
+								className="size-3.5"
+								weight={isStarred ? 'fill' : 'duotone'}
+							/>
+						}
+						onClick={handleStar}
+					>
+						{isStarred ? 'Starred' : 'Star'}
+						{(app.starCount || 0) > 0 && (
+							<span className="text-kumo-subtle tabular-nums">
+								{app.starCount}
+							</span>
+						)}
+					</Button>
+
+					<Button
+						variant="secondary"
+						size="sm"
+						icon={
+							<GitBranch className="size-3.5" weight="duotone" />
+						}
+						onClick={() => setIsGitCloneModalOpen(true)}
+					>
+						Clone
+					</Button>
+				</div>
+			</div>
+
+			{/* Full-bleed workspace */}
+			<div className="flex-1 min-h-0 flex flex-col">
+				{activeTab === 'preview' && (
+					<div className="flex-1 min-h-0 flex flex-col overflow-hidden">
+						<div className="shrink-0 flex items-center gap-2 px-3 py-2 border-b border-kumo-line bg-kumo-elevated/40">
+							<span className="text-sm font-medium text-text-primary shrink-0">
+								Live preview
+							</span>
+							{appUrl && (
+								<>
+									<code className="min-w-0 flex-1 truncate font-mono text-[0.9em] text-kumo-subtle px-2">
+										{appUrl}
+									</code>
+									<div className="flex items-center gap-0.5 shrink-0">
+										<Button
+											variant="ghost"
+											size="sm"
+											shape="square"
+											aria-label={
+												urlCopied
+													? 'Copied'
+													: 'Copy URL'
+											}
+											title={
+												urlCopied
+													? 'Copied'
+													: 'Copy URL'
+											}
+											onClick={handleCopyUrl}
+											icon={
+												urlCopied ? (
+													<Check className="size-3.5" />
+												) : (
+													<Copy className="size-3.5" />
+												)
+											}
+										/>
+										<Button
+											variant="ghost"
+											size="sm"
+											shape="square"
+											aria-label="Open in new tab"
+											title="Open in new tab"
+											onClick={() =>
+												window.open(appUrl, '_blank')
+											}
+											icon={
+												<ExternalLink className="size-3.5" />
+											}
+										/>
+									</div>
+								</>
+							)}
+						</div>
+						<div className="flex-1 min-h-0 relative">
+							{appUrl ? (
+								<PreviewIframe
+									ref={previewIframeRef}
+									src={appUrl}
+									className="absolute inset-0 size-full"
+									title={`${app.title} Preview`}
 								/>
-							) : isOwner ? (
-								<GitClonePrivatePrompt
-									onOpenModal={() => setIsGitCloneModalOpen(true)}
-								/>
-							) : null}
+							) : (
+								<div className="absolute inset-0 flex items-center justify-center">
+									<FloatingBackgroundIcons />
+
+									<div className="relative z-10 text-center p-8 grid gap-4 max-w-md">
+										<div className="grid gap-1.5">
+											<h3 className="text-xl font-semibold">
+												{isAutoLoadingPreview
+													? 'Loading preview'
+													: 'Run app'}
+											</h3>
+											<p className="text-kumo-subtle text-sm">
+												{isAutoLoadingPreview
+													? 'Preparing this app preview.'
+													: 'Deploy a preview to see this app live.'}
+											</p>
+											{deploymentProgress && (
+												<p className="text-sm text-kumo-subtle">
+													{deploymentProgress}
+												</p>
+											)}
+										</div>
+										{!isAutoLoadingPreview && (
+											<div className="flex justify-center">
+												<Button
+													variant="primary"
+													onClick={
+														handlePreviewDeploy
+													}
+													disabled={isDeploying}
+													loading={isDeploying}
+													icon={
+														!isDeploying ? (
+															<Play className="h-4 w-4" />
+														) : undefined
+													}
+												>
+													{isDeploying
+														? 'Deploying...'
+														: 'Deploy for preview'}
+												</Button>
+											</div>
+										)}
+									</div>
+								</div>
+							)}
 						</div>
 					</div>
+				)}
 
-					<TabsContent value="preview" className="flex-1">
-						<Card className="px-2">
-							<CardHeader className="overflow-hidden rounded-t">
-								<div className="flex items-center gap-4 min-w-0">
-									<CardTitle className="text-base flex-shrink-0">
-										Live Preview
-									</CardTitle>
-									{/* Preview URL action buttons */}
-									{appUrl && (
-										<div className="ml-auto flex items-center gap-0 flex-shrink-0">
-											<Button
-												variant="ghost"
-												size="sm"
-												onClick={handleCopyUrl}
-												className="gap-2"
-															>
-																{urlCopied ? (
-																	<>
-																		<Check className="h-3 w-3" />
-																		Copied!
-																	</>
-																) : (
-																	<>
-																		<Copy className="h-3 w-3" />
-																	</>
-																)}
-															</Button>
-											<Button
-												variant="ghost"
-												size="sm"
-												onClick={() =>
-													window.open(
-														appUrl,
-														'_blank',
-													)
-												}
-												className="gap-2"
-											>
-												<ExternalLink className="h-3 w-3" />
-											</Button>
-										</div>
-									)}
-								</div>
-							</CardHeader>
-							<CardContent className="p-0">
-								<div className="border-t relative">
-									{appUrl ? (
-										<PreviewIframe
-											ref={previewIframeRef}
-											src={appUrl}
-											className="w-full h-[600px] lg:h-[800px]"
-											title={`${app.title} Preview`}
+				{activeTab === 'code' && (
+					<div className="flex-1 min-h-0 flex flex-col overflow-hidden">
+						<div className="shrink-0 flex items-center justify-between gap-2 px-3 py-2 border-b border-kumo-line bg-kumo-elevated/40">
+							<div className="min-w-0 flex items-center gap-2">
+								<span className="text-sm font-medium text-text-primary shrink-0">
+									Project files
+								</span>
+								{/*{app?.agentSummary && (
+									<span className="text-xs text-kumo-subtle">
+										{files.length} files
+									</span>
+								)}*/}
+							</div>
+							{activeFile && (
+								<Button
+									variant="ghost"
+									size="sm"
+									icon={
+										<CopyIcon
+											weight="duotone"
+											className="size-3.5"
 										/>
-									) : (
-										<div className="relative w-full h-[400px] bg-gray-50 flex items-center justify-center">
-											{/* Frosted glass overlay */}
-											<div className="absolute inset-0 bg-white/80 backdrop-blur-sm flex items-center justify-center z-10">
-												<div className="text-center p-8">
-													<h3 className="text-xl font-semibold mb-2 text-gray-700">
-														Run App
-													</h3>
-													<p className="text-gray-500 mb-6 max-w-md">
-														Run the app to see a
-														live preview.
-													</p>
-													{deploymentProgress && (
-														<p className="text-sm text-gray-800 mb-4">
-															{deploymentProgress}
-														</p>
-													)}
-													<div className="flex gap-3 justify-center">
-														<Button
-															onClick={
-																handlePreviewDeploy
-															}
-															disabled={
-																isDeploying
-															}
-															className="gap-2"
-														>
-															{isDeploying ? (
-																<>
-																	<Loader2 className="h-4 w-4 animate-spin" />
-																	Deploying...
-																</>
-															) : (
-																<>
-																	<Play className="h-4 w-4" />
-																	Deploy for
-																	Preview
-																</>
-															)}
-														</Button>
-													</div>
+									}
+									onClick={() => {
+										void copyFile(activeFile.fileContents);
+									}}
+								>
+									Copy file
+								</Button>
+							)}
+						</div>
+
+						{files.length > 0 ? (
+							<div className="flex-1 min-h-0 flex">
+								<FileExplorer
+									files={files}
+									currentFile={activeFile}
+									onFileClick={handleFileClick}
+									className="w-56 sm:w-64 max-w-none shrink-0 bg-kumo-elevated/20"
+								/>
+
+								<div className="flex-1 min-w-0 min-h-0 flex flex-col">
+									{activeFile ? (
+										<>
+											{activeFile.explanation && (
+												<div className="shrink-0 px-3 py-1.5 border-b border-kumo-line text-xs text-kumo-subtle truncate">
+													{activeFile.explanation}
 												</div>
-											</div>
-											{/* Background pattern */}
-											<div className="absolute inset-0 opacity-10">
-												<div
-													className="w-full h-full"
-													style={{
-														backgroundImage: `url("data:image/svg+xml,%3Csvg width='40' height='40' viewBox='0 0 40 40' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23000' fill-opacity='0.1'%3E%3Cpath d='M20 20c0 11.046-8.954 20-20 20V0c11.046 0 20 8.954 20 20z'/%3E%3C/g%3E%3C/svg%3E")`,
-														backgroundSize:
-															'40px 40px',
+											)}
+											<div className="flex-1 min-h-0">
+												<MonacoEditor
+													className="h-full"
+													path={activeFile.filePath}
+													createOptions={{
+														value: activeFile.fileContents,
+														language:
+															activeFile.language ||
+															'plaintext',
+														readOnly: true,
+														minimap: {
+															enabled: false,
+														},
+														lineNumbers: 'on',
+														scrollBeyondLastLine: false,
+														fontSize: 13,
+														automaticLayout: true,
 													}}
 												/>
 											</div>
+										</>
+									) : (
+										<div className="flex-1 flex items-center justify-center">
+											<p className="text-sm text-kumo-subtle">
+												Select a file to view
+											</p>
 										</div>
 									)}
 								</div>
-							</CardContent>
-						</Card>
-					</TabsContent>
+							</div>
+						) : (
+							<div className="flex-1 flex items-center justify-center">
+								<p className="text-sm text-kumo-subtle">
+									{app?.agentSummary === null
+										? 'Loading code...'
+										: 'No code has been generated yet.'}
+								</p>
+							</div>
+						)}
+					</div>
+				)}
 
-					<TabsContent value="code" className="flex-1">
-						<Card className="flex flex-col" style={{ maxHeight: '600px' }}>
-							<CardHeader>
-								<div className="flex items-center justify-between">
-									<div>
-										<CardTitle>Generated Code</CardTitle>
-										{app?.agentSummary && (
-											<p className="text-sm text-muted-foreground">
-												{files.length} files generated
+				{activeTab === 'prompt' && (
+					<div className="flex-1 min-h-0 flex flex-col overflow-hidden relative">
+						<div className="flex-1 min-h-0 overflow-y-auto flex items-center justify-center p-6 sm:p-10">
+							{promptText ? (
+								<div className="w-full max-w-2xl grid gap-5">
+									<div className="flex items-end justify-between gap-4">
+										<div className="grid gap-1 min-w-0">
+											<div className="flex items-center gap-2">
+												<span className="h-lh flex items-center shrink-0">
+													<span className="rounded-md bg-brand/10 p-1.5">
+														<MessageSquare className="size-3.5 text-kumo-brand" />
+													</span>
+												</span>
+												<h2 className="text-base font-semibold text-text-primary">
+													Original prompt
+												</h2>
+											</div>
+											<p className="text-sm text-kumo-subtle pl-9">
+												The idea that started this app
+											</p>
+										</div>
+										<Button
+											variant="secondary"
+											size="sm"
+											icon={
+												<CopyIcon
+													className="size-3.5"
+													weight="duotone"
+												/>
+											}
+											onClick={() => {
+												void copyPrompt(promptText);
+											}}
+										>
+											Copy
+										</Button>
+									</div>
+									<div className="max-h-[min(60vh,28rem)] overflow-auto rounded-xl bg-kumo-elevated ring ring-kumo-line px-5 py-4">
+										<p className="text-sm text-text-primary whitespace-pre-wrap break-words leading-relaxed">
+											{promptText}
+										</p>
+									</div>
+								</div>
+							) : (
+								<div className="grid place-items-center gap-3 text-center">
+									<span className="rounded-full bg-kumo-elevated ring ring-kumo-line p-3">
+										<MessageSquare className="size-5 text-kumo-subtle" />
+									</span>
+									<div className="grid gap-1">
+										<p className="text-sm font-medium text-text-primary">
+											{app?.agentSummary === null
+												? 'Loading prompt'
+												: 'No prompt available'}
+										</p>
+										{app?.agentSummary !== null && (
+											<p className="text-sm text-kumo-subtle">
+												This app has no saved original
+												prompt
 											</p>
 										)}
 									</div>
-									{activeFile && (
-										<Button
-											variant="ghost"
-																			size="sm"
-																			onClick={() => {
-																			void copyFile(activeFile.fileContents);
-																		}}
-																			className="gap-2"
-										>
-											<Copy className="h-3 w-3" />
-											Copy File
-										</Button>
-									)}
 								</div>
-							</CardHeader>
-							<CardContent className="p-0 flex-1 flex flex-col overflow-hidden">
-								{files.length > 0 ? (
-									<div className="h-[450px] relative bg-bg-3 overflow-hidden">
-										<div className="h-full flex">
-											<div className="w-full max-w-[250px] bg-bg-3 border-r border-text/10 h-full overflow-y-auto">
-												<div className="p-2 px-3 text-sm flex items-center gap-1 text-text-primary/50 font-medium border-b bg-bg-3">
-													<Code2 className="size-4" />
-													Files
-												</div>
-												<div className="flex flex-col">
-													{files.map((file) => (
-														<button
-															key={file.filePath}
-															onClick={() =>
-																handleFileClick(
-																	file,
-																)
-															}
-															className={cn(
-																'flex items-center w-full gap-2 py-2 px-3 text-left text-sm transition-colors',
-																activeFile?.filePath ===
-																	file.filePath
-																	? 'bg-blue-100 text-blue-900 border-r-2 border-blue-500'
-																	: 'hover:bg-bg-3 text-text-tertiary hover:text-text-primary',
-															)}
-														>
-															<Code2 className="h-4 w-4 flex-shrink-0" />
-															<span className="truncate font-mono text-xs">
-																{file.filePath}
-															</span>
-														</button>
-													))}
-												</div>
-											</div>
-
-											<div className="flex-1 flex flex-col">
-												{activeFile ? (
-													<>
-														<div className="flex items-center justify-between p-3 border-b bg-bg-3">
-															<div className="flex items-center gap-2 flex-1">
-																<Code2 className="h-4 w-4" />
-																<span className="text-sm font-mono">
-																	{
-																		activeFile.filePath
-																	}
-																</span>
-																{activeFile.explanation && (
-																	<span className="text-xs text-text-tertiary ml-3">
-																		{
-																			activeFile.explanation
-																		}
-																	</span>
-																)}
-															</div>
-														</div>
-
-														<div className="flex-1 min-h-0">
-															<MonacoEditor
-																className="h-full"
-																createOptions={{
-																	value: activeFile.fileContents,
-																	language:
-																		activeFile.language ||
-																		'plaintext',
-																	readOnly: true,
-																	minimap: {
-																		enabled: false,
-																	},
-																	lineNumbers:
-																		'on',
-																	scrollBeyondLastLine: false,
-																	fontSize: 13,
-																	theme: 'vibesdk',
-																	automaticLayout: true,
-																}}
-															/>
-														</div>
-													</>
-												) : (
-													<div className="flex-1 flex items-center justify-center">
-														<p className="text-text-tertiary">
-															Select a file to
-															view
-														</p>
-													</div>
-												)}
-											</div>
-										</div>
-									</div>
-								) : (
-									<div className="flex items-center justify-center h-[400px]">
-										<p className="text-muted-foreground">
-											{app?.agentSummary === null 
-												? 'Loading code...' 
-												: 'No code has been generated yet.'
-											}
-										</p>
-									</div>
-								)}
-							</CardContent>
-						</Card>
-					</TabsContent>
-
-					<TabsContent
-						value="prompt"
-						className="flex-1"
-					>
-						<Card>
-							<CardHeader>
-								<CardTitle>Original Prompt</CardTitle>
-								<CardDescription>
-									The initial prompt used to create this app
-								</CardDescription>
-							</CardHeader>
-							<CardContent>
-								{app?.agentSummary?.query || app?.originalPrompt ? (
-									<div className="bg-bg-2 rounded-lg p-6 border border-border-primary">
-										<div className="flex items-start gap-3">
-											<div className="flex-shrink-0 mt-1">
-												<div className="rounded-full bg-brand/10 p-2">
-													<MessageSquare className="h-4 w-4 text-brand" />
-												</div>
-											</div>
-											<div className="flex-1">
-												<p className="text-sm text-text-secondary mb-2 font-medium">Prompt</p>
-												<p className="text-text-primary whitespace-pre-wrap">
-													{app?.agentSummary?.query || app?.originalPrompt}
-												</p>
-											</div>
-										</div>
-										
-										{/* Copy button */}
-										<div className="mt-4 flex justify-end">
-											<Button
-												variant="outline"
-												size="sm"
-												onClick={() => {
-													const prompt = app?.agentSummary?.query || app?.originalPrompt;
-																		if (prompt) {
-																			void copyPrompt(prompt);
-																		}
-
-												}}
-												className="gap-2"
-											>
-												<Copy className="h-3 w-3" />
-												Copy Prompt
-											</Button>
-										</div>
-									</div>
-								) : (
-									<div className="flex items-center justify-center py-12 text-text-tertiary">
-										<MessageSquare className="h-8 w-8 mr-3" />
-										<p>
-											{app?.agentSummary === null 
-												? 'Loading prompt...' 
-												: 'No prompt available'
-											}
-										</p>
-									</div>
-								)}
-							</CardContent>
-						</Card>
-					</TabsContent>
-				</Tabs>
+							)}
+						</div>
+					</div>
+				)}
 			</div>
 
-			{/* Delete Confirmation Dialog */}
-			<ConfirmDeleteDialog
-				open={isDeleteDialogOpen}
-				onOpenChange={setIsDeleteDialogOpen}
-				onConfirm={handleDeleteApp}
-				isLoading={isDeleting}
-				appTitle={app?.title}
-			/>
+			{app && (
+				<DeleteResource
+					open={isDeleteDialogOpen}
+					onOpenChange={setIsDeleteDialogOpen}
+					resourceType="App"
+					resourceName={app.title}
+					onDelete={handleDeleteApp}
+					isDeleting={isDeleting}
+					errorMessage={deleteError}
+					className="sm:w-[32rem]"
+				/>
+			)}
 
-			{/* Git Clone Modal */}
 			<GitCloneModal
 				open={isGitCloneModalOpen}
 				onOpenChange={setIsGitCloneModalOpen}

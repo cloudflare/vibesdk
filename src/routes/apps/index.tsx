@@ -64,7 +64,8 @@ export default function AppsPage() {
 	};
 
 	return (
-		<div className="min-h-screen bg-bg-3">
+		<div className="size-full">
+			<title>My Apps - Build</title>
 			<div className="container mx-auto px-4 py-8">
 				<motion.div
 					initial={{ opacity: 0, y: -20 }}
@@ -73,10 +74,10 @@ export default function AppsPage() {
 				>
 					{/* Header */}
 					<div className="mb-8">
-						<h1 className="text-6xl font-bold mb-3 font-[departureMono] text-brand">
+						<h1 className="text-6xl font-bold mb-3 font-funky-mono text-kumo-brand">
 							MY APPS
 						</h1>
-						<p className="text-text-tertiary text-lg">
+						<p className="text-kumo-subtle text-lg">
 							{loading
 								? 'Loading...'
 								: `${totalCount} app${totalCount !== 1 ? 's' : ''} in your workspace`}
@@ -90,7 +91,7 @@ export default function AppsPage() {
 								onChange={handleVisibilityChange}
 							/>
 						</div>
-						
+
 						<div className="flex items-start gap-4 justify-between">
 							{/* Search and Filters */}
 							<AppFiltersForm

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { cn } from '@cloudflare/kumo';
 import { useVault } from '@/hooks/use-vault';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -6,7 +7,6 @@ import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { RecoveryCodesDisplay } from './RecoveryCodesDisplay';
 import { AlertCircle, Fingerprint, KeyRound, Loader2 } from 'lucide-react';
-import { cn } from '@/lib/utils';
 
 type Step = 'setup' | 'recovery';
 

@@ -4,13 +4,30 @@
  */
 
 import { useLimitsContext } from '@/contexts/limits-context';
+import type { UsageSummary } from '@/hooks/use-limits';
 import { Loader2, LucideGlobeLock } from 'lucide-react';
 
 interface UsageLimitsBadgeProps {
 	onConnect: () => void;
 }
 
-export function UsageLimitsBadge({ onConnect }: UsageLimitsBadgeProps) {
+export interface UsageLimitsBadgeState {
+	data: UsageSummary | null;
+	loading: boolean;
+	error: string | null;
+	hidden: boolean;
+	usageText: string;
+	mobileUsageText: string;
+	isExhausted: boolean;
+	hasUserToken: boolean;
+	showCredits: boolean;
+	creditsText: string;
+	needsConfiguration: boolean;
+	showUsage: boolean;
+}
+
+// eslint-disable-next-line react-refresh/only-export-components -- Shared with the sidebar menu to reuse the badge's exact derived state.
+export function useUsageLimitsBadgeState(): UsageLimitsBadgeState {
 	const { data, loading, error } = useLimitsContext();
 
 	// Get usage info
@@ -22,12 +39,9 @@ export function UsageLimitsBadge({ onConnect }: UsageLimitsBadgeProps) {
 	let creditsText = '';
 	let needsConfiguration = false;
 	let showUsage = false;
+	const hidden = !loading && Boolean(data && !data.cloudflareConnectEnabled);
 
-	if (!loading && data && !data.cloudflareConnectEnabled) {
-		return null;
-	}
-
-	if (!loading && !error && data && data.config) {
+	if (!hidden && !loading && !error && data && data.config) {
 		const {
 			config,
 			usage,
@@ -49,7 +63,7 @@ export function UsageLimitsBadge({ onConnect }: UsageLimitsBadgeProps) {
 		if (hasUserToken && hasCloudflareConfigured && cloudflareCredits) {
 			showCredits = true;
 			const creditsAmount = cloudflareCredits.credits.toFixed(2);
-			creditsText = cloudflareCredits.gatewayName 
+			creditsText = cloudflareCredits.gatewayName
 				? `$${creditsAmount} (${cloudflareCredits.gatewayName})`
 				: `$${creditsAmount} credits`;
 		}
@@ -100,6 +114,40 @@ export function UsageLimitsBadge({ onConnect }: UsageLimitsBadgeProps) {
 		}
 	}
 
+	return {
+		data,
+		loading,
+		error,
+		hidden,
+		usageText,
+		mobileUsageText,
+		isExhausted,
+		hasUserToken,
+		showCredits,
+		creditsText,
+		needsConfiguration,
+		showUsage,
+	};
+}
+
+export function UsageLimitsBadge({ onConnect }: UsageLimitsBadgeProps) {
+	const {
+		loading,
+		hidden,
+		usageText,
+		mobileUsageText,
+		isExhausted,
+		hasUserToken,
+		showCredits,
+		creditsText,
+		needsConfiguration,
+		showUsage,
+	} = useUsageLimitsBadgeState();
+
+	if (hidden) {
+		return null;
+	}
+
 	return (
 		<>
 			<button
@@ -131,7 +179,7 @@ export function UsageLimitsBadge({ onConnect }: UsageLimitsBadgeProps) {
 				)}
 
 				{/* Connect button / Credits display - on the RIGHT */}
-				<div className="flex items-center gap-1.5 px-2 py-1 text-text-on-brand bg-brand rounded-md">
+				<div className="flex items-center gap-1.5 px-2 py-1 text-white bg-brand rounded-md">
 					{!showCredits && <LucideGlobeLock className="w-3 h-3" />}
 					{loading ? (
 						<span className="hidden sm:inline text-muted-foreground">Loading...</span>

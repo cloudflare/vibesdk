@@ -44,6 +44,7 @@ export class CapabilitiesController extends BaseController {
 		const capabilities: PlatformCapabilities = {
 			features,
 			version: config.version,
+			userAccountDeploy: env.ENABLE_USER_ACCOUNT_DEPLOY === 'true',
 		};
 
 		logger.info('Returning platform capabilities', {

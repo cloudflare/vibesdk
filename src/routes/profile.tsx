@@ -1,437 +1,640 @@
 import React from 'react';
 import { useAuth } from '@/contexts/auth-context';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import {
+	Badge,
+	Button,
+	cn,
+	Empty,
+	Input,
+	InputArea,
+	LayerCard,
+	Loader,
+	Tabs,
+	Text,
+} from '@cloudflare/kumo';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { 
-  Mail, 
-  Calendar,
-  Shield,
-  Activity,
-  Code2,
-  Star,
-  Trophy,
-  Settings,
-  Edit3,
-  Save,
-  X,
-  Globe,
-  Zap,
-} from 'lucide-react';
+import {
+	CalendarBlank,
+	Code,
+	EnvelopeSimple,
+	Eye,
+	Gear,
+	Globe,
+	GithubLogo,
+	Lightning,
+	PencilSimple,
+	Pulse,
+	ShieldCheck,
+	Star,
+	Trophy,
+	X,
+} from '@phosphor-icons/react';
 import { useNavigate } from 'react-router';
-import { capitalizeFirstLetter, cn } from '@/lib/utils';
+import { capitalizeFirstLetter, getInitials } from '@/lib/utils';
+import { formatNumber } from '@/utils/analytics';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
 import { useUserStats, useUserActivity } from '@/hooks/use-stats';
-import { apiClient } from '@/lib/api-client';
+import { useUpdateProfile } from '@/hooks/use-profile';
 import { useApps } from '@/hooks/use-apps';
 
+const STATS = [
+	{
+		key: 'appCount' as const,
+		label: 'Total apps',
+		icon: Code,
+		iconClass: 'text-kumo-brand',
+	},
+	{
+		key: 'publicAppCount' as const,
+		label: 'Public apps',
+		icon: Globe,
+		iconClass: 'text-teal-500',
+	},
+	{
+		key: 'totalViewsReceived' as const,
+		label: 'Total views',
+		icon: Eye,
+		iconClass: 'text-purple-500',
+	},
+	{
+		key: 'totalLikesReceived' as const,
+		label: 'Total likes',
+		icon: Star,
+		iconClass: 'text-amber-500',
+	},
+] as const;
+
 export default function Profile() {
-  const { user, refreshUser } = useAuth();
-  const navigate = useNavigate();
-  const [isEditing, setIsEditing] = React.useState(false);
-  const [profileData, setProfileData] = React.useState({
-    displayName: user?.displayName || '',
-    username: user?.username || '',
-    bio: user?.bio || '',
-    timezone: user?.timezone || 'UTC'
-  });
-  const [isSaving, setIsSaving] = React.useState(false);
+	const { user } = useAuth();
+	const navigate = useNavigate();
+	const [isEditing, setIsEditing] = React.useState(false);
+	const [profileData, setProfileData] = React.useState({
+		displayName: user?.displayName || '',
+		username: user?.username || '',
+		bio: user?.bio || '',
+		timezone: user?.timezone || 'UTC',
+	});
+	const [activeTab, setActiveTab] = React.useState('about');
 
-  // Update profile data when user changes
-  React.useEffect(() => {
-    if (user) {
-      setProfileData({
-        displayName: user.displayName || '',
-        username: user.username || '',
-        bio: user.bio || '',
-        timezone: user.timezone || 'UTC'
-      });
-    }
-  }, [user]);
+	// Sync the form from the cached user, but never while editing: a background
+	// session refetch would otherwise overwrite unsaved input mid-edit.
+	React.useEffect(() => {
+		if (user && !isEditing) {
+			setProfileData({
+				displayName: user.displayName || '',
+				username: user.username || '',
+				bio: user.bio || '',
+				timezone: user.timezone || 'UTC',
+			});
+		}
+	}, [user, isEditing]);
 
-  const { stats, loading: statsLoading } = useUserStats();
-  const { activities = [], loading: activityLoading } = useUserActivity();
-  const { apps: recentApps, loading: appsLoading } = useApps();
+	const { stats, loading: statsLoading } = useUserStats();
+	const { activities, loading: activityLoading } = useUserActivity();
+	const { apps: recentApps, loading: appsLoading } = useApps();
+	const { mutateAsync: saveProfile, isPending: isSaving } =
+		useUpdateProfile();
 
-  // Transform achievements from stats
-  const achievements = stats?.achievements || [];
+	const achievements = stats?.achievements || [];
 
-  const handleSave = async () => {
-    if (isSaving) return;
-    
-    try {
-      setIsSaving(true);
-      
-      const response = await apiClient.updateProfile({
-        displayName: profileData.displayName,
-        username: profileData.username,
-        bio: profileData.bio,
-        timezone: profileData.timezone
-      });
-      
-      if (response.success) {
-        toast.success('Profile updated successfully');
-        // Refresh user data in auth context
-        await refreshUser();
-        setIsEditing(false);
-      }
-    } catch (error) {
-      console.error('Profile update error:', error);
-      toast.error('Failed to update profile');
-    } finally {
-      setIsSaving(false);
-    }
-  };
+	const handleEdit = () => {
+		setActiveTab('about');
+		setIsEditing(true);
+	};
 
-  const handleCancel = () => {
-    setProfileData({
-      displayName: user?.displayName || '',
-      username: user?.username || '',
-      bio: user?.bio || '',
-      timezone: user?.timezone || 'UTC'
-    });
-    setIsEditing(false);
-  };
+	const handleSave = async () => {
+		if (isSaving) return;
 
-  return (
-    <div className="min-h-screen bg-bg-3">
-      {/* Profile Header */}
-      <div className="container mx-auto px-4 py-8">
-        <div className="pb-8">
-          <div className="flex flex-col md:flex-row items-center gap-6">
-            <Avatar className="h-24 w-24 ring-4 ring-background shadow-xl">
-              <AvatarImage src={user?.avatarUrl} />
-						<AvatarFallback className="text-2xl bg-gradient-to-br from-brand-primary to-brand-light text-white">
-                {user?.displayName?.charAt(0).toUpperCase() || user?.email?.charAt(0).toUpperCase() || '?'}
-              </AvatarFallback>
-            </Avatar>
-            
-            <div className="flex-1 text-center md:text-left">
-              <div className="flex flex-col md:flex-row items-center gap-4 mb-2">
-                <h1 className="text-3xl font-bold">{user?.displayName}</h1>
-                <div className="flex items-center gap-2">
-                  <Badge variant="secondary" className="gap-1">
-                    {user?.provider === 'github' ? <svg className="h-3 w-3" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg> : <Globe className="h-3 w-3" />}
-                    {capitalizeFirstLetter(user?.provider ?? '')}
-                  </Badge>
-                  {user?.emailVerified && (
-                    <Badge variant="secondary" className="gap-1">
-                      <Shield className="h-3 w-3" />
-                      Verified
-                    </Badge>
-                  )}
-                </div>
-              </div>
-              <p className="text-text-tertiary mb-1">{user?.email}</p>
-              {user?.bio && <p className="text-sm max-w-2xl">{user.bio}</p>}
-            </div>
+		try {
+			// The mutation invalidates the auth session, so `user` (and the
+			// header/sidebar) pick up the new values.
+			await saveProfile({
+				displayName: profileData.displayName,
+				username: profileData.username,
+				bio: profileData.bio,
+				timezone: profileData.timezone,
+			});
+			toast.success('Profile updated successfully');
+			setIsEditing(false);
+		} catch (error) {
+			console.error('Profile update error:', error);
+			toast.error('Failed to update profile');
+		}
+	};
 
-            <div className="flex gap-2">
-              {isEditing ? (
-                <>
-                  <Button onClick={handleSave} size="sm" disabled={isSaving}>
-                    <Save className="mr-2 h-4 w-4" />
-                    {isSaving ? 'Saving...' : 'Save Changes'}
-                  </Button>
-                  <Button variant="outline" onClick={handleCancel} size="sm">
-                    <X className="mr-2 h-4 w-4" />
-                    Cancel
-                  </Button>
-                </>
-              ) : (
-                <>
-                  <Button variant="outline" onClick={() => setIsEditing(true)} size="sm">
-                    <Edit3 className="mr-2 h-4 w-4" />
-                    Edit Profile
-                  </Button>
-                  <Button variant="outline" onClick={() => navigate('/settings')} size="sm">
-                    <Settings className="mr-2 h-4 w-4" />
-                    Settings
-                  </Button>
-                </>
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
+	const handleCancel = () => {
+		setProfileData({
+			displayName: user?.displayName || '',
+			username: user?.username || '',
+			bio: user?.bio || '',
+			timezone: user?.timezone || 'UTC',
+		});
+		setIsEditing(false);
+	};
 
-      <div className="container mx-auto px-4 py-8">
-        {/* Stats Overview */}
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
-          <Card className="text-center hover:shadow-lg hover:scale-[1.02] transition-all dark:bg-bg-4/50">
-            <CardContent className="pt-6 relative overflow-hidden">
-              <Code2 className="h-32 w-32 text-blue-500 absolute -top-10 -left-6 opacity-10" />
-              <p className="text-6xl font-semibold text-gray-700">{statsLoading ? '-' : stats?.appCount}</p>
-              <p className="text-md text-gray-500">Total Apps</p>
-            </CardContent>
-          </Card>
-          
-          <Card className="text-center hover:shadow-lg hover:scale-[1.02] transition-all dark:bg-bg-4/50">
-            <CardContent className="pt-6 relative overflow-hidden">
-              <Globe className="h-32 w-32 text-green-500 absolute -top-10 -left-6 opacity-20" />
-              <p className="text-6xl font-semibold text-gray-700">{statsLoading ? '-' : stats?.publicAppCount}</p>
-              <p className="text-md text-gray-500">Public Apps</p>
-            </CardContent>
-          </Card>
-          
-          <Card className="text-center hover:shadow-lg hover:scale-[1.02] transition-all dark:bg-bg-4/50">
-            <CardContent className="pt-6 relative overflow-hidden">
-              <Activity className="h-32 w-32 text-purple-500 absolute -top-10 -left-6 opacity-10" />
-              <p className="text-6xl font-semibold text-gray-700">{statsLoading ? '-' : stats?.totalViewsReceived}</p>
-              <p className="text-md text-gray-500">Total Views</p>
-            </CardContent>
-          </Card>
-          
-          <Card className="text-center hover:shadow-lg hover:scale-[1.02] transition-all dark:bg-bg-4/50">
-            <CardContent className="pt-6 relative overflow-hidden">
-              <Star className="h-32 w-32 text-yellow-500 absolute -top-10 -left-6 opacity-20" />
-              <p className="text-6xl font-semibold text-gray-700">{statsLoading ? '-' : stats?.totalLikesReceived}</p>
-              <p className="text-md text-gray-500">Total Likes</p>
-            </CardContent>
-          </Card>
-          
-        </div>
+	const handleTabChange = (value: string) => {
+		setActiveTab(value);
+		if (value !== 'about' && isEditing) {
+			handleCancel();
+		}
+	};
 
-        <Tabs defaultValue="about" className="space-y-6">
-          <TabsList className="grid w-full max-w-md grid-cols-4">
-            <TabsTrigger value="about">About</TabsTrigger>
-            <TabsTrigger value="apps">Apps</TabsTrigger>
-            <TabsTrigger value="achievements">Achievements</TabsTrigger>
-            <TabsTrigger value="activity">Activity</TabsTrigger>
-          </TabsList>
+	const initials = getInitials(user?.displayName, user?.email);
 
-          <TabsContent value="about" className="space-y-6">
-            <Card className="dark:bg-bg-4/50 max-w-xl">
-              <CardHeader className='border-b'>
-                <CardTitle>Profile Information</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="space-y-2">
-                    <Label htmlFor="displayName">Display Name</Label>
-                    {isEditing ? (
-                      <Input
-                        id="displayName"
-                        value={profileData.displayName}
-                        onChange={(e) => setProfileData({ ...profileData, displayName: e.target.value })}
-                      />
-                    ) : (
-                      <p className="text-sm text-text-tertiary">{user?.displayName}</p>
-                    )}
-                  </div>
+	return (
+		<div className="min-h-screen">
+			<title>
+				{user?.displayName
+					? `${user.displayName} - Profile - Build`
+					: 'Profile - Build'}
+			</title>
+			<main className="container mx-auto max-w-4xl px-4 py-12 pb-24">
+				{/* Header */}
+				<div className="mb-10 flex flex-col items-center gap-6 sm:flex-row sm:items-start">
+					<Avatar className="size-20 ring-2 ring-kumo-line shadow-md sm:size-24">
+						<AvatarImage src={user?.avatarUrl} />
+						<AvatarFallback className="bg-kumo-base text-3xl font-semibold">
+							{initials}
+						</AvatarFallback>
+					</Avatar>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="username">Username</Label>
-                    {isEditing ? (
-                      <Input
-                        id="username"
-                        value={profileData.username}
-                        onChange={(e) => setProfileData({ ...profileData, username: e.target.value })}
-                        placeholder="@username"
-                      />
-                    ) : (
-                      <p className="text-sm text-text-tertiary">{user?.username || 'Not set'}</p>
-                    )}
-                  </div>
+					<div className="min-w-0 flex-1 text-center sm:text-left">
+						<div className="mb-1.5 flex flex-col items-center gap-2 sm:flex-row sm:flex-wrap">
+							<h1 className="font-funky-mono text-2xl font-semibold text-kumo-strong">
+								{user?.displayName || 'Your profile'}
+							</h1>
+							<div className="flex flex-wrap items-center justify-center gap-1.5">
+								<Badge variant="secondary" className="gap-1">
+									{user?.provider === 'github' ? (
+										<GithubLogo
+											className="size-3"
+											weight="fill"
+										/>
+									) : (
+										<Globe className="size-3" />
+									)}
+									{capitalizeFirstLetter(
+										user?.provider ?? '',
+									)}
+								</Badge>
+								{user?.emailVerified && (
+									<Badge variant="success" className="gap-1">
+										<ShieldCheck
+											className="size-3"
+											weight="fill"
+										/>
+										Verified
+									</Badge>
+								)}
+							</div>
+						</div>
+						<Text variant="secondary" size="sm">
+							{user?.email}
+						</Text>
+						{user?.bio && !isEditing && (
+							<p className="mt-2 max-w-xl text-sm text-kumo-default">
+								{user.bio}
+							</p>
+						)}
+					</div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="email">Email</Label>
-                    <p className="text-sm text-text-tertiary flex items-center gap-2">
-                      <Mail className="h-4 w-4" />
-                      {user?.email}
-                    </p>
-                  </div>
+					<div className="flex shrink-0 gap-2">
+						{isEditing ? (
+							<>
+								<Button
+									variant="primary"
+									size="sm"
+									onClick={handleSave}
+									loading={isSaving}
+								>
+									Save changes
+								</Button>
+								<Button
+									variant="outline"
+									size="sm"
+									onClick={handleCancel}
+									icon={<X className="size-4" />}
+								>
+									Cancel
+								</Button>
+							</>
+						) : (
+							<>
+								<Button
+									variant="secondary"
+									size="sm"
+									onClick={handleEdit}
+									icon={<PencilSimple className="size-4" />}
+								>
+									Edit profile
+								</Button>
+								<Button
+									variant="outline"
+									size="sm"
+									onClick={() => navigate('/settings')}
+									icon={<Gear className="size-4" />}
+								>
+									Settings
+								</Button>
+							</>
+						)}
+					</div>
+				</div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="joined">Member Since</Label>
-                    <p className="text-sm text-text-tertiary flex items-center gap-2">
-                      <Calendar className="h-4 w-4" />
-                      {user?.createdAt ? format(new Date(user.createdAt), 'MMMM d, yyyy') : 'Unknown'}
-                    </p>
-                  </div>
-                </div>
+				{/* Stats */}
+				<div className="mb-10 grid grid-cols-2 gap-3 sm:grid-cols-4">
+					{STATS.map(({ key, label, icon: Icon, iconClass }) => (
+						<div
+							key={key}
+							className="relative overflow-hidden rounded-xl px-4 py-4 bg-kumo-base ring ring-kumo-line/70"
+						>
+							<Icon
+								className={cn(
+									'pointer-events-none absolute -top-2 -right-5 size-24 rotate-12 opacity-10',
+									iconClass,
+								)}
+								weight="duotone"
+							/>
+							<div className="relative grid gap-1">
+								<p className="text-3xl font-semibold tabular-nums text-kumo-strong">
+									{statsLoading
+										? '–'
+										: formatNumber(stats?.[key] ?? 0)}
+								</p>
+								<p className="text-sm text-kumo-subtle">
+									{label}
+								</p>
+							</div>
+						</div>
+					))}
+				</div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="bio">Bio</Label>
-                  {isEditing ? (
-                    <Textarea
-                      id="bio"
-                      value={profileData.bio}
-                      onChange={(e) => setProfileData({ ...profileData, bio: e.target.value })}
-                      placeholder="Tell us about yourself..."
-                      rows={4}
-                    />
-                  ) : (
-                    <p className="text-sm text-text-tertiary">
-                      {user?.bio || 'No bio provided'}
-                    </p>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
+				{/* Tabs + content */}
+				<div className="flex flex-col gap-6">
+					<Tabs
+						value={activeTab}
+						onValueChange={handleTabChange}
+						className="w-fit"
+						tabs={[
+							{ value: 'about', label: 'About' },
+							{ value: 'apps', label: 'Apps' },
+							{ value: 'achievements', label: 'Achievements' },
+							{ value: 'activity', label: 'Activity' },
+						]}
+					/>
 
-          <TabsContent value="apps">
-            <Card className="dark:bg-bg-4/50 max-w-xl">
-              <CardHeader className='border-b'>
-                <CardTitle>Recent Applications</CardTitle>
-              </CardHeader>
-              <CardContent>
-                {appsLoading ? (
-                  <div className="flex items-center justify-center py-8">
-                    <div className="text-center">
-                      <Activity className="h-8 w-8 mx-auto mb-2 text-text-tertiary animate-pulse" />
-                      <p className="text-sm text-text-tertiary">Loading apps...</p>
-                    </div>
-                  </div>
-                ) : recentApps && recentApps.length > 0 ? (
-                  <div className="space-y-4">
-                    {recentApps.slice(0, 5).map((app) => (
-                      <div 
-                        key={app.id}
-                        className="flex items-center justify-between p-4 rounded-lg border hover:bg-bg-3/50 transition-colors cursor-pointer"
-                        onClick={() => navigate(`/app/${app.id}`)}
-                      >
-                        <div className="flex items-center gap-4">
-                          <div className="h-12 w-12 rounded-lg bg-bg-3 flex items-center justify-center">
-                            <Code2 className="h-6 w-6" />
-                          </div>
-                          <div>
-                            <h4 className="font-medium">{app.title}</h4>
-                            <div className="flex items-center gap-3 mt-1 text-xs text-text-tertiary">
-                              <Badge variant="secondary" className="text-xs">
-                                {app.framework}
-                              </Badge>
-                              <span className="text-xs">
-                                {app.createdAt ? format(new Date(app.createdAt), 'MMM d, yyyy') : 'Recently'}
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-                        <Badge variant={app.visibility === 'public' ? 'default' : 'secondary'}>
-                          {app.visibility}
-                        </Badge>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="flex flex-col items-center justify-center py-8">
-                    <Code2 className="h-12 w-12 text-text-tertiary mb-4" />
-                    <p className="text-text-tertiary">No apps created yet</p>
-                    <Button className="mt-4" onClick={() => navigate('/chat')}>
-                      Create Your First App
-                    </Button>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
+					{activeTab === 'about' && (
+						<LayerCard>
+							<LayerCard.Secondary className="font-funky-mono tracking-tighter">
+								Profile information
+							</LayerCard.Secondary>
+							<LayerCard.Primary>
+								<div className="grid gap-6">
+									<div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+										{isEditing ? (
+											<Input
+												id="displayName"
+												label="Display name"
+												value={profileData.displayName}
+												onChange={(e) =>
+													setProfileData({
+														...profileData,
+														displayName:
+															e.target.value,
+													})
+												}
+											/>
+										) : (
+											<div className="grid gap-1">
+												<p className="text-sm text-kumo-subtle">
+													Display name
+												</p>
+												<p className="text-sm text-kumo-default">
+													{user?.displayName || '—'}
+												</p>
+											</div>
+										)}
 
-          <TabsContent value="achievements">
-            <Card className="dark:bg-bg-4/50 max-w-xl">
-              <CardHeader>
-                <CardTitle>Achievements</CardTitle>
-              </CardHeader>
-              <CardContent>
-                {statsLoading ? (
-                  <div className="flex items-center justify-center py-8">
-                    <div className="text-center">
-                      <Trophy className="h-8 w-8 mx-auto mb-2 text-text-tertiary animate-pulse" />
-                      <p className="text-sm text-text-tertiary">Loading achievements...</p>
-                    </div>
-                  </div>
-                ) : achievements && achievements.length > 0 ? (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {achievements.map((achievement, index) => {
-                      return (
-                        <div key={index} className="p-4 rounded-lg border hover:shadow-md transition-shadow">
-                          <div className="flex items-start gap-4">
-                            <div className="p-3 rounded-lg bg-bg-3 text-text-tertiary">
-                              <Trophy className="h-6 w-6" />
-                            </div>
-                            <div className="flex-1">
-                              <h4 className="font-medium">{achievement}</h4>
-                              <p className="text-sm text-text-tertiary mt-1">
-                                Achievement unlocked!
-                              </p>
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <div className="flex flex-col items-center justify-center py-8">
-                    <Trophy className="h-12 w-12 text-text-tertiary mb-4" />
-                    <p className="text-text-tertiary">No achievements yet</p>
-                    <p className="text-sm text-text-tertiary mt-2">Start creating apps to unlock achievements!</p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
+										{isEditing ? (
+											<Input
+												id="username"
+												label="Username"
+												value={profileData.username}
+												onChange={(e) =>
+													setProfileData({
+														...profileData,
+														username:
+															e.target.value,
+													})
+												}
+												placeholder="@username"
+											/>
+										) : (
+											<div className="grid gap-1">
+												<p className="text-sm text-kumo-subtle">
+													Username
+												</p>
+												<p className="text-sm text-kumo-default">
+													{user?.username ||
+														'Not set'}
+												</p>
+											</div>
+										)}
 
-          <TabsContent value="activity">
-            <Card className="dark:bg-bg-4/50 max-w-xl">
-              <CardHeader>
-                <CardTitle>Activity Timeline</CardTitle>
-              </CardHeader>
-              <CardContent>
-                {activityLoading ? (
-                  <div className="flex items-center justify-center py-8">
-                    <div className="text-center">
-                      <Activity className="h-8 w-8 mx-auto mb-2 text-text-tertiary animate-pulse" />
-                      <p className="text-sm text-text-tertiary">Loading activity...</p>
-                    </div>
-                  </div>
-                ) : activities && activities.length > 0 ? (
-                  <div className="space-y-4">
-                    {activities.map((activity, index) => (
-                      <div key={index} className="flex items-start gap-4 pb-4 border-b last:border-0">
-                        <div className={cn(
-                          "p-2 rounded-lg",
-                          activity.type === 'created' && "bg-green-500/10 text-green-600",
-                          activity.type === 'updated' && "bg-blue-500/10 text-blue-600",
-                          activity.type === 'favorited' && "bg-yellow-500/10 text-yellow-600"
-                        )}>
-                          {activity.type === 'created' && <Zap className="h-4 w-4" />}
-                          {activity.type === 'updated' && <Edit3 className="h-4 w-4" />}
-                          {activity.type === 'favorited' && <Star className="h-4 w-4" />}
-                        </div>
-                        <div className="flex-1">
-                          <p className="text-sm">
-                            <span className="font-medium">
-                              {activity.type === 'created' && 'Created'}
-                              {activity.type === 'updated' && 'Updated'}
-                              {activity.type === 'favorited' && 'Favorited'}
-                            </span>
-                            {' '}
-                            <span className="text-text-tertiary">{activity.title}</span>
-                          </p>
-                          <p className="text-xs text-text-tertiary mt-1">
-                            {activity.timestamp ? format(new Date(activity.timestamp), 'MMM d, yyyy h:mm a') : 'Recently'}
-                          </p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="flex flex-col items-center justify-center py-8">
-                    <Activity className="h-12 w-12 text-text-tertiary mb-4" />
-                    <p className="text-text-tertiary">No recent activity</p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
-        </Tabs>
-      </div>
-    </div>
-  );
+										<div className="grid gap-1">
+											<p className="text-sm text-kumo-subtle">
+												Email
+											</p>
+											<p className="flex items-center gap-2 text-sm text-kumo-default">
+												<span className="h-lh flex items-center text-kumo-subtle">
+													<EnvelopeSimple className="size-4" />
+												</span>
+												{user?.email}
+											</p>
+										</div>
+
+										<div className="grid gap-1">
+											<p className="text-sm text-kumo-subtle">
+												Member since
+											</p>
+											<p className="flex items-center gap-2 text-sm text-kumo-default">
+												<span className="h-lh flex items-center text-kumo-subtle">
+													<CalendarBlank className="size-4" />
+												</span>
+												{user?.createdAt
+													? format(
+															new Date(
+																user.createdAt,
+															),
+															'MMMM d, yyyy',
+														)
+													: 'Unknown'}
+											</p>
+										</div>
+									</div>
+
+									{isEditing ? (
+										<InputArea
+											id="bio"
+											label="Bio"
+											value={profileData.bio}
+											onChange={(e) =>
+												setProfileData({
+													...profileData,
+													bio: e.target.value,
+												})
+											}
+											placeholder="Tell us about yourself..."
+											rows={4}
+										/>
+									) : (
+										<div className="grid gap-1">
+											<p className="text-sm text-kumo-subtle">
+												Bio
+											</p>
+											<p className="text-sm text-kumo-default">
+												{user?.bio ||
+													'No bio yet — hit edit to add one!'}
+											</p>
+										</div>
+									)}
+								</div>
+							</LayerCard.Primary>
+						</LayerCard>
+					)}
+
+					{activeTab === 'apps' && (
+						<LayerCard>
+							<LayerCard.Secondary className="font-funky-mono tracking-tighter">
+								Recent apps
+							</LayerCard.Secondary>
+							<LayerCard.Primary>
+								{appsLoading ? (
+									<div className="flex justify-center py-10">
+										<Loader />
+									</div>
+								) : recentApps && recentApps.length > 0 ? (
+									<div className="grid gap-2">
+										{recentApps.slice(0, 5).map((app) => (
+											<button
+												key={app.id}
+												type="button"
+												className="flex w-full items-center justify-between gap-3 rounded-lg px-3 py-3 text-left ring ring-kumo-hairline hover:bg-kumo-tint"
+												onClick={() =>
+													navigate(`/app/${app.id}`)
+												}
+											>
+												<div className="flex min-w-0 items-center gap-3">
+													<span className="flex size-10 shrink-0 items-center justify-center rounded-lg text-kumo-subtle">
+														<Code className="size-5" />
+													</span>
+													<div className="min-w-0">
+														<p className="truncate text-sm font-medium text-kumo-default">
+															{app.title}
+														</p>
+														<div className="mt-1 flex flex-wrap items-center gap-2">
+															{app.framework && (
+																<Badge
+																	variant="neutral"
+																	className="text-xs"
+																>
+																	{
+																		app.framework
+																	}
+																</Badge>
+															)}
+															<span className="text-xs text-kumo-subtle">
+																{app.createdAt
+																	? format(
+																			new Date(
+																				app.createdAt,
+																			),
+																			'MMM d, yyyy',
+																		)
+																	: 'Recently'}
+															</span>
+														</div>
+													</div>
+												</div>
+												<Badge
+													variant={
+														app.visibility ===
+														'public'
+															? 'success'
+															: 'secondary'
+													}
+												>
+													{app.visibility}
+												</Badge>
+											</button>
+										))}
+									</div>
+								) : (
+									<Empty
+										size="sm"
+										icon={
+											<Code
+												size={40}
+												className="text-kumo-inactive"
+												weight="duotone"
+											/>
+										}
+										title="No apps yet"
+										description="Build something fun — your first app is one prompt away."
+										contents={
+											<Button
+												variant="primary"
+												size="sm"
+												onClick={() =>
+													navigate('/chat')
+												}
+											>
+												Create your first app
+											</Button>
+										}
+									/>
+								)}
+							</LayerCard.Primary>
+						</LayerCard>
+					)}
+
+					{activeTab === 'achievements' && (
+						<LayerCard>
+							<LayerCard.Secondary className="font-funky-mono tracking-tighter">
+								Achievements
+							</LayerCard.Secondary>
+							<LayerCard.Primary>
+								{statsLoading ? (
+									<div className="flex justify-center py-10">
+										<Loader />
+									</div>
+								) : achievements && achievements.length > 0 ? (
+									<div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+										{achievements.map(
+											(achievement, index) => (
+												<div
+													key={index}
+													className="flex items-start gap-3 rounded-lg px-3 py-3 ring ring-kumo-hairline"
+												>
+													<span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400">
+														<Trophy
+															className="size-5"
+															weight="duotone"
+														/>
+													</span>
+													<div className="min-w-0 grid gap-0.5">
+														<p className="text-sm font-medium text-kumo-default">
+															{achievement}
+														</p>
+														<p className="text-sm text-kumo-subtle">
+															Unlocked — nice
+															work!
+														</p>
+													</div>
+												</div>
+											),
+										)}
+									</div>
+								) : (
+									<Empty
+										size="sm"
+										icon={
+											<Trophy
+												size={40}
+												className="text-kumo-inactive"
+												weight="duotone"
+											/>
+										}
+										title="No achievements yet"
+										description="Create apps and share them to unlock badges."
+									/>
+								)}
+							</LayerCard.Primary>
+						</LayerCard>
+					)}
+
+					{activeTab === 'activity' && (
+						<LayerCard>
+							<LayerCard.Secondary className="font-funky-mono tracking-tighter">
+								Activity
+							</LayerCard.Secondary>
+							<LayerCard.Primary>
+								{activityLoading ? (
+									<div className="flex justify-center py-10">
+										<Loader />
+									</div>
+								) : activities && activities.length > 0 ? (
+									<div className="grid gap-0">
+										{activities.map((activity, index) => (
+											<div
+												key={index}
+												className="flex items-start gap-3 border-b border-kumo-line/50 py-3 last:border-0 last:pb-0 first:pt-0"
+											>
+												<span className="flex size-8 shrink-0 items-center justify-center rounded-lg text-kumo-subtle">
+													{activity.type ===
+														'created' && (
+														<Lightning className="size-4" />
+													)}
+													{activity.type ===
+														'updated' && (
+														<PencilSimple className="size-4" />
+													)}
+													{activity.type ===
+														'favorited' && (
+														<Star className="size-4" />
+													)}
+												</span>
+												<div className="min-w-0 flex-1 grid gap-0.5">
+													<p className="text-sm text-kumo-default">
+														<span className="font-medium">
+															{activity.type ===
+																'created' &&
+																'Created'}
+															{activity.type ===
+																'updated' &&
+																'Updated'}
+															{activity.type ===
+																'favorited' &&
+																'Favorited'}
+														</span>{' '}
+														<span className="text-kumo-subtle">
+															{activity.title}
+														</span>
+													</p>
+													<p className="text-xs text-kumo-subtle">
+														{activity.timestamp
+															? format(
+																	new Date(
+																		activity.timestamp,
+																	),
+																	'MMM d, yyyy h:mm a',
+																)
+															: 'Recently'}
+													</p>
+												</div>
+											</div>
+										))}
+									</div>
+								) : (
+									<Empty
+										size="sm"
+										icon={
+											<Pulse
+												size={40}
+												className="text-kumo-inactive"
+												weight="duotone"
+											/>
+										}
+										title="No recent activity"
+										description="Your creations and updates will show up here."
+									/>
+								)}
+							</LayerCard.Primary>
+						</LayerCard>
+					)}
+				</div>
+			</main>
+		</div>
+	);
 }
