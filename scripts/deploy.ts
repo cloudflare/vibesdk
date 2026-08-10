@@ -14,6 +14,7 @@
  */
 
 import { execSync } from 'child_process';
+import { randomBytes } from 'crypto';
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
@@ -1770,6 +1771,7 @@ class CloudflareDeploymentManager {
 			'JWT_SECRET',
 			'SENTRY_DSN',
 			'AI_PROXY_JWT_SECRET',
+			'ENABLE_ARTIFACTS',
 			'MAX_SANDBOX_INSTANCES',
 			'CUSTOM_DOMAIN',
 			'CUSTOM_PREVIEW_DOMAIN',
@@ -1778,6 +1780,11 @@ class CloudflareDeploymentManager {
 			'ENVIRONMENT',
 			'PLATFORM_MODEL_PROVIDERS',
 		];
+
+		const generatedJwtSecret = process.env.JWT_SECRET ? undefined : randomBytes(64).toString('base64url');
+		if (generatedJwtSecret) {
+			console.log('🔐 Generated JWT_SECRET for this deployment');
+		}
 
 		const prodVarsContent: string[] = [
 			'# Production environment variables for Cloudflare Orange Build',
@@ -1788,7 +1795,7 @@ class CloudflareDeploymentManager {
 
 		// Add environment variables that are set
 		secretVars.forEach((varName) => {
-			let value = process.env[varName];
+			let value = varName === 'JWT_SECRET' ? generatedJwtSecret : process.env[varName];
 			
 			// Apply fallback logic for CLOUDFLARE_AI_GATEWAY_TOKEN
 			if (varName === 'CLOUDFLARE_AI_GATEWAY_TOKEN' && (!value || value === '')) {
