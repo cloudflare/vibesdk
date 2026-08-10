@@ -224,8 +224,6 @@
             "version": "1.0.0"
         },
         "CUSTOM_DOMAIN": "",
-        // Cloudflare Artifacts is in closed beta; enable only for accounts with access.
-        "ENABLE_ARTIFACTS": "false",
         "MAX_SANDBOX_INSTANCES": "10",
         "SANDBOX_INSTANCE_TYPE": "standard-3",
         "DEV_BROWSER_SIDECAR_URL": "http://127.0.0.1:9223",

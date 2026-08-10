@@ -56,6 +56,10 @@ jobs:
       # Target the staging wrangler config instead of the prod one.
       WRANGLER_CONFIG_PATH: wrangler.staging.jsonc
 
+      # Staging runs on an account with Cloudflare Artifacts access. Keep the
+      # ARTIFACTS binding: the deploy script drops it unless this is "true".
+      ENABLE_ARTIFACTS: "true"
+
       # Staging-specific overrides. These take priority over wrangler.staging.jsonc vars.
       CUSTOM_DOMAIN: staging.build.cloudflare.dev
       CUSTOM_PREVIEW_DOMAIN: staging.build.cloudflare.dev

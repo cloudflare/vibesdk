@@ -65,6 +65,10 @@ interface WranglerConfig {
 		custom_domain: boolean;
         zone_id?: string;
 	}>;
+	artifacts?: Array<{
+		binding: string;
+		namespace: string;
+	}>;
 	vars?: {
 		TEMPLATES_REPOSITORY?: string;
 		CLOUDFLARE_AI_GATEWAY?: string;
@@ -101,6 +105,7 @@ class CloudflareDeploymentManager {
 	private cloudflare: Cloudflare;
 	private aiGatewayCloudflare?: Cloudflare; // Separate SDK instance for AI Gateway operations
 	private conflictingVarsForCleanup: Record<string, string> | null = null; // For signal cleanup
+	private artifactsBindingBackup: WranglerConfig['artifacts'] | null = null; // Restored after deploy when temporarily removed
 
 	constructor() {
 		this.validateEnvironment();
@@ -125,9 +130,10 @@ class CloudflareDeploymentManager {
 			
 			try {
 				// Restore conflicting vars using existing restoration method
-				if (this.conflictingVarsForCleanup) {
+				if (this.conflictingVarsForCleanup || this.artifactsBindingBackup) {
 					console.log('🔄 Restoring original wrangler.jsonc configuration...');
 					await this.restoreOriginalVars(this.conflictingVarsForCleanup);
+					this.restoreArtifactsBinding();
 				} else {
 					console.log('ℹ️  No configuration changes to restore');
 				}
@@ -1962,6 +1968,71 @@ class CloudflareDeploymentManager {
 		}
 	}
 
+	/**
+	 * Whether Cloudflare Artifacts should be enabled for this deployment.
+	 * Controlled by ENABLE_ARTIFACTS (env var takes priority over wrangler vars).
+	 * Cloudflare Artifacts is a closed beta; accounts without access cannot
+	 * deploy a Worker that declares the ARTIFACTS binding.
+	 */
+	private artifactsEnabled(): boolean {
+		const value = (process.env.ENABLE_ARTIFACTS ?? this.config.vars?.ENABLE_ARTIFACTS ?? '')
+			.toString()
+			.trim()
+			.toLowerCase();
+		return value === 'true';
+	}
+
+	/**
+	 * Removes the `artifacts` binding from the wrangler config before deploy
+	 * when Artifacts is not enabled. Without access to the closed beta, declaring
+	 * the binding fails `wrangler deploy` (code 10015). The binding is unused when
+	 * ENABLE_ARTIFACTS is not "true", so it is safe to drop. Backed up for restore.
+	 */
+	private removeArtifactsBindingIfDisabled(): void {
+		if (this.artifactsEnabled()) {
+			console.log('✅ ENABLE_ARTIFACTS="true" - keeping ARTIFACTS binding');
+			return;
+		}
+
+		try {
+			const { content, config } = this.readWranglerConfig();
+			if (!config.artifacts) {
+				return;
+			}
+
+			this.artifactsBindingBackup = config.artifacts;
+			const edits = modify(content, ['artifacts'], undefined, CloudflareDeploymentManager.JSONC_FORMAT_OPTIONS);
+			this.writeWranglerConfig(applyEdits(content, edits));
+			this.logSuccess('Removed ARTIFACTS binding for deploy (ENABLE_ARTIFACTS is not "true")');
+		} catch (error) {
+			this.logWarning(`Could not remove ARTIFACTS binding: ${error instanceof Error ? error.message : String(error)}`, [
+				'Continuing with deployment...'
+			]);
+		}
+	}
+
+	/**
+	 * Restores the `artifacts` binding removed by removeArtifactsBindingIfDisabled.
+	 */
+	private restoreArtifactsBinding(): void {
+		if (!this.artifactsBindingBackup) {
+			return;
+		}
+
+		try {
+			const { content } = this.readWranglerConfig();
+			const edits = modify(content, ['artifacts'], this.artifactsBindingBackup, CloudflareDeploymentManager.JSONC_FORMAT_OPTIONS);
+			this.writeWranglerConfig(applyEdits(content, edits));
+			this.logSuccess('Restored ARTIFACTS binding to wrangler config');
+		} catch (error) {
+			this.logWarning(`Could not restore ARTIFACTS binding: ${error instanceof Error ? error.message : String(error)}`, [
+				'You may need to manually restore the artifacts binding in the wrangler config'
+			]);
+		} finally {
+			this.artifactsBindingBackup = null;
+		}
+	}
+
     /**
      * Runs database migrations
      */
@@ -2009,6 +2080,9 @@ class CloudflareDeploymentManager {
 
 			console.log('   🔧 Updating container instance types');
 			this.updateContainerInstanceTypes();
+
+			console.log('   🔧 Configuring Artifacts binding');
+			this.removeArtifactsBindingIfDisabled();
 
 			console.log('✅ Configuration files updated successfully!\n');
 
@@ -2087,6 +2161,7 @@ class CloudflareDeploymentManager {
 				// Step 7: Always restore original vars (even if deployment failed)
 				console.log('\n📋 Step 7: Restoring original configuration...');
 				await this.restoreOriginalVars(conflictingVars);
+				this.restoreArtifactsBinding();
 				
 				// Clear the backup since we've restored
 				this.conflictingVarsForCleanup = null;
