@@ -53,6 +53,10 @@ jobs:
       CI: true
       WRANGLER_NON_INTERACTIVE: true
 
+      # Production runs on an account with Cloudflare Artifacts access. Keep the
+      # ARTIFACTS binding: the deploy script drops it unless this is "true".
+      ENABLE_ARTIFACTS: "true"
+
       # Prefer repo variables for non-sensitive config.
       CUSTOM_DOMAIN: ${{ vars.CUSTOM_DOMAIN }}
       CUSTOM_PREVIEW_DOMAIN: ${{ vars.CUSTOM_PREVIEW_DOMAIN }}
