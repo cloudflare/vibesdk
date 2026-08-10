@@ -337,7 +337,6 @@ export function AppSidebar() {
 						<Sidebar.Menu className="gap-y-1.5">
 							{pathname !== '/' && (
 								<OrangeButton
-									fullWidth
 									icon={
 										<PlusIcon
 											className="size-4"
@@ -348,7 +347,7 @@ export function AppSidebar() {
 									onClick={() => {
 										navigate('/');
 									}}
-									className="h-8! text-sm"
+									className="h-8! w-full justify-start text-sm"
 								>
 									New build
 								</OrangeButton>
@@ -595,12 +594,11 @@ export function AppSidebar() {
 							onClick={handleCloudflareCta}
 							aria-label={cloudflareCtaLabel}
 							title={cloudflareCtaLabel}
-							fullWidth={!isCollapsed}
 							shape={isCollapsed ? 'square' : 'base'}
 							className={cn(
 								isCollapsed
 									? 'size-8! shrink-0 self-center'
-									: 'h-8! gap-2 text-sm',
+									: 'h-8! w-full justify-start gap-2 text-sm',
 							)}
 							icon={
 								<CloudflareLogo
