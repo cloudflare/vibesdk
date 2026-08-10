@@ -3,9 +3,6 @@
 #ENVIRONMENT="prod" # Options: dev, staging, prod
 
 # Feature flags
-# Cloudflare Artifacts filesystem backend for SpaceDO. This feature is in closed beta;
-# enable it only if Cloudflare has granted your account access.
-ENABLE_ARTIFACTS="false"
 
 # Cloudflare Credentials (Required for manual deployment via `bun run deploy`)
 # These are automatically provided when using "Deploy to Cloudflare" button
