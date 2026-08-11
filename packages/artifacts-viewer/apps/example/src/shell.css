@@ -1,0 +1,148 @@
+/*
+ * Shell scaffolding.
+ *
+ * Everything visual routes through a `--page-*` token that falls back to a
+ * browser default, so the "unstyled" example can opt out of the entire design
+ * system by simply defining nothing. Each theme file fills the tokens in and
+ * adds its own atmosphere.
+ */
+
+.stage {
+  position: relative;
+  min-height: 100vh;
+  overflow-x: hidden;
+  color: var(--page-ink, inherit);
+  background: var(--page-bg, transparent);
+  font-family: var(--page-body, inherit);
+  transition:
+    background 500ms ease,
+    color 500ms ease;
+}
+
+/* Decorative only: grain, scanlines, gradient meshes, paper fibre. */
+.stage__atmosphere {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.stage__inner {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--page-flow, 2.5rem);
+  width: 100%;
+  max-width: var(--page-measure, 80rem);
+  margin: 0 auto;
+  padding: var(--page-pad, 2rem 1.5rem 5rem);
+}
+
+/* ---------------------------------------------------------------- switcher */
+
+.rail {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--page-rail-gap, 0.5rem);
+}
+
+.rail__label {
+  margin-inline-end: 0.5rem;
+  color: var(--page-muted, inherit);
+  font-family: var(--page-mono, inherit);
+  font-size: 0.75rem;
+  letter-spacing: var(--page-tracking, normal);
+  text-transform: var(--page-caps, none);
+}
+
+.switch {
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.switch__index {
+  color: var(--page-muted, inherit);
+  font-family: var(--page-mono, inherit);
+  font-size: 0.75em;
+}
+
+/* ---------------------------------------------------------------- masthead */
+
+.masthead {
+  display: flex;
+  flex-direction: column;
+  gap: var(--page-masthead-gap, 0.75rem);
+  max-width: 46rem;
+}
+
+.masthead__title {
+  margin: 0;
+  color: var(--page-title-ink, inherit);
+  font-family: var(--page-display, inherit);
+  font-size: var(--page-title-size, 2rem);
+  font-weight: var(--page-title-weight, 700);
+  line-height: var(--page-title-leading, 1.05);
+  letter-spacing: var(--page-title-tracking, normal);
+  text-transform: var(--page-title-caps, none);
+}
+
+.masthead__tagline {
+  margin: 0;
+  max-width: 42rem;
+  color: var(--page-muted, inherit);
+  font-size: var(--page-tagline-size, 1rem);
+  line-height: var(--page-tagline-leading, 1.6);
+}
+
+.credits {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.375rem 1.25rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  color: var(--page-muted, inherit);
+  font-family: var(--page-mono, inherit);
+  font-size: 0.6875rem;
+  letter-spacing: var(--page-tracking, normal);
+  text-transform: var(--page-caps, none);
+}
+
+.credits b {
+  color: var(--page-ink, inherit);
+  font-weight: 500;
+}
+
+/* ------------------------------------------------------------------ viewer */
+
+.viewer-frame {
+  min-width: 0;
+}
+
+/* ----------------------------------------------------------------- readout */
+
+.readout {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.5rem 1rem;
+  color: var(--page-muted, inherit);
+  font-family: var(--page-mono, inherit);
+  font-size: 0.75rem;
+}
+
+.readout__path {
+  color: var(--page-ink, inherit);
+  overflow-wrap: anywhere;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .stage,
+  .stage * {
+    animation: none !important;
+    transition: none !important;
+  }
+}

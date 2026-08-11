@@ -1,0 +1,198 @@
+/*
+ * Structural styles only.
+ *
+ * Nothing here picks a colour, a font, or a scale: every value routes through
+ * an `--artifacts-viewer-*` custom property that falls back to `inherit`,
+ * `currentColor`, or a neutral length. Selectors are wrapped in `:where()` so
+ * they carry zero specificity and any consumer rule wins without `!important`.
+ */
+
+:where([data-artifacts-viewer-root]) {
+  container-type: inline-size;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  color: var(--artifacts-viewer-color, inherit);
+  font-family: var(--artifacts-viewer-font, inherit);
+  font-size: var(--artifacts-viewer-font-size, inherit);
+  background: var(--artifacts-viewer-background, transparent);
+}
+
+:where([data-artifacts-viewer-slot="toolbar"]) {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--artifacts-viewer-gap, 0.5rem);
+  padding: var(--artifacts-viewer-row-padding, 0.375rem 0.75rem);
+  background: var(--artifacts-viewer-toolbar-background, inherit);
+}
+
+:where([data-artifacts-viewer-slot="content"]) {
+  display: grid;
+  grid-template-columns: var(--artifacts-viewer-sidebar-width, 16rem) minmax(0, 1fr);
+  align-items: start;
+  min-height: 0;
+  gap: var(--artifacts-viewer-gap, 0.5rem);
+}
+
+@container (width < 40rem) {
+  :where([data-artifacts-viewer-slot="content"]) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+:where([data-artifacts-viewer-slot="sidebar"]) {
+  min-width: 0;
+  max-height: var(--artifacts-viewer-pane-height, none);
+  overflow: var(--artifacts-viewer-pane-overflow, visible);
+  overscroll-behavior: contain;
+}
+
+/* Nesting supplies the indentation, so rows need no inline style. */
+:where([data-artifacts-viewer-slot="tree"]) ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+:where([data-artifacts-viewer-slot="tree"]) ul ul {
+  padding-inline-start: var(--artifacts-viewer-indent, 1rem);
+}
+
+:where([data-artifacts-viewer-slot="directory"]) {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  max-height: var(--artifacts-viewer-pane-height, none);
+  overflow: var(--artifacts-viewer-pane-overflow, visible);
+  overscroll-behavior: contain;
+}
+
+:where([data-artifacts-viewer-slot="treeItem"], [data-artifacts-viewer-slot="directoryItem"]) {
+  display: flex;
+  align-items: center;
+  gap: var(--artifacts-viewer-gap, 0.5rem);
+  width: 100%;
+  padding: var(--artifacts-viewer-row-padding, 0.375rem 0.75rem);
+  border: 0;
+  margin: 0;
+  text-align: start;
+  text-decoration: none;
+  color: inherit;
+  font: inherit;
+  background: transparent;
+  cursor: pointer;
+}
+
+:where([data-artifacts-viewer-slot="treeItem"][data-kind="gitlink"]),
+:where([data-artifacts-viewer-slot="directoryItem"][data-kind="gitlink"]) {
+  cursor: default;
+}
+
+:where(
+  [data-artifacts-viewer-slot="treeItem"],
+  [data-artifacts-viewer-slot="directoryItem"]
+):focus-visible {
+  outline: var(--artifacts-viewer-focus-outline, 2px solid currentColor);
+  outline-offset: var(--artifacts-viewer-focus-offset, -2px);
+}
+
+:where([data-artifacts-viewer-part="icon"]) {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  color: var(--artifacts-viewer-icon-color, currentColor);
+}
+
+:where([data-artifacts-viewer-part="name"]) {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+:where([data-artifacts-viewer-slot="file"]) {
+  min-width: 0;
+  max-height: var(--artifacts-viewer-pane-height, none);
+  overflow: var(--artifacts-viewer-pane-overflow, visible);
+  overscroll-behavior: contain;
+}
+
+:where([data-artifacts-viewer-slot="file"]) > header {
+  position: sticky;
+  top: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--artifacts-viewer-gap, 0.5rem);
+  padding: var(--artifacts-viewer-row-padding, 0.375rem 0.75rem);
+  background: var(--artifacts-viewer-toolbar-background, inherit);
+}
+
+:where([data-artifacts-viewer-part="actions"]) {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: var(--artifacts-viewer-gap, 0.5rem);
+}
+
+/*
+ * The placeholder and the highlighted file share one cell, so revealing the
+ * highlighted copy cannot shift layout. `@pierre/diffs` renders into an open
+ * Shadow DOM: nothing below reaches inside it, and theming must go through
+ * `pierreDiffsOptions`.
+ */
+:where([data-artifacts-viewer-part="code"]) {
+  display: grid;
+  min-width: 0;
+}
+
+:where([data-artifacts-viewer-part="code"]) > * {
+  grid-area: 1 / 1;
+  min-width: 0;
+}
+
+/* Shown only when highlighting is unavailable. */
+:where([data-artifacts-viewer-part="code-fallback"]) {
+  margin: 0;
+  overflow: auto;
+  padding: var(--artifacts-viewer-row-padding, 0.375rem 0.75rem);
+  font-family: var(--artifacts-viewer-mono-font, monospace);
+  white-space: pre;
+}
+
+:where([data-artifacts-viewer-part="code-highlight"][data-pending]) {
+  visibility: hidden;
+}
+
+:where([data-artifacts-viewer-part="image"]) {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--artifacts-viewer-row-padding, 0.375rem 0.75rem);
+}
+
+:where([data-artifacts-viewer-part="image"]) img {
+  max-width: 100%;
+  max-height: var(--artifacts-viewer-image-max-height, 80vh);
+  object-fit: contain;
+}
+
+:where(
+  [data-artifacts-viewer-slot="loading"],
+  [data-artifacts-viewer-slot="empty"],
+  [data-artifacts-viewer-slot="error"]
+) {
+  margin: 0;
+  padding: var(--artifacts-viewer-row-padding, 0.375rem 0.75rem);
+  color: var(--artifacts-viewer-muted-color, inherit);
+}
+
+:where([data-artifacts-viewer-slot="error"]) {
+  color: var(--artifacts-viewer-error-color, inherit);
+}

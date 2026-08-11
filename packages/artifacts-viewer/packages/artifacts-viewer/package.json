@@ -1,0 +1,58 @@
+{
+  "name": "artifacts-viewer",
+  "version": "0.0.5",
+  "description": "A read-only React repository viewer for Cloudflare Artifacts.",
+  "homepage": "https://github.com/mdhruvil/artifacts-viewer#readme",
+  "bugs": {
+    "url": "https://github.com/mdhruvil/artifacts-viewer/issues"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mdhruvil/artifacts-viewer.git",
+    "directory": "packages/artifacts-viewer"
+  },
+  "files": [
+    "dist"
+  ],
+  "type": "module",
+  "sideEffects": [
+    "**/*.css"
+  ],
+  "exports": {
+    ".": "./dist/index.js",
+    "./client": "./dist/client.js",
+    "./react": "./dist/react.js",
+    "./server/cache": "./dist/server/cache.js",
+    "./package.json": "./package.json",
+    "./styles.css": {
+      "types": "./dist/styles.css.d.ts",
+      "default": "./dist/styles.css"
+    }
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "vp pack",
+    "dev": "vp pack --watch",
+    "check": "vp check",
+    "prepublishOnly": "vp run build"
+  },
+  "dependencies": {
+    "@pierre/diffs": "catalog:"
+  },
+  "devDependencies": {
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
+    "react": "catalog:",
+    "react-dom": "catalog:",
+    "typescript": "catalog:",
+    "vite": "catalog:",
+    "vite-plus": "catalog:"
+  },
+  "peerDependencies": {
+    "react": "^18.2.0 || ^19.0.0",
+    "react-dom": "^18.2.0 || ^19.0.0"
+  }
+}

@@ -1,0 +1,333 @@
+/* Nocturne — soft luxe dusk. Gradient mesh, glass panels, pill rows, glow. */
+
+.theme-nocturne {
+  --plum: #100c1c;
+  --lilac: #cdbdff;
+  --mint: #8ff0d0;
+  --veil: rgb(255 255 255 / 5%);
+  --edge: rgb(205 189 255 / 16%);
+
+  --page-bg: var(--plum);
+  --page-ink: #e7e2f5;
+  --page-title-ink: #f6f3ff;
+  --page-muted: #9689b8;
+  --page-body: "Sora", ui-sans-serif, sans-serif;
+  --page-display: "Syne", ui-sans-serif, sans-serif;
+  --page-mono:
+    "JetBrains Mono Variable", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  --page-flow: 2.5rem;
+  --page-measure: 80rem;
+  --page-pad: 3rem 1.75rem 7rem;
+  --page-rail-gap: 0.5rem;
+  --page-masthead-gap: 1rem;
+  --page-title-size: clamp(2.25rem, 6vw, 3.75rem);
+  --page-title-weight: 800;
+  --page-title-leading: 1;
+  --page-title-tracking: -0.02em;
+  --page-tagline-size: 1rem;
+  --page-tagline-leading: 1.75;
+  --page-tracking: 0.18em;
+  --page-caps: uppercase;
+
+  --artifacts-viewer-font: "Sora", ui-sans-serif, sans-serif;
+  --artifacts-viewer-font-size: 0.8125rem;
+  --artifacts-viewer-mono-font:
+    "JetBrains Mono Variable", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  --diffs-font-family:
+    "JetBrains Mono Variable", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  --artifacts-viewer-color: #ded8f0;
+  --artifacts-viewer-muted-color: #9689b8;
+  --artifacts-viewer-error-color: #ff9ec2;
+  --artifacts-viewer-icon-color: var(--mint);
+  --artifacts-viewer-background: transparent;
+  --artifacts-viewer-toolbar-background: transparent;
+  --artifacts-viewer-sidebar-width: 18rem;
+  --artifacts-viewer-indent: 0.875rem;
+  --artifacts-viewer-row-padding: 0.4375rem 0.875rem;
+  --artifacts-viewer-focus-outline: 1px solid var(--mint);
+  --artifacts-viewer-focus-offset: 2px;
+}
+
+/* Four-point gradient mesh, drifting, with a fine noise veil on top. */
+.theme-nocturne .stage__atmosphere {
+  background:
+    radial-gradient(60% 50% at 12% 8%, rgb(205 189 255 / 20%) 0%, transparent 70%),
+    radial-gradient(55% 45% at 88% 18%, rgb(143 240 208 / 13%) 0%, transparent 72%),
+    radial-gradient(70% 60% at 72% 92%, rgb(255 138 205 / 12%) 0%, transparent 70%),
+    radial-gradient(80% 70% at 0% 100%, rgb(122 92 255 / 14%) 0%, transparent 68%);
+  animation: nocturne-drift 26s ease-in-out infinite alternate;
+}
+
+@keyframes nocturne-drift {
+  0% {
+    transform: scale(1) translate3d(0, 0, 0);
+  }
+  100% {
+    transform: scale(1.12) translate3d(-2%, 1.5%, 0);
+  }
+}
+
+.theme-nocturne .stage__atmosphere::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4'/%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23n)'/%3E%3C/svg%3E");
+  opacity: 0.045;
+  mix-blend-mode: overlay;
+}
+
+/* -------------------------------------------------------------- page chrome */
+
+.theme-nocturne .switch {
+  padding: 0.4375rem 0.9375rem;
+  border: 1px solid var(--edge);
+  border-radius: 999px;
+  background: var(--veil);
+  color: #b6acd4;
+  font-family:
+    "JetBrains Mono Variable", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.6875rem;
+  letter-spacing: 0.06em;
+  backdrop-filter: blur(12px);
+  transition:
+    color 200ms ease,
+    border-color 200ms ease,
+    box-shadow 200ms ease,
+    transform 200ms ease;
+}
+
+.theme-nocturne .switch:hover {
+  transform: translateY(-1px);
+  border-color: rgb(205 189 255 / 45%);
+  color: #f2eeff;
+}
+
+.theme-nocturne .switch[aria-pressed="true"] {
+  border-color: transparent;
+  background: linear-gradient(135deg, rgb(205 189 255 / 92%), rgb(143 240 208 / 82%));
+  color: #150f26;
+  font-weight: 500;
+  box-shadow: 0 8px 28px -10px rgb(205 189 255 / 60%);
+}
+
+.theme-nocturne .switch__index {
+  color: inherit;
+  opacity: 0.6;
+}
+
+.theme-nocturne .masthead__title {
+  background: linear-gradient(104deg, #ffffff 0%, var(--lilac) 46%, var(--mint) 100%);
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.theme-nocturne .credits b {
+  color: var(--mint);
+  font-weight: 400;
+}
+
+.theme-nocturne .readout {
+  padding: 0.875rem 1.125rem;
+  border: 1px solid var(--edge);
+  border-radius: 1rem;
+  background: var(--veil);
+  backdrop-filter: blur(12px);
+}
+
+.theme-nocturne .readout__path {
+  color: var(--mint);
+}
+
+/* ------------------------------------------------------------------- viewer */
+
+.theme-nocturne .viewer-frame {
+  border: 1px solid var(--edge);
+  border-radius: 1.5rem;
+  background: linear-gradient(180deg, rgb(255 255 255 / 6%), rgb(255 255 255 / 2%));
+  overflow: hidden;
+  backdrop-filter: blur(24px) saturate(140%);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 8%),
+    0 40px 90px -50px rgb(122 92 255 / 55%);
+  animation: nocturne-rise 620ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes nocturne-rise {
+  0% {
+    opacity: 0;
+    transform: translateY(18px) scale(0.99);
+  }
+  100% {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.theme-nocturne [data-artifacts-viewer-slot="toolbar"] {
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid var(--edge);
+  color: #b6acd4;
+  font-family:
+    "JetBrains Mono Variable", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.6875rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  backdrop-filter: blur(18px);
+}
+
+.theme-nocturne [data-artifacts-viewer-part="name"] {
+  color: #f4f1ff;
+  font-weight: 400;
+}
+
+.theme-nocturne [data-artifacts-viewer-slot="sidebar"] {
+  padding: 0.75rem 0.625rem;
+  border-right: 1px solid var(--edge);
+}
+
+.theme-nocturne [data-artifacts-viewer-slot="treeItem"],
+.theme-nocturne [data-artifacts-viewer-slot="directoryItem"] {
+  width: 100%;
+  border-radius: 999px;
+  color: #c3bade;
+  transition:
+    background 200ms ease,
+    color 200ms ease,
+    box-shadow 200ms ease;
+}
+
+.theme-nocturne [data-artifacts-viewer-slot="treeItem"]:hover,
+.theme-nocturne [data-artifacts-viewer-slot="directoryItem"]:hover {
+  background: rgb(205 189 255 / 10%);
+  color: #f4f1ff;
+}
+
+.theme-nocturne [data-artifacts-viewer-slot="treeItem"][data-selected],
+.theme-nocturne [data-artifacts-viewer-slot="directoryItem"][data-selected] {
+  background: linear-gradient(120deg, rgb(205 189 255 / 26%), rgb(143 240 208 / 16%));
+  color: #fbf9ff;
+  box-shadow:
+    inset 0 0 0 1px rgb(205 189 255 / 35%),
+    0 10px 26px -14px rgb(205 189 255 / 55%);
+}
+
+.theme-nocturne [data-artifacts-viewer-slot="treeItem"][data-kind="tree"],
+.theme-nocturne [data-artifacts-viewer-slot="directoryItem"][data-kind="tree"] {
+  font-family: "Syne", ui-sans-serif, sans-serif;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.theme-nocturne [data-artifacts-viewer-slot="treeItem"][data-disabled] {
+  color: #6d6289;
+}
+
+.theme-nocturne [data-artifacts-viewer-slot="tree"] ul ul {
+  margin-inline-start: 0.625rem;
+  border-left: 1px solid rgb(205 189 255 / 12%);
+}
+
+.theme-nocturne [data-artifacts-viewer-slot="directory"] {
+  padding: 0.75rem 0.875rem;
+}
+
+.theme-nocturne [data-artifacts-viewer-slot="file"] > header {
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid var(--edge);
+  font-family:
+    "JetBrains Mono Variable", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.6875rem;
+  color: #b6acd4;
+}
+
+.theme-nocturne [data-artifacts-viewer-part="raw"],
+.theme-nocturne [data-artifacts-viewer-part="download"] {
+  padding: 0.25rem 0.6875rem;
+  border: 1px solid var(--edge);
+  border-radius: 999px;
+  color: var(--mint);
+  text-decoration: none;
+  letter-spacing: 0.06em;
+  transition:
+    border-color 200ms ease,
+    box-shadow 200ms ease;
+}
+
+.theme-nocturne [data-artifacts-viewer-part="raw"]:hover,
+.theme-nocturne [data-artifacts-viewer-part="download"]:hover {
+  border-color: rgb(143 240 208 / 45%);
+  box-shadow: 0 0 20px -6px rgb(143 240 208 / 45%);
+}
+
+.theme-nocturne [data-artifacts-viewer-part="code-fallback"] {
+  padding: 1.25rem;
+  color: #9689b8;
+}
+
+.theme-nocturne [data-artifacts-viewer-part="image"] {
+  padding: 1.5rem;
+}
+
+.theme-nocturne [data-artifacts-viewer-slot="loading"],
+.theme-nocturne [data-artifacts-viewer-slot="empty"],
+.theme-nocturne [data-artifacts-viewer-slot="error"] {
+  padding: 1.5rem 1.25rem;
+  font-size: 0.8125rem;
+  letter-spacing: 0.02em;
+}
+
+.theme-nocturne [data-artifacts-viewer-slot="loading"] {
+  color: var(--lilac);
+  animation: nocturne-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes nocturne-pulse {
+  0%,
+  100% {
+    opacity: 0.5;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+/* A conic glow ring, masked to a hairline. */
+.nocturne-prep {
+  display: flex;
+  align-items: center;
+  gap: 0.875rem;
+  padding: 1.75rem 1.25rem;
+}
+
+.nocturne-prep__ring {
+  width: 1.5rem;
+  height: 1.5rem;
+  flex: none;
+  border-radius: 999px;
+  background: conic-gradient(from 0deg, transparent 0%, var(--lilac) 65%, var(--mint) 100%);
+  mask: radial-gradient(farthest-side, transparent calc(100% - 2px), #000 calc(100% - 2px));
+  animation: nocturne-spin 900ms linear infinite;
+}
+
+@keyframes nocturne-spin {
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+.nocturne-prep__note {
+  margin: 0;
+  color: var(--lilac);
+  font-size: 0.8125rem;
+  letter-spacing: 0.02em;
+}
+
+.nocturne-prep__note--quiet {
+  padding: 1.5rem 1.25rem;
+  opacity: 0.7;
+}
+
+.nocturne-prep__note--alert {
+  padding: 1.5rem 1.25rem;
+  color: #ffb3c7;
+}
