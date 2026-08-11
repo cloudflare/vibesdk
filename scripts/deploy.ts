@@ -2038,17 +2038,34 @@ class CloudflareDeploymentManager {
      */
     private async runDatabaseMigrations(): Promise<void> {
         console.log('Running database migrations...');
+
+        // `db:generate` and `db:migrate:local` are best-effort dev conveniences.
+        // Run them independently so a local failure does NOT short-circuit the
+        // required remote migration (previously chained with `&&`, which left the
+        // deployed Worker running against an unmigrated database).
+        const runBestEffort = (label: string, command: string): void => {
+            try {
+                execSync(command, { stdio: 'inherit', cwd: PROJECT_ROOT, encoding: 'utf8' });
+            } catch (error) {
+                console.warn(
+                    `⚠️  ${label} failed (continuing): ${error instanceof Error ? error.message : String(error)}`,
+                );
+            }
+        };
+
+        runBestEffort('db:generate', 'bun run db:generate');
+        runBestEffort('db:migrate:local', 'bun run db:migrate:local');
+
+        // Remote migrations are required: deploying a Worker against a database
+        // missing schema changes causes runtime SQLITE_ERRORs (e.g. "table users
+        // has no column named ..."). Fail the deploy if they cannot be applied.
         try {
-            await execSync(
-                'bun run db:generate && bun run db:migrate:local && bun run db:migrate:remote',
-                {
-                    stdio: 'inherit',
-                    cwd: PROJECT_ROOT,
-                    encoding: 'utf8',
-                }
-            );
+            execSync('bun run db:migrate:remote', { stdio: 'inherit', cwd: PROJECT_ROOT, encoding: 'utf8' });
         } catch (error) {
-            console.warn('Database migrations failed:', error instanceof Error ? error.message : String(error));
+            throw new DeploymentError(
+                'Remote database migrations failed - the deployed Worker may be running against an unmigrated database',
+                error instanceof Error ? error : new Error(String(error)),
+            );
         }
     }
 
