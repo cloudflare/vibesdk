@@ -1,0 +1,91 @@
+.dev.vars.example
+  s_4852cf560ac604::t_8679f2de915498 13-23
+bun.lock
+  s_4852cf560ac604::t_f0670005dff88d 23,698-703,916-917,2154-2155,3078-3079,3158-3161,3548-3553
+package.json
+  s_4852cf560ac604::t_13008a39748e67 62
+space/src/space/durable-object.ts
+  s_4852cf560ac604::t_3fef44c603659a 18,341-346,366-371,412-460
+space/src/space/git-objects.ts
+  s_4852cf560ac604::t_8955285698b3d9 275-306
+src/api-types.ts
+  s_4852cf560ac604::t_b43763a30a080b 220
+src/components/monaco-editor/lazy-monaco-editor.tsx
+  s_4852cf560ac604::t_b990134c00f73e 3,9-12,48-58
+src/components/monaco-editor/monaco-editor.tsx
+  s_4852cf560ac604::t_2615cb59bd2213 492-587
+src/components/shared/BaseHeaderActions.tsx
+  s_4852cf560ac604::t_b384c2f5aa0b8b 15-16,27,36-44
+src/features/app/components/AppHeaderActions.tsx
+  s_4852cf560ac604::t_c996df50bc7c44 12,23
+src/features/core/types.ts
+  s_4852cf560ac604::t_b1cba0c4293712 74-75
+src/lib/api-client.ts
+  s_4852cf560ac604::t_6dc2148df3b678 65,1075-1086
+src/routes/chat/chat.tsx
+  s_4852cf560ac604::t_e537288af34c6a 341,660-661,1446-1450
+src/routes/chat/components/artifact-repo-viewer.tsx
+  s_4852cf560ac604::t_00d626e64e79b8 1-465
+src/routes/chat/components/editor-header-actions.tsx
+  s_4852cf560ac604::t_7258ea7929d602 13,24,35
+src/routes/chat/components/main-content-panel.tsx
+  s_4852cf560ac604::t_469945ac32a218 17,26-27,76-78,117,120-123,131,139,264,277,353,399,415-430,444-445
+src/routes/chat/components/preview-header-actions.tsx
+  s_4852cf560ac604::t_856938126e1a7e 13,24,35
+src/routes/chat/components/view-header.tsx
+  s_4852cf560ac604::t_0623e1a7a2a3c5 7-8,17,31,45
+src/routes/chat/components/view-mode-switch.tsx
+  s_4852cf560ac604::t_23c5b3eed2b7d6 3,22,24-25,33-34,125-140
+tsconfig.app.json
+  s_4852cf560ac604::t_c52fcbf6a9e955 35-46,50
+tsconfig.node.json
+  s_4852cf560ac604::t_dcb146368bbcf5 9-14
+tsconfig.worker.json
+  s_4852cf560ac604::t_f14f8b8c85cc66 9-19
+vite.config.ts
+  s_4852cf560ac604::t_b434fe8b35836b 63-102
+worker-configuration.d.ts
+  s_4852cf560ac604::t_386c60f2952063 2,21,40,42,58
+worker/agents/core/features/types.ts
+  s_4852cf560ac604::t_e879517a4a1a8a 110-116
+worker/agents/git/git-clone-service.ts
+  s_4852cf560ac604::t_887c4435185323 204-227
+worker/agents/index.ts
+  s_4852cf560ac604::t_35689fb8c07046 41-67
+worker/api/controllers/artifacts/controller.ts
+  s_4852cf560ac604::t_c64d4e573f1fef 1-134
+worker/api/controllers/artifacts/types.ts
+  s_4852cf560ac604::t_45e5a6c193a425 1-10
+worker/api/controllers/capabilities/controller.ts
+  s_4852cf560ac604::t_145eb61d887a7b 48
+worker/api/controllers/githubExporter/controller.ts
+  s_4852cf560ac604::t_338aa558bbda0c 5,189-212
+worker/api/handlers/git-protocol.ts
+  s_4852cf560ac604::t_01f44eab27f389 8,11-12,19-54,198-199,238,286-287,319
+worker/api/routes/codegenRoutes.ts
+  s_4852cf560ac604::t_0ac1e736c8aff3 3,63-83
+worker/services/github/GitHubService.ts
+  s_4852cf560ac604::t_4b861bb531b421 255-279
+worker/types/env.d.ts
+  s_4852cf560ac604::t_1155d44cf9c49f 6
+wrangler.jsonc
+  s_4852cf560ac604::t_41d29d27a14830 212-214
+wrangler.staging.jsonc
+  s_4852cf560ac604::t_5a2b1c7dfc2bba 208-210
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "1d3dd391160645363dc8dddaae72d6beb625435e",
+  "prompts": {},
+  "sessions": {
+    "s_4852cf560ac604": {
+      "agent_id": {
+        "tool": "windsurf",
+        "id": "curse-carob",
+        "model": "unknown"
+      },
+      "human_author": "Karishnu Poddar <karishnu@cloudflare.com>"
+    }
+  }
+}
