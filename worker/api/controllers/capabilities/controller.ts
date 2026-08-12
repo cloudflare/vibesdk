@@ -45,6 +45,7 @@ export class CapabilitiesController extends BaseController {
 			features,
 			version: config.version,
 			userAccountDeploy: env.ENABLE_USER_ACCOUNT_DEPLOY === 'true',
+			artifacts: env.ENABLE_ARTIFACTS === 'true',
 		};
 
 		logger.info('Returning platform capabilities', {

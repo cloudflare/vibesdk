@@ -217,6 +217,7 @@ export type {
   QueryAppTableResponse,
   WipeAppDatabaseResponse,
 } from 'worker/api/controllers/appDatabase/types';
+export type { ListAppBranchesResponse } from 'worker/api/controllers/artifacts/types';
 export type { RateLimitErrorResponse } from 'worker/api/responses';
 export { RateLimitExceededError, SecurityError, SecurityErrorType } from '../shared/types/errors.js';
 

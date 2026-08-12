@@ -10,6 +10,7 @@ interface EditorHeaderActionsProps {
 	isGitHubExportReady: boolean;
 	onGitHubExportClick: () => void;
 	editorRef: RefObject<HTMLDivElement | null>;
+	showGitActions?: boolean;
 }
 
 export function EditorHeaderActions({
@@ -20,6 +21,7 @@ export function EditorHeaderActions({
 	isGitHubExportReady,
 	onGitHubExportClick,
 	editorRef,
+	showGitActions,
 }: EditorHeaderActionsProps) {
 	return (
 		<BaseHeaderActions
@@ -30,6 +32,7 @@ export function EditorHeaderActions({
 			onGitCloneClick={onGitCloneClick}
 			isGitHubExportReady={isGitHubExportReady}
 			onGitHubExportClick={onGitHubExportClick}
+			showGitActions={showGitActions}
 		/>
 	);
 }

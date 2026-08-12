@@ -489,3 +489,99 @@ export const MonacoEditor = memo<MonacoEditorProps>(function MonacoEditor({
 
 	return <div {...props} ref={containerRef}></div>;
 });
+
+export type MonacoDiffEditorProps = React.ComponentProps<'div'> & {
+	/** Stable file path — only used to key model recreation. */
+	path?: string;
+	/** Left/original side (e.g. the parent commit's version). */
+	originalValue: string;
+	/** Right/modified side (e.g. the selected commit's version). */
+	modifiedValue: string;
+	language?: string;
+	/** Side-by-side (true) vs inline (false). Defaults to side-by-side. */
+	renderSideBySide?: boolean;
+};
+
+/**
+ * Read-only Monaco diff editor. Shares the theme and worker setup defined in
+ * this module (light -> `vs`, dark -> `vesper`) so diffs match the code editor.
+ * Models use anonymous URIs so they never collide with the main editor's
+ * `file:///` models for the same path.
+ */
+export const MonacoDiffEditor = memo<MonacoDiffEditorProps>(
+	function MonacoDiffEditor({
+		path,
+		originalValue,
+		modifiedValue,
+		language,
+		renderSideBySide = true,
+		...props
+	}) {
+		const containerRef = useRef<HTMLDivElement>(null);
+		const diffEditor = useRef<monaco.editor.IStandaloneDiffEditor>(undefined);
+		const originalModel = useRef<monaco.editor.ITextModel | null>(null);
+		const modifiedModel = useRef<monaco.editor.ITextModel | null>(null);
+		const { resolvedTheme } = useTheme();
+		const renderSideBySideRef = useRef(renderSideBySide);
+		renderSideBySideRef.current = renderSideBySide;
+
+		useEffect(() => {
+			diffEditor.current = monaco.editor.createDiffEditor(containerRef.current!, {
+				readOnly: true,
+				originalEditable: false,
+				automaticLayout: true,
+				minimap: { enabled: false },
+				fontSize: 13,
+				scrollBeyondLastLine: false,
+				renderSideBySide: renderSideBySideRef.current,
+				theme: resolveEditorTheme(resolvedTheme),
+			});
+			return () => {
+				diffEditor.current?.setModel(null);
+				diffEditor.current?.dispose();
+				diffEditor.current = undefined;
+				disposeModelDeferred(originalModel.current);
+				disposeModelDeferred(modifiedModel.current);
+				originalModel.current = null;
+				modifiedModel.current = null;
+			};
+			// eslint-disable-next-line react-hooks/exhaustive-deps
+		}, []);
+
+		useEffect(() => {
+			if (!diffEditor.current) return;
+			const lang = language || 'plaintext';
+			const prevOriginal = originalModel.current;
+			const prevModified = modifiedModel.current;
+			const original = monaco.editor.createModel(
+				originalValue,
+				lang,
+				monaco.Uri.parse(`inmemory://diff-original/${crypto.randomUUID()}`),
+			);
+			const modified = monaco.editor.createModel(
+				modifiedValue,
+				lang,
+				monaco.Uri.parse(`inmemory://diff-modified/${crypto.randomUUID()}`),
+			);
+			originalModel.current = original;
+			modifiedModel.current = modified;
+			diffEditor.current.setModel({ original, modified });
+			disposeModelDeferred(prevOriginal);
+			disposeModelDeferred(prevModified);
+		}, [path, originalValue, modifiedValue, language]);
+
+		useEffect(() => {
+			if (diffEditor.current) {
+				diffEditor.current.updateOptions({ renderSideBySide });
+			}
+		}, [renderSideBySide]);
+
+		useEffect(() => {
+			if (diffEditor.current) {
+				monaco.editor.setTheme(resolveEditorTheme(resolvedTheme));
+			}
+		}, [resolvedTheme]);
+
+		return <div {...props} ref={containerRef}></div>;
+	},
+);

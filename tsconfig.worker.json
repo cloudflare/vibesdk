@@ -6,6 +6,16 @@
 		"types": ["@cloudflare/workers-types", "./worker-configuration.d.ts", "vite/client", "jest"],
 		"lib": ["ES2023"]
 	},
-	"include": ["./worker-configuration.d.ts", "./shared", "./worker", "./worker/types", "./test/worker-entry.ts"],
+	"include": [
+		"./worker-configuration.d.ts",
+		"./shared",
+		"./worker",
+		"./worker/types",
+		"./test/worker-entry.ts",
+		"./packages/artifacts-viewer/packages/artifacts-viewer/src/index.ts",
+		"./packages/artifacts-viewer/packages/artifacts-viewer/src/server",
+		"./packages/artifacts-viewer/packages/artifacts-viewer/src/shared/api-path.ts",
+		"./packages/artifacts-viewer/packages/artifacts-viewer/src/shared/official-types.ts"
+	],
 	"exclude": ["**/__tests__/**/*", "**/*.test.ts"]
 }

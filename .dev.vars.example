@@ -14,6 +14,17 @@
 #CLOUDFLARE_API_TOKEN="" # API token with Account-level permissions (see README for required permissions)
 #CLOUDFLARE_ACCOUNT_ID="" # Your Cloudflare account ID
 
+# Cloudflare Artifacts read-only "Repo" viewer.
+# The viewer proxies Cloudflare's Artifacts REST API, which requires a
+# Cloudflare API token with Artifacts *read* permission. By default the proxy
+# reuses CLOUDFLARE_API_TOKEN above; set ARTIFACTS_API_TOKEN to use a dedicated,
+# least-privilege token instead. (The ARTIFACTS binding's repo tokens are for
+# the git remote and are NOT accepted by the REST API.)
+#ARTIFACTS_API_TOKEN=""
+# ARTIFACTS_NAMESPACE is set as a plain var in wrangler.jsonc; override here for
+# local dev if needed.
+#ARTIFACTS_NAMESPACE="vibesdk-production"
+
 # Essential Secrets:
 #CLOUDFLARE_AI_GATEWAY_TOKEN="" # If this has read and edit permissions, the AI Gateway will be created automatically. run is required at the least
 

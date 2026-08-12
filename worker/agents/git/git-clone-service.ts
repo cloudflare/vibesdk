@@ -202,6 +202,30 @@ export class GitCloneService {
 
 
     /**
+     * Build an in-memory repository by importing a `.git` object store verbatim.
+     *
+     * Unlike {@link buildRepository}, this performs no template rebase and no
+     * commit replay: refs, HEAD, packed-refs, loose objects and packfiles are
+     * written as-is, so the resulting repo is byte-for-byte the source history
+     * (same commit oids). Used for think apps, whose real repository lives in
+     * SpaceDO/Artifacts and must be served/pushed exactly.
+     */
+    static async buildRepositoryFromObjects(
+        gitObjects: Array<{ path: string; data: Uint8Array }>,
+    ): Promise<MemFS> {
+        const fs = new MemFS();
+        // Lay down a valid skeleton first; the real HEAD/refs/objects below
+        // overwrite it (write-wins), so an incomplete export still yields a
+        // usable repo.
+        await git.init({ fs, dir: '/', defaultBranch: 'main' });
+        for (const obj of gitObjects) {
+            await fs.writeFile(obj.path, obj.data);
+        }
+        logger.info('Built repository from raw git objects', { objectCount: gitObjects.length });
+        return fs;
+    }
+
+    /**
      * Handle git info/refs request
      * Returns advertisement of available refs for git clone
      */

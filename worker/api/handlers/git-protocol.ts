@@ -5,14 +5,52 @@
  * 
  * Architecture: Export git objects from DO, build repo in worker to save DO memory
  */
-import { getAgentStub } from '../../agents';
+import { getAgentStub, getSpaceGitStub, isThinkApp } from '../../agents';
 import { createLogger } from '../../logger';
 import { GitCloneService } from '../../agents/git/git-clone-service';
+import type { MemFS } from '../../agents/git/memfs';
+import type { TemplateDetails } from '../../services/sandbox/sandboxTypes';
 import { AppService } from '../../database/services/AppService';
 import { JWTUtils } from '../../utils/jwtUtils';
 import { GitCache } from './git-cache';
 
 const logger = createLogger('GitProtocol');
+
+interface ResolvedGitObjects {
+    gitObjects: Array<{ path: string; data: Uint8Array }>;
+    query: string;
+    hasCommits: boolean;
+    templateDetails: TemplateDetails | null;
+    isThink: boolean;
+}
+
+/**
+ * Resolve the app's git objects for clone. Think apps' repositories live in
+ * SpaceDO/Artifacts (exported verbatim); other apps use the agent's own git
+ * (rebased on the template).
+ */
+async function resolveGitObjectsForApp(env: Env, appId: string): Promise<ResolvedGitObjects> {
+    if (await isThinkApp(env, appId)) {
+        const spaceStub = getSpaceGitStub(env, appId);
+        const gitObjects = spaceStub ? await spaceStub.exportGitObjects() : [];
+        return { gitObjects, query: '', hasCommits: gitObjects.length > 0, templateDetails: null, isThink: true };
+    }
+    const agentStub = await getAgentStub(env, appId);
+    const exported = await agentStub.exportGitObjects();
+    return { ...exported, isThink: false };
+}
+
+/** Build the in-memory repo, verbatim for think apps and template-rebased otherwise. */
+async function buildRepoFor(resolved: ResolvedGitObjects, appQuery: string, appCreatedAt?: Date): Promise<MemFS> {
+    return resolved.isThink
+        ? GitCloneService.buildRepositoryFromObjects(resolved.gitObjects)
+        : GitCloneService.buildRepository({
+              gitObjects: resolved.gitObjects,
+              templateDetails: resolved.templateDetails,
+              appQuery,
+              appCreatedAt,
+          });
+}
 
 /**
  * Git protocol route patterns
@@ -157,13 +195,8 @@ async function handleInfoRefs(
             });
         }
         
-        const agentStub = await getAgentStub(env, appId);
-        if (!agentStub || !(await agentStub.isInitialized())) {
-            return new Response('Repository not found', { status: 404 });
-        }
-        
-        // Export git objects from DO
-        const { gitObjects, query, hasCommits, templateDetails } = await agentStub.exportGitObjects();
+        const resolved = await resolveGitObjectsForApp(env, appId);
+        const { gitObjects, query, hasCommits, templateDetails } = resolved;
         
         if (!hasCommits) {
             // Return empty advertisement for repos with no commits
@@ -202,12 +235,7 @@ async function handleInfoRefs(
         logger.info('Cache MISS: building repository', { appId, agentHeadOid });
         
         // Build repository in worker
-        const repoFS = await GitCloneService.buildRepository({
-            gitObjects,
-            templateDetails,
-            appQuery: query,
-            appCreatedAt
-        });
+        const repoFS = await buildRepoFor(resolved, query, appCreatedAt);
         
         // Store in memory for subsequent upload-pack request
         cache.storeRepository(appId, repoFS, agentHeadOid, templateDetails);
@@ -255,13 +283,8 @@ async function handleUploadPack(
             });
         }
         
-        const agentStub = await getAgentStub(env, appId);
-        if (!agentStub || !(await agentStub.isInitialized())) {
-            return new Response('Repository not found', { status: 404 });
-        }
-        
-        // Export git objects from DO
-        const { gitObjects, query, hasCommits, templateDetails } = await agentStub.exportGitObjects();
+        const resolved = await resolveGitObjectsForApp(env, appId);
+        const { gitObjects, query, hasCommits, templateDetails } = resolved;
         
         if (!hasCommits) {
             return new Response('No commits to pack', { status: 404 });
@@ -293,12 +316,7 @@ async function handleUploadPack(
         logger.info('Cache MISS: building repository', { appId, agentHeadOid });
         
         // Build repository in worker (cold path - different Worker or timeout)
-        const repoFS = await GitCloneService.buildRepository({
-            gitObjects,
-            templateDetails,
-            appQuery: query,
-            appCreatedAt
-        });
+        const repoFS = await buildRepoFor(resolved, query, appCreatedAt);
         
         // Store in memory for potential retries
         cache.storeRepository(appId, repoFS, agentHeadOid, templateDetails);

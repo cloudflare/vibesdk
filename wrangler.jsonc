@@ -209,6 +209,9 @@
         "TEMPLATES_REPOSITORY": "https://github.com/cloudflare/vibesdk-templates",
         "DISPATCH_NAMESPACE": "vibesdk-default-namespace",
         "CLOUDFLARE_AI_GATEWAY": "vibesdk-gateway",
+        // Cloudflare Artifacts namespace for the read-only Repo viewer proxy.
+        // Must match the `artifacts` binding namespace above.
+        "ARTIFACTS_NAMESPACE": "vibesdk-production",
         "PLATFORM_CAPABILITIES": {
             "features": {
                 "app": {
