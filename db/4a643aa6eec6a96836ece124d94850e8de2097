@@ -1,0 +1,23 @@
+bun.lock
+  s_4852cf560ac604::t_24b1a964728d77 23,698-703,916-917,2154-2155,3078-3079,3158-3161,3548-3553
+package.json
+  s_4852cf560ac604::t_c7559038b4c155 62
+worker-configuration.d.ts
+  s_4852cf560ac604::t_fcd155f8fdff4d 2,21,40,42,58
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "db4a643aa6eec6a96836ece124d94850e8de2097",
+  "prompts": {},
+  "sessions": {
+    "s_4852cf560ac604": {
+      "agent_id": {
+        "tool": "windsurf",
+        "id": "curse-carob",
+        "model": "unknown"
+      },
+      "human_author": "Karishnu Poddar <karishnu@cloudflare.com>"
+    }
+  }
+}
