@@ -1,0 +1,179 @@
+packages/artifacts-viewer/.changeset/README.md
+  s_4852cf560ac604::t_bfbf0720eb236d 1-5
+packages/artifacts-viewer/.changeset/ledger.yaml
+  s_4852cf560ac604::t_3835d05b6ac0b7 1-17
+packages/artifacts-viewer/.gitignore
+  s_4852cf560ac604::t_9b8c9ba845264a 1-36
+packages/artifacts-viewer/.vscode/extensions.json
+  s_4852cf560ac604::t_4ee2c1e5a8ea1e 1-3
+packages/artifacts-viewer/.vscode/settings.json
+  s_4852cf560ac604::t_b23903cfd4bcf2 1-22
+packages/artifacts-viewer/LICENSE
+  s_4852cf560ac604::t_9934fe880579d7 1-21
+packages/artifacts-viewer/PUBLISH.md
+  s_4852cf560ac604::t_e825012ec6affe 1-174
+packages/artifacts-viewer/README.md
+  s_4852cf560ac604::t_ac9ecb7162b48c 1-89
+packages/artifacts-viewer/apps/example/.dev.vars.example
+  s_4852cf560ac604::t_7662e4d3210446 1-10
+packages/artifacts-viewer/apps/example/.gitignore
+  s_4852cf560ac604::t_1d56752050d7d2 1-31
+packages/artifacts-viewer/apps/example/index.html
+  s_4852cf560ac604::t_2356933e0f702c 1-19
+packages/artifacts-viewer/apps/example/package.json
+  s_4852cf560ac604::t_6a0e98c934c9fb 1-35
+packages/artifacts-viewer/apps/example/public/favicon.svg
+  s_4852cf560ac604::t_57942085d27a00 1
+packages/artifacts-viewer/apps/example/src/App.tsx
+  s_4852cf560ac604::t_9e11e170d14d83 1-69
+packages/artifacts-viewer/apps/example/src/examples/blockprint.css
+  s_4852cf560ac604::t_0c58af9fb2a3cc 1-343
+packages/artifacts-viewer/apps/example/src/examples/blockprint.tsx
+  s_4852cf560ac604::t_affdf163de5db7 1-45
+packages/artifacts-viewer/apps/example/src/examples/broadsheet.css
+  s_4852cf560ac604::t_aa336ce70d1362 1-337
+packages/artifacts-viewer/apps/example/src/examples/broadsheet.tsx
+  s_4852cf560ac604::t_9319c32bd66706 1-56
+packages/artifacts-viewer/apps/example/src/examples/nocturne.css
+  s_4852cf560ac604::t_82aa90d5ceec25 1-333
+packages/artifacts-viewer/apps/example/src/examples/nocturne.tsx
+  s_4852cf560ac604::t_8434b37ef9e906 1-45
+packages/artifacts-viewer/apps/example/src/examples/phosphor.css
+  s_4852cf560ac604::t_c6c63fa70cc0ee 1-327
+packages/artifacts-viewer/apps/example/src/examples/phosphor.tsx
+  s_4852cf560ac604::t_82ed4355635157 1-68
+packages/artifacts-viewer/apps/example/src/examples/registry.ts
+  s_4852cf560ac604::t_9d66787358edaa 1-98
+packages/artifacts-viewer/apps/example/src/examples/shared.ts
+  s_4852cf560ac604::t_32ba6f19e9d01d 1-12
+packages/artifacts-viewer/apps/example/src/examples/unstyled.tsx
+  s_4852cf560ac604::t_3ab138ab4e0288 1-10
+packages/artifacts-viewer/apps/example/src/index.css
+  s_4852cf560ac604::t_f035e675580ffb 1-19
+packages/artifacts-viewer/apps/example/src/main.tsx
+  s_4852cf560ac604::t_d394ba4f64e0cf 1-18
+packages/artifacts-viewer/apps/example/src/shell.css
+  s_4852cf560ac604::t_4ce3c63d2c288f 1-148
+packages/artifacts-viewer/apps/example/tsconfig.app.json
+  s_4852cf560ac604::t_7f6ce1c1ae8020 1-28
+packages/artifacts-viewer/apps/example/tsconfig.json
+  s_4852cf560ac604::t_59aa5f35dc4434 1-14
+packages/artifacts-viewer/apps/example/tsconfig.node.json
+  s_4852cf560ac604::t_d6ce24ad941c44 1-21
+packages/artifacts-viewer/apps/example/tsconfig.worker.json
+  s_4852cf560ac604::t_d042f1e74ce0ed 1-27
+packages/artifacts-viewer/apps/example/vite.config.ts
+  s_4852cf560ac604::t_a9a59e05879f9c 1-43
+packages/artifacts-viewer/apps/example/worker-configuration.d.ts
+  s_4852cf560ac604::t_d7cc80f3558fec 1-14
+packages/artifacts-viewer/apps/example/worker/index.ts
+  s_4852cf560ac604::t_527d9ddaa08433 1-35
+packages/artifacts-viewer/apps/example/wrangler.jsonc
+  s_4852cf560ac604::t_898bfc2625a4a5 1-19
+packages/artifacts-viewer/package.json
+  s_4852cf560ac604::t_87c47d3fb24ba4 1-27
+packages/artifacts-viewer/packages/artifacts-viewer/.gitignore
+  s_4852cf560ac604::t_c54359f978bc90 1-2
+packages/artifacts-viewer/packages/artifacts-viewer/CHANGELOG.md
+  s_4852cf560ac604::t_8997a2a5141243 1-35
+packages/artifacts-viewer/packages/artifacts-viewer/LICENSE
+  s_4852cf560ac604::t_0f0b09c3fc4761 1-21
+packages/artifacts-viewer/packages/artifacts-viewer/README.md
+  s_4852cf560ac604::t_d2cc15cf949dee 1-597
+packages/artifacts-viewer/packages/artifacts-viewer/package.json
+  s_4852cf560ac604::t_8276ab77015892 1-58
+packages/artifacts-viewer/packages/artifacts-viewer/src/client/client.ts
+  s_4852cf560ac604::t_4ba42fe57a1989 1-180
+packages/artifacts-viewer/packages/artifacts-viewer/src/client/index.ts
+  s_4852cf560ac604::t_aa3c980fce7e17 1-29
+packages/artifacts-viewer/packages/artifacts-viewer/src/client/parse.ts
+  s_4852cf560ac604::t_ac25ff42ef49b6 1-261
+packages/artifacts-viewer/packages/artifacts-viewer/src/client/types.ts
+  s_4852cf560ac604::t_804bf236350e40 1-87
+packages/artifacts-viewer/packages/artifacts-viewer/src/index.ts
+  s_4852cf560ac604::t_086aac31ce376f 1-59
+packages/artifacts-viewer/packages/artifacts-viewer/src/react/artifact-directory-view.tsx
+  s_4852cf560ac604::t_f52cd67192f66b 1-93
+packages/artifacts-viewer/packages/artifacts-viewer/src/react/artifact-file-tree.tsx
+  s_4852cf560ac604::t_9b14266190e2e5 1-178
+packages/artifacts-viewer/packages/artifacts-viewer/src/react/artifact-file-view.tsx
+  s_4852cf560ac604::t_4484cdd5515147 1-167
+packages/artifacts-viewer/packages/artifacts-viewer/src/react/artifact-repo-viewer.tsx
+  s_4852cf560ac604::t_2f17a7d8d4c802 1-215
+packages/artifacts-viewer/packages/artifacts-viewer/src/react/class-name.ts
+  s_4852cf560ac604::t_6a019d9e7db0b7 1-5
+packages/artifacts-viewer/packages/artifacts-viewer/src/react/code-view.tsx
+  s_4852cf560ac604::t_ec31c0be5b374f 1-144
+packages/artifacts-viewer/packages/artifacts-viewer/src/react/entry-row.tsx
+  s_4852cf560ac604::t_c48d4b5620400b 1-83
+packages/artifacts-viewer/packages/artifacts-viewer/src/react/highlighter.ts
+  s_4852cf560ac604::t_7afd47cba1cf72 1-60
+packages/artifacts-viewer/packages/artifacts-viewer/src/react/hooks.ts
+  s_4852cf560ac604::t_2bd188ee06d761 1-62
+packages/artifacts-viewer/packages/artifacts-viewer/src/react/icons.tsx
+  s_4852cf560ac604::t_5f52a952b0867c 1-34
+packages/artifacts-viewer/packages/artifacts-viewer/src/react/index.ts
+  s_4852cf560ac604::t_e842cd302b445e 1-67
+packages/artifacts-viewer/packages/artifacts-viewer/src/react/status.tsx
+  s_4852cf560ac604::t_c64ef87a10f756 1-88
+packages/artifacts-viewer/packages/artifacts-viewer/src/react/types.ts
+  s_4852cf560ac604::t_6a81005e984348 1-100
+packages/artifacts-viewer/packages/artifacts-viewer/src/react/use-artifact-blob.ts
+  s_4852cf560ac604::t_88e32f5bf9ce7e 1-59
+packages/artifacts-viewer/packages/artifacts-viewer/src/react/use-artifact-query.ts
+  s_4852cf560ac604::t_e5f38951c180bc 1-74
+packages/artifacts-viewer/packages/artifacts-viewer/src/server/cache-adapters.ts
+  s_4852cf560ac604::t_941bcebcf6f93b 1-136
+packages/artifacts-viewer/packages/artifacts-viewer/src/server/cache.ts
+  s_4852cf560ac604::t_033e86c899fc56 1-81
+packages/artifacts-viewer/packages/artifacts-viewer/src/server/responses.ts
+  s_4852cf560ac604::t_29c903e08ba674 1-30
+packages/artifacts-viewer/packages/artifacts-viewer/src/server/router.ts
+  s_4852cf560ac604::t_64e5014a7224c9 1-192
+packages/artifacts-viewer/packages/artifacts-viewer/src/server/routes.ts
+  s_4852cf560ac604::t_997151a7a06cd9 1-284
+packages/artifacts-viewer/packages/artifacts-viewer/src/server/upstream.ts
+  s_4852cf560ac604::t_31c56229cd5971 1-155
+packages/artifacts-viewer/packages/artifacts-viewer/src/server/validate.ts
+  s_4852cf560ac604::t_ba6ac53624a465 1-159
+packages/artifacts-viewer/packages/artifacts-viewer/src/shared/api-path.ts
+  s_4852cf560ac604::t_9047747555424a 1-9
+packages/artifacts-viewer/packages/artifacts-viewer/src/shared/blob.ts
+  s_4852cf560ac604::t_6410957b804189 1-105
+packages/artifacts-viewer/packages/artifacts-viewer/src/shared/entries.ts
+  s_4852cf560ac604::t_c8361f523811d7 1-21
+packages/artifacts-viewer/packages/artifacts-viewer/src/shared/official-types.ts
+  s_4852cf560ac604::t_2790ce461223b3 1-97
+packages/artifacts-viewer/packages/artifacts-viewer/src/styles/styles.css.d.ts
+  s_4852cf560ac604::t_e05dcdeab01bf0 1-3
+packages/artifacts-viewer/packages/artifacts-viewer/src/styles/viewer.css
+  s_4852cf560ac604::t_597f3726cad7c6 1-198
+packages/artifacts-viewer/packages/artifacts-viewer/tsconfig.json
+  s_4852cf560ac604::t_7d018955f9490b 1-21
+packages/artifacts-viewer/packages/artifacts-viewer/vite.config.ts
+  s_4852cf560ac604::t_78fd13ce668d2e 1-44
+packages/artifacts-viewer/pnpm-lock.yaml
+  s_4852cf560ac604::t_5be2626dba0894 1-4456
+packages/artifacts-viewer/pnpm-workspace.yaml
+  s_4852cf560ac604::t_30c66090e958f9 1-53
+packages/artifacts-viewer/tsconfig.json
+  s_4852cf560ac604::t_ec4ec5039e7f06 1-9
+packages/artifacts-viewer/vite.config.ts
+  s_4852cf560ac604::t_24dd7124e77ce3 1-16
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "7a7489d16d2b83fdf3fbbc5e30352cc7183ea7e2",
+  "prompts": {},
+  "sessions": {
+    "s_4852cf560ac604": {
+      "agent_id": {
+        "tool": "windsurf",
+        "id": "curse-carob",
+        "model": "unknown"
+      },
+      "human_author": "Karishnu Poddar <karishnu@cloudflare.com>"
+    }
+  }
+}
