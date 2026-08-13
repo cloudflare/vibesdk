@@ -57,6 +57,20 @@ interface WalkedFile {
 	hash: string;
 }
 
+/** A file that differs between two commit trees, with each side's blob hash. */
+interface ChangedFile {
+	path: string;
+	/** Blob hash on the selected commit side (undefined when deleted). */
+	newHash?: string;
+	/** Blob hash on the parent side (undefined when added). */
+	oldHash?: string;
+}
+
+/** Blob-like entry types that carry readable content (excludes gitlink). */
+function isBlobLike(type: string): boolean {
+	return type === 'blob' || type === 'exec' || type === 'symlink';
+}
+
 function shortHash(hash: string): string {
 	return hash.slice(0, 7);
 }
@@ -94,6 +108,75 @@ async function walkTree(
 			// blob | exec | symlink are readable as file content; gitlink is a
 			// submodule pointer with nothing to show.
 			acc.push({ path, hash: entry.hash });
+		}
+	}
+}
+
+/**
+ * Recursively diff two trees, collecting only the files that changed. Exploits
+ * git's Merkle property: a directory whose tree hash is identical on both sides
+ * is skipped entirely, so `readTree` calls scale with the changed paths rather
+ * than the whole repository. `oldTreeHash` null means no parent (initial
+ * commit) — every file is reported as added.
+ */
+async function diffTrees(
+	c: ArtifactsClient,
+	repoName: string,
+	newTreeHash: string | null,
+	oldTreeHash: string | null,
+	prefix: string,
+	signal: AbortSignal,
+	out: ChangedFile[],
+): Promise<void> {
+	if (out.length >= MAX_TREE_ENTRIES || signal.aborted) return;
+	// Identical subtree (or nothing to compare) — prune.
+	if (newTreeHash && newTreeHash === oldTreeHash) return;
+
+	const [newRes, oldRes] = await Promise.all([
+		newTreeHash ? c.readTree({ repoName, hash: newTreeHash, signal }) : Promise.resolve(null),
+		oldTreeHash ? c.readTree({ repoName, hash: oldTreeHash, signal }) : Promise.resolve(null),
+	]);
+	if (signal.aborted) return;
+
+	const newEntries = new Map(newRes?.ok ? newRes.value.map((e) => [e.name, e]) : []);
+	const oldEntries = new Map(oldRes?.ok ? oldRes.value.map((e) => [e.name, e]) : []);
+
+	// Enumerate one side of a subtree as all-added / all-deleted.
+	const enumerateSide = async (hash: string, path: string, side: 'new' | 'old') => {
+		const acc: WalkedFile[] = [];
+		await walkTree(c, repoName, hash, path, signal, acc);
+		for (const f of acc) {
+			out.push(side === 'new' ? { path: f.path, newHash: f.hash } : { path: f.path, oldHash: f.hash });
+		}
+	};
+
+	for (const name of new Set([...newEntries.keys(), ...oldEntries.keys()])) {
+		if (out.length >= MAX_TREE_ENTRIES) break;
+		const path = prefix ? `${prefix}/${name}` : name;
+		const n = newEntries.get(name);
+		const o = oldEntries.get(name);
+		const nTree = n?.type === 'tree';
+		const oTree = o?.type === 'tree';
+
+		if (nTree && oTree) {
+			if (n.hash !== o.hash) await diffTrees(c, repoName, n.hash, o.hash, path, signal, out);
+		} else if (n && o && !nTree && !oTree) {
+			// Both blob-like: modified when the content hash differs. Non-content
+			// entries (gitlink) are ignored.
+			if (n.hash !== o.hash && isBlobLike(n.type) && isBlobLike(o.type)) {
+				out.push({ path, newHash: n.hash, oldHash: o.hash });
+			}
+		} else {
+			// Present on only one side, or a tree<->blob type change: emit the new
+			// side as added and the old side as deleted.
+			if (n) {
+				if (nTree) await enumerateSide(n.hash, path, 'new');
+				else if (isBlobLike(n.type)) out.push({ path, newHash: n.hash });
+			}
+			if (o) {
+				if (oTree) await enumerateSide(o.hash, path, 'old');
+				else if (isBlobLike(o.type)) out.push({ path, oldHash: o.hash });
+			}
 		}
 	}
 }
@@ -192,45 +275,44 @@ export function ArtifactRepoViewerPanel({
 					return;
 				}
 
-				const commitWalked: WalkedFile[] = [];
-				await walkTree(client, repoName, commit.treeHash, '', signal, commitWalked);
-				if (signal.aborted) return;
-				const commitHashes = new Map(commitWalked.map((f) => [f.path, f.hash]));
-				commitHashesRef.current = commitHashes;
-
 				if (!pinnedCommit) {
+					// Browse mode: list every file in the commit tree (a full walk
+					// is inherent — we show the whole tree).
+					const commitWalked: WalkedFile[] = [];
+					await walkTree(client, repoName, commit.treeHash, '', signal, commitWalked);
+					if (signal.aborted) return;
+					const commitHashes = new Map(commitWalked.map((f) => [f.path, f.hash]));
+					commitHashesRef.current = commitHashes;
 					parentHashesRef.current = new Map();
 					setFiles(toFileList([...commitHashes.keys()]));
 					return;
 				}
 
-				// Diff mode: resolve the parent commit's tree and compute the
-				// set of changed paths (added | modified | deleted).
+				// Diff mode: resolve the parent tree and compute the changed files
+				// via a pruned Merkle tree-diff (skips identical subtrees), rather
+				// than walking both trees in full.
 				const parentHash = commit.parents[0];
-				const parentHashes = new Map<string, string>();
+				let parentTreeHash: string | null = null;
 				if (parentHash) {
-					const parentCommit = await client.readCommit({
-						repoName,
-						hash: parentHash,
-						signal,
-					});
-					if (parentCommit.ok) {
-						const parentWalked: WalkedFile[] = [];
-						await walkTree(client, repoName, parentCommit.value.treeHash, '', signal, parentWalked);
-						for (const f of parentWalked) parentHashes.set(f.path, f.hash);
-					}
+					const parentCommit = await client.readCommit({ repoName, hash: parentHash, signal });
+					if (signal.aborted) return;
+					if (parentCommit.ok) parentTreeHash = parentCommit.value.treeHash;
 				}
-				if (signal.aborted) return;
-				parentHashesRef.current = parentHashes;
 
-				const changed = new Set<string>();
-				for (const [path, hash] of commitHashes) {
-					if (parentHashes.get(path) !== hash) changed.add(path);
+				const changed: ChangedFile[] = [];
+				await diffTrees(client, repoName, commit.treeHash, parentTreeHash, '', signal, changed);
+				if (signal.aborted) return;
+
+				// Per-file hash maps drive the lazy blob fetch in onFileClick.
+				const changedNew = new Map<string, string>();
+				const changedOld = new Map<string, string>();
+				for (const f of changed) {
+					if (f.newHash) changedNew.set(f.path, f.newHash);
+					if (f.oldHash) changedOld.set(f.path, f.oldHash);
 				}
-				for (const path of parentHashes.keys()) {
-					if (!commitHashes.has(path)) changed.add(path);
-				}
-				setFiles(toFileList([...changed]));
+				commitHashesRef.current = changedNew;
+				parentHashesRef.current = changedOld;
+				setFiles(toFileList(changed.map((f) => f.path)));
 			} catch {
 				if (!signal.aborted) setTreeError('Failed to load repository');
 			} finally {
