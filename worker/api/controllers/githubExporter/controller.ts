@@ -2,7 +2,7 @@ import { BaseController } from '../baseController';
 import { RouteContext } from '../../types/route-context';
 import { GitHubService } from '../../../services/github';
 import { GitHubExporterOAuthProvider } from '../../../services/oauth/github-exporter';
-import { getAgentStub } from '../../../agents';
+import { getAgentStub, getSpaceGitStub, isThinkApp } from '../../../agents';
 import { createLogger } from '../../../logger';
 import { AppService } from '../../../database/services/AppService';
 import { ExportResult } from 'worker/agents/core/types';
@@ -186,7 +186,30 @@ export class GitHubExporterController extends BaseController {
 
             // Push files to repository
             this.logger.info('Pushing files to repository', { agentId, repositoryUrl });
-            
+
+            // Think apps: the real repository (with full history) lives in
+            // SpaceDO/Artifacts, not the agent's own git. Push it verbatim.
+            if (await isThinkApp(env, agentId)) {
+                const spaceStub = getSpaceGitStub(env, agentId);
+                if (!spaceStub) {
+                    return { success: false, error: 'Workspace unavailable for export' };
+                }
+                const gitObjects = await spaceStub.exportGitObjects();
+                if (gitObjects.length === 0) {
+                    return { success: false, error: 'Repository has no commits to export yet' };
+                }
+                const rawResult = await GitHubService.exportRawToGitHub({
+                    gitObjects,
+                    token,
+                    repositoryUrl: cloneUrl,
+                });
+                if (!rawResult.success) {
+                    return { success: false, error: rawResult.error || 'File push failed' };
+                }
+                this.logger.info('Think export completed', { agentId, repositoryUrl });
+                return { success: true, repositoryUrl };
+            }
+
             const agentStub = await getAgentStub(env, agentId);
             const pushResult: ExportResult = await agentStub.exportProject({
                 kind: 'github',

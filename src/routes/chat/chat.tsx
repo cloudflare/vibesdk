@@ -338,6 +338,7 @@ function ChatSession() {
 		| 'terminal'
 		| 'presentation'
 		| 'database'
+		| 'repo'
 	>('editor');
 
 	// Terminal state
@@ -656,7 +657,8 @@ function ChatSession() {
 				| 'docs'
 				| 'blueprint'
 				| 'presentation'
-				| 'database',
+				| 'database'
+				| 'repo',
 		) => {
 			setView(mode);
 		},
@@ -1440,6 +1442,11 @@ function ChatSession() {
 									agentId={chatId}
 									databaseAvailable={
 										behaviorType === 'think' && !!chatId
+									}
+									repoAvailable={
+										behaviorType === 'think' &&
+										!!chatId &&
+										(capabilities?.artifacts ?? false)
 									}
 								/>
 							</motion.div>

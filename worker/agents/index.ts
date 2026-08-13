@@ -38,6 +38,33 @@ export async function getAgentState(env: Env, agentId: string) : Promise<AgentSt
     return await agentInstance.getFullState() as AgentState;
 }
 
+/** Raw `.git` object store export from a SpaceDO (think apps). */
+export interface SpaceGitExportStub extends DurableObjectStub {
+    exportGitObjects(): Promise<Array<{ path: string; data: Uint8Array }>>;
+}
+
+/**
+ * Resolve the SpaceDO git-export stub for an app. A think app's real
+ * repository (files + full commit history) lives in SpaceDO/Artifacts, not in
+ * the CodeGeneratorAgent's own git — so clone and GitHub export source objects
+ * from here. The SpaceDO instance is always keyed by the agent id.
+ */
+export function getSpaceGitStub(env: Env, agentId: string): SpaceGitExportStub | null {
+    const ns = (env as unknown as { SPACE_DO?: DurableObjectNamespace }).SPACE_DO;
+    if (!ns) return null;
+    return ns.get(ns.idFromName(agentId)) as unknown as SpaceGitExportStub;
+}
+
+/** Whether an app uses the think behavior (repo lives in SpaceDO/Artifacts). */
+export async function isThinkApp(env: Env, agentId: string): Promise<boolean> {
+    try {
+        const state = await getAgentState(env, agentId);
+        return state?.behaviorType === 'think';
+    } catch {
+        return false;
+    }
+}
+
 export async function cloneAgent(env: Env, agentId: string) : Promise<{newAgentId: string, newAgent: DurableObjectStub<CodeGeneratorAgent>}> {
     const agentInstance = await getAgentStub(env, agentId);
     if (!agentInstance || !await agentInstance.isInitialized()) {

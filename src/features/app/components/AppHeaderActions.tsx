@@ -9,6 +9,7 @@ export function AppHeaderActions({
 	isGitHubExportReady,
 	onGitHubExportClick,
 	previewRef,
+	showGitActions,
 }: HeaderActionsProps) {
 	return (
 		<BaseHeaderActions
@@ -19,6 +20,7 @@ export function AppHeaderActions({
 			onGitCloneClick={onGitCloneClick}
 			isGitHubExportReady={isGitHubExportReady}
 			onGitHubExportClick={onGitHubExportClick}
+			showGitActions={showGitActions}
 		/>
 	);
 }

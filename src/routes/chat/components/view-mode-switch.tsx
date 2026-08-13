@@ -1,6 +1,6 @@
 import { cn } from '@cloudflare/kumo';
 import { AnimatePresence, motion } from 'framer-motion';
-import { Eye, Code, FileText, Presentation, Database } from 'lucide-react';
+import { Eye, Code, FileText, Presentation, Database, GitBranch } from 'lucide-react';
 import { featureRegistry } from '@/features';
 import type { ProjectType } from '@/api-types';
 
@@ -19,9 +19,10 @@ export function ViewModeSwitch({
 	previewUrl,
 	projectType,
 	databaseAvailable = false,
+	repoAvailable = false,
 }: {
-	view: 'preview' | 'editor' | 'docs' | 'blueprint' | 'presentation' | 'database'
-	onChange: (mode: 'preview' | 'editor' | 'docs' | 'blueprint' | 'presentation' | 'database') => void;
+	view: 'preview' | 'editor' | 'docs' | 'blueprint' | 'presentation' | 'database' | 'repo'
+	onChange: (mode: 'preview' | 'editor' | 'docs' | 'blueprint' | 'presentation' | 'database' | 'repo') => void;
 	previewAvailable: boolean;
 	showTooltip: boolean;
 	hasDocumentation: boolean;
@@ -29,6 +30,8 @@ export function ViewModeSwitch({
 	projectType?: ProjectType;
 	/** When true, the read-only DB viewer tab is shown. Wired only for think-behavior apps. */
 	databaseAvailable?: boolean;
+	/** When true, the read-only Artifacts repo viewer tab is shown. Wired only for think-behavior apps. */
+	repoAvailable?: boolean;
 }) {
 	// Get feature definition to determine icon and label
 	const featureDefinition = projectType ? featureRegistry.getDefinition(projectType) : null;
@@ -117,6 +120,22 @@ export function ViewModeSwitch({
 					title="Database (read-only)"
 				>
 					<Database className="size-4" />
+				</button>
+			)}
+			{/* Repo button - read-only viewer for the app's Cloudflare
+			    Artifacts repository (durable git history). */}
+			{repoAvailable && (
+				<button
+					onClick={() => onChange('repo')}
+					className={cn(
+						'p-1 flex items-center justify-between h-full rounded-md transition-colors',
+						view === 'repo'
+							? 'bg-bg-4 text-text-primary'
+							: 'text-text-50/70 hover:text-text-primary hover:bg-brand',
+					)}
+					title="Repository (read-only)"
+				>
+					<GitBranch className="size-4" />
 				</button>
 			)}
 			{/* {terminalAvailable && (

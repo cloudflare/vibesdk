@@ -1,0 +1,327 @@
+/* Phosphor — amber CRT terminal. Scanlines, boxy frames, blinking cursor. */
+
+.theme-phosphor {
+  --amber: #ffb84d;
+  --amber-dim: #7a5520;
+  --glow: #4ade80;
+  --shell: #0b0d12;
+  --line: #1c2530;
+
+  --page-bg: #06070a;
+  --page-ink: #cfd6cf;
+  --page-title-ink: var(--amber);
+  --page-muted: #6f7d70;
+  --page-body:
+    "JetBrains Mono Variable", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  --page-display:
+    "JetBrains Mono Variable", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  --page-mono:
+    "JetBrains Mono Variable", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  --page-flow: 2rem;
+  --page-measure: 78rem;
+  --page-pad: 2.5rem 1.5rem 6rem;
+  --page-title-size: clamp(1.5rem, 4vw, 2.25rem);
+  --page-title-weight: 600;
+  --page-title-tracking: 0.16em;
+  --page-title-caps: uppercase;
+  --page-tagline-size: 0.8125rem;
+  --page-tagline-leading: 1.75;
+  --page-tracking: 0.22em;
+  --page-caps: uppercase;
+
+  --artifacts-viewer-font:
+    "JetBrains Mono Variable", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  --artifacts-viewer-font-size: 0.8125rem;
+  --artifacts-viewer-mono-font:
+    "JetBrains Mono Variable", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  --diffs-font-family:
+    "JetBrains Mono Variable", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  --artifacts-viewer-color: #cfd6cf;
+  --artifacts-viewer-muted-color: #6f7d70;
+  --artifacts-viewer-error-color: #ff6b6b;
+  --artifacts-viewer-icon-color: var(--glow);
+  --artifacts-viewer-background: var(--shell);
+  --artifacts-viewer-toolbar-background: #10141b;
+  --artifacts-viewer-sidebar-width: 19rem;
+  --artifacts-viewer-indent: 1.125rem;
+  --artifacts-viewer-row-padding: 0.3125rem 0.75rem;
+  --artifacts-viewer-gap: 0.5rem;
+  --artifacts-viewer-focus-outline: 1px solid var(--amber);
+  --artifacts-viewer-focus-offset: 1px;
+}
+
+/* Scanlines + phosphor bloom + film grain, stacked. */
+.theme-phosphor .stage__atmosphere {
+  background:
+    repeating-linear-gradient(to bottom, rgb(255 255 255 / 3.5%) 0 1px, transparent 1px 3px),
+    radial-gradient(120% 80% at 20% 0%, rgb(74 222 128 / 9%) 0%, transparent 60%),
+    radial-gradient(90% 70% at 90% 100%, rgb(255 184 77 / 8%) 0%, transparent 65%);
+  opacity: 0.9;
+}
+
+.theme-phosphor .stage__atmosphere::after {
+  content: "";
+  position: absolute;
+  inset: -50%;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)' opacity='0.5'/%3E%3C/svg%3E");
+  opacity: 0.06;
+  animation: phosphor-drift 8s steps(6) infinite;
+}
+
+@keyframes phosphor-drift {
+  0% {
+    transform: translate3d(0, 0, 0);
+  }
+  100% {
+    transform: translate3d(6%, 4%, 0);
+  }
+}
+
+/* -------------------------------------------------------------- page chrome */
+
+.theme-phosphor .rail__label::before {
+  content: "> ";
+}
+
+.theme-phosphor .switch {
+  padding: 0.3125rem 0.75rem;
+  border: 1px solid var(--line);
+  border-radius: 0;
+  background: transparent;
+  color: #8b998c;
+  font-size: 0.6875rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  transition:
+    color 160ms ease,
+    border-color 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.theme-phosphor .switch:hover {
+  border-color: var(--glow);
+  color: var(--glow);
+  box-shadow: 0 0 12px rgb(74 222 128 / 25%);
+}
+
+.theme-phosphor .switch[aria-pressed="true"] {
+  border-color: var(--amber);
+  background: rgb(255 184 77 / 10%);
+  color: var(--amber);
+  box-shadow: inset 0 0 0 1px rgb(255 184 77 / 25%);
+}
+
+.theme-phosphor .masthead__title::after {
+  content: "_";
+  color: var(--glow);
+  animation: phosphor-blink 1.1s steps(1) infinite;
+}
+
+@keyframes phosphor-blink {
+  0%,
+  49% {
+    opacity: 1;
+  }
+  50%,
+  100% {
+    opacity: 0;
+  }
+}
+
+.theme-phosphor .credits b {
+  color: var(--amber);
+}
+
+.theme-phosphor .readout {
+  padding-top: 0.875rem;
+  border-top: 1px solid var(--line);
+}
+
+.theme-phosphor .readout__path {
+  color: var(--amber);
+}
+
+/* ------------------------------------------------------------------- viewer */
+
+.theme-phosphor .viewer-frame {
+  position: relative;
+  border: 1px solid var(--line);
+  box-shadow:
+    0 0 0 1px rgb(0 0 0 / 60%),
+    0 24px 60px -30px rgb(74 222 128 / 22%);
+  animation: phosphor-power-on 420ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes phosphor-power-on {
+  0% {
+    opacity: 0;
+    transform: scaleY(0.9);
+  }
+  100% {
+    opacity: 1;
+    transform: scaleY(1);
+  }
+}
+
+.theme-phosphor [data-artifacts-viewer-slot="toolbar"] {
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--line);
+  color: var(--amber);
+  font-size: 0.6875rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+}
+
+.theme-phosphor [data-artifacts-viewer-part="name"] {
+  font-weight: 500;
+}
+
+.theme-phosphor [data-artifacts-viewer-slot="sidebar"] {
+  border-right: 1px solid var(--line);
+  background: #080a0e;
+  padding-block: 0.5rem;
+}
+
+.theme-phosphor [data-artifacts-viewer-slot="treeItem"],
+.theme-phosphor [data-artifacts-viewer-slot="directoryItem"] {
+  position: relative;
+  width: 100%;
+  border-radius: 0;
+  color: #a9b4aa;
+  transition:
+    background 120ms ease,
+    color 120ms ease;
+}
+
+.theme-phosphor [data-artifacts-viewer-slot="treeItem"]:hover,
+.theme-phosphor [data-artifacts-viewer-slot="directoryItem"]:hover {
+  background: rgb(74 222 128 / 8%);
+  color: var(--glow);
+}
+
+.theme-phosphor [data-artifacts-viewer-slot="treeItem"][data-selected],
+.theme-phosphor [data-artifacts-viewer-slot="directoryItem"][data-selected] {
+  background: var(--amber);
+  color: #06070a;
+  font-weight: 600;
+}
+
+.theme-phosphor [data-artifacts-viewer-slot="treeItem"][data-selected]::after,
+.theme-phosphor [data-artifacts-viewer-slot="directoryItem"][data-selected]::after {
+  content: "▮";
+  margin-inline-start: auto;
+  animation: phosphor-blink 1.1s steps(1) infinite;
+}
+
+.theme-phosphor
+  [data-artifacts-viewer-slot="treeItem"][data-selected]
+  [data-artifacts-viewer-part="icon"],
+.theme-phosphor
+  [data-artifacts-viewer-slot="directoryItem"][data-selected]
+  [data-artifacts-viewer-part="icon"] {
+  color: #06070a;
+}
+
+.theme-phosphor [data-artifacts-viewer-slot="treeItem"][data-kind="tree"],
+.theme-phosphor [data-artifacts-viewer-slot="directoryItem"][data-kind="tree"] {
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.theme-phosphor [data-artifacts-viewer-slot="treeItem"][data-disabled] {
+  color: var(--amber-dim);
+  text-decoration: line-through;
+}
+
+/* Nested levels get a guide rail, the way a terminal tree draws one. */
+.theme-phosphor [data-artifacts-viewer-slot="tree"] ul ul {
+  margin-inline-start: 0.75rem;
+  border-left: 1px dashed var(--line);
+}
+
+.theme-phosphor [data-artifacts-viewer-slot="directory"] {
+  padding: 0.5rem 0;
+}
+
+.theme-phosphor [data-artifacts-viewer-slot="file"] > header {
+  padding: 0.75rem 1rem;
+  border-bottom: 1px dashed var(--line);
+  background: #10141b;
+  font-size: 0.6875rem;
+  letter-spacing: 0.08em;
+}
+
+.theme-phosphor [data-artifacts-viewer-part="raw"],
+.theme-phosphor [data-artifacts-viewer-part="download"] {
+  padding: 0.1875rem 0.5rem;
+  border: 1px solid var(--amber-dim);
+  color: var(--amber);
+  text-decoration: none;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+}
+
+.theme-phosphor [data-artifacts-viewer-part="raw"]:hover,
+.theme-phosphor [data-artifacts-viewer-part="download"]:hover {
+  border-color: var(--amber);
+  background: rgb(255 184 77 / 12%);
+}
+
+.theme-phosphor [data-artifacts-viewer-part="code-fallback"] {
+  padding: 1rem;
+  color: #7f8c80;
+}
+
+.theme-phosphor [data-artifacts-viewer-slot="loading"],
+.theme-phosphor [data-artifacts-viewer-slot="empty"],
+.theme-phosphor [data-artifacts-viewer-slot="error"] {
+  padding: 1.25rem 1rem;
+  font-size: 0.75rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.theme-phosphor [data-artifacts-viewer-slot="loading"]::before {
+  content: "▚ ";
+  color: var(--glow);
+}
+
+.theme-phosphor [data-artifacts-viewer-slot="error"] {
+  border-left: 2px solid #ff6b6b;
+}
+
+.phosphor-decoding {
+  padding: 1.25rem 0.9rem;
+}
+
+.phosphor-decoding__line {
+  margin: 0 0 0.75rem;
+  color: var(--glow);
+  font-size: 0.7rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+}
+
+.phosphor-decoding__line span {
+  animation: phosphor-blink 1s steps(1) infinite;
+}
+
+/* A scan head sweeping the empty gutter, the way a CRT fills a frame. */
+.phosphor-decoding__scan {
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--amber), transparent);
+  animation: phosphor-scan 1.4s ease-in-out infinite;
+}
+
+@keyframes phosphor-scan {
+  0% {
+    transform: translateX(-100%) scaleX(0.35);
+  }
+  100% {
+    transform: translateX(100%) scaleX(0.35);
+  }
+}
+
+.phosphor-decoding__line--alert {
+  color: #ff6b6b;
+}

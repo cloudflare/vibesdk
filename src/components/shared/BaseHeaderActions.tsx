@@ -12,6 +12,8 @@ export interface BaseHeaderActionsProps {
 	onGitCloneClick: () => void;
 	isGitHubExportReady: boolean;
 	onGitHubExportClick: () => void;
+	/** Hide the Clone/GitHub buttons (e.g. think apps surface them in the Repo tab). */
+	showGitActions?: boolean;
 }
 
 export function BaseHeaderActions({
@@ -22,6 +24,7 @@ export function BaseHeaderActions({
 	onGitCloneClick,
 	isGitHubExportReady,
 	onGitHubExportClick,
+	showGitActions = true,
 }: BaseHeaderActionsProps) {
 	return (
 		<>
@@ -30,13 +33,15 @@ export function BaseHeaderActions({
 				onRequestConfigs={onRequestConfigs}
 				loading={loadingConfigs}
 			/>
-			<HeaderButton
-				icon={GitBranch}
-				label="Clone"
-				onClick={onGitCloneClick}
-				title="Clone to local machine"
-			/>
-			{isGitHubExportReady && (
+			{showGitActions && (
+				<HeaderButton
+					icon={GitBranch}
+					label="Clone"
+					onClick={onGitCloneClick}
+					title="Clone to local machine"
+				/>
+			)}
+			{showGitActions && isGitHubExportReady && (
 				<HeaderButton
 					icon={Github}
 					label="GitHub"

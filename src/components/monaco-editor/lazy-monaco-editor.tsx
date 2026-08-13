@@ -1,9 +1,13 @@
 import { lazy, Suspense } from 'react';
 import { Loader2 } from 'lucide-react';
-import type { MonacoEditorProps } from './monaco-editor';
+import type { MonacoEditorProps, MonacoDiffEditorProps } from './monaco-editor';
 
 const MonacoEditorImpl = lazy(() =>
 	import('./monaco-editor').then((mod) => ({ default: mod.MonacoEditor })),
+);
+
+const MonacoDiffEditorImpl = lazy(() =>
+	import('./monaco-editor').then((mod) => ({ default: mod.MonacoDiffEditor })),
 );
 
 function MonacoEditorFallback({ className }: { className?: string }) {
@@ -41,4 +45,14 @@ export function MonacoEditor(props: MonacoEditorProps) {
 	);
 }
 
-export type { MonacoEditorProps };
+/** Code-splits monaco-editor + workers until the diff editor is mounted. */
+export function MonacoDiffEditor(props: MonacoDiffEditorProps) {
+	const { className } = props;
+	return (
+		<Suspense fallback={<MonacoEditorFallback className={className} />}>
+			<MonacoDiffEditorImpl {...props} />
+		</Suspense>
+	);
+}
+
+export type { MonacoEditorProps, MonacoDiffEditorProps };

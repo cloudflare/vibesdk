@@ -71,6 +71,8 @@ export interface HeaderActionsProps extends FeatureContext {
 	onGitHubExportClick: () => void;
 	loadingConfigs: boolean;
 	onRequestConfigs: () => void;
+	/** Hide Clone/GitHub buttons (think apps surface them in the Repo tab). */
+	showGitActions?: boolean;
 }
 
 /**

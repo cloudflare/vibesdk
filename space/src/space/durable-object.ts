@@ -15,7 +15,7 @@ import {
   VIBE_APP_MODULE,
 } from "./inspector-wrapper"
 import { ArtifactsBackend, resolveSpaceFsBackendMode, SqlBackend, type SpaceFsBackend } from "./fs-backend"
-import { stageWorkdir } from "./git-objects"
+import { stageWorkdir, stagedTreeMatchesHead, resolveHead } from "./git-objects"
 import { stripPreviewSecurityHeaders } from "./preview-headers"
 
 // ─── Inspector result types ────────────────────────────────────────────────
@@ -338,6 +338,12 @@ export class SpaceDO extends DurableObject<Env> {
     // Stage the workdir (incl. deletions) but never reserved bookkeeping
     // paths — a committed `.afs/state.json` would pollute the Artifacts base.
     await stageWorkdir(this.fs, isReservedPath)
+    // Skip no-op commits (nothing changed since HEAD) so callers that commit
+    // defensively don't append empty restore points.
+    if (await stagedTreeMatchesHead(this.fs, isReservedPath)) {
+      const head = await resolveHead(this.fs, "HEAD")
+      return { sha: head ?? "", message }
+    }
     const result = await this.git.commit({
       message,
       author: author ?? { name: "Agent", email: "agent@vibesdk.local" },
@@ -357,6 +363,12 @@ export class SpaceDO extends DurableObject<Env> {
     // Persist pending overlay writes before the commit captures the tree.
     await this.flushCheckpoint()
     await stageWorkdir(this.fs, isReservedPath)
+    // Skip no-op commits (e.g. a preview redeploy on page reload) so history is
+    // not polluted with empty commits and the remote is not pushed needlessly.
+    if (await stagedTreeMatchesHead(this.fs, isReservedPath)) {
+      const head = await resolveHead(this.fs, "HEAD")
+      return { sha: head ?? "", message }
+    }
     const result = await this.git.commit({
       message,
       author: author ?? { name: "Agent", email: "agent@vibesdk.local" },
@@ -395,6 +407,55 @@ export class SpaceDO extends DurableObject<Env> {
   async gitDiff(): Promise<Array<{ filepath: string; status: string }>> {
     await this.ensureInit()
     return this.git.diff()
+  }
+
+  /**
+   * Export the raw git object store (`.git/**`) as `{ path, data }[]`, the same
+   * shape the host's git-clone/GitHub-export pipeline consumes. Used to serve
+   * clones and push the app's real repository (with full history) to GitHub for
+   * think apps, whose files/commits live here in SpaceDO rather than in the
+   * agent's own git.
+   *
+   * A best-effort full fetch first ensures the overlay `.git` holds the entire
+   * history (isomorphic-git fetch is not shallow), not just what a cold start
+   * materialized. Paths are returned without a leading slash (`.git/HEAD`,
+   * `.git/objects/…`) to match the loose-object layout callers expect.
+   */
+  async exportGitObjects(): Promise<Array<{ path: string; data: Uint8Array }>> {
+    await this.ensureInit()
+    try {
+      const branch = (await this.currentBranch()) ?? "main"
+      await this.backend.fetch(branch)
+    } catch {
+      // Best-effort: export whatever is already local.
+    }
+
+    const out: Array<{ path: string; data: Uint8Array }> = []
+    const walk = async (dir: string): Promise<void> => {
+      let entries: Awaited<ReturnType<FileSystem["readdirWithFileTypes"]>>
+      try {
+        entries = await this.overlay.readdirWithFileTypes(dir)
+      } catch {
+        return
+      }
+      for (const entry of entries) {
+        const full = dir === "/" ? `/${entry.name}` : `${dir}/${entry.name}`
+        let stat
+        try {
+          stat = await this.overlay.stat(full)
+        } catch {
+          continue
+        }
+        if (stat.type === "directory") {
+          await walk(full)
+        } else {
+          const bytes = await this.overlay.readFileBytes(full)
+          if (bytes) out.push({ path: full.replace(/^\/+/, ""), data: bytes })
+        }
+      }
+    }
+    await walk("/.git")
+    return out
   }
 
   /**

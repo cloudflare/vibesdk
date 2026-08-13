@@ -1,5 +1,6 @@
 import { CodingAgentController } from '../controllers/agent/controller';
 import { AppDatabaseController } from '../controllers/appDatabase/controller';
+import { ArtifactsController } from '../controllers/artifacts/controller';
 import { AppEnv } from '../../types/appenv';
 import { Hono } from 'hono';
 import { AuthConfig, setAuthLevel } from '../../middleware/auth/routeAuth';
@@ -58,5 +59,26 @@ export function setupCodegenRoutes(app: Hono<AppEnv>): void {
         '/api/agent/:agentId/db/wipe',
         setAuthLevel(AuthConfig.ownerOnly),
         adaptController(AppDatabaseController, AppDatabaseController.wipe),
+    );
+
+    // ========================================
+    // ARTIFACTS (Repo tab) — read-only viewer
+    // ========================================
+    // Owner-gated proxy to the app's Cloudflare Artifacts repository. The
+    // repo name (app id) travels in the path; per-repo ownership is enforced
+    // inside the controller's `beforeRequest` hook. Auth is `authenticated`
+    // (not param-based `ownerOnly`) because the resource id is not a route
+    // param — see ArtifactsController.
+    app.all(
+        '/api/artifacts/*',
+        setAuthLevel(AuthConfig.authenticated),
+        adaptController(ArtifactsController, ArtifactsController.proxy),
+    );
+
+    // Branch list for the Repo tab's branch selector (SpaceDO git op).
+    app.get(
+        '/api/agent/:agentId/branches',
+        setAuthLevel(AuthConfig.ownerOnly),
+        adaptController(ArtifactsController, ArtifactsController.listBranches),
     );
 }

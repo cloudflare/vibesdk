@@ -253,6 +253,31 @@ export class GitHubService {
     }
 
     /**
+     * Export a `.git` object store verbatim to GitHub (no template rebase),
+     * preserving the exact commit history. Used for think apps, whose real
+     * repository lives in SpaceDO/Artifacts.
+     */
+    static async exportRawToGitHub(options: {
+        gitObjects: Array<{ path: string; data: Uint8Array }>;
+        token: string;
+        repositoryUrl: string;
+    }): Promise<GitHubPushResponse> {
+        try {
+            GitHubService.logger.info('Starting raw GitHub export', {
+                gitObjectCount: options.gitObjects.length,
+                repositoryUrl: options.repositoryUrl,
+            });
+            const fs = await GitCloneService.buildRepositoryFromObjects(options.gitObjects);
+            await GitHubService.modifyReadmeForGitHub(fs, options.repositoryUrl);
+            return await GitHubService.pushViaGitProtocol(fs, options.token, options.repositoryUrl);
+        } catch (error) {
+            GitHubService.logger.error('Raw GitHub export failed', error);
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+            return { success: false, error: `GitHub export failed: ${errorMessage}` };
+        }
+    }
+
+    /**
      * Replace [cloudflarebutton] placeholder with deploy button
      */
     private static async modifyReadmeForGitHub(fs: MemFS, githubRepoUrl: string): Promise<void> {

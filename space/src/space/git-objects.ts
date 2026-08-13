@@ -273,6 +273,38 @@ export function createArtifactsBaseSource(opts: {
 }
 
 /**
+ * True when the currently-staged index would produce a tree identical to the
+ * HEAD commit's tree — i.e. committing now would create an empty commit.
+ *
+ * Callers stage the workdir first, then use this to skip no-op commits (e.g. a
+ * preview redeploy on page reload must not append an empty restore point). An
+ * unborn branch (no HEAD yet) returns false so the very first commit proceeds.
+ */
+export async function stagedTreeMatchesHead(
+  fs: FileSystem,
+  skip: (absPath: string) => boolean,
+): Promise<boolean> {
+  const gitFs = createGitFs(fs)
+  // Unborn branch (no HEAD): the first commit must always proceed.
+  if (!(await resolveHead(fs, "HEAD"))) return false
+  try {
+    const matrix = await git.statusMatrix({ fs: gitFs, dir: "/" })
+    for (const [filepath, head, , stage] of matrix) {
+      if (skip(`/${filepath}`)) continue
+      // statusMatrix stage codes: 0 absent, 1 identical to HEAD, 2/3 differ.
+      // The staged tree equals HEAD only when every entry is either present-
+      // and-identical (head 1, stage 1) or absent-on-both (head 0, stage 0).
+      const unchanged = (head === 1 && stage === 1) || (head === 0 && stage === 0)
+      if (!unchanged) return false
+    }
+    return true
+  } catch {
+    // If we cannot determine emptiness, fall through and let the commit happen.
+    return false
+  }
+}
+
+/**
  * Stage the whole working tree (like the shell's `git add .`, which also
  * stages deletions via `statusMatrix`) while skipping reserved paths — the
  * `.afs` bookkeeping file must never enter a commit, or it lands in the
