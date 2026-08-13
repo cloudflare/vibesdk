@@ -1,0 +1,21 @@
+wrangler.jsonc
+  s_4852cf560ac604::t_3ff68d5aee5248 9-17
+wrangler.staging.jsonc
+  s_4852cf560ac604::t_f8e91b1242dc46 15-21
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "2509dfad0d943efa67847b348e59fc384fa423d1",
+  "prompts": {},
+  "sessions": {
+    "s_4852cf560ac604": {
+      "agent_id": {
+        "tool": "windsurf",
+        "id": "curse-carob",
+        "model": "unknown"
+      },
+      "human_author": "Karishnu Poddar <karishnu@cloudflare.com>"
+    }
+  }
+}
