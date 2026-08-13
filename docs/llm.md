@@ -116,7 +116,7 @@ Use `bun run dev:browser` for local browser-console inspection and `bun run depl
 ### **Running Locally**
 
 **Prerequisites:**
-- Node.js 18+
+- Node.js 22+
 - Cloudflare account (for D1, Durable Objects)
 - API keys: OpenAI, Anthropic, Google AI Studio
 
