@@ -6,6 +6,15 @@
 	"$schema": "node_modules/wrangler/config-schema.json",
 	"name": "vibesdk-production",
 	"main": "worker/index.ts",
+	// Resolve the vendored artifacts-viewer server entrypoints for the Worker
+	// bundle. `wrangler deploy` uses esbuild (not Vite), so it does not read
+	// vite.config.ts aliases; these mirror them for the two server-only
+	// specifiers the Worker imports (the React/client/styles subpaths are
+	// frontend-only and resolved by Vite).
+	"alias": {
+		"artifacts-viewer": "./packages/artifacts-viewer/packages/artifacts-viewer/src/index.ts",
+		"artifacts-viewer/server/cache": "./packages/artifacts-viewer/packages/artifacts-viewer/src/server/cache-adapters.ts"
+	},
 	// Facets (durable-object-facets) require a recent compat date — bumped
 	// from 2025-08-10 to enable `ctx.facets.get()` for space-generated
 	// apps' env.DB binding.

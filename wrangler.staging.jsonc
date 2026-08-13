@@ -12,6 +12,13 @@
 	"$schema": "node_modules/wrangler/config-schema.json",
 	"name": "vibesdk-staging",
 	"main": "worker/index.ts",
+	// Resolve the vendored artifacts-viewer server entrypoints for the Worker
+	// bundle (wrangler/esbuild does not read vite.config.ts aliases). Only the
+	// two server-only specifiers the Worker imports are aliased here.
+	"alias": {
+		"artifacts-viewer": "./packages/artifacts-viewer/packages/artifacts-viewer/src/index.ts",
+		"artifacts-viewer/server/cache": "./packages/artifacts-viewer/packages/artifacts-viewer/src/server/cache-adapters.ts"
+	},
 	// Bumped for Durable Object Facets (see wrangler.jsonc for context).
 	"compatibility_date": "2026-05-23",
 	"compatibility_flags": ["nodejs_compat"],
