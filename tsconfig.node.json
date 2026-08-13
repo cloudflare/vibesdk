@@ -1,12 +1,17 @@
 {
 	"compilerOptions": {
-		"baseUrl": ".",
 		"paths": {
             "shared/*": [
               "./shared/*"
             ],
             "worker/*": [
               "./worker/*"
+            ],
+            "artifacts-viewer": [
+              "./packages/artifacts-viewer/packages/artifacts-viewer/src/index.ts"
+            ],
+            "artifacts-viewer/server/cache": [
+              "./packages/artifacts-viewer/packages/artifacts-viewer/src/server/cache-adapters.ts"
             ]
 		},
 		"tsBuildInfoFile": "./node_modules/.tmp/tsconfig.node.tsbuildinfo",

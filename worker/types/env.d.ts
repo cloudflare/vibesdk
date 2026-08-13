@@ -3,6 +3,7 @@ declare namespace Cloudflare {
 		// Dashboard-managed settings are intentionally omitted from wrangler vars.
 		ALLOWED_EMAIL?: string;
 		ALLOCATION_STRATEGY?: string;
+		ENABLE_ARTIFACTS?: string;
 		ENABLE_CLOUDFLARE_LIMITS?: string;
 		ENABLE_EMAIL_AUTH?: string;
 		ENABLE_READ_REPLICAS?: string;

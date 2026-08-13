@@ -1,0 +1,343 @@
+/* Blockprint — brutalist poster. Acid yellow, 3px rules, hard offset shadows. */
+
+.theme-blockprint {
+  --acid: #e3ff3f;
+  --carbon: #0a0a0a;
+  --sheet: #ffffff;
+  --ash: #5c5c52;
+
+  --page-bg: var(--acid);
+  --page-ink: var(--carbon);
+  --page-title-ink: var(--carbon);
+  --page-muted: #46462f;
+  --page-body: "Archivo", ui-sans-serif, sans-serif;
+  --page-display: "Archivo Black", ui-sans-serif, sans-serif;
+  --page-mono:
+    "JetBrains Mono Variable", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  --page-flow: 2.25rem;
+  --page-measure: 82rem;
+  --page-pad: 2.5rem 1.75rem 6rem;
+  --page-rail-gap: 0.5rem;
+  --page-masthead-gap: 1rem;
+  --page-title-size: clamp(2.75rem, 9vw, 6rem);
+  --page-title-weight: 400;
+  --page-title-leading: 0.85;
+  --page-title-tracking: -0.045em;
+  --page-title-caps: uppercase;
+  --page-tagline-size: 1rem;
+  --page-tagline-leading: 1.5;
+  --page-tracking: 0.2em;
+  --page-caps: uppercase;
+
+  --artifacts-viewer-font: "Archivo", ui-sans-serif, sans-serif;
+  --artifacts-viewer-font-size: 0.875rem;
+  --artifacts-viewer-mono-font:
+    "JetBrains Mono Variable", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  --diffs-font-family:
+    "JetBrains Mono Variable", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  --artifacts-viewer-color: var(--carbon);
+  --artifacts-viewer-muted-color: var(--ash);
+  --artifacts-viewer-error-color: #d31414;
+  --artifacts-viewer-icon-color: var(--carbon);
+  --artifacts-viewer-background: var(--sheet);
+  --artifacts-viewer-toolbar-background: var(--carbon);
+  --artifacts-viewer-sidebar-width: 18rem;
+  --artifacts-viewer-indent: 1rem;
+  --artifacts-viewer-row-padding: 0.5rem 0.75rem;
+  --artifacts-viewer-focus-outline: 3px solid var(--carbon);
+  --artifacts-viewer-focus-offset: 0;
+}
+
+/* Halftone dot grid, printed slightly off-register. */
+.theme-blockprint .stage__atmosphere {
+  background-image:
+    radial-gradient(circle at center, rgb(10 10 10 / 14%) 1.2px, transparent 1.4px),
+    radial-gradient(circle at center, rgb(10 10 10 / 6%) 1.2px, transparent 1.4px);
+  background-size:
+    14px 14px,
+    14px 14px;
+  background-position:
+    0 0,
+    5px 6px;
+}
+
+/* -------------------------------------------------------------- page chrome */
+
+.theme-blockprint .rail__label {
+  font-weight: 700;
+  font-size: 0.625rem;
+}
+
+.theme-blockprint .switch {
+  padding: 0.4375rem 0.875rem;
+  border: 3px solid var(--carbon);
+  border-radius: 0;
+  background: var(--sheet);
+  color: var(--carbon);
+  font-family:
+    "JetBrains Mono Variable", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  box-shadow: 3px 3px 0 var(--carbon);
+  transition:
+    transform 110ms ease,
+    box-shadow 110ms ease,
+    background 110ms ease;
+}
+
+.theme-blockprint .switch:hover {
+  transform: translate(-1px, -1px);
+  box-shadow: 5px 5px 0 var(--carbon);
+}
+
+.theme-blockprint .switch[aria-pressed="true"] {
+  transform: translate(2px, 2px);
+  background: var(--carbon);
+  color: var(--acid);
+  box-shadow: 0 0 0 var(--carbon);
+}
+
+.theme-blockprint .switch__index {
+  color: inherit;
+  opacity: 0.55;
+}
+
+.theme-blockprint .masthead__title {
+  /* Poster titles hang past the measure. */
+  margin-left: -0.06em;
+}
+
+.theme-blockprint .masthead__tagline {
+  max-width: 34rem;
+  font-weight: 500;
+}
+
+.theme-blockprint .credits {
+  font-weight: 700;
+  font-size: 0.625rem;
+}
+
+.theme-blockprint .credits b {
+  padding: 0.125rem 0.375rem;
+  background: var(--carbon);
+  color: var(--acid);
+  font-weight: 700;
+}
+
+.theme-blockprint .readout {
+  padding: 0.75rem 1rem;
+  border: 3px solid var(--carbon);
+  background: var(--sheet);
+  font-weight: 700;
+  box-shadow: 6px 6px 0 var(--carbon);
+}
+
+/* ------------------------------------------------------------------- viewer */
+
+.theme-blockprint .viewer-frame {
+  position: relative;
+  border: 3px solid var(--carbon);
+  background: var(--sheet);
+  box-shadow: 10px 10px 0 var(--carbon);
+  animation: blockprint-stamp 260ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+@keyframes blockprint-stamp {
+  0% {
+    opacity: 0;
+    transform: translate(-8px, -8px);
+  }
+  100% {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Rotated sticker, slapped on the corner. */
+.theme-blockprint .viewer-frame::before {
+  content: "READ ONLY";
+  position: absolute;
+  top: -0.875rem;
+  right: 1.5rem;
+  z-index: 2;
+  padding: 0.25rem 0.625rem;
+  border: 3px solid var(--carbon);
+  background: var(--acid);
+  color: var(--carbon);
+  font-family:
+    "JetBrains Mono Variable", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.625rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  transform: rotate(-3deg);
+}
+
+.theme-blockprint [data-artifacts-viewer-slot="toolbar"] {
+  padding: 0.875rem 1rem;
+  border-bottom: 3px solid var(--carbon);
+  color: var(--acid);
+  font-family:
+    "JetBrains Mono Variable", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.theme-blockprint [data-artifacts-viewer-slot="sidebar"] {
+  border-right: 3px solid var(--carbon);
+  padding-block: 0.5rem;
+}
+
+.theme-blockprint [data-artifacts-viewer-slot="treeItem"],
+.theme-blockprint [data-artifacts-viewer-slot="directoryItem"] {
+  width: 100%;
+  border-radius: 0;
+  font-weight: 600;
+  transition:
+    background 90ms linear,
+    color 90ms linear;
+}
+
+.theme-blockprint [data-artifacts-viewer-slot="treeItem"]:hover,
+.theme-blockprint [data-artifacts-viewer-slot="directoryItem"]:hover {
+  background: var(--acid);
+}
+
+.theme-blockprint [data-artifacts-viewer-slot="treeItem"][data-selected],
+.theme-blockprint [data-artifacts-viewer-slot="directoryItem"][data-selected] {
+  background: var(--carbon);
+  color: var(--acid);
+}
+
+.theme-blockprint
+  [data-artifacts-viewer-slot="treeItem"][data-selected]
+  [data-artifacts-viewer-part="icon"],
+.theme-blockprint
+  [data-artifacts-viewer-slot="directoryItem"][data-selected]
+  [data-artifacts-viewer-part="icon"] {
+  color: var(--acid);
+}
+
+.theme-blockprint [data-artifacts-viewer-slot="treeItem"][data-kind="tree"],
+.theme-blockprint [data-artifacts-viewer-slot="directoryItem"][data-kind="tree"] {
+  font-family: "Archivo Black", ui-sans-serif, sans-serif;
+  font-weight: 400;
+  text-transform: uppercase;
+  letter-spacing: -0.01em;
+}
+
+.theme-blockprint [data-artifacts-viewer-slot="treeItem"][data-disabled] {
+  color: var(--ash);
+}
+
+.theme-blockprint [data-artifacts-viewer-slot="tree"] ul ul {
+  border-left: 3px solid var(--carbon);
+  margin-inline-start: 0.5rem;
+}
+
+.theme-blockprint [data-artifacts-viewer-slot="directory"] {
+  padding-block: 0.5rem;
+}
+
+.theme-blockprint [data-artifacts-viewer-slot="file"] > header {
+  padding: 0.875rem 1rem;
+  border-bottom: 3px solid var(--carbon);
+  background: var(--acid);
+  font-family:
+    "JetBrains Mono Variable", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.6875rem;
+  font-weight: 700;
+}
+
+.theme-blockprint [data-artifacts-viewer-part="raw"],
+.theme-blockprint [data-artifacts-viewer-part="download"] {
+  padding: 0.1875rem 0.5rem;
+  border: 2px solid var(--carbon);
+  background: var(--sheet);
+  color: var(--carbon);
+  text-decoration: none;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.theme-blockprint [data-artifacts-viewer-part="raw"]:hover,
+.theme-blockprint [data-artifacts-viewer-part="download"]:hover {
+  background: var(--carbon);
+  color: var(--acid);
+}
+
+.theme-blockprint [data-artifacts-viewer-part="code-fallback"] {
+  padding: 1rem;
+}
+
+.theme-blockprint [data-artifacts-viewer-slot="loading"],
+.theme-blockprint [data-artifacts-viewer-slot="empty"],
+.theme-blockprint [data-artifacts-viewer-slot="error"] {
+  padding: 1.5rem 1rem;
+  font-family: "Archivo Black", ui-sans-serif, sans-serif;
+  font-size: 1rem;
+  text-transform: uppercase;
+  letter-spacing: -0.01em;
+}
+
+.theme-blockprint [data-artifacts-viewer-slot="error"] {
+  background: #d31414;
+  color: var(--sheet);
+}
+
+/* A press block stamping in quarter turns. No easing: presses do not ease. */
+.blockprint-press {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  padding: 1.75rem 1rem;
+}
+
+.blockprint-press__block {
+  width: 2.5rem;
+  height: 2.5rem;
+  flex: none;
+  border: 3px solid var(--carbon);
+  background: var(--acid);
+  box-shadow: 4px 4px 0 var(--carbon);
+  animation: blockprint-turn 1.2s steps(4) infinite;
+}
+
+@keyframes blockprint-turn {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+.blockprint-press__note {
+  margin: 0;
+  font-family: "Archivo Black", ui-sans-serif, sans-serif;
+  font-size: 1rem;
+  line-height: 1.1;
+  letter-spacing: -0.01em;
+  text-transform: uppercase;
+}
+
+.blockprint-press--alert {
+  align-items: flex-start;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.blockprint-press--alert .blockprint-press__note {
+  background: var(--acid);
+  border: 3px solid var(--carbon);
+  padding: 0.25rem 0.5rem;
+}
+
+.blockprint-press__detail {
+  font-family: var(--page-mono);
+  font-size: 0.75rem;
+  margin: 0;
+}

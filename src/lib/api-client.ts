@@ -62,6 +62,7 @@ import type{
 	ListAppTablesResponse,
 	QueryAppTableResponse,
 	WipeAppDatabaseResponse,
+	ListAppBranchesResponse,
 } from '@/api-types';
 import {
 	RateLimitExceededError,
@@ -1068,6 +1069,18 @@ class ApiClient {
 		const qs = params.toString();
 		return this.request<ListAppTablesResponse>(
 			`/api/agent/${agentId}/db/tables${qs ? `?${qs}` : ''}`,
+		);
+	}
+
+	/**
+	 * List the branches of the app's workspace repo (for the Repo tab's
+	 * branch selector). Read-only.
+	 */
+	async listAppBranches(
+		agentId: string,
+	): Promise<ApiResponse<ListAppBranchesResponse>> {
+		return this.request<ListAppBranchesResponse>(
+			`/api/agent/${agentId}/branches`,
 		);
 	}
 

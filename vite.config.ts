@@ -60,6 +60,46 @@ export default defineConfig({
 					'./worker/polyfills/safe-buffer.ts',
 				),
 			},
+			// Vendored `artifacts-viewer` (git subtree under packages/). Built
+			// from source: map its published subpath specifiers to the vendored
+			// TypeScript sources so Vite (frontend) and the Cloudflare plugin
+			// (worker) compile them directly — the package's own vite-plus/pnpm
+			// build is not used. More specific subpaths must precede the root.
+			{
+				find: 'artifacts-viewer/server/cache',
+				replacement: path.resolve(
+					__dirname,
+					'./packages/artifacts-viewer/packages/artifacts-viewer/src/server/cache-adapters.ts',
+				),
+			},
+			{
+				find: 'artifacts-viewer/styles.css',
+				replacement: path.resolve(
+					__dirname,
+					'./packages/artifacts-viewer/packages/artifacts-viewer/src/styles/viewer.css',
+				),
+			},
+			{
+				find: 'artifacts-viewer/client',
+				replacement: path.resolve(
+					__dirname,
+					'./packages/artifacts-viewer/packages/artifacts-viewer/src/client/index.ts',
+				),
+			},
+			{
+				find: 'artifacts-viewer/react',
+				replacement: path.resolve(
+					__dirname,
+					'./packages/artifacts-viewer/packages/artifacts-viewer/src/react/index.ts',
+				),
+			},
+			{
+				find: /^artifacts-viewer$/,
+				replacement: path.resolve(
+					__dirname,
+					'./packages/artifacts-viewer/packages/artifacts-viewer/src/index.ts',
+				),
+			},
 			{ find: '@', replacement: path.resolve(__dirname, './src') },
 			{ find: 'shared', replacement: path.resolve(__dirname, './shared') },
 			{ find: 'worker', replacement: path.resolve(__dirname, './worker') },

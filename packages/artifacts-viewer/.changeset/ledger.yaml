@@ -1,0 +1,17 @@
+artifacts-viewer@0.0.2:
+  dir: packages/artifacts-viewer
+  intents:
+    - orange-pants-talk
+artifacts-viewer@0.0.3:
+  dir: packages/artifacts-viewer
+  intents:
+    - cool-lands-watch
+    - puny-olives-yell
+artifacts-viewer@0.0.4:
+  dir: packages/artifacts-viewer
+  intents:
+    - happy-laws-peel
+artifacts-viewer@0.0.5:
+  dir: packages/artifacts-viewer
+  intents:
+    - jolly-rules-stay

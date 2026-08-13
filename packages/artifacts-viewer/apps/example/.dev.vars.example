@@ -1,0 +1,10 @@
+# Copy to `.dev.vars` and fill in. Never commit `.dev.vars`.
+#
+# The API token needs read access to Cloudflare Artifacts. It stays in the
+# Worker; the browser only ever talks to this app's own origin.
+#
+# `wrangler types` reads this file's *real* counterpart, so rerun
+# `vp run cf-typegen` after adding or renaming a variable.
+ARTIFACTS_ACCOUNT_ID=""
+ARTIFACTS_NAMESPACE=""
+ARTIFACTS_API_TOKEN=""

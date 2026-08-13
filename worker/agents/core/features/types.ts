@@ -107,6 +107,13 @@ export interface PlatformCapabilities {
 	 * platform dispatch namespace instead.
 	 */
 	userAccountDeploy: boolean;
+
+	/**
+	 * Whether Cloudflare Artifacts is enabled (ENABLE_ARTIFACTS). When true,
+	 * think apps keep durable git history in Artifacts and the read-only Repo
+	 * viewer is available; when false there is no Artifacts repo to browse.
+	 */
+	artifacts: boolean;
 }
 
 /**

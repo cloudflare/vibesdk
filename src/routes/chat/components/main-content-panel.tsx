@@ -14,6 +14,7 @@ import { PreviewHeaderActions } from './preview-header-actions';
 import { EditorHeaderActions } from './editor-header-actions';
 import { Copy } from './copy';
 import { DatabaseViewer } from './database-viewer';
+import { ArtifactRepoViewerPanel } from './artifact-repo-viewer';
 import { featureRegistry } from '@/features';
 import type { FileType, BlueprintType, BehaviorType, ModelConfigsInfo, TemplateDetails, ProjectType } from '@/api-types';
 import type { ContentDetectionResult } from '../utils/content-detector';
@@ -22,8 +23,8 @@ import type { Edit } from '../hooks/use-chat';
 
 interface MainContentPanelProps {
 	// View state
-	view: 'editor' | 'preview' | 'docs' | 'blueprint' | 'terminal' | 'presentation' | 'database';
-	onViewChange: (mode: 'preview' | 'editor' | 'docs' | 'blueprint' | 'presentation' | 'database') => void;
+	view: 'editor' | 'preview' | 'docs' | 'blueprint' | 'terminal' | 'presentation' | 'database' | 'repo';
+	onViewChange: (mode: 'preview' | 'editor' | 'docs' | 'blueprint' | 'presentation' | 'database' | 'repo') => void;
 
 	// Content detection
 	hasDocumentation: boolean;
@@ -72,6 +73,9 @@ interface MainContentPanelProps {
 	agentId?: string;
 	databaseAvailable: boolean;
 
+	// Repo tab (think-behavior only) — read-only Artifacts repository viewer
+	repoAvailable: boolean;
+
 	// Refs
 	previewRef: RefObject<HTMLIFrameElement | null>;
 	editorRef: RefObject<HTMLDivElement | null>;
@@ -110,7 +114,12 @@ export function MainContentPanel(props: MainContentPanelProps) {
 		templateDetails,
 		agentId,
 		databaseAvailable,
+		repoAvailable,
 	} = props;
+
+	// Think apps surface Clone/GitHub inside the Repo tab, so hide them from the
+	// generic preview/editor header to avoid duplication.
+	const showHeaderGitActions = !(behaviorType === 'think' && repoAvailable);
 
 	// Feature-specific state management
 	const [featureState, setFeatureStateInternal] = useState<Record<string, unknown>>({});
@@ -119,7 +128,7 @@ export function MainContentPanel(props: MainContentPanelProps) {
 	}, []);
 
 	const commonHeaderProps = {
-		view: view as 'preview' | 'editor' | 'docs' | 'blueprint' | 'presentation' | 'database',
+		view: view as 'preview' | 'editor' | 'docs' | 'blueprint' | 'presentation' | 'database' | 'repo',
 		onViewChange,
 		previewAvailable,
 		showTooltip,
@@ -127,6 +136,7 @@ export function MainContentPanel(props: MainContentPanelProps) {
 		previewUrl,
 		projectType,
 		databaseAvailable,
+		repoAvailable,
 	};
 
 	const renderViewWithHeader = (
@@ -251,6 +261,7 @@ export function MainContentPanel(props: MainContentPanelProps) {
 					onGitCloneClick={onGitCloneClick}
 					isGitHubExportReady={isGitHubExportReady}
 					onGitHubExportClick={githubExport.openModal}
+					showGitActions={showHeaderGitActions}
 					loadingConfigs={loadingConfigs}
 					onRequestConfigs={onRequestConfigs}
 				/>
@@ -263,6 +274,7 @@ export function MainContentPanel(props: MainContentPanelProps) {
 				onGitCloneClick={onGitCloneClick}
 				isGitHubExportReady={isGitHubExportReady}
 				onGitHubExportClick={githubExport.openModal}
+				showGitActions={showHeaderGitActions}
 				previewRef={previewRef}
 			/>
 		);
@@ -338,6 +350,7 @@ export function MainContentPanel(props: MainContentPanelProps) {
 					onGitCloneClick={onGitCloneClick}
 					isGitHubExportReady={isGitHubExportReady}
 					onGitHubExportClick={githubExport.openModal}
+					showGitActions={showHeaderGitActions}
 					editorRef={editorRef}
 				/>
 			);
@@ -383,6 +396,7 @@ export function MainContentPanel(props: MainContentPanelProps) {
 				onGitCloneClick={onGitCloneClick}
 				isGitHubExportReady={isGitHubExportReady}
 				onGitHubExportClick={githubExport.openModal}
+				showGitActions={showHeaderGitActions}
 				editorRef={editorRef}
 			/>
 		);
@@ -395,6 +409,22 @@ export function MainContentPanel(props: MainContentPanelProps) {
 				<span className="text-sm font-mono text-text-50/70">Database</span>
 			</div>,
 			<DatabaseViewer agentId={agentId} enabled={view === 'database'} />,
+		);
+	};
+
+	const renderRepoView = () => {
+		if (!repoAvailable || !agentId) return null;
+		return renderViewWithHeader(
+			<div className="flex items-center gap-2">
+				<span className="text-sm font-mono text-text-50/70">Repository</span>
+			</div>,
+			<ArtifactRepoViewerPanel
+				repoName={agentId}
+				enabled={view === 'repo'}
+				onGitCloneClick={onGitCloneClick}
+				isGitHubExportReady={isGitHubExportReady}
+				onGitHubExportClick={githubExport.openModal}
+			/>,
 		);
 	};
 
@@ -411,6 +441,8 @@ export function MainContentPanel(props: MainContentPanelProps) {
 				return renderEditorView();
 			case 'database':
 				return renderDatabaseView();
+			case 'repo':
+				return renderRepoView();
 			default:
 				return null;
 		}
