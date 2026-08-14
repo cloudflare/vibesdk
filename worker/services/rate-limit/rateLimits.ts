@@ -1,7 +1,7 @@
 import { RateLimitType, RateLimitStore, RateLimitSettings, DORateLimitConfig, KVRateLimitConfig } from './config';
 import { createObjectLogger } from '../../logger';
 import { AuthUser } from '../../types/auth-types';
-import { extractTokenWithMetadata, extractRequestMetadata } from '../../utils/authUtils';
+import { extractRequestMetadata } from '../../utils/authUtils';
 import { captureSecurityEvent } from '../../observability/sentry';
 import { KVRateLimitStore } from './KVRateLimitStore';
 import { RateLimitResult } from './DORateLimitStore';
@@ -29,16 +29,10 @@ export class RateLimitService {
 	}
 
     static async getRequestIdentifier(request: Request): Promise<string> {
-        const tokenResult = extractTokenWithMetadata(request);
-        if (tokenResult.token) {
-            const encoder = new TextEncoder();
-            const data = encoder.encode(tokenResult.token);
-            const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-            const hashArray = Array.from(new Uint8Array(hashBuffer));
-            const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-            return `token:${hashHex.slice(0, 16)}`;
-        }
-    
+        // Anonymous requests key on network identity ONLY. Any bearer token here
+        // is unverified (no signature/expiry/session check); trusting its hash lets
+        // a client opt out of the IP bucket by rotating a random string per request.
+        // Verified identity is keyed as user:${id} via getUniversalIdentifier.
         const metadata = extractRequestMetadata(request);
         return `ip:${metadata.ipAddress}`;
     }

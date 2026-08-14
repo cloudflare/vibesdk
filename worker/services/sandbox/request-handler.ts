@@ -30,6 +30,66 @@ export interface RouteInfo {
  */
 const CONTROL_PLANE_PORTS = new Set<number>([3000, 8787]);
 
+/**
+ * Strict allowlist of request headers forwarded from the browser into the
+ * (untrusted) container. The container runs LLM-generated code, so the proxy
+ * must never pass first-party platform credentials across this trust boundary.
+ * Anything not listed here is dropped — in particular Cookie, Authorization,
+ * X-CSRF-Token, X-Session-*, and X-Api-Key.
+ */
+const FORWARDED_REQUEST_HEADERS = new Set<string>([
+  'accept',
+  'accept-language',
+  'accept-encoding',
+  'content-type',
+  'content-length',
+  'user-agent',
+  'range',
+  'if-none-match',
+  'if-modified-since',
+  'cache-control',
+  'pragma',
+  'referer',
+  'origin',
+]);
+
+/**
+ * Additional headers required to complete a WebSocket handshake. These carry no
+ * credentials and must survive the allowlist so upgrades still work.
+ * `cf-container-target-port` is what `switchPort` uses to route to the port.
+ */
+const WEBSOCKET_HANDSHAKE_HEADERS = new Set<string>([
+  'upgrade',
+  'connection',
+  'sec-websocket-key',
+  'sec-websocket-version',
+  'sec-websocket-protocol',
+  'sec-websocket-extensions',
+  'cf-container-target-port',
+]);
+
+/**
+ * Build the outbound header set from the incoming request using the strict
+ * allowlist, then layer on the proxy-added headers in `extra`.
+ */
+function buildProxyHeaders(
+  request: Request,
+  extra: Record<string, string>,
+  allowExtra?: ReadonlySet<string>,
+): Headers {
+  const headers = new Headers();
+  request.headers.forEach((value, name) => {
+    const lower = name.toLowerCase();
+    if (FORWARDED_REQUEST_HEADERS.has(lower) || allowExtra?.has(lower)) {
+      headers.set(name, value);
+    }
+  });
+  for (const [name, value] of Object.entries(extra)) {
+    headers.set(name, value);
+  }
+  return headers;
+}
+
 export async function proxyToSandbox<E extends SandboxEnv>(
   request: Request,
   env: E
@@ -69,8 +129,14 @@ export async function proxyToSandbox<E extends SandboxEnv>(
     if (upgradeHeader?.toLowerCase() === 'websocket') {
       logger.info('[Proxy] WebSocket upgrade request', { sandboxId, port, path });
       // WebSocket path: Must use fetch() not containerFetch()
-      // This bypasses JSRPC serialization boundary which cannot handle WebSocket upgrades
-      return await sandbox.fetch(switchPort(request, port));
+      // This bypasses JSRPC serialization boundary which cannot handle WebSocket upgrades.
+      // Strip credentials while preserving the handshake + port-target headers.
+      const wsRequest = switchPort(request, port);
+      return await sandbox.fetch(
+        new Request(wsRequest, {
+          headers: buildProxyHeaders(wsRequest, {}, WEBSOCKET_HANDSHAKE_HEADERS),
+        }),
+      );
     }
 
     // Route directly to user's service on the specified port
@@ -78,13 +144,12 @@ export async function proxyToSandbox<E extends SandboxEnv>(
 
     const proxyRequest = new Request(proxyUrl, {
       method: request.method,
-      headers: {
-        ...Object.fromEntries(request.headers),
+      headers: buildProxyHeaders(request, {
         'X-Original-URL': request.url,
         'X-Forwarded-Host': url.hostname,
         'X-Forwarded-Proto': url.protocol.replace(':', ''),
-        'X-Sandbox-Name': sandboxId // Pass the friendly name
-      },
+        'X-Sandbox-Name': sandboxId, // Pass the friendly name
+      }),
       body: request.body,
       // @ts-expect-error - duplex required for body streaming in modern runtimes
       duplex: 'half',

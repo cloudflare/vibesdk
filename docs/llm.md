@@ -4258,7 +4258,7 @@ Audit log for all authentication attempts.
 
 ### **verificationOtps Table**
 
-Email verification codes (currently not actively used as users are auto-verified).
+Email verification codes. The email-OTP verification flow has been removed (users are auto-verified on registration), so nothing reads or writes this table; the table is retained only to avoid a destructive migration.
 
 **Fields:** email, otp (hashed), used, expiresAt (15 min)
 

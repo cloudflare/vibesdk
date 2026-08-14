@@ -65,6 +65,71 @@ describe('proxyToSandbox', () => {
 		expect(containerFetch).not.toHaveBeenCalled();
 	});
 
+	it('strips Cookie/Authorization but forwards safe headers to the container', async () => {
+		validatePortToken.mockResolvedValue(true);
+		containerFetch.mockResolvedValue(new Response('ok'));
+
+		await proxyToSandbox(
+			req(`8001-mysandbox-${TOKEN}.preview.example.dev`, {
+				headers: {
+					Cookie: 'session=secret',
+					Authorization: 'Bearer secret',
+					'X-Csrf-Token': 'secret',
+					'X-Api-Key': 'secret',
+					Accept: 'text/html',
+					'Content-Type': 'application/json',
+				},
+			}),
+			env,
+		);
+
+		const proxied = containerFetch.mock.calls[0][0] as Request;
+		expect(proxied.headers.get('Cookie')).toBeNull();
+		expect(proxied.headers.get('Authorization')).toBeNull();
+		expect(proxied.headers.get('X-Csrf-Token')).toBeNull();
+		expect(proxied.headers.get('X-Api-Key')).toBeNull();
+		expect(proxied.headers.get('Accept')).toBe('text/html');
+		expect(proxied.headers.get('Content-Type')).toBe('application/json');
+	});
+
+	it('adds proxy X-* headers on the container request', async () => {
+		validatePortToken.mockResolvedValue(true);
+		containerFetch.mockResolvedValue(new Response('ok'));
+
+		await proxyToSandbox(req(`8001-mysandbox-${TOKEN}.preview.example.dev`), env);
+
+		const proxied = containerFetch.mock.calls[0][0] as Request;
+		expect(proxied.headers.get('X-Sandbox-Name')).toBe('mysandbox');
+		expect(proxied.headers.get('X-Forwarded-Host')).toBe(
+			`8001-mysandbox-${TOKEN}.preview.example.dev`,
+		);
+		expect(proxied.headers.get('X-Forwarded-Proto')).toBe('https');
+	});
+
+	it('forwards WebSocket handshake headers but strips Cookie on a valid upgrade', async () => {
+		validatePortToken.mockResolvedValue(true);
+		sandboxFetch.mockResolvedValue(new Response('ok'));
+
+		await proxyToSandbox(
+			req(`8001-mysandbox-${TOKEN}.preview.example.dev`, {
+				headers: {
+					Upgrade: 'websocket',
+					Connection: 'Upgrade',
+					'Sec-WebSocket-Version': '13',
+					Cookie: 'session=secret',
+					Authorization: 'Bearer secret',
+				},
+			}),
+			env,
+		);
+
+		const forwarded = sandboxFetch.mock.calls[0][0] as Request;
+		expect(forwarded.headers.get('Upgrade')).toBe('websocket');
+		expect(forwarded.headers.get('Sec-WebSocket-Version')).toBe('13');
+		expect(forwarded.headers.get('Cookie')).toBeNull();
+		expect(forwarded.headers.get('Authorization')).toBeNull();
+	});
+
 	it('rejects a WebSocket upgrade with a bad token (no sandbox.fetch)', async () => {
 		validatePortToken.mockResolvedValue(false);
 
