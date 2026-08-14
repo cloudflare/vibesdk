@@ -106,13 +106,6 @@ async function verifyGitAccess(
 ): Promise<{ hasAccess: boolean; appCreatedAt?: Date }> {
     logger.info('Verifying git access', { appId });
     
-    // Log all headers for debugging
-    const headers: Record<string, string> = {};
-    request.headers.forEach((value, key) => {
-        headers[key] = key.toLowerCase().includes('auth') ? `${value.substring(0, 20)}...` : value;
-    });
-    logger.info('Request headers', { headers, url: request.url });
-    
     const appService = new AppService(env);
     const app = await appService.getAppDetails(appId);
     
