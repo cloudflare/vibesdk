@@ -507,6 +507,7 @@ export function LoginModal({
 						<a
 							href="https://www.cloudflare.com/website-terms/"
 							target="_blank"
+							rel="noopener noreferrer"
 							className="underline hover:text-kumo-default"
 						>
 							Terms of Service
@@ -515,6 +516,7 @@ export function LoginModal({
 						<a
 							href="https://www.cloudflare.com/privacypolicy/"
 							target="_blank"
+							rel="noopener noreferrer"
 							className="underline hover:text-kumo-default"
 						>
 							Privacy Policy

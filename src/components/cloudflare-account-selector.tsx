@@ -310,7 +310,7 @@ export function CloudflareAccountSelector() {
 								<DropdownMenu.Content align="end">
 									{gatewayDashUrl && (
 										<DropdownMenu.Item
-											onClick={() => window.open(gatewayDashUrl, '_blank')}
+											onClick={() => window.open(gatewayDashUrl, '_blank', 'noopener,noreferrer')}
 										>
 											<ExternalLink className="size-4" />
 											View gateway

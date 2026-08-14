@@ -156,7 +156,7 @@ function createInsufficientBalanceDialog(balance: number, accountId: string | un
 							const url = accountId 
 								? `https://dash.cloudflare.com/${accountId}/ai/ai-gateway/credits`
 								: 'https://dash.cloudflare.com';
-							window.open(url, '_blank');
+							window.open(url, '_blank', 'noopener,noreferrer');
 						}}
 						className="w-full sm:w-auto bg-brand-primary hover:bg-brand-primary/90 text-white"
 					>
