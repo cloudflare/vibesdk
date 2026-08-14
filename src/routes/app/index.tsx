@@ -792,7 +792,7 @@ export default function AppView() {
 											aria-label="Open in new tab"
 											title="Open in new tab"
 											onClick={() =>
-												window.open(appUrl, '_blank')
+												window.open(appUrl, '_blank', 'noopener,noreferrer')
 											}
 											icon={
 												<ExternalLink className="size-3.5" />

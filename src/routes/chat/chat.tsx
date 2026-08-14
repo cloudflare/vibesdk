@@ -409,7 +409,7 @@ function ChatSession() {
 								<Button
 									variant="ghost"
 									className="h-8 shrink-0 px-2 text-xs text-text-tertiary hover:bg-kumo-elevated hover:text-text-primary"
-									onClick={() => window.open(cloudflareDeploymentUrl, '_blank')}
+									onClick={() => window.open(cloudflareDeploymentUrl, '_blank', 'noopener,noreferrer')}
 								>
 									<ExternalLink className="size-3.5" />
 									View Live
