@@ -102,3 +102,47 @@ describe('RateLimitService.enforceLLMCallsRateLimit', () => {
 		).resolves.toBeUndefined();
 	});
 });
+
+describe('RateLimitService.getRequestIdentifier', () => {
+	function request(headers: Record<string, string>): Request {
+		return new Request('https://example.com/api/foo', { headers });
+	}
+
+	it('returns the same identifier for the same IP with different bearer tokens', async () => {
+		const id1 = await RateLimitService.getRequestIdentifier(
+			request({ 'CF-Connecting-IP': '1.2.3.4', Authorization: 'Bearer aaaa' }),
+		);
+		const id2 = await RateLimitService.getRequestIdentifier(
+			request({ 'CF-Connecting-IP': '1.2.3.4', Authorization: 'Bearer bbbb' }),
+		);
+
+		expect(id1).toBe('ip:1.2.3.4');
+		expect(id1).toBe(id2);
+		expect(id1.startsWith('token:')).toBe(false);
+	});
+
+	it('returns the same identifier for the same IP with different token cookies', async () => {
+		const id1 = await RateLimitService.getRequestIdentifier(
+			request({ 'CF-Connecting-IP': '1.2.3.4', Cookie: 'accessToken=aaaa' }),
+		);
+		const id2 = await RateLimitService.getRequestIdentifier(
+			request({ 'CF-Connecting-IP': '1.2.3.4', Cookie: 'accessToken=bbbb' }),
+		);
+
+		expect(id1).toBe('ip:1.2.3.4');
+		expect(id1).toBe(id2);
+	});
+
+	it('returns different identifiers for different IPs', async () => {
+		const id1 = await RateLimitService.getRequestIdentifier(request({ 'CF-Connecting-IP': '1.2.3.4' }));
+		const id2 = await RateLimitService.getRequestIdentifier(request({ 'CF-Connecting-IP': '5.6.7.8' }));
+
+		expect(id1).not.toBe(id2);
+	});
+
+	it('falls back to ip:unknown when no IP headers are present', async () => {
+		const id = await RateLimitService.getRequestIdentifier(request({ Authorization: 'Bearer aaaa' }));
+
+		expect(id).toBe('ip:unknown');
+	});
+});

@@ -1236,34 +1236,6 @@ class ApiClient {
 	}
 
 	/**
-	 * Verify email with OTP
-	 */
-	async verifyEmail(data: {
-		email: string;
-		otp: string;
-	}): Promise<ApiResponse<LoginResponseData>> {
-		return this.request<LoginResponseData>('/api/auth/verify-email', {
-			method: 'POST',
-			body: data,
-		});
-	}
-
-	/**
-	 * Resend verification OTP
-	 */
-	async resendVerificationOtp(
-		email: string,
-	): Promise<ApiResponse<{ message: string }>> {
-		return this.request<{ message: string }>(
-			'/api/auth/resend-verification',
-			{
-				method: 'POST',
-				body: { email },
-			},
-		);
-	}
-
-	/**
 	 * Get CSRF token
 	 */
 	async getCsrfToken(): Promise<ApiResponse<CsrfTokenResponseData>> {
