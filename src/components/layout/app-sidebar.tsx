@@ -26,6 +26,7 @@ import { OrangeButton } from '@/components/shared/OrangeButton';
 import { AuthButton } from '@/components/auth/auth-button';
 import { useUsageLimitsBadgeState } from '@/components/usage-limits-badge';
 import { ThemeToggle } from '@/components/theme-toggle';
+import { startCloudflareConnect } from '@/lib/cloudflare-connect';
 
 interface App {
 	id: string;
@@ -170,12 +171,9 @@ export function AppSidebar() {
 			return;
 		}
 
-		const url = new URL('/oauth/login', window.location.origin);
-		url.searchParams.set(
-			'return_url',
+		void startCloudflareConnect(
 			window.location.pathname + window.location.search,
 		);
-		window.location.href = url.toString();
 	};
 
 	const { apps: recentApps, moreAvailable } = useRecentApps();

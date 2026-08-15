@@ -51,6 +51,8 @@ import type{
 	ProfileResponseData,
 	AuthProvidersResponseData,
 	CsrfTokenResponseData,
+	CloudflareConnectRequestData,
+	CloudflareConnectResponseData,
 	OAuthProvider,
 	CodeGenArgs,
 	AgentPreviewResponse,
@@ -158,6 +160,7 @@ class ApiClient {
 	private baseUrl: string;
 	private defaultHeaders: Record<string, string>;
 	private csrfTokenInfo: CSRFTokenInfo | null = null;
+	private csrfTokenPromise: Promise<boolean> | null = null;
 
 	constructor(config: ApiClientConfig = {}) {
 		this.baseUrl = config.baseUrl || '';
@@ -195,6 +198,16 @@ class ApiClient {
 	 * Fetch CSRF token from server with expiration handling
 	 */
 	private async fetchCsrfToken(): Promise<boolean> {
+		if (this.csrfTokenPromise) return this.csrfTokenPromise;
+		this.csrfTokenPromise = this.fetchCsrfTokenUncached();
+		try {
+			return await this.csrfTokenPromise;
+		} finally {
+			this.csrfTokenPromise = null;
+		}
+	}
+
+	private async fetchCsrfTokenUncached(): Promise<boolean> {
 		try {
 			const response = await fetch(`${this.baseUrl}/api/auth/csrf-token`, {
 				method: 'GET',
@@ -373,18 +386,19 @@ class ApiClient {
 
                 const errorData = data.error;
                 if (errorData && errorData.type) {
-                       // Send a toast notification for typed errors
+                    if (
+                        errorData.type === SecurityErrorType.CSRF_VIOLATION &&
+                        response.status === 403 &&
+                        !isRetry
+                    ) {
+                        this.csrfTokenInfo = null;
+                        return this.requestRaw(endpoint, options, true, noToast);
+                    }
                     if (!noToast) {
                         toast.error(errorData.message);
                     }
                     switch (errorData.type) {
                         case SecurityErrorType.CSRF_VIOLATION:
-                            // Handle CSRF failures with retry
-                            if (response.status === 403 && !isRetry) {
-                                // Clear expired token and retry with fresh one
-                                this.csrfTokenInfo = null;
-                                return this.requestRaw(endpoint, options, true);
-                            }
                             break;
                         case SecurityErrorType.RATE_LIMITED:
                             // Handle rate limiting
@@ -1336,6 +1350,14 @@ class ApiClient {
 			method: 'PUT',
 			body: { accountId, gatewayId },
 		});
+	}
+
+	async connectCloudflare(returnUrl?: string): Promise<ApiResponse<CloudflareConnectResponseData>> {
+		const body: CloudflareConnectRequestData = { returnUrl };
+		return this.request<CloudflareConnectResponseData>('/api/cloudflare/connect', {
+			method: 'POST',
+			body,
+		}, true);
 	}
 
 	/**

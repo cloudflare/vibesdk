@@ -1,12 +1,21 @@
+import { z } from 'zod';
 import { BaseController } from '../baseController';
 import { RouteContext } from '../../types/route-context';
 import { CloudflareConnectOAuthProvider } from '../../../services/oauth/cloudflare-connect';
 import { BaseOAuthProvider } from '../../../services/oauth/base';
 import { CloudflareProvisioningService } from '../../../services/cloudflare/CloudflareProvisioningService';
-import { SessionService } from '../../../database/services/SessionService';
 import { createLogger } from '../../../logger';
 import { encryptTokens, type EncryptedTokenData } from '../../../utils/tokenEncryption';
 import { signState, verifyState } from '../../../utils/stateSigning';
+import { authMiddleware } from '../../../middleware/auth/auth';
+import { CsrfService } from '../../../services/csrf/CsrfService';
+import {
+	TokenExtractionMethod,
+	extractTokenWithMetadata,
+	validateRedirectUrl,
+} from '../../../utils/authUtils';
+import { generateSecureToken, sha256Hash } from '../../../utils/cryptoUtils';
+import { SecurityError, SecurityErrorType } from 'shared/types/errors';
 import {
 	buildTokenCookie,
 	buildVerifierCookie,
@@ -14,37 +23,66 @@ import {
 	readVerifierCookie,
 } from '../../../utils/oauthCookie';
 
-/**
- * Account linking is the highest-leverage authenticated action in the system, so
- * we refuse to start it from a session that was minted within this window (e.g. a
- * just-issued OAuth-callback session). This blocks the login-CSRF -> auto-link chain
- * even if the upstream session cookie is attacker-controlled.
- * The Cloudflare-login auto-connect path does NOT use this initiator; it links using
- * the identity proven in the same OAuth round-trip.
- */
-const SESSION_FRESHNESS_THRESHOLD_MS = 5 * 60 * 1000;
+const CONNECT_PURPOSE = 'cloudflare-connect-v1' as const;
+const MAX_FUTURE_STATE_SKEW_MS = 60 * 1000;
 
-/**
- * Signed state payload. The PKCE code_verifier is intentionally NOT included here;
- * it lives in an HttpOnly cookie so that observing the URL (browser history, referer,
- * logs) does not compromise PKCE.
- */
-interface CloudflareConnectState {
-	userId: string;
-	timestamp: number;
-	returnUrl: string;
+const connectRequestSchema = z.object({
+	returnUrl: z.string().max(2048).optional(),
+}).strict();
+
+const connectStateSchema = z.object({
+	purpose: z.literal(CONNECT_PURPOSE),
+	binding: z.string().regex(/^[a-f0-9]{64}$/),
+	flowId: z.string().regex(/^[a-f0-9]{32}$/),
+	timestamp: z.number().finite(),
+	returnPath: z.string().min(1).max(2048),
+});
+
+type CloudflareConnectState = z.infer<typeof connectStateSchema>;
+
+function normalizeReturnPath(candidate: string | undefined | null, request: Request): string {
+	if (!candidate || !validateRedirectUrl(candidate, request)) return '/settings';
+
+	const url = new URL(candidate, new URL(request.url).origin);
+	const forbiddenPaths = ['/api/', '/oauth/', '/auth/', '/logout'];
+	const nestedRedirectParams = ['return_url', 'returnUrl', 'redirect_url', 'continue'];
+	if (
+		forbiddenPaths.some((path) => url.pathname.startsWith(path)) ||
+		nestedRedirectParams.some((param) => url.searchParams.has(param))
+	) {
+		return '/settings';
+	}
+
+	return url.pathname;
 }
 
-/** Reject returnUrl values that resolve to a different origin to prevent open redirects. */
-function safeSameOriginUrl(candidate: string | undefined | null, baseUrl: string): string {
-	const fallback = `${baseUrl}/settings`;
-	if (!candidate) return fallback;
-	try {
-		const resolved = new URL(candidate, baseUrl);
-		return resolved.origin === new URL(baseUrl).origin ? resolved.toString() : fallback;
-	} catch {
-		return fallback;
+function flowBinding(userId: string, sessionId: string, flowId: string): Promise<string> {
+	return sha256Hash(`${flowId}:${userId}:${sessionId}`);
+}
+
+function callbackRedirect(
+	location: string,
+	env: Env,
+	flowId?: string,
+): Response {
+	const headers = new Headers({
+		Location: location,
+		'Referrer-Policy': 'no-referrer',
+	});
+	if (flowId) {
+		headers.append('Set-Cookie', buildClearVerifierCookie(env, flowId));
 	}
+	return new Response(null, { status: 302, headers });
+}
+
+async function parseConnectState(state: string | null, env: Env): Promise<CloudflareConnectState | null> {
+	if (!state) return null;
+	const verified = await verifyState<CloudflareConnectState>(state, env);
+	const parsed = connectStateSchema.safeParse(verified);
+	if (!parsed.success || parsed.data.timestamp > Date.now() + MAX_FUTURE_STATE_SKEW_MS) {
+		return null;
+	}
+	return parsed.data;
 }
 
 export class CloudflareConnectController extends BaseController {
@@ -58,71 +96,78 @@ export class CloudflareConnectController extends BaseController {
 	): Promise<Response> {
 		try {
 			const user = context.user;
-			if (!user) {
+			if (!user || !context.sessionId) {
+				return CloudflareConnectController.createErrorResponse('Authentication required', 401);
+			}
+
+			if (request.headers.has('Authorization') || request.headers.has('X-API-Key')) {
+				return CloudflareConnectController.createErrorResponse('Browser session authentication required', 403);
+			}
+			const token = extractTokenWithMetadata(request);
+			if (token.method !== TokenExtractionMethod.COOKIE) {
+				return CloudflareConnectController.createErrorResponse('Browser session authentication required', 403);
+			}
+
+			const requestOrigin = new URL(request.url).origin;
+			if (request.headers.get('Origin') !== requestOrigin) {
 				return CloudflareConnectController.createErrorResponse(
-					'Authentication required',
-					401,
+					new SecurityError(SecurityErrorType.CSRF_VIOLATION, 'Invalid request origin', 403),
+					403,
 				);
 			}
-
-			// CSRF: reject cross-site initiators. `Sec-Fetch-Site` is sent by all modern browsers;
-			// absent values (e.g. curl) are treated as trusted so server-to-server tests still work.
 			const fetchSite = request.headers.get('Sec-Fetch-Site');
-			if (fetchSite && fetchSite !== 'same-origin' && fetchSite !== 'none') {
-				this.logger.warn('Rejecting cross-site /oauth/login', { fetchSite, userId: user.id });
-				return CloudflareConnectController.createErrorResponse('Cross-site request blocked', 403);
+			if (fetchSite && fetchSite !== 'same-origin') {
+				return CloudflareConnectController.createErrorResponse(
+					new SecurityError(SecurityErrorType.CSRF_VIOLATION, 'Cross-site request blocked', 403),
+					403,
+				);
 			}
-
-			// Freshness gate: refuse to start linking from a just-minted session. This breaks
-			// the login-CSRF -> auto-link chain (the attacker's fixated session is brand new).
-			const sessionCreatedAt = context.sessionId
-				? await new SessionService(env).getSessionCreatedAt(context.sessionId)
-				: null;
-			if (sessionCreatedAt && Date.now() - sessionCreatedAt.getTime() < SESSION_FRESHNESS_THRESHOLD_MS) {
-				this.logger.warn('Rejecting Cloudflare linking from a freshly-issued session', {
-					userId: user.id,
-					sessionAgeMs: Date.now() - sessionCreatedAt.getTime(),
-				});
-				const baseUrl = new URL(request.url).origin;
-				return Response.redirect(
-					`${baseUrl}/settings?cloudflare=error&reason=reauth_required`,
-					302,
+			if (!CsrfService.validateDoubleSubmitToken(request)) {
+				return CloudflareConnectController.createErrorResponse(
+					new SecurityError(SecurityErrorType.CSRF_VIOLATION, 'CSRF validation failed', 403),
+					403,
 				);
 			}
 
-			const url = new URL(request.url);
-			const baseUrl = url.origin;
-			const returnUrl = safeSameOriginUrl(
-				context.queryParams.get('return_url') || request.headers.get('referer'),
-				baseUrl,
-			);
+			const bodyResult = await CloudflareConnectController.parseJsonBody<unknown>(request);
+			if (!bodyResult.success) return bodyResult.response!;
+			const body = connectRequestSchema.safeParse(bodyResult.data);
+			if (!body.success) {
+				return CloudflareConnectController.createErrorResponse('Invalid connect request', 400);
+			}
 
+			const returnPath = normalizeReturnPath(
+				body.data.returnUrl || request.headers.get('Referer'),
+				request,
+			);
 			const codeVerifier = BaseOAuthProvider.generateCodeVerifier();
+			const flowId = generateSecureToken(16);
 			const state: CloudflareConnectState = {
-				userId: user.id,
+				purpose: CONNECT_PURPOSE,
+				binding: await flowBinding(user.id, context.sessionId, flowId),
+				flowId,
 				timestamp: Date.now(),
-				returnUrl,
+				returnPath,
 			};
 
-			const provider = CloudflareConnectOAuthProvider.create(env, baseUrl);
+			const provider = CloudflareConnectOAuthProvider.create(env, requestOrigin);
 			const signedState = await signState(state, env);
 			const authUrl = await provider.getAuthorizationUrl(signedState, codeVerifier);
-
-			return new Response(null, {
-				status: 302,
-				headers: {
-					Location: authUrl,
-					'Set-Cookie': buildVerifierCookie(env, codeVerifier),
-				},
-			});
+			const response = CloudflareConnectController.createSuccessResponse({ authUrl });
+			response.headers.append('Set-Cookie', buildVerifierCookie(env, flowId, codeVerifier));
+			return response;
 		} catch (error) {
 			this.logger.error('Failed to initiate Cloudflare connect', error);
-			const baseUrl = new URL(request.url).origin;
-			return Response.redirect(
-				`${baseUrl}/settings?cloudflare=error&reason=init_failed`,
-				302,
-			);
+			return CloudflareConnectController.handleError(error, 'initiate Cloudflare connect');
 		}
+	}
+
+	static async legacyInitiateConnect(request: Request): Promise<Response> {
+		const baseUrl = new URL(request.url).origin;
+		return Response.redirect(
+			`${baseUrl}/settings?cloudflare=error&reason=connect_endpoint_changed`,
+			302,
+		);
 	}
 
 	static async handleCallback(
@@ -135,120 +180,92 @@ export class CloudflareConnectController extends BaseController {
 		const baseUrl = url.origin;
 		const code = url.searchParams.get('code');
 		const stateParam = url.searchParams.get('state');
-		const error = url.searchParams.get('error');
-
-		if (error) {
-			this.logger.error('Cloudflare OAuth returned error', { error });
-			return Response.redirect(
-				`${baseUrl}/settings?cloudflare=error&reason=${encodeURIComponent(
-					error,
-				)}`,
-				302,
-			);
+		const providerError = url.searchParams.get('error');
+		if (!stateParam) {
+			return callbackRedirect(`${baseUrl}/settings?cloudflare=error&reason=invalid_state`, env);
 		}
-
-		if (!code || !stateParam) {
-			return Response.redirect(
-				`${baseUrl}/settings?cloudflare=error&reason=missing_params`,
-				302,
-			);
-		}
-
-		// Verify HMAC signature and freshness. Unsigned/expired state is untrusted input.
-		const parsedState = await verifyState<CloudflareConnectState>(stateParam, env);
-		if (!parsedState || !parsedState.userId) {
+		const parsedState = await parseConnectState(stateParam, env);
+		if (!parsedState) {
 			this.logger.warn('Rejecting Cloudflare OAuth callback with invalid state signature');
-			return Response.redirect(
-				`${baseUrl}/settings?cloudflare=error&reason=invalid_state`,
-				302,
+			return callbackRedirect(`${baseUrl}/settings?cloudflare=error&reason=invalid_state`, env);
+		}
+
+		const session = await authMiddleware(request, env);
+		const binding = session
+			? await flowBinding(session.user.id, session.sessionId, parsedState.flowId)
+			: null;
+		if (!session || binding !== parsedState.binding) {
+			this.logger.warn('Rejecting Cloudflare OAuth callback with session mismatch', {
+				sessionUserId: session?.user.id,
+			});
+			return callbackRedirect(
+				`${baseUrl}/settings?cloudflare=error&reason=session_mismatch`,
+				env,
+				parsedState.flowId,
 			);
 		}
 
-		// Defense-in-depth: re-validate returnUrl at callback time.
-		const absoluteReturnUrl = safeSameOriginUrl(parsedState.returnUrl, baseUrl);
+		const absoluteReturnUrl = new URL(parsedState.returnPath, baseUrl);
+		if (providerError) {
+			this.logger.error('Cloudflare OAuth returned error', { error: providerError });
+			absoluteReturnUrl.searchParams.set('cloudflare', 'error');
+			absoluteReturnUrl.searchParams.set('reason', providerError);
+			return callbackRedirect(absoluteReturnUrl.toString(), env, parsedState.flowId);
+		}
+		if (!code) {
+			absoluteReturnUrl.searchParams.set('cloudflare', 'error');
+			absoluteReturnUrl.searchParams.set('reason', 'missing_params');
+			return callbackRedirect(absoluteReturnUrl.toString(), env, parsedState.flowId);
+		}
 
-		// Read PKCE verifier from the HttpOnly cookie set during /oauth/login.
-		const codeVerifier = readVerifierCookie(request);
+		const codeVerifier = readVerifierCookie(request, env, parsedState.flowId);
 		if (!codeVerifier) {
-			this.logger.warn('Missing PKCE verifier cookie on callback', { userId: parsedState.userId });
-			return Response.redirect(
-				`${baseUrl}/settings?cloudflare=error&reason=missing_verifier`,
-				302,
-			);
+			this.logger.warn('Missing PKCE verifier cookie on callback', { userId: session.user.id });
+			absoluteReturnUrl.searchParams.set('cloudflare', 'error');
+			absoluteReturnUrl.searchParams.set('reason', 'missing_verifier');
+			return callbackRedirect(absoluteReturnUrl.toString(), env, parsedState.flowId);
 		}
-		// Always clear the verifier cookie on callback (success or failure).
-		const clearVerifierCookie = buildClearVerifierCookie(env);
-
 		try {
 			const provider = CloudflareConnectOAuthProvider.create(env, baseUrl);
 			const tokens = await provider.exchangeCodeForTokens(code, codeVerifier);
 
 			if (!tokens.accessToken) {
-				const errorUrl = new URL(absoluteReturnUrl);
-				errorUrl.searchParams.set('cloudflare', 'error');
-				errorUrl.searchParams.set('reason', 'token_exchange_failed');
-				return new Response(null, {
-					status: 302,
-					headers: { Location: errorUrl.toString(), 'Set-Cookie': clearVerifierCookie },
-				});
+				absoluteReturnUrl.searchParams.set('cloudflare', 'error');
+				absoluteReturnUrl.searchParams.set('reason', 'token_exchange_failed');
+				return callbackRedirect(absoluteReturnUrl.toString(), env, parsedState.flowId);
 			}
 
-			// Fetch accounts and gateways to save metadata (not tokens) via the shared
-			// provisioning service (also used by the Cloudflare-login auto-connect path).
 			const provisioning = new CloudflareProvisioningService(env);
 			const { accountCount, hasActiveGateway } = await provisioning.provisionFromToken(
 				tokens.accessToken,
-				parsedState.userId,
+				session.user.id,
 			);
 
-			// Encrypt tokens on the backend before sending to browser
-			// Include userId to bind token to this specific user (prevents token theft/replay)
 			const expiresAt = Date.now() + (tokens.expiresIn || 3600) * 1000;
 			const tokenData: EncryptedTokenData = {
 				accessToken: tokens.accessToken,
 				refreshToken: tokens.refreshToken,
 				expiresAt,
 				tokenType: tokens.tokenType,
-				userId: parsedState.userId,
+				userId: session.user.id,
 			};
 			const encryptedBlob = await encryptTokens(tokenData, env);
 
-			// If no active gateway was configured, redirect to settings page for configuration
-			let finalRedirectUrl = absoluteReturnUrl;
-			if (!hasActiveGateway) {
-				finalRedirectUrl = `${baseUrl}/settings`;
-			}
-
-			const successUrl = new URL(finalRedirectUrl);
+			const successUrl = hasActiveGateway
+				? absoluteReturnUrl
+				: new URL('/settings', baseUrl);
 			successUrl.searchParams.set('cloudflare', 'connected');
 			successUrl.searchParams.set('accounts', accountCount.toString());
-			if (!hasActiveGateway) {
-				successUrl.searchParams.set('config_needed', 'true');
-			}
+			if (!hasActiveGateway) successUrl.searchParams.set('config_needed', 'true');
 
-			// Token lives only in a HttpOnly cookie from here on; the browser never sees it.
-			// Cookie lifetime matches the refresh-token horizon (default 30 days) so transparent
-			// refresh can run for the whole session.
-			const headers = new Headers();
-			headers.set('Location', successUrl.toString());
-			headers.append('Set-Cookie', clearVerifierCookie);
-			headers.append('Set-Cookie', buildTokenCookie(env, encryptedBlob));
-			headers.set('Referrer-Policy', 'no-referrer');
-			return new Response(null, { status: 302, headers });
+			const response = callbackRedirect(successUrl.toString(), env, parsedState.flowId);
+			response.headers.append('Set-Cookie', buildTokenCookie(env, encryptedBlob));
+			return response;
 		} catch (callbackError) {
-			this.logger.error(
-				'Failed to handle Cloudflare OAuth callback',
-				callbackError,
-			);
-
-			const errorUrl = new URL(absoluteReturnUrl);
-			errorUrl.searchParams.set('cloudflare', 'error');
-			errorUrl.searchParams.set('reason', 'callback_failed');
-
-			return new Response(null, {
-				status: 302,
-				headers: { Location: errorUrl.toString(), 'Set-Cookie': clearVerifierCookie },
-			});
+			this.logger.error('Failed to handle Cloudflare OAuth callback', callbackError);
+			absoluteReturnUrl.searchParams.set('cloudflare', 'error');
+			absoluteReturnUrl.searchParams.set('reason', 'callback_failed');
+			return callbackRedirect(absoluteReturnUrl.toString(), env, parsedState.flowId);
 		}
 	}
 }

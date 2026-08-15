@@ -25,6 +25,7 @@ import { useLimitsContext } from '@/contexts/limits-context';
 import { checkCanSendPrompt } from '@/utils/usage-limit-checker';
 import { PromptBox } from '@/components/prompt-box';
 import { InfoIcon, PaperPlaneTiltIcon } from '@phosphor-icons/react';
+import { startCloudflareConnect } from '@/lib/cloudflare-connect';
 
 export default function Home() {
 	const navigate = useNavigate();
@@ -41,7 +42,7 @@ export default function Home() {
 		useState<React.ReactElement | null>(null);
 
 	const handleConnectCloudflare = useCallback(() => {
-		window.location.href = `/oauth/login?return_url=${encodeURIComponent(window.location.href)}`;
+		void startCloudflareConnect(window.location.href);
 	}, []);
 
 	// Surface auth failures redirected here from the OAuth callback (e.g. an email
@@ -162,7 +163,7 @@ export default function Home() {
 			limitsData,
 			usageLimitsLoading,
 			() => {
-				window.location.href = `/oauth/login?return_url=${encodeURIComponent(window.location.href)}`;
+				void startCloudflareConnect(window.location.href);
 			},
 			() => setShowLimitDialog(null),
 		);

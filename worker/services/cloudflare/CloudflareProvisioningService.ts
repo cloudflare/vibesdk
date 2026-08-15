@@ -2,7 +2,7 @@
  * Cloudflare AI Gateway provisioning orchestration.
  *
  * Shared by both linking entry points:
- * - the standalone gateway-connect flow (`/oauth/login` -> `/auth/callback`), and
+ * - the standalone gateway-connect flow (`POST /api/cloudflare/connect` -> `/auth/callback`), and
  * - the "Login with Cloudflare" auto-connect path (`/api/auth/callback/cloudflare`).
  *
  * Given a Cloudflare access token and a vibesdk userId, it fetches the user's
