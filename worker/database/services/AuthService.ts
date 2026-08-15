@@ -50,6 +50,22 @@ export interface RegistrationData {
     name?: string;
 }
 
+/**
+ * Human-friendly label for a stored auth provider, used in user-facing messages.
+ */
+export function providerLabel(provider: string | null | undefined): string {
+    switch (provider) {
+        case 'google':
+            return 'Google';
+        case 'github':
+            return 'GitHub';
+        case 'cloudflare':
+            return 'Cloudflare';
+        default:
+            return 'a different sign-in method';
+    }
+}
+
 
 /**
  * Main Authentication Service
@@ -107,9 +123,19 @@ export class AuthService extends BaseService {
                 .get();
             
             if (existingUser) {
+                // OAuth-only account: guide the user to their provider instead of
+                // implying they can create a password-based account for this email.
+                if (!existingUser.passwordHash) {
+                    const label = providerLabel(existingUser.provider);
+                    throw new SecurityError(
+                        SecurityErrorType.CONFLICT,
+                        `This email is registered with ${label}. Please sign in with ${label}.`,
+                        409
+                    );
+                }
                 throw new SecurityError(
                     SecurityErrorType.INVALID_INPUT,
-                    'Email already registered',
+                    'An account with this email already exists. Please sign in.',
                     400
                 );
             }
@@ -201,12 +227,24 @@ export class AuthService extends BaseService {
                 )
                 .get();
             
-            if (!user || !user.passwordHash) {
+            if (!user) {
                 await this.logAuthAttempt(credentials.email, 'login', false, request);
                 throw new SecurityError(
                     SecurityErrorType.UNAUTHORIZED,
                     'Invalid email or password',
                     401
+                );
+            }
+
+            // The email belongs to an OAuth-only account (no password set). Tell the
+            // user which provider to use instead of a misleading credentials error.
+            if (!user.passwordHash) {
+                await this.logAuthAttempt(credentials.email, 'login', false, request);
+                const label = providerLabel(user.provider);
+                throw new SecurityError(
+                    SecurityErrorType.CONFLICT,
+                    `This account uses ${label} to sign in. Please continue with ${label}.`,
+                    409
                 );
             }
             
@@ -610,8 +648,10 @@ export class AuthService extends BaseService {
             return user;
         }
 
-        // 2. No identity match. If a user already exists with this email (local
-        //    signup or a different provider), refuse to silently take it over.
+        // 2. No identity match, but a user already exists with this email (local
+        //    signup or a different provider). The provider has asserted the email
+        //    is verified (checked above), so attach this provider to the existing
+        //    account and sign the user into it instead of failing.
         const emailRow = await this.database
             .select()
             .from(schema.users)
@@ -619,11 +659,12 @@ export class AuthService extends BaseService {
             .get();
 
         if (emailRow) {
-            throw new SecurityError(
-                SecurityErrorType.CONFLICT,
-                'An account with this email already exists. Sign in with your existing method, then link this provider from settings.',
-                409
-            );
+            await this.linkOAuthIdentity(emailRow.id, provider, oauthUserInfo);
+            logger.info('Auto-linked OAuth provider to existing account', {
+                userId: emailRow.id,
+                provider
+            });
+            return emailRow;
         }
 
         // 3. Brand-new identity: create the user and its first identity row.

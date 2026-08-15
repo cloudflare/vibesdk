@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router';
 import {
 	useMutation,
 	useQuery,
@@ -85,6 +86,31 @@ async function fetchApiKeys(): Promise<ApiKeysData> {
 export default function SettingsPage() {
 	const { user } = useAuth();
 	const queryClient = useQueryClient();
+	const [searchParams, setSearchParams] = useSearchParams();
+
+	useEffect(() => {
+		const status = searchParams.get('cloudflare');
+		if (!status) return;
+
+		if (status === 'connected') {
+			toast.success('Cloudflare connected successfully');
+		} else {
+			const reason = searchParams.get('reason');
+			const messages: Record<string, string> = {
+				connect_endpoint_changed: 'Please try connecting Cloudflare again.',
+				session_mismatch: 'Your session changed during connection. Please try again.',
+				missing_verifier: 'Cloudflare connection expired. Please try again.',
+				invalid_state: 'Cloudflare connection could not be verified. Please try again.',
+			};
+			toast.error(messages[reason ?? ''] ?? 'Failed to connect Cloudflare. Please try again.');
+		}
+
+		const next = new URLSearchParams(searchParams);
+		next.delete('cloudflare');
+		next.delete('reason');
+		next.delete('accounts');
+		setSearchParams(next, { replace: true });
+	}, [searchParams, setSearchParams]);
 	const activeSessionsQuery = useQuery({
 		queryKey: queryKeys.account.settings.activeSessions(user?.id),
 		queryFn: fetchActiveSessions,

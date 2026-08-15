@@ -35,7 +35,7 @@ Full-width brand button above the auth row in `SidebarFooter`. Collapsed sidebar
 | User state | CTA |
 | --- | --- |
 | Not authenticated / loading / `hidden` | Hidden |
-| `!hasUserToken` | "Connect Cloudflare" → OAuth (`/oauth/login`) |
+| `!hasUserToken` | "Connect Cloudflare" → CSRF-protected OAuth initiation (`POST /api/cloudflare/connect`) |
 | `needsConfiguration` | "Configure AI Gateway" → `/settings` |
 | Configured (`hasUserToken && hasCloudflareConfigured`) | Hidden — even if `cloudflareCredits` is null |
 
@@ -128,7 +128,7 @@ Unlike the pre-flight limit popups, this one is **backend-error-triggered**: a u
 
 | `code` | Emitted when | Dialog | Primary action |
 | --- | --- | --- | --- |
-| `cloudflare_not_connected` | No decrypted Cloudflare OAuth token for the user | **Connect Cloudflare to deploy** | OAuth flow (`/oauth/login?return_url=...`) |
+| `cloudflare_not_connected` | No decrypted Cloudflare OAuth token for the user | **Connect Cloudflare to deploy** | CSRF-protected OAuth initiation (`POST /api/cloudflare/connect`) |
 | `cloudflare_not_configured` | Multiple accounts connected and none selected (a sole connected account is used automatically — deploying needs no AI Gateway) | **Select a Cloudflare account** | Navigate to `/settings?config_needed=true` |
 | _(absent)_ | Any other deploy failure | None (toast only) | — |
 

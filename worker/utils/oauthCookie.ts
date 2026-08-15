@@ -14,8 +14,9 @@ import { parseCookies } from './authUtils';
 const PROD_COOKIE = '__Host-cf_oauth_token';
 const DEV_COOKIE = 'cf_oauth_token';
 
-/** Short-lived PKCE verifier cookie set during /oauth/login and cleared on callback. */
-const VERIFIER_COOKIE = '__cf_oauth_verifier';
+/** Short-lived, flow-scoped PKCE verifier cookie set during connect initiation and cleared on callback. */
+const PROD_VERIFIER_COOKIE_PREFIX = '__Host-cf_oauth_verifier_';
+const DEV_VERIFIER_COOKIE_PREFIX = 'cf_oauth_verifier_';
 export const VERIFIER_COOKIE_TTL_SECONDS = 10 * 60;
 
 /**
@@ -69,19 +70,24 @@ export function readTokenCookie(request: Request | undefined | null, env: Env): 
 	return readRequestCookie(request, tokenCookieName(env));
 }
 
+function verifierCookieName(env: Env, flowId: string): string {
+	const prefix = isDev(env) ? DEV_VERIFIER_COOKIE_PREFIX : PROD_VERIFIER_COOKIE_PREFIX;
+	return `${prefix}${flowId}`;
+}
+
 /** Build a Set-Cookie header value for the short-lived PKCE verifier. */
-export function buildVerifierCookie(env: Env, value: string, maxAgeSeconds: number = VERIFIER_COOKIE_TTL_SECONDS): string {
-	return `${VERIFIER_COOKIE}=${encodeURIComponent(value)}; ${baseAttributes(env)}; Max-Age=${maxAgeSeconds}`;
+export function buildVerifierCookie(env: Env, flowId: string, value: string, maxAgeSeconds: number = VERIFIER_COOKIE_TTL_SECONDS): string {
+	return `${verifierCookieName(env, flowId)}=${encodeURIComponent(value)}; ${baseAttributes(env)}; Max-Age=${maxAgeSeconds}`;
 }
 
 /** Build a Set-Cookie header value that clears the PKCE verifier cookie. */
-export function buildClearVerifierCookie(env: Env): string {
-	return `${VERIFIER_COOKIE}=; ${baseAttributes(env)}; Max-Age=0`;
+export function buildClearVerifierCookie(env: Env, flowId: string): string {
+	return `${verifierCookieName(env, flowId)}=; ${baseAttributes(env)}; Max-Age=0`;
 }
 
 /** Read the PKCE verifier cookie value, if present. */
-export function readVerifierCookie(request: Request | undefined | null): string | null {
-	return readRequestCookie(request, VERIFIER_COOKIE);
+export function readVerifierCookie(request: Request | undefined | null, env: Env, flowId: string): string | null {
+	return readRequestCookie(request, verifierCookieName(env, flowId));
 }
 
 /** Build a Set-Cookie header value that installs the OAuth state nonce. */

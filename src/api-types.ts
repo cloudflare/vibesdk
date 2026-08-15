@@ -295,6 +295,14 @@ export interface CsrfTokenResponseData {
   expiresIn?: number;
 }
 
+export interface CloudflareConnectRequestData {
+  returnUrl?: string;
+}
+
+export interface CloudflareConnectResponseData {
+  authUrl: string;
+}
+
 // Active Sessions Response - matches getUserSessions + isCurrent from controller
 export interface ActiveSessionsData {
   sessions: Array<{

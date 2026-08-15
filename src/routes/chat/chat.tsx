@@ -56,6 +56,7 @@ import type { ChatMessage } from './utils/message-helpers';
 import { featureRegistry, useFeature } from '@/features';
 import { useFileContentStream } from './hooks/use-file-content-stream';
 import { logger } from '@/utils/logger';
+import { startCloudflareConnect } from '@/lib/cloudflare-connect';
 import {
 	useApp,
 	useToggleAppFavorite,
@@ -199,7 +200,7 @@ function ChatSession() {
 	const handleCloudflareDeployGate = useCallback((code: CloudflareDeploymentErrorCode) => {
 		const dialog = getDeployGateDialog(
 			code,
-			() => { window.location.href = `/oauth/login?return_url=${encodeURIComponent(window.location.href)}`; },
+			() => { void startCloudflareConnect(window.location.href); },
 			() => setShowDeployGateDialog(null),
 		);
 		if (dialog) setShowDeployGateDialog(dialog);
@@ -996,7 +997,7 @@ function ChatSession() {
 				limitsData,
 				limitsLoading,
 				() => {
-					window.location.href = `/oauth/login?return_url=${encodeURIComponent(window.location.href)}`;
+					void startCloudflareConnect(window.location.href);
 				},
 				() => setShowLimitDialog(null),
 			);
@@ -1378,7 +1379,7 @@ function ChatSession() {
 							chatFormRef={chatFormRef}
 							limitsData={limitsData}
 							onConnectCloudflare={() => {
-								window.location.href = `/oauth/login?return_url=${encodeURIComponent(window.location.href)}`;
+								void startCloudflareConnect(window.location.href);
 							}}
 							aboveContent={
 								<ClarifyingQuestionsPopup
