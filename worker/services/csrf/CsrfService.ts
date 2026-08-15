@@ -121,6 +121,11 @@ export class CsrfService {
             return true;
         }
         
+        return this.validateDoubleSubmitToken(request);
+    }
+
+    static validateDoubleSubmitToken(request: Request): boolean {
+        const method = request.method.toUpperCase();
         const cookieToken = this.getTokenFromCookie(request);
         const headerToken = this.getTokenFromHeader(request);
         

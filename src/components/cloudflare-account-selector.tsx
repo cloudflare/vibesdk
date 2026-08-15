@@ -14,6 +14,7 @@ import { CloudflareLogo } from '@cloudflare/kumo';
 import { Loader2, CheckCircle2, AlertCircle, MoreVertical, ExternalLink, LogOut, RefreshCw } from 'lucide-react';
 import { useLimitsContext } from '@/contexts/limits-context';
 import { CloudflareLogoThemed } from './shared/CloudflareLogoThemed';
+import { startCloudflareConnect } from '@/lib/cloudflare-connect';
 
 interface CloudflareAccount {
 	id: string;
@@ -206,9 +207,7 @@ export function CloudflareAccountSelector() {
 	};
 
 	const handleReconnect = () => {
-		const url = new URL('/oauth/login', window.location.origin);
-		url.searchParams.set('return_url', window.location.pathname + window.location.search);
-		window.location.href = url.toString();
+		void startCloudflareConnect(window.location.pathname + window.location.search);
 	};
 
 	const cardHeader = (
