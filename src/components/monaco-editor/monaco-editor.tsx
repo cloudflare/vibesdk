@@ -30,6 +30,22 @@ self.MonacoEnvironment = {
 	},
 };
 
+/** Resolve Monaco language id, including markdown when only a path is known. */
+function resolveLanguage(
+	language: string | undefined,
+	path: string | undefined,
+): string {
+	if (language && language !== 'plaintext') {
+		return language;
+	}
+	if (path) {
+		const ext = path.split('.').pop()?.toLowerCase();
+		if (ext === 'md' || ext === 'markdown') return 'markdown';
+		if (ext === 'mdx') return 'mdx';
+	}
+	return language || 'typescript';
+}
+
 monaco.editor.defineTheme('vesper', vesperTheme);
 
 monaco.editor.defineTheme('vibesdk', {
@@ -247,7 +263,7 @@ export const MonacoEditor = memo<MonacoEditorProps>(function MonacoEditor({
 			...restOptions
 		} = options;
 
-		const initialLanguage = language || 'typescript';
+		const initialLanguage = resolveLanguage(language, pathRef.current);
 		const initialValue = value ?? '';
 		const model = getOrCreateModel(
 			initialValue,
@@ -320,7 +336,7 @@ export const MonacoEditor = memo<MonacoEditorProps>(function MonacoEditor({
 		if (!editor.current) return;
 
 		const nextValue = createOptions.value ?? '';
-		const nextLanguage = createOptions.language || 'typescript';
+		const nextLanguage = resolveLanguage(createOptions.language, path);
 		const pathChanged = path !== prevPath.current;
 		const valueChanged = nextValue !== prevValue.current;
 
@@ -550,8 +566,8 @@ export const MonacoDiffEditor = memo<MonacoDiffEditorProps>(
 
 		useEffect(() => {
 			if (!diffEditor.current) return;
-			const lang = language || 'plaintext';
-			const prevOriginal = originalModel.current;
+		const lang = resolveLanguage(language, path);
+		const prevOriginal = originalModel.current;
 			const prevModified = modifiedModel.current;
 			const original = monaco.editor.createModel(
 				originalValue,
