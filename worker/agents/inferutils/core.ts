@@ -445,6 +445,11 @@ export async function getConfigurationForModel(
                     baseURL: 'https://openrouter.ai/api/v1',
                     apiKey: env.OPENROUTER_API_KEY,
                 };
+            case 'orcarouter':
+                return {
+                    baseURL: 'https://api.orcarouter.ai/v1',
+                    apiKey: env.ORCAROUTER_API_KEY,
+                };
             case 'google-ai-studio':
                 return {
                     baseURL: 'https://generativelanguage.googleapis.com/v1beta/openai/',

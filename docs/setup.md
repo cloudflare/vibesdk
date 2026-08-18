@@ -110,7 +110,8 @@ The setup script offers multiple AI providers with intelligent multi-selection:
 3. **Google AI Studio** (for Gemini models) - **Default & Recommended**
 4. **Cerebras** (for open source models)
 5. **OpenRouter** (for various models)
-6. **Custom provider** (for any other provider)
+6. **OrcaRouter** (150+ models through one key)
+7. **Custom provider** (for any other provider)
 
 **Provider Selection:**
 - Select multiple providers with comma-separated numbers (e.g., `1,2,3`)
