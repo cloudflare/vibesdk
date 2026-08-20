@@ -15,6 +15,11 @@ export const getFileType = (path: string): string => {
 			return 'html';
 		case 'json':
 			return 'json';
+		case 'md':
+		case 'markdown':
+			return 'markdown';
+		case 'mdx':
+			return 'mdx';
 		default:
 			return 'plaintext';
 	}

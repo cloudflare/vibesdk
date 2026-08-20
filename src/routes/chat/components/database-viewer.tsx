@@ -72,8 +72,8 @@ export function DatabaseViewer({ agentId, enabled }: DatabaseViewerProps) {
 	};
 
 	return (
-		<div className="flex-1 flex flex-col overflow-hidden bg-kumo-base text-text-primary">
-			<div className="flex items-center gap-2 px-3 py-2 border-b border-bg-2 bg-bg-4/40">
+		<div className="flex-1 flex flex-col min-h-0 min-w-0 overflow-hidden bg-kumo-base text-text-primary">
+			<div className="flex shrink-0 items-center gap-2 px-3 py-2 border-b border-bg-2 bg-bg-4/40">
 				<DatabaseIcon className="size-4 text-text-50/70" />
 				<span className="text-xs font-mono text-text-50/70">App database</span>
 				<span className="text-xs text-text-50/40 ml-2">read-only</span>
@@ -98,13 +98,13 @@ export function DatabaseViewer({ agentId, enabled }: DatabaseViewerProps) {
 			</div>
 
 			{error && (
-				<div className="px-3 py-2 text-xs text-red-400 bg-red-500/10 border-b border-red-500/20">
+				<div className="shrink-0 px-3 py-2 text-xs text-red-400 bg-red-500/10 border-b border-red-500/20">
 					{error}
 				</div>
 			)}
 
-			<div className="flex-1 flex overflow-hidden">
-				<div className="w-56 border-r border-bg-2 overflow-y-auto bg-bg-4/20 flex flex-col">
+			<div className="flex-1 flex min-h-0 min-w-0 overflow-hidden">
+				<div className="w-56 shrink-0 border-r border-bg-2 overflow-y-auto bg-bg-4/20 flex flex-col min-h-0">
 					<div className="px-3 py-2 text-[10px] uppercase tracking-wider text-text-50/40 font-mono">
 						Tables
 					</div>
@@ -123,17 +123,17 @@ export function DatabaseViewer({ agentId, enabled }: DatabaseViewerProps) {
 							key={t.name}
 							onClick={() => selectTable(t.name)}
 							className={cn(
-								'flex items-center justify-between px-3 py-1.5 text-xs font-mono text-left hover:bg-kumo-elevated transition-colors',
+								'flex items-center justify-between px-3 py-1.5 text-xs font-mono text-left hover:bg-kumo-elevated transition-colors min-w-0',
 								selectedTable === t.name && 'bg-kumo-elevated text-text-primary',
 							)}
 						>
 							<span className="truncate">{t.name}</span>
-							<span className="text-text-50/40 ml-2">{t.rowCount}</span>
+							<span className="text-text-50/40 ml-2 shrink-0">{t.rowCount}</span>
 						</button>
 					))}
 				</div>
 
-				<div className="flex-1 flex flex-col overflow-hidden">
+				<div className="flex-1 flex flex-col min-h-0 min-w-0 overflow-hidden">
 					{!selectedTable && (
 						<div className="flex-1 flex items-center justify-center text-text-50/50 text-sm">
 							Select a table to view rows
@@ -141,41 +141,47 @@ export function DatabaseViewer({ agentId, enabled }: DatabaseViewerProps) {
 					)}
 					{selectedTable && (
 						<>
-							<div className="flex-1 overflow-auto">
-								{loadingQuery && !queryResult && (
-									<div className="p-4 text-xs text-text-50/50">Loading rows…</div>
-								)}
-								{queryResult && queryResult.rows.length === 0 && (
-									<div className="p-4 text-xs text-text-50/50">No rows.</div>
-								)}
-								{queryResult && queryResult.rows.length > 0 && (
-									<table className="w-full text-xs font-mono">
-										<thead className="sticky top-0 bg-bg-4 border-b border-bg-2">
-											<tr>
-												{queryResult.columns.map((col) => (
+							<div className="relative flex-1 min-h-0 min-w-0">
+								<div className="absolute inset-0 overflow-auto">
+									{loadingQuery && !queryResult && (
+										<div className="p-4 text-xs text-text-50/50">Loading rows…</div>
+									)}
+									{queryResult && queryResult.rows.length === 0 && (
+										<div className="p-4 text-xs text-text-50/50">No rows.</div>
+									)}
+									{queryResult && queryResult.rows.length > 0 && (
+										<table className="w-max min-w-full text-xs font-mono border-collapse">
+											<thead className="sticky top-0 z-10 bg-bg-4 border-b border-bg-2">
+												<tr>
+													{queryResult.columns.map((col) => (
 													<th
 														key={col}
 														onClick={() => onColumnHeaderClick(col)}
-														className="px-3 py-1.5 text-left font-medium text-text-50/70 cursor-pointer select-none hover:bg-kumo-elevated"
+														className="px-3 py-1.5 text-left font-medium text-text-50/70 cursor-pointer select-none hover:bg-kumo-elevated whitespace-nowrap max-w-64"
 													>
-														{col}
-														{orderBy === col && (
-															<span className="ml-1 text-text-primary">
-																{orderDir === 'asc' ? '↑' : '↓'}
-															</span>
-														)}
+														<span className="block truncate max-w-64">
+															{col}
+															{orderBy === col && (
+																<span className="ml-1 text-text-primary">
+																	{orderDir === 'asc' ? '↑' : '↓'}
+																</span>
+															)}
+														</span>
 													</th>
-												))}
-											</tr>
-										</thead>
-										<tbody>
-											{queryResult.rows.map((row, i) => (
-												<tr
-													key={i}
-													className="border-b border-bg-2/50 hover:bg-kumo-elevated/30"
-												>
-													{queryResult.columns.map((col) => (
-														<td key={col} className="px-3 py-1.5 align-top">
+													))}
+												</tr>
+											</thead>
+											<tbody>
+												{queryResult.rows.map((row, i) => (
+													<tr
+														key={i}
+														className="border-b border-bg-2/50 hover:bg-kumo-elevated/30"
+													>
+														{queryResult.columns.map((col) => (
+														<td
+															key={col}
+															className="px-3 py-1.5 align-top max-w-64 overflow-hidden whitespace-nowrap"
+														>
 															<CellValue
 																value={row[col]}
 																onExpand={(v) =>
@@ -183,20 +189,21 @@ export function DatabaseViewer({ agentId, enabled }: DatabaseViewerProps) {
 																}
 															/>
 														</td>
-													))}
-												</tr>
-											))}
-										</tbody>
-									</table>
-								)}
+														))}
+													</tr>
+												))}
+											</tbody>
+										</table>
+									)}
+								</div>
 							</div>
 							{queryResult && (
-								<div className="flex items-center gap-3 px-3 py-2 border-t border-bg-2 bg-bg-4/40 text-xs">
-									<span className="text-text-50/60">
+								<div className="flex items-center gap-3 px-3 py-2 border-t border-bg-2 bg-bg-4/40 text-xs shrink-0 min-w-0">
+									<span className="text-text-50/60 shrink-0">
 										{queryResult.totalCount.toLocaleString()} rows
 									</span>
 									<span className="text-text-50/30">·</span>
-									<span className="text-text-50/60">
+									<span className="text-text-50/60 shrink-0">
 										Page {page + 1} / {totalPages}
 									</span>
 									<button
@@ -213,7 +220,7 @@ export function DatabaseViewer({ agentId, enabled }: DatabaseViewerProps) {
 									>
 										<ChevronRight className="size-3.5" />
 									</button>
-									<div className="ml-auto flex items-center gap-1">
+									<div className="ml-auto flex items-center gap-1 shrink-0">
 										<span className="text-text-50/50">per page</span>
 										<select
 											value={pageSize}
@@ -294,11 +301,11 @@ function CellValue({
 	}
 	if (typeof value === 'string') {
 		if (value.length <= MAX_INLINE_CELL_LEN) {
-			return <span className="break-all">{value}</span>;
+			return <span className="truncate max-w-64 inline-block align-bottom" title={value}>{value}</span>;
 		}
 		return (
 			<button
-				className="text-left text-text-primary/80 hover:text-text-primary underline-offset-2 hover:underline truncate block w-full"
+				className="text-left text-text-primary/80 hover:text-text-primary underline-offset-2 hover:underline truncate max-w-64 inline-block align-bottom"
 				onClick={() => onExpand(value)}
 				title="Click to view full value"
 			>
@@ -308,12 +315,13 @@ function CellValue({
 	}
 	const repr = typeof value === 'object' ? JSON.stringify(value) : String(value);
 	if (repr.length <= MAX_INLINE_CELL_LEN) {
-		return <span>{repr}</span>;
+		return <span className="truncate max-w-64 inline-block align-bottom" title={repr}>{repr}</span>;
 	}
 	return (
 		<button
-			className="text-left text-text-primary/80 hover:text-text-primary underline-offset-2 hover:underline truncate block w-full"
+			className="text-left text-text-primary/80 hover:text-text-primary underline-offset-2 hover:underline truncate max-w-64 inline-block align-bottom"
 			onClick={() => onExpand(value)}
+			title="Click to view full value"
 		>
 			{repr.slice(0, MAX_INLINE_CELL_LEN)}…
 		</button>
