@@ -48,7 +48,7 @@ export function PresentationHeaderActions({
 			: `${currentSrc}?print-pdf`;
 
 		// Open print view in new window for PDF export
-		window.open(printUrl, '_blank');
+		window.open(printUrl, '_blank', 'noopener,noreferrer');
 	};
 
 	return (

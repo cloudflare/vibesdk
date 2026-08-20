@@ -316,8 +316,8 @@ export function CloudflareAccountSelector() {
 								<DropdownMenu.Content align="end">
 									{gatewayDashUrl && (
 										<DropdownMenu.Item
-											icon={ArrowSquareOutIcon}
-											onClick={() => window.open(gatewayDashUrl, '_blank')}
+                      icon={ArrowSquareOutIcon}
+											onClick={() => window.open(gatewayDashUrl, '_blank', 'noopener,noreferrer')}
 										>
 											View gateway
 										</DropdownMenu.Item>

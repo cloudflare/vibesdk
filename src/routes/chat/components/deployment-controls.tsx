@@ -123,7 +123,7 @@ export function DeploymentControls({
 
 		// Public apps (or missing appId): open the deployed URL directly.
 		if (deploymentTarget === 'user' || localVisibility !== 'private' || !appId) {
-			window.open(deploymentUrl, '_blank');
+			window.open(deploymentUrl, '_blank', 'noopener,noreferrer');
 			return;
 		}
 
@@ -132,7 +132,7 @@ export function DeploymentControls({
 		try {
 			const response = await apiClient.generatePreviewToken(appId);
 			if (response.success && response.data) {
-				window.open(response.data.previewUrl, '_blank');
+				window.open(response.data.previewUrl, '_blank', 'noopener,noreferrer');
 				return;
 			}
 		} catch (error) {
@@ -140,7 +140,7 @@ export function DeploymentControls({
 		}
 
 		// Fallback: attempt the raw URL.
-		window.open(deploymentUrl, '_blank');
+		window.open(deploymentUrl, '_blank', 'noopener,noreferrer');
 	};
 
 	const handleToggleVisibility = async () => {
