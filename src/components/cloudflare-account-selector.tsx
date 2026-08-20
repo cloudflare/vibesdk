@@ -11,10 +11,17 @@ import { Switch } from '@/components/ui/switch';
 import { toast } from 'sonner';
 import { apiClient } from '@/lib/api-client';
 import { CloudflareLogo } from '@cloudflare/kumo';
-import { Loader2, CheckCircle2, AlertCircle, MoreVertical, ExternalLink, LogOut, RefreshCw } from 'lucide-react';
+import {
+	Loader2,
+	CheckCircle2,
+	AlertCircle,
+	MoreVertical,
+	RefreshCw,
+} from 'lucide-react';
 import { useLimitsContext } from '@/contexts/limits-context';
 import { CloudflareLogoThemed } from './shared/CloudflareLogoThemed';
 import { startCloudflareConnect } from '@/lib/cloudflare-connect';
+import { ArrowSquareOutIcon, SignOutIcon } from '@phosphor-icons/react';
 
 interface CloudflareAccount {
 	id: string;
@@ -309,17 +316,17 @@ export function CloudflareAccountSelector() {
 								<DropdownMenu.Content align="end">
 									{gatewayDashUrl && (
 										<DropdownMenu.Item
+                      icon={ArrowSquareOutIcon}
 											onClick={() => window.open(gatewayDashUrl, '_blank', 'noopener,noreferrer')}
 										>
-											<ExternalLink className="size-4" />
 											View gateway
 										</DropdownMenu.Item>
 									)}
 									<DropdownMenu.Item
+										icon={SignOutIcon}
 										onClick={handleDisconnect}
 										variant="danger"
 									>
-										<LogOut className="size-4" />
 										Disconnect
 									</DropdownMenu.Item>
 								</DropdownMenu.Content>
