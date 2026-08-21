@@ -337,6 +337,18 @@ const MODELS_MASTER = {
             creditCost: 8, // $0.22
             contextSize: 262144, // 256K Context
         },
+    },
+    // --- OrcaRouter Models (direct-override OpenAI-compatible gateway) ---
+    ORCAROUTER_AUTO: {
+        id: 'orcarouter/auto',
+        config: {
+            name: 'OrcaRouter Auto',
+            size: ModelSize.REGULAR,
+            provider: 'orcarouter',
+            creditCost: 2, // ~$0.50
+            contextSize: 200000, // 200K Context
+            directOverride: true,
+        },
     }
 } as const;
 
