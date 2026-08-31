@@ -337,6 +337,7 @@ export default function AppView() {
 		executePendingAction,
 	]);
 
+	const isSignedIn = !!user;
 	const isOwner = !!app && app.userId === user?.id;
 	const isThink = app?.behaviorType === 'think';
 	// Think apps auto-load their live SpaceDO preview for signed-in viewers
@@ -470,7 +471,7 @@ export default function AppView() {
 			),
 			trailing: (
 				<>
-					{isOwner && (
+					{isSignedIn && isOwner && (
 						<Button
 							variant="secondary"
 							size="sm"
@@ -528,7 +529,7 @@ export default function AppView() {
 						</Button>
 					)}
 
-					{isOwner && (
+					{isSignedIn && isOwner && (
 						<>
 							<Button
 								variant="primary"
@@ -580,6 +581,7 @@ export default function AppView() {
 		loading,
 		error,
 		app,
+		isSignedIn,
 		isOwner,
 		isUpdatingVisibility,
 		handleToggleVisibility,
@@ -700,40 +702,44 @@ export default function AppView() {
 				/>
 
 				<div className="shrink-0 flex items-center gap-2 max-w-full">
-					<Button
-						variant="secondary"
-						size="sm"
-						icon={
-							<BookmarkSimple
-								className="size-3.5"
-								weight={isFavorited ? 'fill' : 'duotone'}
-							/>
-						}
-						onClick={() => {
-							void handleFavorite();
-						}}
-					>
-						{isFavorited ? 'Bookmarked' : 'Bookmark'}
-					</Button>
+					{isSignedIn && (
+						<>
+							<Button
+								variant="secondary"
+								size="sm"
+								icon={
+									<BookmarkSimple
+										className="size-3.5"
+										weight={isFavorited ? 'fill' : 'duotone'}
+									/>
+								}
+								onClick={() => {
+									void handleFavorite();
+								}}
+							>
+								{isFavorited ? 'Bookmarked' : 'Bookmark'}
+							</Button>
 
-					<Button
-						variant="secondary"
-						size="sm"
-						icon={
-							<Star
-								className="size-3.5"
-								weight={isStarred ? 'fill' : 'duotone'}
-							/>
-						}
-						onClick={handleStar}
-					>
-						{isStarred ? 'Starred' : 'Star'}
-						{(app.starCount || 0) > 0 && (
-							<span className="text-kumo-subtle tabular-nums">
-								{app.starCount}
-							</span>
-						)}
-					</Button>
+							<Button
+								variant="secondary"
+								size="sm"
+								icon={
+									<Star
+										className="size-3.5"
+										weight={isStarred ? 'fill' : 'duotone'}
+									/>
+								}
+								onClick={handleStar}
+							>
+								{isStarred ? 'Starred' : 'Star'}
+								{(app.starCount || 0) > 0 && (
+									<span className="text-kumo-subtle tabular-nums">
+										{app.starCount}
+									</span>
+								)}
+							</Button>
+						</>
+					)}
 
 					<Button
 						variant="secondary"
