@@ -12,6 +12,7 @@ import { BaseSandboxService } from 'worker/services/sandbox/BaseSandboxService';
 import { AgentState, CurrentDevState } from './core/state';
 import { CodeGeneratorAgent } from './core/codingAgent';
 import { BehaviorType, ProjectType } from './core/types';
+import type { GitCloneRepositoryTarget } from '../utils/gitCloneToken';
 
 type AgentStubProps = {
     behaviorType?: BehaviorType;
@@ -55,11 +56,17 @@ export function getSpaceGitStub(env: Env, agentId: string): SpaceGitExportStub |
     return ns.get(ns.idFromName(agentId)) as unknown as SpaceGitExportStub;
 }
 
+export async function resolveGitCloneRepositoryTarget(env: Env, agentId: string): Promise<GitCloneRepositoryTarget> {
+    const state = await getAgentState(env, agentId);
+    return state?.behaviorType === 'think'
+        ? { kind: 'space', spaceName: agentId }
+        : { kind: 'agent', agentId };
+}
+
 /** Whether an app uses the think behavior (repo lives in SpaceDO/Artifacts). */
 export async function isThinkApp(env: Env, agentId: string): Promise<boolean> {
     try {
-        const state = await getAgentState(env, agentId);
-        return state?.behaviorType === 'think';
+        return (await resolveGitCloneRepositoryTarget(env, agentId)).kind === 'space';
     } catch {
         return false;
     }
