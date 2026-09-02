@@ -42,6 +42,28 @@ describe('createAgentConnection', () => {
 		conn.close();
 	});
 
+	it('routes file_deleted into the file sugar event', async () => {
+		const conn = createAgentConnection(async () => {
+			const resp = await fetch(`${server.url}/api/ws-ticket`, { method: 'POST' });
+			const { data } = await resp.json() as { data: { ticket: string } };
+			return `${server.wsUrl}?ticket=${data.ticket}`;
+		});
+
+		await waitForClients(server, 1);
+
+		let fileCount = 0;
+		conn.on('file', () => {
+			fileCount += 1;
+		});
+
+		server.broadcast({ type: 'file_deleted', filePath: 'src/gone.ts' });
+		await new Promise((r) => setTimeout(r, 100));
+
+		expect(fileCount).toBe(1);
+
+		conn.close();
+	});
+
 	it('emits ws:open and connected events', async () => {
 		let openCount = 0;
 		let connectedCount = 0;

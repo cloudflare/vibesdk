@@ -75,6 +75,12 @@ export class WorkspaceStore {
 		this.emitter.emit('change', { type: 'upsert', path: f.path });
 	}
 
+	/** Apply a file_deleted event (same path the FE removes from the editor list). */
+	applyFileDelete(path: string): void {
+		this.files.delete(path);
+		this.emitter.emit('change', { type: 'delete', path });
+	}
+
 	applyWsMessage(msg: AgentWsServerMessage): void {
 		switch (msg.type) {
 			case 'agent_connected':
@@ -88,6 +94,9 @@ export class WorkspaceStore {
 				break;
 			case 'file_regenerated':
 				this.applyFileUpsert(msg.file);
+				break;
+			case 'file_deleted':
+				this.applyFileDelete(msg.filePath);
 				break;
 			default:
 				break;
