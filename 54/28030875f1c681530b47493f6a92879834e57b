@@ -1,0 +1,21 @@
+worker/agents/index.ts
+  s_49c5ca0fa53e24::t_cfea3e43dc35a0 15,59-65,69
+worker/api/controllers/appView/controller.ts
+  s_49c5ca0fa53e24::t_3d939d88c5e258 5,20-23,223-228
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "5428030875f1c681530b47493f6a92879834e57b",
+  "prompts": {},
+  "sessions": {
+    "s_49c5ca0fa53e24": {
+      "agent_id": {
+        "tool": "windsurf",
+        "id": "fixed-fastball",
+        "model": "unknown"
+      },
+      "human_author": "Karishnu Poddar <karishnu@cloudflare.com>"
+    }
+  }
+}
