@@ -182,6 +182,7 @@ export class ModelTestService extends BaseService {
             'gemini': AIModels.GEMINI_2_5_FLASH,
             // 'openrouter': AIModels.OPENROUTER_QWEN_3_CODER, // Removed - not available
             // 'cerebras': AIModels.CEREBRAS_GPT_OSS
+            'orcarouter': AIModels.ORCAROUTER_AUTO,
         };
 
         return testModels[provider] || null;

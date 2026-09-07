@@ -98,6 +98,28 @@ describe('getConfigurationForModel - gateway/key coupling', () => {
 	});
 });
 
+describe('getConfigurationForModel - directOverride providers', () => {
+	const ORCAROUTER_MODEL: AIModelConfig = {
+		name: 'OrcaRouter Auto',
+		size: ModelSize.REGULAR,
+		provider: 'orcarouter',
+		creditCost: 2,
+		contextSize: 200_000,
+		directOverride: true,
+	};
+
+	it('routes orcarouter direct-override models to the OrcaRouter gateway with ORCAROUTER_API_KEY', async () => {
+		const { apiKey, baseURL } = await getConfigurationForModel(
+			ORCAROUTER_MODEL,
+			makeEnv({ ORCAROUTER_API_KEY: 'sk-orca-valid-orca-key-1234567890' }),
+			'user-1',
+		);
+
+		expect(baseURL).toBe('https://api.orcarouter.ai/v1');
+		expect(apiKey).toBe('sk-orca-valid-orca-key-1234567890');
+	});
+});
+
 describe('credentialsToRuntimeOverrides - baseUrl validation', () => {
 	it('drops a non-https gateway baseUrl', () => {
 		const result = credentialsToRuntimeOverrides({

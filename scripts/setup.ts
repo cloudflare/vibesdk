@@ -374,10 +374,11 @@ class SetupManager {
 		console.log('   3. Google AI Studio (for Gemini models) [DEFAULT]');
 		console.log('   4. Cerebras (for open source models)');
 		console.log('   5. OpenRouter (for various models)');
-		console.log('   6. Custom provider\n');
+		console.log('   6. OrcaRouter (150+ models, one key)');
+		console.log('   7. Custom provider\n');
 
 		const providerChoice = await this.prompt('Select providers (comma-separated numbers, e.g., 1,2,3): ');
-		const selectedProviders = providerChoice.split(',').map(n => parseInt(n.trim())).filter(n => n >= 1 && n <= 6);
+		const selectedProviders = providerChoice.split(',').map(n => parseInt(n.trim())).filter(n => n >= 1 && n <= 7);
 
 		if (selectedProviders.length === 0) {
 			console.log('⚠️  No providers selected - you MUST configure at least one provider!');
@@ -396,7 +397,7 @@ class SetupManager {
 
 		console.log('\n🔑 API Key Configuration');
 		for (const choice of selectedProviders) {
-			if (choice === 6) {
+			if (choice === 7) {
 				// Custom provider
 				const customProviderName = await this.prompt('Enter custom provider name: ');
 				if (customProviderName) {

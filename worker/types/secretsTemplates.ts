@@ -101,6 +101,19 @@ export function getTemplatesData(): SecretTemplate[] {
 			required: false,
 			category: 'ai',
 		},
+		{
+			id: 'ORCAROUTER_API_KEY',
+			displayName: 'OrcaRouter API Key',
+			envVarName: 'ORCAROUTER_API_KEY',
+			provider: 'orcarouter',
+			icon: '🐋',
+			description: 'OrcaRouter API key for 150+ models through one gateway',
+			instructions: 'Go to OrcaRouter → Account → API Keys → Create new key',
+			placeholder: 'sk-orca-...',
+			validation: '^sk-orca-[a-zA-Z0-9_-]{20,}$',
+			required: false,
+			category: 'ai',
+		},
 
 		// BYOK (Bring Your Own Key) AI Providers - Lenient validation for compatibility
 		{
