@@ -437,14 +437,12 @@ export const AppCard = React.memo<AppCardProps>(
 									src={app.screenshotUrl}
 									alt={`${app.title} preview`}
 									className={cn(
-										'h-full w-full object-cover object-center',
-										'scale-[1.01] duration-500 ease-out group-hover:scale-[1.05]',
+										'size-full object-cover',
+										'scale-100 transition-transform duration-200 ease-out group-hover:scale-105',
 										'bg-kumo-tint',
 									)}
 									loading="lazy"
 									fetchPriority="low"
-									sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
-									srcSet={`${app.screenshotUrl} 1x, ${app.screenshotUrl} 1.5x, ${app.screenshotUrl} 2x, ${app.screenshotUrl} 3x`}
 									decoding="async"
 									onError={(e) => {
 										const target = e.target as HTMLImageElement;
@@ -460,14 +458,6 @@ export const AppCard = React.memo<AppCardProps>(
 												placeholder.style.opacity = '1';
 											}
 										}, 150);
-									}}
-									onLoad={(e) => {
-										const target = e.target as HTMLImageElement;
-										target.style.opacity = '1';
-									}}
-									style={{
-										opacity: 0,
-										transition: 'opacity 0.35s ease-out, transform 0.5s ease-out',
 									}}
 								/>
 							) : null}
