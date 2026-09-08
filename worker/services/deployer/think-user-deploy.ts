@@ -76,6 +76,7 @@ interface ThinkBundleArtifacts {
 async function buildThinkBundleArtifacts(
 	bundle: BranchDeploymentBundle,
 	appName: string,
+	enableAI: boolean,
 ): Promise<ThinkBundleArtifacts> {
 	const scriptName = sanitizeWorkerName(appName);
 	const modules = new Map<string, string>();
@@ -106,6 +107,7 @@ async function buildThinkBundleArtifacts(
 			type: 'durable_object_namespace',
 			class_name: 'App',
 		});
+		if (enableAI) bindings.push({ name: 'AI', type: 'ai' });
 	}
 	if (assets) {
 		bindings.push({ name: 'ASSETS', type: 'assets' });
@@ -181,7 +183,7 @@ export async function deployThinkBundleToUserAccount(input: {
 	appName: string;
 	bundle: BranchDeploymentBundle;
 }): Promise<ThinkUserDeploymentResult> {
-	const artifacts = await buildThinkBundleArtifacts(input.bundle, input.appName);
+	const artifacts = await buildThinkBundleArtifacts(input.bundle, input.appName, true);
 	const deployer = new WorkerDeployer(input.accountId, input.accessToken);
 	await deployArtifacts(deployer, artifacts, undefined);
 
@@ -206,8 +208,9 @@ export async function deployThinkBundleToPlatform(input: {
 	previewDomain: string;
 	appName: string;
 	bundle: BranchDeploymentBundle;
+	enableAI?: boolean;
 }): Promise<ThinkUserDeploymentResult> {
-	const artifacts = await buildThinkBundleArtifacts(input.bundle, input.appName);
+	const artifacts = await buildThinkBundleArtifacts(input.bundle, input.appName, input.enableAI === true);
 	const deployer = new WorkerDeployer(input.accountId, input.apiToken);
 	await deployArtifacts(deployer, artifacts, input.dispatchNamespace);
 
