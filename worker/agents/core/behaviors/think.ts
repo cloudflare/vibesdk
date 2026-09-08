@@ -40,7 +40,7 @@ import type { CloudflareDeploymentErrorCode } from '../../../api/websocketTypes'
  */
 type ThinkAgentStub = {
 	configureVibe: (config: ThinkAgentConfig) => Promise<void>;
-	chat: (userMessage: string, callback: RpcTarget) => Promise<void>;
+	chat: (userMessage: string | UIMessage, callback: RpcTarget) => Promise<void>;
 	getMessages: () => Promise<UIMessage[]>;
 	clearMessages: () => Promise<void>;
 };
@@ -471,9 +471,19 @@ export class ThinkCodingBehavior
 			const pending = this.state.pendingUserInputs.slice();
 			this.setState({ ...this.state, pendingUserInputs: [] });
 
+			// Images are queued out-of-band in `pendingUserImages` (see
+			// `BaseCodingBehavior.queueUserRequest`) rather than in durable
+			// state; drain them alongside the text so attachments from
+			// `user_suggestion` messages actually reach the model instead of
+			// being silently dropped.
+			const pendingImages = this.pendingUserImages;
+			if (pendingImages.length > 0) {
+				this.pendingUserImages = [];
+			}
+
 			const compiled = pending.join('\n');
 			try {
-				await this.runPrompt(compiled);
+				await this.runPrompt(compiled, pendingImages.length > 0 ? pendingImages : undefined);
 			} catch (e) {
 				this.logger.error('Think prompt failed', e);
 				this.broadcast(WebSocketMessageResponses.ERROR, {
@@ -496,7 +506,7 @@ export class ThinkCodingBehavior
 	 * Submit a prompt to the ThinkAgent and translate its streamed
 	 * `UIMessageChunk`s into VibeSDK WebSocket events.
 	 */
-	private async runPrompt(text: string): Promise<void> {
+	private async runPrompt(text: string, images?: ProcessedImageAttachment[]): Promise<void> {
 		const conversationId = IdGenerator.generateConversationId();
 		this.broadcast(WebSocketMessageResponses.CONVERSATION_RESPONSE, {
 			message: '',
@@ -523,8 +533,22 @@ export class ThinkCodingBehavior
 		);
 
 		const stub = await this.getThinkStub();
+		const userMessage: string | UIMessage = images && images.length > 0
+			? {
+				id: generateNanoId(),
+				role: 'user',
+				parts: [
+					{ type: 'text', text },
+					...images.map((image) => ({
+						type: 'file' as const,
+						mediaType: image.mimeType,
+						url: `data:${image.mimeType};base64,${image.base64Data}`,
+					})),
+				],
+			}
+			: text;
 		try {
-			await stub.chat(text, forwarder);
+			await stub.chat(userMessage, forwarder);
 		} finally {
 			this.broadcast(WebSocketMessageResponses.USAGE_UPDATED, {
 				message: 'Usage data updated',
