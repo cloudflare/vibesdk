@@ -1,0 +1,19 @@
+worker-configuration.d.ts
+  s_bc52d7e309d6c6::t_f1976f0052a836 2,43,59
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "e0af54badfb3614e1867033502b1b4d49de4a223",
+  "prompts": {},
+  "sessions": {
+    "s_bc52d7e309d6c6": {
+      "agent_id": {
+        "tool": "windsurf",
+        "id": "sore-gateway",
+        "model": "unknown"
+      },
+      "human_author": "Karishnu Poddar <karishnu@cloudflare.com>"
+    }
+  }
+}
