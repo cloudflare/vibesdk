@@ -55,6 +55,7 @@ export enum RateLimitType {
 	LLM_CALLS = 'llmCalls',
 	PUBLIC_APPS = 'publicApps',
 	SPACE_PREVIEW = 'spacePreview',
+	APP_AI_CALLS = 'appAiCalls',
 }
 
 export interface RateLimitSettings {
@@ -64,6 +65,7 @@ export interface RateLimitSettings {
 	[RateLimitType.LLM_CALLS]: LLMCallsRateLimitConfig;
 	[RateLimitType.PUBLIC_APPS]: DORateLimitConfig | KVRateLimitConfig;
 	[RateLimitType.SPACE_PREVIEW]: DORateLimitConfig | KVRateLimitConfig;
+	[RateLimitType.APP_AI_CALLS]: DORateLimitConfig;
 }
 
 export const DEFAULT_RATE_LIMIT_SETTINGS: RateLimitSettings = {
@@ -113,6 +115,14 @@ export const DEFAULT_RATE_LIMIT_SETTINGS: RateLimitSettings = {
 		limit: 600,
 		period: 60, // 600 requests / minute per preview token
 		burst: 120,
+		burstWindow: 10,
+	},
+	appAiCalls: {
+		enabled: true,
+		store: RateLimitStore.DURABLE_OBJECT,
+		limit: 60,
+		period: 60,
+		burst: 10,
 		burstWindow: 10,
 	},
 };
