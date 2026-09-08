@@ -2,7 +2,7 @@
 import { BaseController } from '../baseController';
 import { ApiResponse, ControllerResponse } from '../types';
 import type { RouteContext } from '../../types/route-context';
-import { getAgentStubLightweight } from '../../../agents';
+import { getAgentStubLightweight, resolveGitCloneRepositoryTarget } from '../../../agents';
 import { AppService } from '../../../database/services/AppService';
 import { 
     AppDetailsData, 
@@ -17,7 +17,10 @@ import { RateLimitService } from '../../../services/rate-limit/rateLimits';
 import { RateLimitExceededError } from 'shared/types/errors';
 import { extractRequestMetadata } from '../../../utils/authUtils';
 import { buildUserWorkerUrl, buildGitCloneUrl } from 'worker/utils/urls';
-import { JWTUtils } from '../../../utils/jwtUtils';
+import {
+    GIT_CLONE_TOKEN_TTL_SECONDS,
+    signGitCloneToken,
+} from '../../../utils/gitCloneToken';
 import {
     OWNER_PREVIEW_QUERY_PARAM,
     OWNER_PREVIEW_TOKEN_TTL_SECONDS,
@@ -217,14 +220,12 @@ export class AppViewController extends BaseController {
             }
 
             // Generate short-lived JWT (1 hour)
-            const jwtUtils = JWTUtils.getInstance(env);
-            const expiresIn = 3600; // 1 hour
-            const token = await jwtUtils.createToken({
-                sub: user.id,
-                email: user.email,
-                type: 'access' as const,
-                sessionId: 'git-clone-' + appId, // Special session for git operations
-            }, expiresIn);
+            const target = await resolveGitCloneRepositoryTarget(env, appId);
+            const expiresIn = GIT_CLONE_TOKEN_TTL_SECONDS;
+            const token = await signGitCloneToken(env, {
+                userId: user.id,
+                target,
+            });
 
             const responseData: GitCloneTokenData = {
                 token,
