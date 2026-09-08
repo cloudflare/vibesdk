@@ -235,6 +235,45 @@ export class RateLimitService {
         }
     }
 
+    static async enforceAppAiCallsRateLimit(
+        env: Env,
+        config: RateLimitSettings,
+        spaceName: string
+    ): Promise<void> {
+        if (!config[RateLimitType.APP_AI_CALLS].enabled) {
+            return;
+        }
+        const identifier = `space:${spaceName}`;
+        const key = this.buildRateLimitKey(RateLimitType.APP_AI_CALLS, identifier);
+
+        try {
+            const result = await this.enforce(env, key, config, RateLimitType.APP_AI_CALLS);
+            if (!result.success) {
+                this.logger.warn('App AI calls rate limit exceeded', {
+                    identifier,
+                    key,
+                    exceededLimit: result.exceededLimit,
+                    limitValue: result.limitValue,
+                });
+                captureSecurityEvent('rate_limit_exceeded', {
+                    limitType: RateLimitType.APP_AI_CALLS,
+                    identifier,
+                    key,
+                    exceededLimit: result.exceededLimit,
+                });
+                throw new RateLimitExceededError(
+                    'App AI inference rate limit exceeded',
+                    RateLimitType.APP_AI_CALLS,
+                );
+            }
+        } catch (error) {
+            if (error instanceof RateLimitExceededError || error instanceof SecurityError) {
+                throw error;
+            }
+            this.logger.error('Failed to enforce app AI calls rate limit', error);
+        }
+    }
+
     static async enforceAuthRateLimit(
         env: Env,
         config: RateLimitSettings,

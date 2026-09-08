@@ -5,7 +5,6 @@ import { createApp } from './app';
 // import { sentryOptions } from './observability/sentry';
 import { DORateLimitStore as BaseDORateLimitStore } from './services/rate-limit/DORateLimitStore';
 import { getPreviewDomain, getProtocolForHost, isSeparatePreviewDomain } from './utils/urls';
-import { proxyToAiGateway } from './services/aigateway-proxy/controller';
 import { isOriginAllowed } from './config/security';
 import { isDev } from './utils/envs';
 import { proxyToSandbox } from './services/sandbox/request-handler';
@@ -32,6 +31,7 @@ export { UserSecretsStore } from './services/secrets/UserSecretsStore';
 // AppDatabase is NOT exported here — it lives inside SpaceDO's Worker Loader
 // as a synthetic-worker class. See space/src/space/app-database-source.ts.
 export { SpaceDO } from '@space-do/space';
+export { AppAIProxy } from './services/ai-proxy/AppAIProxy';
 // ThinkAgent (@cloudflare/think) — the agentic loop harness (model ↔ tools).
 // Bound as THINK_DO in wrangler.
 export { ThinkAgent } from './agents/think/ThinkAgent';
@@ -308,24 +308,6 @@ const worker = {
 			if (!pathname.startsWith('/api/')) {
 				return env.ASSETS.fetch(request);
 			}
-			// AI Gateway proxy for generated apps
-			if (pathname.startsWith('/api/proxy/openai')) {
-                // Browser-originated requests must come from a preview-domain
-                // subdomain or an explicitly allowed origin. Server-side calls
-                // from generated apps carry no Origin header and are allowed
-                // through (auth is enforced by the app-proxy JWT downstream).
-                const origin = request.headers.get('Origin');
-                if (origin) {
-                    const previewDomain = getPreviewDomain(env);
-                    const originAllowed = isOriginAllowed(env, origin) || origin.endsWith(`.${previewDomain}`);
-                    if (!originAllowed) {
-                        logger.warn(`Access denied. Invalid origin: ${origin}, preview domain: ${previewDomain}`);
-                        return new Response('Access denied. Invalid origin.', { status: 403 });
-                    }
-                }
-                return proxyToAiGateway(request, env, ctx);
-			}
-
 			// Handle all API requests with the main Hono application.
 			// Log pathname only: some API routes (e.g. /api/auth/callback/:provider)
 			// carry sensitive query params like `code`/`state`.

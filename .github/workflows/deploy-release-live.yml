@@ -123,5 +123,4 @@ jobs:
 
           JWT_SECRET: ${{ secrets.JWT_SECRET }}
           SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
-          AI_PROXY_JWT_SECRET: ${{ secrets.AI_PROXY_JWT_SECRET }}
         run: bun scripts/deploy.ts
