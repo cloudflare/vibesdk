@@ -29,4 +29,15 @@ describe('WorkspaceStore', () => {
 		ws.applyWsMessage({ type: 'file_generated', file: { filePath: 'src/x.ts', fileContents: '1' } } as any);
 		expect(ws.read('src/x.ts')).toBe('1');
 	});
+
+	it('applies file_deleted and emits delete', () => {
+		const ws = new WorkspaceStore();
+		const changes: Array<{ type: string; path?: string }> = [];
+		ws.onChange((c) => changes.push(c));
+		ws.applyWsMessage({ type: 'file_generated', file: { filePath: 'src/gone.ts', fileContents: 'bye' } } as any);
+		ws.applyWsMessage({ type: 'file_deleted', filePath: 'src/gone.ts' } as any);
+		expect(ws.read('src/gone.ts')).toBe(null);
+		expect(ws.paths()).toEqual([]);
+		expect(changes.some((c) => c.type === 'delete' && c.path === 'src/gone.ts')).toBe(true);
+	});
 });

@@ -168,6 +168,7 @@ export function createAgentConnection(
 				case 'file_generating':
 				case 'file_regenerating':
 				case 'file_regenerated':
+				case 'file_deleted':
 					emitter.emit('file', parsed);
 					break;
 				case 'generation_started':

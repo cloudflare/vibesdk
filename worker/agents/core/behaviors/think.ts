@@ -1022,6 +1022,7 @@ export class ThinkCodingBehavior
 				previewDomain: getPreviewDomain(this.env),
 				appName: this.state.blueprint.title || this.state.projectName || `vibe-${instanceId}`,
 				bundle,
+				enableAI: this.env.ENABLE_PLATFORM_AI_BINDING === 'true',
 			});
 			await new AppService(this.env).updateDeploymentId(instanceId, result.deploymentId);
 			this.setState({ ...this.state, cloudflareDeploymentUrl: result.deploymentUrl });

@@ -8,11 +8,11 @@ declare namespace Cloudflare {
 		ENABLE_EMAIL_AUTH?: string;
 		ENABLE_READ_REPLICAS?: string;
 		ENABLE_USER_ACCOUNT_DEPLOY?: string;
+		ENABLE_PLATFORM_AI_BINDING?: string;
 		USE_CLOUDFLARE_IMAGES?: string;
 		USE_TUNNEL_FOR_PREVIEW?: string;
 
 		// Secret bindings are omitted by `wrangler types` when absent from .dev.vars.
-		AI_PROXY_JWT_SECRET: string;
 		ANTHROPIC_API_KEY: string;
 		CF_ACCESS_ID: string;
 		CF_ACCESS_SECRET: string;

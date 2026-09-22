@@ -1776,7 +1776,6 @@ class CloudflareDeploymentManager {
 			'CF_OAUTH_ENCRYPTION_KEY',
 			'JWT_SECRET',
 			'SENTRY_DSN',
-			'AI_PROXY_JWT_SECRET',
 			'ENABLE_ARTIFACTS',
 			'MAX_SANDBOX_INSTANCES',
 			'CUSTOM_DOMAIN',
