@@ -5,13 +5,13 @@
  * 
  * Architecture: Export git objects from DO, build repo in worker to save DO memory
  */
-import { getAgentStub, getSpaceGitStub, isThinkApp } from '../../agents';
+import { getAgentStub, getSpaceGitStub, resolveGitCloneRepositoryTarget } from '../../agents';
 import { createLogger } from '../../logger';
 import { GitCloneService } from '../../agents/git/git-clone-service';
 import type { MemFS } from '../../agents/git/memfs';
 import type { TemplateDetails } from '../../services/sandbox/sandboxTypes';
 import { AppService } from '../../database/services/AppService';
-import { JWTUtils } from '../../utils/jwtUtils';
+import { verifyGitCloneToken, type GitCloneRepositoryTarget } from '../../utils/gitCloneToken';
 import { GitCache } from './git-cache';
 
 const logger = createLogger('GitProtocol');
@@ -21,7 +21,7 @@ interface ResolvedGitObjects {
     query: string;
     hasCommits: boolean;
     templateDetails: TemplateDetails | null;
-    isThink: boolean;
+    target: GitCloneRepositoryTarget;
 }
 
 /**
@@ -29,20 +29,20 @@ interface ResolvedGitObjects {
  * SpaceDO/Artifacts (exported verbatim); other apps use the agent's own git
  * (rebased on the template).
  */
-async function resolveGitObjectsForApp(env: Env, appId: string): Promise<ResolvedGitObjects> {
-    if (await isThinkApp(env, appId)) {
-        const spaceStub = getSpaceGitStub(env, appId);
+async function resolveGitObjectsForTarget(env: Env, target: GitCloneRepositoryTarget): Promise<ResolvedGitObjects> {
+    if (target.kind === 'space') {
+        const spaceStub = getSpaceGitStub(env, target.spaceName);
         const gitObjects = spaceStub ? await spaceStub.exportGitObjects() : [];
-        return { gitObjects, query: '', hasCommits: gitObjects.length > 0, templateDetails: null, isThink: true };
+        return { gitObjects, query: '', hasCommits: gitObjects.length > 0, templateDetails: null, target };
     }
-    const agentStub = await getAgentStub(env, appId);
+    const agentStub = await getAgentStub(env, target.agentId);
     const exported = await agentStub.exportGitObjects();
-    return { ...exported, isThink: false };
+    return { ...exported, target };
 }
 
 /** Build the in-memory repo, verbatim for think apps and template-rebased otherwise. */
 async function buildRepoFor(resolved: ResolvedGitObjects, appQuery: string, appCreatedAt?: Date): Promise<MemFS> {
-    return resolved.isThink
+    return resolved.target.kind === 'space'
         ? GitCloneService.buildRepositoryFromObjects(resolved.gitObjects)
         : GitCloneService.buildRepository({
               gitObjects: resolved.gitObjects,
@@ -99,11 +99,15 @@ function extractAgentHeadOid(gitObjects: Array<{ path: string; data: Uint8Array 
 /**
  * Verify git access (public apps or owner with valid token)
  */
+type GitAccessResult =
+    | { hasAccess: false }
+    | { hasAccess: true; target: GitCloneRepositoryTarget; appCreatedAt?: Date };
+
 async function verifyGitAccess(
     request: Request,
     env: Env,
     appId: string
-): Promise<{ hasAccess: boolean; appCreatedAt?: Date }> {
+): Promise<GitAccessResult> {
     logger.info('Verifying git access', { appId });
     
     const appService = new AppService(env);
@@ -116,9 +120,11 @@ async function verifyGitAccess(
         return { hasAccess: false };
     }
 
+    const target = await resolveGitCloneRepositoryTarget(env, appId);
+
     // Public apps: anyone can clone
     if (app.visibility === 'public') {
-        return { hasAccess: true, appCreatedAt: app.createdAt || undefined };
+        return { hasAccess: true, target, appCreatedAt: app.createdAt || undefined };
     }
 
     // Private apps: require authentication
@@ -132,10 +138,14 @@ async function verifyGitAccess(
         logger.info('Extracted Bearer token', { tokenLength: token.length });
     } else if (authHeader?.startsWith('Basic ')) {
         // Git sends credentials as Basic auth
-        const decoded = atob(authHeader.slice(6));
-        const [username, password] = decoded.split(':');
-        token = password || username;
-        logger.info('Extracted Basic auth token', { tokenLength: token?.length, hasUsername: !!username, hasPassword: !!password });
+        try {
+            const decoded = atob(authHeader.slice(6));
+            const [username, password] = decoded.split(':');
+            token = password || username;
+            logger.info('Extracted Basic auth token', { tokenLength: token?.length, hasUsername: !!username, hasPassword: !!password });
+        } catch {
+            logger.warn('Malformed Basic auth header - will return 401 to prompt git for credentials');
+        }
     }
 
     if (!token) {
@@ -143,27 +153,25 @@ async function verifyGitAccess(
         return { hasAccess: false };
     }
 
-    // Verify token using JWTUtils
-    const jwtUtils = JWTUtils.getInstance(env);
-    const payload = await jwtUtils.verifyToken(token);
+    const claims = await verifyGitCloneToken(env, token, target);
 
-    if (!payload) {
-        logger.warn('Token verification failed - invalid or expired token');
+    if (!claims) {
+        logger.warn('Token verification failed - invalid, expired, or scoped to another repository');
         return { hasAccess: false };
     }
 
-    logger.info('Token verified', { userId: payload.sub, appOwnerId: app.userId });
+    logger.info('Token verified', { userId: claims.userId, appOwnerId: app.userId, repositoryKind: target.kind });
 
     // Check if user owns the app
-    const hasAccess = payload.sub === app.userId;
+    const hasAccess = claims.userId === app.userId;
     
     if (!hasAccess) {
-        logger.warn('Access denied - user does not own this app', { userId: payload.sub, appOwnerId: app.userId });
-    } else {
-        logger.info('Access granted - user owns this app');
+        logger.warn('Access denied - user does not own this app', { userId: claims.userId, appOwnerId: app.userId });
+        return { hasAccess: false };
     }
-    
-    return { hasAccess, appCreatedAt: hasAccess ? (app.createdAt || undefined) : undefined };
+
+    logger.info('Access granted - user owns this app');
+    return { hasAccess: true, target, appCreatedAt: app.createdAt || undefined };
 }
 
 /**
@@ -177,8 +185,8 @@ async function handleInfoRefs(
 ): Promise<Response> {
     try {
         // Verify access first
-        const { hasAccess, appCreatedAt } = await verifyGitAccess(request, env, appId);
-        if (!hasAccess) {
+        const access = await verifyGitAccess(request, env, appId);
+        if (!access.hasAccess) {
             // Return 401 with WWW-Authenticate to prompt git for credentials
             return new Response('Authentication required', { 
                 status: 401,
@@ -188,7 +196,8 @@ async function handleInfoRefs(
             });
         }
         
-        const resolved = await resolveGitObjectsForApp(env, appId);
+        const { appCreatedAt, target } = access;
+        const resolved = await resolveGitObjectsForTarget(env, target);
         const { gitObjects, query, hasCommits, templateDetails } = resolved;
         
         if (!hasCommits) {
@@ -265,8 +274,8 @@ async function handleUploadPack(
 ): Promise<Response> {
     try {
         // Verify access first
-        const { hasAccess, appCreatedAt } = await verifyGitAccess(request, env, appId);
-        if (!hasAccess) {
+        const access = await verifyGitAccess(request, env, appId);
+        if (!access.hasAccess) {
             // Return 401 with WWW-Authenticate to prompt git for credentials
             return new Response('Authentication required', { 
                 status: 401,
@@ -276,7 +285,8 @@ async function handleUploadPack(
             });
         }
         
-        const resolved = await resolveGitObjectsForApp(env, appId);
+        const { appCreatedAt, target } = access;
+        const resolved = await resolveGitObjectsForTarget(env, target);
         const { gitObjects, query, hasCommits, templateDetails } = resolved;
         
         if (!hasCommits) {
