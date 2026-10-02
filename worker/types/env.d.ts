@@ -10,6 +10,7 @@ declare namespace Cloudflare {
 		ENABLE_USER_ACCOUNT_DEPLOY?: string;
 		USE_CLOUDFLARE_IMAGES?: string;
 		USE_TUNNEL_FOR_PREVIEW?: string;
+		WEB_SEARCH_PROVIDER?: string;
 
 		// Secret bindings are omitted by `wrangler types` when absent from .dev.vars.
 		AI_PROXY_JWT_SECRET: string;

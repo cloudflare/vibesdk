@@ -1,5 +1,6 @@
 import { env } from 'cloudflare:workers';
 import { tool, t } from '../types';
+import { performParallelSearch } from './parallel-search';
 
 interface SerpApiResponse {
     knowledge_graph?: {
@@ -98,6 +99,9 @@ async function performWebSearch(
     query: string,
     numResults = 5,
 ): Promise<string> {
+    if (env.WEB_SEARCH_PROVIDER === 'parallel') {
+        return performParallelSearch(query, numResults);
+    }
     const apiKey = env.SERPAPI_KEY;
     if (!apiKey) {
         return `🔍 Web search requires SerpAPI key. Get one at https://serpapi.com/\nFallback: https://www.google.com/search?q=${encodeURIComponent(query)}`;
@@ -221,9 +225,9 @@ const toolWebSearch = async (args: WebSearchArgs): Promise<WebSearchResult> => {
 
 export const toolWebSearchDefinition = tool({
 	name: 'web_search',
-	description: 'Search the web using Google or fetch content from a specific URL',
+	description: 'Search the web using the configured provider or fetch content from a specific URL',
 	args: {
-		query: t.string().optional().describe('Search query for Google search'),
+		query: t.string().optional().describe('Web search query'),
 		url: t.string().optional().describe('Specific URL to fetch content from (alternative to search)'),
 		num_results: t.number().default(5).describe('Number of search results to return (default: 5, max: 10)'),
 	},

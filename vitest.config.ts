@@ -4,6 +4,9 @@ import { fileURLToPath } from 'node:url';
 const runIntegrationTests = process.env.VIBESDK_RUN_INTEGRATION_TESTS === '1';
 
 export default defineWorkersConfig({
+  define: {
+    __VIBESDK_SEARCH_LIVE__: JSON.stringify(process.env.VIBESDK_SEARCH_LIVE === '1'),
+  },
   resolve: {
     alias: {
       'bun:test': 'vitest',
@@ -20,6 +23,8 @@ export default defineWorkersConfig({
           include: [
             '@cloudflare/containers',
             '@cloudflare/sandbox',
+            '@modelcontextprotocol/sdk/client/index.js',
+            '@modelcontextprotocol/sdk/client/streamableHttp.js',
             '@babel/traverse',
             '@babel/types',
           ],

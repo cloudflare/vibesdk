@@ -221,6 +221,23 @@ Existing deployments retain previously configured dashboard values when this con
 
 ## Manual Setup (Alternative)
 
+### Optional keyless web search
+
+The existing `web_search` tool in the legacy conversation agent can use the free,
+keyless [Parallel Search MCP](https://docs.parallel.ai/integrations/mcp/search-mcp).
+Set `WEB_SEARCH_PROVIDER="parallel"` in `.dev.vars` locally or as a Cloudflare
+dashboard variable for your deployment. No Parallel API key is needed. This sends
+search queries to `https://search.parallel.ai/mcp` using Streamable HTTP; anonymous
+access has lower rate limits. Search results include source links and excerpts,
+with `num_results` limiting the displayed results to at most ten. Requests have a
+15-second deadline across connection, tool discovery and search.
+
+Leave the variable unset, or set it to `"serpapi"`, to use the existing SerpAPI
+behavior with `SERPAPI_KEY`. Unrecognized values also retain that default. Provider
+selection is explicit: errors do not switch providers. The tool's `url` argument
+still fetches the URL directly. This setting applies to `buildTools()`; the Think
+agent has its own tool registry and does not gain search from this setting.
+
 If you prefer to set up manually:
 
 ### 1. Create `.dev.vars` file
