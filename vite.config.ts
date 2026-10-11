@@ -47,6 +47,11 @@ export default defineConfig({
 			// build avoids the `require("buffer")` path. Use an exact-match regex
 			// so `mimetext/browser` itself is not re-aliased.
 			{ find: /^mimetext$/, replacement: 'mimetext/browser' },
+			// `just-bash` (1.5 MB) is only used inside tool executions; load it on first use.
+			{
+				find: /^just-bash$/,
+				replacement: path.resolve(__dirname, './worker/polyfills/lazy-just-bash.ts'),
+			},
 			// `@cloudflare/shell` bundles standard `isomorphic-git`, whose `sha.js`
 			// transitive uses `safe-buffer` (`require("buffer")`). That unguarded
 			// CJS require lands in a code-split chunk and throws at Workers startup

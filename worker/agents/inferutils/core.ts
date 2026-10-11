@@ -1,4 +1,4 @@
-import { OpenAI } from 'openai';
+import type { OpenAI } from 'openai';
 import { Stream } from 'openai/streaming';
 import { z } from 'zod';
 import {
@@ -761,6 +761,8 @@ export async function infer<OutputSchema extends z.ZodObject>({
         // Remove [*.] from model name
         modelName = modelName.replace(/\[.*?\]/, '');
 
+        // Loaded on first use: the openai SDK is not needed at Worker startup.
+        const { OpenAI } = await import('openai');
         const client = new OpenAI({ apiKey, baseURL: baseURL, defaultHeaders });
         const schemaObj =
             schema && schemaName && !format

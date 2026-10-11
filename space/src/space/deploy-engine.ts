@@ -1,6 +1,6 @@
 import type { Git } from "@cloudflare/shell/git"
 import type { FileSystem } from "@cloudflare/shell"
-import { createApp, createWorker, type AssetConfig, type Modules } from "@cloudflare/worker-bundler"
+import type { AssetConfig, Modules } from "@cloudflare/worker-bundler"
 import { parseWranglerConfig, WranglerConfigError } from "./wrangler-config"
 import { globInfos } from "./fileinfo"
 
@@ -195,6 +195,7 @@ export async function buildBranchDeployment(
         }
       : undefined
 
+    const { createApp, createWorker } = await import("@cloudflare/worker-bundler")
     if (Object.keys(collectedAssets).length) {
       const result = await createApp({
         files,

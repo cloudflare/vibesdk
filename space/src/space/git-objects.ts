@@ -8,7 +8,10 @@
  * `FileSystem`, reusing the same fs adapter shape the shell uses so behavior
  * (ENOENT dispatch, utf8/binary reads) matches `createGit`.
  */
-import * as git from "isomorphic-git"
+import type * as git from "isomorphic-git"
+// Loaded on first use: isomorphic-git (and its `ignore` dependency) cost ~4 ms of
+// Worker startup and nothing needs them before a git operation.
+const loadGit = () => import("isomorphic-git")
 import type { FileSystem } from "@cloudflare/shell"
 
 /** Metadata for one file in the Artifacts base tree. */
@@ -164,7 +167,7 @@ export function createGitFs(fs: FileSystem): git.FsClient {
 /** Resolve a ref (branch, remote-tracking ref, or oid) to a commit oid, or null. */
 export async function resolveHead(fs: FileSystem, ref: string): Promise<string | null> {
   try {
-    return await git.resolveRef({ fs: createGitFs(fs), dir: "/", ref })
+    return await (await loadGit()).resolveRef({ fs: createGitFs(fs), dir: "/", ref })
   } catch {
     return null
   }
@@ -180,10 +183,10 @@ export async function walkTreeFiles(
   commitOid: string,
 ): Promise<Map<string, BaseEntry>> {
   const gitFs = createGitFs(fs)
-  const entries = (await git.walk({
+  const entries = (await (await loadGit()).walk({
     fs: gitFs,
     dir: "/",
-    trees: [git.TREE({ ref: commitOid })],
+    trees: [(await loadGit()).TREE({ ref: commitOid })],
     map: async (filepath, walkerEntries) => {
       if (filepath === ".") return undefined
       const entry = walkerEntries?.[0]
@@ -207,7 +210,7 @@ export async function walkTreeFiles(
 
 /** Read a blob's bytes by oid from the local object store. */
 export async function readBlobBytes(fs: FileSystem, oid: string): Promise<Uint8Array> {
-  const { blob } = await git.readBlob({ fs: createGitFs(fs), dir: "/", oid })
+  const { blob } = await (await loadGit()).readBlob({ fs: createGitFs(fs), dir: "/", oid })
   return blob
 }
 
@@ -225,7 +228,7 @@ async function reconcileLocalBranch(
   head: string,
 ): Promise<void> {
   if (await resolveHead(fs, `refs/heads/${branch}`)) return
-  await git.writeRef({
+  await (await loadGit()).writeRef({
     fs: createGitFs(fs),
     dir: "/",
     ref: `refs/heads/${branch}`,
@@ -288,7 +291,7 @@ export async function stagedTreeMatchesHead(
   // Unborn branch (no HEAD): the first commit must always proceed.
   if (!(await resolveHead(fs, "HEAD"))) return false
   try {
-    const matrix = await git.statusMatrix({ fs: gitFs, dir: "/" })
+    const matrix = await (await loadGit()).statusMatrix({ fs: gitFs, dir: "/" })
     for (const [filepath, head, , stage] of matrix) {
       if (skip(`/${filepath}`)) continue
       // statusMatrix stage codes: 0 absent, 1 identical to HEAD, 2/3 differ.
@@ -315,11 +318,11 @@ export async function stageWorkdir(
   skip: (absPath: string) => boolean,
 ): Promise<void> {
   const gitFs = createGitFs(fs)
-  const matrix = await git.statusMatrix({ fs: gitFs, dir: "/" })
+  const matrix = await (await loadGit()).statusMatrix({ fs: gitFs, dir: "/" })
   for (const [filepath, head, workdir, stage] of matrix) {
     if (skip(`/${filepath}`)) continue
     if (`${head}${workdir}${stage}` === "111") continue
-    if (workdir === 0) await git.remove({ fs: gitFs, dir: "/", filepath })
-    else await git.add({ fs: gitFs, dir: "/", filepath })
+    if (workdir === 0) await (await loadGit()).remove({ fs: gitFs, dir: "/", filepath })
+    else await (await loadGit()).add({ fs: gitFs, dir: "/", filepath })
   }
 }

@@ -45,18 +45,23 @@ function buildEntries(): SkillManifestEntry[] {
 	return entries;
 }
 
-const entries = buildEntries();
+let manifestCache: SkillManifest | null = null;
 
-/** Content-derived fingerprint so Think re-reads the catalog if a skill changes. */
-const fingerprint = entries.map((e) => `${e.name}:${e.rawContent?.length ?? 0}`).join('|');
-
-const manifest: SkillManifest = {
-	id: 'vibesdk-think-skills',
-	fingerprint,
-	skills: entries,
-};
+/**
+ * Built on first use: parsing the SKILL.md frontmatter (YAML) at import time cost
+ * about 4 ms of Worker startup, and nothing needs the catalog before a Think request.
+ */
+function getManifest(): SkillManifest {
+	if (!manifestCache) {
+		const entries = buildEntries();
+		// Content-derived fingerprint so Think re-reads the catalog if a skill changes.
+		const fingerprint = entries.map((e) => `${e.name}:${e.rawContent?.length ?? 0}`).join('|');
+		manifestCache = { id: 'vibesdk-think-skills', fingerprint, skills: entries };
+	}
+	return manifestCache;
+}
 
 /** In-memory skill source consumed by `ThinkAgent.getSkills()`. */
 export function createThinkSkillSource(): SkillSource {
-	return fromManifest(manifest);
+	return fromManifest(getManifest());
 }

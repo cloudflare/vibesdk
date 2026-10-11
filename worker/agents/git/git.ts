@@ -2,7 +2,8 @@
  * Git version control for Durable Objects using isomorphic-git
  */
 
-import git from '@ashishkumar472/cf-git';
+// Loaded on first use: cf-git is 400 KB and nothing needs it at Worker startup.
+const loadGit = () => import('@ashishkumar472/cf-git').then((m) => m.default);
 import { SqliteFS, type SqlExecutor } from './fs-adapter';
 import type { FileOutputType } from '../schemas';
 import * as Diff from 'diff';
@@ -54,7 +55,7 @@ export class GitVersionControl {
 
     async getAllFilesFromHead(): Promise<Array<{ filePath: string; fileContents: string }>> {
         try {
-            const oid = await git.resolveRef({ ...this.gitConfig, ref: 'HEAD' });
+            const oid = await (await loadGit()).resolveRef({ ...this.gitConfig, ref: 'HEAD' });
             return await this.readFilesFromCommit(oid);
         } catch {
             return [];
@@ -63,7 +64,7 @@ export class GitVersionControl {
 
     async init(): Promise<void> {
         try {
-            await git.init({ ...this.gitConfig, defaultBranch: 'main' });
+            await (await loadGit()).init({ ...this.gitConfig, defaultBranch: 'main' });
             console.log('[Git] Repository initialized');
         } catch (error) {
             console.log('[Git] Repository already initialized:', error);
@@ -86,7 +87,7 @@ export class GitVersionControl {
             try {
                 const path = this.normalizePath(file.filePath);
                 await this.fs.writeFile(path, file.fileContents);
-                await git.add({ ...this.gitConfig, filepath: path, cache: {} });
+                await (await loadGit()).add({ ...this.gitConfig, filepath: path, cache: {} });
             } catch (error) {
                 console.error(`[Git] Failed to stage file ${file}:`, error);
                 throw new Error(`Failed to stage file ${file}: ${error instanceof Error ? error.message : String(error)}`);
@@ -112,7 +113,7 @@ export class GitVersionControl {
         }
 
         console.log('[Git] Creating commit...');
-        const oid = await git.commit({
+        const oid = await (await loadGit()).commit({
             ...this.gitConfig,
             message: message || `Auto-checkpoint (${new Date().toISOString()})`,
             author: {
@@ -132,7 +133,7 @@ export class GitVersionControl {
             const workingTreePaths = entries.filter(e => e !== '.git');
             if (workingTreePaths.length === 0) return false;
 
-            const status = await git.statusMatrix({
+            const status = await (await loadGit()).statusMatrix({
                 ...this.gitConfig,
                 filepaths: workingTreePaths,
             });
@@ -144,7 +145,7 @@ export class GitVersionControl {
 
     async log(limit = 50): Promise<CommitInfo[]> {
         try {
-            const commits = await git.log({ ...this.gitConfig, depth: limit, ref: 'main' });
+            const commits = await (await loadGit()).log({ ...this.gitConfig, depth: limit, ref: 'main' });
             return commits.map(c => ({
                 oid: c.oid,
                 message: c.commit.message,
@@ -157,22 +158,22 @@ export class GitVersionControl {
     }
 
     private async readFilesFromCommit(oid: string): Promise<FileSnapshot[]> {
-        const { commit } = await git.readCommit({ ...this.gitConfig, oid });
+        const { commit } = await (await loadGit()).readCommit({ ...this.gitConfig, oid });
         const files: FileSnapshot[] = [];
         await this.walkTree(commit.tree, '', files);
         return files;
     }
 
     async show(oid: string, options?: { includeDiff?: boolean }): Promise<GitShowResult> {
-        const { commit } = await git.readCommit({ ...this.gitConfig, oid });
+        const { commit } = await (await loadGit()).readCommit({ ...this.gitConfig, oid });
         
         if (!commit.parent || commit.parent.length === 0) {
-            const files = await git.listFiles({ ...this.gitConfig, ref: oid });
+            const files = await (await loadGit()).listFiles({ ...this.gitConfig, ref: oid });
             return this.formatShowResult(commit, oid, files);
         }
         
         const parentOid = commit.parent[0];
-        const { commit: parentCommit } = await git.readCommit({ ...this.gitConfig, oid: parentOid });
+        const { commit: parentCommit } = await (await loadGit()).readCommit({ ...this.gitConfig, oid: parentOid });
         
         const [currentFileOids, parentFileOids] = await Promise.all([
             this.collectTreeOids(commit.tree),
@@ -229,7 +230,7 @@ export class GitVersionControl {
 
     private async readBlobContent(oid: string | undefined): Promise<string> {
         if (!oid) return '';
-        const { blob } = await git.readBlob({ ...this.gitConfig, oid });
+        const { blob } = await (await loadGit()).readBlob({ ...this.gitConfig, oid });
         return new TextDecoder('utf-8').decode(blob);
     }
 
@@ -259,7 +260,7 @@ export class GitVersionControl {
      */
     private async collectTreeOids(treeOid: string, prefix: string = ''): Promise<Map<string, string>> {
         const fileOids = new Map<string, string>();
-        const { tree } = await git.readTree({ ...this.gitConfig, oid: treeOid });
+        const { tree } = await (await loadGit()).readTree({ ...this.gitConfig, oid: treeOid });
         
         for (const entry of tree) {
             const path = this.buildPath(prefix, entry.path);
@@ -278,14 +279,14 @@ export class GitVersionControl {
     }
 
     async reset(ref: string, options?: { hard?: boolean }): Promise<{ ref: string; filesReset: number }> {
-        const oid = await git.resolveRef({ ...this.gitConfig, ref });
-        await git.writeRef({ ...this.gitConfig, ref: 'HEAD', value: oid, force: true });
+        const oid = await (await loadGit()).resolveRef({ ...this.gitConfig, ref });
+        await (await loadGit()).writeRef({ ...this.gitConfig, ref: 'HEAD', value: oid, force: true });
         
         if (options?.hard !== false) {
-            await git.checkout({ ...this.gitConfig, ref, force: true });
+            await (await loadGit()).checkout({ ...this.gitConfig, ref, force: true });
         }
         
-        const files = await git.listFiles({ ...this.gitConfig, ref });
+        const files = await (await loadGit()).listFiles({ ...this.gitConfig, ref });
         
         this.onFilesChangedCallback?.();
         
@@ -293,7 +294,7 @@ export class GitVersionControl {
     }
 
     private async walkTree(treeOid: string, prefix: string, files: FileSnapshot[]): Promise<void> {
-        const { tree } = await git.readTree({ ...this.gitConfig, oid: treeOid });
+        const { tree } = await (await loadGit()).readTree({ ...this.gitConfig, oid: treeOid });
 
         for (const entry of tree) {
             const path = this.buildPath(prefix, entry.path);
@@ -311,7 +312,7 @@ export class GitVersionControl {
 
     private async tryReadTextBlob(oid: string): Promise<string | null> {
         try {
-            const { blob } = await git.readBlob({ ...this.gitConfig, oid });
+            const { blob } = await (await loadGit()).readBlob({ ...this.gitConfig, oid });
             const content = new TextDecoder('utf-8').decode(blob);
             return content.includes('\0') ? null : content;
         } catch {
@@ -329,7 +330,7 @@ export class GitVersionControl {
                 }, 5000);
             });
             
-            const resolvePromise = git.resolveRef({ ...this.gitConfig, ref: 'HEAD' });
+            const resolvePromise = (await loadGit()).resolveRef({ ...this.gitConfig, ref: 'HEAD' });
             
             try {
                 const result = await Promise.race([resolvePromise, timeoutPromise]);

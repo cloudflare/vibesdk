@@ -3,7 +3,8 @@
  * Handles template rebasing and git HTTP protocol
  */
 
-import git from '@ashishkumar472/cf-git';
+// Loaded on first use: cf-git is 400 KB and nothing needs it at Worker startup.
+const loadGit = () => import('@ashishkumar472/cf-git').then((m) => m.default);
 import { MemFS } from './memfs';
 import { createLogger } from '../../logger';
 import type { TemplateDetails as SandboxTemplateDetails } from '../../services/sandbox/sandboxTypes';
@@ -40,15 +41,15 @@ export class GitCloneService {
             
             // If no agent commits yet, just create template base
             if (gitObjects.length === 0) {
-                await git.init({ fs, dir: '/', defaultBranch: 'main' });
+                await (await loadGit()).init({ fs, dir: '/', defaultBranch: 'main' });
                 
                 if (templateDetails && templateDetails.allFiles) {
                     // Create template commit
                     for (const [path, content] of Object.entries(templateDetails.allFiles)) {
                         await fs.writeFile(path, content as string);
-                        await git.add({ fs, dir: '/', filepath: path });
+                        await (await loadGit()).add({ fs, dir: '/', filepath: path });
                     }
-                    await git.commit({
+                    await (await loadGit()).commit({
                         fs, dir: '/',
                         message: `Template: ${templateDetails.name}`,
                         author: { 
@@ -62,7 +63,7 @@ export class GitCloneService {
                 return fs;
             }
             
-            await git.init({ fs, dir: '/', defaultBranch: 'main' });
+            await (await loadGit()).init({ fs, dir: '/', defaultBranch: 'main' });
             
             // Create template base commit
             let baseCommit: string | null = null;
@@ -74,10 +75,10 @@ export class GitCloneService {
                 
                 for (const [path, content] of Object.entries(templateDetails.allFiles)) {
                     await fs.writeFile(path, content as string);
-                    await git.add({ fs, dir: '/', filepath: path });
+                    await (await loadGit()).add({ fs, dir: '/', filepath: path });
                 }
                 
-                baseCommit = await git.commit({
+                baseCommit = await (await loadGit()).commit({
                     fs, dir: '/',
                     message: `Template: ${templateDetails.name}\n\nBase template for ${appQuery}`,
                     author: { 
@@ -124,7 +125,7 @@ export class GitCloneService {
             logger.info('Imported git objects (excluding refs)', { importedCount });
             
             // Get agent's commit history (oldest to newest)
-            const agentLog = await git.log({ fs, dir: '/', ref: agentHeadOid });
+            const agentLog = await (await loadGit()).log({ fs, dir: '/', ref: agentHeadOid });
             const commitsOldestFirst = agentLog.reverse();
             
             logger.info('Replaying agent commits on template base', { 
@@ -138,7 +139,7 @@ export class GitCloneService {
                 const agentFiles: Array<{ path: string; oid: string }> = [];
                 
                 const walkTree = async (treeOid: string, basePath: string = '') => {
-                    const { tree } = await git.readTree({ fs, dir: '/', oid: treeOid });
+                    const { tree } = await (await loadGit()).readTree({ fs, dir: '/', oid: treeOid });
                     
                     for (const entry of tree) {
                         const fullPath = basePath ? `${basePath}/${entry.path}` : entry.path;
@@ -155,7 +156,7 @@ export class GitCloneService {
                 
                 // Write agent files
                 for (const file of agentFiles) {
-                    const { blob } = await git.readBlob({ fs, dir: '/', oid: file.oid });
+                    const { blob } = await (await loadGit()).readBlob({ fs, dir: '/', oid: file.oid });
                     await fs.writeFile(file.path, blob);
                 }
                 
@@ -179,11 +180,11 @@ export class GitCloneService {
                 await getAllFiles('/');
                 
                 for (const filepath of allFiles) {
-                    await git.add({ fs, dir: '/', filepath });
+                    await (await loadGit()).add({ fs, dir: '/', filepath });
                 }
                 
                 // Commit with original metadata
-                await git.commit({
+                await (await loadGit()).commit({
                     fs,
                     dir: '/',
                     message: commitInfo.commit.message,
@@ -217,7 +218,7 @@ export class GitCloneService {
         // Lay down a valid skeleton first; the real HEAD/refs/objects below
         // overwrite it (write-wins), so an incomplete export still yields a
         // usable repo.
-        await git.init({ fs, dir: '/', defaultBranch: 'main' });
+        await (await loadGit()).init({ fs, dir: '/', defaultBranch: 'main' });
         for (const obj of gitObjects) {
             await fs.writeFile(obj.path, obj.data);
         }
@@ -233,10 +234,10 @@ export class GitCloneService {
         try {
             logger.info('Generating info/refs response');
             
-            const head = await git.resolveRef({ fs, dir: '/', ref: 'HEAD' });
+            const head = await (await loadGit()).resolveRef({ fs, dir: '/', ref: 'HEAD' });
             logger.info('Resolved HEAD', { head });
             
-            // Manually list branches from .git/refs/heads/ to avoid git.listBranches() hanging
+            // Manually list branches from .git/refs/heads/ to avoid (await loadGit()).listBranches() hanging
             let branches: string[] = [];
             try {
                 const headsDir = await fs.readdir('.git/refs/heads');
@@ -257,7 +258,7 @@ export class GitCloneService {
             // Branch refs
             for (const branch of branches) {
                 try {
-                    const oid = await git.resolveRef({ fs, dir: '/', ref: `refs/heads/${branch}` });
+                    const oid = await (await loadGit()).resolveRef({ fs, dir: '/', ref: `refs/heads/${branch}` });
                     response += this.formatPacketLine(`${oid} refs/heads/${branch}\n`);
                     logger.info('Added branch ref', { branch, oid });
                 } catch (err) {
@@ -286,11 +287,11 @@ export class GitCloneService {
             const reachableObjects = new Set<string>();
             
             // Get HEAD ref
-            const head = await git.resolveRef({ fs, dir: '/', ref: 'HEAD' });
+            const head = await (await loadGit()).resolveRef({ fs, dir: '/', ref: 'HEAD' });
             reachableObjects.add(head);
             
             // Walk commit history
-            const commits = await git.log({ fs, dir: '/', ref: 'HEAD' });
+            const commits = await (await loadGit()).log({ fs, dir: '/', ref: 'HEAD' });
             
             for (const commit of commits) {
                 // Add commit OID
@@ -303,7 +304,7 @@ export class GitCloneService {
                 try {
                     const collectTreeObjects = async (treeOid: string) => {
                         reachableObjects.add(treeOid);
-                        const treeData = await git.readTree({ fs, dir: '/', oid: treeOid });
+                        const treeData = await (await loadGit()).readTree({ fs, dir: '/', oid: treeOid });
                         
                         for (const entry of treeData.tree) {
                             reachableObjects.add(entry.oid);
@@ -329,7 +330,7 @@ export class GitCloneService {
                 commitCount: commits.length 
             });
             
-            const packResult = await git.packObjects({ 
+            const packResult = await (await loadGit()).packObjects({ 
                 fs, 
                 dir: '/', 
                 oids: Array.from(reachableObjects)
