@@ -8,7 +8,6 @@ import {
 import { BootstrapResponse, StaticAnalysisResponse, RuntimeError, PreviewType } from '../../../services/sandbox/sandboxTypes';
 import { FileOutputType } from '../../schemas';
 import { generateId } from '../../../utils/idGenerator';
-import { generateAppProxyToken, generateAppProxyUrl } from '../../../services/aigateway-proxy/controller';
 import { BaseAgentService } from './BaseAgentService';
 import { ServiceOptions } from '../interfaces/IServiceOptions';
 import { BaseSandboxService } from 'worker/services/sandbox/BaseSandboxService';
@@ -557,22 +556,6 @@ export class DeploymentManager extends BaseAgentService<BaseProjectState> implem
         const state = this.getState();
         const projectName = state.projectName;
 
-        // Add AI proxy vars if AI template
-        let localEnvVars: Record<string, string> = {};
-        if (state.templateName?.includes('agents')) {
-            const secret = this.env.AI_PROXY_JWT_SECRET;
-            if (typeof secret === 'string' && secret.trim().length > 0) {
-                localEnvVars = {
-                    "CF_AI_BASE_URL": generateAppProxyUrl(this.env),
-                    "CF_AI_API_KEY": await generateAppProxyToken(
-                        state.metadata.agentId,
-                        state.metadata.userId,
-                        this.env
-                    )
-                };
-            }
-        }
-
         // Get latest files
         const files = this.fileManager.getAllFiles();
 
@@ -587,8 +570,7 @@ export class DeploymentManager extends BaseAgentService<BaseProjectState> implem
         const createResponse = await client.createInstance({
             files,
             projectName,
-            initCommand: 'bun run dev',
-            envVars: localEnvVars
+            initCommand: 'bun run dev'
         });
 
         if (!createResponse || !createResponse.success || !createResponse.runId) {

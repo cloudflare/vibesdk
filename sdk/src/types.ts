@@ -177,6 +177,7 @@ export type AgentEventMap = {
 		| 'file_generating'
 		| 'file_regenerating'
 		| 'file_regenerated'
+		| 'file_deleted'
 	>;
 	generation: WsMessageOf<'generation_started' | 'generation_complete' | 'generation_stopped' | 'generation_resumed'>;
 	preview: WsMessageOf<'deployment_completed' | 'deployment_started' | 'deployment_failed'>;

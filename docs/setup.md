@@ -212,6 +212,7 @@ Feature settings are intentionally omitted from the committed wrangler `vars`. F
 | `ENABLE_EMAIL_AUTH` | Enables email/password authentication | On | Set to `"false"` to make the deployment OAuth-only. |
 | `ENABLE_CLOUDFLARE_LIMITS` | Enables AI Gateway connect | Off | Requires `CF_OAUTH_ENCRYPTION_KEY`; set to `"true"` to enable. |
 | `ENABLE_USER_ACCOUNT_DEPLOY` | Deploys Think apps to the user's Cloudflare account | Off | Set to `"true"` to enable. |
+| `ENABLE_PLATFORM_AI_BINDING` | Adds a native Workers AI binding to platform-account app deployments | Off | Set to `"true"` only if generated-app AI usage may bill the platform account. User-account deployments always use the user's binding. |
 | `ALLOWED_EMAIL` | Restricts sign-in to one email address | Off | Set the allowed address; empty or unset disables the allowlist. |
 | `ALLOCATION_STRATEGY` | Selects the legacy sandbox allocation strategy | Default strategy | Managed in the dashboard rather than through production secrets. |
 | `USE_CLOUDFLARE_IMAGES` | Enables Cloudflare Images uploads | Off | Set a non-empty value to enable. |

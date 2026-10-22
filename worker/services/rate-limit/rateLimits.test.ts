@@ -103,6 +103,36 @@ describe('RateLimitService.enforceLLMCallsRateLimit', () => {
 	});
 });
 
+describe('RateLimitService.enforceAppAiCallsRateLimit', () => {
+	it('increments a per-space AI call bucket', async () => {
+		const increment = vi.fn().mockResolvedValue({ success: true });
+
+		await RateLimitService.enforceAppAiCallsRateLimit(
+			createEnv(increment),
+			DEFAULT_RATE_LIMIT_SETTINGS,
+			'space-1',
+		);
+
+		expect(increment).toHaveBeenCalledWith(
+			'platform:appAiCalls:space:space-1',
+			expect.objectContaining({ limit: 60, period: 60, burst: 10 }),
+			1,
+		);
+	});
+
+	it('rejects calls when the app AI limit is exceeded', async () => {
+		const increment = vi.fn().mockResolvedValue({ success: false });
+
+		await expect(
+			RateLimitService.enforceAppAiCallsRateLimit(
+				createEnv(increment),
+				DEFAULT_RATE_LIMIT_SETTINGS,
+				'space-1',
+			),
+		).rejects.toThrow('App AI inference rate limit exceeded');
+	});
+});
+
 describe('RateLimitService.getRequestIdentifier', () => {
 	function request(headers: Record<string, string>): Request {
 		return new Request('https://example.com/api/foo', { headers });
