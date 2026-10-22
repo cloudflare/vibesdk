@@ -1,6 +1,8 @@
 import { DurableObject } from "cloudflare:workers"
 import { type FileSystem, type FileInfo } from "@cloudflare/shell"
-import { type Git, type GitLogEntry, type GitStatusEntry } from "@cloudflare/shell/git"
+// `import type`: a mixed `import { type X }` keeps a side-effect import of the module
+// under verbatimModuleSyntax, which pulled isomorphic-git into Worker startup.
+import type { Git, GitLogEntry, GitStatusEntry } from "@cloudflare/shell/git"
 import type { Env } from "../env"
 import {
   buildBranchDeployment,
@@ -9,7 +11,7 @@ import {
   type DeployContext,
 } from "./deploy-engine"
 import { globInfos, readDirInfos, toFileInfo } from "./fileinfo"
-import { handleAssetRequest, buildAssetManifest, createMemoryStorage, type AssetConfig } from "@cloudflare/worker-bundler"
+import type { AssetConfig, buildAssetManifest, createMemoryStorage } from "@cloudflare/worker-bundler"
 import {
   buildInspectorWrapperSource,
   VIBE_APP_MODULE,
@@ -684,6 +686,7 @@ export class SpaceDO extends DurableObject<Env> {
     // re-spin the build on every request.
     if (Object.keys(dep.assets).length > 0) {
       const { manifest, storage } = await this.getCachedAssets(dep)
+      const { handleAssetRequest } = await import("@cloudflare/worker-bundler")
       const assetResponse = await handleAssetRequest(request, manifest, storage, dep.assetConfig)
       if (assetResponse) return assetResponse
     }
@@ -719,6 +722,7 @@ export class SpaceDO extends DurableObject<Env> {
       return cached
     }
 
+    const { buildAssetManifest, createMemoryStorage } = await import("@cloudflare/worker-bundler")
     const manifest = await buildAssetManifest(dep.assets)
     const storage = createMemoryStorage(dep.assets)
     const entry: CachedAssets = { manifest, storage, expiresAt: now + ASSET_CACHE_TTL_MS }

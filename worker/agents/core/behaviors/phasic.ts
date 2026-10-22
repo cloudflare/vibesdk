@@ -27,7 +27,6 @@ import { BaseCodingBehavior, BaseCodingOperations } from './base';
 import { ICodingAgent } from '../../services/interfaces/ICodingAgent';
 import { SimpleCodeGenerationOperation } from '../../operations/SimpleCodeGeneration';
 import { StateMigration } from '../stateMigration';
-import { runPreDeploySafetyGate } from '../../utils/preDeploySafetyGate';
 
 interface PhasicOperations extends BaseCodingOperations {
     generateNextPhase: PhaseGenerationOperation;
@@ -626,7 +625,7 @@ export class PhasicCodingBehavior extends BaseCodingBehavior<PhasicState> implem
     
         const templateDetails = this.getTemplateDetails();
         const safeFiles = templateDetails
-            ? await runPreDeploySafetyGate({
+            ? await (await import('../../utils/preDeploySafetyGate')).runPreDeploySafetyGate({
                   files: finalFiles,
                   env: this.env,
                   inferenceContext: this.getInferenceContext(),

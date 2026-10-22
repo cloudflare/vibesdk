@@ -10,7 +10,6 @@
  */
 import { tool, type Tool } from 'ai';
 import { z } from 'zod';
-import { getBrowserCaptureClient } from '../../services/browser-capture/factory';
 import { createLogger } from '../../logger';
 
 const DESCRIPTION = [
@@ -62,6 +61,7 @@ export function createBrowserConsoleLogsTool(opts: { env: Env; defaultUrl?: stri
 				});
 			}
 
+			const { getBrowserCaptureClient } = await import('../../services/browser-capture/factory');
 			const client = getBrowserCaptureClient(env, logger);
 			let result;
 			try {

@@ -2,7 +2,7 @@
  * GitHub service for repository creation and export
  */
 
-import { Octokit } from '@octokit/rest';
+import type { Octokit } from '@octokit/rest';
 import { createLogger } from '../../logger';
 import {
     GitHubRepository,
@@ -12,18 +12,22 @@ import {
 } from './types';
 import { GitHubPushResponse, TemplateDetails } from '../sandbox/sandboxTypes';
 import { GitCloneService } from '../../agents/git/git-clone-service';
-import git from '@ashishkumar472/cf-git';
-import http from '@ashishkumar472/cf-git/http/web';
+import type git from '@ashishkumar472/cf-git';
+// Loaded on first use: cf-git is 400 KB and nothing needs it at Worker startup.
+const loadGit = () => import('@ashishkumar472/cf-git').then((m) => m.default);
+const loadHttp = () => import('@ashishkumar472/cf-git/http/web').then((m) => m.default);
 import { prepareCloudflareButton } from '../../utils/deployToCf';
 import type { MemFS } from '../../agents/git/memfs';
 
 export class GitHubService {
     private static readonly logger = createLogger('GitHubService');
 
-    static createOctokit(token: string): Octokit {
+    static async createOctokit(token: string): Promise<Octokit> {
         if (!token?.trim()) {
             throw new GitHubServiceError('No GitHub token provided', 'NO_TOKEN');
         }
+        // Loaded on first use: @octokit/rest evaluates its endpoint tables at import.
+        const { Octokit } = await import('@octokit/rest');
         return new Octokit({ auth: token });
     }
     
@@ -43,7 +47,7 @@ export class GitHubService {
         });
         
         try {
-            const octokit = GitHubService.createOctokit(options.token);
+            const octokit = await GitHubService.createOctokit(options.token);
             
             const { data: repository } = await octokit.repos.createForAuthenticatedUser({
                 name: options.name,
@@ -109,7 +113,7 @@ export class GitHubService {
         token: string;
     }): Promise<{ success: boolean; repository?: GitHubRepository; error?: string }> {
         try {
-            const octokit = GitHubService.createOctokit(options.token);
+            const octokit = await GitHubService.createOctokit(options.token);
             
             const { data: repository } = await octokit.repos.get({
                 owner: options.owner,
@@ -154,7 +158,7 @@ export class GitHubService {
         }
 
         try {
-            const octokit = GitHubService.createOctokit(options.token);
+            const octokit = await GitHubService.createOctokit(options.token);
             await octokit.repos.get({
                 owner: repoInfo.owner,
                 repo: repoInfo.repo
@@ -231,7 +235,7 @@ export class GitHubService {
             await GitHubService.modifyReadmeForGitHub(fs, options.repositoryUrl);
 
             // Get all commits from built repo
-            const commits = await git.log({ fs, dir: '/', depth: 1000 });
+            const commits = await (await loadGit()).log({ fs, dir: '/', depth: 1000 });
 
             GitHubService.logger.info('Repository built', {
                 commitCount: commits.length,
@@ -304,8 +308,8 @@ export class GitHubService {
             );
 
             await fs.writeFile('/README.md', modified);
-            await git.add({ fs, dir: '/', filepath: 'README.md' });
-            await git.commit({
+            await (await loadGit()).add({ fs, dir: '/', filepath: 'README.md' });
+            await (await loadGit()).commit({
                 fs,
                 dir: '/',
                 message: 'docs: Add Cloudflare deploy button to README',
@@ -402,7 +406,7 @@ export class GitHubService {
             // Configure remote
             try {
                 // Remove remote if it exists
-                await git.deleteRemote({ fs, dir: '/', remote: 'github' }).catch(() => {
+                await (await loadGit()).deleteRemote({ fs, dir: '/', remote: 'github' }).catch(() => {
                     // Ignore error if remote doesn't exist
                 });
             } catch {
@@ -410,7 +414,7 @@ export class GitHubService {
             }
 
             // Add fresh remote
-            await git.addRemote({
+            await (await loadGit()).addRemote({
                 fs,
                 dir: '/',
                 remote: 'github',
@@ -425,9 +429,9 @@ export class GitHubService {
             // Push with force to handle sync
             // Set timeout to prevent hanging
             const PUSH_TIMEOUT_MS = 120000; // 2 minutes
-            const pushPromise = git.push({
+            const pushPromise = (await loadGit()).push({
                 fs,
-                http, // Built-in Cloudflare Workers HTTP client
+                http: await loadHttp(), // Built-in Cloudflare Workers HTTP client
                 dir: '/',
                 remote: 'github',
                 ref: 'main',
@@ -471,7 +475,7 @@ export class GitHubService {
             }
 
             // Get the final commit SHA
-            const headCommit = await git.resolveRef({ fs, dir: '/', ref: 'HEAD' });
+            const headCommit = await (await loadGit()).resolveRef({ fs, dir: '/', ref: 'HEAD' });
 
             return {
                 success: true,
@@ -516,7 +520,7 @@ export class GitHubService {
             }
 
             const { owner, repo } = repoInfo;
-            const octokit = GitHubService.createOctokit(options.token);
+            const octokit = await GitHubService.createOctokit(options.token);
 
             // Get remote commits
             const { data: remoteCommits } = await octokit.repos.listCommits({
@@ -533,7 +537,7 @@ export class GitHubService {
                 appCreatedAt: options.appCreatedAt
             });
 
-            const localCommits = await git.log({ fs, dir: '/', depth: 100 });
+            const localCommits = await (await loadGit()).log({ fs, dir: '/', depth: 100 });
 
             // Find divergence
             

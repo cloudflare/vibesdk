@@ -20,7 +20,6 @@ import { createScratchTemplateDetails } from '../../utils/templates';
 import { WebSocketMessageData, WebSocketMessageType } from '../../../api/websocketTypes';
 import { AgentActionKey, InferenceContext, InferenceRuntimeOverrides, ModelConfig } from '../../inferutils/config.types';
 import { ModelConfigService } from '../../../database/services/ModelConfigService';
-import { fixProjectIssues } from '../../../services/code-fixer';
 import { FastCodeFixerOperation } from '../../operations/PostPhaseCodeFixer';
 import { looksLikeCommand, validateAndCleanBootstrapCommands } from '../../utils/common';
 import { customizeTemplateFiles, generateBootstrapScript } from '../../utils/templateCustomizer';
@@ -42,8 +41,6 @@ import type { DeepDebuggerInputs } from '../../operations/DeepDebugger';
 import { generatePortToken } from 'worker/utils/cryptoUtils';
 import { getProtocolForHost, resolvePreviewHost } from 'worker/utils/urls';
 import { isDev } from 'worker/utils/envs';
-import { InMemoryAnalyzer } from '../../../services/static-analysis';
-import { getBrowserCaptureClient } from '../../../services/browser-capture/factory';
 import type { BrowserConsoleCaptureResult } from '../../../services/browser-capture/types';
 
 // Screenshot capture configuration
@@ -672,6 +669,7 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
             content: f.fileContents,
         }));
 
+        const { InMemoryAnalyzer } = await import('../../../services/static-analysis');
         const analyzer = new InMemoryAnalyzer();
         return analyzer.analyze(fileInputs);
     }
@@ -696,6 +694,7 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
             this.logger.info(`Attempting to fix ${typeCheckIssues.length} TypeScript issues using deterministic code fixer`);
             const allFiles = this.fileManager.getAllFiles();
 
+            const { fixProjectIssues } = await import('../../../services/code-fixer');
             const fixResult = fixProjectIssues(
                 allFiles.map(file => ({
                     filePath: file.filePath,
@@ -1763,6 +1762,7 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
         const targetUrl = opts.url ?? await this.getBrowserPreviewURL();
         const waitSeconds = Math.min(Math.max(opts.waitSeconds ?? 5, 0), 25);
         const viewport = opts.viewport ?? { width: 1280, height: 800 };
+        const { getBrowserCaptureClient } = await import('../../../services/browser-capture/factory');
         const client = getBrowserCaptureClient(this.env, this.logger);
         return client.captureConsoleLogs({
             url: targetUrl,
