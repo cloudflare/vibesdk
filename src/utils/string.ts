@@ -31,13 +31,15 @@ export const getFileType = (path: string): string => {
  * - Removes special characters except spaces and hyphens
  * - Replaces spaces with hyphens
  * - Removes consecutive/leading/trailing hyphens
+ * - Falls back to "app" when nothing is left (e.g. a non-Latin title)
  */
 export const normalizeAppTitle = (title: string): string => {
-	return title
+	const normalized = title
 		.toLowerCase()
 		.replace(/[^a-z0-9\s-]/g, '')
 		.trim()
 		.replace(/\s+/g, '-')
 		.replace(/-+/g, '-')
 		.replace(/^-+|-+$/g, '');
+	return normalized || 'app';
 };
