@@ -1,7 +1,7 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Loader2, RefreshCw, X, Code2 } from 'lucide-react';
-import { SkeletonLine } from '@cloudflare/kumo';
+import { Loader, SkeletonLine } from '@cloudflare/kumo';
 import { Button } from '@/components/ui/button';
 import { AppCard } from './AppCard';
 import type { AppListData } from '@/hooks/use-paginated-apps';
@@ -168,7 +168,7 @@ export const AppListContainer: React.FC<AppListContainerProps> = ({
 	if (loading) {
 		return (
 			<div className={className}>
-				<AppCardSkeletonGrid count={8} showUser={showUser} />
+				<AppCardSkeletonGrid count={6} showUser={showUser} />
 			</div>
 		);
 	}
@@ -234,19 +234,19 @@ export const AppListContainer: React.FC<AppListContainerProps> = ({
 			{infiniteScroll && hasMore && (
 				<div
 					ref={triggerRef}
-					className="relative mt-8"
-					style={{ height: loadingMore ? 'auto' : '80px' }}
+					className="flex min-h-20 items-center justify-center"
+					aria-live="polite"
+					aria-busy={loadingMore}
 				>
 					{loadingMore && (
 						<motion.div
 							initial={{ opacity: 0 }}
 							animate={{ opacity: 1 }}
-							transition={{ duration: 0.3 }}
+							transition={{ duration: 0.2 }}
+							className="flex items-center gap-2 text-kumo-subtle"
 						>
-							<AppCardSkeletonGrid
-								count={4}
-								showUser={showUser}
-							/>
+							<Loader size="sm" />
+							<span className="text-sm">Loading more apps...</span>
 						</motion.div>
 					)}
 				</div>

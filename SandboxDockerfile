@@ -1,21 +1,18 @@
-# FROM docker.io/cloudflare/sandbox:0.1.3
-FROM docker.io/cloudflare/sandbox:0.5.6
+FROM docker.io/oven/bun:canary@sha256:d12147b72d86d514ff57160efae7ae8132b823d5a5326aa1a316b786abbde4ca AS patched-bun
 
-ARG TARGETARCH
+# FROM docker.io/cloudflare/sandbox:0.1.3
+FROM docker.io/cloudflare/sandbox:0.12.13@sha256:5f74fc0579a1b17de5e8d115563524caa1cdc30cd3c28d9deb778b1cef0727a8
+
+COPY --from=patched-bun /usr/local/bin/bun /usr/local/bin/bun
+
 RUN apt-get update && \
         apt-get install -y git ca-certificates curl procps net-tools && \
         update-ca-certificates && \
-        case ${TARGETARCH} in \
-            "amd64") ARCH="amd64" ;; \
-            "arm64") ARCH="arm64" ;; \
-            *) echo "Unsupported architecture: ${TARGETARCH}"; exit 1 ;; \
-        esac && \
-        curl -L -k --output cloudflared "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-${ARCH}" && \
-        chmod +x cloudflared && \
-        mv cloudflared /usr/local/bin/ && \
-        rm -rf /var/lib/apt/lists/* && \    
+        rm -rf /var/lib/apt/lists/* && \
         git config --global user.email "vibesdk-bot@cloudflare.com" && \
         git config --global user.name "Cloudflare Vibesdk bot"
+
+RUN printf '[install]\ncafile = "/etc/ssl/certs/ca-certificates.crt"\n' > /root/.bunfig.toml
 
 # Create directory for error monitoring system
 RUN mkdir -p /workspace/container /workspace/data

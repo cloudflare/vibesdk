@@ -1776,8 +1776,6 @@ class CloudflareDeploymentManager {
 			'CF_OAUTH_ENCRYPTION_KEY',
 			'JWT_SECRET',
 			'SENTRY_DSN',
-			'AI_PROXY_JWT_SECRET',
-			'ENABLE_ARTIFACTS',
 			'MAX_SANDBOX_INSTANCES',
 			'CUSTOM_DOMAIN',
 			'CUSTOM_PREVIEW_DOMAIN',
@@ -1852,7 +1850,7 @@ class CloudflareDeploymentManager {
 	}
 
 	/**
-	 * Updates secrets using Wrangler (non-blocking)
+	 * Updates secrets using Wrangler (required)
 	 */
 	private async updateSecrets(): Promise<void> {
 		console.log('🔐 Updating production secrets...');
@@ -1883,12 +1881,9 @@ class CloudflareDeploymentManager {
 
 			console.log('✅ Production secrets updated successfully');
 		} catch (error) {
-			// Non-blocking: Log warning but don't fail deployment
-			console.warn(
-				`⚠️  Could not update secrets: ${error instanceof Error ? error.message : String(error)}`,
-			);
-			console.warn(
-				'   You may need to update secrets manually if required',
+			throw new DeploymentError(
+				'Failed to update Worker secrets',
+				error instanceof Error ? error : new Error(String(error)),
 			);
 		}
 	}

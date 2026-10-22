@@ -506,7 +506,6 @@ const delay = Math.min(Math.pow(2, attempt) * 1000, 30000);
 │   │   │   └── types.ts                      # Rate limit types
 │   │   │
 │   │   ├── 📁 deployer/                      # Cloudflare deployment
-│   │   ├── 📁 aigateway-proxy/               # AI Gateway proxy
 │   │   ├── 📁 analytics/                     # Analytics tracking
 │   │   ├── 📁 cache/                         # Caching layer
 │   │   ├── 📁 csrf/                          # CSRF protection

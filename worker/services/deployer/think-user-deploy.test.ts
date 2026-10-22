@@ -67,11 +67,26 @@ describe('deployThinkBundleToPlatform', () => {
 		expect(result.deploymentId).toBe('my-app');
 		expect(result.deploymentUrl).toBe('https://my-app.build-preview.cloudflare.dev');
 		expect(deployWithAssets).toHaveBeenCalledTimes(1);
+		expect(deployWithAssets.mock.calls[0][5]).not.toContainEqual({ name: 'AI', type: 'ai' });
 		// dispatchNamespace is the 8th positional arg of deployWithAssets
 		expect(deployWithAssets.mock.calls[0][7]).toBe('vibesdk-default-namespace');
 		// Platform deploys never touch workers.dev
 		expect(enableWorkersDev).not.toHaveBeenCalled();
 		expect(getWorkersDevSubdomain).not.toHaveBeenCalled();
+	});
+
+	it('adds an AI binding when platform AI is enabled', async () => {
+		await deployThinkBundleToPlatform({
+			accountId: 'platform-account',
+			apiToken: 'platform-token',
+			dispatchNamespace: 'vibesdk-default-namespace',
+			previewDomain: 'build-preview.cloudflare.dev',
+			appName: 'My App',
+			bundle: makeBundle(),
+			enableAI: true,
+		});
+
+		expect(deployWithAssets.mock.calls[0][5]).toContainEqual({ name: 'AI', type: 'ai' });
 	});
 
 	it('falls back to a simple deploy when the bundle has no assets', async () => {
@@ -106,6 +121,7 @@ describe('deployThinkBundleToUserAccount', () => {
 		});
 
 		expect(deployWithAssets).toHaveBeenCalledTimes(1);
+		expect(deployWithAssets.mock.calls[0][5]).toContainEqual({ name: 'AI', type: 'ai' });
 		expect(deployWithAssets.mock.calls[0][7]).toBeUndefined();
 		expect(enableWorkersDev).toHaveBeenCalledWith('my-app');
 		expect(result.deploymentUrl).toBe('https://my-app.user-sub.workers.dev');

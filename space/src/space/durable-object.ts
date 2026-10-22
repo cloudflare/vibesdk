@@ -85,6 +85,7 @@ type CachedAssets = {
 }
 const ASSET_CACHE_MAX_ENTRIES = 8
 const ASSET_CACHE_TTL_MS = 5 * 60 * 1000 // 5 minutes
+const WORKER_LOADER_CONFIG_VERSION = "2"
 
 export class SpaceDO extends DurableObject<Env> {
   private backend!: SpaceFsBackend
@@ -544,7 +545,13 @@ export class SpaceDO extends DurableObject<Env> {
     const spaceName = this.ctx.id.name ?? "space"
     data.preview_url = `/space/${spaceName}/preview/${encodeURIComponent(branch)}/`
 
-    if (!data.error) await this.backend.push(branch)
+    if (!data.error) {
+      await this.backend.push(branch)
+      setTimeout(() => {
+        const ctx = this.ctx as unknown as { abort: (reason?: string) => void }
+        ctx.abort("Generated app deployment updated")
+      }, 0)
+    }
 
     return data
   }
@@ -656,7 +663,7 @@ export class SpaceDO extends DurableObject<Env> {
   //     `app:<branch>`. Static assets are served host-side; everything
   //     else (including WebSocket upgrades) is forwarded into the Facet.
   //   - State is the Facet's own `ctx.storage` (SQLite + KV). No env.DB
-  //     binding is injected.
+  //     binding is injected. Hosts may expose a rate-limited AI binding.
   //   - To make the DB-viewer work without forcing the LLM to write
   //     inspector boilerplate, we don't load the user's main directly.
   //     We load a wrapper module (`inspector-wrapper.ts`) which imports
@@ -739,20 +746,25 @@ export class SpaceDO extends DurableObject<Env> {
   // methods (see `inspector-wrapper.ts`).
   //
   // `LOADER.get(id, ...)` caches by id. We key on
-  // `<spaceName>-<branch>-<commitHash>` so a redeploy invalidates the
-  // worker (and any Facet still pinned to the old class is aborted
-  // implicitly the next time `ctx.facets.get(...)` runs the callback).
+  // `<spaceName>-<branch>-<commitHash>-<configVersion>` so app redeploys and
+  // host-side loader configuration changes invalidate the worker. Successful
+  // deploys restart the supervisor so an active Facet cannot retain old code.
   private loadAppClass(dep: DeploymentRow): DurableObjectClass {
     const spaceName = this.ctx.id.name ?? "space"
-    const workerId = `${spaceName}-${dep.branch}-${dep.commitHash}`
+    const workerId = `${spaceName}-${dep.branch}-${dep.commitHash}-${WORKER_LOADER_CONFIG_VERSION}`
     const wrappedModules: Record<string, string | Record<string, unknown>> = {
       ...dep.modules,
       [VIBE_APP_MODULE]: buildInspectorWrapperSource(dep.mainModule),
     }
+    type AppAIProxyFactory = (options: { props: { spaceName: string } }) => unknown
+    const hostExports = (this.ctx as unknown as { exports?: { AppAIProxy?: AppAIProxyFactory } }).exports
+    const ai = hostExports?.AppAIProxy?.({ props: { spaceName } })
+    if (!ai) console.warn("[SpaceDO] AppAIProxy is unavailable", { spaceName })
     const worker = this.env.LOADER.get(workerId, async () => ({
       mainModule: VIBE_APP_MODULE,
       modules: wrappedModules,
       compatibilityDate: "2025-04-01",
+      ...(ai ? { env: { AI: ai } } : {}),
     }))
     return (
       worker as { getDurableObjectClass: (name: string) => DurableObjectClass }
