@@ -1,0 +1,19 @@
+bun.lock
+  s_661e5f28619703::t_a5d7b67d851f96 14,17,157,314,322,1344-1345,3032-3033,3170-3171
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "d0a9ff1fdd3bbf38cd24d616096f0968b18c1965",
+  "prompts": {},
+  "sessions": {
+    "s_661e5f28619703": {
+      "agent_id": {
+        "tool": "windsurf",
+        "id": "pyrite-blarney",
+        "model": "unknown"
+      },
+      "human_author": "Karishnu Poddar <karishnu@cloudflare.com>"
+    }
+  }
+}
