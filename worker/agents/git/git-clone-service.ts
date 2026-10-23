@@ -178,9 +178,7 @@ export class GitCloneService {
                 
                 await getAllFiles('/');
                 
-                for (const filepath of allFiles) {
-                    await git.add({ fs, dir: '/', filepath });
-                }
+                await git.add({ fs, dir: '/', filepath: allFiles });
                 
                 // Commit with original metadata
                 await git.commit({
